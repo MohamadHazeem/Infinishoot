@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
+import { music } from '../audio/music';
 
 /**
  * Pickups dropped in the world: XP gems (coloured by value), gold (run
@@ -211,6 +212,8 @@ export class Pickups {
 
   render(time: number): void {
     for (const m of this.meshes) m.count = 0;
+    // Pickups bounce to the music's beat.
+    const beat = 1 + music.pulse * 0.14;
     for (let i = 0; i < this.count; i++) {
       const t = this.type[i];
       const m = this.meshes[t];
@@ -218,7 +221,7 @@ export class Pickups {
       const k = m.count++;
       const bob = Math.sin(time * 4 + i) * 0.08;
       let y = 0.45 + bob;
-      let sc = Math.min(1, this.age[i] * 6);
+      let sc = Math.min(1, this.age[i] * 6) * beat;
       if (t === PickupType.Gem) {
         const tier = gemTier(this.value[i]);
         sc *= 1 + tier * 0.3;

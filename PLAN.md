@@ -85,7 +85,7 @@ Known limits: some strict networks block direct WebRTC connections (would need a
 
 ## Milestone 4b: Biomes, bosses and evolutions
 - [x] 4 biomes cycling by stage: Bright Meadow, Sunset Dunes (cacti, sandstone, rocks), Frosty Peaks (pines, ice ruins, frozen ponds), Magma Isle (obsidian, dead trees, lava pools and lava sea). Each sets ground, trail, walls, edge ring, sea, light and fog
-- [ ] Per-biome music (no music system yet; see M6)
+- [x] Per-biome music (procedural, src/audio/music.ts)
 - [x] 2 more bosses, rotating King Bopper > Rampage Rex > Hive Queen by stage. Rex: chain of 3 telegraphed charges, 3-arm bullet spiral, shockwave rings with a moving gap. Queen: flies at range and circles, aimed 7-bullet fans, telegraphed ground strikes (red danger zones), Zippy summons
 - [x] Weapon evolutions: a level 5 weapon plus its partner passive evolves into a stronger form (offered as the first level-up card, or straight from a chest)
 - [ ] Bullet-pattern system for shooter variants (spiral, burst, sniper)
@@ -119,7 +119,7 @@ Known limits: some strict networks block direct WebRTC connections (would need a
 - **Playable:** builds and heroes diverge noticeably.
 
 ## Milestone 6: Polish
-- [ ] Upbeat music per biome and a final SFX pass
+- [x] Upbeat music per biome and a final SFX pass
 - [ ] Rebindable keys, run history, daily seed challenge
 - [ ] Mobile touch twin-stick controls (stretch)
 
@@ -199,3 +199,4 @@ public/assets/         # models (glb), textures (png), audio
 - 2026-10-15: Elite modifiers are data (src/data/eliteMods.ts) rolled per elite by weight; Splitting is never rolled for enemies that already split, spawners or exploders. The modifier is named in the elite toast, tints the elite glow and draws a coloured hexagon ring under it, and Shielded adds a bubble until the shield breaks (crack sound, shards, SHIELD BROKEN!). Co-op: elites never use the boss-action bits, so for elites bits 5-6 of the enemy record flags carry the modifier (index + 1) and bit 7 says the shield is up, with no change to the record size. Fast-elite trails are cosmetic and every machine derives them from synced state in render(), so they add no effects-bus traffic. Debug panel: Run cheats > Spawn elite with any enemy and modifier.
 - 2026-10-15: Mac builds and CI. `electronDist` moved from the shared build config into the Windows `dist` script, because a Mac build for two architectures must download the matching Electron for each. The Mac app keeps a minimal app menu (Cmd+Q, Cmd+H, fullscreen); Windows still has none. Releases are built on GitHub Actions from a `v*` tag, so no one needs a Windows PC and a Mac to ship.
 - 2026-10-15: Sound pass. Audio now runs through three buses (effects, music, menus) into a master gain, with separate MUSIC / EFFECTS / MENU SOUNDS sliders. Effects and music share a low-pass that hit-stops of 0.08 s or more close briefly, so big hits feel heavier. Positioned sounds are panned by their sideways offset from the local player and fade with distance. New cues: a low thump under hits of 25+ damage, a rising whine before Rhino charges, Ka-Boomer fuse ticks that speed up, an evolution fanfare, a combo jingle every 50, a low-life heartbeat, and a combo hum that rises with the combo. The heartbeat and hum are local to each machine.
+- 2026-10-15: Music. Tracks are procedural chiptune (src/audio/music.ts): a style per track (tempo, scale, instruments, drum feel) plus a seed generates the chords, bass, drums, melody motif and arp, so every stage gets its own tune in its biome's style (title, Bright Meadow, Sunset Dunes, Frosty Peaks, Magma Isle, boss). Six layers (pad, hats, bass, drums, lead, arp) fade in as intensity rises with enemy count and stage time; the boss theme plays at full intensity and moves up two semitones at the next bar once the boss is under 40% HP. Menus over gameplay duck and muffle the music, and track changes crossfade. Music is local to each machine (derived from mode, stage, seed and the boss bar), so co-op needs no messages. `music.pulse` drives beat-synced visuals: pickups and the portal bounce and the title logo bobs (CSS `--beat`). EXTRAS > JUKEBOX replays tracks unlocked by reaching their area (bestStage / bosses in the save, or heard this session).

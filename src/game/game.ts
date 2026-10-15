@@ -10,6 +10,7 @@ import { MOD_BY_ID } from '../data/mods';
 import type { Tag } from '../data/tags';
 import { WEAPONS } from '../data/weapons';
 import { sfx } from '../audio/sfx';
+import { biomeTrack, music, type TrackId } from '../audio/music';
 import { NetClient, NetHost } from '../net/peer';
 import { packBullets, packEnemies, packPickups, unpackBullets, unpackEnemies, unpackPickups } from '../net/codec';
 import { disposeObject } from '../render/dispose';
@@ -2390,6 +2391,25 @@ export class Game implements HeroWorld {
     }
   }
 
+  /** What the music should be doing right now (local to each machine). */
+  private updateMusic(frameDt: number, boss: { hp01: number } | null): void {
+    const m = this.mode;
+    const inRun = m !== 'title' && m !== 'dead';
+    let track: TrackId | null = null;
+    let intensity = 0.6;
+    if (!inRun) track = m === 'title' ? 'title' : null;
+    else if (boss) {
+      track = 'boss';
+      intensity = 1;
+    } else {
+      track = biomeTrack(this.stage);
+      intensity = m === 'fight' ? Math.min(1, 0.12 + this.enemies.activeCount / 140 + this.director.time / this.director.duration / 3) : 0.3;
+    }
+    const duck = this.paused || m === 'levelup' || m === 'shop' || (this.screens.current !== 'none' && inRun);
+    music.update(frameDt, { track, seed: track === 'title' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, keyUp: !!boss && boss.hp01 < 0.4 });
+    document.documentElement.style.setProperty('--beat', music.pulse.toFixed(2));
+  }
+
   /** Sounds only this machine hears: low-life heartbeat and the combo hum. */
   private localAudio(frameDt: number, frozen: boolean): void {
     const fighting = this.isCombatMode && !frozen && !this.paused;
@@ -2493,6 +2513,7 @@ export class Game implements HeroWorld {
     this.renderChestPointer();
     this.dmg.render(rdt, this.cam.camera);
     const boss = client ? this.netBoss : this.boss && this.boss.active ? { name: this.boss.def.name, hp01: Math.max(0, this.boss.hp / this.boss.maxHp) } : null;
+    this.updateMusic(frameDt, boss);
     this.hud.update(
       {
         hp: p.hp,

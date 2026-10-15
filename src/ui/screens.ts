@@ -7,12 +7,13 @@ import type { ScoreEntry } from '../game/highscores';
 import { exportFile, importFile, resetSave, save } from '../game/save';
 import { settings, saveSettings } from '../game/settings';
 import { sfx } from '../audio/sfx';
+import { music, TRACKS, type TrackId } from '../audio/music';
 import { fmtScore, type LoadoutItem } from './hud';
 import { MenuNav } from './menu';
 import { iconHtml } from './pixelIcons';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox';
 
 export interface ScreenActions {
   start(): void;
@@ -120,6 +121,7 @@ export class Screens {
     <button data-nav data-act="start">PLAY SOLO</button>
     <button data-nav data-act="online">PLAY ONLINE</button>
     <button data-nav data-act="unlocks">UNLOCKS</button>
+    <button data-nav data-act="extras">EXTRAS</button>
     <button data-nav data-act="settings">SETTINGS</button>
   </div>
   <div class="wallet"></div>
@@ -215,6 +217,23 @@ export class Screens {
     <button data-nav data-act="sd-back">BACK</button>
   </div>
 </div>
+<div id="scr-extras" class="screen dim" hidden>
+  <h1>EXTRAS</h1>
+  <div class="menu">
+    <button data-nav data-act="jukebox">JUKEBOX</button>
+    <button data-nav data-act="ex-back">BACK</button>
+  </div>
+</div>
+<div id="scr-jukebox" class="screen dim" hidden>
+  <h1>JUKEBOX</h1>
+  <p class="note">Every tune is composed on the fly. Reach new areas to unlock their themes.</p>
+  <div class="now-playing"></div>
+  <div class="menu tracks"></div>
+  <div class="menu row">
+    <button data-nav data-act="jb-stop">STOP</button>
+    <button data-nav data-act="jb-back">BACK</button>
+  </div>
+</div>
 <div id="scr-gameover" class="screen dim" hidden>
   <h1 class="ko">K.O.!</h1>
   <div class="newbest" hidden>NEW HIGH SCORE!</div>
@@ -231,7 +250,7 @@ export class Screens {
   <div class="hiscores"></div>
 </div>`,
     );
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait'];
+    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
@@ -244,6 +263,8 @@ export class Screens {
       gameover: new MenuNav(this.els.gameover, { horizontal: true }),
       online: new MenuNav(this.els.online, { onBack: () => actions.mpLeave() }),
       wait: new MenuNav(this.els.wait),
+      extras: new MenuNav(this.els.extras, { onBack: () => actions.title() }),
+      jukebox: new MenuNav(this.els.jukebox, { onBack: () => this.show('extras') }),
     };
 
     // Keep buttons from taking DOM focus on click, so Enter/Space don't fire twice.
@@ -313,6 +334,19 @@ export class Screens {
           return this.doImport();
         case 'wipe':
           return this.doWipe(btn);
+        case 'extras':
+        case 'jb-back':
+          return this.show('extras');
+        case 'ex-back':
+          return actions.title();
+        case 'jukebox':
+          return this.show('jukebox');
+        case 'jb-play':
+          music.jukebox = btn.dataset.track as TrackId;
+          return this.renderJukebox();
+        case 'jb-stop':
+          music.stop();
+          return this.renderJukebox();
       }
     });
 
@@ -342,6 +376,8 @@ export class Screens {
     if (name === 'settings') this.syncSettings();
     if (name === 'title') this.renderProgress();
     if (name === 'unlocks') this.renderUnlocks();
+    if (name === 'jukebox') this.renderJukebox();
+    else if (music.jukebox) music.jukebox = null;
     if (name === 'savedata') {
       this.wipeArmed = false;
       this.msg('');
@@ -502,6 +538,22 @@ export class Screens {
   }
 
   // ---------------------------------------------------------------- unlocks
+
+  /** Tracks unlock as you reach their area (or hear them). */
+  private renderJukebox(): void {
+    const L = save.lifetime;
+    const unlocked = (id: TrackId, i: number) =>
+      music.heard.has(id) || id === 'title' || (id === 'boss' ? L.bosses > 0 : L.bestStage >= i);
+    const el = this.els.jukebox;
+    el.querySelector('.tracks')!.innerHTML = TRACKS.map((t, i) =>
+      unlocked(t.id, i)
+        ? `<button data-nav data-act="jb-play" data-track="${t.id}" class="${music.jukebox === t.id ? 'on' : ''}">${music.jukebox === t.id ? '♪ ' : ''}${t.name.toUpperCase()}</button>`
+        : `<button data-nav class="locked" disabled>???</button>`,
+    ).join('');
+    const now = TRACKS.find((t) => t.id === music.jukebox);
+    el.querySelector('.now-playing')!.textContent = now ? `NOW PLAYING: ${now.name.toUpperCase()}` : 'PICK A TRACK';
+    this.navs.jukebox.refresh(this.navs.jukebox.focus);
+  }
 
   private renderUnlocks(): void {
     this.els.unlocks.querySelector('.ach-list')!.innerHTML = ACHIEVEMENTS.map((a) => {

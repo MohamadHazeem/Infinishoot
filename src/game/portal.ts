@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
+import { music } from '../audio/music';
 
 /** Swirly exit portal that appears after a stage is cleared. */
 export class Portal {
@@ -56,7 +57,7 @@ export class Portal {
     if (!this.active) return;
     this.age += dt;
     const pop = Math.min(1, this.age * 3);
-    const s = pop * (1 + Math.sin(this.age * 6) * 0.04);
+    const s = pop * (1 + Math.sin(this.age * 6) * 0.04 + music.pulse * 0.07);
     this.root.scale.setScalar(s);
     this.ring.rotation.z = this.age * 2;
     this.ring2.rotation.z = -this.age * 3.5;

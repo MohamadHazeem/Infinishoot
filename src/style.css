@@ -1022,6 +1022,8 @@ div.mod-card.sold,
 }
 
 .logo {
+  /* Bobs a few whole pixels on each music beat (--beat is set every frame). */
+  transform: translateY(round(calc(var(--beat, 0) * -9px), 3px));
   font-family: var(--logo);
   display: flex;
   flex-wrap: wrap;
@@ -2057,6 +2059,23 @@ h1.ko {
 .ach .reward {
   font: 10px var(--label);
   color: var(--yellow);
+}
+
+/* ---------------------------------------------------------------- jukebox */
+.now-playing {
+  font: 14px var(--label);
+  letter-spacing: 2px;
+  color: var(--yellow);
+  min-height: 20px;
+}
+
+.screen .tracks button.on {
+  --ring: var(--yellow);
+  color: var(--yellow);
+}
+
+.screen .tracks button.locked {
+  color: var(--slate);
 }
 
 /* ---------------------------------------------------------------- online */
