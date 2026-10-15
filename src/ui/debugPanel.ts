@@ -10,6 +10,8 @@ import { directorTuning } from '../game/director';
 import { juiceTuning } from '../game/juice';
 import { WEAPONS } from '../data/weapons';
 import { MODS } from '../data/mods';
+import { ELITE_MOD_IDS } from '../data/eliteMods';
+import { ENEMIES } from '../data/enemies';
 import { audioSettings } from '../audio/sfx';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
@@ -90,6 +92,10 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   const giveMod = { mod: MODS[0].id };
   run.add(giveMod, 'mod', MODS.map((m) => m.id)).name('Mod');
   run.add({ m: () => game.debugGiveMod(giveMod.mod) }, 'm').name('Give mod');
+  const elite = { enemy: 'bopper', mod: ELITE_MOD_IDS[0] };
+  run.add(elite, 'enemy', Object.keys(ENEMIES).filter((id) => !ENEMIES[id].boss)).name('Elite enemy');
+  run.add(elite, 'mod', ELITE_MOD_IDS).name('Elite modifier');
+  run.add({ e: () => game.debugSpawnElite(elite.enemy, elite.mod) }, 'e').name('Spawn elite');
   run.add({ g: () => game.debugAddGold(20) }, 'g').name('+20 gold');
   run.add({ boss: () => game.debugSkipToBoss() }, 'boss').name('Skip to boss');
   run.add({ fill: () => (game.hero.bombCharge = 1) }, 'fill').name('Fill bomb');

@@ -110,6 +110,15 @@ class Sfx {
     this.noise(ctx, 0.25, 0.4, 900, 200, 0.8);
   }
 
+  /** An elite's shield shatters: glassy crack plus a falling chime. */
+  shieldBreak(): void {
+    const ctx = this.begin('shieldBreak', 0.08);
+    if (!ctx) return;
+    this.noise(ctx, 0.3, 0.45, 6000, 1200, 2);
+    this.tone(ctx, 'triangle', 1800, 600, 0.25, 0.18);
+    this.tone(ctx, 'square', 900, 300, 0.2, 0.08, 0.05);
+  }
+
   explode(): void {
     const ctx = this.begin('explode', 0.05);
     if (!ctx) return;

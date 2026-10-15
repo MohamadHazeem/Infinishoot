@@ -3,6 +3,7 @@ import type { Input } from '../core/input';
 import { Rng, randomSeed } from '../core/rng';
 import { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
 import { loadJson, saveJson } from '../core/storage';
+import { ELITE_MOD_IDS, ELITE_MODS, type EliteModId } from '../data/eliteMods';
 import { ENEMIES, type EnemyDef } from '../data/enemies';
 import { ACHIEVEMENTS } from '../data/meta';
 import { MOD_BY_ID } from '../data/mods';
@@ -165,6 +166,7 @@ export class Game implements HeroWorld {
   rng = new Rng(randomSeed());
   overloads = 0;
   private elitesRun = 0;
+  private trailT = 0;
   private bossesRun = 0;
   private newAchievements: string[] = [];
   private boss: Enemy | null = null;
@@ -592,6 +594,11 @@ export class Game implements HeroWorld {
     else if (w) w.levelUp();
     else h.weapons.push(createWeapon(id, this.scene));
     h.loadoutDirty = true;
+  }
+
+  debugSpawnElite(defId: string, mod: EliteModId): void {
+    const def = ENEMIES[defId];
+    if (def && this.mode === 'fight' && this.authority) this.spawnEnemy(def, true, null, mod);
   }
 
   debugSkipToBoss(): void {
@@ -1197,7 +1204,7 @@ export class Game implements HeroWorld {
     return null;
   }
 
-  private spawnEnemy(def: EnemyDef, elite = false, near: { x: number; z: number } | null = null) {
+  private spawnEnemy(def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId) {
     let pos: { x: number; z: number } | null = null;
     if (near) {
       const x = near.x + this.rng.range(-1.6, 1.6);
@@ -1206,12 +1213,23 @@ export class Game implements HeroWorld {
     }
     pos ??= this.ringPoint(18, 24, def.radius * (elite ? 1.6 : 1) + 0.2);
     if (!pos) return null;
-    this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite }));
+    const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
+    this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
     if (elite) {
-      this.vfx.toast(`ELITE ${def.name.toUpperCase()} INCOMING!`);
+      const mod = eliteMod ? `${ELITE_MODS[eliteMod].name.toUpperCase()} ` : '';
+      this.vfx.toast(`ELITE ${mod}${def.name.toUpperCase()} INCOMING!`);
       this.vfx.sound('elite', NaN, NaN);
     }
     return pos;
+  }
+
+  /** Weighted elite modifier roll. Splitting skips enemies that already split, don't move, or blow themselves up. */
+  private rollEliteMod(def: EnemyDef): EliteModId {
+    const noSplit = !!def.split || def.behavior === 'spawner' || def.behavior === 'exploder';
+    const ok = ELITE_MOD_IDS.filter((id) => !(ELITE_MODS[id].split && noSplit));
+    let r = this.rng.next() * ok.reduce((a, id) => a + ELITE_MODS[id].weight, 0);
+    for (const id of ok) if ((r -= ELITE_MODS[id].weight) <= 0) return id;
+    return ok[ok.length - 1];
   }
 
   private spawnRing(def: EnemyDef, count: number): void {
@@ -1300,7 +1318,14 @@ export class Game implements HeroWorld {
     if (e.shockT > 0) amount *= 1 + statusTuning.shockMult + by.synergy.flags.shockMult;
     if (crit) amount *= by.stats.critMult;
     amount = Math.max(1, Math.round(amount));
-    e.hp -= amount;
+    // Shielded elites: the shield soaks damage (and blocks statuses) until it breaks.
+    const shielded = e.shield > 0;
+    if (shielded) {
+      const soak = Math.min(e.shield, amount);
+      e.shield -= soak;
+      e.hp -= amount - soak;
+      if (e.shield <= 0) this.breakShield(e);
+    } else e.hp -= amount;
     by.damageBy[o.source] = (by.damageBy[o.source] ?? 0) + amount;
     e.flash = 0.07;
     const k = (o.knockback ?? 0) * by.stats.knockbackMul * (1 - e.def.knockbackResist) * (crit ? 1.5 : 1);
@@ -1324,7 +1349,7 @@ export class Game implements HeroWorld {
       this.vfx.burst(hx, BULLET_Y, hz, { count: 3, color: '#ffffff', color2: e.def.bodyColor, speed: [3, 7], size: [0.1, 0.18], life: [0.12, 0.25], dir: { x: -(o.dirX ?? 0), z: -(o.dirZ ?? 0), spread: 2.4 } });
     }
     // Statuses from the weapon's own tags, then Mod triggers.
-    if (!o.noStatus && e.hp > 0) {
+    if (!o.noStatus && e.hp > 0 && !shielded) {
       if (tags.includes('fire')) this.ignite(e, Math.max(3, amount * 0.15), by);
       if (tags.includes('shock')) this.shock(e, by);
     }
@@ -1334,6 +1359,16 @@ export class Game implements HeroWorld {
     }
     if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);
     return amount;
+  }
+
+  private breakShield(e: Enemy): void {
+    const y = e.radius + 0.4;
+    this.vfx.burst(e.x, y, e.z, { count: 26, color: '#73eff7', color2: '#f4f4f4', speed: [4, 9], size: [0.12, 0.28], life: [0.35, 0.7], up: 5, gravity: 14 });
+    this.vfx.ring(e.x, e.z, e.radius * 1.6, 5, '#41a6f6', 0.3);
+    this.vfx.num(e.x, 2.2 * e.scale, e.z, 'SHIELD BROKEN!', 'crit');
+    this.vfx.sound('shieldBreak', e.x, e.z);
+    this.vfx.shake(e.x, e.z, 0.2);
+    e.squash(-8);
   }
 
   // ------------------------------------------------------------------ statuses and combos
@@ -1460,6 +1495,21 @@ export class Game implements HeroWorld {
       for (let i = 0; i < def.split.count; i++) {
         const a = (i / def.split.count) * Math.PI * 2;
         this.enemyCtx.spawnChild(def.split.into, e.x + Math.cos(a) * 0.8, e.z + Math.sin(a) * 0.8, e);
+      }
+    }
+    // Splitting elites burst into normal-size copies that fly outward.
+    const split = e.mod?.split;
+    if (split) {
+      this.vfx.ring(e.x, e.z, e.radius * 1.5, 4, e.mod!.color, 0.3);
+      for (let i = 0; i < split.count && this.enemies.activeCount < 480; i++) {
+        const a = (i / split.count) * Math.PI * 2 + this.rng.next();
+        const x = e.x + Math.cos(a) * 0.9;
+        const z = e.z + Math.sin(a) * 0.9;
+        if (this.walls.hitCircle(x, z, def.radius)) continue;
+        const c = this.enemies.spawn(def, x, z, this.spawnOpts({ hpMul: this.director.hpMul * split.hpMul, instant: true }));
+        c.kx = Math.cos(a) * 9;
+        c.kz = Math.sin(a) * 9;
+        c.squash(6);
       }
     }
     this.enemies.kill(e);
@@ -2247,7 +2297,7 @@ export class Game implements HeroWorld {
       seen.add(r.uid);
       let e = this.netEnemies.get(r.uid);
       if (!e || !e.active) {
-        e = this.enemies.spawn(r.def, r.x, r.z, { instant: true, elite: r.elite });
+        e = this.enemies.spawn(r.def, r.x, r.z, { instant: true, elite: r.elite, eliteMod: r.eliteMod ?? undefined });
         this.netEnemies.set(r.uid, e);
         e.px = r.x;
         e.pz = r.z;
@@ -2263,6 +2313,7 @@ export class Game implements HeroWorld {
       e.sq = r.sq;
       e.hopY = r.hopY;
       e.frozen = r.frozen ? 1 : 0;
+      e.shield = r.shield ? 1 : 0;
       e.burnT = r.burn ? 1 : 0;
       e.shockT = r.shock ? 1 : 0;
       e.flash = r.flash ? 0.07 : 0;
@@ -2311,6 +2362,19 @@ export class Game implements HeroWorld {
 
   // ------------------------------------------------------------------ render
 
+  /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
+  private eliteTrails(frameDt: number): void {
+    if (this.paused || !this.isCombatMode) return;
+    this.trailT += frameDt;
+    if (this.trailT < 0.05) return;
+    this.trailT = 0;
+    for (const e of this.enemies.list) {
+      if (!e.active || !e.mod?.trail || e.state === 'spawning' || (e.x === e.px && e.z === e.pz)) continue;
+      const s = e.scale;
+      this.particles.burst(e.x, e.radius * 0.8, e.z, { count: 2, color: e.mod.color, color2: '#ffcd75', speed: [0.2, 0.9], size: [0.2 * s, 0.38 * s], life: [0.25, 0.45], up: 0.6, drag: 3 });
+    }
+  }
+
   render(alpha: number, frameDt: number): void {
     const client = this.role === 'client';
     const local = this.hero;
@@ -2340,6 +2404,7 @@ export class Game implements HeroWorld {
       for (let i = zones.length - 1; i >= 0; i--) if ((zones[i].t -= frameDt) <= 0) zones.splice(i, 1);
     }
     this.enemies.render(client ? netA : a, this.animTime);
+    this.eliteTrails(frameDt);
     this.bullets.render(a);
     this.barrels.render(this.animTime);
     this.chests.render(this.paused ? 0 : frameDt, this.animTime);
