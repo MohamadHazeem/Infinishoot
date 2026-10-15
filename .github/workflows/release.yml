@@ -30,6 +30,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The Windows build packs the Electron runtime from node_modules; make sure it's downloaded.
+      - run: node node_modules/electron/install.js
       - name: Build (signed when WIN_CSC_LINK is set)
         shell: bash
         run: |
@@ -59,7 +61,7 @@ jobs:
       - name: Build (signed and notarized when the Apple secrets are set)
         run: |
           if [ -n "$CSC_LINK" ] && [ -n "$APPLE_ID" ]; then
-            npm run build && npx electron-builder --mac dmg --arm64 --x64 -c.mac.notarize=true
+            npm run build && npx electron-builder --mac dmg --arm64 --x64 --publish never -c.mac.notarize=true
           else
             unset CSC_LINK CSC_KEY_PASSWORD
             export CSC_IDENTITY_AUTO_DISCOVERY=false
