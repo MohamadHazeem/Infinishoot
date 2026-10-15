@@ -18,6 +18,7 @@ import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { PET_BY_ID } from '../data/pets';
 import { PetView } from './pet';
 import { RELIC_BY_ID, RELICS } from '../data/relics';
+import { HEROES, heroOf, type HeroDef } from '../data/heroes';
 
 export const MAX_WEAPONS = 6;
 export const MAX_PASSIVES = 6;
@@ -116,9 +117,11 @@ export class Hero implements SynergyHost {
     readonly peerId = '',
     public skin: SkinDef = SKINS[0],
     petId = 'none',
+    heroId = 'rookie',
   ) {
     this.player = new Player(world.scene, color, skin);
     this.setPet(petId);
+    this.setHeroDef(heroId);
     this.synergy = new Synergy(this);
     this.ctx = world.makeCtx(this);
   }
@@ -188,7 +191,7 @@ export class Hero implements SynergyHost {
     this.fangKills = 0;
     this.curseOffer = null;
     this.disposeWeapons();
-    this.weapons = [createWeapon('buster', this.world.scene)];
+    this.weapons = this.heroDef.start.filter((id) => WEAPONS[id]).map((id) => createWeapon(id, this.world.scene));
     this.passives = {};
     this.synergy.reset();
     this.gold = this.dashes = 0;
@@ -217,6 +220,16 @@ export class Hero implements SynergyHost {
     this.petView?.dispose();
   }
 
+  /** Playable hero (src/data/heroes.ts): starting kit and stat quirks. */
+  heroDef: HeroDef = HEROES[0];
+
+  setHeroDef(id: string): void {
+    this.heroDef = heroOf(id);
+    const [w, h] = this.heroDef.build;
+    this.player.rig.body.scale.set(w, h, w);
+    this.player.buildScale = [w, h];
+  }
+
   /** Companion (src/data/pets.ts); its body is drawn by PetView. */
   pet = 'none';
   petView: PetView | null = null;
@@ -232,7 +245,7 @@ export class Hero implements SynergyHost {
 
   /** Rebuild static stats (passives + Mods) and the live copy. */
   recomputeStats(): void {
-    this.statBase = computeStats(this.passives);
+    this.statBase = computeStats(this.passives, this.heroDef.add);
     if (this.pet === 'bit') this.statBase.magnet += 0.6;
     this.synergy.applyStatic(this.statBase);
     this.refreshLive();

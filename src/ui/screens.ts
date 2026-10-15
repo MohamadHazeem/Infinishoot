@@ -15,6 +15,7 @@ import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
 import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
 import { dailyBest } from '../game/highscores';
+import { HEROES } from '../data/heroes';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox' | 'wardrobe' | 'modes';
@@ -243,6 +244,10 @@ export class Screens {
 </div>
 <div id="scr-modes" class="screen dim" hidden>
   <h1>PLAY SOLO</h1>
+  <div class="section">HERO</div>
+  <div class="menu row hero-row"></div>
+  <div class="note hero-note"></div>
+  <div class="section">MODE</div>
   <div class="mode-grid"></div>
   <div class="section">DIFFICULTY</div>
   <div class="menu row diff-row"></div>
@@ -404,6 +409,14 @@ export class Screens {
           settings.mode = btn.dataset.mode!;
           saveSettings();
           return this.renderModes();
+        case 'hero': {
+          const hd = HEROES.find((x) => x.id === btn.dataset.hero);
+          if (!hd || (hd.unlock && !save.achievements.includes(hd.unlock))) return;
+          settings.hero = hd.id;
+          saveSettings();
+          actions.skinChanged();
+          return this.renderModes();
+        }
         case 'diff': {
           const d = DIFFICULTIES.find((x) => x.id === btn.dataset.diff);
           if (!d || (d.unlock && !save.achievements.includes(d.unlock))) return;
@@ -658,6 +671,14 @@ export class Screens {
   private renderModes(): void {
     const el = this.els.modes;
     const mode = MODE_BY_ID[settings.mode as ModeId] ?? MODES[0];
+    el.querySelector('.hero-row')!.innerHTML = HEROES.map((hd) => {
+      const open = !hd.unlock || save.achievements.includes(hd.unlock);
+      const ach = hd.unlock ? ACHIEVEMENTS.find((a) => a.id === hd.unlock) : null;
+      return `<button data-nav data-act="hero" data-hero="${hd.id}" class="diff ${settings.hero === hd.id ? 'on' : ''} ${open ? '' : 'locked'}" title="${open ? hd.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? hd.name.toUpperCase() : '🔒 ' + hd.name.toUpperCase()}</button>`;
+    }).join('');
+    const hero = HEROES.find((x) => x.id === settings.hero) ?? HEROES[0];
+    const heroOpen = !hero.unlock || save.achievements.includes(hero.unlock);
+    el.querySelector('.hero-note')!.textContent = heroOpen ? hero.desc.toUpperCase() : `LOCKED: ${ACHIEVEMENTS.find((a) => a.id === hero.unlock)?.desc.toUpperCase() ?? ''}`;
     el.querySelector('.mode-grid')!.innerHTML = MODES.map(
       (m) => `<button data-nav data-act="mode" data-mode="${m.id}" class="mode ${m.id === mode.id ? 'on' : ''}"><b>${m.name.toUpperCase()}</b><small>${m.desc}</small></button>`,
     ).join('');

@@ -71,6 +71,8 @@ export class Player {
   cheer = false;
   /** Charging the buster: determined face. */
   focus = false;
+  /** Hero build proportions (width, height). */
+  buildScale: [number, number] = [1, 1];
   private cheerK = 0;
   private hurtT = 0;
   private lastHp = -1;
@@ -327,7 +329,8 @@ export class Player {
     animateHero(this.rig, this.animTime, this.dashing ? 0.3 : speed01, Math.min(1, this.recoil));
     this.cheerK += ((this.cheer && !this.dead ? 1 : 0) - this.cheerK) * Math.min(1, frameDt * 6);
     if (this.cheerK > 0.01) poseVictory(this.rig, this.animTime, this.cheerK);
-    this.rig.body.scale.set(1 - this.sq * 0.5, 1 + this.sq, 1 - this.sq * 0.5);
+    const [bw, bh] = this.buildScale;
+    this.rig.body.scale.set((1 - this.sq * 0.5) * bw, (1 + this.sq) * bh, (1 - this.sq * 0.5) * bw);
 
     // Downed in co-op: lie on the ground, greyed out.
     this.rig.root.rotation.z = this.dead && this.showWhenDead ? Math.PI / 2 : 0;

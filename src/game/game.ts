@@ -50,6 +50,7 @@ import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, type DifficultyId, type ModeId } from '../data/modes';
 import { submitDaily } from './highscores';
+import { heroOf } from '../data/heroes';
 
 export { economyTuning } from './hero';
 
@@ -66,6 +67,12 @@ export const bombTuning = {
   duration: 0.35,
   knockback: 18,
 };
+
+/** This machine's chosen hero, if unlocked. */
+function localHero(): string {
+  const d = heroOf(settings.hero);
+  return !d.unlock || save.achievements.includes(d.unlock) ? d.id : 'rookie';
+}
 
 export const dropTuning = {
   xpMul: 0.55, // XP gem value per enemy XP point (lower = slower levelling)
@@ -111,6 +118,7 @@ interface LobbyEntry {
   unlocked: string[];
   skin: string;
   pet: string;
+  hero: string;
 }
 
 /** Shop view sent over the network (Mods referenced by id). */
@@ -377,8 +385,8 @@ export class Game implements HeroWorld {
 
   // ------------------------------------------------------------------ heroes and contexts
 
-  private makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet): Hero {
-    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, skinOf(skin), pet);
+  private makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet, heroId = localHero()): Hero {
+    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, skinOf(skin), pet, heroId);
     h.player.setSkin(h.skin.armor, h.skin);
     return h;
   }
@@ -396,6 +404,7 @@ export class Game implements HeroWorld {
     h.skin = skinOf(settings.skin);
     h.player.setSkin(this.heroes.length > 1 ? h.color : h.skin.armor, h.skin);
     h.setPet(settings.pet);
+    h.setHeroDef(localHero());
     h.recomputeStats();
   }
 
@@ -621,7 +630,7 @@ export class Game implements HeroWorld {
     if (this.role === 'host') {
       for (const h of this.heroes) {
         if (!h.peerId) continue;
-        this.host!.send(h.peerId, { t: 'start', seed: this.seed, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet })) });
+        this.host!.send(h.peerId, { t: 'start', seed: this.seed, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
       }
     }
     this.loadStage(1);
@@ -2305,7 +2314,7 @@ export class Game implements HeroWorld {
     this.role = 'host';
     const host = new NetHost(3);
     this.host = host;
-    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), skin: settings.skin, pet: settings.pet }];
+    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), skin: settings.skin, pet: settings.pet, hero: localHero() }];
     this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
     host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
     host.onLeave = (id) => this.onClientLeft(id);
@@ -2329,7 +2338,7 @@ export class Game implements HeroWorld {
   private hostStart(): void {
     if (this.role !== 'host' || !this.host) return;
     const heroes = this.lobby.map((p, i) =>
-      i === 0 ? this.hero : this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet),
+      i === 0 ? this.hero : this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero),
     );
     this.hero.name = this.lobby[0].name;
     this.setHeroes(heroes);
@@ -2359,7 +2368,7 @@ export class Game implements HeroWorld {
       this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
       return;
     }
-    client.send({ t: 'hello', name, unlocked: unlockedWeapons(), skin: settings.skin, pet: settings.pet });
+    client.send({ t: 'hello', name, unlocked: unlockedWeapons(), skin: settings.skin, pet: settings.pet, hero: localHero() });
     this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
   }
 
@@ -2385,6 +2394,7 @@ export class Game implements HeroWorld {
         unlocked: Array.isArray(m.unlocked) ? (m.unlocked as string[]) : unlockedWeapons(),
         skin: skinOf(String(m.skin ?? '')).id,
         pet: String(m.pet ?? 'none'),
+        hero: heroOf(String(m.hero ?? '')).id,
       });
       this.refreshLobby();
       return;
@@ -2586,9 +2596,9 @@ export class Game implements HeroWorld {
     };
   }
 
-  private clientStart(seed: number, you: number, players: { name: string; skin?: string; pet?: string }[]): void {
+  private clientStart(seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string }[]): void {
     this.seed = seed;
-    const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none'));
+    const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie'));
     this.setHeroes(heroes);
     this.local = you;
     for (const h of heroes) {

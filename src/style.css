@@ -2198,6 +2198,10 @@ h1.ko {
   color: var(--slate);
 }
 
+#scr-modes .hero-note {
+  min-height: 22px;
+}
+
 #scr-modes .section {
   font: 12px var(--label);
   letter-spacing: 2px;

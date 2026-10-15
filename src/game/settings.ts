@@ -21,6 +21,7 @@ export interface Settings {
   pet: string;
   mode: string;
   difficulty: string;
+  hero: string;
 }
 
 const KEY = 'settings.v1';
@@ -40,6 +41,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   pet: 'none',
   mode: 'standard',
   difficulty: 'normal',
+  hero: 'rookie',
 });
 
 /** Push settings into the systems that use them. */
