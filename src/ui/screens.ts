@@ -13,9 +13,11 @@ import { MenuNav } from './menu';
 import { iconHtml } from './pixelIcons';
 import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
+import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
+import { dailyBest } from '../game/highscores';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox' | 'wardrobe';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox' | 'wardrobe' | 'modes';
 
 export interface ScreenActions {
   start(): void;
@@ -40,6 +42,7 @@ export interface ScreenActions {
   /** The local skin setting changed. */
   skinChanged(): void;
   takeCurse(): void;
+  buyRelic(): void;
 }
 
 export interface LobbyView {
@@ -62,6 +65,9 @@ export interface ShopView {
   healed: boolean;
   loadout: LoadoutItem[];
   stage: number;
+  /** The rare secret merchant (rare/cursed Mods at a discount, a relic for sale). */
+  secret: boolean;
+  relic: { id: string; name: string; desc: string; icon: string; color: string; price: number } | null;
   /** Optional curse deal (one per shop visit). */
   curse: { id: string; name: string; desc: string; icon: string; color: string; gold: number; score: number } | null;
 }
@@ -134,7 +140,7 @@ export class Screens {
   <div class="logo">${logoWord('INFINI', 0)}${logoWord('SHOOT', 6)}</div>
   <div class="tagline">TWIN-STICK ARCADE ROGUELIKE</div>
   <div class="menu">
-    <button data-nav data-act="start">PLAY SOLO</button>
+    <button data-nav data-act="modes">PLAY SOLO</button>
     <button data-nav data-act="online">PLAY ONLINE</button>
     <button data-nav data-act="unlocks">UNLOCKS</button>
     <button data-nav data-act="extras">EXTRAS</button>
@@ -235,6 +241,17 @@ export class Screens {
     <button data-nav data-act="sd-back">BACK</button>
   </div>
 </div>
+<div id="scr-modes" class="screen dim" hidden>
+  <h1>PLAY SOLO</h1>
+  <div class="mode-grid"></div>
+  <div class="section">DIFFICULTY</div>
+  <div class="menu row diff-row"></div>
+  <div class="note mode-note"></div>
+  <div class="menu row">
+    <button data-nav data-act="start" class="continue">START &#9654;</button>
+    <button data-nav data-act="md-back">BACK</button>
+  </div>
+</div>
 <div id="scr-extras" class="screen dim" hidden>
   <h1>EXTRAS</h1>
   <div class="menu">
@@ -279,7 +296,7 @@ export class Screens {
   <div class="hiscores"></div>
 </div>`,
     );
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox', 'wardrobe'];
+    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox', 'wardrobe', 'modes'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
@@ -295,6 +312,7 @@ export class Screens {
       extras: new MenuNav(this.els.extras, { onBack: () => actions.title() }),
       jukebox: new MenuNav(this.els.jukebox, { onBack: () => this.show('extras') }),
       wardrobe: new MenuNav(this.els.wardrobe, { columns: 3, onBack: () => this.show('extras') }),
+      modes: new MenuNav(this.els.modes, { columns: 4, onBack: () => actions.title() }),
     };
 
     // Keep buttons from taking DOM focus on click, so Enter/Space don't fire twice.
@@ -347,6 +365,8 @@ export class Screens {
           return actions.shopHeal();
         case 'take-curse':
           return actions.takeCurse();
+        case 'buy-relic':
+          return actions.buyRelic();
         case 'shop-done':
           return actions.shopDone();
         case 'settings':
@@ -375,6 +395,21 @@ export class Screens {
           saveSettings();
           actions.skinChanged();
           return this.renderWardrobe();
+        }
+        case 'modes':
+          return this.show('modes');
+        case 'md-back':
+          return actions.title();
+        case 'mode':
+          settings.mode = btn.dataset.mode!;
+          saveSettings();
+          return this.renderModes();
+        case 'diff': {
+          const d = DIFFICULTIES.find((x) => x.id === btn.dataset.diff);
+          if (!d || (d.unlock && !save.achievements.includes(d.unlock))) return;
+          settings.difficulty = d.id;
+          saveSettings();
+          return this.renderModes();
         }
         case 'pet': {
           const id = btn.dataset.pet!;
@@ -430,6 +465,7 @@ export class Screens {
     if (name === 'unlocks') this.renderUnlocks();
     if (name === 'jukebox') this.renderJukebox();
     if (name === 'wardrobe') this.renderWardrobe();
+    if (name === 'modes') this.renderModes();
     else if (music.jukebox) music.jukebox = null;
     if (name === 'savedata') {
       this.wipeArmed = false;
@@ -503,7 +539,7 @@ export class Screens {
     const rows = list.length
       ? list
           .slice(0, 5)
-          .map((e, i) => `<tr class="${i === highlight ? 'me' : ''}"><td>${i + 1}</td><td>${fmtScore(e.score)}</td><td>STAGE ${e.stage}</td></tr>`)
+          .map((e, i) => `<tr class="${i === highlight ? 'me' : ''}"><td>${i + 1}</td><td>${fmtScore(e.score)}</td><td>STAGE ${e.stage}${e.label ? `<small> ${e.label}</small>` : ''}</td></tr>`)
           .join('')
       : '<tr><td colspan="3">No scores yet. Go set one!</td></tr>';
     const html = `<div class="hs-title">HIGH SCORES</div><table>${rows}</table>`;
@@ -549,7 +585,8 @@ export class Screens {
 
   showShop(v: ShopView, focus?: number): void {
     const el = this.els.shop;
-    el.querySelector('h1')!.textContent = `STAGE ${v.stage} SHOP`;
+    el.querySelector('h1')!.textContent = v.secret ? 'SECRET SHOP' : `STAGE ${v.stage} SHOP`;
+    el.classList.toggle('secret', v.secret);
     el.querySelector('.shop-top')!.innerHTML =
       `<span class="gold-big"><span class="gold-dot"></span> ${v.gold} GOLD</span>` +
       `<span class="interest">Interest next clear: +${v.interest} (1 per ${v.interestPer} held, max ${v.interestCap})</span>`;
@@ -580,7 +617,17 @@ export class Screens {
           <div class="price">TAKE +<span class="gold-dot"></span> ${c.gold}</div>
         </button>`
       : '';
-    el.querySelector('.shop-offers')!.insertAdjacentHTML('beforeend', curseCard);
+    const r = v.relic;
+    const relicCard = r
+      ? `<button class="mod-card rare relic-deal ${r.price > v.gold ? 'cant' : ''}" data-nav data-act="buy-relic">
+          <div class="rarity">RELIC</div>
+          <div class="icon" style="--c:${r.color}">${iconHtml(r.id, r.color, r.icon)}</div>
+          <div class="name">${r.name}</div>
+          <div class="desc">${r.desc}</div>
+          <div class="price"><span class="gold-dot"></span> ${r.price}</div>
+        </button>`
+      : '';
+    el.querySelector('.shop-offers')!.insertAdjacentHTML('beforeend', relicCard + curseCard);
     el.querySelector('.shop-extras')!.innerHTML =
       `<button data-nav data-act="shop-reroll" class="${v.rerollCost > v.gold ? 'cant' : ''}">REROLL ${v.rerollCost ? `<span class="gold-dot"></span> ${v.rerollCost}` : 'FREE'}</button>` +
       `<button data-nav data-act="shop-heal" class="${v.healed || v.healCost > v.gold ? 'cant' : ''}">HEAL 40% <span class="gold-dot"></span> ${v.healCost}</button>` +
@@ -607,6 +654,27 @@ export class Screens {
   }
 
   // ---------------------------------------------------------------- unlocks
+
+  private renderModes(): void {
+    const el = this.els.modes;
+    const mode = MODE_BY_ID[settings.mode as ModeId] ?? MODES[0];
+    el.querySelector('.mode-grid')!.innerHTML = MODES.map(
+      (m) => `<button data-nav data-act="mode" data-mode="${m.id}" class="mode ${m.id === mode.id ? 'on' : ''}"><b>${m.name.toUpperCase()}</b><small>${m.desc}</small></button>`,
+    ).join('');
+    const daily = mode.id === 'daily';
+    el.querySelector('.diff-row')!.innerHTML = DIFFICULTIES.map((d) => {
+      const open = !d.unlock || save.achievements.includes(d.unlock);
+      const ach = d.unlock ? ACHIEVEMENTS.find((a) => a.id === d.unlock) : null;
+      const on = daily ? d.id === 'normal' : settings.difficulty === d.id;
+      return `<button data-nav data-act="diff" data-diff="${d.id}" class="diff ${on ? 'on' : ''} ${open ? '' : 'locked'}" ${daily ? 'disabled' : ''} title="${open ? d.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? d.name.toUpperCase() : '🔒 ' + d.name.toUpperCase()}</button>`;
+    }).join('');
+    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty) ?? DIFFICULTIES[1];
+    const best = dailyBest(today());
+    el.querySelector('.mode-note')!.textContent = daily
+      ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`
+      : diff.desc.toUpperCase();
+    this.navs.modes.refresh(this.navs.modes.focus);
+  }
 
   private renderWardrobe(): void {
     const el = this.els.wardrobe;

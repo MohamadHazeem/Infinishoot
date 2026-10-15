@@ -48,6 +48,8 @@ import { CURSE_BY_ID, type CurseDef } from '../data/curses';
 import { RELIC_BY_ID, RELICS } from '../data/relics';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
+import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, type DifficultyId, type ModeId } from '../data/modes';
+import { submitDaily } from './highscores';
 
 export { economyTuning } from './hero';
 
@@ -126,6 +128,8 @@ interface NetShop {
   loadout: LoadoutItem[];
   stage: number;
   curse: ShopView['curse'];
+  secret: boolean;
+  relic: ShopView['relic'];
 }
 
 function playerName(): string {
@@ -187,12 +191,20 @@ export class Game implements HeroWorld {
   private bossBoom: { x: number; z: number; r: number; n: number; t: number; color: string } | null = null;
   private trailT = 0;
   readonly runEvents: RunEvents;
+  /** Mode and difficulty of the current run. */
+  runMode: ModeId = 'standard';
+  difficulty: DifficultyDef = DIFF_BY_ID.normal;
+  private runDate = '';
+  /** This shop visit is the rare secret merchant. */
+  private secretShop = false;
   /** Curses in effect for the whole team (src/data/curses.ts). */
   curses: string[] = [];
   private netEvent: [string, number] | null = null;
   private netChallenge: [string, number, number, boolean] | null = null;
   private netBuffs: [number, number] = [0, 0];
   private dayK = 0;
+  /** Stage whose biome the loaded arena uses (Endless keeps one arena). */
+  private arenaStage = 1;
   private fogK = 0;
   private heartT = 0;
   private bossesRun = 0;
@@ -301,6 +313,7 @@ export class Game implements HeroWorld {
       mpLeave: () => this.leaveToTitle(),
       skinChanged: () => this.applyLocalSkin(),
       takeCurse: () => this.ui('curse'),
+      buyRelic: () => this.ui('relic'),
     });
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyF' && this.isCombatMode && !this.paused && this.screens.current === 'none') {
@@ -474,9 +487,9 @@ export class Game implements HeroWorld {
     for (const h of this.heroes) hpExtra += h.synergy.flags.enemyHp;
     const hpMul = (extra.hpMul ?? this.director.hpMul) * (1 + hpExtra);
     const out = { dmgMul: this.director.dmgMul, speedMul: this.director.speedMul, ...extra, hpMul };
-    out.hpMul *= 1 + this.curseSum('enemyHp');
+    out.hpMul *= (1 + this.curseSum('enemyHp')) * this.difficulty.enemyHp;
     out.speedMul *= 1 + this.curseSum('enemySpeed');
-    out.dmgMul *= 1 + this.curseSum('enemyDmg');
+    out.dmgMul *= (1 + this.curseSum('enemyDmg')) * this.difficulty.enemyDmg;
     return out;
   }
 
@@ -504,6 +517,7 @@ export class Game implements HeroWorld {
     this.scene.remove(this.arena.group);
     disposeObject(this.arena.group);
     const biome = biomeForStage(stage);
+    this.arenaStage = stage;
     this.arena = createFieldArena(seed, biome);
     applyBiomeLook(biome);
     this.scene.add(this.arena.group);
@@ -556,13 +570,32 @@ export class Game implements HeroWorld {
   startSolo(): void {
     this.leaveToTitle();
     this.hero.name = playerName();
+    this.runMode = (MODE_BY_ID[settings.mode as ModeId] ?? MODES[0]).id;
     this.startRun();
+  }
+
+  /** Difficulty from settings, if unlocked (daily runs are always Normal). */
+  private pickDifficulty(): DifficultyDef {
+    const d = DIFF_BY_ID[settings.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
+    if (this.runMode === 'daily' || (d.unlock && !save.achievements.includes(d.unlock))) return DIFF_BY_ID.normal;
+    return d;
+  }
+
+  /** "ENDLESS · HARD" style label for scores (blank for standard on normal). */
+  private get runLabel(): string {
+    const parts: string[] = [];
+    if (this.runMode !== 'standard') parts.push(MODE_BY_ID[this.runMode].name.toUpperCase());
+    if (this.difficulty.id !== 'normal') parts.push(this.difficulty.name.toUpperCase());
+    return parts.join(' · ');
   }
 
   /** Start a run (solo or online host). */
   startRun(): void {
     this.paused = false;
-    this.seed = randomSeed();
+    if (this.role !== 'solo') this.runMode = 'standard';
+    this.difficulty = this.pickDifficulty();
+    this.runDate = today();
+    this.seed = this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
     this.rng = new Rng(this.seed);
     this.stage = 1;
     this.score = this.kills = this.combo = this.maxCombo = 0;
@@ -618,8 +651,9 @@ export class Game implements HeroWorld {
       if (h.player.dead && !h.left) this.reviveHero(h, 0.5, false);
     });
     this.director.start(stage);
-    this.director.countMul = 1 + this.curseSum('enemyCount');
+    this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
     this.runEvents.startStage(this.director.duration);
+    if (this.runMode === 'bossrush') this.bossRushStage();
     for (const h of this.heroes) {
       h.phoenixUsed = false;
       if (h.hasRelic('r_clover')) h.rerollsLeft++;
@@ -723,7 +757,7 @@ export class Game implements HeroWorld {
     this.curses.push(c.id);
     h.curseOffer = null;
     h.gold += c.gold;
-    this.director.countMul = 1 + this.curseSum('enemyCount');
+    this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
     for (const x of this.heroes) x.recomputeStats();
     this.vfx.sound('ominous', NaN, NaN);
     this.vfx.toast(`${h.name.toUpperCase()} TOOK A CURSE: ${c.name.toUpperCase()}`, 3);
@@ -834,9 +868,12 @@ export class Game implements HeroWorld {
 
   private openShop(): void {
     this.mode = 'shop';
+    // Now and then (from stage 2) the secret merchant turns up instead.
+    this.secretShop = this.stage >= 2 && this.rng.chance(0.22);
+    if (this.secretShop) this.vfx.banner('SECRET SHOP!', 'A STRANGE MERCHANT APPEARS', 1.8);
     for (const h of this.heroes) {
       if (h.left) continue;
-      h.openShop();
+      h.openShop(this.secretShop);
       this.presentShop(h);
     }
     this.vfx.sound('chest', NaN, NaN);
@@ -845,7 +882,36 @@ export class Game implements HeroWorld {
   private closeShop(): void {
     if (['shop', 'wait'].includes(this.screens.current)) this.screens.show('none');
     for (const h of this.heroes) this.tell(h, { t: 'go' });
-    this.openPortal();
+    if (this.runMode === 'endless') this.endlessNextWave();
+    else this.openPortal();
+  }
+
+  /** Endless: no portal; the next, harder wave starts right here. */
+  private endlessNextWave(): void {
+    this.stage++;
+    this.director.start(this.stage);
+    this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
+    this.runEvents.startStage(this.director.duration);
+    for (const h of this.heroes) {
+      h.phoenixUsed = false;
+      if (h.hasRelic('r_clover')) h.rerollsLeft++;
+    }
+    this.pickups.vacuum = false;
+    this.damagedThisStage = false;
+    this.mode = 'fight';
+    this.modeT = 0;
+    this.vfx.banner(`WAVE ${this.stage}`, 'IT NEVER ENDS', 2);
+    this.vfx.sound('wave', NaN, NaN);
+    this.checkAchievements();
+  }
+
+  /** Boss Rush: skip straight to the boss and hand out bonus levels to fight it with. */
+  private bossRushStage(): void {
+    this.director.time = this.director.duration - 2.5;
+    const levels = this.stage === 1 ? 5 : 3;
+    let xp = 0;
+    for (let l = 0; l < levels; l++) xp += xpForLevel(this.level + l);
+    this.gainXp(xp - this.xp);
   }
 
   private openPortal(): void {
@@ -902,7 +968,8 @@ export class Game implements HeroWorld {
       this.goTitle();
       return;
     }
-    const rank = submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10) });
+    const rank = submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
+    if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
     this.screens.showGameOver(sum, rank, loadHighScores(), this.role === 'client');
   }
 
@@ -1016,6 +1083,10 @@ export class Game implements HeroWorld {
       else if (a === 'sreroll') err = h.reroll();
       else if (a === 'heal') err = h.heal();
       else if (a === 'curse') err = this.takeCurse(h);
+      else if (a === 'relic') {
+        err = h.buyRelic();
+        if (!err) this.vfx.sound('chest', h.player.x, h.player.z);
+      }
       else if (a === 'done') {
         h.shopDone = true;
         if (this.heroes.every((x) => x.left || x.shopDone)) this.closeShop();
@@ -1095,6 +1166,9 @@ export class Game implements HeroWorld {
       ['arsenal', h.weapons.length >= 6],
       ['maxed', h.weapons.some((w) => w.maxed)],
       ['evolved', h.weapons.some((w) => w.evolved)],
+      ['hard_stage3', this.stage >= 3 && (this.difficulty.id === 'hard' || this.difficulty.id === 'nightmare')],
+      ['endless_5', this.runMode === 'endless' && this.stage >= 5],
+      ['rush_3', this.runMode === 'bossrush' && this.bossesRun >= 3],
       ['stage_3', this.stage >= 3],
     ];
     for (const [id, ok] of want) {
@@ -1769,7 +1843,7 @@ export class Game implements HeroWorld {
     this.combo++;
     this.comboT = scoreTuning.comboWindow + (this.heroes.some((h) => h.hasRelic('r_hourglass')) ? 1 : 0);
     this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.score += def.score * this.multiplier * (e.elite ? 5 : 1) * (1 + this.curseSum('score'));
+    this.score += def.score * this.multiplier * (e.elite ? 5 : 1) * (1 + this.curseSum('score')) * this.difficulty.score;
     const xp = def.xp * (e.elite ? 10 : 1);
     if (by) by.bombCharge = Math.min(1, by.bombCharge + bombTuning.chargePerXp * xp);
 
@@ -2777,7 +2851,7 @@ export class Game implements HeroWorld {
       track = 'boss';
       intensity = 1;
     } else {
-      track = biomeTrack(this.stage);
+      track = biomeTrack(this.arenaStage);
       intensity = m === 'fight' ? Math.min(1, 0.12 + this.enemies.activeCount / 140 + this.director.time / this.director.duration / 3) : 0.3;
     }
     const duck = this.paused || m === 'levelup' || m === 'shop' || (this.screens.current !== 'none' && inRun);

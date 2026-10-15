@@ -19,5 +19,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'arsenal', name: 'Full Arsenal', desc: 'Hold 6 weapons at once' },
   { id: 'maxed', name: 'Maxed Out', desc: 'Get a weapon to level 5' },
   { id: 'evolved', name: 'Evolution', desc: 'Evolve a weapon' },
+  { id: 'hard_stage3', name: 'Hard Boiled', desc: 'Reach stage 3 on Hard or Nightmare' },
+  { id: 'endless_5', name: 'Marathon', desc: 'Reach wave 5 in Endless' },
+  { id: 'rush_3', name: 'Boss Buster', desc: 'Beat 3 bosses in Boss Rush' },
   { id: 'stage_3', name: 'Deep Diver', desc: 'Reach stage 3' },
 ];

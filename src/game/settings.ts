@@ -19,6 +19,8 @@ export interface Settings {
   glow: number;
   crt: boolean;
   pet: string;
+  mode: string;
+  difficulty: string;
 }
 
 const KEY = 'settings.v1';
@@ -36,6 +38,8 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   glow: 0.4,
   crt: false,
   pet: 'none',
+  mode: 'standard',
+  difficulty: 'normal',
 });
 
 /** Push settings into the systems that use them. */

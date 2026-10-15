@@ -17,6 +17,7 @@ import { CURSE_BY_ID, CURSES } from '../data/curses';
 import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { PET_BY_ID } from '../data/pets';
 import { PetView } from './pet';
+import { RELIC_BY_ID, RELICS } from '../data/relics';
 
 export const MAX_WEAPONS = 6;
 export const MAX_PASSIVES = 6;
@@ -399,17 +400,24 @@ export class Hero implements SynergyHost {
 
   // ---------------------------------------------------------------- shop
 
-  openShop(): void {
+  /** This visit is the secret merchant: rare and cursed Mods at 25% off, plus a relic for sale. */
+  secretShop = false;
+  relicOffer: string | null = null;
+
+  openShop(secret = false): void {
     this.shopRerolls = 0;
     this.shopHealed = false;
     this.shopDone = false;
+    this.secretShop = secret;
+    const relics = RELICS.filter((r) => !this.hasRelic(r.id));
+    this.relicOffer = secret && relics.length ? relics[Math.floor(this.rng.next() * relics.length)].id : null;
     this.rollShop();
     const left = CURSES.filter((c) => !this.world.activeCurses.includes(c.id));
     this.curseOffer = left.length && this.rng.chance(0.85) ? left[Math.floor(this.rng.next() * left.length)].id : null;
   }
 
   rollShop(): void {
-    const pool = MODS.filter((m) => !this.synergy.owns(m.id));
+    const pool = MODS.filter((m) => !this.synergy.owns(m.id) && (!this.secretShop || m.rarity === 'rare' || m.cursed));
     this.shopOffers = [];
     for (let k = 0; k < economyTuning.shopOffers && pool.length; k++) {
       let r = this.rng.next() * pool.reduce((a, m) => a + MOD_RARITY_WEIGHT[m.rarity], 0);
@@ -419,8 +427,22 @@ export class Hero implements SynergyHost {
     }
   }
 
+  get relicPrice(): number {
+    return 30;
+  }
+
+  buyRelic(): string {
+    const id = this.relicOffer;
+    if (!id) return 'SOLD OUT';
+    if (this.gold < this.relicPrice) return 'NOT ENOUGH GOLD';
+    this.gold -= this.relicPrice;
+    this.relics.push(id);
+    this.relicOffer = null;
+    return '';
+  }
+
   price(m: ModDef): number {
-    return Math.max(1, Math.round(m.price * (1 - this.synergy.flags.shopDiscount)));
+    return Math.max(1, Math.round(m.price * (1 - this.synergy.flags.shopDiscount) * (this.secretShop ? 0.75 : 1)));
   }
 
   /** Half price back, or full price with Pawn Shop. */
@@ -459,6 +481,8 @@ export class Hero implements SynergyHost {
       healed: this.shopHealed || this.player.hp >= this.player.maxHp,
       loadout: this.loadout(),
       stage,
+      secret: this.secretShop,
+      relic: this.relicOffer ? { ...RELIC_BY_ID[this.relicOffer], price: this.relicPrice } : null,
       curse: this.curseOffer && !this.world.activeCurses.includes(this.curseOffer) ? (({ id, name, desc, icon, color, gold, score }) => ({ id, name, desc, icon, color, gold, score }))(CURSE_BY_ID[this.curseOffer]) : null,
     };
   }

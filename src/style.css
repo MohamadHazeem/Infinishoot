@@ -2152,6 +2152,62 @@ h1.ko {
   color: var(--yellow);
 }
 
+/* ---------------------------------------------------------------- secret shop */
+#scr-shop.secret h1 {
+  color: var(--plum);
+  text-shadow: var(--outline), 0 4px 0 var(--ink);
+}
+
+#scr-shop.secret {
+  background-color: rgba(93, 39, 93, 0.55);
+}
+
+/* ---------------------------------------------------------------- modes */
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 220px);
+  gap: 16px;
+}
+
+.screen button.mode {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-height: 132px;
+  padding: 12px;
+  text-align: left;
+}
+
+.screen button.mode b {
+  font-size: 26px;
+}
+
+.screen button.mode small {
+  font-size: 17px;
+  line-height: 1.2;
+  color: var(--mist);
+}
+
+.screen button.mode.on,
+.screen button.diff.on {
+  --ring: var(--yellow);
+  color: var(--yellow);
+}
+
+.screen button.diff.locked {
+  color: var(--slate);
+}
+
+#scr-modes .section {
+  font: 12px var(--label);
+  letter-spacing: 2px;
+  color: var(--cyan);
+}
+
+.mode-note {
+  min-height: 24px;
+}
+
 /* ---------------------------------------------------------------- jukebox */
 .now-playing {
   font: 14px var(--label);
