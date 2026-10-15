@@ -170,7 +170,7 @@ export class Buster extends Weapon {
         damage: p.dmg * (mega ? 4 : 1),
         knockback: mega ? 12 : 4,
         team: Team.Player,
-        color: mega ? '#ff7a2f' : '#fff36b',
+        color: mega ? '#ff7a2f' : this.look('#fff36b'),
         width: 0.32 * size,
         length: 0.8 * size,
         pierce: p.pierce + (mega ? 5 : 0),

@@ -11,9 +11,10 @@ import { music, TRACKS, type TrackId } from '../audio/music';
 import { fmtScore, type LoadoutItem } from './hud';
 import { MenuNav } from './menu';
 import { iconHtml } from './pixelIcons';
+import { SKINS } from '../data/skins';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox' | 'wardrobe';
 
 export interface ScreenActions {
   start(): void;
@@ -35,6 +36,8 @@ export interface ScreenActions {
   mpJoin(name: string, code: string): void;
   mpStart(): void;
   mpLeave(): void;
+  /** The local skin setting changed. */
+  skinChanged(): void;
 }
 
 export interface LobbyView {
@@ -81,6 +84,15 @@ export interface RunSummary {
   mods: string[];
   damage: { name: string; color: string; dmg: number }[];
   achievements: string[];
+}
+
+/** Settings switched by ON/OFF buttons. */
+type ToggleKey = 'autoFire' | 'showFps' | 'crt';
+
+/** A skin is wearable once its achievement is done. */
+export function skinUnlocked(id: string): boolean {
+  const s = SKINS.find((x) => x.id === id);
+  return !!s && (!s.unlock || save.achievements.includes(s.unlock));
 }
 
 const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -148,6 +160,8 @@ export class Screens {
     <label>MENU SOUNDS <input data-nav type="range" min="0" max="1" step="0.1" data-set="uiVolume"></label>
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>
+    <label>GLOW <input data-nav type="range" min="0" max="1" step="0.1" data-set="glow"></label>
+    <button data-nav data-toggle="crt">CRT FILTER <b></b></button>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
     <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>
     <button data-nav data-act="back">BACK</button>
@@ -220,6 +234,7 @@ export class Screens {
 <div id="scr-extras" class="screen dim" hidden>
   <h1>EXTRAS</h1>
   <div class="menu">
+    <button data-nav data-act="wardrobe">WARDROBE</button>
     <button data-nav data-act="jukebox">JUKEBOX</button>
     <button data-nav data-act="ex-back">BACK</button>
   </div>
@@ -232,6 +247,14 @@ export class Screens {
   <div class="menu row">
     <button data-nav data-act="jb-stop">STOP</button>
     <button data-nav data-act="jb-back">BACK</button>
+  </div>
+</div>
+<div id="scr-wardrobe" class="screen" hidden>
+  <h1>WARDROBE</h1>
+  <p class="note">Skins unlock with achievements. In co-op your armour keeps your player colour.</p>
+  <div class="skin-grid"></div>
+  <div class="menu row">
+    <button data-nav data-act="wd-back">BACK</button>
   </div>
 </div>
 <div id="scr-gameover" class="screen dim" hidden>
@@ -250,7 +273,7 @@ export class Screens {
   <div class="hiscores"></div>
 </div>`,
     );
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox'];
+    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox', 'wardrobe'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
@@ -265,6 +288,7 @@ export class Screens {
       wait: new MenuNav(this.els.wait),
       extras: new MenuNav(this.els.extras, { onBack: () => actions.title() }),
       jukebox: new MenuNav(this.els.jukebox, { onBack: () => this.show('extras') }),
+      wardrobe: new MenuNav(this.els.wardrobe, { columns: 3, onBack: () => this.show('extras') }),
     };
 
     // Keep buttons from taking DOM focus on click, so Enter/Space don't fire twice.
@@ -334,8 +358,19 @@ export class Screens {
           return this.doImport();
         case 'wipe':
           return this.doWipe(btn);
+        case 'wardrobe':
+          return this.show('wardrobe');
+        case 'skin': {
+          const id = btn.dataset.skin!;
+          if (!skinUnlocked(id)) return;
+          settings.skin = id;
+          saveSettings();
+          actions.skinChanged();
+          return this.renderWardrobe();
+        }
         case 'extras':
         case 'jb-back':
+        case 'wd-back':
           return this.show('extras');
         case 'ex-back':
           return actions.title();
@@ -360,7 +395,7 @@ export class Screens {
     });
     setEl.querySelectorAll<HTMLElement>('[data-toggle]').forEach((b) => {
       b.addEventListener('click', () => {
-        const key = b.dataset.toggle as 'autoFire' | 'showFps';
+        const key = b.dataset.toggle as ToggleKey;
         settings[key] = !settings[key];
         saveSettings();
         this.syncSettings();
@@ -377,6 +412,7 @@ export class Screens {
     if (name === 'title') this.renderProgress();
     if (name === 'unlocks') this.renderUnlocks();
     if (name === 'jukebox') this.renderJukebox();
+    if (name === 'wardrobe') this.renderWardrobe();
     else if (music.jukebox) music.jukebox = null;
     if (name === 'savedata') {
       this.wipeArmed = false;
@@ -433,7 +469,7 @@ export class Screens {
       inp.value = String((settings as unknown as Record<string, number>)[inp.dataset.set!]);
     });
     el.querySelectorAll<HTMLElement>('[data-toggle]').forEach((b) => {
-      const on = settings[b.dataset.toggle as 'autoFire' | 'showFps'];
+      const on = settings[b.dataset.toggle as ToggleKey];
       b.querySelector('b')!.textContent = on ? 'ON' : 'OFF';
     });
   }
@@ -538,6 +574,21 @@ export class Screens {
   }
 
   // ---------------------------------------------------------------- unlocks
+
+  private renderWardrobe(): void {
+    const el = this.els.wardrobe;
+    el.querySelector('.skin-grid')!.innerHTML = SKINS.map((s) => {
+      const open = skinUnlocked(s.id);
+      const ach = s.unlock ? ACHIEVEMENTS.find((a) => a.id === s.unlock) : null;
+      const sw = (c: string) => `<i style="background:${c}"></i>`;
+      return `<button data-nav data-act="skin" data-skin="${s.id}" class="skin ${settings.skin === s.id ? 'on' : ''} ${open ? '' : 'locked'}">
+        <span class="swatches">${open ? sw(s.armor) + sw(s.accent) + sw(s.suit) + sw(s.hair) : sw('#333c57') + sw('#333c57') + sw('#333c57') + sw('#333c57')}</span>
+        <b>${open ? s.name.toUpperCase() : '???'}</b>
+        <small>${open ? (settings.skin === s.id ? 'WEARING' : 'WEAR') : ach ? ach.name.toUpperCase() : ''}</small>
+      </button>`;
+    }).join('');
+    this.navs.wardrobe.refresh(this.navs.wardrobe.focus);
+  }
 
   /** Tracks unlock as you reach their area (or hear them). */
   private renderJukebox(): void {

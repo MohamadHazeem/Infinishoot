@@ -1,6 +1,7 @@
 import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
 import { applyRetroStrength } from '../render/retroSettings';
+import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
 
 /** Player-facing settings, persisted between sessions. */
@@ -13,6 +14,10 @@ export interface Settings {
   shake: number;
   autoFire: boolean;
   showFps: boolean;
+  /** Hero skin id (src/data/skins.ts). */
+  skin: string;
+  glow: number;
+  crt: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -26,6 +31,9 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   shake: 1,
   autoFire: false,
   showFps: false,
+  skin: 'classic',
+  glow: 0.4,
+  crt: false,
 });
 
 /** Push settings into the systems that use them. */
@@ -37,6 +45,8 @@ export function applySettings(): void {
   sfx.applyVolumes();
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
+  postSettings.glow = settings.glow;
+  postSettings.crt = settings.crt ? 1 : 0;
 }
 
 export function saveSettings(): void {

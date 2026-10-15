@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createRetroMaterial } from '../../render/retroMaterial';
+import { createRetroMaterial, type RetroMaterial } from '../../render/retroMaterial';
 import type { WeaponDef } from '../../data/weapons';
 import { Weapon, type WeaponCtx } from './base';
 import { commit } from '../../render/instancing';
@@ -12,6 +12,11 @@ export class Drones extends Weapon {
   private angle = 0;
   private mesh: THREE.InstancedMesh;
   private ring: THREE.InstancedMesh;
+
+  protected applyLook(c: string | null): void {
+    (this.mesh.material as RetroMaterial).uniforms.uColor.value.set(c ?? '#4fc3ff');
+    (this.ring.material as RetroMaterial).uniforms.uColor.value.set(c ? '#ff3df0' : '#ffffff');
+  }
   private lastHit = new Map<number, number>();
   private pos: { x: number; z: number }[] = Array.from({ length: MAX }, () => ({ x: 0, z: 0 }));
   private m4 = new THREE.Matrix4();

@@ -77,7 +77,7 @@ export class Mines extends Weapon {
       const s = Math.min(1, m.age * 6);
       this.m4.makeScale(s, s, s).setPosition(m.x, 0.02, m.z);
       this.dome.setMatrixAt(i, this.m4);
-      this.dome.setColorAt(i, this.c.set(blink ? '#ffffff' : armed ? '#ff3d5a' : '#ff9f3d'));
+      this.dome.setColorAt(i, this.c.set(blink ? '#ffffff' : armed ? this.look('#ff3d5a') : this.look('#ff9f3d')));
     }
     this.dome.count = this.list.length;
     commit(this.dome.instanceMatrix, this.dome.count);

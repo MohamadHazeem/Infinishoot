@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { resolveCircleVsBoxes, type AABB } from '../world/collision';
-import { animateHero, createHero, type HeroRig } from './heroModel';
+import { animateHero, applySkin, createHero, poseVictory, setExpression, type Expression, type HeroRig } from './heroModel';
+import type { SkinDef } from '../data/skins';
 import { textures } from '../render/textures';
 import { baseStats, type Stats } from './stats';
 
@@ -63,12 +64,24 @@ export class Player {
   private facing = 0;
   private animTime = 0;
   private blinkT = 0;
+  // Face and pose (presentation only).
+  /** Seconds of happy face left (level-ups, evolutions, chests). */
+  happyT = 0;
+  /** Victory pose (stage cleared). */
+  cheer = false;
+  /** Charging the buster: determined face. */
+  focus = false;
+  private cheerK = 0;
+  private hurtT = 0;
+  private lastHp = -1;
+  private eyeT = 3;
 
   constructor(
     private scene: THREE.Scene,
     color?: string,
+    skin?: SkinDef,
   ) {
-    this.rig = createHero(color);
+    this.rig = createHero(color, skin);
     scene.add(this.rig.root);
 
     const shadowMat = new THREE.MeshBasicMaterial({
@@ -272,8 +285,30 @@ export class Player {
     return true;
   }
 
+  setSkin(armorColor: string, skin: SkinDef): void {
+    applySkin(this.rig, armorColor, skin);
+  }
+
+  /** Pick the painted face from what's happening. */
+  private updateFace(dt: number): void {
+    if (this.lastHp >= 0 && this.hp < this.lastHp - 0.5) this.hurtT = 0.6;
+    this.lastHp = this.hp;
+    this.hurtT = Math.max(0, this.hurtT - dt);
+    this.happyT = Math.max(0, this.happyT - dt);
+    this.eyeT -= dt;
+    if (this.eyeT < -0.12) this.eyeT = 2.5 + Math.random() * 2.5;
+    let e: Expression = 'normal';
+    if (this.dead) e = 'ko';
+    else if (this.hurtT > 0) e = 'hurt';
+    else if (this.cheer || this.happyT > 0) e = 'happy';
+    else if (this.focus) e = 'focus';
+    else if (this.eyeT < 0) e = 'blink';
+    setExpression(this.rig, e);
+  }
+
   /** Called every render frame with the interpolation factor. */
   render(alpha: number, frameDt: number): void {
+    this.updateFace(frameDt);
     const x = this.prev.x + (this.pos.x - this.prev.x) * alpha;
     const z = this.prev.z + (this.pos.z - this.prev.z) * alpha;
     this.rig.root.position.set(x, 0, z);
@@ -290,6 +325,8 @@ export class Player {
     const speed01 = Math.min(1, Math.hypot(this.vel.x, this.vel.z) / playerTuning.maxSpeed);
     this.animTime += frameDt;
     animateHero(this.rig, this.animTime, this.dashing ? 0.3 : speed01, Math.min(1, this.recoil));
+    this.cheerK += ((this.cheer && !this.dead ? 1 : 0) - this.cheerK) * Math.min(1, frameDt * 6);
+    if (this.cheerK > 0.01) poseVictory(this.rig, this.animTime, this.cheerK);
     this.rig.body.scale.set(1 - this.sq * 0.5, 1 + this.sq, 1 - this.sq * 0.5);
 
     // Downed in co-op: lie on the ground, greyed out.

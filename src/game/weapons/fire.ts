@@ -99,7 +99,8 @@ export class Fire extends Weapon {
       this.m4.compose(this.v.set(f.x, 0.02, f.z), this.q, this.s.set(sc, sc * (1.2 - k * 0.5), sc));
       this.mesh.setMatrixAt(n, this.m4);
       // Additive fade: darken toward black as the flame dies.
-      this.mesh.setColorAt(n, this.c.setRGB(1, 0.5 - k * 0.3, 0.12).multiplyScalar((1 - k) * 0.8));
+      if (this.evolved) this.mesh.setColorAt(n, this.c.setRGB(1, 0.88 - k * 0.3, 0.3 + (1 - k) * 0.25).multiplyScalar((1 - k) * 0.85));
+      else this.mesh.setColorAt(n, this.c.setRGB(1, 0.5 - k * 0.3, 0.12).multiplyScalar((1 - k) * 0.8));
       n++;
     }
     this.mesh.count = n;

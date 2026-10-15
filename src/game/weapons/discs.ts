@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { paint } from '../../render/geometry';
-import { createRetroMaterial } from '../../render/retroMaterial';
+import { createRetroMaterial, type RetroMaterial } from '../../render/retroMaterial';
 import type { WeaponDef } from '../../data/weapons';
 import { Weapon, type WeaponCtx } from './base';
 import { commit } from '../../render/instancing';
@@ -123,13 +123,17 @@ export class Discs extends Weapon {
     }
   }
 
+  protected applyLook(c: string | null): void {
+    (this.mesh.material as RetroMaterial).uniforms.uColor.value.set(c ? new THREE.Color(c).lerp(new THREE.Color('#ffffff'), 0.35) : '#ffffff');
+  }
+
   render(alpha: number, ctx: WeaponCtx): void {
     const sc = this.p.size * ctx.stats.areaMul;
     for (let i = 0; i < this.discs.length; i++) {
       const d = this.discs[i];
       const rx = d.px + (d.x - d.px) * alpha;
       const rz = d.pz + (d.z - d.pz) * alpha;
-      streaks.add(d.lx ?? rx, d.lz ?? rz, rx, rz, 1.0, 0.3 * sc, this.def.color, 0.16);
+      streaks.add(d.lx ?? rx, d.lz ?? rz, rx, rz, 1.0, 0.3 * sc, this.look(this.def.color), 0.16);
       d.lx = rx;
       d.lz = rz;
       this.q.setFromAxisAngle(this.up, d.spin);

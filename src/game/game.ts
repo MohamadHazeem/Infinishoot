@@ -19,7 +19,7 @@ import { Hud, type LoadoutItem } from '../ui/hud';
 import { Screens, type Offer, type RunSummary, type ShopView } from '../ui/screens';
 import { createFieldArena, type Arena } from '../world/fieldArena';
 import { biomeForStage } from '../data/biomes';
-import { applyBiomeLook } from '../render/biomeLook';
+import { applyBiomeLook, applyTimeOfDay } from '../render/biomeLook';
 import { Barrels, barrelTuning, type Barrel } from './barrels';
 import { Chests } from './chests';
 import { BULLET_Y, Bullets, Team } from './bullets';
@@ -41,6 +41,7 @@ import { createWeapon, type Buster, type DamageOpts, type WeaponCtx } from './we
 import { Ambience } from './ambience';
 import { SCAR_COLORS, Scars } from './scars';
 import { streaks } from './streaks';
+import { skinOf } from '../data/skins';
 
 export { economyTuning } from './hero';
 
@@ -100,6 +101,7 @@ interface LobbyEntry {
   peerId: string; // '' = host
   name: string;
   unlocked: string[];
+  skin: string;
 }
 
 /** Shop view sent over the network (Mods referenced by id). */
@@ -176,6 +178,7 @@ export class Game implements HeroWorld {
   private slowMoT = 0;
   private bossBoom: { x: number; z: number; r: number; n: number; t: number; color: string } | null = null;
   private trailT = 0;
+  private dayK = 0;
   private heartT = 0;
   private bossesRun = 0;
   private newAchievements: string[] = [];
@@ -280,6 +283,7 @@ export class Game implements HeroWorld {
       mpJoin: (name, code) => void this.joinGame(name, code),
       mpStart: () => this.hostStart(),
       mpLeave: () => this.leaveToTitle(),
+      skinChanged: () => this.applyLocalSkin(),
     });
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyF' && this.isCombatMode && !this.paused && this.screens.current === 'none') {
@@ -342,14 +346,24 @@ export class Game implements HeroWorld {
 
   // ------------------------------------------------------------------ heroes and contexts
 
-  private makeHero(index: number, name: string, unlocked: string[], peerId = ''): Hero {
-    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId);
+  private makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin): Hero {
+    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, skinOf(skin));
+    h.player.setSkin(h.skin.armor, h.skin);
     return h;
   }
 
   private setHeroes(list: Hero[]): void {
     for (const h of this.heroes) if (!list.includes(h)) h.dispose();
     this.heroes = list;
+    // Solo wears the skin's armour; co-op keeps per-player armour colours.
+    for (const h of list) h.player.setSkin(list.length > 1 ? h.color : h.skin.armor, h.skin);
+  }
+
+  /** Wardrobe: re-dress this machine's hero. */
+  applyLocalSkin(): void {
+    const h = this.hero;
+    h.skin = skinOf(settings.skin);
+    h.player.setSkin(this.heroes.length > 1 ? h.color : h.skin.armor, h.skin);
   }
 
   makeCtx(hero: Hero): WeaponCtx {
@@ -545,7 +559,7 @@ export class Game implements HeroWorld {
     if (this.role === 'host') {
       for (const h of this.heroes) {
         if (!h.peerId) continue;
-        this.host!.send(h.peerId, { t: 'start', seed: this.seed, you: h.index, players: this.heroes.map((x) => ({ name: x.name })) });
+        this.host!.send(h.peerId, { t: 'start', seed: this.seed, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id })) });
       }
     }
     this.loadStage(1);
@@ -882,11 +896,13 @@ export class Game implements HeroWorld {
     this.vfx.shake(p.x, p.z, 0.35);
     this.vfx.flash(0.35);
     this.vfx.sound('evolve', NaN, NaN);
+    h.player.happyT = 2.5;
     this.vfx.banner('EVOLUTION!', (this.role === 'solo' ? '' : `${h.name.toUpperCase()}: `) + name.toUpperCase(), 1.8);
   }
 
   private afterPick(h: Hero, color: string): void {
     const p = h.player;
+    p.happyT = 1.4;
     this.vfx.burst(p.x, 1, p.z, { count: 20, color, color2: '#ffffff', speed: [3, 8], size: [0.12, 0.3], life: [0.4, 0.8], up: 6, gravity: 10 });
     this.checkAchievements();
     if (h.needsPick) {
@@ -1903,6 +1919,7 @@ export class Game implements HeroWorld {
     if (!c) return;
     this.host?.broadcast({ t: 'wchest', i });
     const item = h.chestItem();
+    h.player.happyT = 1.2;
     this.vfx.sound('chest', c.x, c.z);
     this.vfx.ring(c.x, c.z, 1, 5, '#ffcd75', 0.35);
     this.vfx.burst(c.x, 0.8, c.z, { count: 22, color: '#ffcd75', color2: item.color, speed: [3, 7], size: [0.12, 0.28], life: [0.4, 0.8], up: 7, gravity: 12 });
@@ -1975,7 +1992,7 @@ export class Game implements HeroWorld {
     this.role = 'host';
     const host = new NetHost(3);
     this.host = host;
-    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons() }];
+    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), skin: settings.skin }];
     this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
     host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
     host.onLeave = (id) => this.onClientLeft(id);
@@ -1999,7 +2016,7 @@ export class Game implements HeroWorld {
   private hostStart(): void {
     if (this.role !== 'host' || !this.host) return;
     const heroes = this.lobby.map((p, i) =>
-      i === 0 ? this.hero : this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId),
+      i === 0 ? this.hero : this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin),
     );
     this.hero.name = this.lobby[0].name;
     this.setHeroes(heroes);
@@ -2029,7 +2046,7 @@ export class Game implements HeroWorld {
       this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
       return;
     }
-    client.send({ t: 'hello', name, unlocked: unlockedWeapons() });
+    client.send({ t: 'hello', name, unlocked: unlockedWeapons(), skin: settings.skin });
     this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
   }
 
@@ -2053,6 +2070,7 @@ export class Game implements HeroWorld {
         peerId: from,
         name: String(m.name ?? 'Player').slice(0, 12),
         unlocked: Array.isArray(m.unlocked) ? (m.unlocked as string[]) : unlockedWeapons(),
+        skin: skinOf(String(m.skin ?? '')).id,
       });
       this.refreshLobby();
       return;
@@ -2249,9 +2267,9 @@ export class Game implements HeroWorld {
     };
   }
 
-  private clientStart(seed: number, you: number, players: { name: string }[]): void {
+  private clientStart(seed: number, you: number, players: { name: string; skin?: string }[]): void {
     this.seed = seed;
-    const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : []));
+    const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin));
     this.setHeroes(heroes);
     this.local = you;
     for (const h of heroes) {
@@ -2474,6 +2492,20 @@ export class Game implements HeroWorld {
     }
   }
 
+  /** Midday to sunset over each stage: dusk falls in the second half, the boss fights at sunset. */
+  private updateSky(frameDt: number): void {
+    let want = 0;
+    if (this.mode !== 'title') {
+      const d = this.director.duration;
+      const frac =
+        this.role === 'client' ? (this.netTimeLeft >= 0 ? 1 - this.netTimeLeft / d : 1) : this.director.bossSpawned ? 1 : this.director.time / d;
+      want = Math.max(0, Math.min(1, (frac - 0.35) / 0.65));
+    }
+    // A new stage starts back at midday straight away; otherwise ease.
+    this.dayK = want < this.dayK - 0.5 ? want : this.dayK + (want - this.dayK) * Math.min(1, frameDt * 0.8);
+    applyTimeOfDay(this.dayK);
+  }
+
   /** What the music should be doing right now (local to each machine). */
   private updateMusic(frameDt: number, boss: { hp01: number } | null): void {
     const m = this.mode;
@@ -2529,6 +2561,8 @@ export class Game implements HeroWorld {
         h.player.rig.root.visible = false;
         continue;
       }
+      h.player.cheer = this.mode === 'cleared';
+      h.player.focus = h === local && h.ctx.charging;
       h.player.render(h === local || !client ? a : netA, rdt);
     }
     p.renderPos(a, this.playerPos);
@@ -2547,7 +2581,7 @@ export class Game implements HeroWorld {
     streaks.render(rdt);
     this.ambience.render(rdt, this.playerPos.x, this.playerPos.z, this.heroes.filter((h) => !h.left && !h.player.dead).map((h) => h.player));
     this.pickups.render(this.animTime);
-    for (const h of this.heroes) for (const w of h.weapons) w.render(a, h.ctx);
+    for (const h of this.heroes) for (const w of h.weapons) w.draw(a, h.ctx);
     this.fx.render(this.cam.camera);
     this.portal.render(rdt);
     this.renderMuzzleFlashes();
@@ -2600,6 +2634,7 @@ export class Game implements HeroWorld {
     this.dmg.render(rdt, this.cam.camera);
     const boss = client ? this.netBoss : this.boss && this.boss.active ? { name: this.boss.def.name, hp01: Math.max(0, this.boss.hp / this.boss.maxHp) } : null;
     this.updateMusic(frameDt, boss);
+    this.updateSky(frameDt);
     this.hud.update(
       {
         hp: p.hp,

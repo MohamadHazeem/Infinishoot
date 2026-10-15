@@ -12,13 +12,13 @@ export class Nova extends Weapon {
     if (pl.dead || !this.tick(dt, ctx, p.cd)) return;
     const r = p.radius * ctx.stats.areaMul;
     ctx.sound('freeze');
-    ctx.fx.ring(pl.x, pl.z, 1, r * 2, '#9fe8ff', 0.4);
+    ctx.fx.ring(pl.x, pl.z, 1, r * 2, this.look('#9fe8ff'), 0.4);
     ctx.fx.ring(pl.x, pl.z, 1, r * 1.5, '#ffffff', 0.3);
     ctx.fx.scar(pl.x, pl.z, r * 0.8, SCAR_COLORS.frost, 6);
     ctx.particles.burst(pl.x, 0.6, pl.z, {
       count: 26,
       color: '#ffffff',
-      color2: '#9fe8ff',
+      color2: this.look('#9fe8ff'),
       speed: [r * 1.5, r * 3],
       size: [0.12, 0.28],
       life: [0.25, 0.45],

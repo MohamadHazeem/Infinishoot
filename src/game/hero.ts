@@ -12,6 +12,7 @@ import { Player, dashLevelMul } from './player';
 import { computeStats, type Stats } from './stats';
 import { MAX_MOD_SLOTS, Synergy, type SynergyHost } from './synergy';
 import { createWeapon, type Weapon, type WeaponCtx } from './weapons';
+import { SKINS, type SkinDef } from '../data/skins';
 
 export const MAX_WEAPONS = 6;
 export const MAX_PASSIVES = 6;
@@ -102,8 +103,9 @@ export class Hero implements SynergyHost {
     /** Weapons this player's own save has unlocked. */
     public unlocked: string[],
     readonly peerId = '',
+    public skin: SkinDef = SKINS[0],
   ) {
-    this.player = new Player(world.scene, color);
+    this.player = new Player(world.scene, color, skin);
     this.synergy = new Synergy(this);
     this.ctx = world.makeCtx(this);
   }

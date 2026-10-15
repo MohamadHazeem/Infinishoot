@@ -13,6 +13,10 @@ export const postSettings = {
   colorBits: 5,
   dither: 0.5,
   saturation: 1.15,
+  /** Soft glow around bright pixels (0 = off). */
+  glow: 0.4,
+  /** CRT look: scanlines and a vignette (0 = off, 1 = full). */
+  crt: 0,
 };
 
 const postVert = /* glsl */ `
@@ -28,6 +32,9 @@ uniform sampler2D tScene;
 uniform float uBits;
 uniform float uDither;
 uniform float uSaturation;
+uniform float uGlow;
+uniform float uCrt;
+uniform vec2 uTexel;
 in vec2 vUv;
 layout(location = 0) out vec4 outColor;
 
@@ -37,13 +44,31 @@ float bayer4(vec2 p) {
   return m[i.x + i.y * 4] / 16.0 - 0.46875;
 }
 
+vec3 bright(vec2 o) {
+  vec3 c = texture(tScene, vUv + o * uTexel).rgb;
+  return max(c - 0.62, 0.0);
+}
+
 void main() {
   vec3 col = texture(tScene, vUv).rgb;
+  // Cheap glow: bright neighbours at two radii bleed into this pixel.
+  if (uGlow > 0.0) {
+    vec3 g = bright(vec2(2.0, 0.0)) + bright(vec2(-2.0, 0.0)) + bright(vec2(0.0, 2.0)) + bright(vec2(0.0, -2.0));
+    g += 0.6 * (bright(vec2(3.0, 3.0)) + bright(vec2(-3.0, 3.0)) + bright(vec2(3.0, -3.0)) + bright(vec2(-3.0, -3.0)));
+    g += 0.4 * (bright(vec2(5.0, 0.0)) + bright(vec2(-5.0, 0.0)) + bright(vec2(0.0, 5.0)) + bright(vec2(0.0, -5.0)));
+    col += g * uGlow * 0.45;
+  }
   float luma = dot(col, vec3(0.299, 0.587, 0.114));
   col = clamp(mix(vec3(luma), col, uSaturation), 0.0, 1.0);
   float levels = exp2(uBits) - 1.0;
   col += bayer4(gl_FragCoord.xy) * uDither / levels;
   col = floor(col * levels + 0.5) / levels;
+  if (uCrt > 0.0) {
+    // Every other line a little darker, plus a soft vignette.
+    col *= 1.0 - uCrt * 0.22 * step(1.0, mod(gl_FragCoord.y, 2.0));
+    vec2 d = vUv - 0.5;
+    col *= 1.0 - uCrt * 0.5 * pow(dot(d, d) * 2.2, 1.6);
+  }
   outColor = vec4(col, 1.0);
 }
 `;
@@ -81,6 +106,9 @@ export class RetroRenderer {
         uBits: { value: postSettings.colorBits },
         uDither: { value: postSettings.dither },
         uSaturation: { value: postSettings.saturation },
+        uGlow: { value: postSettings.glow },
+        uCrt: { value: postSettings.crt },
+        uTexel: { value: new THREE.Vector2(1, 1) },
       },
     });
     // Single full-screen triangle.
@@ -103,6 +131,7 @@ export class RetroRenderer {
     this.height.value = h;
     this.gl.setSize(w, h, false);
     this.target.setSize(w, h);
+    this.postMat.uniforms.uTexel.value.set(1 / w, 1 / h);
     retroGlobals.uSnapRes.value.set(w, h);
   }
 
@@ -116,6 +145,8 @@ export class RetroRenderer {
     u.uBits.value = postSettings.colorBits;
     u.uDither.value = postSettings.dither;
     u.uSaturation.value = postSettings.saturation;
+    u.uGlow.value = postSettings.glow;
+    u.uCrt.value = postSettings.crt;
 
     this.gl.setRenderTarget(this.target);
     this.gl.render(scene, camera);

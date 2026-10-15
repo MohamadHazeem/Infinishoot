@@ -2061,6 +2061,55 @@ h1.ko {
   color: var(--yellow);
 }
 
+/* ---------------------------------------------------------------- wardrobe */
+/* Transparent backdrop: the hero stands on the title field behind the menu. */
+#scr-wardrobe {
+  justify-content: flex-end;
+  padding-bottom: 28px;
+}
+
+.skin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 190px);
+  gap: 14px;
+}
+
+.screen button.skin {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 10px 8px;
+}
+
+.screen button.skin.on {
+  --ring: var(--yellow);
+}
+
+.screen button.skin.locked {
+  color: var(--slate);
+}
+
+.skin .swatches {
+  display: flex;
+  gap: 3px;
+}
+
+.skin .swatches i {
+  width: 15px;
+  height: 15px;
+  box-shadow: 0 0 0 var(--p) var(--ink);
+}
+
+.skin small {
+  font: 10px var(--label);
+  letter-spacing: 1px;
+  color: var(--mist);
+}
+
+.skin.on small {
+  color: var(--yellow);
+}
+
 /* ---------------------------------------------------------------- jukebox */
 .now-playing {
   font: 14px var(--label);

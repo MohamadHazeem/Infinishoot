@@ -31,6 +31,10 @@ export class Lightning extends Weapon {
     scene.add(this.lines);
   }
 
+  protected applyLook(c: string | null): void {
+    this.mat.color.set(c ?? '#fff9b0');
+  }
+
   /** Bolts as [count, len, ...points, len, ...points]. */
   net(): number[] {
     const out: number[] = [this.bolts.length];

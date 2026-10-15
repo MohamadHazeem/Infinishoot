@@ -27,6 +27,11 @@ export class Aura extends Weapon {
     scene.add(this.group);
   }
 
+  protected applyLook(c: string | null): void {
+    this.edgeMat.color.set(c ?? '#3de0c8');
+    this.discMat.color.set(c ? new THREE.Color(c).multiplyScalar(0.45) : '#1a6f78');
+  }
+
   private radius(ctx: WeaponCtx): number {
     return this.p.radius * ctx.stats.areaMul;
   }

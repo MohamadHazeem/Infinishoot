@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
-import { textures } from '../render/textures';
+import type { SkinDef } from '../data/skins';
 
 /**
  * Placeholder chunky anime hero built from primitives: big head with a
@@ -17,7 +17,14 @@ const PALETTE = {
   hair: '#5a3a22',
 };
 
+export type Expression = 'normal' | 'blink' | 'hurt' | 'focus' | 'happy' | 'ko';
+
 export interface HeroRig {
+  /** Named materials so a skin can recolour the rig in place. */
+  mats: { armor: RetroMaterial; armorDark: RetroMaterial; accent: RetroMaterial; suit: RetroMaterial; red: RetroMaterial; hair: RetroMaterial; face: RetroMaterial };
+  /** Current face (swap with setExpression). */
+  expression: Expression;
+  iris: string;
   root: THREE.Group;
   body: THREE.Group; // bobs / leans
   legL: THREE.Group;
@@ -28,8 +35,8 @@ export interface HeroRig {
   materials: RetroMaterial[];
 }
 
-/** `armorColor` tints the suit so co-op players are easy to tell apart. */
-export function createHero(armorColor: string = PALETTE.armor): HeroRig {
+/** `armorColor` tints the suit so co-op players are easy to tell apart; `skin` paints the rest. */
+export function createHero(armorColor: string = PALETTE.armor, skin?: SkinDef): HeroRig {
   const materials: RetroMaterial[] = [];
   const mat = (color: string, extra: Parameters<typeof createRetroMaterial>[0] = {}) => {
     const m = createRetroMaterial({ color, ...extra });
@@ -43,13 +50,14 @@ export function createHero(armorColor: string = PALETTE.armor): HeroRig {
   };
 
   const armor = mat(armorColor);
-  const armorDark = mat('#' + new THREE.Color(armorColor).multiplyScalar(0.68).getHexString());
-  const accent = mat(PALETTE.accent);
-  const skin = mat(PALETTE.skin);
-  const suit = mat(PALETTE.suit);
-  const red = mat(PALETTE.red);
-  const hair = mat(PALETTE.hair);
-  const face = mat('#ffffff', { map: textures.face(), alphaTest: 0.5 });
+  const armorDark = mat(darker(armorColor));
+  const accent = mat(skin?.accent ?? PALETTE.accent);
+  const skinMat = mat(PALETTE.skin);
+  const suit = mat(skin?.suit ?? PALETTE.suit);
+  const red = mat(skin?.gem ?? PALETTE.red);
+  const hair = mat(skin?.hair ?? PALETTE.hair);
+  const iris = skin?.iris ?? '#2a9d4b';
+  const face = mat('#ffffff', { map: faceTexture('normal', iris), alphaTest: 0.5 });
 
   const root = new THREE.Group();
   const body = new THREE.Group();
@@ -100,7 +108,7 @@ export function createHero(armorColor: string = PALETTE.armor): HeroRig {
   const head = new THREE.Group();
   head.position.set(0, 1.5, 0);
   body.add(head);
-  head.add(mesh(new THREE.SphereGeometry(0.36, 10, 8), skin));
+  head.add(mesh(new THREE.SphereGeometry(0.36, 10, 8), skinMat));
   // Hair tuft poking out the front
   head.add(mesh(new THREE.BoxGeometry(0.5, 0.1, 0.12), hair, 0, 0.2, 0.27));
   // Helmet: upper hemisphere shell, slightly bigger than head
@@ -132,7 +140,145 @@ export function createHero(armorColor: string = PALETTE.armor): HeroRig {
     o.receiveShadow = false;
   });
 
-  return { root, body, legL, legR, armL, armR, head, materials };
+  return { mats: { armor, armorDark, accent, suit, red, hair, face }, expression: 'normal', iris, root, body, legL, legR, armL, armR, head, materials };
+}
+
+function darker(c: string): string {
+  return '#' + new THREE.Color(c).multiplyScalar(0.68).getHexString();
+}
+
+/** Recolour a rig in place (wardrobe preview, joining players). */
+export function applySkin(rig: HeroRig, armorColor: string, skin: SkinDef): void {
+  rig.mats.armor.uniforms.uColor.value.set(armorColor);
+  rig.mats.armorDark.uniforms.uColor.value.set(darker(armorColor));
+  rig.mats.accent.uniforms.uColor.value.set(skin.accent);
+  rig.mats.suit.uniforms.uColor.value.set(skin.suit);
+  rig.mats.red.uniforms.uColor.value.set(skin.gem);
+  rig.mats.hair.uniforms.uColor.value.set(skin.hair);
+  rig.iris = skin.iris;
+  setExpression(rig, rig.expression, true);
+}
+
+export function setExpression(rig: HeroRig, e: Expression, force = false): void {
+  if (rig.expression === e && !force) return;
+  rig.expression = e;
+  rig.mats.face.uniforms.uMap.value = faceTexture(e, rig.iris);
+}
+
+const faceCache = new Map<string, THREE.Texture>();
+
+/** Painted anime face, 32x32 pixel art: big eyes, small mouth, transparent background. */
+export function faceTexture(e: Expression, iris: string): THREE.Texture {
+  const key = e + iris;
+  const hit = faceCache.get(key);
+  if (hit) return hit;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 32;
+  const g = cv.getContext('2d')!;
+  const px = (x: number, y: number, c: string, w = 1, h = 1) => {
+    g.fillStyle = c;
+    g.fillRect(x, y, w, h);
+  };
+  const ink = '#1b1f4a';
+  const pupil = '#' + new THREE.Color(iris).multiplyScalar(0.4).getHexString();
+  const openEye = (cx: number, squint = 0) => {
+    const top = 9 + squint;
+    px(cx - 3, top, ink, 7, 1);
+    px(cx - 3, top + 1, ink, 1, 9 - squint);
+    px(cx + 3, top + 1, ink, 1, 9 - squint);
+    px(cx - 2, 19, ink, 5, 1);
+    px(cx - 2, top + 1, '#ffffff', 5, 9 - squint);
+    px(cx - 2, Math.max(top + 1, 12), iris, 4, 19 - Math.max(top + 1, 12));
+    px(cx - 1, Math.max(top + 2, 14), pupil, 2, 19 - Math.max(top + 2, 14) - 1);
+    px(cx - 2, Math.max(top + 1, 12), '#ffffff', 2, 2);
+  };
+  const closedEye = (cx: number) => {
+    px(cx - 3, 16, ink, 7, 1);
+    px(cx - 3, 15, ink, 1, 1);
+    px(cx + 3, 15, ink, 1, 1);
+  };
+  const happyEye = (cx: number) => {
+    // ^ shape
+    px(cx - 3, 16, ink, 1, 2);
+    px(cx - 2, 14, ink, 1, 2);
+    px(cx - 1, 13, ink, 3, 1);
+    px(cx + 2, 14, ink, 1, 2);
+    px(cx + 3, 16, ink, 1, 2);
+  };
+  const crossEye = (cx: number) => {
+    for (let i = 0; i < 5; i++) {
+      px(cx - 2 + i, 12 + i, ink, 1, 1);
+      px(cx + 2 - i, 12 + i, ink, 1, 1);
+    }
+  };
+  const hurtEye = (cx: number, side: number) => {
+    // > <
+    for (let i = 0; i < 3; i++) {
+      px(cx - side * (2 - i) , 12 + i, ink, 2, 1);
+      px(cx - side * (2 - i), 16 - i, ink, 2, 1);
+    }
+  };
+  switch (e) {
+    case 'normal':
+      openEye(10);
+      openEye(21);
+      px(14, 24, '#b5384a', 4, 1);
+      px(15, 25, '#e0606f', 2, 1);
+      break;
+    case 'blink':
+      closedEye(10);
+      closedEye(21);
+      px(14, 24, '#b5384a', 4, 1);
+      break;
+    case 'focus':
+      openEye(10, 4);
+      openEye(21, 4);
+      px(7, 11, ink, 6, 1); // angled brows
+      px(19, 11, ink, 6, 1);
+      px(14, 25, '#b5384a', 4, 1);
+      break;
+    case 'happy':
+      happyEye(10);
+      happyEye(21);
+      px(12, 23, '#b5384a', 8, 1);
+      px(13, 24, '#b5384a', 6, 2);
+      px(14, 25, '#ff9fa8', 4, 1);
+      break;
+    case 'hurt':
+      hurtEye(10, -1);
+      hurtEye(21, 1);
+      px(13, 23, '#b5384a', 6, 4);
+      px(14, 24, '#5d275d', 4, 2);
+      break;
+    case 'ko':
+      crossEye(10);
+      crossEye(21);
+      px(13, 24, '#b5384a', 6, 1);
+      px(13, 25, '#5d275d', 1, 1);
+      px(18, 25, '#5d275d', 1, 1);
+      break;
+  }
+  // Blush
+  px(5, 21, '#ff9fa8', 3, 1);
+  px(24, 21, '#ff9fa8', 3, 1);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  faceCache.set(key, tex);
+  return tex;
+}
+
+/** Victory pose: both arms up, bouncing on the spot. `k` 0..1 blends it in. */
+export function poseVictory(rig: HeroRig, time: number, k: number): void {
+  const hop = Math.abs(Math.sin(time * 6));
+  rig.armR.rotation.x += (-Math.PI + 0.2 - rig.armR.rotation.x) * k;
+  rig.armL.rotation.x += (-Math.PI + 0.3 + Math.sin(time * 12) * 0.25 - rig.armL.rotation.x) * k;
+  rig.armL.rotation.z = -0.3 * k;
+  rig.armR.rotation.z = 0.3 * k;
+  rig.body.position.y += hop * 0.35 * k;
+  rig.legL.rotation.x = (hop - 0.5) * 0.6 * k;
+  rig.legR.rotation.x = (hop - 0.5) * -0.6 * k;
+  rig.head.rotation.z = Math.sin(time * 6) * 0.12 * k;
 }
 
 /**
@@ -145,6 +291,7 @@ export function animateHero(rig: HeroRig, time: number, speed01: number, recoil0
   rig.legL.rotation.x = swing;
   rig.legR.rotation.x = -swing;
   rig.armL.rotation.x = -swing * 0.6;
+  rig.armL.rotation.z = rig.armR.rotation.z = 0;
   rig.armR.rotation.x = -Math.PI / 2 + 0.1 - recoil01 * 0.45; // buster arm points forward, kicks up on fire
   const bob = Math.abs(Math.sin(walk)) * 0.08 * speed01 + Math.sin(time * 2.2) * 0.015 * (1 - speed01);
   rig.body.position.y = bob;

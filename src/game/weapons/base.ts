@@ -100,6 +100,25 @@ export abstract class Weapon {
     if (this.maxed && !this.evolved && this.def.evo) this.level = this.def.levels.length + 1;
   }
 
+  /** The evolved colour when evolved, else `base`. */
+  protected look(base: string): string {
+    return this.evolved ? this.def.evo!.color : base;
+  }
+
+  private lookEvo = false;
+
+  /** Render entry point: re-skins the weapon when it evolves, then draws it. */
+  draw(alpha: number, ctx: WeaponCtx): void {
+    if (this.evolved !== this.lookEvo) {
+      this.lookEvo = this.evolved;
+      this.applyLook(this.evolved ? this.def.evo!.color : null);
+    }
+    this.render(alpha, ctx);
+  }
+
+  /** Recolour meshes for the evolved form (`null` = back to normal). */
+  protected applyLook(_evoColor: string | null): void {}
+
   /** Counts down a cooldown scaled by stats; returns true when it fires. */
   protected tick(dt: number, ctx: WeaponCtx, base: number): boolean {
     this.cd -= dt;
