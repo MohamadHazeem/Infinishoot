@@ -100,6 +100,7 @@ const AIM_HEIGHT = BULLET_Y;
 const TITLE_SEED = 1234;
 const RECYCLE_DIST = 36;
 const CHARGE_TAGS: Tag[] = ['projectile'];
+const SCATTER_FIRE: Tag[] = ['projectile', 'fire'];
 const SNAP_EVERY = 3; // host snapshot every N sim steps (20 Hz)
 const INPUT_EVERY = 2; // client input every N sim steps (30 Hz)
 const INTEREST = 34; // only send entities this close to each client's hero
@@ -2208,8 +2209,9 @@ export class Game implements HeroWorld {
       if (hit) {
         const sp = Math.hypot(b.vx[i], b.vz[i]) || 1;
         const by = this.heroes[b.owner[i]] ?? this.hero;
-        const source = b.kind[i] === 1 ? 'charge' : 'buster';
-        this.damage(hit, b.damage[i], { source, tags: b.kind[i] === 1 ? CHARGE_TAGS : undefined, dirX: b.vx[i] / sp, dirZ: b.vz[i] / sp, knockback: b.knockback[i], hx: x, hz: z, canCrit: true, loud: true }, by);
+        const k = b.kind[i];
+        const source = k === 1 ? 'charge' : k >= 2 ? 'scatter' : 'buster';
+        this.damage(hit, b.damage[i], { source, tags: k === 1 ? CHARGE_TAGS : k === 3 ? SCATTER_FIRE : undefined, dirX: b.vx[i] / sp, dirZ: b.vz[i] / sp, knockback: b.knockback[i], hx: x, hz: z, canCrit: true, loud: true }, by);
         if (b.pierce[i] > 0) {
           b.pierce[i]--;
           b.lastHit[i] = hit.uid;

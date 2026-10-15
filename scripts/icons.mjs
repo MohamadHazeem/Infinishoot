@@ -15,6 +15,9 @@ const ART = {
   mines: 'land-mine',
   nova: 'frozen-orb',
   fire: 'fire-dash',
+  laser: 'laser-blast',
+  scatter: 'shotgun',
+  bouncer: 'boomerang',
   // passives
   power_cell: 'battery-pack',
   rapid_coil: 'stopwatch',
