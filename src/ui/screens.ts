@@ -38,6 +38,7 @@ export interface ScreenActions {
   mpLeave(): void;
   /** The local skin setting changed. */
   skinChanged(): void;
+  takeCurse(): void;
 }
 
 export interface LobbyView {
@@ -60,6 +61,8 @@ export interface ShopView {
   healed: boolean;
   loadout: LoadoutItem[];
   stage: number;
+  /** Optional curse deal (one per shop visit). */
+  curse: { id: string; name: string; desc: string; icon: string; color: string; gold: number; score: number } | null;
 }
 
 export interface Offer {
@@ -339,6 +342,8 @@ export class Screens {
           return actions.shopReroll();
         case 'shop-heal':
           return actions.shopHeal();
+        case 'take-curse':
+          return actions.takeCurse();
         case 'shop-done':
           return actions.shopDone();
         case 'settings':
@@ -519,9 +524,13 @@ export class Screens {
   }
 
   /** The pause screen shows the current build. */
-  setPauseBuild(loadout: LoadoutItem[], mods: ModDef[] = []): void {
+  setPauseBuild(loadout: LoadoutItem[], mods: ModDef[] = [], extras: { id: string; name: string; desc: string; icon: string; color: string; curse?: boolean }[] = []): void {
+    const chip = (x: (typeof extras)[number]) =>
+      `<span class="mod-chip ${x.curse ? 'cursed' : ''}" style="--c:${x.color}" title="${x.desc}">${iconHtml(x.id, x.color, x.icon)}${x.name}</span>`;
     this.els.pause.querySelector('.build')!.innerHTML =
-      loadout.map(badge).join('') + (mods.length ? `<div class="mod-strip">${mods.map(modChip).join('')}</div>` : '');
+      loadout.map(badge).join('') +
+      (mods.length ? `<div class="mod-strip">${mods.map(modChip).join('')}</div>` : '') +
+      (extras.length ? `<div class="mod-strip">${extras.map(chip).join('')}</div>` : '');
   }
 
   // ---------------------------------------------------------------- shop
@@ -548,6 +557,18 @@ export class Screens {
         </button>`;
       })
       .join('');
+    const c = v.curse;
+    const curseCard = c
+      ? `<button class="mod-card curse-deal cursed" data-nav data-act="take-curse">
+          <div class="rarity">CURSE DEAL</div>
+          <div class="icon" style="--c:${c.color}">${iconHtml(c.id, c.color, c.icon)}</div>
+          <div class="name">${c.name}</div>
+          <div class="desc">${c.desc}</div>
+          <div class="hint">For the rest of the run. Score +${Math.round(c.score * 100)}%</div>
+          <div class="price">TAKE +<span class="gold-dot"></span> ${c.gold}</div>
+        </button>`
+      : '';
+    el.querySelector('.shop-offers')!.insertAdjacentHTML('beforeend', curseCard);
     el.querySelector('.shop-extras')!.innerHTML =
       `<button data-nav data-act="shop-reroll" class="${v.rerollCost > v.gold ? 'cant' : ''}">REROLL ${v.rerollCost ? `<span class="gold-dot"></span> ${v.rerollCost}` : 'FREE'}</button>` +
       `<button data-nav data-act="shop-heal" class="${v.healed || v.healCost > v.gold ? 'cant' : ''}">HEAL 40% <span class="gold-dot"></span> ${v.healCost}</button>` +

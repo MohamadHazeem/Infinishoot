@@ -21,6 +21,8 @@ export interface HudState {
   kills: number;
   gold: number;
   boss: { name: string; hp01: number } | null;
+  /** Event, challenge and power-up lines under the timer. */
+  spice: { text: string; kind: 'event' | 'challenge' | 'done' | 'buff' }[];
   lowHp: boolean;
 }
 
@@ -63,6 +65,7 @@ export class Hud {
          <div id="hp"><div class="bar"><div class="fill"></div></div><div class="num"></div></div>
          <div id="runinfo"><span class="kills"></span><span class="gold"></span></div>
          <div id="timer"><div class="clock"></div><div class="stage"></div></div>
+         <div id="spice"></div>
          <button id="pausebtn" title="Pause (Esc)" aria-label="Pause">II</button>
          <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
          <div id="toast"></div>
@@ -280,6 +283,12 @@ export class Hud {
     if (s.boss) {
       this.text('#bossbar .name', s.boss.name.toUpperCase());
       this.el('#bossbar .fill').style.transform = `scaleX(${s.boss.hp01})`;
+    }
+
+    const spice = s.spice.map((l) => `<div class="${l.kind}">${l.text}</div>`).join('');
+    if (this.lastText['#spice'] !== spice) {
+      this.lastText['#spice'] = spice;
+      this.el('#spice').innerHTML = spice;
     }
 
     // Score counts up quickly toward the real value.

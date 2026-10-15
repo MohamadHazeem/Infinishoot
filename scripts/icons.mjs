@@ -73,6 +73,23 @@ const ART = {
   pacifist: 'peace-dove',
   overclock: 'heart-organ',
   gremlin: 'imp-laugh',
+  // curses
+  c_swift: 'running-ninja',
+  c_thick: 'turtle-shell',
+  c_glass: 'broken-bone',
+  c_famine: 'bread',
+  c_crowd: 'skull-crossed-bones',
+  c_fuse: 'dust-cloud',
+  c_brutal: 'spiked-mace',
+  // relics
+  r_dashbomb: 'boots',
+  r_static: 'lightning-trio',
+  r_fang: 'vampire-dracula',
+  r_phoenix: 'feather',
+  r_thorns: 'thorny-vine',
+  r_midas: 'gold-bar',
+  r_clover: 'three-leaves',
+  r_hourglass: 'sands-of-time',
   // level-up bonuses
   gold: 'swap-bag',
   heal: 'health-potion',

@@ -13,6 +13,7 @@ import { computeStats, type Stats } from './stats';
 import { MAX_MOD_SLOTS, Synergy, type SynergyHost } from './synergy';
 import { createWeapon, type Weapon, type WeaponCtx } from './weapons';
 import { SKINS, type SkinDef } from '../data/skins';
+import { CURSE_BY_ID, CURSES } from '../data/curses';
 
 export const MAX_WEAPONS = 6;
 export const MAX_PASSIVES = 6;
@@ -38,6 +39,12 @@ export interface HeroWorld {
   shock(e: Enemy, by: Hero): void;
   makeCtx(hero: Hero): WeaponCtx;
   goldFx(hero: Hero, n: number): void;
+  /** Team-wide multipliers: combo power-ups and curses. */
+  readonly fireRateBuff: number;
+  readonly damageBuff: number;
+  readonly dashCurse: number;
+  /** Curse ids already in effect (not offered again). */
+  readonly activeCurses: readonly string[];
 }
 
 /** Latest input from a remote player (host side). */
@@ -141,7 +148,22 @@ export class Hero implements SynergyHost {
   // ---------------------------------------------------------------- run lifecycle
 
   /** Fresh run: Buster only, no passives or Mods. */
+  /** Relic ids (src/data/relics.ts), and their per-run state. */
+  relics: string[] = [];
+  phoenixUsed = false;
+  fangKills = 0;
+  /** The curse this hero's shop is offering (null = none / taken). */
+  curseOffer: string | null = null;
+
+  hasRelic(id: string): boolean {
+    return this.relics.includes(id);
+  }
+
   startRun(): void {
+    this.relics = [];
+    this.phoenixUsed = false;
+    this.fangKills = 0;
+    this.curseOffer = null;
     this.disposeWeapons();
     this.weapons = [createWeapon('buster', this.world.scene)];
     this.passives = {};
@@ -183,7 +205,9 @@ export class Hero implements SynergyHost {
   refreshLive(): void {
     Object.assign(this.stats, this.statBase);
     this.synergy.applyLive(this.stats);
-    this.stats.dashCooldownMul *= dashLevelMul(this.world.level);
+    this.stats.dashCooldownMul *= dashLevelMul(this.world.level) * this.world.dashCurse;
+    this.stats.cooldownMul *= this.world.fireRateBuff;
+    this.stats.damageMul *= this.world.damageBuff;
   }
 
   loadout(): LoadoutItem[] {
@@ -339,6 +363,8 @@ export class Hero implements SynergyHost {
     this.shopHealed = false;
     this.shopDone = false;
     this.rollShop();
+    const left = CURSES.filter((c) => !this.world.activeCurses.includes(c.id));
+    this.curseOffer = left.length && this.rng.chance(0.85) ? left[Math.floor(this.rng.next() * left.length)].id : null;
   }
 
   rollShop(): void {
@@ -392,6 +418,7 @@ export class Hero implements SynergyHost {
       healed: this.shopHealed || this.player.hp >= this.player.maxHp,
       loadout: this.loadout(),
       stage,
+      curse: this.curseOffer && !this.world.activeCurses.includes(this.curseOffer) ? (({ id, name, desc, icon, color, gold, score }) => ({ id, name, desc, icon, color, gold, score }))(CURSE_BY_ID[this.curseOffer]) : null,
     };
   }
 

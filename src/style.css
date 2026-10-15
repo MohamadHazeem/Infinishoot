@@ -363,6 +363,38 @@ div.mod-card.sold,
   letter-spacing: 1px;
 }
 
+#spice {
+  position: absolute;
+  top: calc(30 * var(--p) + 60px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  font: 12px var(--label);
+  letter-spacing: 1px;
+  text-shadow: var(--outline);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+#spice .event {
+  color: var(--orange);
+  animation: flash 0.8s steps(1) infinite;
+}
+
+#spice .challenge {
+  color: var(--yellow);
+}
+
+#spice .done {
+  color: var(--lime);
+}
+
+#spice .buff {
+  color: var(--cyan);
+}
+
 #timer .stage {
   margin-top: 6px;
   font: 11px var(--label);

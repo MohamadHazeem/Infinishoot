@@ -32,6 +32,8 @@ export class Director {
   stage = 1;
   /** Co-op scales enemy count and toughness with the number of players. */
   players = 1;
+  /** Extra enemies alive (curses, difficulty). */
+  countMul = 1;
   time = 0;
   bossSpawned = false;
   private spawnBudget = 0;
@@ -88,7 +90,7 @@ export class Director {
     const t = directorTuning;
     const k = Math.min(1, this.time / this.duration);
     const n = t.aliveStart + (t.aliveEnd - t.aliveStart) * Math.pow(k, 1.3) + t.alivePerStage * (this.stage - 1);
-    return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1))));
+    return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1)) * this.countMul));
   }
 
   private pool(): EnemyDef[] {

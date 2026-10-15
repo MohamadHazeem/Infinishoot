@@ -33,6 +33,27 @@ export class MenuNav {
     if (sound) this.items[i].scrollIntoView({ block: 'nearest' });
   }
 
+  /** Index of the closest item above (-1) or below (1) the focused one, or the focus itself. */
+  private nearestVertical(dir: -1 | 1): number {
+    const cur = this.items[this.focus]?.getBoundingClientRect();
+    if (!cur) return this.focus;
+    const cx = cur.left + cur.width / 2;
+    const cy = cur.top + cur.height / 2;
+    let best = this.focus;
+    let bd = Infinity;
+    this.items.forEach((el, i) => {
+      const r = el.getBoundingClientRect();
+      const dy = (r.top + r.height / 2 - cy) * dir;
+      if (dy < 8) return;
+      const d = dy + Math.abs(r.left + r.width / 2 - cx) * 2;
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    });
+    return best;
+  }
+
   update(input: Input, dt: number): void {
     if (this.items.length === 0) return;
     const k = (c: string) => input.keyPressed(c);
@@ -55,8 +76,14 @@ export class MenuNav {
     const prevPad = this.opts.horizontal ? 14 : 12;
     const nextPad = this.opts.horizontal ? 15 : 13;
     const cols = this.opts.columns ?? 1;
-    if (prevKeys.some(k) || pad(prevPad) || stick < 0) this.setFocus(Math.max(0, this.focus - cols));
-    if (nextKeys.some(k) || pad(nextPad) || stick > 0) this.setFocus(Math.min(this.items.length - 1, this.focus + cols));
+    if (cols > 1) {
+      // Grids: up/down go to the nearest item on screen in that direction, so rows of any length work.
+      if (prevKeys.some(k) || pad(prevPad) || stick < 0) this.setFocus(this.nearestVertical(-1));
+      if (nextKeys.some(k) || pad(nextPad) || stick > 0) this.setFocus(this.nearestVertical(1));
+    } else {
+      if (prevKeys.some(k) || pad(prevPad) || stick < 0) this.setFocus(Math.max(0, this.focus - cols));
+      if (nextKeys.some(k) || pad(nextPad) || stick > 0) this.setFocus(Math.min(this.items.length - 1, this.focus + cols));
+    }
     if (cols > 1) {
       // Grid: left/right step one item.
       if (k('ArrowLeft') || k('KeyA') || pad(14)) this.setFocus(this.focus - 1);
