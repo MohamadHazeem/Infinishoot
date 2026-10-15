@@ -8,7 +8,9 @@ Roadmap and decision log: @PLAN.md
 - `npm run typecheck`: strict TypeScript check (must pass)
 - `npm run build`: typecheck + production build to `dist/`
 - `npm run app`: build and open the Electron desktop app
-- `npm run dist`: build the portable Windows exe to `release/InfiniShoot.exe` (Electron, electron/main.cjs). This is the only shipped build; there is no itch.io build.
+- `npm run dist`: build the portable Windows exe to `release/InfiniShoot.exe` (Electron, electron/main.cjs).
+- `npm run dist:mac`: build unsigned Mac dmgs (arm64 + x64) to `release/`. The exe and the dmgs are the shipped builds; there is no itch.io build.
+- CI (`.github/workflows/ci.yml`) typechecks and builds every push; pushing a `v*` tag runs `.github/workflows/release.yml`, which builds the exe and the dmgs and attaches them to a GitHub Release.
 
 ## Conventions
 - Gameplay simulates in 2D on the XZ plane; meshes are presentation only and interpolate between `prev` and `pos`.

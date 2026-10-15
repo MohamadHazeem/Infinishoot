@@ -6,11 +6,12 @@ Built with TypeScript, Vite and Three.js, with a Mega Man Legends-inspired low-p
 
 ## Play it
 
-Download `InfiniShoot.exe` from the [Releases page](https://github.com/Mansouralmadi/Infinishoot/releases) and double-click it. No install needed. The first launch takes a few seconds while it unpacks.
+Download from the [Releases page](https://github.com/MohamadHazeem/Infinishoot/releases):
 
-The exe isn't code-signed yet, so Windows may show "Windows protected your PC". Click **More info**, then **Run anyway**.
+- **Windows:** `InfiniShoot.exe`. Double-click it; no install needed. The first launch takes a few seconds while it unpacks. The exe isn't code-signed yet, so Windows may show "Windows protected your PC": click **More info**, then **Run anyway**.
+- **Mac:** `InfiniShoot-mac-arm64.dmg` (Apple Silicon) or `InfiniShoot-mac-x64.dmg` (Intel). Open it and drag InfiniShoot to Applications. The app isn't signed yet, so the first time, right-click it and choose **Open**, then **Open** again.
 
-Press F11 for fullscreen. Progress saves automatically on your PC. To back it up or move it to another PC, use UNLOCKS > SAVE DATA > SAVE TO FILE, then LOAD FROM FILE on the other PC.
+Press F11 (Ctrl+Cmd+F on a Mac) for fullscreen. Progress saves automatically on your computer. To back it up or move it to another computer, use UNLOCKS > SAVE DATA > SAVE TO FILE, then LOAD FROM FILE on the other one.
 
 ## Build it
 
@@ -29,7 +30,10 @@ Then open http://localhost:5173.
 | `npm run typecheck` | Strict TypeScript check |
 | `npm run build` | Typecheck + production build to `dist/` |
 | `npm run app` | Build and open the desktop app |
-| `npm run dist` | Build `release/InfiniShoot.exe` (single portable exe) |
+| `npm run dist` | Build `release/InfiniShoot.exe` (single portable exe, run on Windows) |
+| `npm run dist:mac` | Build the Mac apps `release/InfiniShoot-mac-*.dmg` (run on a Mac) |
+
+Every push and pull request is typechecked and built on GitHub (`.github/workflows/ci.yml`). To publish a release, push a version tag (`git tag v0.6.0 && git push origin v0.6.0`): `.github/workflows/release.yml` builds the Windows exe and both Mac dmgs and attaches them to a GitHub Release.
 
 ## Weapon evolutions
 

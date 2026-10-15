@@ -26,9 +26,10 @@ function createWindow() {
     else item.setSaveDialogOptions({ title: 'Save InfiniShoot progress', defaultPath: path.join(app.getPath('documents'), item.getFilename()) });
   });
 
-  // F11 toggles fullscreen.
+  // F11 (or Ctrl+Cmd+F on a Mac) toggles fullscreen.
   win.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && input.key === 'F11') {
+    const macFull = input.meta && input.control && input.key.toLowerCase() === 'f';
+    if (input.type === 'keyDown' && (input.key === 'F11' || macFull)) {
       win.setFullScreen(!win.isFullScreen());
       event.preventDefault();
     }
@@ -42,6 +43,9 @@ function createWindow() {
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 }
 
-Menu.setApplicationMenu(null);
+// No menu bar on Windows. macOS keeps a minimal app menu so Cmd+Q and Cmd+H work.
+Menu.setApplicationMenu(
+  process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'appMenu' }, { label: 'View', submenu: [{ role: 'togglefullscreen' }] }]) : null,
+);
 app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());

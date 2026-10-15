@@ -14,7 +14,8 @@
     "icons": "node scripts/icons.mjs",
     "format": "prettier --write \"src/**/*.{ts,css}\"",
     "app": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --win portable"
+    "dist": "npm run build && electron-builder --win portable -c.electronDist=node_modules/electron/dist",
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64"
   },
   "allowScripts": {
     "electron@44.7.2": true,
@@ -23,7 +24,6 @@
   "build": {
     "appId": "com.mansouralmadi.infinishoot",
     "productName": "InfiniShoot",
-    "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "release"
     },
@@ -36,6 +36,14 @@
     },
     "portable": {
       "artifactName": "InfiniShoot.exe"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.games",
+      "identity": null
+    },
+    "dmg": {
+      "artifactName": "InfiniShoot-mac-${arch}.dmg"
     }
   },
   "devDependencies": {
