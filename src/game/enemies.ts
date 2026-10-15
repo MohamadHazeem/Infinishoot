@@ -7,6 +7,7 @@ import { textures } from '../render/textures';
 import type { SpatialHash } from '../core/spatialHash';
 import { resolveCircleVsBoxes, type AABB } from '../world/collision';
 import { commit } from '../render/instancing';
+import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
 
 export type EnemyState = 'spawning' | 'move' | 'windup' | 'attack' | 'recover';
 export type BossAction = 'ring' | 'summon' | 'slam' | 'charge' | 'spiral' | 'waves' | 'volley' | 'rain';
@@ -181,6 +182,8 @@ export interface SpawnOpts {
   speedMul?: number;
   dmgMul?: number;
   elite?: boolean;
+  /** Elite modifier (only used with `elite`). */
+  eliteMod?: EliteModId;
   instant?: boolean;
 }
 
@@ -205,6 +208,10 @@ export class Enemy {
   scale = 1;
   radius = 0;
   elite = false;
+  /** Elite modifier, if any (src/data/eliteMods.ts). */
+  mod: EliteModDef | null = null;
+  /** Shielded elites: hit points the shield still absorbs (clients only use > 0). */
+  shield = 0;
   /** Id of the last bomb wave that hit this enemy (each bomb hits once). */
   bombStamp = 0;
   flash = 0;
@@ -256,6 +263,12 @@ export class Enemy {
     this.hp = this.maxHp = Math.round(this.def.hp * (o.hpMul ?? 1) * (this.elite ? 10 : 1));
     this.speedMul = (o.speedMul ?? 1) * (this.elite ? 0.9 : 1);
     this.dmgMul = (o.dmgMul ?? 1) * (this.elite ? 1.5 : 1);
+    this.mod = this.elite && o.eliteMod ? ELITE_MODS[o.eliteMod] : null;
+    if (this.mod) {
+      this.hp = this.maxHp = Math.round(this.maxHp * (this.mod.hpMul ?? 1));
+      this.speedMul *= this.mod.speedMul ?? 1;
+    }
+    this.shield = Math.round(this.maxHp * (this.mod?.shield ?? 0));
     this.bombStamp = 0;
     this.flash = this.frozen = this.slowT = this.shatter = 0;
     this.burnT = this.burnDps = this.burnAcc = this.shockT = this.burnOwner = 0;
@@ -320,6 +333,8 @@ class EnemyBatch {
 }
 
 /** Instanced ground decals: blob shadows, spawn rings, charge lines, blast-radius rings. */
+const AURA_CAP = 32;
+
 class GroundDecals {
   readonly shadows: THREE.InstancedMesh;
   readonly markers: THREE.InstancedMesh;
@@ -327,6 +342,10 @@ class GroundDecals {
   readonly zones: THREE.InstancedMesh;
   /** Filled danger discs (boss strike zones). */
   readonly discs: THREE.InstancedMesh;
+  /** Elite modifier rings (per-instance colour) and shield bubbles. */
+  readonly auras: THREE.InstancedMesh;
+  readonly bubbles: THREE.InstancedMesh;
+  private bubbleMat: THREE.MeshBasicMaterial;
   private discMat: THREE.MeshBasicMaterial;
   private markerMat: THREE.MeshBasicMaterial;
   private dangerMat: THREE.MeshBasicMaterial;
@@ -346,7 +365,15 @@ class GroundDecals {
     this.zones = new THREE.InstancedMesh(new THREE.RingGeometry(0.86, 1, 32).rotateX(-Math.PI / 2), this.dangerMat, 64);
     this.discMat = new THREE.MeshBasicMaterial({ color: '#ff2d4a', transparent: true, opacity: 0.3, depthWrite: false });
     this.discs = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), this.discMat, 32);
-    for (const m of [this.shadows, this.markers, this.lines, this.zones, this.discs]) {
+    this.auras = new THREE.InstancedMesh(
+      new THREE.RingGeometry(0.78, 1, 6).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false }),
+      AURA_CAP,
+    );
+    this.auras.setColorAt(0, new THREE.Color('#ffffff'));
+    this.bubbleMat = new THREE.MeshBasicMaterial({ color: '#73eff7', transparent: true, opacity: 0.3, depthWrite: false });
+    this.bubbles = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), this.bubbleMat, AURA_CAP);
+    for (const m of [this.shadows, this.markers, this.lines, this.zones, this.discs, this.auras, this.bubbles]) {
       m.frustumCulled = false;
       m.count = 0;
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -359,6 +386,7 @@ class GroundDecals {
     this.markerMat.opacity = 0.5 + 0.5 * Math.sin(time * 25);
     this.dangerMat.opacity = 0.35 + 0.25 * Math.sin(time * 30);
     this.discMat.opacity = 0.28 + 0.1 * Math.sin(time * 30);
+    this.bubbleMat.opacity = 0.26 + 0.08 * Math.sin(time * 9);
   }
 }
 
@@ -375,6 +403,7 @@ export class Enemies {
   private v = new THREE.Vector3();
   private s = new THREE.Vector3();
   private up = new THREE.Vector3(0, 1, 0);
+  private col = new THREE.Color();
   private alive = 0;
   private counts = new Map<string, number>();
   /** Danger zones to draw this frame (owned by the game's effects bus). */
@@ -890,7 +919,7 @@ export class Enemies {
   render(alpha: number, time: number): void {
     for (const b of this.batches.values()) b.mesh.count = 0;
     const d = this.decals;
-    d.shadows.count = d.markers.count = d.lines.count = d.zones.count = d.discs.count = 0;
+    d.shadows.count = d.markers.count = d.lines.count = d.zones.count = d.discs.count = d.auras.count = d.bubbles.count = 0;
     d.setPulse(time);
 
     for (const e of this.list) {
@@ -952,8 +981,23 @@ export class Enemies {
       } else if (e.burnT > 0 && e.shockT > 0) b.flash.setXYZW(i, 1, 0.9, 0.3, 0.5);
       else if (e.burnT > 0) b.flash.setXYZW(i, 1, 0.45, 0.1, 0.3 + 0.2 * Math.sin(time * 18 + e.uid));
       else if (e.shockT > 0) b.flash.setXYZW(i, 1, 1, 0.4, Math.sin(time * 50 + e.uid) > 0.3 ? 0.55 : 0.1);
+      else if (e.mod) b.flash.setXYZW(i, e.mod.glow[0], e.mod.glow[1], e.mod.glow[2], 0.3 + 0.15 * Math.sin(time * 6));
       else if (e.elite) b.flash.setXYZW(i, 1, 0.85, 0.2, 0.25 + 0.15 * Math.sin(time * 6));
       else b.flash.setXYZW(i, 0, 0, 0, 0);
+
+      // Elite modifier: a coloured ground ring, plus a bubble while a shield holds.
+      if (e.mod && e.state !== 'spawning' && d.auras.count < AURA_CAP) {
+        const ar = e.radius * (1.7 + 0.08 * Math.sin(time * 8 + e.uid));
+        this.q.setFromAxisAngle(this.up, time * 1.5);
+        this.m4.compose(this.v.set(x, 0.035, z), this.q, this.s.set(ar, 1, ar));
+        d.auras.setMatrixAt(d.auras.count, this.m4);
+        d.auras.setColorAt(d.auras.count++, this.col.set(e.mod.color));
+        if (e.shield > 0) {
+          const br = e.radius * 1.45;
+          this.m4.compose(this.v.set(x, y + e.radius * 0.9, z), this.q, this.s.set(br, br, br));
+          d.bubbles.setMatrixAt(d.bubbles.count++, this.m4);
+        }
+      }
 
       const ss = e.radius * 2.6 * Math.min(1, sx / e.scale) * (1 - Math.min(0.6, e.hopY * 0.1));
       this.m4.makeScale(ss, 1, ss).setPosition(x, 0.02, z);
@@ -974,6 +1018,7 @@ export class Enemies {
       commit(b.mesh.instanceMatrix, b.mesh.count);
       commit(b.flash, b.mesh.count);
     }
-    for (const m of [d.shadows, d.markers, d.lines, d.zones, d.discs]) commit(m.instanceMatrix, m.count);
+    for (const m of [d.shadows, d.markers, d.lines, d.zones, d.discs, d.auras, d.bubbles]) commit(m.instanceMatrix, m.count);
+    if (d.auras.instanceColor) commit(d.auras.instanceColor, d.auras.count);
   }
 }
