@@ -40,7 +40,8 @@
     "mac": {
       "target": "dmg",
       "category": "public.app-category.games",
-      "identity": null
+      "hardenedRuntime": true,
+      "notarize": false
     },
     "dmg": {
       "artifactName": "InfiniShoot-mac-${arch}.dmg"

@@ -1,5 +1,11 @@
 # Push a version tag (for example v0.6.0) to build the Windows exe and the Mac
 # dmgs and attach them to a GitHub Release with that name.
+#
+# Signing switches on by itself once these repository secrets exist
+# (Settings > Secrets and variables > Actions). See docs/RELEASING.md.
+#   Windows: WIN_CSC_LINK (base64 .pfx), WIN_CSC_KEY_PASSWORD
+#   Mac:     MAC_CSC_LINK (base64 .p12 "Developer ID Application"), MAC_CSC_KEY_PASSWORD,
+#            APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID (for notarization)
 name: Release
 
 on:
@@ -13,6 +19,9 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,7 +29,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run dist
+      - name: Build (signed when WIN_CSC_LINK is set)
+        shell: bash
+        run: |
+          if [ -z "$CSC_LINK" ]; then unset CSC_LINK CSC_KEY_PASSWORD; export CSC_IDENTITY_AUTO_DISCOVERY=false; fi
+          npm run dist
       - uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -28,6 +41,12 @@ jobs:
 
   mac:
     runs-on: macos-latest
+    env:
+      CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,9 +54,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run dist:mac
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Build (signed and notarized when the Apple secrets are set)
+        run: |
+          if [ -n "$CSC_LINK" ] && [ -n "$APPLE_ID" ]; then
+            npm run build && npx electron-builder --mac dmg --arm64 --x64 -c.mac.notarize=true
+          else
+            unset CSC_LINK CSC_KEY_PASSWORD
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            npm run dist:mac
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: mac
