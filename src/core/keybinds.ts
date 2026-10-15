@@ -5,7 +5,7 @@ import { loadJson, saveJson } from './storage';
  * and the gamepad keep their fixed layout. Escape always pauses and backs out
  * of menus, whatever is bound.
  */
-export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping';
 
 export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'up', name: 'Move up' },
@@ -17,6 +17,7 @@ export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'pause', name: 'Pause' },
   { id: 'autofire', name: 'Auto-fire' },
   { id: 'reroll', name: 'Reroll cards' },
+  { id: 'ping', name: 'Ping (co-op)' },
 ];
 
 const DEFAULTS: Record<Action, [string, string]> = {
@@ -29,6 +30,7 @@ const DEFAULTS: Record<Action, [string, string]> = {
   pause: ['KeyP', ''],
   autofire: ['KeyF', ''],
   reroll: ['KeyR', ''],
+  ping: ['KeyG', ''],
 };
 
 const KEY = 'keys.v1';

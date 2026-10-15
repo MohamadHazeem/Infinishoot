@@ -33,7 +33,7 @@ import { loadHighScores, submitScore } from './highscores';
 import { Juice } from './juice';
 import { Particles } from './particles';
 import { PickupType, Pickups, type Collector } from './pickups';
-import { playerTuning } from './player';
+import { playerTuning, type Player } from './player';
 import { Portal } from './portal';
 import { addRunRecord, grantAchievement, markSeen, persist, save, unlockedWeapons } from './save';
 import { access, settings, saveSettings } from './settings';
@@ -204,6 +204,8 @@ export class Game implements HeroWorld {
   private slowMoT = 0;
   private bossBoom: { x: number; z: number; r: number; n: number; t: number; color: string } | null = null;
   private trailT = 0;
+  /** Co-op: index of the teammate the camera follows while you're downed (-1 = auto). */
+  private spectate = -1;
   readonly runEvents: RunEvents;
   /** Mode and difficulty of the current run. */
   runMode: ModeId = 'standard';
@@ -858,6 +860,11 @@ export class Game implements HeroWorld {
     const c = this.runEvents.challenge;
     const ch = client ? this.netChallenge : c ? ([c.text, c.cur, c.max, c.done] as [string, number, number, boolean]) : null;
     if (ch) out.push({ text: ch[3] ? `✓ ${ch[0]}` : `★ ${ch[0]} ${ch[1]}/${ch[2]}`, kind: ch[3] ? 'done' : 'challenge' });
+    if (this.hero.player.dead && this.heroes.length > 1) {
+      const t = this.spectateTarget();
+      const who = this.heroes.find((x) => x.player === t);
+      if (who) out.push({ text: `WATCHING ${who.name.toUpperCase()} · CLICK TO SWITCH`, kind: 'challenge' });
+    }
     const [fz, od] = client ? this.netBuffs : [this.runEvents.frenzyT, this.runEvents.overdriveT];
     if (fz > 0) out.push({ text: `FRENZY ${Math.ceil(fz)}`, kind: 'buff' });
     if (od > 0) out.push({ text: `OVERDRIVE ${Math.ceil(od)}`, kind: 'buff' });
@@ -1234,6 +1241,7 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    this.coopInput();
     if (this.role === 'client') {
       this.clientUpdate(dt);
       return;
@@ -1509,7 +1517,18 @@ export class Game implements HeroWorld {
       if (!h.player.dead || h.left) continue;
       const near = this.aliveHeroes.some((o) => Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) < REVIVE_RANGE);
       h.reviveT = near ? h.reviveT + dt : Math.max(0, h.reviveT - dt * 0.5);
-      if (h.reviveT >= REVIVE_TIME) this.reviveHero(h, 0.4);
+      if (h.reviveT >= REVIVE_TIME) {
+        this.reviveHero(h, 0.4);
+        // Teamwork: rescuer and rescued both get a burst of invincibility.
+        h.player.invuln = Math.max(h.player.invuln, 3);
+        for (const o of this.aliveHeroes) {
+          if (o === h || Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) > REVIVE_RANGE + 0.5) continue;
+          o.player.invuln = Math.max(o.player.invuln, 3);
+          o.player.happyT = 1.5;
+          this.vfx.num(o.player.x, 2.8, o.player.z, 'TEAMWORK!', 'heal');
+          this.vfx.ring(o.player.x, o.player.z, 1, 4, '#ffcd75', 0.35);
+        }
+      }
     }
   }
 
@@ -2554,6 +2573,8 @@ export class Game implements HeroWorld {
         charging: !!m.c,
         dashing: !!m.d,
       };
+    } else if (m.t === 'ping') {
+      if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z));
     } else if (m.t === 'dash') {
       if (!h.player.dead && this.isCombatMode) {
         h.player.invuln = Math.max(h.player.invuln, playerTuning.dashTime + playerTuning.dashIframesExtra);
@@ -2969,6 +2990,59 @@ export class Game implements HeroWorld {
     }
   }
 
+  /** The living teammate to watch while downed. */
+  private spectateTarget(): Player | null {
+    const alive = this.heroes.filter((x) => x !== this.hero && !x.left && !x.player.dead);
+    if (!alive.length) return null;
+    return (alive.find((x) => x.index === this.spectate) ?? alive[0]).player;
+  }
+
+  /** Co-op extras for this machine's player: pings, and switching who you watch while downed. */
+  private coopInput(): void {
+    const input = this.input;
+    const h = this.hero;
+    const p = h.player;
+    if (!this.isCombatMode || this.screens.current !== 'none' || this.heroes.length < 2) return;
+    if (p.dead) {
+      if (input.mousePressed(0) || input.padButtonPressed(0) || input.actionPressed('ping')) {
+        const alive = this.heroes.filter((x) => x !== h && !x.left && !x.player.dead);
+        if (alive.length) {
+          const cur = alive.findIndex((x) => x.index === this.spectate);
+          this.spectate = alive[(cur + 1) % alive.length].index;
+        }
+      }
+      return;
+    }
+    if (!(input.actionPressed('ping') || input.padButtonPressed(8))) return;
+    let x = p.x + p.aim.x * 6;
+    let z = p.z + p.aim.z * 6;
+    if (input.device === 'kbm' && this.mouseAimPoint()) {
+      x = this.aimHit.x;
+      z = this.aimHit.z;
+    }
+    if (this.role === 'client') this.client?.send({ t: 'ping', x, z });
+    else this.ping(h, x, z);
+  }
+
+  /** A teammate pings a spot: a marker and a label everyone sees. */
+  private ping(h: Hero, x: number, z: number): void {
+    if (performance.now() - h.pingAt < 700) return;
+    h.pingAt = performance.now();
+    let label = 'HERE!';
+    const near = (ax: number, az: number, r: number) => Math.hypot(ax - x, az - z) < r;
+    if (this.chests.list.some((c) => c.openT < 0 && near(c.x, c.z, 4))) label = 'CHEST!';
+    else if (this.portal.active && near(this.portal.x, this.portal.z, 5)) label = 'PORTAL!';
+    else {
+      const e = this.nearestEnemy(x, z, 4, (en) => !en.elite && !en.def.boss);
+      if (e) label = e.def.boss ? 'BOSS!' : 'ELITE!';
+    }
+    this.vfx.ring(x, z, 0.5, 4, h.color, 0.6);
+    this.vfx.ring(x, z, 0.5, 2.5, '#ffffff', 0.45);
+    this.vfx.star(x, 2, z, 1.6, h.color, 0.5);
+    this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${label}`, 'score');
+    this.vfx.sound('telegraph', x, z);
+  }
+
   /** Midday to sunset over each stage: dusk falls in the second half, the boss fights at sunset. */
   private updateSky(frameDt: number): void {
     let want = 0;
@@ -3053,7 +3127,8 @@ export class Game implements HeroWorld {
       h.player.focus = h === local && h.ctx.charging;
       h.player.render(h === local || !client ? a : netA, rdt);
     }
-    p.renderPos(a, this.playerPos);
+    const watch = p.dead && this.heroes.length > 1 ? this.spectateTarget() : null;
+    (watch ?? p).renderPos(watch ? netA : a, this.playerPos);
     // Danger zones are cosmetic timers: tick them with the frame (they hold still in menus).
     const zones = this.enemies.zones;
     if (!this.paused && this.mode !== 'levelup' && this.mode !== 'shop') {

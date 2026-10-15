@@ -234,6 +234,8 @@ export class Hero implements SynergyHost {
   pet = 'none';
   petView: PetView | null = null;
   sparkyT = 0;
+  /** Last ping time (ms), for rate limiting. */
+  pingAt = 0;
   /** What last hurt this hero (run history: cause of death). */
   lastHitBy = '';
   /** Lava burn cooldown. */
