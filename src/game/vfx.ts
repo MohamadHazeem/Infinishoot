@@ -4,6 +4,7 @@ import type { Hud } from '../ui/hud';
 import type { Fx } from './fx';
 import type { Juice } from './juice';
 import type { BurstOptions, Particles } from './particles';
+import type { Scars } from './scars';
 
 /**
  * Cosmetic effects bus. Gameplay code calls these instead of fx/particles/
@@ -18,7 +19,8 @@ export type VfxEvent =
   | ['a', number, number, string, number]
   | ['k', number, number, number]
   | ['h', 'banner' | 'toast' | 'flash', string, string, number]
-  | ['z', number, number, number, number];
+  | ['z', number, number, number, number]
+  | ['g', number, number, number, string, number];
 
 export interface DangerZone {
   x: number;
@@ -39,6 +41,7 @@ export interface VfxTargets {
   hud: Hud;
   /** Danger zones drawn on the ground (telegraphed strikes). */
   zones: DangerZone[];
+  scars: Scars;
   listener(): { x: number; z: number };
 }
 
@@ -97,6 +100,12 @@ export class Vfx {
   zone(x: number, z: number, r: number, life: number): void {
     this.t.zones.push({ x, z, r, t: life, life });
     this.rec(['z', x, z, r, life]);
+  }
+
+  /** A mark left on the ground (scorch, frost, crater, goo) that fades after `life` seconds. */
+  scar(x: number, z: number, r: number, color: string, life = 14): void {
+    this.t.scars.add(x, z, r, color, life);
+    this.rec(['g', x, z, r, color, life]);
   }
 
   /** Team-wide HUD messages. */
@@ -162,6 +171,9 @@ export class Vfx {
       case 'z':
         this.t.zones.push({ x: e[1], z: e[2], r: e[3], t: e[4], life: e[4] });
         break;
+      case 'g':
+        this.t.scars.add(e[1], e[2], e[3], e[4], e[5]);
+        break;
       case 'h':
         if (e[1] === 'banner') this.t.hud.showBanner(e[2], e[3], e[4]);
         else if (e[1] === 'toast') this.t.hud.toast(e[2], e[4]);
@@ -181,6 +193,7 @@ export class Vfx {
       case 'a':
       case 'k':
       case 'z':
+      case 'g':
         return [e[1], e[2]];
       default:
         return [NaN, NaN];

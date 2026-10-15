@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
+import { streaks } from './streaks';
 
 /**
  * Pooled projectiles stored as struct-of-arrays, drawn with one InstancedMesh
@@ -194,6 +195,8 @@ export class Bullets {
       // Shrink out over the last 0.08 s instead of vanishing.
       const fade = Math.min(1, this.life[i] / 0.08);
       const w = this.width[i] * grow * fade;
+      // Charge shots leave a glowing streak.
+      if (this.blast[i] > 0 && this.team[i] === Team.Player) streaks.add(this.px[i], this.pz[i], x, z, BULLET_Y, w * 0.7, this.colors[i], 0.14);
       this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(w, w, this.length[i] * grow * fade));
       this.mesh.setMatrixAt(i, this.m4);
       this.mesh.setColorAt(i, this.colors[i]);

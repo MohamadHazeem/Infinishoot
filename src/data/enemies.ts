@@ -35,11 +35,14 @@ export interface EnemyDef {
   spawn?: { into: string; count: number; interval: number };
   /** Stage boss (boss bar, bounty, no crowd separation). */
   boss?: boolean;
+  /** How it dies: robots scatter bolts and springs, goo splashes, shards shatter. */
+  death?: 'robot' | 'goo' | 'shards';
 }
 
 export const ENEMIES: Record<string, EnemyDef> = {
   swarmer: {
     id: 'swarmer',
+    death: 'goo',
     name: 'Swarmer',
     behavior: 'chase',
     model: 'swarmer',
@@ -58,6 +61,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   bopper: {
     id: 'bopper',
+    death: 'robot',
     name: 'Bopper',
     behavior: 'lunge',
     model: 'bopper',
@@ -76,6 +80,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   zippy: {
     id: 'zippy',
+    death: 'robot',
     name: 'Zippy',
     behavior: 'lunge',
     model: 'bopper',
@@ -95,6 +100,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   shooter: {
     id: 'shooter',
+    death: 'robot',
     name: 'Blaster Bot',
     behavior: 'shooter',
     model: 'shooter',
@@ -113,6 +119,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   charger: {
     id: 'charger',
+    death: 'robot',
     name: 'Rhino',
     behavior: 'charger',
     model: 'charger',
@@ -131,6 +138,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   chonk: {
     id: 'chonk',
+    death: 'robot',
     name: 'Chonk',
     behavior: 'lunge',
     model: 'bopper',
@@ -149,6 +157,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   exploder: {
     id: 'exploder',
+    death: 'robot',
     name: 'Ka-Boomer',
     behavior: 'exploder',
     model: 'exploder',
@@ -167,6 +176,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   splitter: {
     id: 'splitter',
+    death: 'goo',
     name: 'Jelly',
     behavior: 'chase',
     model: 'splitter',
@@ -185,6 +195,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   jellet: {
     id: 'jellet',
+    death: 'goo',
     name: 'Jellet',
     behavior: 'chase',
     model: 'splitter',
@@ -202,6 +213,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   spawner: {
     id: 'spawner',
+    death: 'shards',
     name: 'Hive Pylon',
     behavior: 'spawner',
     model: 'spawner',
@@ -221,6 +233,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   king: {
     id: 'king',
+    death: 'robot',
     name: 'King Bopper',
     behavior: 'boss',
     model: 'king',
@@ -239,6 +252,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   rex: {
     id: 'rex',
+    death: 'robot',
     name: 'Rampage Rex',
     behavior: 'rex',
     model: 'rex',
@@ -257,6 +271,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   queen: {
     id: 'queen',
+    death: 'goo',
     name: 'Hive Queen',
     behavior: 'queen',
     model: 'queen',

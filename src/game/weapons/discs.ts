@@ -5,11 +5,15 @@ import { createRetroMaterial } from '../../render/retroMaterial';
 import type { WeaponDef } from '../../data/weapons';
 import { Weapon, type WeaponCtx } from './base';
 import { commit } from '../../render/instancing';
+import { streaks } from '../streaks';
 
 const MAX = 16;
 const HIT_COOLDOWN = 0.3;
 
 interface Disc {
+  /** Last rendered position (for the motion streak). */
+  lx?: number;
+  lz?: number;
   x: number;
   z: number;
   px: number;
@@ -123,6 +127,11 @@ export class Discs extends Weapon {
     const sc = this.p.size * ctx.stats.areaMul;
     for (let i = 0; i < this.discs.length; i++) {
       const d = this.discs[i];
+      const rx = d.px + (d.x - d.px) * alpha;
+      const rz = d.pz + (d.z - d.pz) * alpha;
+      streaks.add(d.lx ?? rx, d.lz ?? rz, rx, rz, 1.0, 0.3 * sc, this.def.color, 0.16);
+      d.lx = rx;
+      d.lz = rz;
       this.q.setFromAxisAngle(this.up, d.spin);
       this.m4.compose(
         this.v.set(d.px + (d.x - d.px) * alpha, 1.0, d.pz + (d.z - d.pz) * alpha),

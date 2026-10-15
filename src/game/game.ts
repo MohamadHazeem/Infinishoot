@@ -38,6 +38,9 @@ import { grantAchievement, persist, save, unlockedWeapons } from './save';
 import { settings, saveSettings } from './settings';
 import { Vfx, type VfxEvent } from './vfx';
 import { createWeapon, type Buster, type DamageOpts, type WeaponCtx } from './weapons';
+import { Ambience } from './ambience';
+import { SCAR_COLORS, Scars } from './scars';
+import { streaks } from './streaks';
 
 export { economyTuning } from './hero';
 
@@ -167,6 +170,11 @@ export class Game implements HeroWorld {
   rng = new Rng(randomSeed());
   overloads = 0;
   private elitesRun = 0;
+  readonly scars: Scars;
+  readonly ambience: Ambience;
+  /** Boss death: simulation runs slowed while a chain of explosions plays. */
+  private slowMoT = 0;
+  private bossBoom: { x: number; z: number; r: number; n: number; t: number; color: string } | null = null;
   private trailT = 0;
   private heartT = 0;
   private bossesRun = 0;
@@ -230,6 +238,9 @@ export class Game implements HeroWorld {
     this.bullets = new Bullets(this.scene);
     this.particles = new Particles(this.scene);
     this.fx = new Fx(this.scene);
+    this.scars = new Scars(this.scene);
+    this.ambience = new Ambience(this.scene);
+    streaks.attach(this.scene);
     this.portal = new Portal(this.scene);
     this.barrels = new Barrels(this.scene);
     this.barrels.load(this.arena);
@@ -246,6 +257,7 @@ export class Game implements HeroWorld {
       juice: this.juice,
       hud: this.hud,
       zones: this.enemies.zones,
+      scars: this.scars,
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {
@@ -440,6 +452,8 @@ export class Game implements HeroWorld {
     this.portal.close();
     this.juice.reset();
     this.boss = null;
+    this.bossBoom = null;
+    this.slowMoT = 0;
     this.strikes.length = 0;
     this.enemies.zones.length = 0;
     for (const h of this.heroes) h.bombT = -1;
@@ -456,6 +470,9 @@ export class Game implements HeroWorld {
     this.enemyCtx.colliders = this.arena.colliders;
     this.barrels.load(this.arena);
     this.chests.load(this.arena.chests);
+    this.ambience.load(biome.id, seed, this.arena.halfSize, (x, z) => this.walls.hitCircle(x, z, 0.5));
+    this.scars.clear();
+    streaks.clear();
   }
 
   private spawnSpot(i: number): { x: number; z: number } {
@@ -967,6 +984,12 @@ export class Game implements HeroWorld {
       this.hostTick(false);
       return;
     }
+    this.updateBossBoom(dt);
+    // Boss death slow motion: the world runs at a third of the speed for a moment.
+    if (this.slowMoT > 0) {
+      this.slowMoT -= dt;
+      dt *= 0.35;
+    }
 
     this.modeT += dt;
     if (this.mode === 'transition') {
@@ -1368,6 +1391,57 @@ export class Game implements HeroWorld {
     return amount;
   }
 
+  /** Death flavour by enemy kind. Swarm kills only sometimes get the extras, so mass kills stay light. */
+  private deathFx(e: Enemy, big: boolean): void {
+    const def = e.def;
+    const y = e.radius + 0.2;
+    const full = big || def.xp >= 2 || this.rng.chance(0.3);
+    if (!full) return;
+    switch (def.death) {
+      case 'robot':
+        // Bolts and springs.
+        this.vfx.burst(e.x, y, e.z, { count: big ? 16 : 4, color: '#94b0c2', color2: '#566c86', speed: [3, 7], size: [0.1, 0.2], life: [0.5, 0.9], up: 8, gravity: 22, drag: 1 });
+        this.vfx.burst(e.x, y, e.z, { count: big ? 6 : 1, color: '#ffcd75', color2: '#ef7d57', speed: [2, 5], size: [0.08, 0.14], life: [0.6, 1], up: 10, gravity: 24, drag: 1 });
+        break;
+      case 'goo':
+        this.vfx.scar(e.x, e.z, e.radius * 1.7, def.bodyColor, 8);
+        this.vfx.burst(e.x, y, e.z, { count: big ? 18 : 5, color: def.bodyColor, color2: def.accentColor, speed: [2, 6], size: [0.14, 0.26], life: [0.4, 0.7], up: 7, gravity: 22, drag: 1 });
+        break;
+      case 'shards':
+        this.vfx.burst(e.x, y, e.z, { count: 14, color: '#73eff7', color2: '#f4f4f4', speed: [4, 9], size: [0.1, 0.24], life: [0.4, 0.8], up: 6, gravity: 16 });
+        this.vfx.ring(e.x, e.z, e.radius, 4, '#73eff7', 0.3);
+        break;
+    }
+  }
+
+  /** The boss's last moments: a chain of explosions while time slows, then one big blast. */
+  private updateBossBoom(dt: number): void {
+    const b = this.bossBoom;
+    if (!b || (b.t -= dt) > 0) return;
+    if (b.n > 0) {
+      b.n--;
+      b.t = 0.17;
+      const a = this.rng.next() * Math.PI * 2;
+      const d = this.rng.range(0.3, 1) * b.r;
+      const x = b.x + Math.cos(a) * d;
+      const z = b.z + Math.sin(a) * d;
+      this.vfx.burst(x, 1, z, { count: 14, color: b.color, color2: '#ffcd75', speed: [4, 9], size: [0.2, 0.4], life: [0.3, 0.6], up: 6, gravity: 14 });
+      this.vfx.ring(x, z, 1, 4, '#ffcd75', 0.25);
+      this.vfx.star(x, 1.2, z, 2.2, '#ffffff', 0.12);
+      this.vfx.sound('explode', x, z);
+      this.vfx.shake(x, z, 0.25);
+      return;
+    }
+    this.bossBoom = null;
+    this.vfx.ring(b.x, b.z, 1, b.r * 5, '#ffffff', 0.45);
+    this.vfx.ring(b.x, b.z, 1, b.r * 3.5, b.color, 0.4);
+    this.vfx.burst(b.x, 1.2, b.z, { count: 50, color: b.color, color2: '#ffffff', speed: [6, 14], size: [0.25, 0.5], life: [0.5, 1], up: 8, gravity: 12 });
+    this.vfx.scar(b.x, b.z, b.r * 1.4, SCAR_COLORS.crater, 30);
+    this.vfx.sound('bomb', b.x, b.z);
+    this.vfx.shake(b.x, b.z, 1);
+    this.vfx.flash(0.7);
+  }
+
   private breakShield(e: Enemy): void {
     const y = e.radius + 0.4;
     this.vfx.burst(e.x, y, e.z, { count: 26, color: '#73eff7', color2: '#f4f4f4', speed: [4, 9], size: [0.12, 0.28], life: [0.35, 0.7], up: 5, gravity: 14 });
@@ -1495,6 +1569,11 @@ export class Game implements HeroWorld {
     this.vfx.sound('enemyDie', e.x, e.z, this.pitch);
     this.vfx.burst(e.x, y, e.z, { count: big ? 40 : def.xp >= 3 ? 12 : 6, color: def.bodyColor, color2: def.accentColor, speed: [3, 9], size: [0.15, 0.3 + r * 0.15], life: [0.3, 0.6], up: 5, gravity: 18, drag: 2 });
     if (def.xp >= 3 || big || this.rng.chance(0.25)) this.vfx.ring(e.x, e.z, r * 2, 3, def.bodyColor, 0.25);
+    this.deathFx(e, big);
+    if (isBoss) {
+      this.slowMoT = 1.4;
+      this.bossBoom = { x: e.x, z: e.z, r: r * 2.2, n: 7, t: 0, color: def.bodyColor };
+    }
     if (big) {
       this.juice.freeze(isBoss ? 0.3 : 0.08);
       this.vfx.shake(e.x, e.z, isBoss ? 1 : 0.4);
@@ -1544,6 +1623,7 @@ export class Game implements HeroWorld {
     this.vfx.ring(x, z, 1, r * 2, color, 0.25);
     this.vfx.star(x, 1, z, r, color, 0.12);
     this.vfx.burst(x, 0.6, z, { count: 8, color, color2: '#fff35c', speed: [3, 8], size: [0.15, 0.3], life: [0.2, 0.45], up: 4, gravity: 12 });
+    if (r >= 1.2) this.vfx.scar(x, z, r * 0.7, SCAR_COLORS.scorch, 10);
     if (this.authority) this.barrels.igniteNear(x, z, r, by.index);
     const targets = this.enemiesInRadius(x, z, r, this.scratch).slice();
     // Napalm: an explosion that catches a burning enemy sets the whole blast alight.
@@ -1583,6 +1663,7 @@ export class Game implements HeroWorld {
   private detonate(e: Enemy): void {
     const F = e.def.fuse!;
     const R = F.radius * e.scale;
+    this.vfx.scar(e.x, e.z, R * 0.75, SCAR_COLORS.scorch, 12);
     this.vfx.ring(e.x, e.z, 1, R * 2, '#ff3d5a', 0.3);
     this.vfx.star(e.x, 1, e.z, R * 1.2, '#ffb627', 0.15);
     this.vfx.burst(e.x, 0.6, e.z, { count: 14, color: '#ff9f3d', color2: '#3a3d5c', speed: [4, 9], size: [0.15, 0.35], life: [0.3, 0.6], up: 5, gravity: 14 });
@@ -1619,6 +1700,7 @@ export class Game implements HeroWorld {
 
   private bossSlam(e: Enemy): void {
     const R = 3.8;
+    this.vfx.scar(e.targetX, e.targetZ, R * 0.8, SCAR_COLORS.crater, 16);
     this.vfx.sound('bomb', e.x, e.z);
     this.vfx.shake(e.x, e.z, 0.8);
     this.juice.freeze(0.06);
@@ -1857,6 +1939,7 @@ export class Game implements HeroWorld {
     this.vfx.shake(p.x, p.z, 0.9);
     this.juice.freeze(0.06);
     const R = bombTuning.radius;
+    this.vfx.scar(p.x, p.z, 3, SCAR_COLORS.crater, 18);
     this.vfx.ring(p.x, p.z, 1, R * 2, '#ff3df0', bombTuning.duration + 0.15);
     this.vfx.ring(p.x, p.z, 1, R * 1.6, '#ffffff', bombTuning.duration);
     this.vfx.star(p.x, 1.2, p.z, 5, '#ffffff', 0.2);
@@ -2460,6 +2543,9 @@ export class Game implements HeroWorld {
     this.barrels.render(this.animTime);
     this.chests.render(this.paused ? 0 : frameDt, this.animTime);
     this.particles.render();
+    this.scars.render(rdt);
+    streaks.render(rdt);
+    this.ambience.render(rdt, this.playerPos.x, this.playerPos.z, this.heroes.filter((h) => !h.left && !h.player.dead).map((h) => h.player));
     this.pickups.render(this.animTime);
     for (const h of this.heroes) for (const w of h.weapons) w.render(a, h.ctx);
     this.fx.render(this.cam.camera);

@@ -1,5 +1,6 @@
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
+import { SCAR_COLORS } from '../scars';
 
 /** Periodic frost blast: damages and freezes everything nearby. */
 export class Nova extends Weapon {
@@ -13,6 +14,7 @@ export class Nova extends Weapon {
     ctx.sound('freeze');
     ctx.fx.ring(pl.x, pl.z, 1, r * 2, '#9fe8ff', 0.4);
     ctx.fx.ring(pl.x, pl.z, 1, r * 1.5, '#ffffff', 0.3);
+    ctx.fx.scar(pl.x, pl.z, r * 0.8, SCAR_COLORS.frost, 6);
     ctx.particles.burst(pl.x, 0.6, pl.z, {
       count: 26,
       color: '#ffffff',

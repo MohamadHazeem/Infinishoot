@@ -32,6 +32,7 @@ export interface DamageOpts {
 export interface FxApi {
   star(x: number, y: number, z: number, size: number, color?: string, life?: number): void;
   ring(x: number, z: number, size: number, grow: number, color: string, life?: number): void;
+  scar(x: number, z: number, r: number, color: string, life?: number): void;
 }
 export interface ParticleApi {
   burst(x: number, y: number, z: number, o: BurstOptions): void;

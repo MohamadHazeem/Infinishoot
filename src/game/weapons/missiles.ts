@@ -4,10 +4,14 @@ import type { WeaponDef } from '../../data/weapons';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
 import { commit } from '../../render/instancing';
+import { streaks } from '../streaks';
 
 const MAX = 48;
 
 interface Missile {
+  /** Last rendered position (for the motion streak). */
+  lx?: number;
+  lz?: number;
   x: number;
   z: number;
   px: number;
@@ -115,6 +119,11 @@ export class Missiles extends Weapon {
   render(alpha: number): void {
     for (let i = 0; i < this.list.length; i++) {
       const m = this.list[i];
+      const rx = m.px + (m.x - m.px) * alpha;
+      const rz = m.pz + (m.z - m.pz) * alpha;
+      streaks.add(m.lx ?? rx, m.lz ?? rz, rx, rz, 1.0, 0.16, '#ffd23f', 0.22);
+      m.lx = rx;
+      m.lz = rz;
       this.q.setFromAxisAngle(this.up, Math.PI / 2 - m.a);
       this.m4.compose(this.v.set(m.px + (m.x - m.px) * alpha, 1.0, m.pz + (m.z - m.pz) * alpha), this.q, this.s);
       this.mesh.setMatrixAt(i, this.m4);
