@@ -12,7 +12,7 @@ export interface GlobalScore {
   date: string;
 }
 
-const BASE = (import.meta.env.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const BASE = (import.meta.env?.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '') ?? '';
 
 export const leaderboardEnabled = BASE !== '';
 

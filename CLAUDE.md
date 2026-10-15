@@ -7,6 +7,8 @@ Roadmap and decision log: @PLAN.md
 - `npm run dev`: dev server at http://localhost:5173
 - `npm run typecheck`: strict TypeScript check (must pass)
 - `npm run build`: typecheck + production build to `dist/`
+- `npm test`: unit tests in tests/*.test.ts (bundled with rolldown, run in Node)
+- `npm run smoke`: headless whole-game smoke test (jsdom, autoplay bot through every mode and hero, fails on any runtime error); CI runs both
 - `npm run app`: build and open the Electron desktop app
 - `npm run dist`: build the portable Windows exe to `release/InfiniShoot.exe` (Electron, electron/main.cjs).
 - `npm run dist:mac`: build unsigned Mac dmgs (arm64 + x64) to `release/`. The exe and the dmgs are the shipped builds; there is no itch.io build.

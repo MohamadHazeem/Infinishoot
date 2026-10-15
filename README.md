@@ -29,6 +29,8 @@ Then open http://localhost:5173.
 | `npm run dev` | Dev server with hot reload |
 | `npm run typecheck` | Strict TypeScript check |
 | `npm run build` | Typecheck + production build to `dist/` |
+| `npm test` | Unit tests |
+| `npm run smoke` | Plays every mode headlessly with the autoplay bot and fails on any error |
 | `npm run app` | Build and open the desktop app |
 | `npm run dist` | Build `release/InfiniShoot.exe` (single portable exe, run on Windows) |
 | `npm run dist:mac` | Build the Mac apps `release/InfiniShoot-mac-*.dmg` (run on a Mac) |
