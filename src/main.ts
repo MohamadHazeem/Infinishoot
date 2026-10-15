@@ -9,6 +9,7 @@ import { retroGlobals } from './render/retroMaterial';
 import { Game, cheats } from './game/game';
 import { applySettings, settings } from './game/settings';
 import { createDebugPanel } from './ui/debugPanel';
+import { setupTouch } from './ui/touch';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const hudEl = document.getElementById('hud')!;
@@ -22,6 +23,7 @@ renderer.gl.setClearColor(retroGlobals.uFogColor.value);
 const input = new Input(canvas);
 const game = new Game(input, renderer.aspect, hudEl, reticleEl);
 window.addEventListener('resize', () => game.cam.setAspect(renderer.aspect));
+setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none');
 createDebugPanel(renderer, game, () => game.cam.setAspect(renderer.aspect));
 
 // Leaving the tab mid-fight opens the pause menu.

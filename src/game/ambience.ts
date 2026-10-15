@@ -37,6 +37,9 @@ const STYLES: Record<Weather, WeatherStyle> = {
 };
 
 const MAX_MOTES = 260;
+
+/** Quality preset scale for weather (set by settings). */
+export const fxQuality = { ambience: 1 };
 const MAX_TUFTS = 1100;
 
 export class Ambience {
@@ -123,7 +126,7 @@ export class Ambience {
   render(dt: number, cx: number, cz: number, walkers: { x: number; z: number }[]): void {
     this.t += dt;
     const st = this.style;
-    const n = st ? Math.floor(st.count * this.density) : 0;
+    const n = st ? Math.floor(st.count * this.density * fxQuality.ambience) : 0;
     if (st) {
       // Sand blows in gusts; everything else drifts steadily.
       const gust = this.weather === 'sand' ? 0.35 + 0.65 * Math.max(0, Math.sin(this.t * 0.6) * Math.sin(this.t * 0.23 + 1)) : 1;

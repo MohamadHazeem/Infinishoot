@@ -113,6 +113,7 @@ img.px-icon {
 /* ---------------------------------------------------------------- frames */
 /* Every framed element sets --bg / --hi / --lo (and optionally --ring). */
 .px,
+#touch .tbtn,
 #hp .bar,
 #bossbar .bar,
 #combo .cbar,
@@ -1267,6 +1268,15 @@ div.mod-card.sold,
 /* Settings */
 .menu.settings {
   min-width: 360px;
+  max-height: 68vh;
+  overflow-y: auto;
+  padding: 6px 10px;
+}
+
+/* Accessibility: no strobing animations. */
+.reduce-flash *,
+.reduce-flash *::before {
+  animation-name: none !important;
 }
 
 .menu.settings label {
@@ -2162,6 +2172,165 @@ h1.ko {
   background-color: rgba(93, 39, 93, 0.55);
 }
 
+/* ---------------------------------------------------------------- pause info */
+.pause-info {
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 980px;
+}
+
+.pi-col {
+  display: grid;
+  gap: 4px;
+  min-width: 300px;
+}
+
+.pi-t {
+  font: 11px var(--label);
+  letter-spacing: 2px;
+  color: var(--cyan);
+}
+
+.rcp {
+  font-size: 17px;
+  color: var(--mist);
+}
+
+.rcp.ready {
+  color: var(--lime);
+}
+
+.rcp.done {
+  color: var(--yellow);
+}
+
+.dbar {
+  display: grid;
+  grid-template-columns: 120px 1fr 64px;
+  gap: 8px;
+  align-items: center;
+  font-size: 16px;
+}
+
+.dbar i {
+  height: 10px;
+  background: linear-gradient(90deg, var(--c) var(--w), transparent var(--w));
+  box-shadow: 0 0 0 var(--p) var(--ink);
+}
+
+.dbar b {
+  text-align: right;
+  font-weight: normal;
+}
+
+/* ---------------------------------------------------------------- history / enemy guide */
+#scr-history .scroll,
+#scr-bestiary .scroll {
+  width: min(1000px, 96vw);
+  max-height: 64vh;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+table.history {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px;
+  font: 18px var(--font);
+}
+
+table.history td {
+  padding: 6px 10px;
+  background: var(--night);
+  vertical-align: middle;
+}
+
+table.history small {
+  font: 10px var(--label);
+  color: var(--mist);
+}
+
+table.history .sc {
+  color: var(--yellow);
+}
+
+table.history .ws .badge {
+  display: inline-grid;
+  margin: 2px;
+  width: 28px;
+  height: 28px;
+}
+
+table.history .cause {
+  color: var(--orange);
+  font-size: 16px;
+}
+
+.bestiary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.bst {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 2px 10px;
+  padding: 10px 12px;
+  background: var(--night);
+  box-shadow: 0 0 0 var(--p) var(--ink);
+}
+
+.bst .sw {
+  grid-row: span 3;
+  width: 18px;
+  height: 18px;
+  box-shadow: 0 0 0 var(--p) var(--ink);
+}
+
+.bst b {
+  font-size: 22px;
+}
+
+.bst .st {
+  font: 10px var(--label);
+  color: var(--cyan);
+}
+
+.bst small {
+  font-size: 16px;
+  color: var(--mist);
+}
+
+.bst.unseen {
+  color: var(--slate);
+  grid-template-columns: 1fr;
+}
+
+/* ---------------------------------------------------------------- controls */
+.bind-list {
+  display: grid;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.bind-row {
+  display: grid;
+  grid-template-columns: 220px 140px 140px;
+  gap: 12px;
+  align-items: center;
+  font: 20px var(--font);
+}
+
+.screen .bind-row button.wait {
+  color: var(--yellow);
+  animation: flash 0.5s steps(1) infinite;
+}
+
 /* ---------------------------------------------------------------- modes */
 .mode-grid {
   display: grid;
@@ -2376,4 +2545,71 @@ h1.ko {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ---------------------------------------------------------------- touch controls */
+#touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.tstick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 112px;
+  height: 112px;
+  display: none;
+  place-items: center;
+  background: rgba(26, 28, 44, 0.35);
+  box-shadow: 0 0 0 var(--p) var(--white), 0 0 0 calc(2 * var(--p)) var(--ink);
+}
+
+.tstick.on {
+  display: grid;
+}
+
+.tstick i {
+  width: 44px;
+  height: 44px;
+  background: var(--white);
+  box-shadow: 0 0 0 var(--p) var(--ink);
+}
+
+.tstick.aim i {
+  background: var(--orange);
+}
+
+#touch .tbtn {
+  position: absolute;
+  pointer-events: auto;
+  width: 84px;
+  height: 56px;
+  font: 12px var(--label);
+  color: var(--white);
+  --bg: var(--navy);
+  --hi: var(--blue);
+  --lo: var(--ink);
+  touch-action: none;
+}
+
+#touch .tbtn.on {
+  --bg: var(--blue);
+}
+
+#touch .dash {
+  right: 24px;
+  bottom: 150px;
+}
+
+#touch .charge {
+  right: 120px;
+  bottom: 150px;
+}
+
+#touch .bomb {
+  right: 24px;
+  bottom: 220px;
 }

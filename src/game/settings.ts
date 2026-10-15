@@ -3,6 +3,8 @@ import { audioSettings, sfx } from '../audio/sfx';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
+import { fxQuality } from './ambience';
+import { streaks } from './streaks';
 
 /** Player-facing settings, persisted between sessions. */
 export interface Settings {
@@ -22,6 +24,11 @@ export interface Settings {
   mode: string;
   difficulty: string;
   hero: string;
+  rumble: boolean;
+  colorblind: boolean;
+  reduceFlash: boolean;
+  /** 0 = low, 1 = medium, 2 = high. */
+  quality: number;
 }
 
 const KEY = 'settings.v1';
@@ -42,7 +49,20 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   mode: 'standard',
   difficulty: 'normal',
   hero: 'rookie',
+  rumble: true,
+  colorblind: false,
+  reduceFlash: false,
+  quality: 1,
 });
+
+/** Accessibility switches read by gameplay and effects code. */
+export const access = { colorblind: false, reduceFlash: false };
+
+const QUALITY = [
+  { resolution: 216, ambience: 0.35, streaks: false },
+  { resolution: 270, ambience: 1, streaks: true },
+  { resolution: 360, ambience: 1, streaks: true },
+];
 
 /** Push settings into the systems that use them. */
 export function applySettings(): void {
@@ -53,8 +73,18 @@ export function applySettings(): void {
   sfx.applyVolumes();
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
-  postSettings.glow = settings.glow;
+  postSettings.glow = settings.quality === 0 ? 0 : settings.glow;
   postSettings.crt = settings.crt ? 1 : 0;
+  access.colorblind = settings.colorblind;
+  access.reduceFlash = settings.reduceFlash;
+  document.body.classList.toggle('reduce-flash', settings.reduceFlash);
+  const q = QUALITY[Math.max(0, Math.min(2, Math.round(settings.quality)))];
+  if (postSettings.resolution !== q.resolution) {
+    postSettings.resolution = q.resolution;
+    window.dispatchEvent(new Event('resize'));
+  }
+  fxQuality.ambience = q.ambience;
+  streaks.enabled = q.streaks;
 }
 
 export function saveSettings(): void {

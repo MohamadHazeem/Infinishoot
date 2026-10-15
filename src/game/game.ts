@@ -35,8 +35,8 @@ import { Particles } from './particles';
 import { PickupType, Pickups, type Collector } from './pickups';
 import { playerTuning } from './player';
 import { Portal } from './portal';
-import { grantAchievement, persist, save, unlockedWeapons } from './save';
-import { settings, saveSettings } from './settings';
+import { addRunRecord, grantAchievement, markSeen, persist, save, unlockedWeapons } from './save';
+import { access, settings, saveSettings } from './settings';
 import { Vfx, type VfxEvent } from './vfx';
 import { createWeapon, type Buster, type DamageOpts, type WeaponCtx } from './weapons';
 import { Ambience } from './ambience';
@@ -51,6 +51,8 @@ import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, type DifficultyId, type ModeId } from '../data/modes';
 import { submitDaily } from './highscores';
 import { heroOf } from '../data/heroes';
+import { binds } from '../core/keybinds';
+import { PASSIVES } from '../data/passives';
 
 export { economyTuning } from './hero';
 
@@ -266,7 +268,7 @@ export class Game implements HeroWorld {
   private shownCharge = 0;
   /** Telegraphed ground strikes (Hive Queen) counting down. */
   /** Telegraphed ground strikes; `foe` > 0 also blasts enemies (meteors). */
-  private strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number }[] = [];
+  private strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number; cause?: string }[] = [];
 
   constructor(
     private input: Input,
@@ -328,7 +330,7 @@ export class Game implements HeroWorld {
       buyRelic: () => this.ui('relic'),
     });
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyF' && this.isCombatMode && !this.paused && this.screens.current === 'none') {
+      if (binds.autofire.includes(e.code) && this.isCombatMode && !this.paused && this.screens.current === 'none') {
         settings.autoFire = !settings.autoFire;
         saveSettings();
         this.hud.toast(settings.autoFire ? 'AUTO-FIRE ON' : 'AUTO-FIRE OFF');
@@ -368,7 +370,7 @@ export class Game implements HeroWorld {
     saveSettings();
   }
 
-  private get isCombatMode(): boolean {
+  get isCombatMode(): boolean {
     return this.mode === 'fight' || this.mode === 'cleared' || this.mode === 'portal';
   }
 
@@ -475,9 +477,9 @@ export class Game implements HeroWorld {
           damage: damage * e.dmgMul,
           knockback: 6,
           team: Team.Enemy,
-          color: '#ff3df0',
-          width: 0.5,
-          length: 0.5,
+          color: access.colorblind ? '#ffffff' : '#ff3df0',
+          width: access.colorblind ? 0.62 : 0.5,
+          length: access.colorblind ? 0.62 : 0.5,
         });
         this.vfx.sound('enemyShoot', e.x, e.z);
       },
@@ -687,7 +689,7 @@ export class Game implements HeroWorld {
       ...WEAPON_COMBOS.filter((c) => this.hero.combos.has(c.id)).map((c) => ({ id: c.weapons[0], name: c.name, desc: c.desc, icon: '+', color: c.color })),
       ...this.hero.relics.filter((id) => RELIC_BY_ID[id]).map((id) => RELIC_BY_ID[id]),
       ...this.curses.filter((id) => CURSE_BY_ID[id]).map((id) => ({ ...CURSE_BY_ID[id], curse: true })),
-    ]);
+    ], this.pauseInfo());
     this.screens.show('pause');
   }
 
@@ -762,6 +764,24 @@ export class Game implements HeroWorld {
     return 1 + this.curseSum('dashCd');
   }
 
+  /** Pause screen: evolution recipes for owned weapons and the live damage chart. */
+  private pauseInfo(): Parameters<Screens['setPauseBuild']>[3] {
+    const h = this.hero;
+    const recipes = h.weapons
+      .filter((w) => w.def.evo)
+      .map((w) => ({
+        weapon: w.def.name,
+        evo: w.def.evo!.name,
+        passive: PASSIVES[w.def.evo!.passive]?.name ?? '?',
+        have: (h.passives[w.def.evo!.passive] ?? 0) > 0 && w.maxed,
+        done: w.evolved,
+      }));
+    const damage = Object.entries(h.damageBy)
+      .sort((a, b) => b[1] - a[1])
+      .map(([id, dmg]) => ({ name: h.weapons.find((w) => w.def.id === id)?.name ?? this.sourceName(id), color: WEAPONS[id]?.color ?? MOD_BY_ID[id]?.color ?? '#ff3df0', dmg }));
+    return { recipes, damage };
+  }
+
   /** A hero takes the curse deal from their shop: gold now, harder run for everyone. */
   private takeCurse(h: Hero): string {
     const id = h.curseOffer;
@@ -809,7 +829,7 @@ export class Game implements HeroWorld {
       targets: () => this.aliveHeroes.map((h) => h.player),
       ownedWeapons: () => [...new Set(this.heroes.flatMap((h) => h.weapons.map((w) => w.def.id)))],
       meteor: (x, z, r, delay, dmg) => {
-        this.strikes.push({ x, z, r, t: delay, dmg, foe: 40 * this.director.hpMul });
+        this.strikes.push({ x, z, r, t: delay, dmg, foe: 40 * this.director.hpMul, cause: 'Meteor' });
         this.vfx.zone(x, z, r, delay);
       },
       spawnElite: () => {
@@ -981,6 +1001,20 @@ export class Game implements HeroWorld {
       this.goTitle();
       return;
     }
+    const h = this.hero;
+    addRunRecord({
+      date: new Date().toISOString().slice(0, 10),
+      label: this.runLabel || 'STANDARD',
+      hero: h.heroDef.name,
+      stage: sum.stage,
+      score: sum.score,
+      kills: sum.kills,
+      time: sum.time,
+      level: sum.level,
+      cause: h.player.dead ? h.lastHitBy || 'Unknown' : 'Quit',
+      weapons: h.weapons.map((w) => ({ id: w.def.id, level: w.level, evo: w.evolved })),
+    });
+    persist();
     const rank = submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
     if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
     this.screens.showGameOver(sum, rank, loadHighScores(), this.role === 'client');
@@ -1125,6 +1159,7 @@ export class Game implements HeroWorld {
     this.vfx.flash(0.35);
     this.vfx.sound('evolve', NaN, NaN);
     h.player.happyT = 2.5;
+    if (h === this.hero) this.input.rumble(0.4, 0.9, 500);
     this.vfx.banner('EVOLUTION!', (this.role === 'solo' ? '' : `${h.name.toUpperCase()}: `) + name.toUpperCase(), 1.8);
   }
 
@@ -1208,7 +1243,7 @@ export class Game implements HeroWorld {
       !this.paused &&
       this.isCombatMode &&
       this.screens.current === 'none' &&
-      (input.keyPressed('Escape') || input.keyPressed('KeyP') || input.padButtonPressed(9))
+      (input.keyPressed('Escape') || input.actionPressed('pause') || input.padButtonPressed(9))
     ) {
       this.pause();
       input.endStep();
@@ -1225,7 +1260,7 @@ export class Game implements HeroWorld {
     const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop' || this.mode === 'title';
     if (this.mode === 'levelup' && !switched) {
       for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`)) this.ui('pick', k);
-      if (input.keyPressed('KeyR') || input.padButtonPressed(3)) this.ui('reroll');
+      if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
     }
     if (frozen || switched) {
       input.endStep();
@@ -1304,6 +1339,7 @@ export class Game implements HeroWorld {
     }
 
     // Stage flow
+    if (this.stepN % 30 === 0) for (const e of this.enemies.list) if (e.active) markSeen(e.def.id);
     if (this.mode === 'fight' && anyAlive) {
       this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
       this.updateBossRage(dt);
@@ -1363,14 +1399,14 @@ export class Game implements HeroWorld {
       }
       const wantDash =
         control &&
-        (input.keyPressed('Space') || input.keyPressed('ShiftLeft') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
+        (input.actionPressed('dash') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
       this.groundAt(p.x, p.z, p.ground);
       if (p.update(dt, control ? input : null, this.arena.colliders, wantDash)) this.onDash(h);
       const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
       h.ctx.firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
       h.ctx.charging = control && (input.mouseDown(2) || input.padButton(2));
       const wantBomb =
-        control && (input.keyPressed('KeyQ') || input.keyPressed('KeyE') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
+        control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
       if (wantBomb) this.tryBomb(h);
     } else if (h.remote) {
       // Smoothly follow the client's own (authoritative) movement.
@@ -1426,7 +1462,10 @@ export class Game implements HeroWorld {
     h.synergy.dash();
     if (h.hasRelic('r_dashbomb')) this.blast(p.x, p.z, 2.6, 30 + 8 * this.stage, '#ffb627', 'r_dashbomb', ['explosive'], false, h);
     this.vfx.sound('dash', p.x, p.z);
-    if (h === this.hero) this.juice.shake(0.05);
+    if (h === this.hero) {
+      this.juice.shake(0.05);
+      this.input.rumble(0, 0.25, 70);
+    }
     this.vfx.ring(p.x, p.z, 1, 3, '#4fc3ff', 0.25);
     this.vfx.burst(p.x, 0.15, p.z, { count: 10, color: '#ffffff', color2: '#e8f4ff', speed: [2, 5], size: [0.12, 0.25], life: [0.2, 0.4], up: 1.5, gravity: 6 });
     if (h === this.hero && h.dashes === 60) this.checkAchievements();
@@ -1683,6 +1722,7 @@ export class Game implements HeroWorld {
     e.rage = phase === 3 ? 1.6 : 1.3;
     e.speedMul *= 1.12;
     e.rageT = 2;
+    this.input.rumble(0.5, 0.5, 300);
     this.vfx.banner(phase === 3 ? 'FURIOUS!' : 'ENRAGED!', `${e.def.name.toUpperCase()} ${phase === 3 ? 'GOES ALL OUT' : 'GETS ANGRY'}`, 1.4);
     this.vfx.sound('boss', e.x, e.z);
     this.vfx.shake(e.x, e.z, 0.5);
@@ -1742,7 +1782,7 @@ export class Game implements HeroWorld {
         if (!pool) continue;
         h.lavaT = 0.5;
         this.vfx.burst(p.x, 0.3, p.z, { count: 8, color: '#ff7a2f', color2: '#ffd23f', speed: [1, 3], size: [0.15, 0.3], life: [0.3, 0.5], up: 5 });
-        this.hurtHero(h, 8 * this.director.dmgMul, pool.x, pool.z);
+        this.hurtHero(h, 8 * this.director.dmgMul, pool.x, pool.z, null, 'Lava');
       }
       if (this.stepN % 30 === 0) {
         for (const e of this.enemies.list) {
@@ -1989,7 +2029,7 @@ export class Game implements HeroWorld {
     // Volatile elites leave a telegraphed blast behind.
     const boom = e.mod?.explode;
     if (boom) {
-      this.strikes.push({ x: e.x, z: e.z, r: boom.r, t: boom.fuse, dmg: boom.dmg * this.director.dmgMul * this.difficulty.enemyDmg });
+      this.strikes.push({ x: e.x, z: e.z, r: boom.r, t: boom.fuse, dmg: boom.dmg * this.director.dmgMul * this.difficulty.enemyDmg, cause: `Volatile ${e.def.name}` });
       this.vfx.zone(e.x, e.z, boom.r, boom.fuse);
       this.vfx.sound('fuseTick', e.x, e.z, 1.4);
     }
@@ -2078,7 +2118,7 @@ export class Game implements HeroWorld {
     this.vfx.shake(e.x, e.z, 0.3);
     this.barrels.igniteNear(e.x, e.z, R, 0);
     for (const h of this.aliveHeroes) {
-      if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, F.damage * e.dmgMul, e.x, e.z);
+      if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, F.damage * e.dmgMul, e.x, e.z, null, e.def.name);
     }
     for (const o of this.enemiesInRadius(e.x, e.z, R, this.scratch).slice()) {
       if (o === e) continue;
@@ -2100,7 +2140,7 @@ export class Game implements HeroWorld {
       this.vfx.sound('explode', s.x, s.z);
       this.vfx.shake(s.x, s.z, 0.2);
       for (const h of this.aliveHeroes) {
-        if (Math.hypot(h.player.x - s.x, h.player.z - s.z) < s.r + h.player.radius * 0.6) this.hurtHero(h, s.dmg, s.x, s.z);
+        if (Math.hypot(h.player.x - s.x, h.player.z - s.z) < s.r + h.player.radius * 0.6) this.hurtHero(h, s.dmg, s.x, s.z, null, s.cause ?? 'Ground strike');
       }
       if (s.foe) {
         this.vfx.scar(s.x, s.z, s.r * 0.8, SCAR_COLORS.crater, 12);
@@ -2119,7 +2159,7 @@ export class Game implements HeroWorld {
     this.vfx.ring(e.x, e.z, 1, R * 1.6, '#ffffff', 0.3);
     this.vfx.burst(e.x, 0.3, e.z, { count: 30, color: '#f2e2b8', color2: '#ffffff', speed: [5, 12], size: [0.2, 0.4], life: [0.4, 0.8], up: 4, gravity: 10 });
     for (const h of this.aliveHeroes) {
-      if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, 30 * e.dmgMul, e.x, e.z);
+      if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, 30 * e.dmgMul, e.x, e.z, null, e.def.name);
     }
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
@@ -2146,9 +2186,10 @@ export class Game implements HeroWorld {
     if (w) this.hurtHero(h, dmg, w.x, w.z, w);
   }
 
-  private hurtHero(h: Hero, raw: number, fromX: number, fromZ: number, src: Enemy | null = null): void {
+  private hurtHero(h: Hero, raw: number, fromX: number, fromZ: number, src: Enemy | null = null, cause = ''): void {
     const p = h.player;
     if (cheats.god || p.dead || p.invuln > 0) return;
+    h.lastHitBy = cause || src?.def.name || 'Enemy fire';
     let dmg = Math.max(1, Math.round((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken'))));
     // Phoenix Feather: once per stage a lethal hit leaves you at 1 life and freezes everything nearby.
     if (dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
@@ -2184,6 +2225,7 @@ export class Game implements HeroWorld {
       this.juice.freeze(0.06);
       this.juice.shake(0.35);
       this.juice.kick(dx / d, dz / d, 6);
+      this.input.rumble(0.6, 0.4, 160);
     } else this.tell(h, { t: 'hurt', dx: dx / d, dz: dz / d });
     this.vfx.num(p.x, 2.2, p.z, dmg, 'player');
     this.vfx.star(p.x, 1.1, p.z, 2, '#ff3d5a', 0.15);
@@ -2284,7 +2326,7 @@ export class Game implements HeroWorld {
           if (p.dead || h.left || p.invuln > 0) continue;
           const rr = b.radius[i] + p.radius * 0.8;
           if ((p.x - x) ** 2 + (p.z - z) ** 2 < rr * rr) {
-            this.hurtHero(h, b.damage[i], b.px[i], b.pz[i]);
+            this.hurtHero(h, b.damage[i], b.px[i], b.pz[i], null, 'Enemy fire');
             b.kill(i--);
             break;
           }
@@ -2369,7 +2411,10 @@ export class Game implements HeroWorld {
     h.bombZ = p.z;
     p.invuln = Math.max(p.invuln, 0.6);
     this.vfx.sound('bomb', p.x, p.z);
-    if (h === this.hero) this.hud.flash(0.9);
+    if (h === this.hero) {
+      this.hud.flash(0.9);
+      this.input.rumble(1, 0.8, 420);
+    }
     this.vfx.shake(p.x, p.z, 0.9);
     this.juice.freeze(0.06);
     const R = bombTuning.radius;
@@ -2724,7 +2769,7 @@ export class Game implements HeroWorld {
 
   private clientUpdate(dt: number): void {
     const input = this.input;
-    if (this.isCombatMode && this.screens.current === 'none' && (input.keyPressed('Escape') || input.keyPressed('KeyP') || input.padButtonPressed(9))) {
+    if (this.isCombatMode && this.screens.current === 'none' && (input.keyPressed('Escape') || input.actionPressed('pause') || input.padButtonPressed(9))) {
       this.pause();
       input.endStep();
       return;
@@ -2734,7 +2779,7 @@ export class Game implements HeroWorld {
     if (this.paused && this.screens.current === 'none') this.paused = false;
     if (this.screens.current === 'levelup' && before === 'levelup') {
       for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`)) this.ui('pick', k);
-      if (input.keyPressed('KeyR') || input.padButtonPressed(3)) this.ui('reroll');
+      if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
     }
     this.runTime += dt;
     const h = this.hero;
@@ -2748,14 +2793,14 @@ export class Game implements HeroWorld {
     }
     const wantDash =
       control &&
-      (input.keyPressed('Space') || input.keyPressed('ShiftLeft') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
+      (input.actionPressed('dash') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
     const moving = this.isCombatMode && this.mode !== 'levelup';
     this.groundAt(p.x, p.z, p.ground);
     if (moving && p.update(dt, control ? input : null, this.arena.colliders, wantDash)) {
       this.client?.send({ t: 'dash' });
       this.juice.shake(0.05);
     }
-    const wantBomb = control && (input.keyPressed('KeyQ') || input.keyPressed('KeyE') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
+    const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
     if (wantBomb) this.client?.send({ t: 'bomb' });
     const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
     const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
@@ -2845,6 +2890,7 @@ export class Game implements HeroWorld {
       let e = this.netEnemies.get(r.uid);
       if (!e || !e.active) {
         e = this.enemies.spawn(r.def, r.x, r.z, { instant: true, elite: r.elite, eliteMod: r.eliteMod ?? undefined });
+        markSeen(r.def.id);
         this.netEnemies.set(r.uid, e);
         e.px = r.x;
         e.pz = r.z;
@@ -2991,6 +3037,7 @@ export class Game implements HeroWorld {
     const netA = client ? Math.min(1, (performance.now() - this.snapTime) / Math.max(16, this.snapInterval)) : a;
     const rdt = frozen ? 0 : frameDt;
     this.localAudio(frameDt, frozen);
+    this.input.rumbleOn = settings.rumble;
     if (!frozen) {
       this.juice.tick(frameDt);
       this.animTime += frameDt;

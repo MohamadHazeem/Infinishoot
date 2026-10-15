@@ -16,9 +16,12 @@ import { PETS } from '../data/pets';
 import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
 import { dailyBest } from '../game/highscores';
 import { HEROES } from '../data/heroes';
+import { ACTIONS, binds, keyLabel, rebind, resetBinds, type Action } from '../core/keybinds';
+import { ENEMIES } from '../data/enemies';
+import { ENEMY_TIPS } from '../data/bestiary';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox' | 'wardrobe' | 'modes';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary';
 
 export interface ScreenActions {
   start(): void;
@@ -98,7 +101,7 @@ export interface RunSummary {
 }
 
 /** Settings switched by ON/OFF buttons. */
-type ToggleKey = 'autoFire' | 'showFps' | 'crt';
+type ToggleKey = 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -172,10 +175,24 @@ export class Screens {
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>
     <label>GLOW <input data-nav type="range" min="0" max="1" step="0.1" data-set="glow"></label>
+    <label>QUALITY <input data-nav type="range" min="0" max="2" step="1" data-set="quality"></label>
     <button data-nav data-toggle="crt">CRT FILTER <b></b></button>
+    <button data-nav data-toggle="rumble">CONTROLLER RUMBLE <b></b></button>
+    <button data-nav data-toggle="colorblind">COLOUR-BLIND BULLETS <b></b></button>
+    <button data-nav data-toggle="reduceFlash">REDUCE FLASHING <b></b></button>
+    <button data-nav data-act="controls">CONTROLS...</button>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
     <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>
     <button data-nav data-act="back">BACK</button>
+  </div>
+</div>
+<div id="scr-controls" class="screen dim" hidden>
+  <h1>CONTROLS</h1>
+  <p class="note">Click a key slot, then press the new key (Esc cancels). Mouse: left fire, right charge, middle bomb. Gamepad layout is fixed.</p>
+  <div class="bind-list"></div>
+  <div class="menu row">
+    <button data-nav data-act="binds-reset">RESET DEFAULTS</button>
+    <button data-nav data-act="binds-back">BACK</button>
   </div>
 </div>
 <div id="scr-levelup" class="screen dim" hidden>
@@ -261,9 +278,22 @@ export class Screens {
   <h1>EXTRAS</h1>
   <div class="menu">
     <button data-nav data-act="wardrobe">WARDROBE</button>
+    <button data-nav data-act="history">RUN HISTORY</button>
+    <button data-nav data-act="bestiary">ENEMY GUIDE</button>
     <button data-nav data-act="jukebox">JUKEBOX</button>
     <button data-nav data-act="ex-back">BACK</button>
   </div>
+</div>
+<div id="scr-history" class="screen dim" hidden>
+  <h1>RUN HISTORY</h1>
+  <div class="scroll"><table class="history"></table></div>
+  <div class="menu row"><button data-nav data-act="ex-sub-back">BACK</button></div>
+</div>
+<div id="scr-bestiary" class="screen dim" hidden>
+  <h1>ENEMY GUIDE</h1>
+  <p class="note bst-count"></p>
+  <div class="scroll"><div class="bestiary"></div></div>
+  <div class="menu row"><button data-nav data-act="ex-sub-back">BACK</button></div>
 </div>
 <div id="scr-jukebox" class="screen dim" hidden>
   <h1>JUKEBOX</h1>
@@ -301,7 +331,7 @@ export class Screens {
   <div class="hiscores"></div>
 </div>`,
     );
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox', 'wardrobe', 'modes'];
+    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
@@ -318,6 +348,9 @@ export class Screens {
       jukebox: new MenuNav(this.els.jukebox, { onBack: () => this.show('extras') }),
       wardrobe: new MenuNav(this.els.wardrobe, { columns: 3, onBack: () => this.show('extras') }),
       modes: new MenuNav(this.els.modes, { columns: 4, onBack: () => actions.title() }),
+      controls: new MenuNav(this.els.controls, { columns: 2, onBack: () => this.show('settings') }),
+      history: new MenuNav(this.els.history, { onBack: () => this.show('extras') }),
+      bestiary: new MenuNav(this.els.bestiary, { onBack: () => this.show('extras') }),
     };
 
     // Keep buttons from taking DOM focus on click, so Enter/Space don't fire twice.
@@ -403,6 +436,25 @@ export class Screens {
         }
         case 'modes':
           return this.show('modes');
+        case 'controls':
+          return this.show('controls');
+        case 'history':
+          return this.show('history');
+        case 'bestiary':
+          return this.show('bestiary');
+        case 'ex-sub-back':
+          return this.show('extras');
+        case 'binds-back':
+          return this.show('settings');
+        case 'binds-reset':
+          resetBinds();
+          return this.renderControls();
+        case 'bind': {
+          this.capture = { a: btn.dataset.action as Action, slot: Number(btn.dataset.slot) as 0 | 1 };
+          btn.textContent = 'PRESS A KEY';
+          btn.classList.add('wait');
+          return;
+        }
         case 'md-back':
           return actions.title();
         case 'mode':
@@ -450,6 +502,19 @@ export class Screens {
       }
     });
 
+    // Key capture for the controls screen (runs before the game sees the key).
+    window.addEventListener(
+      'keydown',
+      (e) => {
+        if (!this.capture || this.current !== 'controls') return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (e.code !== 'Escape') rebind(this.capture.a, this.capture.slot, e.code);
+        this.renderControls();
+      },
+      true,
+    );
+
     // Settings controls
     const setEl = this.els.settings;
     setEl.querySelectorAll<HTMLInputElement>('input[data-set]').forEach((inp) => {
@@ -479,6 +544,9 @@ export class Screens {
     if (name === 'jukebox') this.renderJukebox();
     if (name === 'wardrobe') this.renderWardrobe();
     if (name === 'modes') this.renderModes();
+    if (name === 'controls') this.renderControls();
+    if (name === 'history') this.renderHistory();
+    if (name === 'bestiary') this.renderBestiary();
     else if (music.jukebox) music.jukebox = null;
     if (name === 'savedata') {
       this.wipeArmed = false;
@@ -585,13 +653,30 @@ export class Screens {
   }
 
   /** The pause screen shows the current build. */
-  setPauseBuild(loadout: LoadoutItem[], mods: ModDef[] = [], extras: { id: string; name: string; desc: string; icon: string; color: string; curse?: boolean }[] = []): void {
+  setPauseBuild(
+    loadout: LoadoutItem[],
+    mods: ModDef[] = [],
+    extras: { id: string; name: string; desc: string; icon: string; color: string; curse?: boolean }[] = [],
+    info: { recipes: { weapon: string; evo: string; passive: string; have: boolean; done: boolean }[]; damage: { name: string; color: string; dmg: number }[] } = { recipes: [], damage: [] },
+  ): void {
     const chip = (x: (typeof extras)[number]) =>
       `<span class="mod-chip ${x.curse ? 'cursed' : ''}" style="--c:${x.color}" title="${x.desc}">${iconHtml(x.id, x.color, x.icon)}${x.name}</span>`;
     this.els.pause.querySelector('.build')!.innerHTML =
       loadout.map(badge).join('') +
       (mods.length ? `<div class="mod-strip">${mods.map(modChip).join('')}</div>` : '') +
       (extras.length ? `<div class="mod-strip">${extras.map(chip).join('')}</div>` : '');
+    const recipes = info.recipes
+      .map((r) => `<div class="rcp ${r.done ? 'done' : r.have ? 'ready' : ''}">${r.done ? '★' : r.have ? '✓' : '·'} ${r.weapon} + ${r.passive} → <b>${r.evo}</b></div>`)
+      .join('');
+    const top = info.damage.slice(0, 6);
+    const max = Math.max(1, ...top.map((d) => d.dmg));
+    const bars = top
+      .map((d) => `<div class="dbar"><span>${d.name}</span><i style="--w:${Math.round((d.dmg / max) * 100)}%;--c:${d.color}"></i><b>${Math.round(d.dmg).toLocaleString('en-US')}</b></div>`)
+      .join('');
+    const el = this.els.pause.querySelector('.pause-info') ?? this.els.pause.appendChild(Object.assign(document.createElement('div'), { className: 'pause-info' }));
+    el.innerHTML =
+      (recipes ? `<div class="pi-col"><div class="pi-t">EVOLUTIONS</div>${recipes}</div>` : '') +
+      (bars ? `<div class="pi-col"><div class="pi-t">DAMAGE THIS RUN</div>${bars}</div>` : '');
   }
 
   // ---------------------------------------------------------------- shop
@@ -667,6 +752,49 @@ export class Screens {
   }
 
   // ---------------------------------------------------------------- unlocks
+
+  private renderHistory(): void {
+    const rows = save.history.map(
+      (r) => `<tr>
+        <td>${r.date}</td>
+        <td>${r.label}<br><small>${r.hero.toUpperCase()}</small></td>
+        <td>STAGE ${r.stage}<br><small>LV ${r.level} · ${fmtTime(r.time)}</small></td>
+        <td class="sc">${fmtScore(r.score)}<br><small>${r.kills.toLocaleString('en-US')} KILLS</small></td>
+        <td class="ws">${r.weapons.map((w) => `<span class="badge${w.evo ? ' evo' : ''}" style="--c:${WEAPONS[w.id]?.color ?? '#fff'}">${iconHtml(w.id, WEAPONS[w.id]?.color ?? '#fff', WEAPONS[w.id]?.icon ?? '?')}<i>${w.evo ? 'E' : w.level}</i></span>`).join('')}</td>
+        <td class="cause">☠ ${r.cause}</td>
+      </tr>`,
+    );
+    this.els.history.querySelector('.history')!.innerHTML = rows.length ? rows.join('') : '<tr><td>No runs yet. Go play one!</td></tr>';
+  }
+
+  private renderBestiary(): void {
+    const all = Object.values(ENEMIES);
+    const seen = all.filter((d) => save.seen.includes(d.id));
+    this.els.bestiary.querySelector('.bst-count')!.textContent = `${seen.length} / ${all.length} MET`;
+    this.els.bestiary.querySelector('.bestiary')!.innerHTML = all
+      .map((d) => {
+        if (!save.seen.includes(d.id)) return `<div class="bst unseen"><b>???</b><small>Not met yet.</small></div>`;
+        const kind = d.boss ? 'BOSS' : `FROM MINUTE ${Math.max(0, d.minMinute)}`;
+        return `<div class="bst" style="--c:${d.bodyColor}"><i class="sw" style="background:${d.bodyColor}"></i><b>${d.name.toUpperCase()}</b>
+          <span class="st">LIFE ${d.hp} · SPEED ${d.speed} · HIT ${d.contactDamage} · ${kind}</span>
+          <small>${ENEMY_TIPS[d.id] ?? ''}</small></div>`;
+      })
+      .join('');
+  }
+
+  /** Waiting for a key to bind. */
+  private capture: { a: Action; slot: 0 | 1 } | null = null;
+
+  private renderControls(): void {
+    this.capture = null;
+    const el = this.els.controls;
+    el.querySelector('.bind-list')!.innerHTML = ACTIONS.map(
+      (a) => `<div class="bind-row"><span>${a.name.toUpperCase()}</span>${[0, 1]
+        .map((slot) => `<button data-nav data-act="bind" data-action="${a.id}" data-slot="${slot}">${keyLabel(binds[a.id][slot])}</button>`)
+        .join('')}</div>`,
+    ).join('');
+    this.navs.controls.refresh(this.navs.controls.focus);
+  }
 
   private renderModes(): void {
     const el = this.els.modes;

@@ -7,9 +7,27 @@ import { WEAPONS } from '../data/weapons';
  * Stored in localStorage automatically; can be saved to a file for backup
  * or moving to another PC.
  */
+/** One finished run, newest first in `history`. */
+export interface RunRecord {
+  date: string;
+  label: string;
+  hero: string;
+  stage: number;
+  score: number;
+  kills: number;
+  time: number;
+  level: number;
+  cause: string;
+  weapons: { id: string; level: number; evo: boolean }[];
+}
+
 export interface SaveData {
   version: number;
   achievements: string[];
+  /** Enemy ids met (enemy guide). */
+  seen: string[];
+  /** Last runs (max 30). */
+  history: RunRecord[];
   lifetime: {
     runs: number;
     kills: number;
@@ -23,13 +41,16 @@ export interface SaveData {
 
 const KEY = 'save';
 // v2 dropped Bolts and Workshop upgrades; older saves keep their achievements and stats.
-const VERSION = 2;
+// v3 added the enemy guide (`seen`) and run history.
+const VERSION = 3;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
   return {
     version: VERSION,
     achievements: [],
+    seen: [],
+    history: [],
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
   };
 }
@@ -42,6 +63,8 @@ function normalize(raw: unknown): SaveData {
   if (Array.isArray(r.achievements)) {
     d.achievements = r.achievements.filter((a) => ACHIEVEMENTS.some((x) => x.id === a));
   }
+  if (Array.isArray(r.seen)) d.seen = r.seen.filter((x): x is string => typeof x === 'string');
+  if (Array.isArray(r.history)) d.history = r.history.filter((x) => x && typeof x === 'object' && Number.isFinite((x as RunRecord).score)).slice(0, 30);
   if (r.lifetime && typeof r.lifetime === 'object') {
     for (const k of Object.keys(d.lifetime) as (keyof SaveData['lifetime'])[]) {
       const v = Number((r.lifetime as Record<string, unknown>)[k]);
@@ -55,6 +78,16 @@ export const save: SaveData = normalize(loadJson<unknown>(KEY, null));
 
 export function persist(): void {
   saveJson(KEY, save);
+}
+
+/** Note an enemy type as met (saved with the next persist). */
+export function markSeen(id: string): void {
+  if (!save.seen.includes(id)) save.seen.push(id);
+}
+
+export function addRunRecord(r: RunRecord): void {
+  save.history.unshift(r);
+  save.history.length = Math.min(save.history.length, 30);
 }
 
 export function unlockedWeapons(): string[] {

@@ -1,8 +1,19 @@
+import { binds, type Action } from './keybinds';
+
 /**
  * Unified input for keyboard+mouse and gamepad (twin-stick).
  * Tracks which device was used last so the game can switch aim modes.
  */
 export type Device = 'kbm' | 'pad';
+
+/** On-screen touch controls feed this; it is merged into the gamepad state each poll. */
+export interface VirtualPad {
+  active: boolean;
+  move: Vec2;
+  aim: Vec2;
+  /** Held virtual buttons by standard gamepad index (0 = A/dash, 2 = X/charge, 5 = RB/bomb). */
+  buttons: boolean[];
+}
 
 export interface Vec2 {
   x: number;
@@ -42,6 +53,9 @@ export class Input {
   private padButtons: boolean[] = [];
   private padPressed = new Set<number>();
   private tmp: Vec2 = { x: 0, y: 0 };
+  readonly virtual: VirtualPad = { active: false, move: { x: 0, y: 0 }, aim: { x: 0, y: 0 }, buttons: [] };
+  /** Controller vibration on/off (settings). */
+  rumbleOn = true;
 
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
@@ -91,6 +105,23 @@ export class Input {
     return this.pressed.has(code);
   }
 
+  /** A rebindable action went down this step. */
+  actionPressed(a: Action): boolean {
+    return binds[a].some((c) => c && this.pressed.has(c));
+  }
+
+  actionDown(a: Action): boolean {
+    return binds[a].some((c) => c && this.keys.has(c));
+  }
+
+  /** Buzz the gamepad, if it can. `strong`/`weak` 0..1. */
+  rumble(strong: number, weak: number, ms: number): void {
+    if (!this.rumbleOn || this.device !== 'pad') return;
+    const pads = navigator.getGamepads?.() ?? [];
+    const pad = Array.from(pads).find((p) => p && p.connected) as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, o: object) => Promise<unknown> } }) | undefined;
+    void pad?.vibrationActuator?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: Math.min(1, strong), weakMagnitude: Math.min(1, weak) })?.catch?.(() => {});
+  }
+
   mouseDown(button = 0): boolean {
     return (this.mouseButtons & (1 << button)) !== 0;
   }
@@ -113,10 +144,10 @@ export class Input {
     // Keyboard move
     let kx = 0;
     let ky = 0;
-    if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) ky -= 1;
-    if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) ky += 1;
-    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) kx -= 1;
-    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) kx += 1;
+    if (this.actionDown('up')) ky -= 1;
+    if (this.actionDown('down')) ky += 1;
+    if (this.actionDown('left')) kx -= 1;
+    if (this.actionDown('right')) kx += 1;
     const kl = Math.hypot(kx, ky);
     this.move.x = kl > 0 ? kx / kl : 0;
     this.move.y = kl > 0 ? ky / kl : 0;
@@ -151,7 +182,34 @@ export class Input {
         this.padButtons[i] = b.pressed;
       });
     }
+
+    // Touch controls behave like a gamepad.
+    const v = this.virtual;
+    if (v.active) {
+      if (v.move.x !== 0 || v.move.y !== 0) {
+        this.device = 'pad';
+        if (kl === 0) {
+          this.move.x = v.move.x;
+          this.move.y = v.move.y;
+        }
+      }
+      if (v.aim.x !== 0 || v.aim.y !== 0) {
+        this.device = 'pad';
+        this.padAim.x = v.aim.x;
+        this.padAim.y = v.aim.y;
+      }
+      v.buttons.forEach((down, i) => {
+        if (down && !this.vPrev[i]) this.padPressed.add(i);
+        if (down) {
+          this.padButtons[i] = true;
+          this.device = 'pad';
+        }
+        this.vPrev[i] = down;
+      });
+    }
   }
+
+  private vPrev: boolean[] = [];
 
   /** Call at the end of each simulation step. */
   endStep(): void {

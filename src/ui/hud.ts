@@ -4,6 +4,7 @@
  * banners, toasts, hurt vignette, screen flash and fade. Plain DOM.
  */
 import { iconHtml } from './pixelIcons';
+import { access } from '../game/settings';
 
 export interface HudState {
   hp: number;
@@ -149,7 +150,7 @@ export class Hud {
   }
 
   flash(amount = 1): void {
-    this.flashV = Math.max(this.flashV, amount);
+    this.flashV = Math.max(this.flashV, amount * (access.reduceFlash ? 0.15 : 1));
   }
 
   setFade(v: number): void {
