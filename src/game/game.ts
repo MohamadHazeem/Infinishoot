@@ -74,6 +74,9 @@ function localHero(): string {
   return !d.unlock || save.achievements.includes(d.unlock) ? d.id : 'rookie';
 }
 
+/** Conveyor belt speed (m/s). */
+const CONVEYOR_SPEED = 4;
+
 export const dropTuning = {
   xpMul: 0.55, // XP gem value per enemy XP point (lower = slower levelling)
   goldChance: 0.006,
@@ -528,7 +531,7 @@ export class Game implements HeroWorld {
     disposeObject(this.arena.group);
     const biome = biomeForStage(stage);
     this.arenaStage = stage;
-    this.arena = createFieldArena(seed, biome);
+    this.arena = createFieldArena(seed, biome, { conveyors: stage >= 2 ? 3 : 0 });
     applyBiomeLook(biome);
     this.scene.add(this.arena.group);
     this.walls = new StaticBoxGrid(this.arena.colliders);
@@ -1276,6 +1279,7 @@ export class Game implements HeroWorld {
     this.targets.length = 0;
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
     this.enemies.update(dt, this.enemyCtx);
+    this.updateHazards(dt);
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
     this.updateStrikes(dt);
@@ -1303,6 +1307,7 @@ export class Game implements HeroWorld {
     if (this.mode === 'fight' && anyAlive) {
       this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
       this.updateBossRage(dt);
+      this.updateEliteMods(dt);
       this.updatePets(dt);
     }
     if (this.mode === 'fight' && anyAlive) {
@@ -1359,6 +1364,7 @@ export class Game implements HeroWorld {
       const wantDash =
         control &&
         (input.keyPressed('Space') || input.keyPressed('ShiftLeft') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
+      this.groundAt(p.x, p.z, p.ground);
       if (p.update(dt, control ? input : null, this.arena.colliders, wantDash)) this.onDash(h);
       const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
       h.ctx.firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
@@ -1513,7 +1519,7 @@ export class Game implements HeroWorld {
   /** Weighted elite modifier roll. Splitting skips enemies that already split, don't move, or blow themselves up. */
   private rollEliteMod(def: EnemyDef): EliteModId {
     const noSplit = !!def.split || def.behavior === 'spawner' || def.behavior === 'exploder';
-    const ok = ELITE_MOD_IDS.filter((id) => !(ELITE_MODS[id].split && noSplit));
+    const ok = ELITE_MOD_IDS.filter((id) => !(ELITE_MODS[id].split && noSplit) && !(ELITE_MODS[id].teleport && def.behavior === 'spawner'));
     let r = this.rng.next() * ok.reduce((a, id) => a + ELITE_MODS[id].weight, 0);
     for (const id of ok) if ((r -= ELITE_MODS[id].weight) <= 0) return id;
     return ok[ok.length - 1];
@@ -1682,6 +1688,80 @@ export class Game implements HeroWorld {
     this.vfx.shake(e.x, e.z, 0.5);
     this.vfx.ring(e.x, e.z, 1, 10, '#ff2d4a', 0.45);
     e.squash(10);
+  }
+
+  /** Elite modifiers that act over time: vampiric regen and blinking teleports. */
+  private updateEliteMods(dt: number): void {
+    for (const e of this.enemies.list) {
+      const m = e.mod;
+      if (!e.alive || !m || e.frozen > 0) continue;
+      if (m.vampire) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * m.vampire.regen * dt);
+      if (m.teleport && (e.modT -= dt) <= 0) {
+        e.modT = m.teleport * this.rng.range(0.8, 1.2);
+        const alive = this.aliveHeroes;
+        if (!alive.length) continue;
+        let best = alive[0].player;
+        for (const h of alive) if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < Math.hypot(best.x - e.x, best.z - e.z)) best = h.player;
+        const a = this.rng.next() * Math.PI * 2;
+        const d = this.rng.range(2.8, 4.2);
+        const x = best.x + Math.cos(a) * d;
+        const z = best.z + Math.sin(a) * d;
+        if (this.walls.hitCircle(x, z, e.radius)) continue;
+        this.vfx.burst(e.x, 1, e.z, { count: 12, color: m.color, color2: '#f4f4f4', speed: [2, 5], size: [0.15, 0.3], life: [0.25, 0.45], up: 3 });
+        e.x = e.px = x;
+        e.z = e.pz = z;
+        e.squash(8);
+        this.vfx.ring(x, z, 1, 3, m.color, 0.3);
+        this.vfx.burst(x, 1, z, { count: 12, color: m.color, color2: '#f4f4f4', speed: [2, 5], size: [0.15, 0.3], life: [0.25, 0.45], up: 3 });
+        this.vfx.sound('portal', x, z);
+      }
+    }
+  }
+
+  /** What's underfoot at (x, z): ice makes you slide, conveyors carry you. */
+  private groundAt(x: number, z: number, out: { slip: number; pushX: number; pushZ: number }): void {
+    out.slip = out.pushX = out.pushZ = 0;
+    for (const h of this.arena.hazards) if (h.kind === 'ice' && (x - h.x) ** 2 + (z - h.z) ** 2 < h.r * h.r) out.slip = 1;
+    for (const c of this.arena.conveyors) {
+      if (Math.abs(x - c.x) < c.w / 2 && Math.abs(z - c.z) < c.d / 2) {
+        out.pushX = c.dx * CONVEYOR_SPEED;
+        out.pushZ = c.dz * CONVEYOR_SPEED;
+      }
+    }
+  }
+
+  /** Lava burns heroes (with knockback out of the pool) and sets enemies alight; conveyors carry enemies too. */
+  private updateHazards(dt: number): void {
+    if (!this.isCombatMode) return;
+    const lava = this.arena.hazards.filter((h) => h.kind === 'lava');
+    if (lava.length) {
+      for (const h of this.aliveHeroes) {
+        const p = h.player;
+        if ((h.lavaT -= dt) > 0 || p.dashing) continue;
+        const pool = lava.find((l) => (p.x - l.x) ** 2 + (p.z - l.z) ** 2 < l.r * l.r);
+        if (!pool) continue;
+        h.lavaT = 0.5;
+        this.vfx.burst(p.x, 0.3, p.z, { count: 8, color: '#ff7a2f', color2: '#ffd23f', speed: [1, 3], size: [0.15, 0.3], life: [0.3, 0.5], up: 5 });
+        this.hurtHero(h, 8 * this.director.dmgMul, pool.x, pool.z);
+      }
+      if (this.stepN % 30 === 0) {
+        for (const e of this.enemies.list) {
+          if (!e.alive || e.def.boss || e.burnT > 0) continue;
+          if (lava.some((l) => (e.x - l.x) ** 2 + (e.z - l.z) ** 2 < l.r * l.r)) this.ignite(e, 6 + 2 * this.stage, this.hero);
+        }
+      }
+    }
+    if (this.arena.conveyors.length) {
+      for (const e of this.enemies.list) {
+        if (!e.alive || e.def.boss || e.hopY > 0) continue;
+        for (const c of this.arena.conveyors) {
+          if (Math.abs(e.x - c.x) < c.w / 2 && Math.abs(e.z - c.z) < c.d / 2) {
+            e.x += c.dx * CONVEYOR_SPEED * dt;
+            e.z += c.dz * CONVEYOR_SPEED * dt;
+          }
+        }
+      }
+    }
   }
 
   /** Phase-3 bosses fire a spinning bullet ring every few seconds on top of their moves. */
@@ -1906,6 +1986,13 @@ export class Game implements HeroWorld {
         this.enemyCtx.spawnChild(def.split.into, e.x + Math.cos(a) * 0.8, e.z + Math.sin(a) * 0.8, e);
       }
     }
+    // Volatile elites leave a telegraphed blast behind.
+    const boom = e.mod?.explode;
+    if (boom) {
+      this.strikes.push({ x: e.x, z: e.z, r: boom.r, t: boom.fuse, dmg: boom.dmg * this.director.dmgMul * this.difficulty.enemyDmg });
+      this.vfx.zone(e.x, e.z, boom.r, boom.fuse);
+      this.vfx.sound('fuseTick', e.x, e.z, 1.4);
+    }
     // Splitting elites burst into normal-size copies that fly outward.
     const split = e.mod?.split;
     if (split) {
@@ -2075,6 +2162,12 @@ export class Game implements HeroWorld {
       if (dmg <= 0) return;
     }
     if (src && h.hasRelic('r_thorns') && src.active) this.damage(src, 80, { source: 'thorns', tags: [], noStatus: true }, h);
+    const vamp = src?.mod?.vampire;
+    if (vamp && src.active) {
+      src.hp = Math.min(src.maxHp, src.hp + src.maxHp * vamp.onHit);
+      this.vfx.num(src.x, 2.4 * src.scale, src.z, 'DRAIN', 'player');
+      this.vfx.burst(p.x, 1, p.z, { count: 8, color: '#b13e53', color2: '#ff5e7a', speed: [2, 5], size: [0.12, 0.22], life: [0.3, 0.5], up: 3 });
+    }
     this.runEvents.onHurt();
     this.runEvents.onComboBreak();
     const dx = p.x - fromX;
@@ -2657,6 +2750,7 @@ export class Game implements HeroWorld {
       control &&
       (input.keyPressed('Space') || input.keyPressed('ShiftLeft') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
     const moving = this.isCombatMode && this.mode !== 'levelup';
+    this.groundAt(p.x, p.z, p.ground);
     if (moving && p.update(dt, control ? input : null, this.arena.colliders, wantDash)) {
       this.client?.send({ t: 'dash' });
       this.juice.shake(0.05);

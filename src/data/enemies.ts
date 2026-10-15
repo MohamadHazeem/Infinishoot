@@ -28,7 +28,11 @@ export interface EnemyDef {
   /** Max alive at once (spawners). */
   maxAlive?: number;
   lunge?: { range: number; windup: number; speed: number; duration: number; recover: number };
-  shoot?: { keepDistance: number; interval: number; bullets: number; spreadDeg: number; speed: number; damage: number };
+  /**
+   * Shooters. `pattern`: spread (one fan), spiral (spins out a stream of bullets),
+   * burst (three quick fans), sniper (long aim line, one fast shot).
+   */
+  shoot?: { keepDistance: number; interval: number; bullets: number; spreadDeg: number; speed: number; damage: number; pattern?: 'spread' | 'spiral' | 'burst' | 'sniper' };
   charge?: { range: number; windup: number; speed: number; duration: number; recover: number };
   fuse?: { range: number; time: number; radius: number; damage: number };
   split?: { into: string; count: number };
@@ -116,6 +120,63 @@ export const ENEMIES: Record<string, EnemyDef> = {
     minMinute: 1,
     weight: 3,
     shoot: { keepDistance: 8, interval: 2.6, bullets: 3, spreadDeg: 24, speed: 8, damage: 9 },
+  },
+  spinner: {
+    id: 'spinner',
+    death: 'robot',
+    name: 'Spin Bot',
+    behavior: 'shooter',
+    model: 'shooter',
+    hp: 40,
+    speed: 2.2,
+    radius: 0.6,
+    bodyColor: '#a35cff',
+    accentColor: '#ffcd75',
+    contactDamage: 8,
+    knockbackResist: 0.3,
+    xp: 4,
+    score: 140,
+    minMinute: 2.2,
+    weight: 1.6,
+    shoot: { keepDistance: 7, interval: 3.6, bullets: 22, spreadDeg: 0, speed: 6.5, damage: 8, pattern: 'spiral' },
+  },
+  burster: {
+    id: 'burster',
+    death: 'robot',
+    name: 'Burst Bot',
+    behavior: 'shooter',
+    model: 'shooter',
+    hp: 36,
+    speed: 2.8,
+    radius: 0.55,
+    bodyColor: '#38b764',
+    accentColor: '#f4f4f4',
+    contactDamage: 8,
+    knockbackResist: 0.2,
+    xp: 4,
+    score: 130,
+    minMinute: 1.8,
+    weight: 1.8,
+    shoot: { keepDistance: 9, interval: 3.2, bullets: 3, spreadDeg: 18, speed: 9.5, damage: 8, pattern: 'burst' },
+  },
+  sniper: {
+    id: 'sniper',
+    death: 'robot',
+    name: 'Sniper Bot',
+    behavior: 'shooter',
+    model: 'shooter',
+    hp: 28,
+    speed: 2.4,
+    radius: 0.55,
+    bodyColor: '#333c57',
+    accentColor: '#ff2d4a',
+    contactDamage: 6,
+    knockbackResist: 0.2,
+    xp: 4,
+    score: 150,
+    minMinute: 2.6,
+    weight: 1.2,
+    shoot: { keepDistance: 13, interval: 3.4, bullets: 1, spreadDeg: 0, speed: 24, damage: 22, pattern: 'sniper' },
   },
   charger: {
     id: 'charger',

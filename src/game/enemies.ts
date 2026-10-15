@@ -245,6 +245,8 @@ export class Enemy {
   step = 0;
   /** Ka-Boomer fuse tick countdown (sound only). */
   tickT = 0;
+  /** Elite modifier timer (teleport). */
+  modT = 0;
   /** Boss phase (1-3) and how much faster its attack timers run. */
   phase = 1;
   rage = 1;
@@ -275,6 +277,7 @@ export class Enemy {
       this.speedMul *= this.mod.speedMul ?? 1;
     }
     this.shield = Math.round(this.maxHp * (this.mod?.shield ?? 0));
+    this.modT = this.mod?.teleport ?? 0;
     this.bombStamp = 0;
     this.flash = this.frozen = this.slowT = this.shatter = 0;
     this.burnT = this.burnDps = this.burnAcc = this.shockT = this.burnOwner = 0;
@@ -549,17 +552,57 @@ export class Enemies {
             wantX = (nx * radial - nz * e.strafe * 0.6) * speed;
             wantZ = (nz * radial + nx * e.strafe * 0.6) * speed;
             e.timerA -= dt;
-            if (e.timerA <= 0 && dist < 15 && ctx.targetAlive) this.enter(e, 'windup', 0.45, -4, ctx);
-          } else if (e.state === 'windup' && e.t <= 0) {
-            const base = Math.atan2(nz, nx);
-            const spread = THREE.MathUtils.degToRad(S.spreadDeg);
-            for (let i = 0; i < S.bullets; i++) {
-              const a = base + (S.bullets > 1 ? (i / (S.bullets - 1) - 0.5) * spread : 0);
-              ctx.fireBullet(e, Math.cos(a), Math.sin(a), S.speed, S.damage);
+            const reach = S.pattern === 'sniper' ? 20 : 15;
+            if (e.timerA <= 0 && dist < reach && ctx.targetAlive) {
+              if (S.pattern === 'sniper') {
+                // Long aim: the line tracks you, then locks just before the shot.
+                this.lockOn(e, nx, nz, dx, dz);
+                this.enter(e, 'windup', 1.1, -3, ctx);
+              } else this.enter(e, 'windup', 0.45, -4, ctx);
             }
-            e.squash(6);
-            e.timerA = S.interval * (0.8 + Math.random() * 0.4);
-            e.state = 'move';
+          } else if (e.state === 'windup') {
+            if (S.pattern === 'sniper' && e.t > 0.25) this.lockOn(e, nx, nz, dx, dz);
+            if (e.t <= 0) {
+              const base = Math.atan2(nz, nx);
+              if (S.pattern === 'sniper') {
+                ctx.fireBullet(e, e.lungeX, e.lungeZ, S.speed, S.damage);
+                this.endVolley(e, S);
+              } else if (S.pattern === 'spiral' || S.pattern === 'burst') {
+                // Spirals stream bullets for a while; bursts fire three quick fans.
+                e.burst = S.pattern === 'spiral' ? S.bullets : 3;
+                e.spin = base;
+                e.timerB = 0;
+                this.enter(e, 'attack', 2, 4);
+              } else {
+                const spread = THREE.MathUtils.degToRad(S.spreadDeg);
+                for (let i = 0; i < S.bullets; i++) {
+                  const a = base + (S.bullets > 1 ? (i / (S.bullets - 1) - 0.5) * spread : 0);
+                  ctx.fireBullet(e, Math.cos(a), Math.sin(a), S.speed, S.damage);
+                }
+                this.endVolley(e, S);
+              }
+            }
+          } else if (e.state === 'attack') {
+            wantX = wantZ = 0;
+            e.timerB -= dt;
+            if (e.timerB <= 0 && e.burst > 0) {
+              e.burst--;
+              if (S.pattern === 'spiral') {
+                e.timerB = 0.075;
+                e.spin += 0.55;
+                for (const k of [0, Math.PI]) ctx.fireBullet(e, Math.cos(e.spin + k), Math.sin(e.spin + k), S.speed, S.damage);
+              } else {
+                e.timerB = 0.22;
+                const base = Math.atan2(nz, nx);
+                const spread = THREE.MathUtils.degToRad(S.spreadDeg);
+                for (let i = 0; i < S.bullets; i++) {
+                  const a = base + (S.bullets > 1 ? (i / (S.bullets - 1) - 0.5) * spread : 0);
+                  ctx.fireBullet(e, Math.cos(a), Math.sin(a), S.speed, S.damage);
+                }
+              }
+              e.squash(3);
+            }
+            if (e.burst <= 0 || e.t <= 0) this.endVolley(e, S);
           }
           break;
         }
@@ -681,6 +724,12 @@ export class Enemies {
     e.squash(squash);
     if (s === 'attack') e.hitPlayer = false;
     if (s === 'windup' && ctx) ctx.onWindup(e);
+  }
+
+  private endVolley(e: Enemy, S: NonNullable<EnemyDef['shoot']>): void {
+    e.squash(6);
+    e.timerA = S.interval * (0.8 + Math.random() * 0.4);
+    e.state = 'move';
   }
 
   private lockOn(e: Enemy, nx: number, nz: number, dx: number, dz: number): void {
@@ -955,7 +1004,13 @@ export class Enemies {
 
       // Telegraphs drawn on the ground.
       if (e.state === 'windup' && e.frozen <= 0) {
-        if (e.def.behavior === 'charger' || (e.def.behavior === 'rex' && e.action === 'charge')) {
+        if (e.def.shoot?.pattern === 'sniper') {
+          // Sniper aim line: thin, long and blinking faster as the shot nears.
+          this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
+          const w = e.t < 0.3 ? 0.3 : 0.12;
+          this.m4.compose(this.v.set(x, 0.05, z), this.q, this.s.set(w, 1, 20));
+          d.lines.setMatrixAt(d.lines.count++, this.m4);
+        } else if (e.def.behavior === 'charger' || (e.def.behavior === 'rex' && e.action === 'charge')) {
           const C = e.def.charge ?? { speed: 24, duration: 0.5 };
           const len = C.speed * C.duration + 1;
           this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));

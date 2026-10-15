@@ -13,7 +13,7 @@ const DEF_INDEX = new Map(DEF_IDS.map((id, i) => [id, i]));
 const STATES: EnemyState[] = ['spawning', 'move', 'windup', 'attack', 'recover'];
 const STATE_INDEX = new Map(STATES.map((s, i) => [s, i]));
 
-const ENEMY_BYTES = 20;
+const ENEMY_BYTES = 22;
 const BULLET_BYTES = 14;
 const PICKUP_BYTES = 8;
 
@@ -35,9 +35,8 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setUint32(o, e.uid, true);
     v.setUint8(o + 4, DEF_INDEX.get(e.def.id) ?? 0);
     v.setUint8(o + 5, STATE_INDEX.get(e.state) ?? 1);
-    // Bits 5-7: the boss action, or for elites the modifier (bits 5-6, index + 1) and shield-up (bit 7).
-    const high = e.elite ? (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | (e.shield > 0 ? 4 : 0) : Math.max(0, BOSS_ACTIONS.indexOf(e.action));
-    const flags = (e.elite ? 1 : 0) | (e.frozen > 0 ? 2 : 0) | (e.burnT > 0 ? 4 : 0) | (e.shockT > 0 ? 8 : 0) | (e.flash > 0 ? 16 : 0) | (high << 5);
+    // Bits 5-7: the boss action.
+    const flags = (e.elite ? 1 : 0) | (e.frozen > 0 ? 2 : 0) | (e.burnT > 0 ? 4 : 0) | (e.shockT > 0 ? 8 : 0) | (e.flash > 0 ? 16 : 0) | (Math.max(0, BOSS_ACTIONS.indexOf(e.action)) << 5);
     v.setUint8(o + 6, flags);
     v.setUint8(o + 7, Math.max(0, Math.min(255, Math.round(e.t * 50))));
     v.setInt16(o + 8, q16(e.x), true);
@@ -48,6 +47,8 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setInt8(o + 15, qAng(Math.atan2(e.lungeX, e.lungeZ)));
     v.setInt16(o + 16, q16(e.targetX), true);
     v.setInt16(o + 18, q16(e.targetZ), true);
+    // Elite modifier (index + 1, 0 = none) and shield-up flag (bit 7).
+    v.setUint8(o + 20, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | (e.shield > 0 ? 0x80 : 0));
     o += ENEMY_BYTES;
   }
   return buf;
@@ -94,10 +95,10 @@ export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void):
     r.burn = !!(flags & 4);
     r.shock = !!(flags & 8);
     r.flash = !!(flags & 16);
-    const high = flags >> 5;
-    r.eliteMod = r.elite ? (ELITE_MOD_IDS[(high & 3) - 1] ?? null) : null;
-    r.shield = r.elite && !!(high & 4);
-    r.action = r.elite ? 'ring' : (BOSS_ACTIONS[high] ?? 'ring');
+    const em = v.getUint8(o + 20);
+    r.eliteMod = r.elite ? (ELITE_MOD_IDS[(em & 0x7f) - 1] ?? null) : null;
+    r.shield = r.elite && !!(em & 0x80);
+    r.action = BOSS_ACTIONS[flags >> 5] ?? 'ring';
     r.t = v.getUint8(o + 7) / 50;
     r.x = v.getInt16(o + 8, true) / 100;
     r.z = v.getInt16(o + 10, true) / 100;

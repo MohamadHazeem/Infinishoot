@@ -22,14 +22,25 @@ export interface Arena {
   barrels: { x: number; z: number; box: AABB }[];
   /** Treasure chest spots (not solid: you walk into them to open). */
   chests: { x: number; z: number; facing: number }[];
+  /** Ground hazards: lava burns, ice is slippery. */
+  hazards: { x: number; z: number; r: number; kind: 'lava' | 'ice' }[];
+  /** Conveyor belts: axis-aligned strips that carry anything on them along (dx, dz). */
+  conveyors: { x: number; z: number; w: number; d: number; dx: number; dz: number }[];
+}
+
+export interface ArenaOptions {
+  /** Number of conveyor belts (later stages). */
+  conveyors?: number;
 }
 
 const HALF = 55;
 const TILE = 2;
 const CLEAR_CENTER = 9;
 
-export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0]): Arena {
+export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts: ArenaOptions = {}): Arena {
   const rng = new Rng(seed);
+  const hazards: Arena['hazards'] = [];
+  const conveyors: Arena['conveyors'] = [];
   const group = new THREE.Group();
   const colliders: AABB[] = [];
   const barrels: Arena['barrels'] = [];
@@ -302,6 +313,35 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0]): Are
       const m = new THREE.Mesh(geo, poolMat);
       m.position.set(c[0], 0.03, c[1]);
       group.add(m);
+      if (biome.pools.tex === 'lava' || biome.pools.tex === 'ice') hazards.push({ x: c[0], z: c[1], r: r * 0.85, kind: biome.pools.tex });
+    }
+  }
+
+  // Conveyor belts (later stages): scrolling strips that carry players and enemies.
+  if (opts.conveyors) {
+    const beltTex = textures.conveyor();
+    for (let i = 0; i < opts.conveyors; i++) {
+      const alongX = rng.chance(0.5);
+      const len = rng.range(9, 14);
+      const wid = 2.4;
+      const w = alongX ? len : wid;
+      const d = alongX ? wid : len;
+      const c = spot(w, d, 1.5);
+      if (!c) continue;
+      const sign = rng.chance(0.5) ? 1 : -1;
+      const dx = alongX ? sign : 0;
+      const dz = alongX ? 0 : sign;
+      const geo = new THREE.PlaneGeometry(wid, len);
+      geo.rotateX(-Math.PI / 2);
+      const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+      for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * (wid / 2), uv.getY(k) * (len / 2));
+      const mat = createRetroMaterial({ map: beltTex, unlit: 0.3, uvScroll: [0, 1.6] });
+      const m = new THREE.Mesh(geo, mat);
+      // Plane V runs along -Z before rotation; spin it so the chevrons point along (dx, dz).
+      m.rotation.y = Math.atan2(dx, dz) + Math.PI;
+      m.position.set(c[0], 0.035, c[1]);
+      group.add(m);
+      conveyors.push({ x: c[0], z: c[1], w, d, dx, dz });
     }
   }
 
@@ -339,5 +379,5 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0]): Are
 
   // Hundreds of props -> one draw call per material.
   mergeStatic(group);
-  return { group, colliders, halfSize: HALF, barrels, chests };
+  return { group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors };
 }

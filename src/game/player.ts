@@ -212,6 +212,9 @@ export class Player {
   }
 
   /** Returns true when a dash starts this step. */
+  /** Ground under the hero this step: slipperiness (0 = normal, 1 = pure ice) and conveyor push. */
+  readonly ground = { slip: 0, pushX: 0, pushZ: 0 };
+
   update(dt: number, input: Input | null, colliders: AABB[], wantDash: boolean): boolean {
     this.prev.x = this.pos.x;
     this.prev.z = this.pos.z;
@@ -256,7 +259,8 @@ export class Player {
         this.sqV += 5;
       }
     } else {
-      const k = 1 - Math.exp(-(hasInput ? t.accel : t.friction) * dt);
+      const grip = 1 - this.ground.slip * 0.85;
+      const k = 1 - Math.exp(-(hasInput ? t.accel : t.friction) * grip * dt);
       this.vel.x += (mx * maxSpeed - this.vel.x) * k;
       this.vel.z += (mz * maxSpeed - this.vel.z) * k;
     }
@@ -264,8 +268,8 @@ export class Player {
     const kd = Math.exp(-10 * dt);
     this.kx *= kd;
     this.kz *= kd;
-    this.pos.x += (this.vel.x + this.kx) * dt;
-    this.pos.z += (this.vel.z + this.kz) * dt;
+    this.pos.x += (this.vel.x + this.kx + this.ground.pushX) * dt;
+    this.pos.z += (this.vel.z + this.kz + this.ground.pushZ) * dt;
     resolveCircleVsBoxes(this.pos, t.radius, colliders);
     return dashed;
   }

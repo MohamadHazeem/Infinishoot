@@ -234,6 +234,8 @@ export class Hero implements SynergyHost {
   pet = 'none';
   petView: PetView | null = null;
   sparkyT = 0;
+  /** Lava burn cooldown. */
+  lavaT = 0;
 
   setPet(id: string): void {
     const def = PET_BY_ID[id] ?? PET_BY_ID.none;

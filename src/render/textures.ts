@@ -246,6 +246,19 @@ export const textures = {
       for (let i = 0; i < 6; i++) px(ctx, rng.int(0, s - 6), rng.int(0, s - 2), '#ffe680', rng.int(2, 5), 1);
     }, 44),
 
+  /** Conveyor belt: dark plates with yellow chevrons pointing along +V. */
+  conveyor: () =>
+    makeTexture(16, (ctx, s) => {
+      px(ctx, 0, 0, '#333c57', s, s);
+      px(ctx, 0, 0, '#29366f', 1, s);
+      px(ctx, s - 1, 0, '#29366f', 1, s);
+      for (let i = 0; i < 4; i++) {
+        px(ctx, 3 + i, 9 - i, '#ffcd75', 1, 2);
+        px(ctx, 12 - i, 9 - i, '#ffcd75', 1, 2);
+      }
+      px(ctx, 0, 15, '#1a1c2c', s, 1);
+    }, 45),
+
   /** Painted anime face: big eyes, small mouth, transparent background. */
   face: () =>
     makeTexture(32, (ctx) => {

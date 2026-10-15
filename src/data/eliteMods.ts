@@ -3,7 +3,7 @@
  * "ELITE ... INCOMING" toast, tints the elite's glow and ground ring, and
  * changes how the fight plays.
  */
-export type EliteModId = 'shielded' | 'fast' | 'splitting';
+export type EliteModId = 'shielded' | 'fast' | 'splitting' | 'vampiric' | 'teleporting' | 'explosive';
 
 export interface EliteModDef {
   id: EliteModId;
@@ -25,6 +25,12 @@ export interface EliteModDef {
   trail?: number;
   /** On death, burst into `count` normal-size copies, each with `hpMul` x a normal enemy's HP. */
   split?: { count: number; hpMul: number };
+  /** Heals this fraction of max HP whenever it hurts a player, and regenerates per second. */
+  vampire?: { onHit: number; regen: number };
+  /** Blinks next to its target every this many seconds. */
+  teleport?: number;
+  /** On death, a telegraphed blast (radius, damage) after a short fuse. */
+  explode?: { r: number; dmg: number; fuse: number };
 }
 
 export const ELITE_MODS: Record<EliteModId, EliteModDef> = {
@@ -47,6 +53,33 @@ export const ELITE_MODS: Record<EliteModId, EliteModDef> = {
     hpMul: 0.75,
     speedMul: 1.75,
     trail: 0.05,
+  },
+  vampiric: {
+    id: 'vampiric',
+    name: 'Vampiric',
+    desc: 'Heals when it hits you, and slowly regenerates.',
+    color: '#b13e53',
+    glow: [0.75, 0.05, 0.2],
+    weight: 1,
+    vampire: { onHit: 0.15, regen: 0.012 },
+  },
+  teleporting: {
+    id: 'teleporting',
+    name: 'Blinking',
+    desc: 'Teleports next to you every few seconds.',
+    color: '#a35cff',
+    glow: [0.65, 0.35, 1],
+    weight: 1,
+    teleport: 3.5,
+  },
+  explosive: {
+    id: 'explosive',
+    name: 'Volatile',
+    desc: 'Blows up when it dies. Get clear!',
+    color: '#ff7a2f',
+    glow: [1, 0.55, 0.1],
+    weight: 1,
+    explode: { r: 3.4, dmg: 24, fuse: 0.9 },
   },
   splitting: {
     id: 'splitting',
