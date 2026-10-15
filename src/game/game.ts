@@ -167,6 +167,7 @@ export class Game implements HeroWorld {
   overloads = 0;
   private elitesRun = 0;
   private trailT = 0;
+  private heartT = 0;
   private bossesRun = 0;
   private newAchievements: string[] = [];
   private boss: Enemy | null = null;
@@ -382,6 +383,8 @@ export class Game implements HeroWorld {
       colliders: this.arena.colliders,
       onWindup: (e) => {
         if (e.def.boss) this.vfx.sound('bossWindup', e.x, e.z);
+        else if (e.def.behavior === 'charger') this.vfx.sound('chargerWindup', e.x, e.z);
+        else if (e.def.behavior === 'exploder') e.tickT = 0;
         else if (e.def.behavior !== 'spawner') this.vfx.sound('telegraph', e.x, e.z);
       },
       fireBullet: (e, dx, dz, speed, damage) => {
@@ -860,6 +863,7 @@ export class Game implements HeroWorld {
     this.vfx.burst(p.x, 1, p.z, { count: 40, color, color2: '#ffcd75', speed: [4, 10], size: [0.14, 0.34], life: [0.5, 1], up: 8, gravity: 10 });
     this.vfx.shake(p.x, p.z, 0.35);
     this.vfx.flash(0.35);
+    this.vfx.sound('evolve', NaN, NaN);
     this.vfx.banner('EVOLUTION!', (this.role === 'solo' ? '' : `${h.name.toUpperCase()}: `) + name.toUpperCase(), 1.8);
   }
 
@@ -1345,6 +1349,8 @@ export class Game implements HeroWorld {
       this.vfx.sound('hit', e.x, e.z, this.pitch);
       this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
     }
+    // Heavy hits get a low thump under the hit sound.
+    if ((o.loud || crit) && amount >= 25) this.vfx.sound('impact', e.x, e.z, Math.min(3, amount / 25));
     if (o.loud || crit) {
       this.vfx.burst(hx, BULLET_Y, hz, { count: 3, color: '#ffffff', color2: e.def.bodyColor, speed: [3, 7], size: [0.1, 0.18], life: [0.12, 0.25], dir: { x: -(o.dirX ?? 0), z: -(o.dirZ ?? 0), spread: 2.4 } });
     }
@@ -1431,6 +1437,12 @@ export class Game implements HeroWorld {
   private updateStatuses(dt: number): void {
     for (const e of this.enemies.list) {
       if (!e.active) continue;
+      // Ka-Boomer fuse: ticks that speed up and rise in pitch as it burns down.
+      if (e.state === 'windup' && e.def.behavior === 'exploder' && e.frozen <= 0 && (e.tickT -= dt) <= 0) {
+        const k = Math.max(0, Math.min(1, e.t / e.def.fuse!.time));
+        e.tickT = 0.06 + 0.22 * k;
+        this.vfx.sound('fuseTick', e.x, e.z, 1 + (1 - k) * 0.8);
+      }
       if (e.shockT > 0) e.shockT -= dt;
       if (e.burnT <= 0) continue;
       e.burnT -= dt;
@@ -1489,7 +1501,10 @@ export class Game implements HeroWorld {
       this.vfx.flash(isBoss ? 0.8 : 0.2);
       this.vfx.sound('explode', e.x, e.z);
     } else if (def.xp >= 4) this.vfx.shake(e.x, e.z, 0.08);
-    if (this.combo % 50 === 0) this.vfx.num(e.x, 3, e.z, `${this.combo} COMBO!`, 'score');
+    if (this.combo % 50 === 0) {
+      this.vfx.num(e.x, 3, e.z, `${this.combo} COMBO!`, 'score');
+      this.vfx.sound('comboUp', NaN, NaN);
+    }
 
     if (def.split) {
       for (let i = 0; i < def.split.count; i++) {
@@ -2375,6 +2390,21 @@ export class Game implements HeroWorld {
     }
   }
 
+  /** Sounds only this machine hears: low-life heartbeat and the combo hum. */
+  private localAudio(frameDt: number, frozen: boolean): void {
+    const fighting = this.isCombatMode && !frozen && !this.paused;
+    sfx.setHum(fighting ? Math.min(1, this.combo / 150) : 0);
+    const p = this.hero.player;
+    if (!fighting || p.dead || p.hp > p.maxHp * 0.3) {
+      this.heartT = 0;
+      return;
+    }
+    if ((this.heartT -= frameDt) <= 0) {
+      this.heartT = 0.55 + 0.6 * (p.hp / (p.maxHp * 0.3));
+      sfx.heartbeat();
+    }
+  }
+
   render(alpha: number, frameDt: number): void {
     const client = this.role === 'client';
     const local = this.hero;
@@ -2385,6 +2415,7 @@ export class Game implements HeroWorld {
     // Clients draw remote things between the last two snapshots.
     const netA = client ? Math.min(1, (performance.now() - this.snapTime) / Math.max(16, this.snapInterval)) : a;
     const rdt = frozen ? 0 : frameDt;
+    this.localAudio(frameDt, frozen);
     if (!frozen) {
       this.juice.tick(frameDt);
       this.animTime += frameDt;

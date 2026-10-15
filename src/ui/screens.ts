@@ -141,6 +141,9 @@ export class Screens {
   <h1>SETTINGS</h1>
   <div class="menu settings">
     <label>VOLUME <input data-nav type="range" min="0" max="1" step="0.1" data-set="volume"></label>
+    <label>MUSIC <input data-nav type="range" min="0" max="1" step="0.1" data-set="musicVolume"></label>
+    <label>EFFECTS <input data-nav type="range" min="0" max="1" step="0.1" data-set="sfxVolume"></label>
+    <label>MENU SOUNDS <input data-nav type="range" min="0" max="1" step="0.1" data-set="uiVolume"></label>
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>

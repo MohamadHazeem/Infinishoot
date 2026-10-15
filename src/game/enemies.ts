@@ -243,6 +243,8 @@ export class Enemy {
   timerB = 0;
   /** Boss attack queue position. */
   step = 0;
+  /** Ka-Boomer fuse tick countdown (sound only). */
+  tickT = 0;
   /** Squash-and-stretch spring: displacement and velocity. */
   sq = 0;
   sqV = 0;

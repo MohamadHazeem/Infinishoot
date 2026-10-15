@@ -1,3 +1,5 @@
+import { sfx } from '../audio/sfx';
+
 /**
  * Game-feel state shared by all systems: hit-stop (brief simulation freeze),
  * trauma-based random screen shake, and directional camera kicks (recoil,
@@ -24,6 +26,8 @@ export class Juice {
   /** Freeze the simulation for `seconds` (the longest pending request wins). */
   freeze(seconds: number): void {
     this.hitStop = Math.max(this.hitStop, seconds * juiceTuning.hitStopScale);
+    // Big freezes also muffle the sound for a beat.
+    if (seconds >= 0.08 && juiceTuning.hitStopScale > 0) sfx.muffle(seconds);
   }
 
   shake(amount: number): void {

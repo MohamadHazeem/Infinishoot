@@ -120,13 +120,16 @@ export class Vfx {
   }
 
   private playSound(name: string, x: number, z: number, pitch: number): void {
-    if (this.near(x, z) > HEAR_RANGE) return;
-    if (name.startsWith('w:')) {
-      sfx.weapon(name.slice(2));
-      return;
+    const d = this.near(x, z);
+    if (d > HEAR_RANGE) return;
+    // Pan by the sideways offset from the listener and fade with distance.
+    if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7);
+    if (name.startsWith('w:')) sfx.weapon(name.slice(2));
+    else {
+      const fn = (sfx as unknown as Record<string, (p?: number) => void>)[name];
+      if (typeof fn === 'function') fn.call(sfx, pitch);
     }
-    const fn = (sfx as unknown as Record<string, (p?: number) => void>)[name];
-    if (typeof fn === 'function') fn.call(sfx, pitch);
+    sfx.at(0, 1);
   }
 
   private playShake(x: number, z: number, amount: number): void {
