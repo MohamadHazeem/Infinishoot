@@ -63,7 +63,9 @@ export interface WeaponCtx {
   nearest(x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null;
   inRadius(x: number, z: number, r: number, out: Enemy[]): Enemy[];
   /** Area blast that damages enemies (never the player). */
-  blast(x: number, z: number, r: number, base: number, color: string, source: string): void;
+  blast(x: number, z: number, r: number, base: number, color: string, source: string, tags?: Tag[]): void;
+  /** Weapon combos this hero has unlocked (src/data/weaponCombos.ts). */
+  readonly combos: ReadonlySet<string>;
   sound(name: 'zap' | 'disc' | 'missile' | 'mine' | 'freeze' | 'explode' | 'shoot' | 'flame' | 'charge' | 'chargeFull' | 'chargeShot'): void;
 }
 

@@ -70,12 +70,13 @@ export class Lightning extends Weapon {
       let fx = pl.x;
       let fy = 2.2;
       let fz = pl.z;
-      for (let c = 0; c <= p.chains + ctx.flags.chainBonus && cur; c++) {
+      const superc = ctx.combos.has('superconductor');
+      for (let c = 0; c <= p.chains + ctx.flags.chainBonus + (superc ? 2 : 0) && cur; c++) {
         const target: Enemy = cur;
         this.chained.add(target.uid);
         this.jag(pts, fx, fy, fz, target.x, 0.9, target.z);
         const d = Math.hypot(target.x - fx, target.z - fz) || 1;
-        ctx.damage(target, p.dmg, { source: 'lightning', dirX: (target.x - fx) / d, dirZ: (target.z - fz) / d, knockback: 3, canCrit: true, loud: true });
+        ctx.damage(target, p.dmg * (superc && target.frozen > 0 ? 2 : 1), { source: 'lightning', dirX: (target.x - fx) / d, dirZ: (target.z - fz) / d, knockback: 3, canCrit: true, loud: true });
         ctx.fx.star(target.x, 0.9, target.z, 1.2, '#fff35c', 0.1);
         fx = target.x;
         fy = 0.9;

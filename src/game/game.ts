@@ -47,6 +47,7 @@ import { RunEvents, type EventHost } from './runEvents';
 import { CURSE_BY_ID, type CurseDef } from '../data/curses';
 import { RELIC_BY_ID, RELICS } from '../data/relics';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
+import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 
 export { economyTuning } from './hero';
 
@@ -107,6 +108,7 @@ interface LobbyEntry {
   name: string;
   unlocked: string[];
   skin: string;
+  pet: string;
 }
 
 /** Shop view sent over the network (Mods referenced by id). */
@@ -362,8 +364,8 @@ export class Game implements HeroWorld {
 
   // ------------------------------------------------------------------ heroes and contexts
 
-  private makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin): Hero {
-    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, skinOf(skin));
+  private makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet): Hero {
+    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, skinOf(skin), pet);
     h.player.setSkin(h.skin.armor, h.skin);
     return h;
   }
@@ -380,6 +382,8 @@ export class Game implements HeroWorld {
     const h = this.hero;
     h.skin = skinOf(settings.skin);
     h.player.setSkin(this.heroes.length > 1 ? h.color : h.skin.armor, h.skin);
+    h.setPet(settings.pet);
+    h.recomputeStats();
   }
 
   makeCtx(hero: Hero): WeaponCtx {
@@ -412,7 +416,10 @@ export class Game implements HeroWorld {
       damage: (e, base, o) => this.damage(e, base, o, hero),
       nearest: (x, z, r, skip) => this.nearestEnemy(x, z, r, skip),
       inRadius: (x, z, r, out) => this.enemiesInRadius(x, z, r, out),
-      blast: (x, z, r, base, color, source) => this.blast(x, z, r, base, color, source, WEAPONS[source]?.tags ?? ['explosive'], false, hero),
+      blast: (x, z, r, base, color, source, tags) => this.blast(x, z, r, base, color, source, tags ?? WEAPONS[source]?.tags ?? ['explosive'], false, hero),
+      get combos() {
+        return hero.combos;
+      },
       sound: (name) => this.vfx.sound('w:' + name, hero.player.x, hero.player.z),
     };
   }
@@ -581,7 +588,7 @@ export class Game implements HeroWorld {
     if (this.role === 'host') {
       for (const h of this.heroes) {
         if (!h.peerId) continue;
-        this.host!.send(h.peerId, { t: 'start', seed: this.seed, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id })) });
+        this.host!.send(h.peerId, { t: 'start', seed: this.seed, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet })) });
       }
     }
     this.loadStage(1);
@@ -630,6 +637,7 @@ export class Game implements HeroWorld {
     if (!this.isCombatMode || this.paused) return;
     this.paused = true;
     this.screens.setPauseBuild(this.hero.loadout(), this.hero.synergy.slots.map((sl) => sl.def), [
+      ...WEAPON_COMBOS.filter((c) => this.hero.combos.has(c.id)).map((c) => ({ id: c.weapons[0], name: c.name, desc: c.desc, icon: '+', color: c.color })),
       ...this.hero.relics.filter((id) => RELIC_BY_ID[id]).map((id) => RELIC_BY_ID[id]),
       ...this.curses.filter((id) => CURSE_BY_ID[id]).map((id) => ({ ...CURSE_BY_ID[id], curse: true })),
     ]);
@@ -1039,6 +1047,12 @@ export class Game implements HeroWorld {
   private afterPick(h: Hero, color: string): void {
     const p = h.player;
     p.happyT = 1.4;
+    for (const c of activeCombos(h.weapons.map((w) => w.def.id))) {
+      if (h.combosSeen.has(c.id)) continue;
+      h.combosSeen.add(c.id);
+      this.vfx.banner(`COMBO: ${c.name.toUpperCase()}!`, c.desc.toUpperCase(), 2.2);
+      this.vfx.sound('jingle', NaN, NaN);
+    }
     this.vfx.burst(p.x, 1, p.z, { count: 20, color, color2: '#ffffff', speed: [3, 8], size: [0.12, 0.3], life: [0.4, 0.8], up: 6, gravity: 10 });
     this.checkAchievements();
     if (h.needsPick) {
@@ -1202,7 +1216,11 @@ export class Game implements HeroWorld {
     }
 
     // Stage flow
-    if (this.mode === 'fight' && anyAlive) this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
+    if (this.mode === 'fight' && anyAlive) {
+      this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
+      this.updateBossRage(dt);
+      this.updatePets(dt);
+    }
     if (this.mode === 'fight' && anyAlive) {
       const reqs = this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng);
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
@@ -1545,8 +1563,58 @@ export class Game implements HeroWorld {
       if (crit) by.synergy.crit(ev);
       if (crit && by.hasRelic('r_static') && o.source !== 'zap' && e.active) this.zap(e, 2, Math.max(4, amount * 0.35), by);
     }
+    if (e.def.boss && e.hp > 0) this.bossPhase(e);
     if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);
     return amount;
+  }
+
+  /** Sparky zaps the nearest enemy every 1.5 s. */
+  private updatePets(dt: number): void {
+    for (const h of this.heroes) {
+      if (h.pet !== 'sparky' || h.left || h.player.dead || (h.sparkyT -= dt) > 0) continue;
+      h.sparkyT = 1.5;
+      const p = h.player;
+      const e = this.nearestEnemy(p.x, p.z, 9);
+      if (!e) continue;
+      this.damage(e, 10 + 3 * this.level, { source: 'pet', tags: ['shock'], canCrit: true, loud: true }, h);
+      this.vfx.star(e.x, 1, e.z, 1.3, '#fff35c', 0.12);
+      this.vfx.ring(e.x, e.z, 0.5, 2, '#fff35c', 0.2);
+      this.vfx.sound('w:zap', e.x, e.z);
+      h.petView?.zap();
+    }
+  }
+
+  /** Bosses get angrier at 66% and 33% life: faster attacks, a red glow, then bullet rings of their own. */
+  private bossPhase(e: Enemy): void {
+    const k = e.hp / e.maxHp;
+    const phase = k < 0.33 ? 3 : k < 0.66 ? 2 : 1;
+    if (phase <= e.phase) return;
+    e.phase = phase;
+    e.rage = phase === 3 ? 1.6 : 1.3;
+    e.speedMul *= 1.12;
+    e.rageT = 2;
+    this.vfx.banner(phase === 3 ? 'FURIOUS!' : 'ENRAGED!', `${e.def.name.toUpperCase()} ${phase === 3 ? 'GOES ALL OUT' : 'GETS ANGRY'}`, 1.4);
+    this.vfx.sound('boss', e.x, e.z);
+    this.vfx.shake(e.x, e.z, 0.5);
+    this.vfx.ring(e.x, e.z, 1, 10, '#ff2d4a', 0.45);
+    e.squash(10);
+  }
+
+  /** Phase-3 bosses fire a spinning bullet ring every few seconds on top of their moves. */
+  private updateBossRage(dt: number): void {
+    for (const e of this.enemies.list) {
+      if (!e.active || !e.def.boss || e.phase < 3 || e.frozen > 0) continue;
+      if ((e.rageT -= dt) > 0) continue;
+      e.rageT = 3.2;
+      const n = 14;
+      const off = this.rng.next() * Math.PI;
+      for (let i = 0; i < n; i++) {
+        const a = off + (i / n) * Math.PI * 2;
+        this.enemyCtx.fireBullet(e, Math.cos(a), Math.sin(a), 6.5, 12);
+      }
+      this.vfx.ring(e.x, e.z, 1, 5, '#ff2d4a', 0.3);
+      this.vfx.sound('bossWindup', e.x, e.z);
+    }
   }
 
   /** Death flavour by enemy kind. Swarm kills only sometimes get the extras, so mass kills stay light. */
@@ -1690,7 +1758,7 @@ export class Game implements HeroWorld {
   }
 
   private sourceName(id: string): string {
-    const named: Record<string, string> = { meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Crit Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
+    const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Crit Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
     return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
   }
 
@@ -2163,7 +2231,7 @@ export class Game implements HeroWorld {
     this.role = 'host';
     const host = new NetHost(3);
     this.host = host;
-    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), skin: settings.skin }];
+    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), skin: settings.skin, pet: settings.pet }];
     this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
     host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
     host.onLeave = (id) => this.onClientLeft(id);
@@ -2187,7 +2255,7 @@ export class Game implements HeroWorld {
   private hostStart(): void {
     if (this.role !== 'host' || !this.host) return;
     const heroes = this.lobby.map((p, i) =>
-      i === 0 ? this.hero : this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin),
+      i === 0 ? this.hero : this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet),
     );
     this.hero.name = this.lobby[0].name;
     this.setHeroes(heroes);
@@ -2217,7 +2285,7 @@ export class Game implements HeroWorld {
       this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
       return;
     }
-    client.send({ t: 'hello', name, unlocked: unlockedWeapons(), skin: settings.skin });
+    client.send({ t: 'hello', name, unlocked: unlockedWeapons(), skin: settings.skin, pet: settings.pet });
     this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
   }
 
@@ -2242,6 +2310,7 @@ export class Game implements HeroWorld {
         name: String(m.name ?? 'Player').slice(0, 12),
         unlocked: Array.isArray(m.unlocked) ? (m.unlocked as string[]) : unlockedWeapons(),
         skin: skinOf(String(m.skin ?? '')).id,
+        pet: String(m.pet ?? 'none'),
       });
       this.refreshLobby();
       return;
@@ -2443,9 +2512,9 @@ export class Game implements HeroWorld {
     };
   }
 
-  private clientStart(seed: number, you: number, players: { name: string; skin?: string }[]): void {
+  private clientStart(seed: number, you: number, players: { name: string; skin?: string; pet?: string }[]): void {
     this.seed = seed;
-    const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin));
+    const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none'));
     this.setHeroes(heroes);
     this.local = you;
     for (const h of heroes) {
@@ -2611,6 +2680,7 @@ export class Game implements HeroWorld {
       e.sq = r.sq;
       e.hopY = r.hopY;
       e.frozen = r.frozen ? 1 : 0;
+      if (e.def.boss && this.netBoss) e.phase = this.netBoss.hp01 < 0.33 ? 3 : this.netBoss.hp01 < 0.66 ? 2 : 1;
       e.shield = r.shield ? 1 : 0;
       e.burnT = r.burn ? 1 : 0;
       e.shockT = r.shock ? 1 : 0;
@@ -2751,6 +2821,7 @@ export class Game implements HeroWorld {
         h.player.rig.root.visible = false;
         continue;
       }
+      h.petView?.render(rdt, h.player.rig.root.position.x, h.player.rig.root.position.z, h.player.rig.root.rotation.y, !h.player.dead && this.mode !== 'transition');
       h.player.cheer = this.mode === 'cleared';
       h.player.focus = h === local && h.ctx.charging;
       h.player.render(h === local || !client ? a : netA, rdt);

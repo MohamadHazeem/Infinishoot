@@ -12,6 +12,7 @@ import { fmtScore, type LoadoutItem } from './hud';
 import { MenuNav } from './menu';
 import { iconHtml } from './pixelIcons';
 import { SKINS } from '../data/skins';
+import { PETS } from '../data/pets';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox' | 'wardrobe';
@@ -256,6 +257,8 @@ export class Screens {
   <h1>WARDROBE</h1>
   <p class="note">Skins unlock with achievements. In co-op your armour keeps your player colour.</p>
   <div class="skin-grid"></div>
+  <div class="section">PETS</div>
+  <div class="skin-grid pet-grid"></div>
   <div class="menu row">
     <button data-nav data-act="wd-back">BACK</button>
   </div>
@@ -369,6 +372,15 @@ export class Screens {
           const id = btn.dataset.skin!;
           if (!skinUnlocked(id)) return;
           settings.skin = id;
+          saveSettings();
+          actions.skinChanged();
+          return this.renderWardrobe();
+        }
+        case 'pet': {
+          const id = btn.dataset.pet!;
+          const def = PETS.find((x) => x.id === id);
+          if (!def || (def.unlock && !save.achievements.includes(def.unlock))) return;
+          settings.pet = id;
           saveSettings();
           actions.skinChanged();
           return this.renderWardrobe();
@@ -606,6 +618,15 @@ export class Screens {
         <span class="swatches">${open ? sw(s.armor) + sw(s.accent) + sw(s.suit) + sw(s.hair) : sw('#333c57') + sw('#333c57') + sw('#333c57') + sw('#333c57')}</span>
         <b>${open ? s.name.toUpperCase() : '???'}</b>
         <small>${open ? (settings.skin === s.id ? 'WEARING' : 'WEAR') : ach ? ach.name.toUpperCase() : ''}</small>
+      </button>`;
+    }).join('');
+    el.querySelector('.pet-grid')!.innerHTML = PETS.map((p) => {
+      const open = !p.unlock || save.achievements.includes(p.unlock);
+      const ach = p.unlock ? ACHIEVEMENTS.find((a) => a.id === p.unlock) : null;
+      return `<button data-nav data-act="pet" data-pet="${p.id}" class="skin ${settings.pet === p.id ? 'on' : ''} ${open ? '' : 'locked'}" title="${p.desc}">
+        <span class="swatches"><i style="background:${open ? p.color : '#333c57'}"></i></span>
+        <b>${open ? p.name.toUpperCase() : '???'}</b>
+        <small>${open ? p.desc : ach ? ach.name.toUpperCase() : ''}</small>
       </button>`;
     }).join('');
     this.navs.wardrobe.refresh(this.navs.wardrobe.focus);

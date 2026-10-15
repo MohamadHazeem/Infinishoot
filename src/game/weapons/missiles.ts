@@ -110,7 +110,7 @@ export class Missiles extends Weapon {
         });
       }
       if (boom) {
-        ctx.blast(m.x, m.z, p.radius * ctx.stats.areaMul, p.dmg, '#ff7a2f', 'missiles');
+        ctx.blast(m.x, m.z, p.radius * ctx.stats.areaMul, p.dmg, '#ff7a2f', 'missiles', ctx.combos.has('firestorm') ? ['projectile', 'explosive', 'fire'] : undefined);
         this.list.splice(i--, 1);
       }
     }

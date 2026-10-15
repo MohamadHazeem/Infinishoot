@@ -14,6 +14,9 @@ import { MAX_MOD_SLOTS, Synergy, type SynergyHost } from './synergy';
 import { createWeapon, type Weapon, type WeaponCtx } from './weapons';
 import { SKINS, type SkinDef } from '../data/skins';
 import { CURSE_BY_ID, CURSES } from '../data/curses';
+import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
+import { PET_BY_ID } from '../data/pets';
+import { PetView } from './pet';
 
 export const MAX_WEAPONS = 6;
 export const MAX_PASSIVES = 6;
@@ -111,8 +114,10 @@ export class Hero implements SynergyHost {
     public unlocked: string[],
     readonly peerId = '',
     public skin: SkinDef = SKINS[0],
+    petId = 'none',
   ) {
     this.player = new Player(world.scene, color, skin);
+    this.setPet(petId);
     this.synergy = new Synergy(this);
     this.ctx = world.makeCtx(this);
   }
@@ -155,11 +160,28 @@ export class Hero implements SynergyHost {
   /** The curse this hero's shop is offering (null = none / taken). */
   curseOffer: string | null = null;
 
+  private comboKey = '';
+  private comboSet = new Set<string>();
+
+  /** Weapon combos unlocked by the weapons this hero holds. */
+  get combos(): ReadonlySet<string> {
+    const key = this.weapons.map((w) => w.def.id).join();
+    if (key !== this.comboKey) {
+      this.comboKey = key;
+      this.comboSet = new Set(activeCombos(this.weapons.map((w) => w.def.id)).map((c) => c.id));
+    }
+    return this.comboSet;
+  }
+
   hasRelic(id: string): boolean {
     return this.relics.includes(id);
   }
 
+  /** Combos already announced this run. */
+  combosSeen = new Set<string>();
+
   startRun(): void {
+    this.combosSeen.clear();
     this.relics = [];
     this.phoenixUsed = false;
     this.fangKills = 0;
@@ -177,7 +199,8 @@ export class Hero implements SynergyHost {
     this.shopDone = true;
     this.recomputeStats();
     this.rerollsLeft = this.stats.rerolls;
-    this.revivesLeft = this.stats.revives;
+    this.revivesLeft = this.stats.revives + (this.pet === 'guardian' ? 1 : 0);
+    this.sparkyT = 1.5;
     this.player.reset(this.stats);
     this.loadoutDirty = true;
   }
@@ -190,11 +213,26 @@ export class Hero implements SynergyHost {
   dispose(): void {
     this.disposeWeapons();
     this.player.dispose();
+    this.petView?.dispose();
+  }
+
+  /** Companion (src/data/pets.ts); its body is drawn by PetView. */
+  pet = 'none';
+  petView: PetView | null = null;
+  sparkyT = 0;
+
+  setPet(id: string): void {
+    const def = PET_BY_ID[id] ?? PET_BY_ID.none;
+    if (def.id === this.pet && (this.petView || def.id === 'none')) return;
+    this.pet = def.id;
+    this.petView?.dispose();
+    this.petView = def.id === 'none' ? null : new PetView(this.world.scene, def);
   }
 
   /** Rebuild static stats (passives + Mods) and the live copy. */
   recomputeStats(): void {
     this.statBase = computeStats(this.passives);
+    if (this.pet === 'bit') this.statBase.magnet += 0.6;
     this.synergy.applyStatic(this.statBase);
     this.refreshLive();
     this.player.stats = this.stats;
@@ -264,7 +302,10 @@ export class Hero implements SynergyHost {
       for (const id of this.unlocked) {
         if (this.weapons.some((w) => w.def.id === id) || !WEAPONS[id]) continue;
         const d = WEAPONS[id];
-        cands.push({ kind: 'weapon', id, name: d.name, icon: d.icon, color: d.color, tag: 'NEW!', text: d.desc, tags: d.tags, w: 2.4 });
+        const owned = this.weapons.map((w) => w.def.id);
+        const made = WEAPON_COMBOS.filter((c) => c.weapons.includes(id) && owned.includes(c.weapons[0] === id ? c.weapons[1] : c.weapons[0]));
+        const hint = made.length ? ` COMBO: ${made.map((c) => c.name).join(', ')}!` : '';
+        cands.push({ kind: 'weapon', id, name: d.name, icon: d.icon, color: d.color, tag: 'NEW!', text: d.desc + hint, tags: d.tags, w: made.length ? 3.2 : 2.4 });
       }
     }
     const owned = Object.keys(this.passives).length;

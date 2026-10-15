@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createRetroMaterial } from '../../render/retroMaterial';
 import type { WeaponDef } from '../../data/weapons';
+import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
 import { commit } from '../../render/instancing';
 
@@ -16,6 +17,7 @@ interface Mine {
 
 /** Drops proximity mines at the player's feet. Rewards running through crowds. */
 export class Mines extends Weapon {
+  private chill: Enemy[] = [];
   private list: Mine[] = [];
   private dome: THREE.InstancedMesh;
   private c = new THREE.Color();
@@ -63,7 +65,12 @@ export class Mines extends Weapon {
         if ((e.x - m.x) ** 2 + (e.z - m.z) ** 2 < rr * rr) hit = true;
       });
       if (hit) {
-        ctx.blast(m.x, m.z, p.radius * ctx.stats.areaMul, p.dmg, '#ff9f3d', 'mines');
+        const r = p.radius * ctx.stats.areaMul;
+        ctx.blast(m.x, m.z, r, p.dmg, '#ff9f3d', 'mines', ctx.combos.has('napalm_mines') ? ['explosive', 'trail', 'fire'] : undefined);
+        if (ctx.combos.has('cryo_mines')) {
+          for (const e of ctx.inRadius(m.x, m.z, r, this.chill)) if (e.active && !e.def.boss) e.frozen = Math.max(e.frozen, 1.2);
+          ctx.fx.ring(m.x, m.z, 1, r * 2, '#9fe8ff', 0.3);
+        }
         this.list.splice(i--, 1);
       }
     }

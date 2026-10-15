@@ -245,6 +245,10 @@ export class Enemy {
   step = 0;
   /** Ka-Boomer fuse tick countdown (sound only). */
   tickT = 0;
+  /** Boss phase (1-3) and how much faster its attack timers run. */
+  phase = 1;
+  rage = 1;
+  rageT = 0;
   /** Squash-and-stretch spring: displacement and velocity. */
   sq = 0;
   sqV = 0;
@@ -277,6 +281,8 @@ export class Enemy {
     this.sq = this.sqV = this.hopY = 0;
     this.timerA = this.def.boss ? 3 : 1 + Math.random() * 2;
     this.burst = this.spin = this.timerB = this.step = 0;
+    this.phase = this.rage = 1;
+    this.rageT = 0;
     this.action = 'ring';
     this.strafe = Math.random() < 0.5 ? -1 : 1;
   }
@@ -503,7 +509,9 @@ export class Enemies {
       let wantX = 0;
       let wantZ = 0;
       let rigid = false; // attack movement ignores steering smoothing
-      e.t -= dt;
+      // Enraged bosses run their attack clock faster.
+      const bdt = e.def.boss ? dt * e.rage : dt;
+      e.t -= bdt;
 
       switch (e.def.behavior) {
         case 'chase':
@@ -615,17 +623,17 @@ export class Enemies {
         }
 
         case 'boss':
-          rigid = this.updateBoss(e, dt, ctx, nx, nz, dist, speed);
+          rigid = this.updateBoss(e, bdt, ctx, nx, nz, dist, speed);
           wantX = e.vx;
           wantZ = e.vz;
           break;
         case 'rex':
-          rigid = this.updateRex(e, dt, ctx, nx, nz, dist, speed);
+          rigid = this.updateRex(e, bdt, ctx, nx, nz, dist, speed);
           wantX = e.vx;
           wantZ = e.vz;
           break;
         case 'queen':
-          this.updateQueen(e, dt, ctx, nx, nz, dist, speed);
+          this.updateQueen(e, bdt, ctx, nx, nz, dist, speed);
           wantX = e.vx;
           wantZ = e.vz;
           break;
@@ -983,6 +991,7 @@ export class Enemies {
       } else if (e.burnT > 0 && e.shockT > 0) b.flash.setXYZW(i, 1, 0.9, 0.3, 0.5);
       else if (e.burnT > 0) b.flash.setXYZW(i, 1, 0.45, 0.1, 0.3 + 0.2 * Math.sin(time * 18 + e.uid));
       else if (e.shockT > 0) b.flash.setXYZW(i, 1, 1, 0.4, Math.sin(time * 50 + e.uid) > 0.3 ? 0.55 : 0.1);
+      else if (e.def.boss && e.phase > 1) b.flash.setXYZW(i, 1, 0.15, 0.2, (e.phase === 3 ? 0.35 : 0.2) + 0.15 * Math.sin(time * (e.phase === 3 ? 14 : 8)));
       else if (e.mod) b.flash.setXYZW(i, e.mod.glow[0], e.mod.glow[1], e.mod.glow[2], 0.3 + 0.15 * Math.sin(time * 6));
       else if (e.elite) b.flash.setXYZW(i, 1, 0.85, 0.2, 0.25 + 0.15 * Math.sin(time * 6));
       else b.flash.setXYZW(i, 0, 0, 0, 0);

@@ -2106,6 +2106,16 @@ h1.ko {
   gap: 14px;
 }
 
+.pet-grid {
+  grid-template-columns: repeat(4, 190px);
+}
+
+#scr-wardrobe .section {
+  font: 12px var(--label);
+  letter-spacing: 2px;
+  color: var(--cyan);
+}
+
 .screen button.skin {
   display: grid;
   gap: 4px;

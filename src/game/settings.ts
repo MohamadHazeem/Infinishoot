@@ -18,6 +18,7 @@ export interface Settings {
   skin: string;
   glow: number;
   crt: boolean;
+  pet: string;
 }
 
 const KEY = 'settings.v1';
@@ -34,6 +35,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   skin: 'classic',
   glow: 0.4,
   crt: false,
+  pet: 'none',
 });
 
 /** Push settings into the systems that use them. */

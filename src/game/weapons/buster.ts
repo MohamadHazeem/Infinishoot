@@ -173,7 +173,7 @@ export class Buster extends Weapon {
         color: mega ? '#ff7a2f' : this.look('#fff36b'),
         width: 0.32 * size,
         length: 0.8 * size,
-        pierce: p.pierce + (mega ? 5 : 0),
+        pierce: p.pierce + (mega ? 5 : 0) + (ctx.combos.has('ricochet') ? 1 : 0),
         owner: ctx.owner,
       });
     }

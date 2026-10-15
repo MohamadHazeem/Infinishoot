@@ -69,7 +69,7 @@ export class Drones extends Weapon {
         if (ctx.time - last < HIT_COOLDOWN) return;
         this.lastHit.set(en.uid, ctx.time);
         // Knock enemies along the orbit direction.
-        ctx.damage(en, p.dmg, { source: 'drones', dirX: -Math.sin(a), dirZ: Math.cos(a), knockback: 5, hx: dp.x, hz: dp.z, canCrit: true, loud: true });
+        ctx.damage(en, p.dmg, { source: 'drones', dirX: -Math.sin(a), dirZ: Math.cos(a), knockback: 5, hx: dp.x, hz: dp.z, canCrit: true, loud: true, tags: ctx.combos.has('tesla_drones') ? ['orbit', 'shock'] : undefined });
       });
     }
     // Forget old entries now and then so the map doesn't grow forever.
