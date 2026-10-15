@@ -53,6 +53,7 @@ import { submitDaily } from './highscores';
 import { heroOf } from '../data/heroes';
 import { binds } from '../core/keybinds';
 import { PASSIVES } from '../data/passives';
+import { boardId, fetchTop, leaderboardEnabled, submitGlobal } from '../net/leaderboard';
 
 export { economyTuning } from './hero';
 
@@ -565,6 +566,7 @@ export class Game implements HeroWorld {
     this.hud.setVisible(false);
     this.hud.setFade(0);
     this.screens.setHighScores(loadHighScores());
+    this.refreshGlobal();
     this.screens.show('title');
   }
 
@@ -1022,6 +1024,13 @@ export class Game implements HeroWorld {
       weapons: h.weapons.map((w) => ({ id: w.def.id, level: w.level, evo: w.evolved })),
     });
     persist();
+    if (leaderboardEnabled && this.role !== 'client') {
+      const board = boardId(this.runMode, this.difficulty.id, this.runDate);
+      void submitGlobal(board, { name: this.hero.name, score: Math.floor(sum.score), stage: sum.stage, kills: sum.kills, time: sum.time }).then((r) => {
+        if (r) this.hud.toast(`GLOBAL RANK #${r}!`, 4);
+        this.refreshGlobal(board, r ? r - 1 : -1);
+      });
+    }
     const rank = submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
     if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
     this.screens.showGameOver(sum, rank, loadHighScores(), this.role === 'client');
@@ -3041,6 +3050,15 @@ export class Game implements HeroWorld {
     this.vfx.star(x, 2, z, 1.6, h.color, 0.5);
     this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${label}`, 'score');
     this.vfx.sound('telegraph', x, z);
+  }
+
+  /** Load the online top scores for the selected mode (no-op when offline). */
+  private refreshGlobal(board?: string, highlight = -1): void {
+    if (!leaderboardEnabled) return;
+    const mode = (MODE_BY_ID[settings.mode as ModeId] ?? MODES[0]).id;
+    const b = board ?? boardId(mode, mode === 'daily' ? 'normal' : this.pickDifficulty().id, today());
+    const title = b.startsWith('daily') ? 'TODAY' : b.replace('-', ' · ').toUpperCase();
+    void fetchTop(b).then((list) => this.screens.setGlobalScores(title, list, highlight));
   }
 
   /** Midday to sunset over each stage: dusk falls in the second half, the boss fights at sunset. */

@@ -125,8 +125,9 @@ Known limits: some strict networks block direct WebRTC connections (would need a
 - [x] Touch twin-stick controls (appear on the first touch)
 
 ## Milestone 7: Release
-- [ ] Performance audit on a range of machines; quality presets
-- [ ] Code-sign the exe (removes the SmartScreen warning) and notarize the Mac app
+- [x] Quality presets (SETTINGS > QUALITY)
+- [ ] Performance audit on a range of real machines
+- [ ] Code-sign the exe (removes the SmartScreen warning) and notarize the Mac app: the release workflow signs automatically once certificate secrets are added (docs/RELEASING.md); certificates still needed
 - [x] Mac builds (unsigned dmgs for Apple Silicon and Intel)
 - [x] CI: typecheck + build on every push; tagged releases build the exe and dmgs on GitHub Actions
 - [ ] Publish `InfiniShoot.exe` on GitHub Releases, then gather feedback
@@ -174,7 +175,7 @@ public/assets/         # models (glb), textures (png), audio
 - **Scope creep:** anything not in the current milestone goes to the backlog below.
 
 ## Backlog / later ideas
-- Local co-op (2 gamepads), online leaderboards (needs a backend), more heroes with unique specials, mobile twin-stick touch controls, mod support via JSON.
+- Local co-op (2 gamepads), online leaderboards (server ready in server/leaderboard, needs deploying), more heroes with unique specials, mobile twin-stick touch controls, mod support via JSON.
 
 ## Decision log
 - 2026-10-04: Project started. Stack set to TS + Vite + Three.js.
@@ -211,3 +212,4 @@ public/assets/         # models (glb), textures (png), audio
 - 2026-10-15: Enemy and arena variety. Shooter defs take a `pattern` (spread, spiral, burst, sniper); the new Spin Bot, Burst Bot and Sniper Bot reuse the shooter model in their own colours, and the sniper's aim line is drawn from the synced lunge angle so clients see it. Elite modifiers gained Vampiric (heals 15% on hit, regenerates), Blinking (teleports next to the nearest hero every ~3.5 s) and Volatile (telegraphed blast on death); with six modifiers the enemy record grew to 22 bytes and byte 20 carries the modifier and shield bit (bits 5-7 of the flags are the boss action again). Arenas report hazards: magma pools burn heroes (8 per hit with knockback out of the pool) and set enemies alight; frozen ponds cut grip by 85%; from stage 2 every arena has three conveyor belts that carry heroes and enemies at 4 m/s. Ground effects are computed from the arena on every machine, so client-side movement matches.
 - 2026-10-15: Menus, accessibility and controls. Keyboard actions are rebindable (src/core/keybinds.ts, two slots each, stored in `keys.v1`; Escape always pauses/backs out); the game reads `input.actionPressed()`. Gamepads rumble on hits, dashes, bombs, evolutions and boss rage (setting). Touch screens get floating twin sticks plus DASH / CHARGE / BOMB buttons that feed `Input.virtual`, merged into the gamepad state, so no game code special-cases touch. Settings gained QUALITY (low 216p and light weather, no glow or streaks; medium 270p; high 360p), COLOUR-BLIND BULLETS (enemy shots become larger and white), REDUCE FLASHING (HUD flashes at 15% and stepped CSS animations off) and CONTROLLER RUMBLE; the settings list scrolls. Save v3 adds `seen` (EXTRAS > ENEMY GUIDE with stats and a tip per enemy) and `history` (last 30 runs with hero, mode, stage, score, weapons and what killed you). The pause screen lists evolution recipes for owned weapons (ready ones highlighted) and a live damage-by-source chart.
 - 2026-10-15: Co-op extras. Finishing a revive gives the revived hero and every rescuer in range 3 s of invincibility (TEAMWORK!). Pings (G, or the gamepad View button) mark the aimed spot with rings, a star and a label that reads the spot (CHEST, PORTAL, ELITE, BOSS or HERE); clients send `ping` to the host, which validates, rate-limits (0.7 s) and plays it on the effects bus. While downed, the camera follows a living teammate; click / A / the ping key cycles who you watch, and the HUD says who it is.
+- 2026-10-15: v0.6.0. Optional online leaderboard: server/leaderboard is a Cloudflare Worker + KV (boards per mode-difficulty and per daily date, top 100 kept, plausibility checks, one submit per IP per minute). The game only talks to it when built with VITE_LEADERBOARD_URL (a GitHub Actions variable for releases); otherwise it stays offline. Title and game-over screens show a GLOBAL table and runs report their global rank. Code signing is wired into the release workflow and turns on when the certificate secrets exist.

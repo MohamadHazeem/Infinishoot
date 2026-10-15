@@ -1,6 +1,6 @@
 # InfiniShoot
 
-A colorful twin-stick survivors-style roguelike for Windows. You aim an arm cannon while automatic weapons build up around you, survive timed stages against swarms, beat the boss, and dive through the portal to a harder stage. Every run starts equal; achievements unlock new weapons for future runs.
+A colorful twin-stick survivors-style roguelike for Windows and Mac. You aim an arm cannon while automatic weapons build up around you, survive timed stages against swarms, beat the boss, and dive through the portal to a harder stage. Every run starts equal; achievements unlock new weapons for future runs.
 
 Built with TypeScript, Vite and Three.js, with a Mega Man Legends-inspired low-poly look and subtle PS1-style effects.
 
@@ -55,6 +55,19 @@ Get a weapon to level 5 while holding its partner item, and the next level-up (o
 
 Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to 3 friends join with it. Each player has their own weapons, gold, Mods and shop; XP and score are shared. Stand next to a downed teammate to revive them.
 
+## What's in it
+
+- **Modes** (PLAY SOLO): Standard, Endless (one arena, a boss every 4 minutes), Boss Rush, and a Daily Challenge with the same seed for everyone. Difficulty from Easy to Nightmare.
+- **Heroes**: Rookie, Bulwark, Dash and Ace, each with a starting kit and quirks. Skins and pets in EXTRAS > WARDROBE.
+- **12 weapons**, each with an evolution, plus **weapon combos** when you hold the right pair.
+- **Shop between stages**: Mods, optional **curse deals**, and now and then a **secret merchant**. Bosses drop **relics**.
+- **Every stage**: a random event (meteor shower, gold rush, fog bank, elite parade, stampede), a side challenge, and combo power-ups (FRENZY, MAGNET BURST, OVERDRIVE).
+- **Elites** roll a modifier (Shielded, Fast, Splitting, Vampiric, Blinking, Volatile); bosses enrage as they lose life.
+- **Arenas**: four biomes with weather, swaying grass, lava that burns, slippery ice and conveyor belts, going from midday to sunset over each stage.
+- **Music** composed on the fly per area, that builds up with the fight; a jukebox in EXTRAS.
+- **Extras**: run history, enemy guide, rebindable keys, controller rumble, touch controls, colour-blind and reduced-flashing options, quality presets.
+- **Online co-op** for up to 4 players, with pings, spectating and revive bonuses. An optional **online leaderboard** can be switched on (see [server/leaderboard](server/leaderboard/README.md)).
+
 ## Controls
 
 | Action | Keyboard / mouse | Gamepad |
@@ -64,15 +77,19 @@ Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to
 | Charge shot (hold, release to fire) | Right click | X |
 | Dash | Space, Shift | LB / LT / A |
 | Bomb | Q, E, middle click | RB / Y |
+| Ping (co-op) | G | View / Back |
 | Pause | Esc / P / pause button | Start |
 | Auto-fire | F | |
 | Debug panel (dev) | ` | |
+
+Keys can be changed in SETTINGS > CONTROLS. On a touch screen, on-screen sticks and buttons appear on the first touch.
 
 ## Project docs
 
 - [PROMPT.md](PROMPT.md): design brief and rules
 - [PLAN.md](PLAN.md): roadmap and decision log
 - [CLAUDE.md](CLAUDE.md): code conventions
+- [docs/RELEASING.md](docs/RELEASING.md): building releases and code signing
 
 ## Credits
 

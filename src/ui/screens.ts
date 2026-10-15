@@ -152,6 +152,7 @@ export class Screens {
   </div>
   <div class="wallet"></div>
   <div class="hiscores"></div>
+  <div class="hiscores global" hidden></div>
   <div class="controls">WASD / L-stick move &middot; Mouse / R-stick aim &amp; shoot &middot; Hold right click / X charge shot &middot; Space / LB dash &middot; Q / RB bomb &middot; Esc / Start pause</div>
   <div class="credits">Icons: game-icons.net by Lorc, Delapouite &amp; contributors (CC BY 3.0) &middot; Fonts: Jersey, Pixelify Sans, Silkscreen (OFL) &middot; Palette: Sweetie 16 by GrafxKid</div>
   <div class="version">v${__APP_VERSION__}</div>
@@ -329,6 +330,7 @@ export class Screens {
     <button data-nav data-act="title">TITLE</button>
   </div>
   <div class="hiscores"></div>
+  <div class="hiscores global" hidden></div>
 </div>`,
     );
     const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary'];
@@ -614,6 +616,22 @@ export class Screens {
   private renderProgress(): void {
     const done = ACHIEVEMENTS.filter((a) => save.achievements.includes(a.id)).length;
     this.els.title.querySelector('.wallet')!.textContent = `★ ${done} / ${ACHIEVEMENTS.length} UNLOCKED`;
+  }
+
+  /** Online top 10 for one board (hidden when offline). */
+  setGlobalScores(title: string, list: { name: string; score: number; stage: number }[] | null, highlight = -1): void {
+    for (const el of [this.els.title, this.els.gameover]) {
+      const box = el.querySelector<HTMLElement>('.hiscores.global')!;
+      box.hidden = !list;
+      if (!list) continue;
+      const rows = list.length
+        ? list
+            .slice(0, 10)
+            .map((e, i) => `<tr class="${i === highlight ? 'me' : ''}"><td>${i + 1}</td><td>${e.name}</td><td>${fmtScore(e.score)}</td><td>STAGE ${e.stage}</td></tr>`)
+            .join('')
+        : '<tr><td colspan="4">No scores yet. Be the first!</td></tr>';
+      box.innerHTML = `<div class="hs-title">GLOBAL · ${title}</div><table>${rows}</table>`;
+    }
   }
 
   setHighScores(list: ScoreEntry[], highlight = -1): void {
