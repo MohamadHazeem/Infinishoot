@@ -18,5 +18,6 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'speedster', name: 'Speedster', desc: 'Dash 60 times in one run', unlockWeapon: 'fire' },
   { id: 'arsenal', name: 'Full Arsenal', desc: 'Hold 6 weapons at once' },
   { id: 'maxed', name: 'Maxed Out', desc: 'Get a weapon to level 5' },
+  { id: 'evolved', name: 'Evolution', desc: 'Evolve a weapon' },
   { id: 'stage_3', name: 'Deep Diver', desc: 'Reach stage 3' },
 ];

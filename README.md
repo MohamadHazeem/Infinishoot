@@ -31,6 +31,22 @@ Then open http://localhost:5173.
 | `npm run app` | Build and open the desktop app |
 | `npm run dist` | Build `release/InfiniShoot.exe` (single portable exe) |
 
+## Weapon evolutions
+
+Get a weapon to level 5 while holding its partner item, and the next level-up (or treasure chest) evolves it into a much stronger form. The level 5 card tells you which item it needs.
+
+| Weapon | + Item | Evolves into |
+|---|---|---|
+| Buster | Power Cell | Giga Buster |
+| Orbit Drones | Armor Plate | Aegis Swarm |
+| Zap Field | Big Bang | Thunderdome |
+| Chain Zap | Lucky Star | Storm Caller |
+| Boomer Disc | Magnet | Buzzsaw Halo |
+| Seeker Pod | Rapid Coil | Hellfire Pod |
+| Pop Mines | Nanobots | Nano Minefield |
+| Frost Nova | Heart Container | Glacier Heart |
+| Blaze Boots | Turbo Sneakers | Phoenix Trail |
+
 ## Online co-op
 
 Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to 3 friends join with it. Each player has their own weapons, gold, Mods and shop; XP and score are shared. Stand next to a downed teammate to revive them.

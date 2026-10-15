@@ -712,6 +712,16 @@ div.mod-card.sold,
   color: var(--yellow);
 }
 
+#loadout .slot.evo,
+.badge.evo {
+  --ring: var(--orange);
+}
+
+#loadout .slot.evo i,
+.badge.evo i {
+  color: var(--orange);
+}
+
 #mods {
   position: absolute;
   right: 20px;
@@ -1427,6 +1437,10 @@ input[type='range']::-moz-range-thumb {
 }
 .screen button.card.passive {
   --kc: var(--green);
+}
+.screen button.card.evolve {
+  --kc: var(--red);
+  --ring: var(--orange);
 }
 .screen button.card.gold,
 .screen button.card.heal {

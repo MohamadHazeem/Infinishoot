@@ -588,7 +588,8 @@ export class Game implements HeroWorld {
     if (!this.isCombatMode || !this.authority) return;
     const h = this.hero;
     const w = h.weapons.find((x) => x.def.id === id);
-    if (w) w.levelUp();
+    if (w?.maxed) w.evolve();
+    else if (w) w.levelUp();
     else h.weapons.push(createWeapon(id, this.scene));
     h.loadoutDirty = true;
   }
@@ -695,7 +696,7 @@ export class Game implements HeroWorld {
       mods: h.synergy.slots.map((sl) => sl.def.name),
       damage: Object.entries(h.damageBy)
         .sort((a, b) => b[1] - a[1])
-        .map(([id, dmg]) => ({ name: this.sourceName(id), color: WEAPONS[id]?.color ?? MOD_BY_ID[id]?.color ?? '#ff3df0', dmg })),
+        .map(([id, dmg]) => ({ name: h.weapons.find((w) => w.def.id === id)?.name ?? this.sourceName(id), color: WEAPONS[id]?.color ?? MOD_BY_ID[id]?.color ?? '#ff3df0', dmg })),
       achievements: h === this.hero ? this.newAchievements.map((id) => ACHIEVEMENTS.find((a) => a.id === id)!.name) : [],
     };
   }
@@ -806,6 +807,7 @@ export class Game implements HeroWorld {
         const color = h.applyOffer(o);
         h.consumePick();
         this.vfx.sound('powerUp', h.player.x, h.player.z);
+        if (o.kind === 'evolve') this.evolveFx(h, o.name, color);
         this.afterPick(h, color);
       } else if (a === 'skip') {
         const g = h.skipGold;
@@ -841,6 +843,17 @@ export class Game implements HeroWorld {
       }
       this.presentShop(h, a === 'buy' ? i : undefined);
     }
+  }
+
+  /** The big moment when a weapon evolves (level-up card or chest). */
+  private evolveFx(h: Hero, name: string, color: string): void {
+    const p = h.player;
+    this.vfx.ring(p.x, p.z, 1, 9, color, 0.5);
+    this.vfx.ring(p.x, p.z, 0.6, 6, '#ffffff', 0.35);
+    this.vfx.burst(p.x, 1, p.z, { count: 40, color, color2: '#ffcd75', speed: [4, 10], size: [0.14, 0.34], life: [0.5, 1], up: 8, gravity: 10 });
+    this.vfx.shake(p.x, p.z, 0.35);
+    this.vfx.flash(0.35);
+    this.vfx.banner('EVOLUTION!', (this.role === 'solo' ? '' : `${h.name.toUpperCase()}: `) + name.toUpperCase(), 1.8);
   }
 
   private afterPick(h: Hero, color: string): void {
@@ -886,6 +899,7 @@ export class Game implements HeroWorld {
       ['speedster', h.dashes >= 60],
       ['arsenal', h.weapons.length >= 6],
       ['maxed', h.weapons.some((w) => w.maxed)],
+      ['evolved', h.weapons.some((w) => w.evolved)],
       ['stage_3', this.stage >= 3],
     ];
     for (const [id, ok] of want) {
@@ -1745,6 +1759,7 @@ export class Game implements HeroWorld {
     this.vfx.ring(c.x, c.z, 1, 5, '#ffcd75', 0.35);
     this.vfx.burst(c.x, 0.8, c.z, { count: 22, color: '#ffcd75', color2: item.color, speed: [3, 7], size: [0.12, 0.28], life: [0.4, 0.8], up: 7, gravity: 12 });
     this.vfx.num(c.x, 2.6, c.z, `${item.name} ${item.text}`, 'crit');
+    if (item.evolved) this.evolveFx(h, item.name, item.color);
     const msg = `CHEST: ${item.name.toUpperCase()} ${item.text}`;
     if (h === this.hero) {
       this.hud.toast(msg, 3);

@@ -59,7 +59,7 @@ export interface ShopView {
 }
 
 export interface Offer {
-  kind: 'weapon' | 'passive' | 'gold' | 'heal';
+  kind: 'weapon' | 'evolve' | 'passive' | 'gold' | 'heal';
   id: string;
   name: string;
   icon: string;
@@ -90,7 +90,7 @@ function logoWord(word: string, start: number): string {
 }
 
 function badge(i: LoadoutItem): string {
-  return `<span class="badge" style="--c:${i.color}" title="${i.name}">${iconHtml(i.id, i.color, i.icon)}<i>${i.max ? 'M' : i.level}</i></span>`;
+  return `<span class="badge${i.evo ? ' evo' : ''}" style="--c:${i.color}" title="${i.name}">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i></span>`;
 }
 
 function modChip(m: ModDef): string {
@@ -426,12 +426,12 @@ export class Screens {
     el.querySelector('.cards')!.innerHTML = offers
       .map(
         (o, i) => `<button class="card ${o.kind}" data-nav data-act="pick" data-index="${i}">
-          <div class="tag ${o.tag === 'NEW!' ? 'new' : ''}">${o.tag}</div>
+          <div class="tag ${o.tag === 'NEW!' || o.kind === 'evolve' ? 'new' : ''}">${o.tag}</div>
           <div class="icon" style="--c:${o.color}">${iconHtml(o.id, o.color, o.icon)}</div>
           <div class="name">${o.name}</div>
           <div class="desc">${o.text}</div>
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
-          <div class="kind">${o.kind === 'weapon' ? 'WEAPON' : o.kind === 'passive' ? 'ITEM' : 'BONUS'}</div>
+          <div class="kind">${o.kind === 'weapon' ? 'WEAPON' : o.kind === 'evolve' ? 'EVOLUTION' : o.kind === 'passive' ? 'ITEM' : 'BONUS'}</div>
           <div class="key">${i + 1}</div>
         </button>`,
       )

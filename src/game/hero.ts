@@ -186,7 +186,7 @@ export class Hero implements SynergyHost {
 
   loadout(): LoadoutItem[] {
     return [
-      ...this.weapons.map((w) => ({ id: w.def.id, icon: w.def.icon, color: w.def.color, level: w.level, max: w.maxed, name: w.def.name, kind: 'weapon' as const })),
+      ...this.weapons.map((w) => ({ id: w.def.id, icon: w.def.icon, color: w.def.color, level: w.level, max: w.maxed, evo: w.evolved, name: w.name, kind: 'weapon' as const })),
       ...Object.entries(this.passives).map(([id, lv]) => {
         const d = PASSIVES[id];
         return { id, icon: d.icon, color: d.color, level: lv, max: lv >= d.maxLevel, name: d.name, kind: 'passive' as const };
@@ -208,13 +208,31 @@ export class Hero implements SynergyHost {
     return this.chestsPending > 0 ? 'TREASURE!' : `LEVEL ${teamLevel - this.pendingLevels + 1}!`;
   }
 
+  /** A maxed weapon whose partner passive this hero owns. */
+  canEvolve(w: Weapon): boolean {
+    const evo = w.def.evo;
+    return !!evo && w.maxed && !w.evolved && (this.passives[evo.passive] ?? 0) > 0;
+  }
+
+  private evolveOffer(w: Weapon): Offer {
+    const evo = w.def.evo!;
+    return { kind: 'evolve', id: w.def.id, name: evo.name, icon: w.def.icon, color: w.def.color, tag: 'EVOLVE!', text: evo.text, tags: w.def.tags };
+  }
+
+  /** Card hint naming the passive a weapon evolves with (or the weapons a passive evolves). */
+  private evoHint(weaponId: string): string {
+    const evo = WEAPONS[weaponId]?.evo;
+    return evo ? ` Evolves with ${PASSIVES[evo.passive].name}.` : '';
+  }
+
   buildOffers(): Offer[] {
     type Cand = Offer & { w: number };
     const cands: Cand[] = [];
     for (const w of this.weapons) {
       if (w.maxed) continue;
       const next = w.def.levels[w.level];
-      cands.push({ kind: 'weapon', id: w.def.id, name: w.def.name, icon: w.def.icon, color: w.def.color, tag: `LV ${w.level + 1}`, text: next.text, tags: w.def.tags, w: 3 });
+      const last = w.level + 1 === w.def.levels.length;
+      cands.push({ kind: 'weapon', id: w.def.id, name: w.def.name, icon: w.def.icon, color: w.def.color, tag: `LV ${w.level + 1}`, text: next.text + (last ? this.evoHint(w.def.id) : ''), tags: w.def.tags, w: 3 });
     }
     if (this.weapons.length < MAX_WEAPONS) {
       for (const id of this.unlocked) {
@@ -227,9 +245,14 @@ export class Hero implements SynergyHost {
     for (const [id, d] of Object.entries(PASSIVES)) {
       const lv = this.passives[id] ?? 0;
       if (lv >= d.maxLevel || (lv === 0 && owned >= MAX_PASSIVES)) continue;
-      cands.push({ kind: 'passive', id, name: d.name, icon: d.icon, color: d.color, tag: lv ? `LV ${lv + 1}` : 'NEW!', text: d.desc, w: lv ? 1.8 : 1.1 });
+      const evolves = lv === 0 ? this.weapons.filter((w) => w.def.evo?.passive === id && !w.evolved).map((w) => w.def.name) : [];
+      const hint = evolves.length ? `. Evolves ${evolves.join(', ')}.` : '';
+      cands.push({ kind: 'passive', id, name: d.name, icon: d.icon, color: d.color, tag: lv ? `LV ${lv + 1}` : 'NEW!', text: d.desc + hint, w: lv ? 1.8 : 1.1 });
     }
+    // A ready evolution is always offered, as the first card.
     const out: Offer[] = [];
+    const ready = this.weapons.filter((w) => this.canEvolve(w));
+    if (ready.length) out.push(this.evolveOffer(ready[Math.floor(this.rng.next() * ready.length)]));
     while (out.length < 3 && cands.length) {
       let r = this.rng.next() * cands.reduce((a, c) => a + c.w, 0);
       let i = 0;
@@ -252,6 +275,8 @@ export class Hero implements SynergyHost {
       const w = this.weapons.find((x) => x.def.id === o.id);
       if (w) w.levelUp();
       else this.weapons.push(createWeapon(o.id, this.world.scene));
+    } else if (o.kind === 'evolve') {
+      this.weapons.find((x) => x.def.id === o.id)?.evolve();
     } else if (o.kind === 'passive') {
       this.passives[o.id] = (this.passives[o.id] ?? 0) + 1;
       this.recomputeStats();
@@ -271,10 +296,18 @@ export class Hero implements SynergyHost {
   }
 
   /**
-   * A treasure chest's item, applied on the spot: a random passive this hero
-   * can take, else a level for an owned weapon, else gold.
+   * A treasure chest's item, applied on the spot: a ready evolution first,
+   * else a random passive this hero can take, else a level for an owned
+   * weapon, else gold.
    */
-  chestItem(): { id: string; name: string; color: string; icon: string; text: string } {
+  chestItem(): { id: string; name: string; color: string; icon: string; text: string; evolved?: boolean } {
+    const ready = this.weapons.filter((w) => this.canEvolve(w));
+    if (ready.length) {
+      const w = ready[Math.floor(this.rng.next() * ready.length)];
+      w.evolve();
+      this.loadoutDirty = true;
+      return { id: w.def.id, name: w.name, color: w.def.color, icon: w.def.icon, text: 'EVOLVED!', evolved: true };
+    }
     const owned = Object.keys(this.passives).length;
     const passives = Object.values(PASSIVES).filter((d) => {
       const lv = this.passives[d.id] ?? 0;

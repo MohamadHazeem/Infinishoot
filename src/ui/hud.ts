@@ -31,6 +31,8 @@ export interface LoadoutItem {
   color: string;
   level: number;
   max: boolean;
+  /** Evolved weapon. */
+  evo?: boolean;
   name: string;
   kind: 'weapon' | 'passive';
 }
@@ -163,7 +165,7 @@ export class Hud {
         .filter((i) => i.kind === kind)
         .map(
           (i) =>
-            `<div class="slot ${i.max ? 'max' : ''}" style="--c:${i.color}" title="${i.name}">${iconHtml(i.id, i.color, i.icon)}<i>${i.max ? 'MAX' : i.level}</i></div>`,
+            `<div class="slot ${i.evo ? 'max evo' : i.max ? 'max' : ''}" style="--c:${i.color}" title="${i.name}">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'EVO' : i.max ? 'MAX' : i.level}</i></div>`,
         )
         .join('');
     this.el('#loadout .weapons').innerHTML = html('weapon');

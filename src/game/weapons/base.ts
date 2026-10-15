@@ -73,17 +73,30 @@ export abstract class Weapon {
 
   constructor(readonly def: WeaponDef) {}
 
-  /** Parameters for the current level. */
+  /** Parameters for the current level (or the evolved form). */
   get p(): Record<string, number> {
-    return this.def.levels[this.level - 1].p;
+    return this.evolved ? this.def.evo!.p : this.def.levels[this.level - 1].p;
   }
 
   get maxed(): boolean {
     return this.level >= this.def.levels.length;
   }
 
+  /** Evolved forms sit one level past the last normal level. */
+  get evolved(): boolean {
+    return this.level > this.def.levels.length && !!this.def.evo;
+  }
+
+  get name(): string {
+    return this.evolved ? this.def.evo!.name : this.def.name;
+  }
+
   levelUp(): void {
     if (!this.maxed) this.level++;
+  }
+
+  evolve(): void {
+    if (this.maxed && !this.evolved && this.def.evo) this.level = this.def.levels.length + 1;
   }
 
   /** Counts down a cooldown scaled by stats; returns true when it fires. */

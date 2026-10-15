@@ -47,7 +47,7 @@ export class Mines extends Weapon {
     if (!pl.dead && this.tick(dt, ctx, p.cd)) {
       for (let k = 0; k < p.per; k++) {
         if (this.list.length >= p.max) this.list.shift();
-        const ox = p.per > 1 ? (k - 0.5) * 1.2 : 0;
+        const ox = (k - (p.per - 1) / 2) * 1.2;
         this.list.push({ x: pl.x + ox, z: pl.z - pl.vel.z * 0.02, age: 0 });
       }
       ctx.sound('mine');

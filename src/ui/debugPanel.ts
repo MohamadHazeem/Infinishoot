@@ -86,7 +86,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   run.add({ xp: () => game.debugLevelUp() }, 'xp').name('Level up');
   const give = { weapon: 'drones' };
   run.add(give, 'weapon', Object.keys(WEAPONS)).name('Weapon');
-  run.add({ g: () => game.debugGiveWeapon(give.weapon) }, 'g').name('Give / level weapon');
+  run.add({ g: () => game.debugGiveWeapon(give.weapon) }, 'g').name('Give / level / evolve weapon');
   const giveMod = { mod: MODS[0].id };
   run.add(giveMod, 'mod', MODS.map((m) => m.id)).name('Mod');
   run.add({ m: () => game.debugGiveMod(giveMod.mod) }, 'm').name('Give mod');
