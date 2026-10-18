@@ -6,7 +6,9 @@ Built with TypeScript, Vite and Three.js, with a Mega Man Legends-inspired low-p
 
 ## Play it
 
-Download from the [Releases page](https://github.com/MohamadHazeem/Infinishoot/releases):
+**In your browser:** [mohamadhazeem.github.io/Infinishoot](https://mohamadhazeem.github.io/Infinishoot/). No download; progress saves in that browser. It updates automatically on every push to `main`.
+
+**Desktop:** download from the [Releases page](https://github.com/MohamadHazeem/Infinishoot/releases):
 
 - **Windows:** `InfiniShoot.exe`. Double-click it; no install needed. The first launch takes a few seconds while it unpacks. The exe isn't code-signed yet, so Windows may show "Windows protected your PC": click **More info**, then **Run anyway**.
 - **Mac:** `InfiniShoot-mac-arm64.dmg` (Apple Silicon) or `InfiniShoot-mac-x64.dmg` (Intel). Open it and drag InfiniShoot to Applications. The app isn't signed yet, so the first time, right-click it and choose **Open**, then **Open** again.
