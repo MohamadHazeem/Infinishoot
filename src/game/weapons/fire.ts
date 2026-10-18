@@ -80,11 +80,12 @@ export class Fire extends Weapon {
     this.tickT = TICK;
     const dmg = p.dps * TICK;
     const burned = new Set<number>();
+    let n = 0;
     for (const f of this.flames) {
       for (const e of ctx.inRadius(f.x, f.z, f.r, this.hits)) {
         if (burned.has(e.uid)) continue; // overlapping flames don't stack
         burned.add(e.uid);
-        ctx.damage(e, dmg, { source: 'fire' });
+        ctx.damage(e, dmg, { source: 'fire', canCrit: true, loud: n++ < 2 });
       }
     }
   }

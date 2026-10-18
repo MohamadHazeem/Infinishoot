@@ -38,11 +38,12 @@ export class Discs extends Weapon {
 
   constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
-    // Saw-blade look: magenta disc, white rim, yellow hub and teeth, so the
-    // spin reads from the top-down camera. Merged into one vertex-coloured mesh.
+    // Saw-blade look: steel-teal disc, white rim, yellow hub and teeth, so the
+    // spin reads from the top-down camera (never the enemy-bullet magenta).
+    // Merged into one vertex-coloured mesh.
     const part = (geo: THREE.BufferGeometry, color: string) => paint(geo.index ? geo.toNonIndexed() : geo, color);
     const parts = [
-      part(new THREE.CylinderGeometry(0.42, 0.42, 0.08, 12), '#ff3df0'),
+      part(new THREE.CylinderGeometry(0.42, 0.42, 0.08, 12), '#3de0c8'),
       part(new THREE.TorusGeometry(0.44, 0.06, 4, 12).rotateX(Math.PI / 2), '#ffffff'),
       part(new THREE.CylinderGeometry(0.13, 0.13, 0.16, 6), '#ffd23f'),
     ];
@@ -81,7 +82,9 @@ export class Discs extends Weapon {
     if (!pl.dead && this.tick(dt, ctx, p.cd)) {
       const base = Math.atan2(pl.aim.z, pl.aim.x);
       for (let i = 0; i < p.count && this.discs.length < MAX; i++) {
-        const a = base + (p.count > 1 ? (i / p.count) * Math.PI * 2 : 0);
+        // Fan around the aim (about ±25°) so every disc goes where you point.
+        // Fan narrows with fewer discs so 2 discs still cover what you aim at.
+        const a = base + (p.count > 1 ? (i / (p.count - 1) - 0.5) * Math.min(0.9, 0.3 * (p.count - 1)) : 0);
         this.discs.push({ x: pl.x, z: pl.z, px: pl.x, pz: pl.z, dx: Math.cos(a), dz: Math.sin(a), dist: 0, back: false, spin: 0, hits: new Map() });
       }
       ctx.sound('disc');

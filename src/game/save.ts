@@ -1,5 +1,6 @@
 import { loadJson, saveJson } from '../core/storage';
 import { ACHIEVEMENTS } from '../data/meta';
+import { SPECIALS } from '../data/specials';
 import { WEAPONS } from '../data/weapons';
 
 /**
@@ -74,7 +75,17 @@ function normalize(raw: unknown): SaveData {
   return d;
 }
 
+/**
+ * Achievements that lifetime stats already prove (and Evolution for anyone
+ * who reached stage 3, where old runs evolved weapons as a matter of course).
+ * Saves from before loadouts keep access to what they played with.
+ */
+function grantFromLifetime(d: SaveData): void {
+  for (const a of ACHIEVEMENTS) if (a.lifetime?.(d.lifetime) && !d.achievements.includes(a.id)) d.achievements.push(a.id);
+}
+
 export const save: SaveData = normalize(loadJson<unknown>(KEY, null));
+grantFromLifetime(save);
 
 export function persist(): void {
   saveJson(KEY, save);
@@ -96,6 +107,25 @@ export function unlockedWeapons(): string[] {
     .map((w) => w.id);
   for (const a of ACHIEVEMENTS) if (a.unlockWeapon && save.achievements.includes(a.id)) ids.push(a.unlockWeapon);
   return ids;
+}
+
+/** Loadout items this save can pick: starters plus achievement unlocks. */
+export function unlockedLoadout(): string[] {
+  const ids = [
+    ...Object.values(WEAPONS)
+      .filter((w) => w.slot && w.starter)
+      .map((w) => w.id),
+    ...Object.values(SPECIALS)
+      .filter((s) => s.starter)
+      .map((s) => s.id),
+  ];
+  for (const a of ACHIEVEMENTS) if (a.unlockLoadout && save.achievements.includes(a.id)) ids.push(a.unlockLoadout);
+  return ids;
+}
+
+/** The achievement that unlocks a loadout item, for the locked card. */
+export function loadoutUnlockBy(id: string) {
+  return ACHIEVEMENTS.find((a) => a.unlockLoadout === id);
 }
 
 /** Grant an achievement once. Returns its def if newly earned. */
@@ -136,6 +166,7 @@ export function importFile(text: string): void {
   }
   if (parsed?.game !== 'InfiniShoot' || !parsed.save) throw new Error('That file is not an InfiniShoot save.');
   Object.assign(save, normalize(parsed.save));
+  grantFromLifetime(save);
   persist();
 }
 
@@ -153,6 +184,7 @@ export function importCode(code: string): void {
     throw new Error('The save code could not be read.');
   }
   Object.assign(save, normalize(parsed));
+  grantFromLifetime(save);
   persist();
 }
 

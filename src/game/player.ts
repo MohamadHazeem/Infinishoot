@@ -24,6 +24,7 @@ export const playerTuning = {
   dashTrainedLevel: 20,
   dashIframesExtra: 0.06, // invulnerability lingers slightly after the dash
   hurtIframes: 0.7,
+  maxHitFrac: 0.35, // no single hit takes more than this share of max life
   hurtKnockback: 7,
 };
 
@@ -40,6 +41,8 @@ export class Player {
   readonly vel = { x: 0, z: 0 };
   /** Aim direction on the XZ plane (unit). */
   readonly aim = { x: 0, z: 1 };
+  /** Distance to the aim point (mouse); Infinity when aiming by direction (stick). Lobbed weapons land here. */
+  aimDist = Infinity;
 
   hp = playerTuning.maxHp;
   /** Upgrade-derived stats; the game replaces this object when upgrades change. */
@@ -48,7 +51,10 @@ export class Player {
   recoil = 0;
   invuln = 0;
   dashT = 0;
+  /** Recharge timer for the next dash charge. */
   dashCd = 0;
+  /** Dashes ready to use (Dash Cells raise the max). */
+  dashStock = 1;
   private dashX = 0;
   private dashZ = 0;
   private kx = 0;
@@ -154,9 +160,17 @@ export class Player {
   get dashing(): boolean {
     return this.dashT > 0;
   }
-  /** 0..1, 1 = dash available. */
+  get dashMax(): number {
+    return Math.max(1, Math.round(this.stats.dashCharges));
+  }
+
+  private get dashCooldownFull(): number {
+    return playerTuning.dashCooldown * this.stats.dashCooldownMul;
+  }
+
+  /** 0..1, 1 = a dash is available. */
   get dashReady01(): number {
-    return 1 - this.dashCd / (playerTuning.dashCooldown * this.stats.dashCooldownMul);
+    return this.dashStock >= 1 ? 1 : 1 - this.dashCd / this.dashCooldownFull;
   }
   get maxHp(): number {
     return this.stats.maxHp;
@@ -176,6 +190,7 @@ export class Player {
     this.dead = false;
     this.invuln = 1;
     this.dashT = this.dashCd = 0;
+    this.dashStock = this.dashMax;
     this.rig.root.visible = true;
   }
 
@@ -201,9 +216,16 @@ export class Player {
       this.aim.x = dx / l;
       this.aim.z = dz / l;
     }
+    this.aimDist = l;
   }
 
-  setAimDir(x: number, z: number): void {
+  /** Where lobbed and called-in weapons land: the cursor, clamped to [min, max]. */
+  landDist(min: number, max: number): number {
+    return Math.max(min, Math.min(max, this.aimDist));
+  }
+
+  setAimDir(x: number, z: number, dist = Infinity): void {
+    this.aimDist = dist;
     const l = Math.hypot(x, z);
     if (l > 0) {
       this.aim.x = x / l;
@@ -222,7 +244,17 @@ export class Player {
 
     const t = playerTuning;
     this.invuln = Math.max(0, this.invuln - dt);
-    this.dashCd = Math.max(0, this.dashCd - dt);
+    // Charges refill one at a time.
+    if (this.dashStock < this.dashMax) {
+      this.dashCd -= dt;
+      if (this.dashCd <= 0) {
+        this.dashStock++;
+        this.dashCd = this.dashStock < this.dashMax ? this.dashCd + this.dashCooldownFull : 0;
+      }
+    } else {
+      this.dashStock = this.dashMax;
+      this.dashCd = 0;
+    }
     this.hurtFlash = Math.max(0, this.hurtFlash - dt);
     this.recoil *= Math.exp(-18 * dt);
     this.sqV += (-260 * this.sq - 16 * this.sqV) * dt;
@@ -234,7 +266,7 @@ export class Player {
     const hasInput = mx !== 0 || mz !== 0;
 
     let dashed = false;
-    if (wantDash && this.dashCd <= 0 && this.dashT <= 0) {
+    if (wantDash && this.dashStock >= 1 && this.dashT <= 0) {
       // Dash where you're moving; if standing still, dash toward the aim.
       this.dashX = hasInput ? mx : this.aim.x;
       this.dashZ = hasInput ? mz : this.aim.z;
@@ -242,7 +274,8 @@ export class Player {
       this.dashX /= l;
       this.dashZ /= l;
       this.dashT = t.dashTime;
-      this.dashCd = t.dashCooldown * this.stats.dashCooldownMul;
+      if (this.dashStock >= this.dashMax) this.dashCd = this.dashCooldownFull;
+      this.dashStock--;
       this.invuln = Math.max(this.invuln, t.dashTime + t.dashIframesExtra);
       this.sqV -= 7;
       dashed = true;

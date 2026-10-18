@@ -22,7 +22,30 @@ export interface Stats {
   revives: number;
   chargeSpeed: number; // Buster charge rate multiplier
   chargeDmg: number; // charged shot damage multiplier
+  luck: number; // lifts rarer level-up cards, Mods and gear drops (see data/rarity.ts)
+  killHeal: number; // life restored per kill
+  specialCooldownMul: number; // Q/E special cooldown multiplier (Battery Pack)
+  dashCharges: number; // dashes you can chain before waiting (Dash Cells)
+  // Applied by the synergy engine (src/game/synergy.ts).
+  thorns: number; // Spiked Shell: damage of the spike burst when you get hit
+  dashZap: number; // Tesla Boots: damage of the Shock pulse when you dash
+  freezeChance: number; // Cryo Rounds: chance per hit to Freeze the enemy
+  // Co-op passives, applied by Game to teammates within passiveTuning.teamRadius (never to yourself).
+  teamHeal: number; // life per second each living teammate near you regains
+  teamDmgAura: number; // added to the damageMul of each living teammate near you
+  reviveSpeed: number; // extra revive rate while you stand by a downed teammate (+1 = twice as fast)
+  reviveHp: number; // extra fraction of max life a teammate you revive gets up with
+  nearMateArmor: number; // your armor bonus while any living teammate is near you
 }
+
+/** Knobs for passive effects. */
+export const passiveTuning = {
+  thornsRadius: 3.5,
+  thornsPerArmor: 0.25, // Spiked Shell damage x(1 + this per point of Armor)
+  dashZapRadius: 3,
+  freezeTime: 1, // Cryo Rounds freeze in seconds (bosses get 15% of it)
+  teamRadius: 7, // co-op passives reach teammates within this many metres
+};
 
 export function baseStats(): Stats {
   return {
@@ -43,6 +66,18 @@ export function baseStats(): Stats {
     revives: 0,
     chargeSpeed: 1,
     chargeDmg: 1,
+    luck: 0,
+    killHeal: 0,
+    specialCooldownMul: 1,
+    dashCharges: 1,
+    thorns: 0,
+    dashZap: 0,
+    freezeChance: 0,
+    teamHeal: 0,
+    teamDmgAura: 0,
+    reviveSpeed: 0,
+    reviveHp: 0,
+    nearMateArmor: 0,
   };
 }
 
@@ -59,6 +94,8 @@ export function computeStats(passives: Record<string, number>, heroAdd: Partial<
     if (def) apply(s, def.add, lv);
   }
   s.cooldownMul = Math.max(0.4, s.cooldownMul);
+  s.dashCooldownMul = Math.max(0.5, s.dashCooldownMul); // dash must stay below i-frame spam
+  s.specialCooldownMul = Math.max(0.5, s.specialCooldownMul);
   s.critChance = Math.min(1, s.critChance);
   return s;
 }

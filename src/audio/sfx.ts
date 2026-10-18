@@ -5,6 +5,8 @@
  * filter that big hit-stops close for a moment. Positioned sounds are panned
  * left/right and quieter with distance (see `at()`).
  */
+import type { Rarity } from '../data/rarity';
+
 export const audioSettings = { volume: 0.5, sfx: 1, music: 0.7, ui: 0.8, muted: false };
 
 type Wave = OscillatorType;
@@ -329,6 +331,94 @@ class Sfx {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(ctx, 'square', f, f, 0.09, 0.1, i * 0.06));
   }
 
+  /** Gear pickup: a quick ratchet. */
+  gear(): void {
+    const ctx = this.begin('gear', 0.08);
+    if (!ctx) return;
+    for (let i = 0; i < 3; i++) this.noise(ctx, 0.025, 0.3, 4000, 2500, 4, i * 0.04);
+    this.tone(ctx, 'square', 990, 1320, 0.08, 0.08, 0.12);
+  }
+
+  /** A legendary card appears: a rising shimmer. */
+  legendary(): void {
+    const ctx = this.begin('legendary', 0.4);
+    if (!ctx) return;
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.tone(ctx, 'triangle', f, f, 0.5, 0.07, i * 0.05));
+    this.tone(ctx, 'sine', 2093, 2093, 0.9, 0.06, 0.3);
+  }
+
+  /** Slot reel passing an item: a soft click. */
+  reelTick(): void {
+    const ctx = this.begin('reelTick', 0.035);
+    if (!ctx) return;
+    const p = 1 + (Math.random() - 0.5) * 0.1;
+    this.noise(ctx, 0.015, 0.1, 3800 * p, 2600, 3);
+    this.tone(ctx, 'square', 1700 * p, 1500, 0.012, 0.02);
+  }
+
+  /** Slot reel landing: a thunk, plus a sparkle that grows with the tier. */
+  reelLand(rarity: Rarity = 'common'): void {
+    const ctx = this.begin('reelLand', 0.03);
+    if (!ctx) return;
+    if (rarity === 'legendary') {
+      this.tone(ctx, 'sine', 150, 45, 0.35, 0.3);
+      this.noise(ctx, 0.25, 0.3, 900, 150, 0.8);
+      return;
+    }
+    this.tone(ctx, 'triangle', 330, 200, 0.07, 0.12);
+    this.noise(ctx, 0.04, 0.12, 1400, 700, 2);
+    if (rarity === 'uncommon') [988, 1319].forEach((f, i) => this.tone(ctx, 'square', f, f, 0.06, 0.06, 0.04 + i * 0.05));
+    if (rarity === 'rare') [1319, 1760, 2637].forEach((f, i) => this.tone(ctx, 'triangle', f, f, 0.45, 0.08, 0.04 + i * 0.06));
+  }
+
+  /** Picking a legendary: a big fanfare. */
+  legendaryPick(): void {
+    const ctx = this.begin('legendaryPick', 0.4);
+    if (!ctx) return;
+    [392, 523, 659, 784].forEach((f, i) => this.tone(ctx, 'square', f, f, 0.08, 0.1, i * 0.06));
+    [1047, 1319, 1568].forEach((f) => this.tone(ctx, 'square', f, f, 0.6, 0.07, 0.26));
+    this.noise(ctx, 0.6, 0.25, 6000, 2000, 1, 0.26);
+  }
+
+  // Shop: cash-register jingles.
+  shopOpen(): void {
+    const ctx = this.begin('shopOpen', 0.5);
+    if (!ctx) return;
+    [784, 988, 1175, 1568].forEach((f, i) => this.tone(ctx, 'square', f, f, 0.07, 0.08, i * 0.05));
+    this.tone(ctx, 'triangle', 2093, 2093, 0.5, 0.12, 0.22);
+    this.tone(ctx, 'triangle', 2637, 2637, 0.4, 0.06, 0.24);
+  }
+
+  buy(): void {
+    const ctx = this.begin('buy', 0.08);
+    if (!ctx) return;
+    this.noise(ctx, 0.04, 0.3, 3500);
+    this.tone(ctx, 'square', 1319, 1319, 0.06, 0.1, 0.04);
+    this.tone(ctx, 'triangle', 1760, 1760, 0.35, 0.14, 0.1);
+    this.tone(ctx, 'triangle', 2637, 2637, 0.3, 0.06, 0.12);
+  }
+
+  sell(): void {
+    const ctx = this.begin('sell', 0.08);
+    if (!ctx) return;
+    [1568, 1175, 880].forEach((f, i) => this.tone(ctx, 'square', f, f, 0.06, 0.09, i * 0.05));
+    this.noise(ctx, 0.08, 0.2, 2500, 1200, 2, 0.15);
+  }
+
+  reroll(): void {
+    const ctx = this.begin('reroll', 0.1);
+    if (!ctx) return;
+    for (let i = 0; i < 4; i++) this.noise(ctx, 0.05, 0.25, 2400 - i * 300, 900, 2, i * 0.045);
+    this.tone(ctx, 'square', 440, 1320, 0.2, 0.07, 0.05);
+  }
+
+  deny(): void {
+    const ctx = this.begin('deny', 0.15);
+    if (!ctx) return;
+    this.tone(ctx, 'square', 150, 140, 0.08, 0.12);
+    this.tone(ctx, 'square', 150, 120, 0.12, 0.12, 0.1);
+  }
+
   stageClear(): void {
     const ctx = this.begin('clear', 0.5);
     if (!ctx) return;
@@ -384,6 +474,48 @@ class Sfx {
       case 'chargeShot':
         this.tone(ctx, 'sawtooth', 220 * p, 60, 0.3, 0.16);
         this.noise(ctx, 0.25, 0.25, 900, 3000, 2);
+        break;
+      case 'flame':
+        this.noise(ctx, 0.22, 0.3, 700, 2200, 1);
+        this.tone(ctx, 'sawtooth', 160 * p, 90, 0.18, 0.08);
+        break;
+      // Right-click weapons: each gets a heavy, distinct report.
+      case 'lob':
+        this.tone(ctx, 'sine', 190 * p, 80, 0.14, 0.28);
+        this.noise(ctx, 0.1, 0.3, 700, 300, 1);
+        this.tone(ctx, 'square', 900 * p, 600, 0.05, 0.05, 0.05);
+        break;
+      case 'vortex':
+        this.noise(ctx, 0.45, 0.3, 250, 2400, 3);
+        this.tone(ctx, 'sine', 140 * p, 50, 0.45, 0.25);
+        this.tone(ctx, 'triangle', 600 * p, 1500, 0.3, 0.05, 0.1);
+        break;
+      case 'shieldUp':
+        this.tone(ctx, 'triangle', 280 * p, 840, 0.16, 0.14);
+        this.tone(ctx, 'square', 560, 560, 0.2, 0.04, 0.12);
+        this.noise(ctx, 0.2, 0.12, 4000, 6000, 5);
+        break;
+      case 'block':
+        this.tone(ctx, 'square', 1400 * p, 900, 0.05, 0.06);
+        break;
+      case 'uplink':
+        this.tone(ctx, 'square', 1320, 1320, 0.05, 0.07);
+        this.tone(ctx, 'square', 1760, 1760, 0.05, 0.07, 0.07);
+        this.tone(ctx, 'sine', 400, 1800, 0.4, 0.06, 0.14);
+        break;
+      case 'beam':
+        this.tone(ctx, 'sawtooth', 110 * p, 30, 0.7, 0.3);
+        this.noise(ctx, 0.7, 0.45, 2600, 150, 0.7);
+        this.tone(ctx, 'sine', 70, 35, 0.6, 0.35);
+        break;
+      case 'rail':
+        this.noise(ctx, 0.06, 0.4, 7000, 3000, 2);
+        this.tone(ctx, 'sawtooth', 2600 * p, 180, 0.18, 0.14);
+        this.tone(ctx, 'sine', 90, 40, 0.25, 0.25);
+        break;
+      case 'ready':
+        this.tone(ctx, 'triangle', 1568, 1568, 0.06, 0.06);
+        this.tone(ctx, 'triangle', 2093, 2093, 0.12, 0.06, 0.05);
         break;
     }
   }

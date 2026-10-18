@@ -8,7 +8,7 @@ export interface HeroDef {
   id: string;
   name: string;
   desc: string;
-  /** Weapons the run starts with (the Buster is always first). */
+  /** Auto weapons the run starts with, on top of the loadout (left click, right click, special). */
   start: string[];
   add: Partial<Stats>;
   /** Body proportions: [width, height] scale. */
@@ -17,12 +17,12 @@ export interface HeroDef {
 }
 
 export const HEROES: HeroDef[] = [
-  { id: 'rookie', name: 'Rookie', desc: 'Balanced. Starts with the Buster.', start: ['buster'], add: {}, build: [1, 1] },
+  { id: 'rookie', name: 'Rookie', desc: 'Balanced. No extra weapon.', start: [], add: {}, build: [1, 1] },
   {
     id: 'bulwark',
     name: 'Bulwark',
     desc: '+40 life, +1 armor, 10% slower. Starts with a Zap Field.',
-    start: ['buster', 'aura'],
+    start: ['aura'],
     add: { maxHp: 40, armor: 1, moveSpeedMul: -0.1 },
     build: [1.18, 1.02],
     unlock: 'boss_slayer',
@@ -31,7 +31,7 @@ export const HEROES: HeroDef[] = [
     id: 'dash',
     name: 'Dash',
     desc: '15% faster, dash recharges 25% sooner, -20 life. Starts with Blaze Boots.',
-    start: ['buster', 'fire'],
+    start: ['fire'],
     add: { moveSpeedMul: 0.15, dashCooldownMul: -0.25, maxHp: -20 },
     build: [0.9, 0.98],
     unlock: 'speedster',
@@ -39,8 +39,8 @@ export const HEROES: HeroDef[] = [
   {
     id: 'ace',
     name: 'Ace',
-    desc: '+20% damage, +10% crit chance, slower charge. Starts with Chain Zap.',
-    start: ['buster', 'lightning'],
+    desc: '+20% damage, +10% crit chance, slower right click. Starts with Chain Zap.',
+    start: ['lightning'],
     add: { damageMul: 0.2, critChance: 0.1, chargeSpeed: -0.2 },
     build: [0.96, 1.06],
     unlock: 'elite_hunter',

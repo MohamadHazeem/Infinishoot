@@ -47,8 +47,9 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setInt8(o + 15, qAng(Math.atan2(e.lungeX, e.lungeZ)));
     v.setInt16(o + 16, q16(e.targetX), true);
     v.setInt16(o + 18, q16(e.targetZ), true);
+    v.setUint8(o + 20, Math.round(Math.max(0, Math.min(1, e.hp / (e.maxHp || 1))) * 255));
     // Elite modifier (index + 1, 0 = none) and shield-up flag (bit 7).
-    v.setUint8(o + 20, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | (e.shield > 0 ? 0x80 : 0));
+    v.setUint8(o + 21, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | (e.shield > 0 ? 0x80 : 0));
     o += ENEMY_BYTES;
   }
   return buf;
@@ -78,6 +79,8 @@ export interface EnemyRecord {
   lunge: number;
   targetX: number;
   targetZ: number;
+  /** Health fraction, 0..1 in 1/255 steps (elite bars on clients). */
+  hp01: number;
 }
 
 export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void): void {
@@ -95,7 +98,7 @@ export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void):
     r.burn = !!(flags & 4);
     r.shock = !!(flags & 8);
     r.flash = !!(flags & 16);
-    const em = v.getUint8(o + 20);
+    const em = v.getUint8(o + 21);
     r.eliteMod = r.elite ? (ELITE_MOD_IDS[(em & 0x7f) - 1] ?? null) : null;
     r.shield = r.elite && !!(em & 0x80);
     r.action = BOSS_ACTIONS[flags >> 5] ?? 'ring';
@@ -108,13 +111,15 @@ export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void):
     r.lunge = dqAng(v.getInt8(o + 15));
     r.targetX = v.getInt16(o + 16, true) / 100;
     r.targetZ = v.getInt16(o + 18, true) / 100;
+    r.hp01 = v.getUint8(o + 20) / 255;
     each(r);
   }
 }
 
 // ---------------------------------------------------------------- bullets
 
-const BULLET_COLORS = ['#fff36b', '#ff7a2f', '#ff3df0'];
+// Unknown colours fall back to the first; keep in sync with weapon bullet colours.
+const BULLET_COLORS = ['#fff36b', '#ff7a2f', '#ff3df0', '#7df9ff', '#3dffb0', '#ffe9a8', '#ff5e3a', '#ffd23f', '#ffb627'];
 
 export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
   const buf = new ArrayBuffer(idx.length * BULLET_BYTES);

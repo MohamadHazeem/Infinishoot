@@ -86,13 +86,17 @@ export class StaticBoxGrid {
 
   /** True if the circle overlaps any box. */
   hitCircle(x: number, z: number, r: number): boolean {
-    const k = ((Math.floor(x * this.inv) + 32768) << 16) | (Math.floor(z * this.inv) + 32768);
-    const list = this.cells.get(k);
-    if (!list) return false;
-    for (const b of list) {
-      const cx = Math.max(b.minX, Math.min(x, b.maxX));
-      const cz = Math.max(b.minZ, Math.min(z, b.maxZ));
-      if ((x - cx) ** 2 + (z - cz) ** 2 < r * r) return true;
+    // Every cell the circle's bounds touch, so big circles near a cell edge still see their neighbours' boxes.
+    for (let gx = Math.floor((x - r) * this.inv); gx <= Math.floor((x + r) * this.inv); gx++) {
+      for (let gz = Math.floor((z - r) * this.inv); gz <= Math.floor((z + r) * this.inv); gz++) {
+        const list = this.cells.get(((gx + 32768) << 16) | (gz + 32768));
+        if (!list) continue;
+        for (const b of list) {
+          const cx = Math.max(b.minX, Math.min(x, b.maxX));
+          const cz = Math.max(b.minZ, Math.min(z, b.maxZ));
+          if ((x - cx) ** 2 + (z - cz) ** 2 < r * r) return true;
+        }
+      }
     }
     return false;
   }

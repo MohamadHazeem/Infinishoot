@@ -1,6 +1,6 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
-export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'boss' | 'rex' | 'queen';
-export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'king' | 'rex' | 'queen';
+export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper';
+export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper';
 
 export interface EnemyDef {
   id: string;
@@ -189,7 +189,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     radius: 0.65,
     bodyColor: '#ff3d5a',
     accentColor: '#ffd23f',
-    contactDamage: 18,
+    contactDamage: 15,
     knockbackResist: 0.5,
     xp: 4,
     score: 150,
@@ -208,7 +208,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     radius: 0.85,
     bodyColor: '#9b6bff',
     accentColor: '#ffd23f',
-    contactDamage: 18,
+    contactDamage: 15,
     knockbackResist: 0.75,
     xp: 6,
     score: 250,
@@ -304,7 +304,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     radius: 2.0,
     bodyColor: '#ff5e8a',
     accentColor: '#ffd23f',
-    contactDamage: 25,
+    contactDamage: 20,
     knockbackResist: 0.97,
     xp: 100,
     score: 10000,
@@ -349,10 +349,103 @@ export const ENEMIES: Record<string, EnemyDef> = {
     minMinute: -1,
     weight: 0,
   },
+  /** Final boss of every 4th stage (see bossForStage); three phases in updateOmega. */
+  omega: {
+    id: 'omega',
+    name: 'Omega Overlord',
+    behavior: 'omega',
+    model: 'omega',
+    boss: true,
+    hp: 5000, // ~2x King, before bossTuning.hp and stage scaling
+    speed: 2.8,
+    radius: 2.4,
+    bodyColor: '#3b5dc9',
+    accentColor: '#ffcd75',
+    contactDamage: 35,
+    knockbackResist: 1,
+    xp: 300,
+    score: 50000,
+    minMinute: -1,
+    weight: 0,
+    // Its charge chain: range = distance that triggers a gap-closing charge or jump.
+    charge: { range: 15, windup: 0.85, speed: 26, duration: 0.5, recover: 1.0 },
+  },
+  /**
+   * Late-run filter: the director sends Reapers once the team level reaches
+   * directorTuning.reaperLevel. Not a boss: no boss bar, doesn't end the stage.
+   * Ignores knockback, freezes, slows, crowds and walls.
+   */
+  reaper: {
+    id: 'reaper',
+    name: 'Reaper',
+    behavior: 'reaper',
+    model: 'reaper',
+    hp: 15000, // times the director's stage and minute HP scaling (6000 melted in 10-15 s)
+    speed: 7.7, // a hero's base speed is 7 (playerTuning.maxSpeed)
+    radius: 0.9,
+    bodyColor: '#333c57',
+    accentColor: '#73eff7',
+    contactDamage: 50, // times director.dmgMul
+    knockbackResist: 1,
+    xp: 150,
+    score: 30000,
+    minMinute: -1,
+    weight: 0,
+  },
 };
 
-/** Bosses rotate by stage: King, Rex, Queen, King... */
-export const BOSS_ORDER = ['king', 'rex', 'queen'];
+/**
+ * Veterans: tougher versions of the regular enemies that the director mixes in
+ * from stage 3 (see director.ts veteranChance). Same models and behaviours,
+ * a darker armoured palette so they read as dangerous, more life and damage.
+ */
+export const veteranTuning = { hp: 2.6, dmg: 1.6, speed: 1.08, size: 1.12, reward: 2.5 };
+
+/** Base id -> [body, accent] for its veteran. */
+const VETERAN_LOOK: Record<string, [string, string]> = {
+  swarmer: ['#29366f', '#ff3d5a'],
+  bopper: ['#5d275d', '#ffcd75'],
+  zippy: ['#257179', '#ef7d57'],
+  shooter: ['#b13e53', '#73eff7'],
+  charger: ['#333c57', '#ff7a2f'],
+  chonk: ['#566c86', '#ff3d5a'],
+  exploder: ['#ef7d57', '#1a1c2c'],
+  splitter: ['#257179', '#ffcd75'],
+  jellet: ['#38b764', '#5d275d'],
+  spawner: ['#29366f', '#ffcd75'],
+};
+
+/** Regular enemy id -> its veteran's id. */
+export const VETERAN_OF: Record<string, string> = {};
+
+for (const [id, [bodyColor, accentColor]] of Object.entries(VETERAN_LOOK)) {
+  const b = ENEMIES[id];
+  const t = veteranTuning;
+  const vid = 'v_' + id;
+  VETERAN_OF[id] = vid;
+  ENEMIES[vid] = {
+    ...b,
+    id: vid,
+    name: 'Veteran ' + b.name,
+    hp: Math.round(b.hp * t.hp),
+    speed: b.speed * t.speed,
+    radius: b.radius * t.size,
+    bodyColor,
+    accentColor,
+    contactDamage: Math.round(b.contactDamage * t.dmg),
+    xp: Math.round(b.xp * t.reward),
+    score: Math.round(b.score * t.reward),
+    minMinute: -1, // only spawned by swapping in for the regular one
+    weight: 0,
+    shoot: b.shoot && { ...b.shoot, damage: Math.round(b.shoot.damage * t.dmg) },
+    fuse: b.fuse && { ...b.fuse, damage: Math.round(b.fuse.damage * t.dmg) },
+    split: b.split && { ...b.split, into: 'v_' + b.split.into },
+    spawn: b.spawn && { ...b.spawn, into: 'v_' + b.spawn.into },
+  };
+}
+
+/** Bosses rotate by stage: King, Rex, Queen, then the final boss on every 4th stage; stage 5 starts the loop again. */
+export const BOSS_ORDER = ['king', 'rex', 'queen', 'omega'];
 export function bossForStage(stage: number): EnemyDef {
   return ENEMIES[BOSS_ORDER[(Math.max(1, stage) - 1) % BOSS_ORDER.length]];
 }

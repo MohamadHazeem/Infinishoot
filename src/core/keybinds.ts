@@ -13,7 +13,7 @@ export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'left', name: 'Move left' },
   { id: 'right', name: 'Move right' },
   { id: 'dash', name: 'Dash' },
-  { id: 'bomb', name: 'Bomb' },
+  { id: 'bomb', name: 'Special' },
   { id: 'pause', name: 'Pause' },
   { id: 'autofire', name: 'Auto-fire' },
   { id: 'reroll', name: 'Reroll cards' },

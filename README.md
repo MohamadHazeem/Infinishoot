@@ -60,7 +60,8 @@ Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to
 ## What's in it
 
 - **Modes** (PLAY SOLO): Standard, Endless (one arena, a boss every 4 minutes), Boss Rush, and a Daily Challenge with the same seed for everyone. Difficulty from Easy to Nightmare.
-- **Heroes**: Rookie, Bulwark, Dash and Ace, each with a starting kit and quirks. Skins and pets in EXTRAS > WARDROBE.
+- **Loadouts** (Mansour's v1.x): pick a left click, right click and Q/E special before the run, then grow them through upgrade trees with a two-way evolution fork.
+- **Heroes**: Rookie, Bulwark, Dash and Ace, each with a starting auto weapon and quirks. Skins and pets in EXTRAS > WARDROBE.
 - **12 weapons**, each with an evolution, plus **weapon combos** when you hold the right pair.
 - **Shop between stages**: Mods, optional **curse deals**, and now and then a **secret merchant**. Bosses drop **relics**.
 - **Every stage**: a random event (meteor shower, gold rush, fog bank, elite parade, stampede), a side challenge, and combo power-ups (FRENZY, MAGNET BURST, OVERDRIVE).
@@ -76,9 +77,9 @@ Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to
 |---|---|---|
 | Move | WASD | Left stick |
 | Aim and shoot | Mouse, hold left click | Right stick / RT |
-| Charge shot (hold, release to fire) | Right click | X |
+| Right-click weapon (Charge Shot, Grenade Lobber, ...) | Right click | X |
 | Dash | Space, Shift | LB / LT / A |
-| Bomb | Q, E, middle click | RB / Y |
+| Special (Bomb, Thunderstorm, Blizzard, Meteor Shower) | Q, E, middle click | RB / Y |
 | Ping (co-op) | G | View / Back |
 | Pause | Esc / P / pause button | Start |
 | Auto-fire | F | |
@@ -96,5 +97,5 @@ Keys can be changed in SETTINGS > CONTROLS. On a touch screen, on-screen sticks 
 ## Credits
 
 - Item icons: [game-icons.net](https://game-icons.net) by Lorc, Delapouite and contributors, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). The game redraws them as pixel sprites (src/ui/pixelIcons.ts).
-- Fonts: Jersey 10 and Jersey 15 (Sarah Cadigan-Fried), Pixelify Sans (Stefie Justprince), Silkscreen (Jason Kottke), all SIL Open Font License, bundled via Fontsource.
+- Fonts: Jersey 10 and Jersey 15 (Sarah Cadigan-Fried), Silkscreen (Jason Kottke), all SIL Open Font License, bundled via Fontsource.
 - Palette: Sweetie 16 by GrafxKid.

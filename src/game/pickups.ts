@@ -1,14 +1,16 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
 import { music } from '../audio/music';
 
 /**
  * Pickups dropped in the world: XP gems (coloured by value), gold (run
- * currency), hearts, magnets (vacuum all gems) and treasure chests.
+ * currency), hearts, magnets (vacuum all gems), treasure chests and gears
+ * (level-up rerolls, capped per hero).
  * Within magnet range they fly to the player, accelerating.
  */
-export const PickupType = { Gem: 0, Bolt: 1, Heart: 2, Magnet: 3, Chest: 4 } as const;
+export const PickupType = { Gem: 0, Bolt: 1, Heart: 2, Magnet: 3, Chest: 4, Gear: 5, Nuke: 6 } as const;
 export type PickupType = (typeof PickupType)[keyof typeof PickupType];
 
 const MAX = 1500;
@@ -70,16 +72,25 @@ export class Pickups {
     const heartGeo = new THREE.ExtrudeGeometry(heart, { depth: 0.12, bevelEnabled: false });
     const magnetGeo = new THREE.TorusGeometry(0.28, 0.1, 5, 10, Math.PI);
     const chestGeo = new THREE.BoxGeometry(0.8, 0.55, 0.55);
+    // A cog: hub plus eight teeth, standing up like the gold bolts.
+    const teeth = Array.from({ length: 8 }, (_, k) => new THREE.BoxGeometry(0.12, 0.1, 0.12).translate(0.3, 0, 0).rotateY((k / 8) * Math.PI * 2));
+    const gearGeo = mergeGeometries([new THREE.CylinderGeometry(0.26, 0.26, 0.1, 8), ...teeth]).rotateX(Math.PI / 2);
     this.meshes[PickupType.Gem] = make(gemGeo, '#ffffff', 0.55, MAX);
     this.meshes[PickupType.Bolt] = make(boltGeo, '#ffb627', 0.4, 256);
     this.meshes[PickupType.Heart] = make(heartGeo, '#ff3d5a', 0.4, 64);
     this.meshes[PickupType.Magnet] = make(magnetGeo, '#ff3d5a', 0.3, 32);
     this.meshes[PickupType.Chest] = make(chestGeo, '#e0a83c', 0.15, 32);
+    this.meshes[PickupType.Gear] = make(gearGeo, '#d8def0', 0.6, 32);
+    // Nuke: a fat warhead with fins, glowing hot.
+    const nukeGeo = mergeGeometries([new THREE.CapsuleGeometry(0.22, 0.4, 3, 8), new THREE.BoxGeometry(0.62, 0.06, 0.12).translate(0, -0.3, 0), new THREE.BoxGeometry(0.12, 0.06, 0.62).translate(0, -0.3, 0)]).rotateZ(Math.PI / 5);
+    this.meshes[PickupType.Nuke] = make(nukeGeo, '#ffcd75', 0.8, 8);
   }
 
   spawn(type: PickupType, x: number, z: number, value = 1): void {
     // When full, fold gems into an existing gem instead of dropping XP.
-    if (this.count >= MAX) {
+    // Gems fold into an existing gem once the pool is nearly full, so the last
+    // slots stay free for chests, gold, gears, hearts and nukes.
+    if (this.count >= MAX - (type === PickupType.Gem ? 100 : 0)) {
       if (type === PickupType.Gem) {
         for (let i = this.count - 1; i >= 0; i--) {
           if (this.type[i] === PickupType.Gem) {
@@ -129,7 +140,7 @@ export class Pickups {
    * collector in range (its magnet stat scales the range); `collect` gets
    * the collector's index.
    */
-  update(dt: number, collectors: Collector[], collect: (type: PickupType, value: number, who: number) => void): void {
+  update(dt: number, collectors: Collector[], collect: (type: PickupType, value: number, who: number) => void, canTake: (type: PickupType, who: number) => boolean = () => true): void {
     for (let i = 0; i < this.count; i++) {
       this.age[i] += dt;
       // Nearest living collector.
@@ -145,6 +156,11 @@ export class Pickups {
         }
       }
       const t = this.type[i];
+      // A collector that can't take it (gears at the cap) leaves it lying there.
+      if (ci >= 0 && !canTake(t as PickupType, ci)) {
+        ci = -1;
+        this.pulled[i] = 0;
+      }
       if (ci < 0) {
         const f = Math.exp(-5 * dt);
         this.vx[i] *= f;
@@ -157,7 +173,7 @@ export class Pickups {
       const dx = col.x - this.x[i];
       const dz = col.z - this.z[i];
       // Chests and hearts need you to walk over them (no magnet), except during vacuum.
-      const magnetic = t === PickupType.Gem || t === PickupType.Bolt;
+      const magnetic = t === PickupType.Gem || t === PickupType.Bolt || t === PickupType.Gear;
       const range = BASE_MAGNET * col.magnet;
       if (!this.pulled[i] && this.age[i] > 0.25 && ((magnetic && d < range) || (this.vacuum && t === PickupType.Gem))) {
         this.pulled[i] = 1;

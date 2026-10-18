@@ -27,6 +27,13 @@ for (const k of ['window', 'document', 'navigator', 'localStorage', 'HTMLElement
 (dom.window as any).Path2D = (globalThis as any).Path2D;
 (dom.window.HTMLElement.prototype as any).scrollIntoView = () => {};
 
+(globalThis as any).matchMedia = (dom.window as any).matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+// Any crash must fail the test (a rejected top-level await can otherwise exit 0 silently).
+process.on('unhandledRejection', (e) => {
+  console.error('FAIL unhandled rejection', e);
+  process.exit(1);
+});
+
 const errors: string[] = [];
 process.on('uncaughtException', (e) => errors.push('uncaught ' + e.stack));
 

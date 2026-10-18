@@ -7,9 +7,12 @@ import { Team } from '../game/bullets';
  * Dev-only autoplay bot for balance and performance testing. Installed on
  * `window` in dev builds:
  *   botRun(seconds, god?)  -> simulate that many seconds headlessly, returns a report
+ *                             (per-stage level and loadout ranks, boss kill times,
+ *                             first evolution; it resets when a new run starts)
  *   botStep()              -> one simulation step with bot input
  * The bot kites in a circle, dodges enemy bullets, shoots the boss (or the
- * nearest enemy), dashes when cornered and always picks the first card.
+ * nearest enemy), holds right click in bursts, dashes when cornered and
+ * always picks the first card.
  */
 export function installBot(game: Game, input: Input): void {
   const v = new THREE.Vector3();
@@ -23,10 +26,47 @@ export function installBot(game: Game, input: Input): void {
     poll(): void;
   };
 
+  let rightT = 0;
+  /** Balance tracking across botRun calls, for the current run. */
+  const track = { runTime: 0, stage: 1, bossT: -1, bossName: '', bosses: [] as string[], stages: [] as string[], firstEvo: '' };
+  const ranksOf = () => {
+    const h = game.hero;
+    let n = 0;
+    let evos = 0;
+    for (const b of [...h.weapons.map((w) => w.build), h.specialBuild]) {
+      if (!b) continue;
+      n += b.ranks.reduce((a, r) => a + r, 0);
+      if (b.evo >= 0) evos++;
+    }
+    return { n, evos };
+  };
+  const trackStep = () => {
+    const g = game;
+    if (g.runTime < track.runTime) Object.assign(track, { stage: 1, bossT: -1, bosses: [], stages: [], firstEvo: '' });
+    track.runTime = g.runTime;
+    const boss = g.enemies.list.find((e) => e.active && e.def.boss);
+    if (boss && track.bossT < 0) {
+      track.bossT = g.runTime;
+      track.bossName = boss.def.name;
+    } else if (!boss && track.bossT >= 0) {
+      track.bosses.push(`st${track.stage} ${track.bossName} ${Math.round(g.runTime - track.bossT)}s`);
+      track.bossT = -1;
+    }
+    const r = ranksOf();
+    if (r.evos && !track.firstEvo) track.firstEvo = `st${g.stage} lv${g.level}`;
+    if (g.stage !== track.stage) {
+      track.stages.push(`st${track.stage}: lv${g.level} ranks ${r.n} evos ${r.evos}`);
+      track.stage = g.stage;
+    }
+  };
   /** Shop policy: buy affordable Mods left to right while slots remain, then continue. */
   const shop = () => {
-    const btns = Array.from(document.querySelectorAll<HTMLElement>('#scr-shop [data-act=buy]'));
-    for (const b of btns) if (!b.classList.contains('cant')) b.click();
+    // Buying re-renders the offers, so look the buttons up again after each buy. Skips cursed Mods (Pacifist Core stalls a Buster-only bot).
+    for (let k = 0; k < 5; k++) {
+      const b = document.querySelector<HTMLElement>('#scr-shop [data-act=buy]:not(.cant):not(.cursed)');
+      if (!b) break;
+      b.click();
+    }
     document.querySelector<HTMLElement>('#scr-shop [data-act=shop-done]')?.click();
   };
 
@@ -92,10 +132,13 @@ export function installBot(game: Game, input: Input): void {
       inp.mouse.ndcX = v.x;
       inp.mouse.ndcY = v.y;
     }
-    inp.mouseButtons = best ? 1 : 0;
+    // Right click: hold ~1.4 s (a full charge, or fire whenever a cooldown weapon is ready), then let go briefly.
+    rightT = (rightT + 1 / 60) % 1.6;
+    inp.mouseButtons = best ? 1 | (rightT < 1.4 ? 4 : 0) : 0;
     if (bd < 1.3 && p.dashReady01 >= 1) inp.pressed.add('Space');
     if (g.hero.bombCharge >= 1 && Math.hypot(ax, az) > 1) inp.pressed.add('KeyQ');
-    if (g.mode === 'levelup') inp.pressed.add('Digit1');
+    // The bot picks the first card straight away (it skips the human pick lock).
+    if (g.mode === 'levelup' && g.hero.needsPick) (g as unknown as { ui(a: string, i: number): void }).ui('pick', 0);
     if (g.mode === 'shop') shop();
     inp.poll();
     inp.device = 'kbm';
@@ -105,14 +148,19 @@ export function installBot(game: Game, input: Input): void {
   const run = (seconds: number, god = false) => {
     cheats.god = god;
     const g = game;
+    // A hidden tab pauses the game; the bot keeps going.
+    if (g.paused) g.resume();
     const n = Math.round(seconds * 60);
     let total = 0;
     let worst = 0;
     let maxAlive = 0;
+    let ran = 0;
     const log: string[] = [];
     for (let i = 0; i < n && g.mode !== 'dead' && g.mode !== 'title'; i++) {
       const t = performance.now();
       step();
+      trackStep();
+      ran++;
       const d = performance.now() - t;
       total += d;
       if (i > 60) worst = Math.max(worst, d);
@@ -133,8 +181,12 @@ export function installBot(game: Game, input: Input): void {
       hp: Math.round(g.player.hp),
       weapons: g.hero.weapons.map((w) => w.def.id + w.level).join(' '),
       passives: JSON.stringify(g.hero.passives),
-      avgMs: (total / n).toFixed(2),
+      avgMs: (total / Math.max(1, ran)).toFixed(2),
       worstMs: worst.toFixed(1),
+      ranks: ranksOf().n,
+      stages: [...track.stages],
+      bosses: [...track.bosses],
+      firstEvo: track.firstEvo,
     };
   };
 

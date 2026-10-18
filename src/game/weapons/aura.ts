@@ -61,7 +61,7 @@ export class Aura extends Weapon {
     let n = 0;
     for (const e of ctx.inRadius(pl.x, pl.z, r, this.hits)) {
       const d = Math.hypot(e.x - pl.x, e.z - pl.z) || 1;
-      ctx.damage(e, p.dmg, { source: 'aura', dirX: (e.x - pl.x) / d, dirZ: (e.z - pl.z) / d, knockback: 1.5 });
+      ctx.damage(e, p.dmg, { source: 'aura', dirX: (e.x - pl.x) / d, dirZ: (e.z - pl.z) / d, knockback: 1.5, canCrit: true, loud: n < 3 });
       if (n++ < 6) ctx.fx.star(e.x, 0.9, e.z, 0.6, '#3de0c8', 0.08);
     }
     if (n > 0) ctx.sound('zap');

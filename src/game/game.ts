@@ -8,7 +8,13 @@ import { ENEMIES, type EnemyDef } from '../data/enemies';
 import { ACHIEVEMENTS } from '../data/meta';
 import { MOD_BY_ID } from '../data/mods';
 import type { Tag } from '../data/tags';
-import { WEAPONS } from '../data/weapons';
+import { PASSIVES } from '../data/passives';
+import { SPECIALS } from '../data/specials';
+import { buildKey } from '../data/tracks';
+import { WEAPONS, isRightClick } from '../data/weapons';
+import { validLoadout, type Loadout } from '../data/loadout';
+import { passiveTuning } from './stats';
+import { isSpecialRunning, resetSpecials, startSpecial, updateSpecials, type SpecialApi } from './specials';
 import { sfx } from '../audio/sfx';
 import { biomeTrack, music, type TrackId } from '../audio/music';
 import { NetClient, NetHost } from '../net/peer';
@@ -16,7 +22,7 @@ import { packBullets, packEnemies, packPickups, unpackBullets, unpackEnemies, un
 import { disposeObject } from '../render/dispose';
 import { DamageNumbers } from '../ui/damageNumbers';
 import { Hud, type LoadoutItem } from '../ui/hud';
-import { Screens, type Offer, type RunSummary, type ShopView } from '../ui/screens';
+import { Screens, type Offer, type RunSummary, type ShopFx, type ShopView } from '../ui/screens';
 import { createFieldArena, type Arena } from '../world/fieldArena';
 import { biomeForStage } from '../data/biomes';
 import { applyBiomeLook, applyTimeOfDay } from '../render/biomeLook';
@@ -28,17 +34,17 @@ import { CameraRig, cameraTuning } from './cameraRig';
 import { Director } from './director';
 import { Enemies, type Enemy, type EnemyCtx, type SpawnOpts } from './enemies';
 import { Fx } from './fx';
-import { HERO_COLORS, Hero, economyTuning, type HeroWorld } from './hero';
+import { HERO_COLORS, Hero, MAX_GEARS, economyTuning, type HeroWorld } from './hero';
 import { loadHighScores, submitScore } from './highscores';
 import { Juice } from './juice';
 import { Particles } from './particles';
 import { PickupType, Pickups, type Collector } from './pickups';
 import { playerTuning, type Player } from './player';
 import { Portal } from './portal';
-import { addRunRecord, grantAchievement, markSeen, persist, save, unlockedWeapons } from './save';
+import { addRunRecord, grantAchievement, markSeen, persist, save, unlockedLoadout, unlockedWeapons } from './save';
 import { access, settings, saveSettings } from './settings';
 import { Vfx, type VfxEvent } from './vfx';
-import { createWeapon, type Buster, type DamageOpts, type WeaponCtx } from './weapons';
+import { ChargeShot, createWeapon, type DamageOpts, type WeaponCtx } from './weapons';
 import { Ambience } from './ambience';
 import { SCAR_COLORS, Scars } from './scars';
 import { streaks } from './streaks';
@@ -52,23 +58,30 @@ import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, ty
 import { submitDaily } from './highscores';
 import { heroOf } from '../data/heroes';
 import { binds } from '../core/keybinds';
-import { PASSIVES } from '../data/passives';
 import { boardId, fetchTop, leaderboardEnabled, submitGlobal } from '../net/leaderboard';
 
 export { economyTuning } from './hero';
 
+/** Stages per loop: every LOOP_STAGES-th stage ends with the final boss, then the biomes repeat, harder. */
+export const LOOP_STAGES = 4;
+
 export const scoreTuning = {
+  victoryBonus: 50000, // x loop number, for beating the final boss
+  levelUpHeal: 10, // life restored to every living hero on each level-up
   comboWindow: 2.0, // seconds a combo survives without a kill
   tiers: [0, 25, 75, 150, 300, 500, 800, 1200], // combo needed for x1..x8
   noHitBonus: 2000, // x stage, for clearing a stage without damage
 };
 
 export const bombTuning = {
-  chargePerXp: 0.004, // bomb meter gained per XP point of enemies killed
-  damage: 80,
-  radius: 10,
   duration: 0.35,
   knockback: 18,
+  bombletRadius: 2.6, // Cluster Bomb
+  bombletDmg: 0.6, // x the bomb's damage, each
+  pullDmg: 0.4, // Implosion: first wave (pulls in)
+  pullKnock: 14,
+  implodeDelay: 0.3,
+  implodeDmg: 1.6, // Implosion: second wave
 };
 
 /** This machine's chosen hero, if unlocked. */
@@ -81,10 +94,28 @@ function localHero(): string {
 const CONVEYOR_SPEED = 4;
 
 export const dropTuning = {
-  xpMul: 0.55, // XP gem value per enemy XP point (lower = slower levelling)
-  goldChance: 0.006,
+  xpMul: 0.45, // XP gem value per enemy XP point (lower = slower levelling)
+  goldChance: 0.009, // thinned with the horde like the utility drops, so income stays steady
   heartChance: 0.004,
   magnetChance: 0.0015,
+  gearChance: 0.0012, // per kill, x(1 + 0.25 per Luck of the killer)
+  nukeChance: 0.0006, // per kill: a full-screen wipe
+  // Heart, magnet, gear and nuke chances are scaled by min(1, dropRef / enemies the
+  // director wants alive), so drops per minute stay flat as hordes grow.
+  dropRef: 70,
+};
+
+/** Treasure chests appear over the stage instead of all at the start. */
+export const chestTuning = {
+  every: 30, // seconds between new chests
+  maxClosed: 4, // unopened chests on the map at once
+};
+
+/** The Nuke pickup: an expanding wave across the whole screen. */
+export const nukeTuning = {
+  radius: 48,
+  duration: 0.8,
+  bossHpFrac: 0.15, // bosses lose this share of max life instead of dying
 };
 
 /** Status effects and their combos. */
@@ -92,9 +123,16 @@ export const statusTuning = {
   burnTime: 3,
   shockTime: 2,
   shockMult: 0.2, // shocked enemies take +20% damage
-  shatterDamage: 18,
-  overloadDamage: 30,
-  napalmDps: 8,
+  // Combo damage grows with team level (enemy HP grows ~6-9x by stage 4; flat numbers fell off).
+  shatterDamage: 12,
+  shatterPerLevel: 2,
+  overloadDamage: 20,
+  overloadPerLevel: 3,
+  napalmDps: 5,
+  napalmPerLevel: 1,
+  // Right-click hits Expose: everyone's hits on that enemy deal more for a while (user: the right click got ignored).
+  exposeTime: 4,
+  exposeMult: 0.3,
 };
 
 export const cheats = { god: false };
@@ -106,10 +144,26 @@ const AIM_HEIGHT = BULLET_Y;
 const TITLE_SEED = 1234;
 const RECYCLE_DIST = 36;
 const CHARGE_TAGS: Tag[] = ['projectile'];
-const SCATTER_FIRE: Tag[] = ['projectile', 'fire'];
+/** Player bullet `kind` -> damage source and tags (see BulletSpawn.kind). */
+const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
+  { source: 'buster' },
+  { source: 'charge', tags: CHARGE_TAGS },
+  { source: 'scatter' },
+  { source: 'scatter', tags: ['projectile', 'fire'] },
+  { source: 'shield', tags: ['projectile'] },
+  { source: 'scatter', tags: ['projectile', 'explosive'] }, // 5 Flak Cannon
+  { source: 'buster', tags: ['projectile', 'fire'] }, // 6 Flare Buster
+  { source: 'buster', tags: ['projectile', 'shock'] }, // 7 Volt Buster
+  { source: 'charge', tags: ['projectile', 'fire'] }, // 8 Star Cannon
+  { source: 'charge', tags: ['projectile', 'shock'] }, // 9 Lance Shot
+  { source: 'pellets' }, // 10 Pellet Turret (auto weapon)
+  { source: 'pellets', tags: ['projectile', 'fire'] }, // 11 Scorch Turret
+];
+/** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
+const IMPACT_BLAST = [1, 5, 8];
 const SNAP_EVERY = 3; // host snapshot every N sim steps (20 Hz)
 const INPUT_EVERY = 2; // client input every N sim steps (30 Hz)
-const INTEREST = 34; // only send entities this close to each client's hero
+const INTEREST = 50; // only send entities this close to each client's hero (wide enough for a zoomed-out camera)
 const REVIVE_TIME = 3;
 const REVIVE_RANGE = 2.4;
 
@@ -126,16 +180,23 @@ interface LobbyEntry {
   skin: string;
   pet: string;
   hero: string;
+  loadout: Loadout;
+}
+
+/** "Scattergun / Grenade Lobber / Bomb" for the lobby list. */
+function kitText(l: Loadout): string {
+  return `${WEAPONS[l.primary]?.name} / ${WEAPONS[l.secondary]?.name} / ${SPECIALS[l.special]?.name}`;
 }
 
 /** Shop view sent over the network (Mods referenced by id). */
 interface NetShop {
+  pre?: boolean;
   gold: number;
   interest: number;
   interestCap: number;
   interestPer: number;
   offers: ({ id: string; price: number; hint: string } | null)[];
-  owned: { id: string; sell: number; readout: string }[];
+  owned: { id: string; sell: number; readout: string; level: number; maxLevel: number; upCost: number }[];
   slots: number;
   rerollCost: number;
   healCost: number;
@@ -225,6 +286,10 @@ export class Game implements HeroWorld {
   private fogK = 0;
   private heartT = 0;
   private bossesRun = 0;
+  /** Seconds toward the next treasure chest. */
+  private chestT = 0;
+  /** Final bosses beaten this run (one per loop). */
+  private victories = 0;
   private newAchievements: string[] = [];
   private boss: Enemy | null = null;
   private comboT = 0;
@@ -243,7 +308,7 @@ export class Game implements HeroWorld {
   private snapInterval = 50;
   private netTimeLeft = 0;
   private netBoss: { name: string; hp01: number } | null = null;
-  private netMods: { id: string; ro: string }[] = [];
+  private netMods: { id: string; ro: string; lv?: number }[] = [];
   private netCombo01 = 0;
   private fadeT = 0;
 
@@ -268,7 +333,15 @@ export class Game implements HeroWorld {
   private mz = { x: 0, z: 0 };
   private tmp = new THREE.Vector3();
   private scratch: Enemy[] = [];
+  /** What the Q/E specials (other than the Bomb) may touch; see specials.ts. */
+  private specialApi: SpecialApi = this.makeSpecialApi();
+  /** The free starting shop before stage 1 is open (its gold is not kept). */
+  private preShop = false;
+  /** Last EXPOSED popup (run time), so a crowd doesn't spam it. */
+  private exposeTextT = -1;
   private shownCharge = 0;
+  private lastReady = 1;
+  private readyFlashT = 0;
   /** Telegraphed ground strikes (Hive Queen) counting down. */
   /** Telegraphed ground strikes; `foe` > 0 also blasts enemies (meteors). */
   private strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number; cause?: string }[] = [];
@@ -293,7 +366,7 @@ export class Game implements HeroWorld {
     this.barrels = new Barrels(this.scene);
     this.barrels.load(this.arena);
     this.chests = new Chests(this.scene);
-    this.chests.load(this.arena.chests);
+    this.chests.clear();
     this.pickups = new Pickups(this.scene);
     this.cam = new CameraRig(aspect);
     this.dmg = new DamageNumbers(hudRoot);
@@ -310,6 +383,7 @@ export class Game implements HeroWorld {
     });
     this.screens = new Screens(hudRoot, {
       start: () => this.startSolo(),
+      loadoutChanged: () => this.onLoadoutChanged(),
       resume: () => this.resume(),
       quit: () => this.quitRun(),
       retry: () => this.retry(),
@@ -320,6 +394,7 @@ export class Game implements HeroWorld {
       buy: (i) => this.ui('buy', i),
       sell: (i) => this.ui('sell', i),
       moveMod: (i, d) => this.ui('move', i, d),
+      upgradeMod: (i) => this.ui('mup', i),
       shopReroll: () => this.ui('sreroll'),
       shopHeal: () => this.ui('heal'),
       shopDone: () => this.ui('done'),
@@ -339,6 +414,14 @@ export class Game implements HeroWorld {
         this.hud.toast(settings.autoFire ? 'AUTO-FIRE ON' : 'AUTO-FIRE OFF');
       }
     });
+    // Mouse wheel zooms the camera out (in-game only; menus keep their scrolling).
+    window.addEventListener(
+      'wheel',
+      (e) => {
+        if (this.screens.current === 'none' && e.deltaY !== 0) this.cam.wheel(Math.sign(e.deltaY));
+      },
+      { passive: true },
+    );
     this.hud.onPause = () => this.pause();
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
@@ -349,6 +432,10 @@ export class Game implements HeroWorld {
   // ------------------------------------------------------------------ accessors
 
   /** This machine's hero. */
+  get coop(): boolean {
+    return this.heroes.filter((h) => !h.left).length > 1;
+  }
+
   get hero(): Hero {
     return this.heroes[this.local];
   }
@@ -447,7 +534,10 @@ export class Game implements HeroWorld {
       damage: (e, base, o) => this.damage(e, base, o, hero),
       nearest: (x, z, r, skip) => this.nearestEnemy(x, z, r, skip),
       inRadius: (x, z, r, out) => this.enemiesInRadius(x, z, r, out),
-      blast: (x, z, r, base, color, source, tags) => this.blast(x, z, r, base, color, source, tags ?? WEAPONS[source]?.tags ?? ['explosive'], false, hero),
+      shake: (x, z, amount) => this.vfx.shake(x, z, amount),
+      hitBarrels: (dmg, inside) => this.barrels.hitWhere(dmg, hero.index, inside),
+      blast: (x, z, r, base, color, source, tags) => this.blast(x, z, r, base, color, source, tags ?? hero.tagsOf(source) ?? ['explosive'], false, hero),
+      zap: (from, hops, dmg) => this.zap(from, hops, dmg, hero),
       get combos() {
         return hero.combos;
       },
@@ -462,6 +552,12 @@ export class Game implements HeroWorld {
       targetAlive: true,
       hash: this.hash,
       colliders: this.arena.colliders,
+      onEnrage: (e) => {
+        this.vfx.num(e.x, 4, e.z, 'ENRAGED!', 'crit');
+        this.vfx.ring(e.x, e.z, e.radius, 8, '#ff3d5e', 0.5);
+        this.vfx.shake(e.x, e.z, 0.8);
+        this.vfx.sound('boss', e.x, e.z);
+      },
       onWindup: (e) => {
         if (e.def.boss) this.vfx.sound('bossWindup', e.x, e.z);
         else if (e.def.behavior === 'charger') this.vfx.sound('chargerWindup', e.x, e.z);
@@ -542,7 +638,7 @@ export class Game implements HeroWorld {
     this.walls = new StaticBoxGrid(this.arena.colliders);
     this.enemyCtx.colliders = this.arena.colliders;
     this.barrels.load(this.arena);
-    this.chests.load(this.arena.chests);
+    this.chests.clear();
     this.ambience.load(biome.id, seed, this.arena.halfSize, (x, z) => this.walls.hitCircle(x, z, 0.5));
     this.scars.clear();
     streaks.clear();
@@ -622,11 +718,13 @@ export class Game implements HeroWorld {
     this.level = 1;
     this.xp = 0;
     this.xpNext = xpForLevel(1);
-    this.elitesRun = this.bossesRun = this.overloads = 0;
+    this.elitesRun = this.bossesRun = this.overloads = this.victories = 0;
     this.newAchievements = [];
     this.curses = [];
     this.runEvents.reset();
     this.director.players = this.heroes.length;
+    // Everyone keeps the loadout they picked; this machine's comes from its settings.
+    if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, unlockedLoadout());
     for (const h of this.heroes) {
       h.left = false;
       h.startRun();
@@ -644,6 +742,12 @@ export class Game implements HeroWorld {
       }
     }
     this.loadStage(1);
+    // Starting shop: free gold to spend before stage 1, not carried into the run.
+    if (this.role !== 'client') {
+      this.preShop = true;
+      for (const h of this.heroes) h.gold = economyTuning.startGold;
+      this.openShop();
+    }
   }
 
   /** Alias used by the debug panel. */
@@ -658,6 +762,13 @@ export class Game implements HeroWorld {
       return;
     }
     this.startRun();
+  }
+
+  /** Stage banner subtitle: biome, loop and what the stage ends with. */
+  private stageSub(stage: number): string {
+    const loop = Math.ceil(stage / LOOP_STAGES);
+    const final = stage % LOOP_STAGES === 0 ? '<br>FINAL BOSS STAGE' : '';
+    return `${biomeForStage(stage).name.toUpperCase()}${loop > 1 ? ` · LOOP ${loop}` : ''}<br>SURVIVE ${Math.round(this.director.duration / 60)} MINUTES${final}`;
   }
 
   private loadStage(stage: number): void {
@@ -675,13 +786,15 @@ export class Game implements HeroWorld {
     if (this.runMode === 'bossrush') this.bossRushStage();
     for (const h of this.heroes) {
       h.phoenixUsed = false;
-      if (h.hasRelic('r_clover')) h.rerollsLeft++;
+      if (h.hasRelic('r_clover')) h.rerollsLeft = Math.min(MAX_GEARS, h.rerollsLeft + 1);
     }
+    resetSpecials();
+    this.chestT = 0;
     this.damagedThisStage = false;
     this.mode = 'fight';
     this.modeT = 0;
     if (this.role === 'host') this.host!.broadcast({ t: 'stage', stage, seed: this.seed });
-    this.vfx.banner(`STAGE ${stage}`, `${biomeForStage(stage).name.toUpperCase()}<br>SURVIVE ${Math.round(this.director.duration / 60)} MINUTES`, 2.2);
+    this.vfx.banner(`STAGE ${stage}`, this.stageSub(stage), 2.2);
     this.vfx.sound('wave', NaN, NaN);
     this.checkAchievements();
   }
@@ -689,7 +802,11 @@ export class Game implements HeroWorld {
   pause(): void {
     if (!this.isCombatMode || this.paused) return;
     this.paused = true;
-    this.screens.setPauseBuild(this.hero.loadout(), this.hero.synergy.slots.map((sl) => sl.def), [
+    const mods =
+      this.role === 'client'
+        ? this.netMods.filter((m) => MOD_BY_ID[m.id]).map((m) => ({ def: MOD_BY_ID[m.id], level: m.lv ?? 1 }))
+        : this.hero.synergy.slots.map((sl) => ({ def: sl.def, level: sl.level }));
+    this.screens.setPauseBuild(this.hero.loadout(), mods, [
       ...WEAPON_COMBOS.filter((c) => this.hero.combos.has(c.id)).map((c) => ({ id: c.weapons[0], name: c.name, desc: c.desc, icon: '+', color: c.color })),
       ...this.hero.relics.filter((id) => RELIC_BY_ID[id]).map((id) => RELIC_BY_ID[id]),
       ...this.curses.filter((id) => CURSE_BY_ID[id]).map((id) => ({ ...CURSE_BY_ID[id], curse: true })),
@@ -736,7 +853,7 @@ export class Game implements HeroWorld {
     const m = MOD_BY_ID[id];
     const h = this.hero;
     if (!m || h.synergy.owns(id) || h.synergy.full) return;
-    h.synergy.add(m);
+    h.synergy.add(m, 0);
     h.recomputeStats();
   }
 
@@ -772,12 +889,12 @@ export class Game implements HeroWorld {
   private pauseInfo(): Parameters<Screens['setPauseBuild']>[3] {
     const h = this.hero;
     const recipes = h.weapons
-      .filter((w) => w.def.evo)
+      .filter((w) => w.def.evolution)
       .map((w) => ({
         weapon: w.def.name,
-        evo: w.def.evo!.name,
-        passive: PASSIVES[w.def.evo!.passive]?.name ?? '?',
-        have: (h.passives[w.def.evo!.passive] ?? 0) > 0 && w.maxed,
+        evo: w.def.evolution!.name,
+        passive: PASSIVES[w.def.evolution!.passive]?.name ?? '?',
+        have: (h.passives[w.def.evolution!.passive] ?? 0) > 0 && w.maxed,
         done: w.evolved,
       }));
     const damage = Object.entries(h.damageBy)
@@ -889,6 +1006,10 @@ export class Game implements HeroWorld {
       this.enemies.kill(e);
     }
     this.bullets.clear();
+    // Leftover chests vanish with the stage (clients mirror via 'chestsgone').
+    for (const c of this.chests.list) this.vfx.burst(c.x, 0.4, c.z, { count: 10, color: '#ffd23f', color2: '#b8653a', speed: [2, 6], size: [0.15, 0.3], life: [0.3, 0.6], up: 5, gravity: 12 });
+    this.chests.list = [];
+    if (this.role === 'host') this.host!.broadcast({ t: 'chestsgone' });
     this.pickups.vacuum = true;
     const noHit = this.damagedThisStage ? 0 : scoreTuning.noHitBonus * this.stage;
     this.score += noHit;
@@ -902,9 +1023,21 @@ export class Game implements HeroWorld {
     }
     let sub = `+${economyTuning.clearGold} GOLD + INTEREST`;
     if (noHit) sub += `<br>NO-HIT BONUS +${noHit.toLocaleString('en-US')}`;
-    this.vfx.banner('STAGE CLEAR!', sub, 2.4);
-    this.vfx.sound('stageClear', NaN, NaN);
-    this.vfx.flash(0.5);
+    if (this.stage % LOOP_STAGES === 0) {
+      // The final boss fell: that's the ending. The run carries on as a harder loop.
+      const loop = this.stage / LOOP_STAGES;
+      const bonus = scoreTuning.victoryBonus * loop;
+      this.score += bonus;
+      this.victories++;
+      this.vfx.banner(loop === 1 ? 'VICTORY!' : `LOOP ${loop} CLEARED!`, `THE FINAL BOSS FALLS · +${bonus.toLocaleString('en-US')}<br>LOOP ${loop + 1} AWAITS: EVERYTHING HITS HARDER`, 4.5);
+      this.vfx.sound('legendaryPick', NaN, NaN);
+      this.vfx.flash(1);
+      for (const h of this.heroes) if (!h.left) this.legendaryBurst(h);
+    } else {
+      this.vfx.banner('STAGE CLEAR!', sub, 2.4);
+      this.vfx.sound('stageClear', NaN, NaN);
+      this.vfx.flash(0.5);
+    }
     this.checkAchievements();
   }
 
@@ -915,15 +1048,30 @@ export class Game implements HeroWorld {
     if (this.secretShop) this.vfx.banner('SECRET SHOP!', 'A STRANGE MERCHANT APPEARS', 1.8);
     for (const h of this.heroes) {
       if (h.left) continue;
-      h.openShop(this.secretShop);
+      h.openShop(this.secretShop, this.preShop);
       this.presentShop(h);
+      this.shopFx(h, 'open');
     }
-    this.vfx.sound('chest', NaN, NaN);
+  }
+
+  /** Shop sound and particles on the screen of the player who acted. */
+  private shopFx(h: Hero, kind: ShopFx, i = 0): void {
+    if (h === this.hero) this.screens.shopFx(kind, i);
+    else this.tell(h, { t: 'shopfx', kind, i });
   }
 
   private closeShop(): void {
     if (['shop', 'wait'].includes(this.screens.current)) this.screens.show('none');
     for (const h of this.heroes) this.tell(h, { t: 'go' });
+    if (this.preShop) {
+      // Leftover starting gold isn't kept; the stage starts now.
+      this.preShop = false;
+      for (const h of this.heroes) h.gold = 0;
+      this.mode = 'fight';
+      this.modeT = 0;
+      this.vfx.banner(`STAGE ${this.stage}`, this.stageSub(this.stage), 2.2);
+      return;
+    }
     if (this.runMode === 'endless') this.endlessNextWave();
     else this.openPortal();
   }
@@ -936,7 +1084,7 @@ export class Game implements HeroWorld {
     this.runEvents.startStage(this.director.duration);
     for (const h of this.heroes) {
       h.phoenixUsed = false;
-      if (h.hasRelic('r_clover')) h.rerollsLeft++;
+      if (h.hasRelic('r_clover')) h.rerollsLeft = Math.min(MAX_GEARS, h.rerollsLeft + 1);
     }
     this.pickups.vacuum = false;
     this.damagedThisStage = false;
@@ -958,21 +1106,33 @@ export class Game implements HeroWorld {
 
   private openPortal(): void {
     const p = (this.aliveHeroes[0] ?? this.hero).player;
-    const lim = this.arena.halfSize - 4;
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      const x = p.x + Math.cos(a) * 6;
-      const z = p.z + Math.sin(a) * 6;
-      if (Math.abs(x) < lim && Math.abs(z) < lim && !this.walls.hitCircle(x, z, 1.8)) {
-        this.portal.open(x, z);
-        break;
-      }
-    }
-    if (!this.portal.active) this.portal.open(p.x + 3, p.z);
+    const spot = this.portalSpot(p.x, p.z);
+    this.portal.open(spot.x, spot.z);
     this.vfx.ring(this.portal.x, this.portal.z, 1, 6, '#ff3df0', 0.5);
     this.vfx.banner('ENTER THE PORTAL', `STAGE ${this.stage + 1} AWAITS`, 1.6);
     this.mode = 'portal';
     this.modeT = 0;
+  }
+
+  /**
+   * A portal spot about 6 m from (px, pz) that is clear of walls and reachable in a straight line,
+   * trying nearer and farther rings when the 6 m one is blocked; worst case right where the player stands.
+   */
+  private portalSpot(px: number, pz: number): { x: number; z: number } {
+    const lim = this.arena.halfSize - 4;
+    for (const dist of [6, 4, 8, 2.5]) {
+      for (let i = 0; i < 16; i++) {
+        const dx = Math.cos((i / 16) * Math.PI * 2);
+        const dz = Math.sin((i / 16) * Math.PI * 2);
+        const x = px + dx * dist;
+        const z = pz + dz * dist;
+        if (Math.abs(x) > lim || Math.abs(z) > lim || this.walls.hitCircle(x, z, 1.8)) continue;
+        let clear = true;
+        for (let d = 0.5; d < dist && clear; d += 0.5) clear = !this.walls.hitCircle(px + dx * d, pz + dz * d, 0.4);
+        if (clear) return { x, z };
+      }
+    }
+    return { x: px, z: pz };
   }
 
   // ------------------------------------------------------------------ end of run
@@ -1056,6 +1216,11 @@ export class Game implements HeroWorld {
         if (h.left) continue;
         h.pendingLevels++;
         h.synergy.levelUp();
+        // Every level-up tops you up a little (downed heroes stay down).
+        if (!h.player.dead) {
+          const healed = h.player.heal(scoreTuning.levelUpHeal);
+          if (healed > 0) this.vfx.num(h.player.x, 2.4, h.player.z, `+${Math.round(healed)}`, 'heal');
+        }
       }
     }
   }
@@ -1087,14 +1252,14 @@ export class Game implements HeroWorld {
 
   private presentShop(h: Hero, focus?: number): void {
     if (h === this.hero) {
-      this.screens.showShop(h.shopView(this.stage), focus);
+      this.screens.showShop(h.shopView(this.stage, this.preShop), focus);
       return;
     }
-    const v = h.shopView(this.stage);
+    const v = h.shopView(this.stage, this.preShop);
     const net: NetShop = {
       ...v,
       offers: v.offers.map((o) => (o ? { id: o.def.id, price: o.price, hint: o.hint } : null)),
-      owned: v.owned.map((o) => ({ id: o.def.id, sell: o.sell, readout: o.readout })),
+      owned: v.owned.map((o) => ({ id: o.def.id, sell: o.sell, readout: o.readout, level: o.level, maxLevel: o.maxLevel, upCost: o.upCost })),
     };
     this.tell(h, { t: 'shop', view: net, focus });
   }
@@ -1121,8 +1286,10 @@ export class Game implements HeroWorld {
         if (!o) return;
         const color = h.applyOffer(o);
         h.consumePick();
+        if (h === this.hero && (o.kind === 'evo' || o.kind === 'track')) this.checkAchievements();
         this.vfx.sound('powerUp', h.player.x, h.player.z);
         if (o.kind === 'evolve') this.evolveFx(h, o.name, color);
+        else if (o.rarity === 'legendary') this.legendaryFx(h, o.name);
         this.afterPick(h, color);
       } else if (a === 'skip') {
         const g = h.skipGold;
@@ -1143,6 +1310,7 @@ export class Game implements HeroWorld {
       if (a === 'buy') err = h.buy(i);
       else if (a === 'sell') err = h.sell(i);
       else if (a === 'move') h.moveMod(i, d);
+      else if (a === 'mup') err = h.upgradeMod(i);
       else if (a === 'sreroll') err = h.reroll();
       else if (a === 'heal') err = h.heal();
       else if (a === 'curse') err = this.takeCurse(h);
@@ -1159,9 +1327,12 @@ export class Game implements HeroWorld {
       if (err) {
         if (h === this.hero) this.hud.toast(err);
         else this.tell(h, { t: 'toast', msg: err });
+        this.shopFx(h, 'deny');
         return;
       }
       this.presentShop(h, a === 'buy' ? i : undefined);
+      const fx = ({ buy: 'buy', sell: 'sell', sreroll: 'reroll', heal: 'heal', mup: 'upgrade' } as Record<string, ShopFx>)[a];
+      if (fx) this.shopFx(h, fx, i);
     }
   }
 
@@ -1177,6 +1348,23 @@ export class Game implements HeroWorld {
     h.player.happyT = 2.5;
     if (h === this.hero) this.input.rumble(0.4, 0.9, 500);
     this.vfx.banner('EVOLUTION!', (this.role === 'solo' ? '' : `${h.name.toUpperCase()}: `) + name.toUpperCase(), 1.8);
+  }
+
+  /** Picking a legendary: fanfare, golden fountain and a team-wide banner. */
+  private legendaryFx(h: Hero, name: string): void {
+    const p = h.player;
+    this.vfx.sound('legendaryPick', p.x, p.z);
+    this.legendaryBurst(h);
+    this.vfx.banner('LEGENDARY!', this.heroes.length > 1 ? `${h.name}: ${name}` : name, 1.8);
+  }
+
+  /** Golden fountain, rings and shake around a hero. */
+  private legendaryBurst(h: Hero): void {
+    const p = h.player;
+    this.vfx.burst(p.x, 1, p.z, { count: 60, color: '#ffcd75', color2: '#ffffff', speed: [4, 12], size: [0.15, 0.4], life: [0.6, 1.2], up: 12, gravity: 9 });
+    this.vfx.ring(p.x, p.z, 1, 14, '#ffcd75', 0.6);
+    this.vfx.ring(p.x, p.z, 1, 9, '#ef7d57', 0.45);
+    this.vfx.shake(p.x, p.z, 0.6);
   }
 
   private afterPick(h: Hero, color: string): void {
@@ -1224,7 +1412,9 @@ export class Game implements HeroWorld {
     const want: [string, boolean][] = [
       ['first_steps', kills >= 300],
       ['boss_slayer', this.bossesRun > 0 || this.stage > 1],
+      ['stage_2', this.stage >= 2],
       ['elite_hunter', L.elites + this.elitesRun >= 5],
+      ['evolved', h.weapons.some((w) => w.def.slot && w.evolved) || !!h.specialEvo],
       ['exterminator', kills >= 3000],
       ['speedster', h.dashes >= 60],
       ['arsenal', h.weapons.length >= 6],
@@ -1234,13 +1424,17 @@ export class Game implements HeroWorld {
       ['endless_5', this.runMode === 'endless' && this.stage >= 5],
       ['rush_3', this.runMode === 'bossrush' && this.bossesRun >= 3],
       ['stage_3', this.stage >= 3],
+      ['boss_rush', L.bosses + this.bossesRun >= 5],
+      ['elite_slayer', L.elites + this.elitesRun >= 25],
+      ['victory', this.victories > 0 || this.stage > LOOP_STAGES],
     ];
     for (const [id, ok] of want) {
       if (!ok) continue;
       const def = grantAchievement(id);
       if (!def) continue;
       this.newAchievements.push(id);
-      const unlock = def.unlockWeapon ? ` - ${WEAPONS[def.unlockWeapon].name} unlocked!` : '';
+      const item = def.unlockWeapon ? WEAPONS[def.unlockWeapon]?.name : def.unlockLoadout ? (WEAPONS[def.unlockLoadout] ?? SPECIALS[def.unlockLoadout])?.name : '';
+      const unlock = item ? ` - ${item} unlocked${def.unlockLoadout ? ' for your loadout' : ''}!` : '';
       this.hud.toast(`★ ${def.name}${unlock}`, 4);
       sfx.powerUp();
     }
@@ -1276,7 +1470,7 @@ export class Game implements HeroWorld {
     // Solo pauses the world; online the game keeps running behind the menu.
     const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop' || this.mode === 'title';
     if (this.mode === 'levelup' && !switched) {
-      for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`)) this.ui('pick', k);
+      for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
       if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
     }
     if (frozen || switched) {
@@ -1322,10 +1516,15 @@ export class Game implements HeroWorld {
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
       for (const w of h.weapons) w.update(dt, h.ctx);
-      const buster = h.weapons[0] as Buster;
-      if (h === this.hero && buster.muzzleT > 0.045) this.juice.kick(-h.player.aim.x, -h.player.aim.z, 2);
+      if (h === this.hero && h.weapons.some((w) => w.muzzleT > 0.045)) this.juice.kick(-h.player.aim.x, -h.player.aim.z, 2);
     }
     for (const h of this.heroes) this.updateBomb(h, dt);
+    updateSpecials(this.heroes, dt, this.specialApi);
+    // Q/E specials recharge over time; the meter waits while the special (or bomb wave) still runs.
+    for (const h of this.heroes) {
+      if (h.player.dead || h.left || h.bombT >= 0 || isSpecialRunning(h)) continue;
+      h.bombCharge = Math.min(1, h.bombCharge + dt / h.specialCooldown);
+    }
 
     // Enemies chase the nearest living hero.
     this.targets.length = 0;
@@ -1341,8 +1540,14 @@ export class Game implements HeroWorld {
     this.barrels.update(dt, (i, b) => this.explodeBarrel(i, b));
     this.collectors.length = 0;
     for (const h of this.heroes) this.collectors.push({ x: h.player.x, z: h.player.z, magnet: h.stats.magnet, alive: !h.player.dead && !h.left });
-    this.pickups.update(dt, this.collectors, (t, v, who) => this.collect(this.heroes[who], t, v));
+    this.pickups.update(
+      dt,
+      this.collectors,
+      (t, v, who) => this.collect(this.heroes[who], t, v),
+      (t, who) => t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS,
+    );
     this.updateChests();
+    if (this.mode === 'fight' && anyAlive) this.updateChestSpawns(dt);
     this.particles.update(dt);
     this.fx.update(dt);
     if (this.heroes.length > 1) this.updateRevives(dt);
@@ -1359,11 +1564,11 @@ export class Game implements HeroWorld {
     if (this.stepN % 30 === 0) for (const e of this.enemies.list) if (e.active) markSeen(e.def.id);
     if (this.mode === 'fight' && anyAlive) {
       this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
-      this.updateBossRage(dt);
       this.updateEliteMods(dt);
       this.updatePets(dt);
     }
     if (this.mode === 'fight' && anyAlive) {
+      this.director.teamLevel = this.level; // the Reaper comes for high-level teams
       const reqs = this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng);
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
       for (const r of reqs) {
@@ -1436,7 +1641,7 @@ export class Game implements HeroWorld {
         p.pos.z += (r.z - p.pos.z) * 0.5;
         p.vel.x = r.vx;
         p.vel.z = r.vz;
-        p.setAimDir(r.ax, r.az);
+        p.setAimDir(r.ax, r.az, r.ad < 0 ? Infinity : r.ad);
         if (r.dashing) {
           p.dashT = Math.max(p.dashT, 0.05);
           p.invuln = Math.max(p.invuln, 0.08);
@@ -1448,7 +1653,21 @@ export class Game implements HeroWorld {
     h.synergy.moving = p.speed > 1.2;
     if (!p.dead) h.synergy.tick(dt);
     h.refreshLive();
+    if (this.heroes.length > 1 && !p.dead) this.applyTeamAuras(h, dt);
     this.updateFootsteps(h, dt);
+  }
+
+  /** Co-op items worn by teammates near h: Rally Banner, Medic Link, Bond of Steel. */
+  private applyTeamAuras(h: Hero, dt: number): void {
+    let near = 0;
+    for (const o of this.heroes) {
+      if (o === h || o.left || o.player.dead) continue;
+      if (Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) > passiveTuning.teamRadius) continue;
+      near++;
+      h.stats.damageMul += o.stats.teamDmgAura;
+      if (o.stats.teamHeal > 0) h.player.heal(o.stats.teamHeal * dt);
+    }
+    if (near > 0) h.stats.armor += h.stats.nearMateArmor;
   }
 
   private updateTransition(): void {
@@ -1524,14 +1743,16 @@ export class Game implements HeroWorld {
   private updateRevives(dt: number): void {
     for (const h of this.heroes) {
       if (!h.player.dead || h.left) continue;
-      const near = this.aliveHeroes.some((o) => Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) < REVIVE_RANGE);
-      h.reviveT = near ? h.reviveT + dt : Math.max(0, h.reviveT - dt * 0.5);
+      const helpers = this.aliveHeroes.filter((o) => Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) < REVIVE_RANGE);
+      // Guardian Angel on a helper: faster revives, more life on getting up.
+      const speed = 1 + Math.max(0, ...helpers.map((o) => o.stats.reviveSpeed));
+      const hp = Math.min(1, 0.4 + Math.max(0, ...helpers.map((o) => o.stats.reviveHp)));
+      h.reviveT = helpers.length ? h.reviveT + dt * speed : Math.max(0, h.reviveT - dt * 0.5);
       if (h.reviveT >= REVIVE_TIME) {
-        this.reviveHero(h, 0.4);
+        this.reviveHero(h, hp);
         // Teamwork: rescuer and rescued both get a burst of invincibility.
         h.player.invuln = Math.max(h.player.invuln, 3);
-        for (const o of this.aliveHeroes) {
-          if (o === h || Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) > REVIVE_RANGE + 0.5) continue;
+        for (const o of helpers) {
           o.player.invuln = Math.max(o.player.invuln, 3);
           o.player.happyT = 1.5;
           this.vfx.num(o.player.x, 2.8, o.player.z, 'TEAMWORK!', 'heal');
@@ -1575,6 +1796,11 @@ export class Game implements HeroWorld {
     if (!pos) return null;
     const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
     this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
+    if (def.id === 'reaper') {
+      this.vfx.banner('THE REAPER COMES', 'RUN. OR TRY YOUR LUCK.', 2.4);
+      this.vfx.sound('boss', NaN, NaN);
+      this.vfx.flash(0.4);
+    }
     if (elite) {
       const mod = eliteMod ? `${ELITE_MODS[eliteMod].name.toUpperCase()} ` : '';
       this.vfx.toast(`ELITE ${mod}${def.name.toUpperCase()} INCOMING!`);
@@ -1669,15 +1895,17 @@ export class Game implements HeroWorld {
   /** All damage to enemies, credited to the hero who dealt it. */
   private damage(e: Enemy, base: number, o: DamageOpts, by: Hero): number {
     if (!e.active || e.hp <= 0) return 0;
-    const tags: readonly Tag[] = o.tags ?? WEAPONS[o.source]?.tags ?? [];
-    const crit = !!o.canCrit && this.rng.chance(by.stats.critChance);
+    const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
+    const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
     const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
     // Stats first, then Mods left to right, then statuses and crit.
-    let amount = by.synergy.damage(ev, base * by.stats.damageMul);
-    if (e.frozen > 0 && e.shatter > 0) amount *= 1 + e.shatter;
-    if (e.shockT > 0) amount *= 1 + statusTuning.shockMult + by.synergy.flags.shockMult;
+    let amount = o.fixed ? base : by.synergy.damage(ev, base * by.stats.damageMul);
+    if (!o.fixed && e.frozen > 0 && e.shatter > 0) amount *= 1 + e.shatter;
+    if (!o.fixed && e.shockT > 0) amount *= 1 + statusTuning.shockMult + by.synergy.flags.shockMult;
+    if (!o.fixed && e.exposeT > 0) amount *= 1 + statusTuning.exposeMult;
     if (crit) amount *= by.stats.critMult;
     amount = Math.max(1, Math.round(amount));
+    const dealt = Math.min(amount, Math.max(0, e.hp + e.shield));
     // Shielded elites: the shield soaks damage (and blocks statuses) until it breaks.
     const shielded = e.shield > 0;
     if (shielded) {
@@ -1686,7 +1914,7 @@ export class Game implements HeroWorld {
       e.hp -= amount - soak;
       if (e.shield <= 0) this.breakShield(e);
     } else e.hp -= amount;
-    by.damageBy[o.source] = (by.damageBy[o.source] ?? 0) + amount;
+    by.damageBy[o.source] = (by.damageBy[o.source] ?? 0) + dealt;
     e.flash = 0.07;
     const k = (o.knockback ?? 0) * by.stats.knockbackMul * (1 - e.def.knockbackResist) * (crit ? 1.5 : 1);
     if (k > 0) {
@@ -1714,13 +1942,13 @@ export class Game implements HeroWorld {
     if (!o.noStatus && e.hp > 0 && !shielded) {
       if (tags.includes('fire')) this.ignite(e, Math.max(3, amount * 0.15), by);
       if (tags.includes('shock')) this.shock(e, by);
+      if (isRightClick(o.source)) this.expose(e);
     }
     if (!o.noStatus) {
       by.synergy.hit(ev);
       if (crit) by.synergy.crit(ev);
       if (crit && by.hasRelic('r_static') && o.source !== 'zap' && e.active) this.zap(e, 2, Math.max(4, amount * 0.35), by);
     }
-    if (e.def.boss && e.hp > 0) this.bossPhase(e);
     if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);
     return amount;
   }
@@ -1739,23 +1967,6 @@ export class Game implements HeroWorld {
       this.vfx.sound('w:zap', e.x, e.z);
       h.petView?.zap();
     }
-  }
-
-  /** Bosses get angrier at 66% and 33% life: faster attacks, a red glow, then bullet rings of their own. */
-  private bossPhase(e: Enemy): void {
-    const k = e.hp / e.maxHp;
-    const phase = k < 0.33 ? 3 : k < 0.66 ? 2 : 1;
-    if (phase <= e.phase) return;
-    e.phase = phase;
-    e.rage = phase === 3 ? 1.6 : 1.3;
-    e.speedMul *= 1.12;
-    e.rageT = 2;
-    this.input.rumble(0.5, 0.5, 300);
-    this.vfx.banner(phase === 3 ? 'FURIOUS!' : 'ENRAGED!', `${e.def.name.toUpperCase()} ${phase === 3 ? 'GOES ALL OUT' : 'GETS ANGRY'}`, 1.4);
-    this.vfx.sound('boss', e.x, e.z);
-    this.vfx.shake(e.x, e.z, 0.5);
-    this.vfx.ring(e.x, e.z, 1, 10, '#ff2d4a', 0.45);
-    e.squash(10);
   }
 
   /** Elite modifiers that act over time: vampiric regen and blinking teleports. */
@@ -1832,23 +2043,6 @@ export class Game implements HeroWorld {
     }
   }
 
-  /** Phase-3 bosses fire a spinning bullet ring every few seconds on top of their moves. */
-  private updateBossRage(dt: number): void {
-    for (const e of this.enemies.list) {
-      if (!e.active || !e.def.boss || e.phase < 3 || e.frozen > 0) continue;
-      if ((e.rageT -= dt) > 0) continue;
-      e.rageT = 3.2;
-      const n = 14;
-      const off = this.rng.next() * Math.PI;
-      for (let i = 0; i < n; i++) {
-        const a = off + (i / n) * Math.PI * 2;
-        this.enemyCtx.fireBullet(e, Math.cos(a), Math.sin(a), 6.5, 12);
-      }
-      this.vfx.ring(e.x, e.z, 1, 5, '#ff2d4a', 0.3);
-      this.vfx.sound('bossWindup', e.x, e.z);
-    }
-  }
-
   /** Death flavour by enemy kind. Swarm kills only sometimes get the extras, so mass kills stay light. */
   private deathFx(e: Enemy, big: boolean): void {
     const def = e.def;
@@ -1920,6 +2114,18 @@ export class Game implements HeroWorld {
     if (e.shockT > 0) this.overload(e, by);
   }
 
+  /** Right-click hit: the enemy takes more damage from everyone for a few seconds. */
+  private expose(e: Enemy): void {
+    if (e.exposeT <= 0) {
+      this.vfx.ring(e.x, e.z, e.radius, e.radius * 2.6, '#c4b8ff', 0.25);
+      if (this.runTime - this.exposeTextT > 0.6) {
+        this.exposeTextT = this.runTime;
+        this.vfx.num(e.x, 2.2 * e.scale, e.z, 'EXPOSED', 'crit');
+      }
+    }
+    e.exposeT = statusTuning.exposeTime;
+  }
+
   shock(e: Enemy, by: Hero): void {
     if (!e.active || e.hp <= 0) return;
     e.shockT = statusTuning.shockTime + by.synergy.flags.shockTime;
@@ -1933,7 +2139,7 @@ export class Game implements HeroWorld {
     this.overloads++;
     const m = 1 + by.synergy.flags.overloadMult;
     if (this.overloads % 3 === 1) this.vfx.num(e.x, 2.2, e.z, 'OVERLOAD!', 'crit');
-    this.blast(e.x, e.z, 1.8 * Math.sqrt(m), statusTuning.overloadDamage * m, '#ffe14d', 'overload', ['explosive'], true, by);
+    this.blast(e.x, e.z, 1.8 * Math.sqrt(m), (statusTuning.overloadDamage + statusTuning.overloadPerLevel * this.level) * m, '#ffe14d', 'overload', ['explosive'], true, by);
   }
 
   /** Frozen enemy killed: ice shards burst out. */
@@ -1944,7 +2150,7 @@ export class Game implements HeroWorld {
     for (const o of this.enemiesInRadius(e.x, e.z, 2, this.scratch).slice()) {
       if (o === e) continue;
       const d = Math.hypot(o.x - e.x, o.z - e.z) || 1;
-      this.damage(o, statusTuning.shatterDamage * m, { source: 'shatter', tags: ['frost'], dirX: (o.x - e.x) / d, dirZ: (o.z - e.z) / d, knockback: 4, noStatus: true }, by);
+      this.damage(o, (statusTuning.shatterDamage + statusTuning.shatterPerLevel * this.level) * m, { source: 'shatter', tags: ['frost'], dirX: (o.x - e.x) / d, dirZ: (o.z - e.z) / d, knockback: 4, noStatus: true }, by);
     }
   }
 
@@ -1952,6 +2158,7 @@ export class Game implements HeroWorld {
   zap(from: Enemy, hops: number, dmg: number, by: Hero): void {
     const hit = new Set<number>([from.uid]);
     let cur: Enemy = from;
+    hops += by.synergy.flags.chainBonus;
     for (let i = 0; i < hops; i++) {
       const next = this.nearestEnemy(cur.x, cur.z, 5, (o) => hit.has(o.uid));
       if (!next) break;
@@ -1977,6 +2184,7 @@ export class Game implements HeroWorld {
         this.vfx.sound('fuseTick', e.x, e.z, 1 + (1 - k) * 0.8);
       }
       if (e.shockT > 0) e.shockT -= dt;
+      if (e.exposeT > 0) e.exposeT -= dt;
       if (e.burnT <= 0) continue;
       e.burnT -= dt;
       e.burnAcc += dt;
@@ -1990,7 +2198,9 @@ export class Game implements HeroWorld {
   }
 
   private sourceName(id: string): string {
-    const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Crit Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
+    if (SPECIALS[id]) return SPECIALS[id].name;
+    if (PASSIVES[id]) return PASSIVES[id].name;
+    const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
     return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
   }
 
@@ -2003,27 +2213,32 @@ export class Game implements HeroWorld {
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.score += def.score * this.multiplier * (e.elite ? 5 : 1) * (1 + this.curseSum('score')) * this.difficulty.score;
     const xp = def.xp * (e.elite ? 10 : 1);
-    if (by) by.bombCharge = Math.min(1, by.bombCharge + bombTuning.chargePerXp * xp);
 
     // Drops
     this.pickups.spawn(PickupType.Gem, e.x, e.z, xp * dropTuning.xpMul);
     const isBoss = !!def.boss;
-    const big = e.elite || isBoss;
+    const big = e.elite || isBoss || def.id === 'reaper';
     if (big) {
       // Every hero gets a chest from bosses; elites drop one.
       const chests = isBoss ? Math.max(1, this.heroes.filter((h) => !h.left).length) : 1;
       for (let i = 0; i < chests; i++) this.pickups.spawn(PickupType.Chest, e.x + i * 0.8, e.z);
       for (let i = 0; i < (isBoss ? 6 : 2); i++) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
+      for (let i = 0; i < (isBoss ? 2 : 1); i++) this.pickups.spawn(PickupType.Gear, e.x, e.z);
       if (e.elite) {
         this.elitesRun++;
         this.runEvents.onElite();
       }
     } else {
+      const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive));
       const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 10 : 1);
-      if (this.rng.chance(dropTuning.goldChance * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
-      if (!this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
-      if (this.rng.chance(dropTuning.magnetChance)) this.pickups.spawn(PickupType.Magnet, e.x, e.z);
+      if (this.rng.chance(dropTuning.goldChance * thin * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
+      if (!this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
+      if (this.rng.chance(dropTuning.magnetChance * thin)) this.pickups.spawn(PickupType.Magnet, e.x, e.z);
+      if (this.rng.chance(dropTuning.gearChance * thin * (1 + 0.25 * (by?.stats.luck ?? 0)))) this.pickups.spawn(PickupType.Gear, e.x, e.z);
+      if (this.rng.chance(dropTuning.nukeChance * thin)) this.pickups.spawn(PickupType.Nuke, e.x, e.z);
     }
+    // Vampire Fang: life per kill (small per kill: hordes add up).
+    if (by && by.stats.killHeal > 0 && !by.player.dead) by.player.heal(by.stats.killHeal);
 
     // Feedback scales with importance; swarm kills stay light so hundreds don't stutter.
     const r = e.radius;
@@ -2091,7 +2306,7 @@ export class Game implements HeroWorld {
     if (this.kills === 300 || this.kills % 1000 === 0) this.checkAchievements();
   }
 
-  blast(x: number, z: number, r: number, base: number, color: string, source: string, tags: Tag[] = ['explosive'], noStatus = false, by: Hero = this.hero): void {
+  blast(x: number, z: number, r: number, base: number, color: string, source: string, tags: readonly Tag[] = ['explosive'], noStatus = false, by: Hero = this.hero): void {
     const explosive = tags.includes('explosive');
     if (explosive) r *= 1 + by.synergy.flags.explosiveArea * by.synergy.tagCount('explosive');
     this.vfx.sound('explode', x, z);
@@ -2104,10 +2319,11 @@ export class Game implements HeroWorld {
     // Napalm: an explosion that catches a burning enemy sets the whole blast alight.
     const napalm = explosive && !noStatus && targets.some((e) => e.burnT > 0);
     if (napalm) this.vfx.ring(x, z, 1, r * 2.2, '#ff5e3a', 0.35);
+    let n = 0;
     for (const e of targets) {
       const d = Math.hypot(e.x - x, e.z - z) || 1;
-      this.damage(e, base, { source, tags, dirX: (e.x - x) / d, dirZ: (e.z - z) / d, knockback: 8, canCrit: true, noStatus }, by);
-      if (napalm && e.active) this.ignite(e, statusTuning.napalmDps, by);
+      this.damage(e, base, { source, tags, dirX: (e.x - x) / d, dirZ: (e.z - z) / d, knockback: 8, canCrit: true, noStatus, loud: n++ < 2 }, by);
+      if (napalm && e.active) this.ignite(e, statusTuning.napalmDps + statusTuning.napalmPerLevel * this.level, by);
     }
   }
 
@@ -2187,7 +2403,7 @@ export class Game implements HeroWorld {
     this.vfx.ring(e.x, e.z, 1, R * 1.6, '#ffffff', 0.3);
     this.vfx.burst(e.x, 0.3, e.z, { count: 30, color: '#f2e2b8', color2: '#ffffff', speed: [5, 12], size: [0.2, 0.4], life: [0.4, 0.8], up: 4, gravity: 10 });
     for (const h of this.aliveHeroes) {
-      if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, 30 * e.dmgMul, e.x, e.z, null, e.def.name);
+      if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, 24 * e.dmgMul, e.x, e.z, null, e.def.name);
     }
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
@@ -2218,8 +2434,9 @@ export class Game implements HeroWorld {
     const p = h.player;
     if (cheats.god || p.dead || p.invuln > 0) return;
     h.lastHitBy = cause || src?.def.name || 'Enemy fire';
-    let dmg = Math.max(1, Math.round((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken'))));
-    // Phoenix Feather: once per stage a lethal hit leaves you at 1 life and freezes everything nearby.
+    // One hit never takes more than maxHitFrac of max life (curses scale it before the cap).
+    let dmg = Math.max(1, Math.round(Math.min((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken')), p.maxHp * playerTuning.maxHitFrac)));
+    // Frost Totem relic: once per stage a lethal hit leaves you at 1 life and freezes everything nearby.
     if (dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
       h.phoenixUsed = true;
       dmg = Math.max(0, Math.ceil(p.hp) - 1);
@@ -2312,6 +2529,14 @@ export class Game implements HeroWorld {
         this.vfx.sound('heal', p.x, p.z);
         this.vfx.toast('MAGNET!');
         break;
+      case PickupType.Nuke:
+        this.nuke(h);
+        break;
+      case PickupType.Gear:
+        h.rerollsLeft = Math.min(MAX_GEARS, h.rerollsLeft + 1);
+        this.vfx.sound('gear', p.x, p.z);
+        this.vfx.num(p.x, 2.4, p.z, `+1 GEAR (${h.rerollsLeft}/${MAX_GEARS})`, 'score');
+        break;
       case PickupType.Chest:
         h.chestsPending++;
         h.gold += 2;
@@ -2328,7 +2553,8 @@ export class Game implements HeroWorld {
       const x = b.x[i];
       const z = b.z[i];
       if (b.life[i] <= 0) {
-        this.bulletBlast(i);
+        // Flak pellets only burst on something; a miss just fizzles.
+        if (b.kind[i] !== 5) this.bulletBlast(i);
         b.kill(i--);
         continue;
       }
@@ -2363,21 +2589,23 @@ export class Game implements HeroWorld {
       }
       let hit = null as Enemy | null;
       const r = b.radius[i];
-      const last = b.lastHit[i];
       this.hash.query(x, z, r, (e) => {
-        if (hit || !e.alive || e.hp <= 0 || e.uid === last) return;
+        if (hit || !e.alive || e.hp <= 0 || b.hasHit(i, e.uid)) return;
         const rr = e.radius + r;
         if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr) hit = e;
       });
       if (hit) {
         const sp = Math.hypot(b.vx[i], b.vz[i]) || 1;
         const by = this.heroes[b.owner[i]] ?? this.hero;
-        const k = b.kind[i];
-        const source = k === 1 ? 'charge' : k >= 2 ? 'scatter' : 'buster';
-        this.damage(hit, b.damage[i], { source, tags: k === 1 ? CHARGE_TAGS : k === 3 ? SCATTER_FIRE : undefined, dirX: b.vx[i] / sp, dirZ: b.vz[i] / sp, knockback: b.knockback[i], hx: x, hz: z, canCrit: true, loud: true }, by);
+        const kind = BULLET_KINDS[b.kind[i]] ?? BULLET_KINDS[0];
+        this.damage(hit, b.damage[i], { source: kind.source, tags: kind.tags, dirX: b.vx[i] / sp, dirZ: b.vz[i] / sp, knockback: b.knockback[i], hx: x, hz: z, canCrit: true, loud: true }, by);
+        if (b.blast[i] > 0 && IMPACT_BLAST.includes(b.kind[i])) {
+          this.bulletBlast(i);
+          b.blast[i] = 0;
+        }
         if (b.pierce[i] > 0) {
           b.pierce[i]--;
-          b.lastHit[i] = hit.uid;
+          b.markHit(i, hit.uid);
         } else {
           this.bulletBlast(i);
           b.kill(i--);
@@ -2400,6 +2628,28 @@ export class Game implements HeroWorld {
     }
   }
 
+  /** Host/solo: a new chest every chestTuning.every seconds at a random clear spot. */
+  private updateChestSpawns(dt: number): void {
+    this.chestT += dt;
+    if (this.chestT < chestTuning.every) return;
+    this.chestT -= chestTuning.every;
+    if (this.chests.closedCount >= chestTuning.maxClosed) return;
+    const lim = this.arena.halfSize - 5;
+    for (let tries = 0; tries < 30; tries++) {
+      const x = this.rng.range(-lim, lim);
+      const z = this.rng.range(-lim, lim);
+      if (this.walls.hitCircle(x, z, 1.2)) continue;
+      const facing = this.rng.range(0, Math.PI * 2);
+      this.chests.add(x, z, facing);
+      this.host?.broadcast({ t: 'chestspawn', x, z, f: facing });
+      this.vfx.ring(x, z, 1, 6, '#ffcd75', 0.6);
+      this.vfx.burst(x, 1, z, { count: 20, color: '#ffcd75', color2: '#ffffff', speed: [2, 6], size: [0.15, 0.3], life: [0.5, 0.9], up: 8, gravity: 10 });
+      this.vfx.toast('A TREASURE CHEST APPEARED!');
+      this.vfx.sound('chest', NaN, NaN);
+      return;
+    }
+  }
+
   private openChest(i: number, h: Hero): void {
     const c = this.chests.open(i);
     if (!c) return;
@@ -2411,12 +2661,10 @@ export class Game implements HeroWorld {
     this.vfx.ring(c.x, c.z, 1, 5, '#ffcd75', 0.35);
     this.vfx.burst(c.x, 0.8, c.z, { count: 22, color: '#ffcd75', color2: item.color, speed: [3, 7], size: [0.12, 0.28], life: [0.4, 0.8], up: 7, gravity: 12 });
     this.vfx.num(c.x, 2.6, c.z, `${item.name} ${item.text}`, 'crit');
-    if (item.evolved) this.evolveFx(h, item.name, item.color);
-    const msg = `CHEST: ${item.name.toUpperCase()} ${item.text}`;
     if (h === this.hero) {
-      this.hud.toast(msg, 3);
+      this.hud.chestReveal(item);
       this.hud.flash(0.25);
-    } else this.tell(h, { t: 'toast', msg });
+    } else this.tell(h, { t: 'chestitem', item });
     this.checkAchievements();
   }
 
@@ -2425,41 +2673,131 @@ export class Game implements HeroWorld {
     const b = this.bullets;
     if (b.team[i] !== Team.Player || b.blast[i] <= 0) return;
     const by = this.heroes[b.owner[i]] ?? this.hero;
+    if (b.kind[i] === 5) {
+      this.blast(b.x[i], b.z[i], b.blast[i], b.damage[i] * 0.5, this.bullets.colorOf(i), 'scatter', ['projectile', 'explosive'], false, by);
+      return;
+    }
     this.vfx.shake(b.x[i], b.z[i], 0.25);
-    this.blast(b.x[i], b.z[i], b.blast[i], b.damage[i] * 0.6, this.bullets.colorOf(i), 'charge', ['projectile', 'explosive'], false, by);
+    const tags: Tag[] = b.kind[i] === 8 ? ['projectile', 'explosive', 'fire'] : ['projectile', 'explosive'];
+    this.blast(b.x[i], b.z[i], b.blast[i], b.damage[i] * 0.6, this.bullets.colorOf(i), 'charge', tags, false, by);
   }
 
+  private makeSpecialApi(): SpecialApi {
+    const g = this;
+    return {
+      get enemies() {
+        return g.enemies.list;
+      },
+      get rng() {
+        return g.rng;
+      },
+      get vfx() {
+        return g.vfx;
+      },
+      damage: (e, base, o, by) => g.damage(e, base, o, by),
+      blast: (x, z, r, base, color, source, tags, noStatus, by) => g.blast(x, z, r, base, color, source, tags, noStatus, by),
+      zap: (from, hops, dmg, by) => g.zap(from, hops, dmg, by),
+      ignite: (e, dps, by) => g.ignite(e, dps, by),
+    };
+  }
+
+  /** Q/E: fire the hero's special once its meter is full. */
   private tryBomb(h: Hero): void {
-    if (h.bombCharge < 1 || h.bombT >= 0 || h.player.dead) return;
+    if (h.bombCharge < 1 || h.player.dead) return;
+    if (h.special.id !== 'bomb') {
+      h.bombCharge = 0;
+      startSpecial(h, h.specialDef, h.specialP, this.specialApi);
+      return;
+    }
+    if (h.bombT >= 0 || h.bombNext > 0) return;
     const p = h.player;
     h.bombCharge = 0;
-    h.bombT = 0;
-    h.bombId = (h.bombId + 1) % 1000;
-    h.bombX = p.x;
-    h.bombZ = p.z;
+    h.bombNuke = false;
+    h.bombWave = 1;
+    this.startBombWave(h, p.x, p.z);
     p.invuln = Math.max(p.invuln, 0.6);
-    this.vfx.sound('bomb', p.x, p.z);
     if (h === this.hero) {
       this.hud.flash(0.9);
       this.input.rumble(1, 0.8, 420);
     }
-    this.vfx.shake(p.x, p.z, 0.9);
     this.juice.freeze(0.06);
-    const R = bombTuning.radius;
+    const R = h.specialP.radius;
     this.vfx.scar(p.x, p.z, 3, SCAR_COLORS.crater, 18);
-    this.vfx.ring(p.x, p.z, 1, R * 2, '#ff3df0', bombTuning.duration + 0.15);
-    this.vfx.ring(p.x, p.z, 1, R * 1.6, '#ffffff', bombTuning.duration);
-    this.vfx.star(p.x, 1.2, p.z, 5, '#ffffff', 0.2);
     for (let i = 0; i < this.bullets.count; i++) {
       if (this.bullets.team[i] === Team.Enemy && Math.hypot(this.bullets.x[i] - p.x, this.bullets.z[i] - p.z) < R * 1.5) this.bullets.kill(i--);
     }
   }
 
+  /** One bomb wave from (x, z): Implosion's first wave pulls in (violet), everything else blasts out. */
+  private startBombWave(h: Hero, x: number, z: number): void {
+    h.bombT = 0;
+    h.bombId = (h.bombId + 1) % 1000;
+    h.bombX = x;
+    h.bombZ = z;
+    const R = h.specialP.radius;
+    const evo = h.specialEvo;
+    const pull = evo === 'implode' && h.bombWave === 1;
+    const color = pull ? '#b48cff' : evo === 'cluster' ? '#ff7a2f' : '#ef7d57';
+    this.vfx.sound('bomb', x, z);
+    this.vfx.shake(x, z, pull ? 0.5 : 0.9);
+    this.vfx.ring(x, z, 1, R * 2, color, bombTuning.duration + 0.15);
+    this.vfx.ring(x, z, 1, R * 1.6, '#ffffff', bombTuning.duration);
+    this.vfx.star(x, 1.2, z, pull ? 3 : 5, '#ffffff', 0.2);
+  }
+
+  /** Cluster Bomb's bomblets pop one by one after the wave. */
+  private updateBomblets(h: Hero, dt: number): void {
+    const p = h.specialP;
+    for (let i = h.bomblets.length - 1; i >= 0; i--) {
+      const b = h.bomblets[i];
+      if ((b.t -= dt) > 0) continue;
+      h.bomblets.splice(i, 1);
+      this.blast(b.x, b.z, bombTuning.bombletRadius, p.dmg * bombTuning.bombletDmg, '#ff7a2f', 'bomb', ['explosive'], false, h);
+    }
+  }
+
+  /** Nuke pickup: the bomb's wave, but screen-wide and lethal to everything but bosses. */
+  private nuke(h: Hero): void {
+    const p = h.player;
+    h.bombT = 0;
+    h.bombNuke = true;
+    h.bombId = (h.bombId + 1) % 1000;
+    h.bombX = p.x;
+    h.bombZ = p.z;
+    p.invuln = Math.max(p.invuln, 1);
+    this.vfx.banner('NUKE!', 'SCREEN WIPE', 1.4);
+    this.vfx.sound('bomb', p.x, p.z);
+    this.vfx.sound('explode', p.x, p.z);
+    this.vfx.flash(1);
+    this.vfx.shake(p.x, p.z, 1.6);
+    this.juice.freeze(0.12);
+    const R = nukeTuning.radius;
+    this.vfx.ring(p.x, p.z, 1, R * 2, '#ffffff', nukeTuning.duration + 0.2);
+    this.vfx.ring(p.x, p.z, 1, R * 1.7, '#ffcd75', nukeTuning.duration + 0.1);
+    this.vfx.ring(p.x, p.z, 1, R * 1.3, '#ef7d57', nukeTuning.duration);
+    this.vfx.star(p.x, 1.5, p.z, 9, '#ffffff', 0.3);
+    this.vfx.burst(p.x, 1, p.z, { count: 60, color: '#ffcd75', color2: '#ffffff', speed: [8, 20], size: [0.2, 0.5], life: [0.5, 1.1], up: 10, gravity: 8 });
+    for (let i = 0; i < this.bullets.count; i++) if (this.bullets.team[i] === Team.Enemy) this.bullets.kill(i--);
+  }
+
   private updateBomb(h: Hero, dt: number): void {
+    if (h.bomblets.length) this.updateBomblets(h, dt);
+    // Implosion: the second, bigger blast after the pull.
+    if (h.bombNext > 0 && (h.bombNext -= dt) <= 0) {
+      h.bombWave = 2;
+      this.startBombWave(h, h.bombX, h.bombZ);
+      this.vfx.sound('explode', h.bombX, h.bombZ);
+      this.vfx.flash(0.5);
+    }
     if (h.bombT < 0) return;
     h.bombT += dt;
-    const k = Math.min(1, h.bombT / bombTuning.duration);
-    const r = bombTuning.radius * (1 - (1 - k) * (1 - k));
+    const nuke = h.bombNuke;
+    const sp = h.specialP;
+    const implode = !nuke && sp.implode > 0;
+    const pull = implode && h.bombWave === 1;
+    const dmgMul = implode ? (pull ? bombTuning.pullDmg : bombTuning.implodeDmg) : 1;
+    const k = Math.min(1, h.bombT / (nuke ? nukeTuning.duration : bombTuning.duration));
+    const r = (nuke ? nukeTuning.radius : sp.radius) * (1 - (1 - k) * (1 - k));
     const stamp = h.index * 1000 + h.bombId + 1;
     for (const e of this.enemies.list) {
       if (!e.alive || e.hp <= 0 || e.bombStamp === stamp) continue;
@@ -2469,9 +2807,23 @@ export class Game implements HeroWorld {
       if (d > r + e.radius) continue;
       e.bombStamp = stamp;
       const n = d || 1;
-      this.damage(e, bombTuning.damage, { source: 'bomb', dirX: dx / n, dirZ: dz / n, knockback: bombTuning.knockback }, h);
+      // The nuke over-kills normal enemies and takes a big bite out of bosses.
+      const tough = e.def.boss || e.def.id === 'reaper';
+      const dmg = !nuke ? sp.dmg * dmgMul : tough ? e.maxHp * nukeTuning.bossHpFrac : e.maxHp * 20;
+      // Implosion's first wave drags enemies toward the centre instead of blasting them away.
+      const dir = pull ? -Math.min(1, d / Math.max(1, sp.radius)) : 1;
+      this.damage(e, dmg, { source: nuke ? 'nuke' : 'bomb', tags: nuke ? [] : ['explosive'], dirX: (dx / n) * dir, dirZ: (dz / n) * dir, knockback: pull ? bombTuning.pullKnock : bombTuning.knockback, noStatus: nuke, fixed: nuke && tough }, h);
     }
-    if (k >= 1) h.bombT = -1;
+    if (k < 1) return;
+    h.bombT = -1;
+    if (nuke) return;
+    if (pull) h.bombNext = bombTuning.implodeDelay;
+    // Cluster Bomb: bomblets scatter through the wave's area and pop one after another.
+    for (let i = 0; i < (sp.bomblets ?? 0); i++) {
+      const a = this.rng.next() * Math.PI * 2;
+      const d = sp.radius * (0.25 + this.rng.next() * 0.6);
+      h.bomblets.push({ x: h.bombX + Math.cos(a) * d, z: h.bombZ + Math.sin(a) * d, t: 0.1 + i * 0.06 + this.rng.next() * 0.1 });
+    }
   }
 
   // ------------------------------------------------------------------ online: lobby
@@ -2482,7 +2834,7 @@ export class Game implements HeroWorld {
     this.role = 'host';
     const host = new NetHost(3);
     this.host = host;
-    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), skin: settings.skin, pet: settings.pet, hero: localHero() }];
+    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero() }];
     this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
     host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
     host.onLeave = (id) => this.onClientLeft(id);
@@ -2498,16 +2850,19 @@ export class Game implements HeroWorld {
 
   private refreshLobby(): void {
     if (!this.host) return;
-    const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i] }));
+    const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout) }));
     this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends' });
     this.host.broadcast({ t: 'lobby', players, code: this.host.code });
   }
 
   private hostStart(): void {
     if (this.role !== 'host' || !this.host) return;
-    const heroes = this.lobby.map((p, i) =>
-      i === 0 ? this.hero : this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero),
-    );
+    const heroes = this.lobby.map((p, i) => {
+      if (i === 0) return this.hero;
+      const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
+      h.loadoutPick = p.loadout;
+      return h;
+    });
     this.hero.name = this.lobby[0].name;
     this.setHeroes(heroes);
     this.local = 0;
@@ -2536,8 +2891,18 @@ export class Game implements HeroWorld {
       this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
       return;
     }
-    client.send({ t: 'hello', name, unlocked: unlockedWeapons(), skin: settings.skin, pet: settings.pet, hero: localHero() });
+    client.send({ t: 'hello', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero() });
     this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
+  }
+
+  /** Online lobby: share a new loadout pick (the host's own is read at start). */
+  private onLoadoutChanged(): void {
+    const loadout = validLoadout(settings.loadout, unlockedLoadout());
+    if (this.role === 'client') this.client?.send({ t: 'loadout', loadout });
+    else if (this.role === 'host' && this.lobby[0]) {
+      this.lobby[0].loadout = loadout;
+      this.refreshLobby();
+    }
   }
 
   private saveName(name: string): void {
@@ -2560,11 +2925,20 @@ export class Game implements HeroWorld {
         peerId: from,
         name: String(m.name ?? 'Player').slice(0, 12),
         unlocked: Array.isArray(m.unlocked) ? (m.unlocked as string[]) : unlockedWeapons(),
+        loadout: validLoadout(m.loadout as Partial<Loadout>),
         skin: skinOf(String(m.skin ?? '')).id,
         pet: String(m.pet ?? 'none'),
         hero: heroOf(String(m.hero ?? '')).id,
       });
       this.refreshLobby();
+      return;
+    }
+    if (m.t === 'loadout') {
+      const entry = this.lobby.find((p) => p.peerId === from);
+      if (entry && this.mode === 'title') {
+        entry.loadout = validLoadout(m.loadout as Partial<Loadout>);
+        this.refreshLobby();
+      }
       return;
     }
     const h = this.heroByPeer(from);
@@ -2578,6 +2952,7 @@ export class Game implements HeroWorld {
         vz: Number(m.vz),
         ax: Number(m.ax),
         az: Number(m.az),
+        ad: Number(m.ad ?? -1),
         firing: !!m.f,
         charging: !!m.c,
         dashing: !!m.d,
@@ -2676,16 +3051,18 @@ export class Game implements HeroWorld {
           hf: r2(p.hurtFlash),
           rv: r2(h.reviveT / REVIVE_TIME),
           area: r2(h.stats.areaMul),
-          w: h.weapons.map((w) => [w.def.id, w.level, ...w.net()]),
+          w: h.weapons.map((w) => [w.def.id, w.level, Math.round(w.ready * 20) / 20, w.buildKey, ...w.net()]),
           rl: h.relics,
         };
       }),
       you: {
         gold: forHero.gold,
+        gears: forHero.rerollsLeft,
+        special: [forHero.special.id, forHero.special.level, forHero.specialBuild ? buildKey(forHero.specialBuild) : ''],
         bomb: r2(forHero.bombCharge),
-        mods: forHero.synergy.slots.map((s, i) => ({ id: s.def.id, ro: forHero.synergy.readout(i) })),
+        mods: forHero.synergy.slots.map((s, i) => ({ id: s.def.id, ro: forHero.synergy.readout(i), lv: s.level })),
         passives: forHero.passives,
-        stats: { moveSpeedMul: forHero.stats.moveSpeedMul, dashCooldownMul: forHero.stats.dashCooldownMul, maxHp: forHero.stats.maxHp, magnet: forHero.stats.magnet, areaMul: forHero.stats.areaMul },
+        stats: { moveSpeedMul: forHero.stats.moveSpeedMul, dashCooldownMul: forHero.stats.dashCooldownMul, dashCharges: forHero.stats.dashCharges, maxHp: forHero.stats.maxHp, magnet: forHero.stats.magnet, areaMul: forHero.stats.areaMul },
       },
       portal: this.portal.active ? [r2(this.portal.x), r2(this.portal.z)] : null,
       en: packEnemies(en),
@@ -2713,6 +3090,18 @@ export class Game implements HeroWorld {
         break;
       case 'wchest':
         this.chests.open(Number(m.i));
+        break;
+      case 'chestspawn':
+        this.chests.add(Number(m.x), Number(m.z), Number(m.f));
+        break;
+      case 'chestitem':
+        this.hud.chestReveal(m.item as Parameters<Hud['chestReveal']>[0]);
+        break;
+      case 'shopfx':
+        this.screens.shopFx(m.kind as ShopFx, Number(m.i));
+        break;
+      case 'chestsgone':
+        this.chests.list = [];
         break;
       case 'barrel': {
         const b = this.barrels.remove(Number(m.i));
@@ -2762,7 +3151,7 @@ export class Game implements HeroWorld {
     return {
       ...v,
       offers: v.offers.map((o) => (o && MOD_BY_ID[o.id] ? { def: MOD_BY_ID[o.id], price: o.price, hint: o.hint } : null)),
-      owned: v.owned.filter((o) => MOD_BY_ID[o.id]).map((o) => ({ def: MOD_BY_ID[o.id], sell: o.sell, readout: o.readout })),
+      owned: v.owned.filter((o) => MOD_BY_ID[o.id]).map((o) => ({ def: MOD_BY_ID[o.id], sell: o.sell, readout: o.readout, level: o.level, maxLevel: o.maxLevel, upCost: o.upCost })),
     };
   }
 
@@ -2808,7 +3197,7 @@ export class Game implements HeroWorld {
     this.screens.update(input, dt);
     if (this.paused && this.screens.current === 'none') this.paused = false;
     if (this.screens.current === 'levelup' && before === 'levelup') {
-      for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`)) this.ui('pick', k);
+      for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
       if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
     }
     this.runTime += dt;
@@ -2837,7 +3226,7 @@ export class Game implements HeroWorld {
     const charging = control && (input.mouseDown(2) || input.padButton(2));
     if (this.stepN % INPUT_EVERY === 0 && this.client) {
       const r2 = (v: number) => Math.round(v * 100) / 100;
-      this.client.send({ t: 'i', x: r2(p.x), z: r2(p.z), vx: r2(p.vel.x), vz: r2(p.vel.z), ax: r2(p.aim.x), az: r2(p.aim.z), f: firing, c: charging, d: p.dashing });
+      this.client.send({ t: 'i', x: r2(p.x), z: r2(p.z), vx: r2(p.vel.x), vz: r2(p.vel.z), ax: r2(p.aim.x), az: r2(p.aim.z), ad: Number.isFinite(p.aimDist) ? r2(p.aimDist) : -1, f: firing, c: charging, d: p.dashing });
     }
     if (this.mode !== 'levelup' && this.mode !== 'shop') {
       this.bullets.integrate(dt);
@@ -2904,8 +3293,16 @@ export class Game implements HeroWorld {
     const you = s.you as Record<string, unknown>;
     const h = this.hero;
     h.gold = Number(you.gold);
+    h.rerollsLeft = Number(you.gears ?? 0);
+    const sp = you.special as [string, number, string] | undefined;
+    if (sp && sp[0] !== h.special.id) h.setSpecial(sp[0]);
+    if (sp && sp[1] !== h.special.level) {
+      h.special.level = sp[1];
+      h.loadoutDirty = true;
+    }
+    if (sp?.[2]) h.setSpecialBuild(sp[2]);
     h.bombCharge = Number(you.bomb);
-    this.netMods = (you.mods as { id: string; ro: string }[]) ?? [];
+    this.netMods = (you.mods as { id: string; ro: string; lv?: number }[]) ?? [];
     const passives = (you.passives as Record<string, number>) ?? {};
     if (JSON.stringify(passives) !== JSON.stringify(h.passives)) {
       h.passives = passives;
@@ -2935,6 +3332,7 @@ export class Game implements HeroWorld {
       e.facing = r.facing;
       e.sq = r.sq;
       e.hopY = r.hopY;
+      e.hp = r.hp01 * e.maxHp; // drives elite health bars
       e.frozen = r.frozen ? 1 : 0;
       if (e.def.boss && this.netBoss) e.phase = this.netBoss.hp01 < 0.33 ? 3 : this.netBoss.hp01 < 0.66 ? 2 : 1;
       e.shield = r.shield ? 1 : 0;
@@ -2966,7 +3364,7 @@ export class Game implements HeroWorld {
   private syncWeapons(h: Hero, list: (string | number)[][]): void {
     let changed = h.weapons.length !== list.length;
     for (let i = 0; i < list.length; i++) {
-      const [id, level, ...state] = list[i] as [string, number, ...number[]];
+      const [id, level, ready, key, ...state] = list[i] as [string, number, number, string, ...number[]];
       let w = h.weapons[i];
       if (!w || w.def.id !== id) {
         w?.dispose();
@@ -2974,10 +3372,16 @@ export class Game implements HeroWorld {
         h.weapons[i] = w;
         changed = true;
       }
-      if (w.level !== level) {
+      if (w.build) {
+        if (w.buildKey !== key) {
+          w.setBuildKey(key);
+          changed = true;
+        }
+      } else if (w.level !== level) {
         w.level = level;
         changed = true;
       }
+      w.ready = ready;
       w.setNet(state);
     }
     while (h.weapons.length > list.length) h.weapons.pop()!.dispose();
@@ -3188,12 +3592,28 @@ export class Game implements HeroWorld {
       this.reticle.style.transform = `translate(${input.mouse.x}px, ${input.mouse.y}px)`;
       this.reticle.style.display = input.mouse.inside ? '' : 'none';
     }
-    // Charge meter: a ring that fills around the crosshair.
-    const charge = (local.weapons[0] as Buster | undefined)?.charge ?? 0;
-    if (charge !== this.shownCharge) {
-      this.shownCharge = charge;
-      this.reticle.style.setProperty('--charge', String(Math.min(1, charge)));
-      this.reticle.dataset.charge = charge >= 2 ? 'over' : charge >= 1 ? 'full' : charge > 0 ? 'on' : '';
+    // Crosshair meter: the Charge Shot's charge, or the right-click weapon reloading.
+    const sec = local.weapons.find((w) => w.def.slot === 'secondary');
+    let meter: number;
+    let state: string;
+    if (sec && !(sec instanceof ChargeShot)) {
+      // Ping when a long reload finishes, so you know it's ready without looking.
+      if (sec.ready >= 1 && this.lastReady < 1 && !p.dead && this.isCombatMode) {
+        this.readyFlashT = 0.4;
+        if (sec.p.cd >= 2) sfx.weapon('ready');
+      }
+      this.lastReady = sec.ready;
+      this.readyFlashT = Math.max(0, this.readyFlashT - frameDt);
+      meter = this.readyFlashT > 0 ? 1 : sec.ready;
+      state = this.readyFlashT > 0 ? 'ready' : sec.ready < 1 ? 'reload' : '';
+    } else {
+      meter = sec instanceof ChargeShot ? sec.charge : 0;
+      state = meter >= 2 ? 'over' : meter >= 1 ? 'full' : meter > 0 ? 'on' : '';
+    }
+    if (meter !== this.shownCharge || state !== this.reticle.dataset.charge) {
+      this.shownCharge = meter;
+      this.reticle.style.setProperty('--charge', String(Math.min(1, meter)));
+      this.reticle.dataset.charge = state;
     }
 
     // Client-side stage fade (the host fades itself in updateTransition).
@@ -3211,6 +3631,9 @@ export class Game implements HeroWorld {
       : local.synergy.slots.map((sl, i) => ({ def: sl.def, ro: local.synergy.readout(i) }));
     this.hud.setMods(mods.map((m) => ({ id: m.def.id, icon: m.def.icon, color: m.def.color, name: m.def.name, readout: m.ro, cursed: !!m.def.cursed })));
     this.renderTeam();
+    this.renderEliteBars(alpha);
+    this.renderMinimap();
+    this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);
     this.renderChestPointer();
     this.dmg.render(rdt, this.cam.camera);
     const boss = client ? this.netBoss : this.boss && this.boss.active ? { name: this.boss.def.name, hp01: Math.max(0, this.boss.hp / this.boss.maxHp) } : null;
@@ -3221,7 +3644,10 @@ export class Game implements HeroWorld {
         hp: p.hp,
         maxHp: p.maxHp,
         dash01: p.dashReady01,
+        dashStock: p.dashStock,
+        dashMax: p.dashMax,
         bomb01: local.bombCharge,
+        special: local.specialDef.short,
         score: this.score,
         combo: this.combo,
         multiplier: this.multiplier,
@@ -3232,6 +3658,7 @@ export class Game implements HeroWorld {
         timeLeft: client ? this.netTimeLeft : !this.director.bossSpawned ? this.director.remaining : this.boss ? -1 : -2,
         kills: this.kills,
         gold: local.gold,
+        gears: local.rerollsLeft,
         boss,
         lowHp: !p.dead && p.hp / p.maxHp <= 0.3 && this.mode !== 'title',
         spice: this.spiceLines(),
@@ -3249,8 +3676,7 @@ export class Game implements HeroWorld {
     }
     this.flashes.forEach((m, i) => {
       const h = this.heroes[i];
-      const buster = h?.weapons[0] as Buster | undefined;
-      m.visible = !!h && !h.left && !!buster && buster.def.id === 'buster' && buster.muzzleT > 0 && !h.player.dead;
+      m.visible = !!h && !h.left && h.weapons.some((w) => w.muzzleT > 0) && !h.player.dead;
       if (!m.visible) return;
       h.player.muzzle(this.mz);
       m.position.set(this.mz.x, BULLET_Y, this.mz.z);
@@ -3296,6 +3722,51 @@ export class Game implements HeroWorld {
   }
 
   /** Teammate bars and name tags (co-op only). */
+  /** Corner minimap: you, teammates, boss, elites, closed chests, the portal. */
+  private renderMinimap(): void {
+    if (!this.isCombatMode) {
+      this.hud.setMinimap(null);
+      return;
+    }
+    const me = this.hero;
+    const elites: { x: number; z: number }[] = [];
+    let boss: { x: number; z: number } | null = null;
+    for (const e of this.enemies.list) {
+      if (!e.active) continue;
+      if (e.def.boss) boss = { x: e.x, z: e.z };
+      else if (e.elite || e.def.id === 'reaper') elites.push({ x: e.x, z: e.z });
+    }
+    this.hud.setMinimap({
+      half: this.arena.halfSize,
+      me: { x: me.player.x, z: me.player.z, color: me.color },
+      mates: this.heroes.filter((h) => h !== me && !h.left).map((h) => ({ x: h.player.x, z: h.player.z, color: h.color, down: h.player.dead })),
+      boss,
+      elites,
+      chests: this.chests.list.filter((c) => c.openT < 0).map((c) => ({ x: c.x, z: c.z })),
+      portal: this.portal.active ? { x: this.portal.x, z: this.portal.z } : null,
+    });
+  }
+
+  /** Health bars over elites (bosses use the big boss bar). */
+  private renderEliteBars(alpha: number): void {
+    const bars: { x: number; y: number; hp01: number; onScreen: boolean }[] = [];
+    if (this.isCombatMode && this.screens.current === 'none') {
+      for (const e of this.enemies.list) {
+        if (!e.active || !(e.elite || e.def.id === 'reaper') || e.def.boss || e.hp <= 0) continue;
+        const x = e.px + (e.x - e.px) * alpha;
+        const z = e.pz + (e.z - e.pz) * alpha;
+        this.tmp.set(x, e.hopY + e.radius * 2.6, z).project(this.cam.camera);
+        bars.push({
+          x: ((this.tmp.x + 1) / 2) * innerWidth,
+          y: ((1 - this.tmp.y) / 2) * innerHeight,
+          hp01: Math.max(0, Math.min(1, e.hp / e.maxHp)),
+          onScreen: this.tmp.z < 1 && Math.abs(this.tmp.x) < 1.05 && Math.abs(this.tmp.y) < 1.05,
+        });
+      }
+    }
+    this.hud.setEliteBars(bars);
+  }
+
   private renderTeam(): void {
     if (this.heroes.length < 2 || this.mode === 'title') {
       this.hud.setTeam([], []);
@@ -3316,6 +3787,7 @@ export class Game implements HeroWorld {
           color: h.color,
           down: h.player.dead,
           revive01: h.reviveT / REVIVE_TIME,
+          dist: Math.hypot(h.player.x - this.hero.player.x, h.player.z - this.hero.player.z),
           onScreen: this.tmp.z < 1 && Math.abs(this.tmp.x) < 1.1 && Math.abs(this.tmp.y) < 1.1,
         };
       });

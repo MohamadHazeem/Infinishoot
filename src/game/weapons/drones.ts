@@ -5,7 +5,8 @@ import { Weapon, type WeaponCtx } from './base';
 import { commit } from '../../render/instancing';
 
 const MAX = 8;
-const HIT_COOLDOWN = 0.35;
+// Shared by all drones per enemy; 0.35 capped each enemy so low that drones 5 and 6 did nothing.
+const HIT_COOLDOWN = 0.25;
 
 /** Drones orbiting the player that damage whatever they touch. */
 export class Drones extends Weapon {

@@ -5,6 +5,7 @@ import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
 import { fxQuality } from './ambience';
 import { streaks } from './streaks';
+import { DEFAULT_LOADOUT, validLoadout, type Loadout } from '../data/loadout';
 
 /** Player-facing settings, persisted between sessions. */
 export interface Settings {
@@ -29,6 +30,8 @@ export interface Settings {
   reduceFlash: boolean;
   /** 0 = low, 1 = medium, 2 = high. */
   quality: number;
+  /** Last loadout picked (left click, right click, special). */
+  loadout: Loadout;
 }
 
 const KEY = 'settings.v1';
@@ -53,7 +56,9 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   colorblind: false,
   reduceFlash: false,
   quality: 1,
+  loadout: { ...DEFAULT_LOADOUT },
 });
+settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */
 export const access = { colorblind: false, reduceFlash: false };

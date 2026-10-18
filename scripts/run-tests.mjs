@@ -15,7 +15,8 @@ for (const f of files) {
   execFileSync('npx', ['rolldown', `tests/${f}`, '--format', 'esm', '--platform', 'node', '--external', 'jsdom', '--inline-dynamic-imports', '-o', out], { cwd: root, stdio: 'ignore' });
   console.log(`\n# ${f}`);
   try {
-    execFileSync('node', [out], { cwd: root, stdio: 'inherit' });
+    // Wrapped import so a crash at load time is reported and fails the run.
+    execFileSync('node', ['-e', `import(${JSON.stringify(out)}).catch((e) => { console.error('FAIL', e); process.exit(1); })`], { cwd: root, stdio: 'inherit' });
   } catch {
     failed++;
   }

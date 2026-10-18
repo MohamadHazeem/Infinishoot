@@ -79,6 +79,11 @@ export class Barrels {
     }
   }
 
+  /** Damage every live barrel whose centre passes `inside`. */
+  hitWhere(dmg: number, by: number, inside: (x: number, z: number) => boolean): void {
+    for (let i = 0; i < this.list.length; i++) if (this.list[i].alive && inside(this.list[i].x, this.list[i].z)) this.hit(i, dmg, by);
+  }
+
   /** Light every barrel inside a blast. */
   igniteNear(x: number, z: number, r: number, by: number): void {
     for (const b of this.list) {

@@ -9,6 +9,8 @@ import { streaks } from './streaks';
  * Simulation is 2D (x, z); `y` is only the visual flight height.
  */
 const MAX = 1024;
+/** Piercing bullets remember this many enemies so they never hit one twice (a single slot let them ping-pong between two). */
+const HITS = 4;
 export const BULLET_Y = 1.05;
 
 export const Team = { Player: 0, Enemy: 1 } as const;
@@ -33,7 +35,7 @@ export interface BulletSpawn {
   homing?: number;
   /** Index of the hero who fired it (damage credit and Mod triggers). */
   owner?: number;
-  /** 1 = charged Buster shot (credited to 'charge'). */
+  /** Damage source: 0 Buster, 1 charge shot, 2 Scattergun, 3 Dragon's Breath, 4 reflected by Mirror Aegis. */
   kind?: number;
   /** Explodes with this radius when it dies (0 = no blast). */
   blast?: number;
@@ -60,8 +62,9 @@ export class Bullets {
   readonly pierce = new Uint8Array(MAX);
   readonly bounce = new Uint8Array(MAX);
   readonly homing = new Float32Array(MAX);
-  /** uid of the last enemy hit, so piercing shots don't hit it twice. */
-  readonly lastHit = new Int32Array(MAX);
+  /** uids of the last HITS enemies hit (ring buffer), so piercing shots don't hit one twice. */
+  private readonly hits = new Int32Array(MAX * HITS);
+  private readonly hitN = new Uint8Array(MAX);
   readonly owner = new Uint8Array(MAX);
   readonly kind = new Uint8Array(MAX);
   readonly blast = new Float32Array(MAX);
@@ -117,11 +120,27 @@ export class Bullets {
     this.pierce[i] = b.pierce ?? 0;
     this.bounce[i] = b.bounce ?? 0;
     this.homing[i] = b.homing ?? 0;
-    this.lastHit[i] = -1;
+    this.clearHits(i);
     this.owner[i] = b.owner ?? 0;
     this.kind[i] = b.kind ?? 0;
     this.blast[i] = b.blast ?? 0;
     this.colors[i].set(b.color);
+  }
+
+  hasHit(i: number, uid: number): boolean {
+    const n = Math.min(this.hitN[i], HITS);
+    for (let k = 0; k < n; k++) if (this.hits[i * HITS + k] === uid) return true;
+    return false;
+  }
+
+  /** `hitN` counts every hit; the slot it lands in wraps around the last HITS. */
+  markHit(i: number, uid: number): void {
+    this.hits[i * HITS + (this.hitN[i] % HITS)] = uid;
+    this.hitN[i] = Math.min(255, this.hitN[i] + 1);
+  }
+
+  clearHits(i: number): void {
+    this.hitN[i] = 0;
   }
 
   /** Remove bullet i by swapping the last one into its slot. */
@@ -145,7 +164,8 @@ export class Bullets {
     this.pierce[i] = this.pierce[j];
     this.bounce[i] = this.bounce[j];
     this.homing[i] = this.homing[j];
-    this.lastHit[i] = this.lastHit[j];
+    this.hits.copyWithin(i * HITS, j * HITS, j * HITS + HITS);
+    this.hitN[i] = this.hitN[j];
     this.owner[i] = this.owner[j];
     this.kind[i] = this.kind[j];
     this.blast[i] = this.blast[j];
@@ -154,6 +174,10 @@ export class Bullets {
 
   clear(): void {
     this.count = 0;
+  }
+
+  setColor(i: number, color: THREE.ColorRepresentation): void {
+    this.colors[i].set(color);
   }
 
   /** Bullet colour (for network snapshots). */

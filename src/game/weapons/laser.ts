@@ -1,150 +1,164 @@
 import * as THREE from 'three';
 import type { WeaponDef } from '../../data/weapons';
+import { BARREL_RADIUS } from '../barrels';
+import { BULLET_Y } from '../bullets';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
 
-const MAX_BEAMS = 4;
-const TICK = 0.1;
+const TICK = 0.15;
+const FAN = 0.24; // radians between side beams
+const MAX_BEAMS = 5;
+/** Beam i's angle offset in FAN steps: centre, then alternating sides. */
+const SLOT = [0, -1, 1, -2, 2];
+const PRISM = ['#fff35c', '#5cf2ff', '#a7f070'];
 
 /**
- * Laser Sweep: every cooldown, one or more beams sweep an arc that starts
- * aimed at the nearest enemy. Everything the beam crosses is hit every tick.
+ * Left-click loadout weapon: a held beam that damages everything along it;
+ * Splitter ranks fan it into side beams. Evolutions: Prism Lance fans into
+ * five rainbow beams; Scorch Ray fuses into one thick blazing beam that
+ * ignites (its Fire tag comes from the evolution).
  */
 export class Laser extends Weapon {
-  private beams: THREE.Mesh[] = [];
-  private mat: THREE.MeshBasicMaterial;
-  private core: THREE.MeshBasicMaterial;
-  private cores: THREE.Mesh[] = [];
-  /** Sweep state: time left, start angle, and the sweep's direction. */
-  private t = 0;
-  private dur = 0;
-  private a0 = 0;
-  private dirSign = 1;
+  private on = 0;
+  /** Beam count (3 once evolved), synced for clients. */
+  private count = 1;
+  /** Hair Trigger MEGA pulse flash. */
+  private megaT = 0;
   private tickT = 0;
+  private soundT = 0;
+  private mz = { x: 0, z: 0 };
   private hits: Enemy[] = [];
-  private len = 0;
-  private wid = 0;
+  private group = new THREE.Group();
+  private beams: { core: THREE.Mesh; glow: THREE.Mesh; mat: THREE.MeshBasicMaterial; glowMat: THREE.MeshBasicMaterial }[] = [];
+  private geo = new THREE.BoxGeometry(1, 0.12, 1).translate(0, 0, 0.5);
 
-  constructor(
-    def: WeaponDef,
-    private scene: THREE.Scene,
-  ) {
+  constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
-    const geo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5);
-    this.mat = new THREE.MeshBasicMaterial({ color: '#ff3d5a', transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false });
-    this.core = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    const additive = { transparent: true, blending: THREE.AdditiveBlending, depthWrite: false } as const;
     for (let i = 0; i < MAX_BEAMS; i++) {
-      const b = new THREE.Mesh(geo, this.mat);
-      const c = new THREE.Mesh(geo, this.core);
-      b.visible = c.visible = false;
-      b.renderOrder = c.renderOrder = 3;
-      scene.add(b, c);
-      this.beams.push(b);
-      this.cores.push(c);
+      const mat = new THREE.MeshBasicMaterial({ color: '#ffffff', ...additive });
+      const glowMat = new THREE.MeshBasicMaterial({ color: def.color, opacity: 0.55, ...additive });
+      const core = new THREE.Mesh(this.geo, mat);
+      const glow = new THREE.Mesh(this.geo, glowMat);
+      core.renderOrder = glow.renderOrder = 2;
+      this.group.add(core, glow);
+      this.beams.push({ core, glow, mat, glowMat });
     }
-  }
-
-  protected applyLook(c: string | null): void {
-    this.mat.color.set(c ?? '#ff3d5a');
-  }
-
-  /** Current angle of beam `i`. */
-  private angle(i: number, n: number): number {
-    const p = this.p;
-    const arc = THREE.MathUtils.degToRad(p.arc);
-    const k = this.dur > 0 ? 1 - this.t / this.dur : 0;
-    return this.a0 + this.dirSign * (k - 0.5) * arc + (i / n) * Math.PI * 2;
+    this.group.visible = false;
+    scene.add(this.group);
   }
 
   net(): number[] {
-    if (this.t <= 0) return [0];
-    const n = this.p.beams;
-    const out = [n, Math.round(this.len * 10) / 10, Math.round(this.wid * 100) / 100];
-    for (let i = 0; i < n; i++) out.push(Math.round(this.angle(i, n) * 1000) / 1000);
-    return out;
+    return [this.on, this.muzzleT, this.count, Math.round(this.megaT * 100) / 100];
+  }
+  setNet(a: number[]): void {
+    this.on = a[0] ?? 0;
+    this.muzzleT = a[1] ?? 0;
+    this.count = a[2] ?? 1;
+    this.megaT = a[3] ?? 0;
   }
 
-  private netAngles: number[] = [];
-  setNet(a: number[]): void {
-    const n = a[0] ?? 0;
-    this.t = n > 0 ? 1 : 0;
-    this.len = a[1] ?? 0;
-    this.wid = a[2] ?? 0;
-    this.netAngles = a.slice(3, 3 + n);
+  private get range(): number {
+    return this.p.range;
   }
 
   update(dt: number, ctx: WeaponCtx): void {
+    this.muzzleT = Math.max(0, this.muzzleT - dt);
+    const pl = ctx.player;
+    this.megaT = Math.max(0, this.megaT - dt);
+    this.count = this.p.focus > 0 ? 1 : Math.min(MAX_BEAMS, this.p.beams);
+    this.on = ctx.firing && !pl.dead && !pl.dashing && !ctx.flags.busterDisabled ? 1 : 0;
+    if (!this.on) {
+      this.tickT = 0;
+      return;
+    }
+    this.muzzleT = 0.03;
+    this.tickT -= dt;
+    this.soundT -= dt;
+    if (this.tickT > 0) return;
+    this.tickT += TICK * ctx.stats.cooldownMul;
+    if (this.soundT <= 0) {
+      ctx.sound('zap');
+      this.soundT = 0.3;
+    }
     const p = this.p;
+    pl.muzzle(this.mz);
+    const base = Math.atan2(pl.aim.z, pl.aim.x);
+    // Hair Trigger: every Nth tick is a MEGA pulse.
+    const mega = this.megaShot(ctx);
+    if (mega) this.megaT = 0.15;
+    const width = p.width * Math.sqrt(ctx.stats.areaMul) * (mega ? 2 : 1);
+    for (let b = 0; b < this.count; b++) {
+      const a = base + SLOT[b] * FAN;
+      const dmg = p.dps * TICK * (b === 0 ? 1 : 0.6) * (mega ? 4 : 1);
+      this.burn(ctx, Math.cos(a), Math.sin(a), width, dmg);
+    }
+    // Scorch Ray: embers drift off the beam.
+    if (this.evoId === 'scorch') {
+      const d = 1 + ctx.rng.next() * (p.range - 1);
+      ctx.particles.burst(this.mz.x + pl.aim.x * d, BULLET_Y, this.mz.z + pl.aim.z * d, { count: 3, color: '#ff7a2f', color2: '#ffcd75', speed: [1, 3], size: [0.15, 0.3], life: [0.2, 0.4], up: 2.5 });
+    }
+  }
+
+  /** Damage every enemy within `width` of the beam segment. */
+  private burn(ctx: WeaponCtx, dx: number, dz: number, width: number, dmg: number): void {
+    const r = this.range;
+    const cx = this.mz.x + dx * r * 0.5;
+    const cz = this.mz.z + dz * r * 0.5;
+    const ox = this.mz.x;
+    const oz = this.mz.z;
+    ctx.hitBarrels(dmg, (bx, bz) => {
+      const t = (bx - ox) * dx + (bz - oz) * dz;
+      return t > 0 && t < r && Math.abs((bx - ox) * dz - (bz - oz) * dx) < width * 0.5 + BARREL_RADIUS;
+    });
+    for (const e of ctx.inRadius(cx, cz, r * 0.5 + 1.5, this.hits)) {
+      const ex = e.x - this.mz.x;
+      const ez = e.z - this.mz.z;
+      const t = ex * dx + ez * dz;
+      if (t < -e.radius || t > r + e.radius) continue;
+      const off = Math.abs(ex * dz - ez * dx);
+      if (off > e.radius + width * 0.5) continue;
+      ctx.damage(e, dmg, { source: 'laser', dirX: dx, dirZ: dz, knockback: 0.6, hx: this.mz.x + dx * t, hz: this.mz.z + dz * t, canCrit: true, loud: true });
+    }
+  }
+
+  render(_alpha: number, ctx: WeaponCtx): void {
     const pl = ctx.player;
-    if (this.t > 0) {
-      this.t -= dt;
-      this.tickT -= dt;
-      if (this.tickT <= 0) {
-        this.tickT = TICK;
-        this.len = p.range * Math.sqrt(ctx.stats.areaMul);
-        this.wid = p.width * Math.sqrt(ctx.stats.areaMul);
-        for (let i = 0; i < p.beams; i++) this.burn(ctx, this.angle(i, p.beams));
+    this.group.visible = this.on > 0 && !pl.dead;
+    if (!this.group.visible) return;
+    const evo = this.evoId === 'prism';
+    const scorch = this.evoId === 'scorch';
+    const p = this.p;
+    pl.muzzle(this.mz);
+    // Interpolated hero position is what's drawn; offset the muzzle to match.
+    const ox = pl.rig.root.position.x - pl.x;
+    const oz = pl.rig.root.position.z - pl.z;
+    const base = Math.atan2(pl.aim.x, pl.aim.z); // three.js yaw: +Z forward
+    const flicker = 0.85 + Math.random() * 0.3;
+    const width = p.width * Math.sqrt(ctx.stats.areaMul) * flicker * (this.megaT > 0 ? 2 : 1);
+    this.beams.forEach((bm, i) => {
+      const shown = i < this.count;
+      bm.core.visible = bm.glow.visible = shown;
+      if (!shown) return;
+      const yaw = base - SLOT[i] * FAN; // three.js yaw turns the other way
+      const len = this.range * (i === 0 ? 1 : 0.85);
+      for (const m of [bm.core, bm.glow]) {
+        m.position.set(this.mz.x + ox, BULLET_Y, this.mz.z + oz);
+        m.rotation.set(0, yaw, 0);
       }
-      return;
-    }
-    if (pl.dead || !this.tick(dt, ctx, p.cd)) return;
-    const e = ctx.nearest(pl.x, pl.z, p.range + 2);
-    if (!e) {
-      this.cd = 0.3;
-      return;
-    }
-    this.a0 = Math.atan2(e.x - pl.x, e.z - pl.z);
-    this.dirSign = ctx.rng.next() < 0.5 ? -1 : 1;
-    this.t = this.dur = p.sweep;
-    this.tickT = 0;
-    ctx.sound('zap');
-  }
-
-  /** Damage everything along one beam. */
-  private burn(ctx: WeaponCtx, a: number): void {
-    const pl = ctx.player;
-    const dx = Math.sin(a);
-    const dz = Math.cos(a);
-    const mx = pl.x + dx * this.len * 0.5;
-    const mz = pl.z + dz * this.len * 0.5;
-    for (const e of ctx.inRadius(mx, mz, this.len * 0.5 + 1, this.hits)) {
-      const rx = e.x - pl.x;
-      const rz = e.z - pl.z;
-      const along = rx * dx + rz * dz;
-      if (along < 0 || along > this.len) continue;
-      const side = Math.abs(rx * dz - rz * dx);
-      if (side > this.wid * 0.5 + e.radius) continue;
-      ctx.damage(e, this.p.dmg, { source: 'laser', dirX: dx, dirZ: dz, knockback: 1.5, canCrit: true });
-    }
-  }
-
-  render(alpha: number, ctx: WeaponCtx): void {
-    const pl = ctx.player;
-    const on = this.t > 0 && !pl.dead;
-    const n = on ? (this.netAngles.length || this.p.beams) : 0;
-    const x = pl.rig.root.position.x;
-    const z = pl.rig.root.position.z;
-    const flick = 0.85 + Math.random() * 0.3;
-    for (let i = 0; i < MAX_BEAMS; i++) {
-      const b = this.beams[i];
-      const c = this.cores[i];
-      b.visible = c.visible = i < n;
-      if (i >= n) continue;
-      const a = this.netAngles.length ? this.netAngles[i] : this.angle(i, n);
-      b.position.set(x, 1.0, z);
-      c.position.set(x, 1.0, z);
-      b.rotation.set(0, a, 0);
-      c.rotation.set(0, a, 0);
-      b.scale.set(this.wid * flick, 0.25, this.len);
-      c.scale.set(this.wid * 0.35, 0.12, this.len);
-    }
-    void alpha;
+      bm.core.scale.set(width * 0.35, 1, len);
+      bm.glow.scale.set(width * (evo ? 1.6 : 1.2), 2, len);
+      bm.glowMat.color.set(this.megaT > 0 ? '#ff7a2f' : evo ? PRISM[(i + Math.floor(ctx.time * 8)) % 3] : scorch ? (Math.sin(ctx.time * 30) > 0 ? '#ff7a2f' : '#ef7d57') : this.def.color);
+      bm.mat.color.set(scorch ? '#ffcd75' : '#ffffff');
+    });
   }
 
   dispose(): void {
-    for (const m of [...this.beams, ...this.cores]) this.scene.remove(m);
-    this.beams[0]?.geometry.dispose();
-    this.mat.dispose();
-    this.core.dispose();
+    this.scene.remove(this.group);
+    this.geo.dispose();
+    for (const b of this.beams) {
+      b.mat.dispose();
+      b.glowMat.dispose();
+    }
   }
 }

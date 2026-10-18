@@ -28,8 +28,9 @@
   --night: #333c57;
   --font: 'Jersey 15', ui-monospace, monospace;
   --display: 'Jersey 10', 'Jersey 15', ui-monospace, monospace;
-  --logo: 'Pixelify Sans', 'Jersey 10', ui-monospace, monospace;
-  --label: 'Silkscreen', 'Pixelify Sans', ui-monospace, monospace;
+  /* Jersey 10 for the logo: Pixelify Sans's bold H read as a W under the 3D extrusion ("INFINISWOOT"). */
+  --logo: 'Jersey 10', 'Jersey 15', ui-monospace, monospace;
+  --label: 'Silkscreen', 'Jersey 15', ui-monospace, monospace;
   /* Text outline: one pixel all round plus a pixel drop. */
   --o: 2px;
   --outline:
@@ -119,6 +120,8 @@ img.px-icon {
 #combo .cbar,
 .pip,
 #toast,
+#chestreveal,
+.card .replaces,
 #loadout .slot,
 #mods .mod,
 #pausebtn,
@@ -140,7 +143,12 @@ div.mod-card.sold,
 .lobby,
 .lobby-player,
 .mate .bar,
-#tags .tag,
+#tags .nm,
+#tags .rv .bar,
+#minimap,
+#downed,
+#downed .bar,
+#ebars .bar,
 .key,
 .tag-chip {
   --bg: var(--night);
@@ -169,7 +177,7 @@ div.mod-card.sold,
 .tag-chip,
 .key,
 .mate .bar,
-#tags .tag,
+#tags .nm,
 #combo .cbar {
   --drop: transparent;
 }
@@ -210,18 +218,53 @@ div.mod-card.sold,
 
 #reticle[data-charge='on']::before,
 #reticle[data-charge='full']::before,
-#reticle[data-charge='over']::before {
+#reticle[data-charge='over']::before,
+#reticle[data-charge='reload']::before,
+#reticle[data-charge='ready']::before {
   opacity: 1;
 }
 
+/* Right-click weapons: the bar refills while reloading, then flashes ready. */
+#reticle[data-charge='reload'] {
+  --rc: var(--sky);
+}
+
+#reticle[data-charge='ready'] {
+  --rc: var(--lime);
+  animation: blink2 0.1s steps(1) infinite;
+}
+
+/* Full and overcharged: the crosshair shakes with the pent-up power. It
+ * animates `translate`, not `transform`, which holds the inline position. */
 #reticle[data-charge='full'] {
   --rc: var(--lime);
-  animation: blink2 0.3s steps(1) infinite;
+  --j: 1px;
+  animation:
+    blink2 0.3s steps(1) infinite,
+    rjitter 0.24s steps(1) infinite;
 }
 
 #reticle[data-charge='over'] {
   --rc: var(--orange);
-  animation: blink2 0.16s steps(1) infinite;
+  --j: var(--p);
+  animation:
+    blink2 0.16s steps(1) infinite,
+    rjitter 0.1s steps(1) infinite;
+}
+
+@keyframes rjitter {
+  0% {
+    translate: calc(-1 * var(--j)) 0;
+  }
+  25% {
+    translate: var(--j) calc(-1 * var(--j));
+  }
+  50% {
+    translate: 0 var(--j);
+  }
+  75% {
+    translate: var(--j) var(--j);
+  }
 }
 
 @keyframes blink2 {
@@ -342,6 +385,10 @@ div.mod-card.sold,
 
 #runinfo .gold {
   color: var(--yellow);
+}
+
+#runinfo .gears {
+  color: var(--mist);
 }
 
 #runinfo .gold.bump {
@@ -830,7 +877,8 @@ div.mod-card.sold,
   color: var(--yellow);
 }
 
-#chestptr .arrow {
+#chestptr .arrow,
+#tags .arrow {
   --a: var(--yellow);
   position: absolute;
   width: var(--p);
@@ -890,27 +938,238 @@ div.mod-card.sold,
   opacity: 0.4;
 }
 
+/* Teammate name tags (hud.ts setTeam). Off screen (.edge) they pin to the
+ * screen edge with an arrow in the mate's colour; downed ones (.down) carry a
+ * segmented revive bar that fills while a teammate stands next to them. */
 #tags .tag {
-  --bg: var(--ink);
-  --hi: var(--ink);
-  --lo: var(--ink);
   position: absolute;
   left: 0;
   top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(2 * var(--p));
+  pointer-events: none;
+}
+
+#tags .nm {
+  --bg: var(--ink);
+  --hi: var(--ink);
+  --lo: var(--ink);
   padding: 2px 6px;
   font: 10px var(--label);
   color: var(--c);
   text-shadow: none;
   white-space: nowrap;
+}
+
+#tags .edge .nm {
+  --ring: var(--c);
+}
+
+#tags .down .nm {
+  color: var(--orange);
+  animation: flash 0.5s steps(1) infinite;
+}
+
+#tags .arrow {
+  --a: var(--c);
+  display: none;
+  left: calc(50% + var(--ax, 1) * 50%);
+  top: calc(50% + var(--ay, 0) * 50%);
+  margin: calc(-0.5 * var(--p));
+  transform: rotate(var(--ang, 0deg)) translateX(calc(4 * var(--p)));
+}
+
+#tags .edge .arrow {
+  display: block;
+}
+
+#tags .rv {
+  display: none;
+  font: 12px var(--label);
+  color: var(--yellow);
+  white-space: nowrap;
+}
+
+#tags .down .rv {
+  display: block;
+}
+
+#tags .rev .rv {
+  color: var(--lime);
+}
+
+/* 10 segments of 2 + 1 notch UI pixels. */
+#tags .rv .bar {
+  --bg: var(--ink);
+  --hi: var(--ink);
+  --lo: var(--ink);
+  --ring: var(--orange);
+  --drop: transparent;
+  width: calc(32 * var(--p));
+  height: calc(5 * var(--p));
+  margin: var(--p) auto 0;
+  padding: var(--p);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(2 * var(--p)), var(--ink) 0 calc(3 * var(--p))) content-box,
+    linear-gradient(90deg, var(--lime) calc(round(down, var(--rv, 0) * 10, 1) * 10%), var(--night) 0) content-box,
+    var(--ink);
+}
+
+#tags .rev .rv .bar {
+  --ring: var(--lime);
+  animation: flash 0.4s steps(1) infinite;
+}
+
+/* Local player downed: big revive panel under the hero. */
+#downed {
+  --bg: var(--ink);
+  --hi: var(--night);
+  --lo: var(--ink);
+  --ring: var(--red);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 60%;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 10px 24px 14px;
+  text-align: center;
+  animation: popin 0.2s steps(3) both;
+}
+
+#downed[hidden] {
+  display: none;
+}
+
+#downed.rev {
+  --ring: var(--lime);
+}
+
+#downed .t {
+  font: 48px/1 var(--display);
+  letter-spacing: 2px;
+  color: var(--orange);
+  animation: flash 0.8s steps(1) infinite;
+}
+
+/* 10 segments of 5 + 1 notch UI pixels, two-tone fill like the life bar. */
+#downed .bar {
+  --bg: var(--ink);
+  --hi: var(--ink);
+  --lo: var(--ink);
+  --ring: var(--orange);
+  --drop: transparent;
+  width: calc(62 * var(--p));
+  height: calc(8 * var(--p));
+  margin: 12px auto 8px;
+  padding: var(--p);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(5 * var(--p)), var(--ink) 0 calc(6 * var(--p))) content-box,
+    linear-gradient(var(--lime) 0 40%, var(--green) 0) 0 0 / calc(round(down, var(--rv, 0) * 10, 1) * 10%) 100% no-repeat content-box,
+    linear-gradient(var(--night), var(--night)) content-box,
+    var(--ink);
+}
+
+#downed.rev .bar {
+  --ring: var(--lime);
+}
+
+#downed .s {
+  font: 14px var(--label);
+  letter-spacing: 1px;
+  color: var(--yellow);
+}
+
+#downed.rev .s {
+  color: var(--lime);
+}
+
+#downed .h {
+  margin-top: 6px;
+  font: 11px var(--label);
+  color: var(--mist);
+}
+
+/* Minimap (hud.ts setMinimap): a 48x48 canvas, one canvas pixel per UI
+ * pixel, bottom-right above the Mods row and its readouts. */
+#minimap {
+  --bg: rgba(26, 28, 44, 0.8);
+  --hi: var(--night);
+  --lo: var(--ink);
+  position: absolute;
+  right: 20px;
+  bottom: 100px;
+  display: block;
+  width: calc(50 * var(--p));
+  height: calc(50 * var(--p));
+  padding: var(--p);
+  image-rendering: pixelated;
+}
+
+#minimap[hidden] {
+  display: none;
+}
+
+/* Elite health bars: a skull and a segmented danger bar over each elite. */
+#ebars .ebar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--p));
   pointer-events: none;
 }
 
-#tags .tag.down {
-  color: var(--orange);
-  padding-bottom: 8px;
-  background:
-    linear-gradient(90deg, var(--lime) calc(var(--rv) * 100%), var(--night) 0) bottom / 100% 4px no-repeat,
-    var(--ink);
+#ebars i {
+  width: 14px;
+  height: 16px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 8' shape-rendering='crispEdges'%3E%3Cpath fill='%231a1c2c' d='M1 0h5v1h1v4H6v2H5v1H2V7H1V5H0V1h1z'/%3E%3Cpath fill='%23f4f4f4' d='M1 1h5v1H1zM3 2h1v2H3zM1 4h5v1H1zM2 5h3v1H2zM2 6h1v1H2zM4 6h1v1H4z'/%3E%3Cpath fill='%23ef7d57' d='M1 2h2v2H1zM4 2h2v2H4z'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+  image-rendering: pixelated;
+}
+
+#ebars .bar {
+  --bg: var(--ink);
+  --hi: var(--ink);
+  --lo: var(--ink);
+  --ring: var(--red);
+  --drop: transparent;
+  position: relative;
+  width: calc(18 * var(--p));
+  height: calc(4 * var(--p));
+}
+
+#ebars b,
+#ebars .bar::after {
+  position: absolute;
+  inset: var(--p);
+  transform-origin: left;
+}
+
+#ebars .trail {
+  background: var(--white);
+  transition: transform 0.24s steps(4) 0.12s;
+}
+
+#ebars .snap .trail {
+  transition: none;
+}
+
+#ebars .fill {
+  background: linear-gradient(var(--orange) 0 50%, var(--red) 0);
+}
+
+#ebars .hit .fill {
+  background: var(--white);
+}
+
+/* Segment notches sit on top so they don't stretch with the fill. */
+#ebars .bar::after {
+  content: '';
+  background: repeating-linear-gradient(90deg, transparent 0 calc(3 * var(--p)), var(--ink) 0 calc(4 * var(--p)));
 }
 
 /* Posterised hurt vignette, flash and fade. */
@@ -1062,8 +1321,8 @@ div.mod-card.sold,
   flex-wrap: wrap;
   justify-content: center;
   gap: 0 0.25em;
-  font-size: clamp(56px, 11vw, 132px);
-  font-weight: 700;
+  font-size: clamp(72px, 14vw, 168px);
+  font-weight: 400;
   line-height: 1;
 }
 
@@ -1534,6 +1793,11 @@ input[type='range']::-moz-range-thumb {
   animation: flash 0.6s steps(1) infinite;
 }
 
+.card .tag.evo {
+  color: var(--cyan);
+  animation: flash 0.3s steps(1) infinite;
+}
+
 .card .icon,
 .mod-card .icon {
   --bg: var(--navy);
@@ -1759,14 +2023,6 @@ input[type='range']::-moz-range-thumb {
   background-image: linear-gradient(var(--kc) 0 calc(8 * var(--p)), var(--ink) 0 calc(9 * var(--p)), transparent 0);
 }
 
-.screen button.mod-card.uncommon {
-  --kc: var(--blue);
-}
-
-.screen button.mod-card.rare {
-  --kc: var(--plum);
-}
-
 .screen button.mod-card.cursed {
   --bg: var(--mist);
   --hi: var(--white);
@@ -1870,6 +2126,13 @@ div.mod-card.sold {
   gap: 4px;
   padding: 10px 8px 8px;
   min-height: 96px;
+}
+
+.owned-mod .desc {
+  font-size: 14px;
+  line-height: 1.05;
+  color: var(--mist);
+  text-align: center;
 }
 
 .owned-mod.cursed {
@@ -2545,6 +2808,961 @@ table.history .cause {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* Shop juice: pixel bits, coins and popups (src/ui/screens.ts shopFx). */
+.px-bit {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: calc(2 * var(--p));
+  height: calc(2 * var(--p));
+  margin: calc(-1 * var(--p)) 0 0 calc(-1 * var(--p));
+  background: var(--c);
+  pointer-events: none;
+  z-index: 100;
+  animation: bitfly 0.55s steps(10) both;
+}
+
+.px-bit.coin {
+  width: calc(3 * var(--p));
+  height: calc(3 * var(--p));
+  background: var(--yellow);
+  box-shadow:
+    inset calc(-1 * var(--p)) calc(-1 * var(--p)) 0 var(--orange),
+    0 0 0 var(--o) var(--ink);
+}
+
+@keyframes bitfly {
+  0% {
+    transform: translate(var(--x0), var(--y0));
+  }
+  50% {
+    transform: translate(var(--xm), var(--ym));
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--x1), var(--y1));
+    opacity: 0;
+  }
+}
+
+.px-float {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  font: 36px var(--display);
+  text-shadow: var(--o) var(--o) 0 var(--ink);
+  pointer-events: none;
+  z-index: 100;
+  animation: floatup 0.8s steps(8) both;
+}
+
+@keyframes floatup {
+  to {
+    transform: translate(-50%, calc(-50% - 16 * var(--p)));
+    opacity: 0;
+  }
+}
+
+#scr-shop h1.slam-in {
+  animation: slam 0.35s steps(4);
+}
+
+#scr-shop .gold-big.bump {
+  animation: bump 0.2s steps(2) 2;
+}
+
+@keyframes bump {
+  50% {
+    transform: scale(1.25);
+  }
+}
+
+#scr-shop .shop-offers > .reroll-in {
+  animation: flipin 0.3s steps(4) both;
+}
+
+@keyframes flipin {
+  from {
+    transform: scaleX(0);
+  }
+  50% {
+    transform: scaleX(0.3);
+    filter: brightness(2);
+  }
+}
+
+#scr-shop .owned-mod.fresh {
+  animation:
+    popin 0.25s steps(3),
+    flash 0.3s steps(2) 3;
+}
+
+#scr-shop.heal-flash {
+  animation: healflash 0.4s steps(2);
+}
+
+@keyframes healflash {
+  50% {
+    box-shadow: inset 0 0 0 100vmax rgba(56, 183, 100, 0.3);
+  }
+}
+
+#scr-shop .deny {
+  animation: shake 0.24s steps(4);
+}
+
+#scr-shop .gold-big.deny {
+  color: var(--red);
+}
+
+/* Uncommon and rare offers twinkle with a pixel sparkle. */
+.screen button.mod-card.uncommon,
+.screen button.mod-card.rare {
+  position: relative;
+}
+
+.screen button.mod-card.uncommon::after,
+.screen button.mod-card.rare::after {
+  content: '';
+  position: absolute;
+  top: calc(12 * var(--p));
+  right: calc(5 * var(--p));
+  width: var(--p);
+  height: var(--p);
+  background: var(--white);
+  box-shadow:
+    0 calc(-1 * var(--p)) 0 var(--white),
+    0 var(--p) 0 var(--white),
+    calc(-1 * var(--p)) 0 0 var(--white),
+    var(--p) 0 0 var(--white);
+  animation: twinkle 1.2s steps(1) infinite;
+}
+
+.screen button.mod-card.rare::after {
+  animation-duration: 0.6s;
+}
+
+@keyframes twinkle {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- rarity
+ * Tiers from src/data/rarity.ts. The header band and ring take the tier
+ * colour; effects grow with the tier: uncommon twinkles, rare pulses its
+ * ring, legendary cycles a gold ring, glows and throws sparks. */
+.r-text-common {
+  color: var(--slate);
+}
+.r-text-uncommon {
+  color: var(--green);
+}
+.r-text-rare {
+  color: var(--blue);
+}
+.r-text-legendary {
+  color: var(--orange);
+  animation: flash 0.6s steps(1) infinite;
+}
+
+.screen button.card.r-common,
+.screen button.mod-card.r-common {
+  --kc: var(--slate);
+}
+.screen button.card.r-uncommon,
+.screen button.mod-card.r-uncommon {
+  --kc: var(--green);
+}
+.screen button.card.r-rare,
+.screen button.mod-card.r-rare {
+  --kc: var(--blue);
+  --ring: var(--sky);
+  animation:
+    deal 0.24s steps(4) both,
+    rarering 0.8s steps(1) infinite;
+}
+.screen button.card.r-legendary,
+.screen button.mod-card.r-legendary {
+  --kc: var(--orange);
+  --hi: var(--yellow);
+  animation:
+    deal 0.24s steps(4) both,
+    legendring 0.36s steps(1) infinite,
+    legendglow 0.72s steps(1) infinite;
+}
+
+.screen button.card.r-legendary .name,
+.screen button.mod-card.r-legendary .name {
+  color: var(--orange);
+}
+
+@keyframes rarering {
+  50% {
+    --ring: transparent;
+  }
+}
+
+@keyframes legendring {
+  0% {
+    --ring: var(--yellow);
+  }
+  33% {
+    --ring: var(--orange);
+  }
+  66% {
+    --ring: var(--white);
+  }
+}
+
+/* A hard-edged pixel halo (no blur), alternating gold and orange. */
+@keyframes legendglow {
+  0% {
+    filter: drop-shadow(calc(2 * var(--p)) 0 0 var(--yellow)) drop-shadow(calc(-2 * var(--p)) 0 0 var(--yellow))
+      drop-shadow(0 calc(2 * var(--p)) 0 var(--yellow)) drop-shadow(0 calc(-2 * var(--p)) 0 var(--yellow));
+  }
+  50% {
+    filter: drop-shadow(calc(3 * var(--p)) 0 0 var(--orange)) drop-shadow(calc(-3 * var(--p)) 0 0 var(--orange))
+      drop-shadow(0 calc(3 * var(--p)) 0 var(--orange)) drop-shadow(0 calc(-3 * var(--p)) 0 var(--orange));
+  }
+}
+
+/* Sparks rising off legendary cards. */
+.screen button.card.r-legendary::after,
+.screen button.mod-card.r-legendary::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 10%;
+  width: var(--p);
+  height: var(--p);
+  pointer-events: none;
+  box-shadow:
+    -70px 0 0 var(--yellow),
+    -40px -30px 0 var(--white),
+    -10px 10px 0 var(--orange),
+    25px -15px 0 var(--yellow),
+    55px 5px 0 var(--white),
+    80px -40px 0 var(--orange),
+    -85px -60px 0 var(--white),
+    40px -70px 0 var(--yellow);
+  animation: sparkup 1.1s steps(8) infinite;
+}
+
+@keyframes sparkup {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-200px);
+    opacity: 0;
+  }
+}
+
+/* Uncommon level-up cards twinkle like the shop's. */
+.screen button.card.r-uncommon::after {
+  content: '';
+  position: absolute;
+  top: calc(14 * var(--p));
+  right: calc(5 * var(--p));
+  width: var(--p);
+  height: var(--p);
+  background: var(--white);
+  box-shadow:
+    0 calc(-1 * var(--p)) 0 var(--white),
+    0 var(--p) 0 var(--white),
+    calc(-1 * var(--p)) 0 0 var(--white),
+    var(--p) 0 0 var(--white);
+  animation: twinkle 1.2s steps(1) infinite;
+}
+
+#scr-levelup.legend-flash {
+  animation: legendflash 0.5s steps(3);
+}
+
+@keyframes legendflash {
+  33% {
+    box-shadow: inset 0 0 0 100vmax rgba(255, 205, 117, 0.35);
+  }
+}
+
+/* HUD and badges: rare and legendary items wear their ring. */
+#loadout .slot.r-rare,
+.badge.r-rare {
+  --ring: var(--sky);
+}
+#loadout .slot.r-legendary,
+.badge.r-legendary {
+  --ring: var(--yellow);
+  animation: legendring 0.36s steps(1) infinite;
+}
+
+/* Pause / level-up build: hover (or focus) an item to see what it does. */
+.badge .tip,
+.mod-chip .tip {
+  --bg: var(--ink);
+  --hi: var(--night);
+  --lo: var(--ink);
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 240px;
+  padding: 8px 10px;
+  z-index: 30;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  font: 17px/1.2 var(--font);
+  color: var(--white);
+  white-space: normal;
+  pointer-events: none;
+  background: var(--ink);
+  box-shadow:
+    0 0 0 var(--p) var(--slate),
+    0 0 0 calc(2 * var(--p)) var(--ink);
+}
+
+.mod-chip {
+  position: relative;
+}
+
+.badge .tip b,
+.mod-chip .tip b {
+  font: 22px var(--display);
+}
+
+.badge .tip em,
+.mod-chip .tip em {
+  font: 10px var(--label);
+  font-style: normal;
+  letter-spacing: 1px;
+}
+
+.badge:hover .tip,
+.badge:focus .tip,
+.mod-chip:hover .tip,
+.mod-chip:focus .tip {
+  display: flex;
+}
+
+.badge:hover,
+.badge:focus,
+.mod-chip:hover,
+.mod-chip:focus {
+  --ring: var(--yellow);
+  outline: none;
+  z-index: 31;
+}
+
+/* ---------------------------------------------------------------- new vs upgrade
+ * New items get a NEW ribbon; upgrades say UPGRADE, show "LV 2 > 3" and
+ * level pips (owned filled, this pick flashing). */
+.card .tag.upgrade {
+  color: var(--cyan);
+}
+
+.card .ribbon {
+  position: absolute;
+  top: calc(-4 * var(--p));
+  right: calc(-4 * var(--p));
+  padding: 4px 8px 3px;
+  font: 14px var(--label);
+  letter-spacing: 1px;
+  color: var(--ink);
+  background: var(--yellow);
+  box-shadow:
+    0 0 0 var(--p) var(--ink),
+    var(--p) var(--p) 0 var(--p) var(--ink);
+  animation: hop 0.5s steps(1) infinite;
+  z-index: 2;
+}
+
+.card .lvl {
+  font: 11px var(--label);
+  letter-spacing: 1px;
+  color: var(--slate);
+}
+
+.card .pips {
+  display: flex;
+  gap: var(--p);
+}
+
+.card .pips i {
+  width: calc(3 * var(--p));
+  height: calc(3 * var(--p));
+  background: var(--mist);
+  box-shadow: 0 0 0 calc(var(--p) / 2) var(--ink);
+}
+
+.card .pips i.on {
+  background: var(--kc);
+}
+
+.card .pips i.next {
+  background: var(--yellow);
+  animation: flash 0.4s steps(1) infinite;
+}
+
+/* ---------------------------------------------------------------- slot reels
+ * Level-up card icons roll like slot reels (screens.ts tickReels); the strip
+ * is [real, decoys...] and --k is how many items are still to pass. While
+ * .rolling the card is a plain mystery card: tier colours off, text masked
+ * with a dither. .land plays the tier's landing once. */
+.card .reel {
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+}
+
+.card .reel .strip {
+  transform: translateY(calc(var(--k, 0) * -72px));
+}
+
+.card .reel .strip > * {
+  width: 72px;
+  height: 72px;
+}
+
+.screen button.card.rolling {
+  --kc: var(--slate);
+  --hi: #ffffff;
+  --ring: transparent;
+  animation: deal 0.24s steps(4) both;
+}
+
+.screen button.card.rolling.focused {
+  --ring: var(--yellow);
+}
+
+.screen button.card.rolling::after {
+  content: none;
+}
+
+.screen button.card.rolling .icon img {
+  animation: none;
+}
+
+.screen button.card.rolling :is(.name, .desc) {
+  color: transparent;
+  background: repeating-conic-gradient(var(--mist) 0 25%, transparent 0 50%) 0 0 / calc(2 * var(--p)) calc(2 * var(--p));
+}
+
+.screen button.card.rolling :is(.lvl, .pips, .chips, .kind span) {
+  visibility: hidden;
+}
+
+/* Landing: the icon thumps, the text pops in, higher tiers flash their colour
+ * and rare / legendary throw a pixel ring outward. */
+.card .fx {
+  --fx: var(--white);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.card.r-uncommon .fx {
+  --fx: var(--lime);
+}
+.card.r-rare .fx {
+  --fx: var(--sky);
+}
+.card.r-legendary .fx {
+  --fx: var(--yellow);
+}
+
+.screen button.card.land .icon {
+  animation: landbump 0.24s steps(3);
+}
+
+.screen button.card.land :is(.name, .desc) {
+  animation: landpop 0.3s steps(3);
+}
+
+.screen button.card.land.r-uncommon .fx {
+  animation: landflash 0.24s steps(1);
+}
+
+.screen button.card.land:is(.r-rare, .r-legendary) .fx {
+  animation:
+    landflash 0.24s steps(1),
+    ringout 0.42s steps(6);
+}
+
+.screen button.card.land.r-legendary .fx {
+  animation-duration: 0.4s, 0.6s;
+}
+
+@keyframes landbump {
+  33% {
+    transform: translateY(var(--p)) scale(1.12);
+  }
+  66% {
+    transform: translateY(calc(-1 * var(--p)));
+  }
+}
+
+@keyframes landpop {
+  from {
+    transform: scale(0.3);
+  }
+  66% {
+    transform: scale(1.15);
+  }
+}
+
+@keyframes landflash {
+  0% {
+    background-color: var(--fx);
+    opacity: 0.7;
+  }
+  50% {
+    background-color: transparent;
+  }
+}
+
+@keyframes ringout {
+  from {
+    inset: 0;
+    box-shadow:
+      0 0 0 var(--p) var(--fx),
+      0 0 0 calc(2 * var(--p)) var(--ink);
+  }
+  to {
+    inset: calc(-14 * var(--p));
+    box-shadow:
+      0 0 0 var(--p) var(--fx),
+      0 0 0 calc(2 * var(--p)) var(--ink);
+  }
+}
+
+/* Arm-slot swap warning at the foot of a card. */
+.card .replaces {
+  --bg: var(--ink);
+  --hi: var(--plum);
+  --lo: var(--ink);
+  --ring: var(--orange);
+  --drop: transparent;
+  align-self: stretch;
+  margin-top: auto;
+  padding: 6px 8px 7px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  font: 17px/1 var(--font);
+  color: var(--orange);
+}
+
+.card .replaces + .kind {
+  margin-top: 0;
+}
+
+.card .replaces i {
+  flex: none;
+  width: calc(6 * var(--p));
+  height: calc(6 * var(--p));
+  display: grid;
+  place-items: center;
+  font: 18px var(--display);
+  font-style: normal;
+  color: var(--ink);
+  background: var(--orange);
+  box-shadow: 0 0 0 var(--p) var(--ink);
+  animation: flash 0.5s steps(1) infinite;
+}
+
+.card .replaces b {
+  display: block;
+  margin-top: 4px;
+  font: 8px/1.3 var(--label);
+  letter-spacing: 1px;
+  color: var(--yellow);
+}
+
+#scr-shop .interest.pre {
+  color: var(--yellow);
+  animation: flash 0.8s steps(1) infinite;
+}
+
+/* ---------------------------------------------------------------- chest reveal
+ * hud.ts chestReveal: the item name rolls like a slot reel under the timer,
+ * lands with a bounce, then the level text pops in. */
+#chestreveal {
+  --bg: var(--ink);
+  --hi: var(--night);
+  --lo: var(--ink);
+  position: absolute;
+  top: calc(60 * var(--p));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px 8px 10px;
+  white-space: nowrap;
+  animation: toastin 0.2s steps(3) both;
+}
+
+#chestreveal[hidden] {
+  display: none;
+}
+
+#chestreveal img.px-icon {
+  animation: hop 0.6s steps(1) infinite;
+}
+
+#chestreveal .lbl {
+  font: 10px var(--label);
+  letter-spacing: 2px;
+  color: var(--yellow);
+}
+
+#chestreveal .reel {
+  --lh: 34px;
+  height: var(--lh);
+  overflow: hidden;
+}
+
+#chestreveal .strip {
+  transform: translateY(calc(var(--k, 0) * -1 * var(--lh)));
+}
+
+#chestreveal .strip > div {
+  height: var(--lh);
+  font-family: var(--display);
+  font-size: 34px;
+  line-height: var(--lh);
+}
+
+#chestreveal .txt {
+  font: 13px var(--label);
+  letter-spacing: 1px;
+  color: var(--cyan);
+  opacity: 0;
+}
+
+/* Opacity, not visibility: a visible child would show through .menu-open's hidden HUD. */
+#chestreveal.landed .txt {
+  opacity: 1;
+  animation: popin 0.25s steps(3) both;
+}
+
+#chestreveal.landed .reel {
+  animation: landpop 0.3s steps(3);
+}
+
+#chestreveal.landed .icon {
+  animation: landbump 0.24s steps(3);
+}
+
+#chestreveal.r-uncommon {
+  --ring: var(--green);
+}
+#chestreveal.r-uncommon .strip > :first-child {
+  color: var(--lime);
+}
+
+#chestreveal.r-rare {
+  --ring: var(--sky);
+  animation: rarering 0.8s steps(1) infinite;
+}
+#chestreveal.r-rare .strip > :first-child {
+  color: var(--cyan);
+}
+
+#chestreveal.r-legendary {
+  --ring: var(--yellow);
+  --hi: var(--orange);
+  animation:
+    legendring 0.36s steps(1) infinite,
+    legendglow 0.72s steps(1) infinite;
+}
+#chestreveal.r-legendary .strip > :first-child {
+  color: var(--yellow);
+}
+
+#chestreveal.out {
+  animation: chestout 0.3s steps(3) both;
+}
+
+@keyframes chestout {
+  to {
+    transform: translate(-50%, calc(-6 * var(--p)));
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- pick lock
+ * Level-up cards can't be picked for a moment after they appear, nor before
+ * their reel lands (screens.ts canPick). A locked card shows a bar filling
+ * over --lock seconds and a dim key number; .ready pops the key once. */
+.card .lock {
+  display: none;
+}
+
+.screen button.card.locked .lock {
+  display: block;
+  position: absolute;
+  left: calc(6 * var(--p));
+  right: calc(6 * var(--p));
+  bottom: calc(2 * var(--p));
+  height: calc(2 * var(--p));
+  background: var(--mist);
+}
+
+.screen button.card.locked .lock::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--slate);
+  transform-origin: left;
+  animation: lockfill var(--lock, 0.6s) steps(8) both;
+}
+
+@keyframes lockfill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.screen button.card.locked .key {
+  color: var(--slate);
+}
+
+.screen button.card.ready .key {
+  animation: readypop 0.24s steps(3);
+}
+
+@keyframes readypop {
+  50% {
+    --bg: var(--yellow);
+    color: var(--ink);
+    transform: scale(1.4);
+  }
+}
+
+#scr-levelup.locked .reroll-row .skip {
+  opacity: 0.5;
+}
+
+/* Shop: upgrading owned Mods (a level-N Mod works like N stacked copies). */
+.owned-mod .mod-lv {
+  font: 10px var(--label);
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+.screen .owned-mod button.mod-up {
+  --bg: var(--teal);
+  --hi: var(--cyan);
+  --lo: var(--ink);
+  font-size: 15px;
+  padding: 2px 8px;
+  align-self: stretch;
+}
+
+/* What the next level changes (changed words highlighted), and the cap on shop offers. */
+.owned-mod .mod-next {
+  font-size: 13px;
+  line-height: 1.05;
+  color: var(--mist);
+  text-align: center;
+}
+
+.owned-mod .mod-next i {
+  font: 10px var(--label);
+  font-style: normal;
+  color: var(--cyan);
+}
+
+.owned-mod .mod-next b {
+  font-weight: normal;
+  color: var(--lime);
+}
+
+.mod-card .mod-ups {
+  font: 10px var(--label);
+  color: var(--blue);
+}
+
+.owned-mod .mod-max {
+  font: 10px var(--label);
+  color: var(--yellow);
+  text-align: center;
+}
+
+/* Loadout: three rows of cards (left click, right click, special); the picked card is lit. */
+#scr-loadout .lo-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 1100px;
+  width: 100%;
+}
+
+#scr-loadout .lo-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#scr-loadout .lo-label {
+  font: 12px var(--label);
+  color: var(--yellow);
+}
+
+#scr-loadout .lo-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.screen button.lo-card {
+  --bg: var(--night);
+  --hi: var(--slate);
+  --lo: var(--ink);
+  width: 200px;
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  column-gap: 8px;
+  align-items: center;
+  text-align: left;
+  font-size: 20px;
+}
+
+.lo-card .icon {
+  grid-row: span 3;
+  width: 48px;
+  height: 48px;
+}
+
+/* Icons are 24-pixel sprites: show them at whole multiples (24, 48, 72) so pixels stay square. */
+.lo-card .icon .px-icon {
+  width: 48px;
+  height: 48px;
+}
+
+.lo-card .name {
+  line-height: 1;
+}
+
+.lo-card .desc {
+  font-size: 14px;
+  line-height: 1.05;
+  color: var(--mist);
+  text-shadow: none;
+}
+
+.screen button.lo-card.on {
+  --bg: var(--teal);
+  --hi: var(--cyan);
+  --lo: var(--ink);
+  --ring: var(--yellow);
+}
+
+.screen button.lo-card.on .desc {
+  color: var(--white);
+}
+
+.screen button.lo-card.focused {
+  --bg: var(--orange);
+  --hi: var(--yellow);
+  --lo: var(--red);
+  --ring: var(--white);
+}
+
+.screen button.lo-card.locked {
+  --bg: var(--ink);
+  --hi: var(--night);
+  --lo: var(--ink);
+  color: var(--slate);
+}
+
+.lo-card.locked .desc {
+  color: var(--slate);
+  font: 9px var(--label);
+}
+
+.lobby-player .kit {
+  font: 9px var(--label);
+  color: var(--mist);
+}
+
+/* What an upgrade is for, at a glance: a coloured ribbon with a pixel pictogram at the foot of level-up cards,
+   and the same colour as a corner tag on HUD and build slots. */
+.s-left {
+  --slot: var(--sky);
+}
+.s-right {
+  --slot: var(--orange);
+}
+.s-special {
+  --slot: var(--plum);
+}
+.s-auto {
+  --slot: var(--green);
+}
+.s-item {
+  --slot: var(--slate);
+}
+.s-bonus {
+  --slot: var(--yellow);
+}
+
+.card .slot-ribbon {
+  align-self: stretch;
+  margin: 8px -14px -16px;
+  padding: 5px 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 13px var(--label);
+  letter-spacing: 2px;
+  color: var(--white);
+  text-shadow: var(--o) var(--o) 0 var(--ink);
+  background: var(--slot);
+  box-shadow: inset 0 var(--p) 0 var(--ink);
+}
+
+.card .slot-ribbon.s-bonus {
+  color: var(--ink);
+  text-shadow: none;
+}
+
+.slot-ribbon .picto {
+  width: 14px;
+  height: 16px;
+  flex: none;
+  filter: drop-shadow(var(--o) var(--o) 0 var(--ink));
+}
+
+.slot-ribbon.s-bonus .picto {
+  filter: none;
+}
+
+#loadout .slot[class*='s-']::before,
+.badge[class*='s-']::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 9px;
+  height: 9px;
+  background: var(--slot);
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.badge[class*='s-']::before {
+  width: 7px;
+  height: 7px;
 }
 
 /* ---------------------------------------------------------------- touch controls */

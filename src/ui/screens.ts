@@ -2,13 +2,16 @@ import type { Input } from '../core/input';
 import { ACHIEVEMENTS } from '../data/meta';
 import { tagChips, type Tag } from '../data/tags';
 import { WEAPONS } from '../data/weapons';
-import type { ModDef } from '../game/modTypes';
+import { SPECIALS } from '../data/specials';
+import { loadoutOptions, validLoadout, type LoadoutSlot } from '../data/loadout';
+import { modDesc, modMaxLevel, type ModDef } from '../game/modTypes';
 import type { ScoreEntry } from '../game/highscores';
-import { exportFile, importFile, resetSave, save } from '../game/save';
+import { exportFile, importFile, loadoutUnlockBy, resetSave, save, unlockedLoadout } from '../game/save';
 import { settings, saveSettings } from '../game/settings';
 import { sfx } from '../audio/sfx';
 import { music, TRACKS, type TrackId } from '../audio/music';
-import { fmtScore, type LoadoutItem } from './hud';
+import { RARITY, type Rarity } from '../data/rarity';
+import { SLOT_LABEL, decoys, fmtScore, reduceMotion, reelAt, reelSteps, slotPicto, type LoadoutItem, type Slot } from './hud';
 import { MenuNav } from './menu';
 import { iconHtml } from './pixelIcons';
 import { SKINS } from '../data/skins';
@@ -21,7 +24,7 @@ import { ENEMIES } from '../data/enemies';
 import { ENEMY_TIPS } from '../data/bestiary';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary';
 
 export interface ScreenActions {
   start(): void;
@@ -35,6 +38,7 @@ export interface ScreenActions {
   buy(index: number): void;
   sell(index: number): void;
   moveMod(index: number, dir: -1 | 1): void;
+  upgradeMod(index: number): void;
   shopReroll(): void;
   shopHeal(): void;
   shopDone(): void;
@@ -43,6 +47,8 @@ export interface ScreenActions {
   mpJoin(name: string, code: string): void;
   mpStart(): void;
   mpLeave(): void;
+  /** The loadout changed (online: tell the host). */
+  loadoutChanged(): void;
   /** The local skin setting changed. */
   skinChanged(): void;
   takeCurse(): void;
@@ -51,10 +57,12 @@ export interface ScreenActions {
 
 export interface LobbyView {
   code: string;
-  players: { name: string; color: string }[];
+  players: { name: string; color: string; kit?: string }[];
   isHost: boolean;
   status: string;
 }
+
+export type ShopFx = 'open' | 'buy' | 'sell' | 'reroll' | 'heal' | 'deny' | 'upgrade';
 
 export interface ShopView {
   gold: number;
@@ -62,13 +70,15 @@ export interface ShopView {
   interestCap: number;
   interestPer: number;
   offers: ({ def: ModDef; price: number; hint: string } | null)[];
-  owned: { def: ModDef; sell: number; readout: string }[];
+  owned: { def: ModDef; sell: number; readout: string; level: number; maxLevel: number; upCost: number }[];
   slots: number;
   rerollCost: number;
   healCost: number;
   healed: boolean;
   loadout: LoadoutItem[];
   stage: number;
+  /** Starting shop before stage 1: free gold that isn't kept, no interest. */
+  pre?: boolean;
   /** The rare secret merchant (rare/cursed Mods at a discount, a relic for sale). */
   secret: boolean;
   relic: { id: string; name: string; desc: string; icon: string; color: string; price: number } | null;
@@ -77,14 +87,27 @@ export interface ShopView {
 }
 
 export interface Offer {
-  kind: 'weapon' | 'evolve' | 'passive' | 'gold' | 'heal';
+  kind: 'weapon' | 'passive' | 'special' | 'gold' | 'heal' | 'track' | 'evo' | 'overdrive' | 'evolve';
+  /** Icon id. */
   id: string;
+  /** Loadout upgrades: what the pick does, "<item>|t|<track>", "<item>|e|<evo>" or "<item>|od". */
+  pick?: string;
+  /** Loadout upgrades: which item it upgrades, shown at the card's foot. */
+  label?: string;
+  /** What it upgrades or adds: the coloured ribbon at the card's foot. */
+  slot?: Slot;
   name: string;
   icon: string;
   color: string;
   tag: string; // "NEW!" / "LV 3" / "BONUS"
   text: string;
   tags?: readonly Tag[];
+  rarity?: Rarity;
+  /** Level owned now (0 = new) and the item's max, for the upgrade pips. */
+  level?: number;
+  maxLevel?: number;
+  /** Owned weapon this pick removes, e.g. "Plasma Orb LV 3" (arm-slot swaps). */
+  replaces?: string;
 }
 
 export interface RunSummary {
@@ -116,15 +139,52 @@ function logoWord(word: string, start: number): string {
   return `<span>${[...word].map((ch, k) => `<i style="--i:${start + k}">${ch}</i>`).join('')}</span>`;
 }
 
-function badge(i: LoadoutItem): string {
-  return `<span class="badge${i.evo ? ' evo' : ''}" style="--c:${i.color}" title="${i.name}">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i></span>`;
+/** A level-up card is a new item, an upgrade of one you own, an evolution or a bonus. */
+function cardMode(o: Offer): 'new' | 'upgrade' | 'evo' | 'bonus' {
+  return o.tag === 'NEW!' ? 'new' : o.tag === 'EVOLVE!' ? 'evo' : o.kind === 'gold' || o.kind === 'heal' ? 'bonus' : 'upgrade';
 }
 
-function modChip(m: ModDef): string {
-  return `<span class="mod-chip ${m.cursed ? 'cursed' : ''}" style="--c:${m.color}" title="${m.desc}">${iconHtml(m.id, m.color, m.icon)}${m.name}</span>`;
+/** Upgrades show owned levels as filled pips and this pick as a flashing one. */
+function levelPips(o: Offer): string {
+  if (!o.maxLevel || !o.level) return '';
+  const pips = Array.from({ length: o.maxLevel }, (_, k) => `<i class="${k < o.level! ? 'on' : k === o.level ? 'next' : ''}"></i>`).join('');
+  const next = o.level + 1 === o.maxLevel && o.tag === 'EVOLVE!' ? 'EVOLVE' : `LV ${o.level + 1}`;
+  return `<div class="lvl">LV ${o.level} ▸ ${next}</div><div class="pips">${pips}</div>`;
+}
+
+/** Warning strip on cards that swap out an owned weapon. "Plasma Orb LV 3" reads "REPLACES PLASMA ORB (LV 3)". */
+function replaceStrip(what: string): string {
+  const name = what.replace(/\s+(LV\s*\d+)$/i, ' ($1)').toUpperCase();
+  return `<div class="replaces"><i>!</i><span>REPLACES ${name}<b>OLD WEAPON AND ITS UPGRADES ARE REMOVED</b></span></div>`;
+}
+
+/** Hover card: name, rarity and what it does. */
+function tip(name: string, rarity: Rarity, desc: string, extra = ''): string {
+  return `<span class="tip"><b>${name}</b><em class="r-text-${rarity}">${RARITY[rarity].label}${extra}</em><span>${desc}</span></span>`;
+}
+
+function badge(i: LoadoutItem): string {
+  const level = (i.slot ? ` · ${SLOT_LABEL[i.slot]}` : '') + (i.evo ? ' · EVOLVED' : i.max ? ' · MAX' : ` · LV ${i.level}`);
+  return `<span class="badge${i.evo ? ' evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" tabindex="0">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i>${tip(i.name, i.rarity ?? 'common', i.desc ?? '', level)}</span>`;
+}
+
+function modChip({ def: m, level }: { def: ModDef; level: number }): string {
+  const extra = m.cursed ? ' · CURSED' : modMaxLevel(m) > 1 ? ` · MOD LV ${level}` : ' · MOD';
+  return `<span class="mod-chip ${m.cursed ? 'cursed' : ''} r-${m.rarity}" style="--c:${m.color}" tabindex="0">${iconHtml(m.id, m.color, m.icon)}${m.name}${tip(m.name, m.rarity, modDesc(m, level), extra)}</span>`;
+}
+
+/** Next level's text with the words that change highlighted. */
+function nextLevelHtml(def: ModDef, level: number): string {
+  const now = modDesc(def, level).split(' ');
+  const next = modDesc(def, level + 1).split(' ');
+  if (now.length !== next.length) return next.join(' ');
+  return next.map((w, i) => (w === now[i] ? w : `<b>${w}</b>`)).join(' ');
 }
 
 type Named = Exclude<ScreenName, 'none'>;
+
+/** Level-up pick lock: seconds after the cards appear (or a reroll) before any pick or skip counts. */
+export const pickTuning = { lock: 0.6 };
 
 export class Screens {
   current: ScreenName = 'none';
@@ -132,10 +192,19 @@ export class Screens {
   private navs = {} as Record<Named, MenuNav>;
   private settingsReturn: ScreenName = 'title';
   private wipeArmed = false;
+  /** Gold last shown in the shop, for the +/- popups. */
+  private shopGold = -1;
+  /** Level-up card reels still spinning, and the time since they started. */
+  private reels: { card: HTMLElement; strip: HTMLElement; steps: number[]; passed: number; rarity?: Rarity }[] = [];
+  private reelT = 0;
+  /** Level-up pick lock: no pick or skip before this time (ms), so a held click or key can't choose by accident. */
+  private lockUntil = 0;
+  /** Cards still showing the locked look. */
+  private lockCards: HTMLElement[] = [];
 
   private root: HTMLElement;
 
-  constructor(root: HTMLElement, actions: ScreenActions) {
+  constructor(root: HTMLElement, private readonly actions: ScreenActions) {
     this.root = root;
     root.insertAdjacentHTML(
       'beforeend',
@@ -153,8 +222,8 @@ export class Screens {
   <div class="wallet"></div>
   <div class="hiscores"></div>
   <div class="hiscores global" hidden></div>
-  <div class="controls">WASD / L-stick move &middot; Mouse / R-stick aim &amp; shoot &middot; Hold right click / X charge shot &middot; Space / LB dash &middot; Q / RB bomb &middot; Esc / Start pause</div>
-  <div class="credits">Icons: game-icons.net by Lorc, Delapouite &amp; contributors (CC BY 3.0) &middot; Fonts: Jersey, Pixelify Sans, Silkscreen (OFL) &middot; Palette: Sweetie 16 by GrafxKid</div>
+  <div class="controls">WASD / L-stick move &middot; Mouse / R-stick aim &amp; shoot &middot; Hold right click / X right-click weapon &middot; Space / LB dash &middot; Q / RB special &middot; G ping &middot; Esc / Start pause</div>
+  <div class="credits">Icons: game-icons.net by Lorc, Delapouite &amp; contributors (CC BY 3.0) &middot; Fonts: Jersey, Silkscreen (OFL) &middot; Palette: Sweetie 16 by GrafxKid</div>
   <div class="version">v${__APP_VERSION__}</div>
 </div>
 <div id="scr-pause" class="screen dim" hidden>
@@ -220,8 +289,18 @@ export class Screens {
   </div>
   <div class="msg mp-status"></div>
   <div class="menu row">
+    <button data-nav data-act="lo-online">LOADOUT</button>
     <button data-nav data-act="mp-start" hidden>START GAME</button>
     <button data-nav data-act="mp-leave">BACK</button>
+  </div>
+</div>
+<div id="scr-loadout" class="screen dim" hidden>
+  <h1>LOADOUT</h1>
+  <p class="note">Pick your left click, right click and special. You keep them all run; level-ups upgrade them.</p>
+  <div class="lo-rows"></div>
+  <div class="menu row">
+    <button data-nav data-act="lo-start" class="continue">START &#9654;</button>
+    <button data-nav data-act="lo-back">BACK</button>
   </div>
 </div>
 <div id="scr-wait" class="screen dim" hidden>
@@ -271,7 +350,7 @@ export class Screens {
   <div class="menu row diff-row"></div>
   <div class="note mode-note"></div>
   <div class="menu row">
-    <button data-nav data-act="start" class="continue">START &#9654;</button>
+    <button data-nav data-act="play" class="continue">NEXT: LOADOUT &#9654;</button>
     <button data-nav data-act="md-back">BACK</button>
   </div>
 </div>
@@ -333,7 +412,7 @@ export class Screens {
   <div class="hiscores global" hidden></div>
 </div>`,
     );
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary'];
+    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
@@ -346,6 +425,7 @@ export class Screens {
       gameover: new MenuNav(this.els.gameover, { horizontal: true }),
       online: new MenuNav(this.els.online, { onBack: () => actions.mpLeave() }),
       wait: new MenuNav(this.els.wait),
+      loadout: new MenuNav(this.els.loadout, { columns: 5, onBack: () => this.loadoutBack() }),
       extras: new MenuNav(this.els.extras, { onBack: () => actions.title() }),
       jukebox: new MenuNav(this.els.jukebox, { onBack: () => this.show('extras') }),
       wardrobe: new MenuNav(this.els.wardrobe, { columns: 3, onBack: () => this.show('extras') }),
@@ -366,6 +446,21 @@ export class Screens {
       switch (btn.dataset.act) {
         case 'start':
           return actions.start();
+        case 'play':
+          return this.showLoadout('solo');
+        case 'lo-online':
+          return this.showLoadout('online');
+        case 'lo-pick':
+          return this.pickLoadout(btn.dataset.slot as LoadoutSlot, btn.dataset.id!);
+        case 'lo-locked':
+          sfx.deny();
+          return;
+        case 'lo-start':
+          if (this.loadoutFor === 'solo') return actions.start();
+          this.actions.loadoutChanged();
+          return this.show('online');
+        case 'lo-back':
+          return this.loadoutBack();
         case 'online':
           return actions.online();
         case 'mp-host':
@@ -386,15 +481,17 @@ export class Screens {
         case 'ul-back':
           return actions.title();
         case 'pick':
-          return actions.pick(Number(btn.dataset.index));
+          return this.canPick(Number(btn.dataset.index)) ? actions.pick(Number(btn.dataset.index)) : undefined;
         case 'reroll':
           return actions.reroll();
         case 'skip':
-          return actions.skip();
+          return this.pickOpen() ? actions.skip() : undefined;
         case 'buy':
           return actions.buy(Number(btn.dataset.index));
         case 'sell':
           return actions.sell(Number(btn.dataset.index));
+        case 'mod-up':
+          return actions.upgradeMod(Number(btn.dataset.index));
         case 'mod-left':
           return actions.moveMod(Number(btn.dataset.index), -1);
         case 'mod-right':
@@ -560,6 +657,79 @@ export class Screens {
 
   update(input: Input, dt: number): void {
     if (this.current !== 'none') this.navs[this.current].update(input, dt);
+    this.tickReels(dt);
+    this.tickLock();
+  }
+
+  // ---------------------------------------------------------------- loadout
+
+  /** Where the loadout screen goes back to: the title (solo) or the online lobby. */
+  private loadoutFor: 'solo' | 'online' = 'solo';
+
+  showLoadout(forWhat: 'solo' | 'online'): void {
+    this.loadoutFor = forWhat;
+    const el = this.els.loadout;
+    el.querySelector<HTMLElement>('[data-act=lo-start]')!.innerHTML = forWhat === 'solo' ? 'START &#9654;' : 'DONE';
+    el.querySelector<HTMLElement>('[data-act=lo-back]')!.hidden = forWhat === 'online';
+    this.renderLoadout();
+    this.show('loadout');
+  }
+
+  private loadoutBack(): void {
+    if (this.loadoutFor === 'online') {
+      this.actions.loadoutChanged();
+      this.show('online');
+    } else this.show('modes');
+  }
+
+  private pickLoadout(slot: LoadoutSlot, id: string): void {
+    if (!loadoutOptions(slot).includes(id) || !unlockedLoadout().includes(id)) return;
+    settings.loadout = { ...settings.loadout, [slot]: id };
+    saveSettings();
+    sfx.menuSelect();
+    const focus = this.navs.loadout.focus;
+    this.renderLoadout();
+    this.navs.loadout.refresh(focus);
+  }
+
+  private renderLoadout(): void {
+    const open = unlockedLoadout();
+    // A saved pick that's locked (a reset save) falls back to the default.
+    const valid = validLoadout(settings.loadout, open);
+    if (JSON.stringify(valid) !== JSON.stringify(settings.loadout)) {
+      settings.loadout = valid;
+      saveSettings();
+    }
+    const rows: [LoadoutSlot, string][] = [
+      ['primary', 'LEFT CLICK'],
+      ['secondary', 'RIGHT CLICK'],
+      ['special', 'SPECIAL (Q/E)'],
+    ];
+    this.els.loadout.querySelector('.lo-rows')!.innerHTML = rows
+      .map(([slot, label]) => {
+        const cards = loadoutOptions(slot)
+          .map((id) => {
+            const d = slot === 'special' ? SPECIALS[id] : WEAPONS[id];
+            const on = settings.loadout[slot] === id;
+            const icon = slot === 'special' ? 'sp_' + id : id;
+            if (!open.includes(id)) {
+              const a = loadoutUnlockBy(id);
+              return `<button class="lo-card locked" data-nav data-act="lo-locked">
+              <div class="icon">${iconHtml(icon, '#566c86', d.icon)}</div>
+              <div class="name">${d.name}</div>
+              <div class="desc">LOCKED${a ? `: ${a.desc}` : ''}</div>
+            </button>`;
+            }
+            return `<button class="lo-card r-${d.rarity} ${on ? 'on' : ''}" data-nav data-act="lo-pick" data-slot="${slot}" data-id="${id}" style="--c:${d.color}">
+              <div class="icon">${iconHtml(icon, d.color, d.icon)}</div>
+              <div class="name">${d.name}</div>
+              <div class="desc">${d.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')}</div>
+            </button>`;
+          })
+          .join('');
+        return `<div class="lo-row"><div class="lo-label">${label}</div><div class="lo-cards">${cards}</div></div>`;
+      })
+      .join('');
   }
 
   // ---------------------------------------------------------------- online
@@ -584,7 +754,7 @@ export class Screens {
     el.querySelector<HTMLElement>('.field')!.hidden = inLobby;
     el.querySelector('.code-big')!.textContent = v.code;
     el.querySelector('.players')!.innerHTML = v.players
-      .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span>${p.name}${i === 0 ? ' <small>HOST</small>' : ''}</div>`)
+      .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span>${p.name}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
       .join('');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
     el.querySelector('.mp-status')!.textContent = v.status;
@@ -650,30 +820,115 @@ export class Screens {
   showLevelUp(offers: Offer[], title: string, rerolls: number, loadout: LoadoutItem[], skipGold = 0): void {
     const el = this.els.levelup;
     el.querySelector('h1')!.textContent = title;
+    // Each icon rolls like a slot reel; cards land left to right, a legendary spins longer and slows right down.
+    const still = reduceMotion();
+    const steps = offers.map((o, i) => {
+      if (still) return [];
+      const legend = o.rarity === 'legendary';
+      return reelSteps(0.45 + 0.25 * i + (legend ? 1.5 : 0), legend ? [0.06, 0.08, 0.1, 0.13, 0.17, 0.22, 0.3, 0.4] : [0.07, 0.1]);
+    });
     el.querySelector('.cards')!.innerHTML = offers
       .map(
-        (o, i) => `<button class="card ${o.kind}" data-nav data-act="pick" data-index="${i}">
-          <div class="tag ${o.tag === 'NEW!' || o.kind === 'evolve' ? 'new' : ''}">${o.tag}</div>
-          <div class="icon" style="--c:${o.color}">${iconHtml(o.id, o.color, o.icon)}</div>
+        (o, i) => `<button class="card rolling ${o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)}" data-nav data-act="pick" data-index="${i}">
+          <i class="fx"></i>
+          <div class="tag ${cardMode(o)}">${cardMode(o) === 'upgrade' ? '▲ UPGRADE' : o.tag}</div>
+          ${cardMode(o) === 'new' ? '<div class="ribbon">NEW</div>' : ''}
+          <div class="icon" style="--c:${o.color}"><div class="reel"><div class="strip">${iconHtml(o.id, o.color, o.icon)}${decoys(steps[i].length, o.id)
+            .map((d) => iconHtml(d.id, d.color, d.icon))
+            .join('')}</div></div></div>
           <div class="name">${o.name}</div>
+          ${levelPips(o)}
           <div class="desc">${o.text}</div>
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
-          <div class="kind">${o.kind === 'weapon' ? 'WEAPON' : o.kind === 'evolve' ? 'EVOLUTION' : o.kind === 'passive' ? 'ITEM' : 'BONUS'}</div>
+          ${o.replaces ? replaceStrip(o.replaces) : ''}
+          <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? ` · ${o.label}` : ''}</div>
+          ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
           <div class="key">${i + 1}</div>
+          <i class="lock"></i>
         </button>`,
       )
       .join('');
     el.querySelector('.reroll-row')!.innerHTML =
-      (rerolls > 0 ? `<button data-nav data-act="reroll">REROLL (${rerolls}) [R]</button>` : '') +
+      (rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} [R]</button>` : '') +
       (skipGold > 0 ? `<button data-nav data-act="skip" class="skip">SKIP +${skipGold}<span class="gold-dot"></span></button>` : '');
     el.querySelector('.build')!.innerHTML = loadout.map(badge).join('');
     this.show('levelup');
+    const cards = el.querySelectorAll<HTMLElement>('.card');
+    // Each card's lock bar fills until it can be picked: the shared lock or its own reel landing, whichever is later.
+    this.lockUntil = performance.now() + pickTuning.lock * 1000;
+    this.lockCards = [...cards];
+    el.classList.add('locked');
+    cards.forEach((c, i) => {
+      c.classList.add('locked');
+      c.style.setProperty('--lock', `${Math.max(pickTuning.lock, steps[i].reduce((a, b) => a + b, 0))}s`);
+    });
+    this.reels = offers.map((o, i) => ({ card: cards[i], strip: cards[i].querySelector<HTMLElement>('.strip')!, steps: steps[i], passed: 0, rarity: o.rarity }));
+    this.reelT = 0;
+    this.tickReels(0);
+  }
+
+  private pickOpen(): boolean {
+    return this.current === 'levelup' && performance.now() >= this.lockUntil;
+  }
+
+  /** Whether level-up card i can be picked yet (lock passed and its reel landed). Gate every pick path with it. */
+  canPick(i: number): boolean {
+    const card = this.els.levelup.querySelectorAll('.card')[i];
+    return this.pickOpen() && !!card && !card.classList.contains('rolling');
+  }
+
+  /** Unlock the level-up screen and each card once it's pickable, with a small "ready" pop. */
+  private tickLock(): void {
+    if (!this.pickOpen()) return;
+    const el = this.els.levelup;
+    if (el.classList.contains('locked')) el.classList.remove('locked');
+    if (!this.lockCards.length) return;
+    this.lockCards = this.lockCards.filter((c) => {
+      if (c.classList.contains('rolling')) return true;
+      c.classList.replace('locked', 'ready');
+      return false;
+    });
+  }
+
+  /** Advance the level-up reels: a click per item passing, then each card's landing. */
+  private tickReels(dt: number): void {
+    if (!this.reels.length) return;
+    if (this.current !== 'levelup') {
+      this.reels = [];
+      return;
+    }
+    this.reelT += dt;
+    let tick = false;
+    this.reels = this.reels.filter((r) => {
+      const { pos, passed } = reelAt(r.steps, this.reelT);
+      r.strip.style.setProperty('--k', String(pos));
+      if (passed > r.passed && passed < r.steps.length) tick = true;
+      r.passed = passed;
+      if (passed < r.steps.length) return true;
+      this.landCard(r.card, r.rarity);
+      return false;
+    });
+    if (tick) sfx.reelTick();
+  }
+
+  /** A reel stops: reveal the card and play its tier's landing (legendary gets the fanfare and gold flash). */
+  private landCard(card: HTMLElement, rarity: Rarity = 'common'): void {
+    card.classList.remove('rolling');
+    card.classList.add('land');
+    sfx.reelLand(rarity);
+    const icon = card.querySelector<HTMLElement>('.icon')!;
+    if (rarity === 'uncommon') burstAt(icon, ['var(--lime)', 'var(--white)'], 8);
+    if (rarity === 'legendary') {
+      sfx.legendary();
+      replay(this.els.levelup, 'legend-flash');
+      burstAt(card, ['var(--yellow)', 'var(--orange)', 'var(--white)'], 26);
+    }
   }
 
   /** The pause screen shows the current build. */
   setPauseBuild(
     loadout: LoadoutItem[],
-    mods: ModDef[] = [],
+    mods: { def: ModDef; level: number }[] = [],
     extras: { id: string; name: string; desc: string; icon: string; color: string; curse?: boolean }[] = [],
     info: { recipes: { weapon: string; evo: string; passive: string; have: boolean; done: boolean }[]; damage: { name: string; color: string; dmg: number }[] } = { recipes: [], damage: [] },
   ): void {
@@ -701,21 +956,25 @@ export class Screens {
 
   showShop(v: ShopView, focus?: number): void {
     const el = this.els.shop;
-    el.querySelector('h1')!.textContent = v.secret ? 'SECRET SHOP' : `STAGE ${v.stage} SHOP`;
+    const wasOpen = this.current === 'shop';
+    el.querySelector('h1')!.textContent = v.pre ? 'STARTING SHOP' : v.secret ? 'SECRET SHOP' : `STAGE ${v.stage} SHOP`;
     el.classList.toggle('secret', v.secret);
     el.querySelector('.shop-top')!.innerHTML =
       `<span class="gold-big"><span class="gold-dot"></span> ${v.gold} GOLD</span>` +
-      `<span class="interest">Interest next clear: +${v.interest} (1 per ${v.interestPer} held, max ${v.interestCap})</span>`;
+      (v.pre
+        ? `<span class="interest pre">FREE 15 GOLD: SPEND IT NOW, IT ISN'T KEPT</span>`
+        : `<span class="interest">Interest next clear: +${v.interest} (1 per ${v.interestPer} held, max ${v.interestCap})</span>`);
     el.querySelector('.shop-offers')!.innerHTML = v.offers
       .map((o, i) => {
         if (!o) return `<div class="mod-card sold">SOLD</div>`;
         const m = o.def;
         const cant = o.price > v.gold || v.owned.length >= v.slots;
-        return `<button class="mod-card ${m.rarity} ${m.cursed ? 'cursed' : ''} ${cant ? 'cant' : ''}" data-nav data-act="buy" data-index="${i}">
+        return `<button class="mod-card ${m.rarity} r-${m.rarity} ${m.cursed ? 'cursed' : ''} ${cant ? 'cant' : ''}" data-nav data-act="buy" data-index="${i}">
           <div class="rarity">${m.cursed ? 'CURSED' : m.rarity.toUpperCase()}</div>
           <div class="icon" style="--c:${m.color}">${iconHtml(m.id, m.color, m.icon)}</div>
           <div class="name">${m.name}</div>
-          <div class="desc">${m.desc}</div>
+          <div class="desc">${modDesc(m)}</div>
+          ${modMaxLevel(m) > 1 ? `<div class="mod-ups">UPGRADES IN SHOP TO LV ${modMaxLevel(m)}</div>` : ''}
           ${m.synergy ? `<div class="chips">${tagChips(m.synergy)}</div>` : ''}
           ${o.hint ? `<div class="hint">${o.hint}</div>` : ''}
           <div class="price"><span class="gold-dot"></span> ${o.price}</div>
@@ -753,11 +1012,14 @@ export class Screens {
     el.querySelector('.owned-mods')!.innerHTML =
       v.owned
         .map(
-          (o, i) => `<div class="owned-mod ${o.def.cursed ? 'cursed' : ''}" title="${o.def.desc}">
+          (o, i) => `<div class="owned-mod ${o.def.cursed ? 'cursed' : ''}" title="${modDesc(o.def, o.level)}">
           <div class="slot-no">${i + 1}</div>
           <div class="icon" style="--c:${o.def.color}">${iconHtml(o.def.id, o.def.color, o.def.icon)}</div>
-          <div class="name">${o.def.name}</div>
+          <div class="name">${o.def.name}${o.maxLevel > 1 ? ` <span class="mod-lv">LV ${o.level}/${o.maxLevel}</span>` : ''}</div>
+          <div class="desc">${modDesc(o.def, o.level)}</div>
           ${o.readout ? `<div class="readout">${o.readout}</div>` : ''}
+          ${o.upCost >= 0 ? `<div class="mod-next"><i>NEXT LV ${o.level + 1}:</i> ${nextLevelHtml(o.def, o.level)}</div>` : ''}
+          ${o.upCost >= 0 ? `<button data-nav data-act="mod-up" data-index="${i}" class="mod-up ${o.upCost > v.gold ? 'cant' : ''}">UPGRADE <span class="gold-dot"></span> ${o.upCost}</button>` : o.maxLevel > 1 ? '<div class="mod-max">MAX LEVEL</div>' : ''}
           <div class="ctrl">
             <button data-nav data-act="mod-left" data-index="${i}" ${i === 0 ? 'disabled' : ''}>&#9664;</button>
             <button data-nav data-act="mod-right" data-index="${i}" ${i === v.owned.length - 1 ? 'disabled' : ''}>&#9654;</button>
@@ -767,6 +1029,78 @@ export class Screens {
         )
         .join('') + '<div class="owned-mod empty"></div>'.repeat(empty);
     this.show('shop', focus);
+    // Gold changes pop a +/- number over the counter.
+    const delta = wasOpen && this.shopGold >= 0 ? v.gold - this.shopGold : 0;
+    this.shopGold = v.gold;
+    if (delta) {
+      const gold = el.querySelector<HTMLElement>('.gold-big')!;
+      replay(gold, 'bump');
+      floatText(gold, `${delta > 0 ? '+' : ''}${delta}`, delta > 0 ? 'var(--yellow)' : 'var(--orange)');
+    }
+  }
+
+  /** Shop juice: a sound plus pixel particles for each shop action. */
+  shopFx(kind: ShopFx, i = 0): void {
+    const el = this.els.shop;
+    const gold = el.querySelector<HTMLElement>('.gold-big');
+    switch (kind) {
+      case 'open': {
+        sfx.shopOpen();
+        replay(el.querySelector('h1')!, 'slam-in');
+        // Coin shower across the top of the screen.
+        for (let k = 0; k < 28; k++) {
+          const x = Math.random() * innerWidth;
+          bit(x, -20, x + (Math.random() - 0.5) * 60, innerHeight * (0.35 + Math.random() * 0.4), true, Math.random() * 0.5, 0.9);
+        }
+        break;
+      }
+      case 'buy': {
+        sfx.buy();
+        const card = el.querySelector('.shop-offers')!.children[i] as HTMLElement | undefined;
+        if (card && gold) coinsBetween(gold, card, 14);
+        if (card) burstAt(card, ['var(--white)', 'var(--yellow)', 'var(--cyan)'], 18);
+        const owned = el.querySelectorAll<HTMLElement>('.owned-mod:not(.empty)');
+        const fresh = owned[owned.length - 1];
+        if (fresh) replay(fresh, 'fresh');
+        break;
+      }
+      case 'upgrade': {
+        sfx.buy();
+        sfx.powerUp();
+        const card = el.querySelectorAll<HTMLElement>('.owned-mod:not(.empty)')[i];
+        if (card) {
+          if (gold) coinsBetween(gold, card, 10);
+          burstAt(card, ['var(--yellow)', 'var(--cyan)', 'var(--white)'], 22);
+          replay(card, 'fresh');
+        }
+        break;
+      }
+      case 'sell':
+        sfx.sell();
+        if (gold) burstAt(gold, ['var(--yellow)', 'var(--orange)'], 16, true);
+        break;
+      case 'reroll':
+        sfx.reroll();
+        el.querySelectorAll<HTMLElement>('.shop-offers > *').forEach((c, k) => {
+          c.style.animationDelay = `${k * 0.06}s`;
+          replay(c, 'reroll-in');
+        });
+        break;
+      case 'heal': {
+        sfx.heal();
+        const btn = el.querySelector<HTMLElement>('[data-act="shop-heal"]');
+        if (btn) burstAt(btn, ['var(--green)', 'var(--lime)', 'var(--white)'], 20);
+        replay(el, 'heal-flash');
+        break;
+      }
+      case 'deny': {
+        sfx.deny();
+        const f = el.querySelector<HTMLElement>('.focused');
+        if (f) replay(f, 'deny');
+        if (gold) replay(gold, 'deny');
+        break;
+      }
+    }
   }
 
   // ---------------------------------------------------------------- unlocks
@@ -886,7 +1220,8 @@ export class Screens {
   private renderUnlocks(): void {
     this.els.unlocks.querySelector('.ach-list')!.innerHTML = ACHIEVEMENTS.map((a) => {
       const done = save.achievements.includes(a.id);
-      const reward = a.unlockWeapon ? `Unlocks ${WEAPONS[a.unlockWeapon].name}` : '';
+      const item = a.unlockLoadout ? (WEAPONS[a.unlockLoadout] ?? SPECIALS[a.unlockLoadout]) : null;
+      const reward = a.unlockWeapon ? `Unlocks ${WEAPONS[a.unlockWeapon].name}` : item ? `Loadout: ${item.name}` : '';
       return `<div class="ach ${done ? 'done' : ''}"><span class="check">${done ? '★' : '☆'}</span><span class="name">${a.name}</span><span class="desc">${a.desc}</span><span class="reward">${reward}</span></div>`;
     }).join('');
   }
@@ -972,4 +1307,70 @@ export class Screens {
     this.setHighScores(list, rank);
     this.show('gameover');
   }
+}
+
+// ---------------------------------------------------------------- shop particles
+
+/** Restart a CSS animation class on an element. */
+function replay(el: HTMLElement, cls: string): void {
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+}
+
+/** One pixel bit (or coin) flying from (x0, y0) to (x1, y1) with a little hop. */
+function bit(x0: number, y0: number, x1: number, y1: number, coin: boolean, delay = 0, dur = 0.55, color = 'var(--yellow)'): void {
+  if (reduceMotion()) return; // without its animation a bit would never fly off or get removed
+  const b = document.createElement('i');
+  b.className = coin ? 'px-bit coin' : 'px-bit';
+  const s = b.style;
+  s.setProperty('--x0', `${x0}px`);
+  s.setProperty('--y0', `${y0}px`);
+  s.setProperty('--x1', `${x1}px`);
+  s.setProperty('--y1', `${y1}px`);
+  s.setProperty('--xm', `${(x0 + x1) / 2}px`);
+  s.setProperty('--ym', `${Math.min(y0, y1) - 30 - Math.random() * 40}px`);
+  s.setProperty('--c', color);
+  s.animationDelay = `${delay}s`;
+  s.animationDuration = `${dur}s`;
+  b.addEventListener('animationend', () => b.remove(), { once: true });
+  document.body.appendChild(b);
+}
+
+function centre(el: HTMLElement): [number, number] {
+  const r = el.getBoundingClientRect();
+  return [r.left + r.width / 2, r.top + r.height / 2];
+}
+
+/** Pixels bursting out of an element. `fountain` arcs them up and lets them fall. */
+function burstAt(el: HTMLElement, colors: string[], n: number, fountain = false): void {
+  const [x, y] = centre(el);
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * Math.PI * 2;
+    const d = 40 + Math.random() * 70;
+    const tx = x + Math.cos(a) * d;
+    const ty = fountain ? y + 30 + Math.random() * 60 : y + Math.sin(a) * d;
+    bit(x, y, tx, ty, fountain, Math.random() * 0.08, 0.45 + Math.random() * 0.25, colors[k % colors.length]);
+  }
+}
+
+/** Coins streaming from one element to another (gold spent on a card). */
+function coinsBetween(from: HTMLElement, to: HTMLElement, n: number): void {
+  const [x0, y0] = centre(from);
+  const [x1, y1] = centre(to);
+  for (let k = 0; k < n; k++) bit(x0, y0, x1 + (Math.random() - 0.5) * 60, y1 + (Math.random() - 0.5) * 60, true, k * 0.025, 0.45);
+}
+
+/** A number that rises and fades over an element. */
+function floatText(el: HTMLElement, text: string, color: string): void {
+  const [x, y] = centre(el);
+  const t = document.createElement('i');
+  t.className = 'px-float';
+  t.textContent = text;
+  t.style.left = `${x}px`;
+  t.style.top = `${y}px`;
+  t.style.color = color;
+  t.addEventListener('animationend', () => t.remove(), { once: true });
+  document.body.appendChild(t);
 }

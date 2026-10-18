@@ -1,4 +1,3 @@
-import '@fontsource/pixelify-sans/700.css';
 import '@fontsource/jersey-10/400.css';
 import '@fontsource/jersey-15/400.css';
 import '@fontsource/silkscreen/400.css';
@@ -37,6 +36,9 @@ let fpsFrames = 0;
 let statsTimer = 0;
 
 const loop = new GameLoop({
+  // Co-op hosts keep simulating in a background tab so clients don't freeze.
+  runHidden: () => game.role === 'host',
+
   update(dt) {
     input.poll();
     game.update(dt);

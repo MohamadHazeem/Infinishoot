@@ -1,14 +1,16 @@
 import type { Rng } from '../core/rng';
 import type { Tag } from '../data/tags';
 import type { Enemy } from './enemies';
-import { emptyFlags, type DamageEvent, type ModApi, type ModDef, type ModFlags, type ModState } from './modTypes';
+import { emptyFlags, modMaxLevel, type DamageEvent, type ModApi, type ModDef, type ModFlags, type ModState } from './modTypes';
 import type { Player } from './player';
-import type { Stats } from './stats';
+import { passiveTuning, type Stats } from './stats';
 import type { Weapon } from './weapons';
 
 /** What the synergy engine needs from the game. */
 export interface SynergyHost {
   readonly player: Player;
+  /** Live stats: passive triggers (Spiked Shell, Tesla Boots, Cryo Rounds) read them. */
+  readonly stats: Stats;
   readonly level: number;
   readonly gold: number;
   readonly weapons: Weapon[];
@@ -23,6 +25,10 @@ export interface SynergyHost {
 export interface Slot {
   def: ModDef;
   st: ModState;
+  /** Shop upgrades: acts like this many stacked copies. */
+  level: number;
+  /** Gold actually paid for it in total (purchase + upgrades), for sell refunds. */
+  paid: number;
 }
 
 export const MAX_MOD_SLOTS = 5;
@@ -30,13 +36,17 @@ export const MAX_MOD_SLOTS = 5;
 /**
  * Runs the player's Mods. Slots are ordered; an Echo in slot i adds a second
  * copy of slot i+1 at its own position. Every hook runs once per effective
- * entry, so an echoed trigger fires twice and an echoed multiplier applies twice.
+ * copy (a level-N slot is N copies), so an echoed trigger fires twice. Damage
+ * is the exception: each slot (and each Echo) applies once, scaled linearly by
+ * its level, so levels and Echoes don't compound multipliers.
  */
 export class Synergy implements ModApi {
   slots: Slot[] = [];
   flags: ModFlags = emptyFlags();
   moving = false;
+  time = 0;
   private eff: Slot[] = [];
+  private dmgEff: { s: Slot; n: number }[] = [];
 
   constructor(private host: SynergyHost) {}
 
@@ -50,14 +60,18 @@ export class Synergy implements ModApi {
   get gold(): number {
     return this.host.gold;
   }
+  /** A weapon's tags, plus its evolution's (Dragon's Breath adds Fire...). */
+  private tagsOf(w: Weapon): readonly Tag[] {
+    return w.tags;
+  }
   tagCount(tag: Tag): number {
     let n = 0;
-    for (const w of this.host.weapons) if (w.def.tags.includes(tag)) n++;
+    for (const w of this.host.weapons) if (this.tagsOf(w).includes(tag)) n++;
     return n;
   }
   distinctTags(): number {
     const set = new Set<Tag>();
-    for (const w of this.host.weapons) for (const t of w.def.tags) set.add(t);
+    for (const w of this.host.weapons) for (const t of this.tagsOf(w)) set.add(t);
     return set.size;
   }
   topTag(): Tag | null {
@@ -65,7 +79,7 @@ export class Synergy implements ModApi {
     let best: Tag | null = null;
     let bestN = 0;
     for (const w of this.host.weapons) {
-      for (const t of w.def.tags) {
+      for (const t of this.tagsOf(w)) {
         const n = (counts.get(t) ?? 0) + 1;
         counts.set(t, n);
         if (n > bestN) {
@@ -113,8 +127,8 @@ export class Synergy implements ModApi {
     return this.slots.some((s) => s.def.id === id);
   }
 
-  add(def: ModDef): void {
-    this.slots.push({ def, st: { n: 0, t: 0 } });
+  add(def: ModDef, paid = def.price): void {
+    this.slots.push({ def, st: { n: 0, t: 0 }, level: 1, paid });
     this.rebuild();
   }
 
@@ -122,6 +136,18 @@ export class Synergy implements ModApi {
     const [s] = this.slots.splice(i, 1);
     this.rebuild();
     return s;
+  }
+
+  canUpgrade(i: number): boolean {
+    const s = this.slots[i];
+    return !!s && s.level < modMaxLevel(s.def);
+  }
+
+  upgrade(i: number, paid = 0): void {
+    if (!this.canUpgrade(i)) return;
+    this.slots[i].level++;
+    this.slots[i].paid += paid;
+    this.rebuild();
   }
 
   move(i: number, dir: -1 | 1): void {
@@ -134,12 +160,14 @@ export class Synergy implements ModApi {
   /** Resolve Echoes and sum flags. */
   private rebuild(): void {
     this.eff = [];
+    this.dmgEff = [];
     for (let i = 0; i < this.slots.length; i++) {
       const s = this.slots[i];
-      if (s.def.echo) {
-        const next = this.slots[i + 1];
-        if (next && !next.def.echo) this.eff.push(next);
-      } else this.eff.push(s);
+      // A level-N Mod (and an Echo of it) counts as N copies.
+      const src = s.def.echo ? this.slots[i + 1] : s;
+      if (!src || (s.def.echo && src.def.echo)) continue;
+      for (let k = 0; k < src.level; k++) this.eff.push(src);
+      if (src.def.dmg) this.dmgEff.push({ s: src, n: src.level });
     }
     const f = emptyFlags();
     for (const s of this.eff) {
@@ -169,20 +197,27 @@ export class Synergy implements ModApi {
 
   // ---------------------------------------------------------------- damage
 
-  /** Run a hit through the slots left to right: amount = (amount + add) * mult. */
+  /** Run a hit through the slots left to right: amount = (amount + add * n) * (1 + (mult - 1) * n), n = level. */
   damage(ev: DamageEvent, amount: number): number {
-    for (const e of this.eff) {
-      const r = e.def.dmg?.(ev, this, e.st);
+    for (const { s, n } of this.dmgEff) {
+      const r = s.def.dmg!(ev, this, s.st);
       if (!r) continue;
-      amount = (amount + (r.add ?? 0)) * (r.mult ?? 1);
+      amount = (amount + (r.add ?? 0) * n) * (1 + ((r.mult ?? 1) - 1) * n);
     }
     return amount;
   }
 
   // ---------------------------------------------------------------- triggers
+  // Passive triggers run after the Mods (so Phoenix can revive before Spiked Shell
+  // checks for death), once each: Echo never copies them.
 
   hit(ev: DamageEvent): void {
     for (const e of this.eff) e.def.onHit?.(ev, this, e.st);
+    // Cryo Rounds: a frozen enemy that dies shatters, so this opens the Frost combos.
+    const fc = this.host.stats.freezeChance;
+    if (fc > 0 && ev.e.hp > 0 && this.chance(fc)) {
+      ev.e.frozen = Math.max(ev.e.frozen, passiveTuning.freezeTime * (ev.e.def.boss ? 0.15 : 1));
+    }
   }
   crit(ev: DamageEvent): void {
     for (const e of this.eff) e.def.onCrit?.(ev, this, e.st);
@@ -192,9 +227,17 @@ export class Synergy implements ModApi {
   }
   dash(): void {
     for (const e of this.eff) e.def.onDash?.(this, e.st);
+    const s = this.host.stats;
+    const p = this.player;
+    if (s.dashZap > 0) this.blast(p.x, p.z, passiveTuning.dashZapRadius, s.dashZap, '#73eff7', 'tesla_boots', ['shock']);
   }
   hurt(): void {
     for (const e of this.eff) e.def.onHurt?.(this, e.st);
+    const s = this.host.stats;
+    const p = this.player;
+    if (s.thorns > 0 && !p.dead) {
+      this.blast(p.x, p.z, passiveTuning.thornsRadius, s.thorns * (1 + passiveTuning.thornsPerArmor * s.armor), '#a7f070', 'spiked_shell', []);
+    }
   }
   gem(v: number): void {
     for (const e of this.eff) e.def.onGem?.(v, this, e.st);
@@ -206,6 +249,7 @@ export class Synergy implements ModApi {
     for (const e of this.eff) e.def.onStageClear?.(this, e.st);
   }
   tick(dt: number): void {
+    this.time += dt;
     for (const e of this.eff) e.def.tick?.(dt, this, e.st);
   }
 
@@ -217,6 +261,6 @@ export class Synergy implements ModApi {
       const next = this.slots[i + 1];
       return next && !next.def.echo ? `= ${next.def.name}` : 'no target';
     }
-    return s.def.readout?.(this, s.st) ?? '';
+    return s.def.readout?.(this, s.st, s.level) ?? '';
   }
 }

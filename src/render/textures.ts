@@ -33,6 +33,23 @@ function speckle(ctx: CanvasRenderingContext2D, size: number, rng: Rng, colors: 
 }
 
 export const textures = {
+  /** Chest wood: horizontal planks with dark seams, highlights, grain and nail heads. */
+  chestWood: () =>
+    makeTexture(32, (ctx, s, rng) => {
+      px(ctx, 0, 0, '#b8653a', s, s);
+      speckle(ctx, s, rng, ['#a65a32', '#c4703f', '#9a5230'], 90);
+      for (let y = 0; y < s; y += 8) {
+        px(ctx, 0, y, '#d98a52', s, 1); // lit top edge of each plank
+        px(ctx, 0, y + 7, '#5d2f1c', s, 1); // dark seam
+        // grain streaks
+        for (let k = 0; k < 2; k++) px(ctx, rng.int(0, s - 8), y + rng.int(2, 5), '#8e4a2b', rng.int(4, 9), 1);
+        // nail heads near the plank ends
+        px(ctx, 2, y + 3, '#333c57', 2, 2);
+        px(ctx, s - 4, y + 3, '#333c57', 2, 2);
+        px(ctx, 2, y + 3, '#94b0c2');
+        px(ctx, s - 4, y + 3, '#94b0c2');
+      }
+    }),
   grass: () =>
     makeTexture(32, (ctx, s, rng) => {
       px(ctx, 0, 0, '#5fcf4a', s, s);
