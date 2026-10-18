@@ -3,6 +3,7 @@ import { ACHIEVEMENTS } from '../data/meta';
 import { tagChips, type Tag } from '../data/tags';
 import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
+import { RELIC_BY_ID, type RelicDef } from '../data/relics';
 import { SPECIALS } from '../data/specials';
 import { loadoutOptions, validLoadout, type LoadoutSlot } from '../data/loadout';
 import { modDesc, modMaxLevel, type ModDef } from '../game/modTypes';
@@ -88,9 +89,11 @@ export interface ShopView {
   stage: number;
   /** Starting shop before stage 1: free gold that isn't kept, no interest. */
   pre?: boolean;
-  /** The rare secret merchant (rare/cursed Mods at a discount, a relic for sale). */
+  /** The rare secret merchant (rare/cursed Mods at a discount, a free relic). */
   secret: boolean;
-  relic: { id: string; name: string; desc: string; icon: string; color: string; price: number; rarity?: Rarity } | null;
+  relic: { id: string; name: string; desc: string; icon: string; color: string; rarity?: Rarity } | null;
+  /** Relic ids this hero owns (shown in the shop's RELICS section, apart from the Mods). */
+  relics: string[];
   /** Optional curse deal (one per shop visit). */
   curse: { id: string; name: string; desc: string; icon: string; color: string; gold: number; score: number } | null;
 }
@@ -189,6 +192,10 @@ function tip(name: string, rarity: Rarity | undefined, desc: string, extra = '')
 function badge(i: LoadoutItem): string {
   const level = (i.slot ? ` · ${SLOT_LABEL[i.slot]}` : '') + (i.evo ? ' · EVOLVED' : i.max ? ' · MAX' : ` · LV ${i.level}`);
   return `<span class="badge${i.evo ? ' evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" tabindex="0">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i>${tip(i.name, i.rarity, i.desc ?? '', level)}</span>`;
+}
+
+function relicChip(r: RelicDef): string {
+  return `<span class="mod-chip relic r-${r.rarity}" style="--c:${r.color}" tabindex="0">${iconHtml(r.id, r.color, r.icon)}${r.name}${tip(r.name, r.rarity, r.desc, ' · RELIC')}</span>`;
 }
 
 function modChip({ def: m, level }: { def: ModDef; level: number }): string {
@@ -344,6 +351,8 @@ export class Screens {
   <div class="menu row shop-extras"></div>
   <div class="section owned-title"></div>
   <div class="owned-mods"></div>
+  <div class="section relic-title"></div>
+  <div class="shop-relics"></div>
 </div>
 <div id="scr-unlocks" class="screen dim" hidden>
   <h1>UNLOCKS</h1>
@@ -986,12 +995,14 @@ export class Screens {
     mods: { def: ModDef; level: number }[] = [],
     extras: { id: string; name: string; desc: string; icon: string; color: string; curse?: boolean }[] = [],
     info: { recipes: { weapon: string; evo: string; passive: string; have: boolean; done: boolean }[]; damage: { name: string; color: string; dmg: number }[] } = { recipes: [], damage: [] },
+    relics: RelicDef[] = [],
   ): void {
     const chip = (x: (typeof extras)[number]) =>
       `<span class="mod-chip ${x.curse ? 'cursed' : ''}" style="--c:${x.color}" title="${x.desc}">${iconHtml(x.id, x.color, x.icon)}${x.name}</span>`;
     this.els.pause.querySelector('.build')!.innerHTML =
       loadout.map(badge).join('') +
       (mods.length ? `<div class="mod-strip">${mods.map(modChip).join('')}</div>` : '') +
+      (relics.length ? `<div class="mod-strip relics"><b class="strip-t">RELICS</b>${relics.map(relicChip).join('')}</div>` : '') +
       (extras.length ? `<div class="mod-strip">${extras.map(chip).join('')}</div>` : '');
     const recipes = info.recipes
       .map((r) => `<div class="rcp ${r.done ? 'done' : r.have ? 'ready' : ''}">${r.done ? '★' : r.have ? '✓' : '·'} ${r.weapon} + ${r.passive} → <b>${r.evo}</b></div>`)
@@ -1047,17 +1058,21 @@ export class Screens {
           <div class="price">TAKE +<span class="gold-dot"></span> ${c.gold}</div>
         </button>`
       : '';
+    el.querySelector('.shop-offers')!.insertAdjacentHTML('beforeend', curseCard);
+    // Relics sit in their own section: free, always on, and they don't take a Mod slot.
     const r = v.relic;
     const relicCard = r
-      ? `<button class="mod-card ${r.rarity ?? 'rare'} r-${r.rarity ?? 'rare'} relic-deal ${r.price > v.gold ? 'cant' : ''}" data-nav data-act="buy-relic">
+      ? `<button class="mod-card ${r.rarity ?? 'rare'} r-${r.rarity ?? 'rare'} relic-deal" data-nav data-act="buy-relic">
           <div class="rarity">${RARITY[r.rarity ?? 'rare'].label} RELIC</div>
           <div class="icon" style="--c:${r.color}">${iconHtml(r.id, r.color, r.icon)}</div>
           <div class="name">${r.name}</div>
           <div class="desc">${r.desc}</div>
-          <div class="price"><span class="gold-dot"></span> ${r.price}</div>
+          <div class="price">TAKE FREE</div>
         </button>`
       : '';
-    el.querySelector('.shop-offers')!.insertAdjacentHTML('beforeend', relicCard + curseCard);
+    const owned = v.relics.filter((id) => RELIC_BY_ID[id]).map((id) => relicChip(RELIC_BY_ID[id])).join('');
+    el.querySelector('.relic-title')!.textContent = r || owned ? `RELICS ${v.relics.length} — free, always on, no Mod slot` : '';
+    el.querySelector('.shop-relics')!.innerHTML = relicCard + (owned ? `<div class="mod-strip">${owned}</div>` : '');
     el.querySelector('.shop-extras')!.innerHTML =
       `<button data-nav data-act="shop-reroll" class="${v.rerollCost > v.gold ? 'cant' : ''}">REROLL ${v.rerollCost ? `<span class="gold-dot"></span> ${v.rerollCost}` : 'FREE'}</button>` +
       `<button data-nav data-act="shop-heal" class="${v.healed || v.healCost > v.gold ? 'cant' : ''}">HEAL 40% <span class="gold-dot"></span> ${v.healCost}</button>` +
@@ -1181,7 +1196,7 @@ export class Screens {
     this.els.bestiary.querySelector('.bestiary')!.innerHTML = all
       .map((d) => {
         if (!save.seen.includes(d.id)) return `<div class="bst unseen"><b>???</b><small>Not met yet.</small></div>`;
-        const kind = d.boss ? 'BOSS' : `FROM MINUTE ${Math.max(0, d.minMinute)}`;
+        const kind = d.boss ? 'BOSS' : d.minStage ? `FROM STAGE ${d.minStage}` : `FROM MINUTE ${Math.max(0, d.minMinute)}`;
         return `<div class="bst" style="--c:${d.bodyColor}"><i class="sw" style="background:${d.bodyColor}"></i><b>${d.name.toUpperCase()}</b>
           <span class="st">LIFE ${d.hp} · SPEED ${d.speed} · HIT ${d.contactDamage} · ${kind}</span>
           <small>${ENEMY_TIPS[d.id] ?? ''}</small></div>`;

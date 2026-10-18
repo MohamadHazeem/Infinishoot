@@ -23,6 +23,8 @@ export interface EnemyDef {
   score: number;
   /** Stage-1 minute this enemy starts appearing (later stages unlock sooner). -1 = never spawned by the director. */
   minMinute: number;
+  /** First stage it can appear on (default 1). */
+  minStage?: number;
   /** Relative spawn weight once available. */
   weight: number;
   /** Spawned as a pack of this many (min, max). */
@@ -138,7 +140,9 @@ export const ENEMIES: Record<string, EnemyDef> = {
     knockbackResist: 0.3,
     xp: 4,
     score: 140,
-    minMinute: 2.2,
+    // Joins in the last minute of stage 2 (user): content minute 3.75 of 5 plus stage 2's 1.5 head start.
+    minMinute: 5.25,
+    minStage: 2,
     weight: 1.6,
     shoot: { keepDistance: 7, interval: 3.6, bullets: 22, spreadDeg: 0, speed: 6.5, damage: 8, pattern: 'spiral' },
   },

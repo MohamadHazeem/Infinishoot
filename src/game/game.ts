@@ -96,7 +96,7 @@ const CONVEYOR_SPEED = 4;
 
 export const dropTuning = {
   xpMul: 0.45, // XP gem value per enemy XP point (lower = slower levelling)
-  goldChance: 0.009, // thinned with the horde like the utility drops, so income stays steady
+  goldChance: 0.005, // (was 0.009: stage 1 paid ~150 gold, user) thinned with the horde like the utility drops, so income stays steady
   heartChance: 0.004,
   magnetChance: 0.0015,
   gearChance: 0.0012, // per kill, x(1 + 0.25 per Luck of the killer)
@@ -233,6 +233,7 @@ interface NetShop {
   curse: ShopView['curse'];
   secret: boolean;
   relic: ShopView['relic'];
+  relics: string[];
 }
 
 function playerName(): string {
@@ -856,9 +857,8 @@ export class Game implements HeroWorld {
         : this.hero.synergy.slots.map((sl) => ({ def: sl.def, level: sl.level }));
     this.screens.setPauseBuild(this.hero.loadout(), mods, [
       ...WEAPON_COMBOS.filter((c) => this.hero.combos.has(c.id)).map((c) => ({ id: c.weapons[0], name: c.name, desc: c.desc, icon: '+', color: c.color })),
-      ...this.hero.relics.filter((id) => RELIC_BY_ID[id]).map((id) => RELIC_BY_ID[id]),
       ...this.curses.filter((id) => CURSE_BY_ID[id]).map((id) => ({ ...CURSE_BY_ID[id], curse: true })),
-    ], this.pauseInfo());
+    ], this.pauseInfo(), this.hero.relics.filter((id) => RELIC_BY_ID[id]).map((id) => RELIC_BY_ID[id]));
     this.screens.show('pause');
   }
 
@@ -1003,7 +1003,7 @@ export class Game implements HeroWorld {
         this.vfx.zone(x, z, r, delay);
       },
       spawnElite: () => {
-        const pool = Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= 2 + this.stage && d.behavior !== 'spawner' && d.id !== 'swarmer');
+        const pool = Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= 2 + this.stage && (d.minStage ?? 1) <= this.stage && d.behavior !== 'spawner' && d.id !== 'swarmer');
         if (pool.length) this.spawnEnemy(this.rng.pick(pool), true);
       },
       spawnRing: () => this.spawnRing(ENEMIES.swarmer, 20 + this.stage * 8),
@@ -2288,7 +2288,7 @@ export class Game implements HeroWorld {
       }
     } else {
       const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive));
-      const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 10 : 1);
+      const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 4 : 1);
       if (this.rng.chance(dropTuning.goldChance * thin * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
       if (!this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
       if (this.rng.chance(dropTuning.magnetChance * thin)) this.pickups.spawn(PickupType.Magnet, e.x, e.z);

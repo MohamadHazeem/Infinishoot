@@ -43,7 +43,7 @@ export const economyTuning = {
 
 export const chestTuning = {
   goldShare: 0.5, // chance a chest holds gold instead of an item level
-  gold: 10,
+  gold: 5, // was 10: chests were the biggest gold source
 };
 
 export interface ChestFind {
@@ -660,7 +660,7 @@ export class Hero implements SynergyHost {
 
   // ---------------------------------------------------------------- shop
 
-  /** This visit is the secret merchant: rare and cursed Mods at 25% off, plus a relic for sale. */
+  /** This visit is the secret merchant: rare and cursed Mods at 25% off, plus a free relic. */
   secretShop = false;
   relicOffer: string | null = null;
 
@@ -689,15 +689,10 @@ export class Hero implements SynergyHost {
     }
   }
 
-  get relicPrice(): number {
-    return 30;
-  }
-
+  /** Take the secret merchant's relic: relics are free (user), the merchant just has one to give. */
   buyRelic(): string {
     const id = this.relicOffer;
     if (!id) return 'SOLD OUT';
-    if (this.gold < this.relicPrice) return 'NOT ENOUGH GOLD';
-    this.gold -= this.relicPrice;
     this.relics.push(id);
     this.relicOffer = null;
     this.recomputeStats();
@@ -758,7 +753,8 @@ export class Hero implements SynergyHost {
       loadout: this.loadout(),
       stage,
       secret: this.secretShop,
-      relic: this.relicOffer ? { ...RELIC_BY_ID[this.relicOffer], price: this.relicPrice } : null,
+      relic: this.relicOffer ? RELIC_BY_ID[this.relicOffer] : null,
+      relics: this.relics,
       curse: this.curseOffer && !this.world.activeCurses.includes(this.curseOffer) ? (({ id, name, desc, icon, color, gold, score }) => ({ id, name, desc, icon, color, gold, score }))(CURSE_BY_ID[this.curseOffer]) : null,
     };
   }

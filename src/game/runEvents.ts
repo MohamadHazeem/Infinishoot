@@ -195,7 +195,7 @@ export class RunEvents {
     c.cur = Math.min(c.max, v);
     if (c.cur < c.max) return;
     c.done = true;
-    const gold = 10 + 2 * this.host.stage;
+    const gold = 5 + 2 * this.host.stage;
     this.host.reward(gold, 1500 * this.host.stage);
     this.host.banner('CHALLENGE COMPLETE!', `+${gold} GOLD EACH`, 2);
     this.host.sound('jingle');

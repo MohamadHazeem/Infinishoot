@@ -126,7 +126,7 @@ export class Director {
 
   private pool(): EnemyDef[] {
     const minute = this.paceMinute + (this.stage - 1) * directorTuning.minuteHead;
-    return Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= minute && d.weight > 0);
+    return Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= minute && (d.minStage ?? 1) <= this.stage && d.weight > 0);
   }
 
   /** Chance a spawn is swapped for its veteran: 15% on stage 3, 30% on 4... up to 60%. */
