@@ -2,6 +2,7 @@ import type { Input } from '../core/input';
 import { ACHIEVEMENTS } from '../data/meta';
 import { tagChips, type Tag } from '../data/tags';
 import { WEAPONS } from '../data/weapons';
+import { PASSIVES } from '../data/passives';
 import { SPECIALS } from '../data/specials';
 import { loadoutOptions, validLoadout, type LoadoutSlot } from '../data/loadout';
 import { modDesc, modMaxLevel, type ModDef } from '../game/modTypes';
@@ -116,6 +117,8 @@ export interface Offer {
   maxLevel?: number;
   /** Owned weapon this pick removes, e.g. "Plasma Orb LV 3" (arm-slot swaps). */
   replaces?: string;
+  /** Auto-weapon partner evolution this card leads to: weapon id, partner item id, and what you already have. */
+  partner?: { weapon: string; passive: string; haveWeapon: boolean; haveItem: boolean };
 }
 
 export interface RunSummary {
@@ -158,6 +161,16 @@ function levelPips(o: Offer): string {
   const pips = Array.from({ length: o.maxLevel }, (_, k) => `<i class="${k < o.level! ? 'on' : k === o.level ? 'next' : ''}"></i>`).join('');
   const next = o.level + 1 === o.maxLevel && o.tag === 'EVOLVE!' ? 'EVOLVE' : `LV ${o.level + 1}`;
   return `<div class="lvl">LV ${o.level} ▸ ${next}</div><div class="pips">${pips}</div>`;
+}
+
+/** Evolution strip: the weapon and its partner item, ticked when owned, and what they become. */
+function partnerStrip(o: NonNullable<Offer['partner']>): string {
+  const w = WEAPONS[o.weapon];
+  const it = PASSIVES[o.passive];
+  if (!w?.evolution || !it) return '';
+  const part = (id: string, name: string, color: string, icon: string, have: boolean) =>
+    `<span class="pt${have ? ' have' : ''}">${iconHtml(id, color, icon)}${have ? '<em>✓</em>' : ''}<span class="nm">${name.toUpperCase()}</span></span>`;
+  return `<div class="partner"><div class="pair">${part(w.id, 'MAX ' + w.name, w.color, w.icon, o.haveWeapon)}<i>+</i>${part(it.id, it.name, it.color, it.icon, o.haveItem)}</div><b>EVOLVES INTO ${w.evolution.name.toUpperCase()}</b></div>`;
 }
 
 /** Warning strip on cards that swap out an owned weapon. "Plasma Orb LV 3" reads "REPLACES PLASMA ORB (LV 3)". */
@@ -882,6 +895,7 @@ export class Screens {
           <div class="desc">${o.text}</div>
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
           ${o.replaces ? replaceStrip(o.replaces) : ''}
+          ${o.partner ? partnerStrip(o.partner) : ''}
           <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? ` · ${o.label}` : ''}</div>
           ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
           <div class="key">${i + 1}</div>

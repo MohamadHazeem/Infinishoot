@@ -122,6 +122,7 @@ img.px-icon {
 #toast,
 #chestreveal,
 .card .replaces,
+.card .partner,
 #loadout .slot,
 #mods .mod,
 #pausebtn,
@@ -3362,6 +3363,72 @@ table.history .cause {
   text-align: left;
   font: 17px/1 var(--font);
   color: var(--orange);
+}
+
+/* Auto-weapon evolution strip: weapon + partner item = evolved form. */
+.card .partner {
+  --bg: var(--ink);
+  --hi: var(--navy);
+  --lo: var(--ink);
+  --ring: var(--yellow);
+  --drop: transparent;
+  align-self: stretch;
+  margin-top: auto;
+  padding: 5px 6px 6px;
+  text-align: center;
+}
+
+.card .partner + .kind {
+  margin-top: 0;
+}
+
+.card .partner .pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.card .partner .pair > i {
+  font: 22px/1 var(--display);
+  font-style: normal;
+  color: var(--yellow);
+}
+
+.card .partner .pt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  opacity: 0.7;
+}
+
+.card .partner .pt.have {
+  opacity: 1;
+}
+
+.card .partner .pt em {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font: 14px/1 var(--display);
+  font-style: normal;
+  color: var(--green);
+}
+
+.card .partner .nm {
+  font: 8px/1.2 var(--label);
+  letter-spacing: 1px;
+  color: var(--white);
+}
+
+.card .partner b {
+  display: block;
+  margin-top: 4px;
+  font: 8px/1.3 var(--label);
+  letter-spacing: 1px;
+  color: var(--yellow);
 }
 
 .card .replaces + .kind {

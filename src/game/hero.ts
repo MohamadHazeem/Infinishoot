@@ -424,15 +424,23 @@ export class Hero implements SynergyHost {
         evo: w.evolved,
         name: w.name,
         rarity: w.def.slot ? undefined : w.def.rarity,
-        desc: `${w.def.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')} ${w.build ? trackSummary(w.def, w.build) : `Now: ${w.partnerEvolved ? w.def.evolution!.text : w.def.levels[w.level - 1].text}`}`,
+        desc: `${w.def.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')} ${w.build ? trackSummary(w.def, w.build) : `Now: ${w.partnerEvolved ? w.def.evolution!.text : w.def.levels[w.level - 1].text}`}${this.partnerTip(w)}`,
         kind: 'weapon' as const,
         slot: weaponSlot(w.def.slot),
       })),
       ...Object.entries(this.passives).map(([id, lv]) => {
         const d = PASSIVES[id];
-        return { id, icon: d.icon, color: d.color, level: lv, max: lv >= d.maxLevel, name: d.name, rarity: d.rarity, desc: `${d.desc} (x${lv})`, kind: 'passive' as const, slot: 'item' as const };
+        return { id, icon: d.icon, color: d.color, level: lv, max: lv >= d.maxLevel, name: d.name, rarity: d.rarity, desc: `${d.desc} (x${lv})${this.weapons.filter((w) => w.def.evolution?.passive === id && !w.evolved).map((w) => ` Partner of ${w.def.name}: max it to evolve into ${w.def.evolution!.name}.`).join('')}`, kind: 'passive' as const, slot: 'item' as const };
       }),
     ];
+  }
+
+  /** Tooltip line for an auto weapon that can still evolve with its partner item. */
+  private partnerTip(w: Weapon): string {
+    const evo = w.def.evolution;
+    if (!evo || w.evolved) return '';
+    const own = (this.passives[evo.passive] ?? 0) > 0;
+    return ` EVOLVE: max it + ${PASSIVES[evo.passive].name}${own ? ' (owned)' : ''} = ${evo.name}.`;
   }
 
   // ---------------------------------------------------------------- level-ups
@@ -460,10 +468,12 @@ export class Hero implements SynergyHost {
     return { kind: 'evolve', id: w.def.id, name: evo.name, icon: w.def.icon, color: evo.color, tag: 'EVOLVE!', text: evo.text, tags: w.def.tags, rarity: 'legendary', label: 'AUTO WEAPON EVOLUTION', slot: 'auto' };
   }
 
-  /** Card hint naming the item an auto weapon evolves with. */
-  private evoHint(weaponId: string): string {
+  /** The evolution strip on an auto weapon's cards and its partner item's cards (ticks show what you already have). */
+  private partnerOf(weaponId: string): Offer['partner'] {
     const evo = WEAPONS[weaponId]?.evolution;
-    return evo ? ` Evolves with ${PASSIVES[evo.passive]?.name ?? '?'}.` : '';
+    const w = this.weapons.find((x) => x.def.id === weaponId);
+    if (!evo || w?.evolved) return undefined;
+    return { weapon: weaponId, passive: evo.passive, haveWeapon: !!w?.maxed, haveItem: (this.passives[evo.passive] ?? 0) > 0 };
   }
 
   buildOffers(): Offer[] {
@@ -511,8 +521,7 @@ export class Hero implements SynergyHost {
       }
       // Loadout weapons without tracks yet weigh more, so they keep up with track ranks.
       const kindW = w.def.slot ? 4 : 3;
-      const last = w.level + 1 === w.def.levels.length;
-      cands.push({ kind: 'weapon', id: w.def.id, name: w.def.name, icon: w.def.icon, color: w.def.color, tag: `LV ${w.level + 1}`, text: next.text + (last ? this.evoHint(w.def.id) : ''), tags: w.def.tags, rarity, level: w.level, maxLevel: w.def.evo ? w.def.levels.length - 1 : w.def.levels.length, slot: weaponSlot(w.def.slot), w: kindW * upgrade(rarity) });
+      cands.push({ kind: 'weapon', id: w.def.id, name: w.def.name, icon: w.def.icon, color: w.def.color, tag: `LV ${w.level + 1}`, text: next.text, tags: w.def.tags, rarity, level: w.level, maxLevel: w.def.evo ? w.def.levels.length - 1 : w.def.levels.length, slot: weaponSlot(w.def.slot), partner: this.partnerOf(w.def.id), w: kindW * upgrade(rarity) });
     }
     // New auto weapons, while slots are free. Loadout weapons are picked before the run.
     const autoCount = this.weapons.filter((w) => !w.def.slot).length;
@@ -523,7 +532,7 @@ export class Hero implements SynergyHost {
       const owned = this.weapons.map((w) => w.def.id);
       const made = WEAPON_COMBOS.filter((c) => c.weapons.includes(id) && owned.includes(c.weapons[0] === id ? c.weapons[1] : c.weapons[0]));
       const hint = made.length ? ` COMBO: ${made.map((c) => c.name).join(', ')}!` : '';
-      cands.push({ kind: 'weapon', id, name: d.name, icon: d.icon, color: d.color, tag: 'NEW!', text: d.desc + hint, tags: d.tags, rarity: d.rarity, slot: 'auto', w: (made.length ? 3.2 : 2.4) * fresh(d.rarity) });
+      cands.push({ kind: 'weapon', id, name: d.name, icon: d.icon, color: d.color, tag: 'NEW!', text: d.desc + hint, tags: d.tags, rarity: d.rarity, slot: 'auto', partner: this.partnerOf(id), w: (made.length ? 3.2 : 2.4) * fresh(d.rarity) });
     }
     // The special: its tracks, or its next level.
     const sp = this.specialDef;
@@ -538,10 +547,9 @@ export class Hero implements SynergyHost {
       if (d.coop && !this.world.coop) continue;
       const lv = this.passives[id] ?? 0;
       if (lv >= d.maxLevel || (lv === 0 && owned >= MAX_PASSIVES)) continue;
-      // A new item that is the partner of an owned auto weapon says what it evolves.
-      const evolves = lv === 0 ? this.weapons.filter((w) => w.def.evolution?.passive === id && !w.evolved).map((w) => w.def.name) : [];
-      const hint = evolves.length ? `. Evolves ${evolves.join(', ')}.` : '';
-      cands.push({ kind: 'passive', id, name: d.name, icon: d.icon, color: d.color, tag: lv ? `LV ${lv + 1}` : 'NEW!', text: d.desc + hint, rarity: d.rarity, level: lv, maxLevel: d.maxLevel, slot: 'item', w: lv ? 1.8 * upgrade(d.rarity) : 0.8 * fresh(d.rarity) });
+      // A new item that is an unlocked auto weapon's partner shows the evolution it leads to.
+      const partnerOf = lv === 0 ? this.unlocked.find((wid) => WEAPONS[wid]?.evolution?.passive === id) : undefined;
+      cands.push({ kind: 'passive', id, name: d.name, icon: d.icon, color: d.color, tag: lv ? `LV ${lv + 1}` : 'NEW!', text: d.desc, partner: partnerOf ? this.partnerOf(partnerOf) : undefined, rarity: d.rarity, level: lv, maxLevel: d.maxLevel, slot: 'item', w: lv ? 1.8 * upgrade(d.rarity) : 0.8 * fresh(d.rarity) });
     }
     // Late runs: when the pool runs dry, mix in gold and healing.
     if (cands.length + fork.length < 3) {
