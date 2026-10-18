@@ -1260,7 +1260,9 @@ div.mod-card.sold,
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* "safe": when a menu is taller than the window it starts at the top and scrolls, instead of spilling off both edges. */
+  justify-content: safe center;
+  overflow-y: auto;
   gap: 20px;
   padding: 18px;
   pointer-events: auto;
@@ -2597,7 +2599,10 @@ table.history .cause {
 /* ---------------------------------------------------------------- modes */
 .mode-grid {
   display: grid;
-  grid-template-columns: repeat(4, 220px);
+  /* Four across on wide screens, two by two on narrow ones. */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 220px));
+  justify-content: center;
+  width: min(952px, 96vw);
   gap: 16px;
 }
 
