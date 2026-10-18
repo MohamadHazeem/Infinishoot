@@ -47,6 +47,8 @@ export interface ScreenActions {
   mpJoin(name: string, code: string): void;
   mpStart(): void;
   mpLeave(): void;
+  /** Host: set the co-op difficulty. */
+  mpDifficulty(id: string): void;
   /** The loadout changed (online: tell the host). */
   loadoutChanged(): void;
   /** The local skin setting changed. */
@@ -60,6 +62,8 @@ export interface LobbyView {
   players: { name: string; color: string; kit?: string }[];
   isHost: boolean;
   status: string;
+  /** Difficulty the host picked (shown to everyone in the lobby). */
+  difficulty?: string;
 }
 
 export type ShopFx = 'open' | 'buy' | 'sell' | 'reroll' | 'heal' | 'deny' | 'upgrade';
@@ -286,6 +290,9 @@ export class Screens {
     <div class="code-label">GAME CODE</div>
     <div class="code-big"></div>
     <div class="players"></div>
+    <div class="section">DIFFICULTY</div>
+    <div class="menu row diff-row mp-diff-row"></div>
+    <div class="note mp-diff-note"></div>
   </div>
   <div class="msg mp-status"></div>
   <div class="menu row">
@@ -568,6 +575,11 @@ export class Screens {
           actions.skinChanged();
           return this.renderModes();
         }
+        case 'mp-diff': {
+          const d = DIFFICULTIES.find((x) => x.id === btn.dataset.diff);
+          if (!d || (d.unlock && !save.achievements.includes(d.unlock))) return;
+          return actions.mpDifficulty(d.id);
+        }
         case 'diff': {
           const d = DIFFICULTIES.find((x) => x.id === btn.dataset.diff);
           if (!d || (d.unlock && !save.achievements.includes(d.unlock))) return;
@@ -757,6 +769,14 @@ export class Screens {
       .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span>${p.name}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
       .join('');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
+    // Difficulty: the host picks it; everyone else sees the choice.
+    const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFFICULTIES[1];
+    el.querySelector('.mp-diff-row')!.innerHTML = DIFFICULTIES.map((d) => {
+      const open = !d.unlock || save.achievements.includes(d.unlock);
+      const lock = v.isHost && !open;
+      return `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-diff" data-diff="${d.id}" class="diff ${d.id === pick.id ? 'on' : ''} ${lock ? 'locked' : ''}" ${v.isHost ? '' : 'disabled'}>${lock ? '🔒 ' : ''}${d.name.toUpperCase()}</button>`;
+    }).join('');
+    el.querySelector('.mp-diff-note')!.textContent = `${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`;
     el.querySelector('.mp-status')!.textContent = v.status;
     if (this.current !== 'online') this.show('online');
     else this.navs.online.refresh(this.navs.online.focus);

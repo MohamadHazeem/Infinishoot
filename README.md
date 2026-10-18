@@ -57,11 +57,11 @@ Get a weapon to level 5 while holding its partner item, and the next level-up (o
 
 ## Online co-op
 
-Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to 3 friends join with it. Each player has their own weapons, gold, Mods and shop; XP and score are shared. Stand next to a downed teammate to revive them.
+Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to 3 friends join with it. The host picks the difficulty (Easy, Medium or Hard) in the lobby. Each player has their own weapons, gold, Mods and shop; XP and score are shared. Stand next to a downed teammate to revive them. Co-op enemies scale with the number of players, 10% gentler than before.
 
 ## What's in it
 
-- **Modes** (PLAY SOLO): Standard, Endless (one arena, a boss every 4 minutes), Boss Rush, and a Daily Challenge with the same seed for everyone. Difficulty from Easy to Nightmare.
+- **Modes** (PLAY SOLO): Standard, Endless (one arena, a boss every 4 minutes), Boss Rush, and a Daily Challenge with the same seed for everyone. Difficulty: Easy, Medium or Hard, plus Nightmare once you reach stage 3 on Hard.
 - **Loadouts** (Mansour's v1.x): pick a left click, right click and Q/E special before the run, then grow them through upgrade trees with a two-way evolution fork.
 - **Heroes**: Rookie, Bulwark, Dash and Ace, each with a starting auto weapon and quirks. Skins and pets in EXTRAS > WARDROBE.
 - **12 weapons**, each with an evolution, plus **weapon combos** when you hold the right pair.

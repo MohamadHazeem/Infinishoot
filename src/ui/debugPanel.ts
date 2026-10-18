@@ -116,6 +116,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   dir.add(directorTuning, 'dmgPerStage2', 0, 0.5, 0.01);
   dir.add(directorTuning, 'hpPerMinute', 0, 1, 0.01);
   dir.add(directorTuning, 'ringEvery', 10, 120, 5);
+  dir.add(directorTuning, 'coopEase', 0.5, 1.2, 0.05).name('Co-op ease');
   dir.add(scoreTuning, 'comboWindow', 0.5, 6, 0.1);
   dir.add(specialTuning, 'cooldown', 3, 30, 0.5).name('Special cooldown (s)');
 

@@ -3,7 +3,7 @@
 //   npm run smoke     -> the headless whole-game smoke test (about 2 minutes)
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const smoke = process.argv.includes('smoke');
@@ -12,11 +12,11 @@ mkdirSync(`${root}node_modules/.tests`, { recursive: true });
 let failed = 0;
 for (const f of files) {
   const out = `${root}node_modules/.tests/${f.replace('.ts', '.mjs')}`;
-  execFileSync('npx', ['rolldown', `tests/${f}`, '--format', 'esm', '--platform', 'node', '--external', 'jsdom', '--inline-dynamic-imports', '-o', out], { cwd: root, stdio: 'ignore' });
+  execFileSync('npx', ['rolldown', `tests/${f}`, '--format', 'esm', '--platform', 'node', '--external', 'jsdom', '--inline-dynamic-imports', '-o', out], { cwd: root, stdio: 'ignore', shell: process.platform === 'win32' }); // npx is npx.cmd on Windows
   console.log(`\n# ${f}`);
   try {
     // Wrapped import so a crash at load time is reported and fails the run.
-    execFileSync('node', ['-e', `import(${JSON.stringify(out)}).catch((e) => { console.error('FAIL', e); process.exit(1); })`], { cwd: root, stdio: 'inherit' });
+    execFileSync('node', ['-e', `import(${JSON.stringify(pathToFileURL(out).href)}).catch((e) => { console.error('FAIL', e); process.exit(1); })`], { cwd: root, stdio: 'inherit' });
   } catch {
     failed++;
   }

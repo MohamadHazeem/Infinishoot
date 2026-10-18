@@ -11,9 +11,10 @@ export const MODES: ModeDef[] = [
   { id: 'standard', name: 'Standard', desc: 'Survive each stage, beat the boss, take the portal. Endless stages.' },
   { id: 'endless', name: 'Endless', desc: 'One arena, no portals. A boss every 4 minutes, the shop between, and it never ends.' },
   { id: 'bossrush', name: 'Boss Rush', desc: 'Every stage starts at the boss. Bonus levels each stage.' },
-  { id: 'daily', name: 'Daily Challenge', desc: "Today's seed, Normal difficulty. Same arenas for everyone; beat your best of the day." },
+  { id: 'daily', name: 'Daily Challenge', desc: "Today's seed, Medium difficulty. Same arenas for everyone; beat your best of the day." },
 ];
 
+// 'normal' is shown as Medium; the id stays so saves, settings and leaderboards keep working.
 export type DifficultyId = 'easy' | 'normal' | 'hard' | 'nightmare';
 
 export interface DifficultyDef {
@@ -30,8 +31,8 @@ export interface DifficultyDef {
 
 export const DIFFICULTIES: DifficultyDef[] = [
   { id: 'easy', name: 'Easy', desc: 'Softer enemies, fewer of them. Score x0.6.', enemyHp: 0.7, enemyDmg: 0.6, enemyCount: 0.8, score: 0.6 },
-  { id: 'normal', name: 'Normal', desc: 'The game as designed.', enemyHp: 1, enemyDmg: 1, enemyCount: 1, score: 1 },
-  { id: 'hard', name: 'Hard', desc: 'Tougher, angrier, more of them. Score x1.5.', enemyHp: 1.4, enemyDmg: 1.3, enemyCount: 1.15, score: 1.5, unlock: 'stage_3' },
+  { id: 'normal', name: 'Medium', desc: 'The game as designed.', enemyHp: 1, enemyDmg: 1, enemyCount: 1, score: 1 },
+  { id: 'hard', name: 'Hard', desc: 'Tougher, angrier, more of them. Score x1.5.', enemyHp: 1.4, enemyDmg: 1.3, enemyCount: 1.15, score: 1.5 },
   { id: 'nightmare', name: 'Nightmare', desc: 'Good luck. Score x2.2.', enemyHp: 2, enemyDmg: 1.6, enemyCount: 1.3, score: 2.2, unlock: 'hard_stage3' },
 ];
 

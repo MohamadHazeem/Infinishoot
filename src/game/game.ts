@@ -403,6 +403,11 @@ export class Game implements HeroWorld {
       mpJoin: (name, code) => void this.joinGame(name, code),
       mpStart: () => this.hostStart(),
       mpLeave: () => this.leaveToTitle(),
+      mpDifficulty: (id) => {
+        settings.difficulty = id;
+        saveSettings();
+        this.refreshLobby();
+      },
       skinChanged: () => this.applyLocalSkin(),
       takeCurse: () => this.ui('curse'),
       buyRelic: () => this.ui('relic'),
@@ -738,7 +743,7 @@ export class Game implements HeroWorld {
     if (this.role === 'host') {
       for (const h of this.heroes) {
         if (!h.peerId) continue;
-        this.host!.send(h.peerId, { t: 'start', seed: this.seed, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
+        this.host!.send(h.peerId, { t: 'start', seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
       }
     }
     this.loadStage(1);
@@ -2851,8 +2856,15 @@ export class Game implements HeroWorld {
   private refreshLobby(): void {
     if (!this.host) return;
     const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout) }));
-    this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends' });
-    this.host.broadcast({ t: 'lobby', players, code: this.host.code });
+    const difficulty = this.lobbyDifficulty().id;
+    this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty });
+    this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty });
+  }
+
+  /** Co-op difficulty: the host's pick, if their save has it unlocked. */
+  private lobbyDifficulty(): DifficultyDef {
+    const d = DIFF_BY_ID[settings.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
+    return d.unlock && !save.achievements.includes(d.unlock) ? DIFF_BY_ID.normal : d;
   }
 
   private hostStart(): void {
@@ -3078,7 +3090,7 @@ export class Game implements HeroWorld {
     switch (m.t) {
       case 'lobby': {
         const players = (m.players as { name: string; color: string }[]) ?? [];
-        this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...' });
+        this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal') });
         break;
       }
       case 'full':
@@ -3086,6 +3098,7 @@ export class Game implements HeroWorld {
         this.hud.toast(String(m.reason ?? 'THAT GAME IS FULL'), 3);
         break;
       case 'start':
+        this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
         this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
         break;
       case 'wchest':

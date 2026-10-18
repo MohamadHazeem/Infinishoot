@@ -36,6 +36,7 @@ export const directorTuning = {
   reaperDelay: 10, // seconds into a stage before the first one
   reaperEvery: 60, // seconds between Reapers after that
   reaperMax: 4, // most alive at once
+  coopEase: 0.9, // co-op only: enemy HP, boss HP and enemy count x this (user: co-op was too hard)
 };
 
 export type SpawnRequest =
@@ -86,6 +87,11 @@ export class Director {
     return Math.max(0, this.duration - this.time);
   }
 
+  /** Co-op eases everything the player count scales up; solo is unaffected. */
+  private get coop(): number {
+    return this.players > 1 ? directorTuning.coopEase : 1;
+  }
+
   private curve(per: number, per2: number): number {
     const s = this.stage - 1;
     return 1 + per * s + per2 * s * s;
@@ -93,13 +99,13 @@ export class Director {
 
   get hpMul(): number {
     const t = directorTuning;
-    return this.curve(t.hpPerStage, t.hpPerStage2) * (1 + t.hpPerMinute * this.paceMinute) * (1 + 0.45 * (this.players - 1));
+    return this.curve(t.hpPerStage, t.hpPerStage2) * (1 + t.hpPerMinute * this.paceMinute) * (1 + 0.45 * (this.players - 1)) * this.coop;
   }
 
   /** Bosses scale per stage only (not by minute), so they stay beatable. */
   get bossHpMul(): number {
     const loop = Math.ceil(this.stage / 4);
-    return bossTuning.hp * this.curve(directorTuning.bossPerStage, directorTuning.bossPerStage2) * Math.pow(directorTuning.bossLoopHp, loop - 1) * (1 + 0.6 * (this.players - 1));
+    return bossTuning.hp * this.curve(directorTuning.bossPerStage, directorTuning.bossPerStage2) * Math.pow(directorTuning.bossLoopHp, loop - 1) * (1 + 0.6 * (this.players - 1)) * this.coop;
   }
 
   get dmgMul(): number {
@@ -115,7 +121,7 @@ export class Director {
     const t = directorTuning;
     const k = Math.min(1, this.time / this.duration);
     const n = t.aliveStart + (t.aliveEnd - t.aliveStart) * Math.pow(k, 1.3) + t.alivePerStage * (this.stage - 1);
-    return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1)) * this.countMul));
+    return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1)) * this.coop * this.countMul));
   }
 
   private pool(): EnemyDef[] {
