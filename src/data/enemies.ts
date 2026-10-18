@@ -5,6 +5,8 @@ export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 
 export interface EnemyDef {
   id: string;
   name: string;
+  /** Not drawn (PvP stand-ins for heroes). */
+  hidden?: boolean;
   behavior: Behavior;
   model: Model;
   hp: number;

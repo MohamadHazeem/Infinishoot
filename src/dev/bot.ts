@@ -79,7 +79,8 @@ export function installBot(game: Game, input: Input): void {
     let ax = 0;
     let az = 0;
     for (const e of g.enemies.list) {
-      if (!e.alive) continue;
+      // PvP: its own invisible stand-in isn't a target.
+      if (!e.alive || e.pvpOwner === g.hero.index) continue;
       const dx = p.x - e.x;
       const dz = p.z - e.z;
       const d = Math.hypot(dx, dz);

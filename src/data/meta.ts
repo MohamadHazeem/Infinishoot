@@ -28,7 +28,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'maxed', name: 'Maxed Out', desc: 'Max out a weapon', unlockLoadout: 'laser', unlockWeapon: 'sweeper' },
   { id: 'boss_rush', name: 'Boss Rush', desc: 'Defeat 5 bosses in total', unlockLoadout: 'orbital', lifetime: (l) => l.bosses >= 5 },
   { id: 'elite_slayer', name: 'Elite Slayer', desc: 'Defeat 25 elites in total', unlockLoadout: 'rail', lifetime: (l) => l.elites >= 25 },
-  { id: 'victory', name: 'The End?', desc: 'Defeat the final boss on stage 4', lifetime: (l) => l.bestStage > 4 },
+  { id: 'victory', name: 'The End?', desc: 'Defeat the final boss on stage 4', unlockLoadout: 'blackhole', lifetime: (l) => l.bestStage > 4 },
   { id: 'hard_stage3', name: 'Hard Boiled', desc: 'Reach stage 3 on Hard or Nightmare' },
   { id: 'endless_5', name: 'Marathon', desc: 'Reach wave 5 in Endless' },
   { id: 'rush_3', name: 'Boss Buster', desc: 'Beat 3 bosses in the Boss Rush mode' },

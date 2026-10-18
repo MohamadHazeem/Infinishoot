@@ -21,7 +21,7 @@ import { CURSE_BY_ID, CURSES } from '../data/curses';
 import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { PET_BY_ID } from '../data/pets';
 import { PetView } from './pet';
-import { RELIC_BY_ID, RELICS } from '../data/relics';
+import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { HEROES, heroOf, type HeroDef } from '../data/heroes';
 
 /** Auto-weapon slots (the loadout's clicks don't use them). */
@@ -327,7 +327,11 @@ export class Hero implements SynergyHost {
 
   /** Rebuild static stats (passives + Mods) and the live copy. */
   recomputeStats(): void {
-    this.statBase = computeStats(this.passives, this.heroDef.add);
+    this.statBase = computeStats(
+      this.passives,
+      this.heroDef.add,
+      this.relics.map((id) => RELIC_BY_ID[id]?.add ?? {}),
+    );
     if (this.pet === 'bit') this.statBase.magnet += 0.6;
     this.synergy.applyStatic(this.statBase);
     this.refreshLive();
@@ -406,7 +410,7 @@ export class Hero implements SynergyHost {
         max: sv.max,
         evo: !!this.specialEvo,
         name: sv.name,
-        rarity: sp.rarity,
+        // Loadout items have no rarity: you pick them, nothing rolls them.
         desc: `${sp.desc} ${spNow} Cooldown ${cooldownText(this.specialCooldown)}.`,
         kind: 'weapon' as const,
         slot: 'special' as const,
@@ -419,7 +423,7 @@ export class Hero implements SynergyHost {
         max: w.maxed,
         evo: w.evolved,
         name: w.name,
-        rarity: w.def.rarity,
+        rarity: w.def.slot ? undefined : w.def.rarity,
         desc: `${w.def.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')} ${w.build ? trackSummary(w.def, w.build) : `Now: ${w.partnerEvolved ? w.def.evolution!.text : w.def.levels[w.level - 1].text}`}`,
         kind: 'weapon' as const,
         slot: weaponSlot(w.def.slot),
@@ -658,8 +662,7 @@ export class Hero implements SynergyHost {
     this.shopHealed = false;
     this.shopDone = false;
     this.secretShop = secret;
-    const relics = RELICS.filter((r) => !this.hasRelic(r.id));
-    this.relicOffer = secret && relics.length ? relics[Math.floor(this.rng.next() * relics.length)].id : null;
+    this.relicOffer = secret ? (rollRelic(this.relics, this.stats.luck, () => this.rng.next())?.id ?? null) : null;
     this.rollShop();
     const left = CURSES.filter((c) => !this.world.activeCurses.includes(c.id));
     this.curseOffer = !pre && left.length && this.rng.chance(0.85) ? left[Math.floor(this.rng.next() * left.length)].id : null;
@@ -689,6 +692,7 @@ export class Hero implements SynergyHost {
     this.gold -= this.relicPrice;
     this.relics.push(id);
     this.relicOffer = null;
+    this.recomputeStats();
     return '';
   }
 

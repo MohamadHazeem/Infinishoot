@@ -86,9 +86,10 @@ function apply(s: Stats, add: Partial<Stats>, times: number): void {
 }
 
 /** Stats from this run's passive levels (Mods are applied on top by the synergy engine). */
-export function computeStats(passives: Record<string, number>, heroAdd: Partial<Stats> = {}): Stats {
+export function computeStats(passives: Record<string, number>, heroAdd: Partial<Stats> = {}, extra: Partial<Stats>[] = []): Stats {
   const s = baseStats();
   apply(s, heroAdd, 1);
+  for (const add of extra) apply(s, add, 1); // stat relics
   for (const [id, lv] of Object.entries(passives)) {
     const def = PASSIVES[id];
     if (def) apply(s, def.add, lv);

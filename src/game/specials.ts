@@ -47,6 +47,9 @@ interface Running {
   /** Blizzard: enemies its wave froze (Glacier Burst); Meteor: burning craters (Extinction). */
   frozen: Enemy[];
   craters: { x: number; z: number; t: number; tick: number }[];
+  /** Black Hole: where it opened. */
+  x: number;
+  z: number;
 }
 
 const running = new Map<Hero, Running[]>();
@@ -63,6 +66,8 @@ export function startSpecial(h: Hero, def: SpecialDef, p: Record<string, number>
   const v = api.vfx;
   const { x, z } = h.player;
   let frozen: Enemy[] = [];
+  let hx = 0;
+  let hz = 0;
   switch (def.id) {
     case 'storm':
       v.flash(0.2);
@@ -78,13 +83,23 @@ export function startSpecial(h: Hero, def: SpecialDef, p: Record<string, number>
       v.sound('w:lob', x, z);
       v.ring(x, z, 1, p.area * 2, p.ice ? '#9fe8ff' : '#ef7d57', 0.5);
       break;
+    case 'blackhole': {
+      // Opens where you aim (the cursor, clamped to range; sticks use the full range).
+      const d = h.player.landDist(3, p.range);
+      hx = x + h.player.aim.x * d;
+      hz = z + h.player.aim.z * d;
+      v.sound('w:vortex', hx, hz);
+      v.flash(0.15);
+      v.ring(hx, hz, p.radius * 4, 0.5, def.color, 0.45);
+      break;
+    }
     default:
       return; // the Bomb lives in Game
   }
   let list = running.get(h);
   if (!list) running.set(h, (list = []));
   // acc = 1: the first strike / meteor comes on the next step.
-  list.push({ id: def.id, p, t: 0, acc: def.id === 'blizzard' ? 0 : 1, sndT: 0, n: 0, recent: [], rocks: [], frozen, craters: [] });
+  list.push({ id: def.id, p, t: 0, acc: def.id === 'blizzard' ? 0 : 1, sndT: 0, n: 0, recent: [], rocks: [], frozen, craters: [], x: hx, z: hz });
 }
 
 /** Advance every active special (call once per simulation step, host/solo only). */
@@ -95,7 +110,7 @@ export function updateSpecials(heroes: Hero[], dt: number, api: SpecialApi): voi
     for (let i = list.length - 1; i >= 0; i--) {
       const s = list[i];
       s.t += dt;
-      const more = s.id === 'storm' ? storm(h, s, dt, api) : s.id === 'blizzard' ? snow(h, s, dt, api) : meteors(h, s, dt, api);
+      const more = s.id === 'storm' ? storm(h, s, dt, api) : s.id === 'blizzard' ? snow(h, s, dt, api) : s.id === 'blackhole' ? hole(h, s, dt, api) : meteors(h, s, dt, api);
       if (!more) list.splice(i, 1);
     }
   }
@@ -323,4 +338,54 @@ function drop(h: Hero, s: Running, api: SpecialApi): void {
   s.rocks.push({ x: mx, z: mz, t: 0 });
   // A ring closing onto the blast radius marks where it lands.
   api.vfx.ring(mx, mz, s.p.blast * 3, 0.67, s.p.ice ? '#9fe8ff' : '#ff7a2f', METEOR_TELE);
+}
+
+// ------------------------------------------------------------------ Black Hole
+
+const HOLE_TAGS: Tag[] = ['area'];
+const HOLE_TICK = 0.25;
+
+/** Pull everything in toward the hole, grind it, then collapse in a blast (White Hole: wider, and it burns). */
+function hole(h: Hero, s: Running, dt: number, api: SpecialApi): boolean {
+  const p = s.p;
+  const v = api.vfx;
+  const R = p.radius;
+  for (const e of api.enemies) {
+    if (!e.alive || e.hp <= 0) continue;
+    const dx = s.x - e.x;
+    const dz = s.z - e.z;
+    const d = Math.hypot(dx, dz);
+    if (d > R + e.radius || d < 0.3) continue;
+    // Bosses barely budge; everything else is dragged harder near the centre.
+    const pull = p.pull * (e.def.boss ? 0.2 : 1) * (1 - e.def.knockbackResist * 0.5) * (0.4 + 0.6 * (1 - d / R)) * dt;
+    e.x += (dx / d) * Math.min(pull, d);
+    e.z += (dz / d) * Math.min(pull, d);
+  }
+  s.acc -= dt;
+  if (s.acc <= 0) {
+    s.acc += HOLE_TICK;
+    let n = 0;
+    for (const e of api.enemies) {
+      if (!e.alive || e.hp <= 0 || (e.x - s.x) ** 2 + (e.z - s.z) ** 2 > (R + e.radius) ** 2) continue;
+      api.damage(e, p.dps * HOLE_TICK, { source: 'blackhole', tags: HOLE_TAGS, loud: n++ < 3 }, h);
+    }
+    // The swirl: a closing ring and sparks spiralling in from the rim.
+    v.ring(s.x, s.z, R * 2, 0.35, '#b48cff', 0.3);
+    for (let k = 0; k < 4; k++) {
+      const a = api.rng.next() * Math.PI * 2;
+      v.burst(s.x + Math.cos(a) * R, 0.6, s.z + Math.sin(a) * R, { count: 2, color: '#b48cff', color2: '#5d275d', speed: [R * 1.5, R * 2.5], size: [0.15, 0.3], life: [0.3, 0.45], drag: 3, dir: { x: -Math.cos(a), z: -Math.sin(a), spread: 0.4 } });
+    }
+    v.star(s.x, 1, s.z, 1.6, '#5d275d', 0.25);
+  }
+  if (s.t < p.dur) return true;
+  // Collapse.
+  const white = p.burn > 0;
+  const blast = R * (white ? 1.6 : 1.1);
+  api.blast(s.x, s.z, blast, p.implode, white ? '#fff35c' : '#b48cff', 'blackhole', white ? ['explosive', 'fire'] : ['explosive'], false, h);
+  if (white) for (const e of api.enemies) if (e.alive && e.hp > 0 && (e.x - s.x) ** 2 + (e.z - s.z) ** 2 < blast * blast) api.ignite(e, p.implode * 0.05, h);
+  v.ring(s.x, s.z, 1, blast * 2, white ? '#ffffff' : '#b48cff', 0.4);
+  v.sound('explode', s.x, s.z);
+  v.shake(s.x, s.z, 0.8);
+  v.flash(white ? 0.6 : 0.3);
+  return false;
 }

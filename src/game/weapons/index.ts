@@ -22,6 +22,7 @@ import { Shield } from './shield';
 import { Sweeper } from './sweeper';
 import { Pellets } from './pellets';
 import { Bouncer } from './bouncer';
+import { Starfall } from './starfall';
 
 export { Weapon } from './base';
 export type { WeaponCtx, DamageOpts } from './base';
@@ -74,6 +75,8 @@ export function createWeapon(id: string, scene: THREE.Scene): Weapon {
       return new Pellets(def);
     case 'bouncer':
       return new Bouncer(def, scene);
+    case 'starfall':
+      return new Starfall(def);
     default:
       throw new Error(`Unknown weapon: ${id}`);
   }

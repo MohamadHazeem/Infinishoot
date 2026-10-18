@@ -49,6 +49,8 @@ export interface ScreenActions {
   mpLeave(): void;
   /** Host: set the co-op difficulty. */
   mpDifficulty(id: string): void;
+  /** Host: co-op or PvP. */
+  mpKind(kind: 'coop' | 'pvp'): void;
   /** The loadout changed (online: tell the host). */
   loadoutChanged(): void;
   /** The local skin setting changed. */
@@ -64,6 +66,8 @@ export interface LobbyView {
   status: string;
   /** Difficulty the host picked (shown to everyone in the lobby). */
   difficulty?: string;
+  /** Co-op or PvP, picked by the host. */
+  kind?: 'coop' | 'pvp';
 }
 
 export type ShopFx = 'open' | 'buy' | 'sell' | 'reroll' | 'heal' | 'deny' | 'upgrade';
@@ -85,7 +89,7 @@ export interface ShopView {
   pre?: boolean;
   /** The rare secret merchant (rare/cursed Mods at a discount, a relic for sale). */
   secret: boolean;
-  relic: { id: string; name: string; desc: string; icon: string; color: string; price: number } | null;
+  relic: { id: string; name: string; desc: string; icon: string; color: string; price: number; rarity?: Rarity } | null;
   /** Optional curse deal (one per shop visit). */
   curse: { id: string; name: string; desc: string; icon: string; color: string; gold: number; score: number } | null;
 }
@@ -163,13 +167,15 @@ function replaceStrip(what: string): string {
 }
 
 /** Hover card: name, rarity and what it does. */
-function tip(name: string, rarity: Rarity, desc: string, extra = ''): string {
-  return `<span class="tip"><b>${name}</b><em class="r-text-${rarity}">${RARITY[rarity].label}${extra}</em><span>${desc}</span></span>`;
+/** Hover card: name, rarity (none for loadout items, where it means nothing) and what it does. */
+function tip(name: string, rarity: Rarity | undefined, desc: string, extra = ''): string {
+  const label = rarity ? `${RARITY[rarity].label}${extra}` : extra.replace(/^ · /, '');
+  return `<span class="tip"><b>${name}</b><em class="r-text-${rarity ?? 'common'}">${label}</em><span>${desc}</span></span>`;
 }
 
 function badge(i: LoadoutItem): string {
   const level = (i.slot ? ` · ${SLOT_LABEL[i.slot]}` : '') + (i.evo ? ' · EVOLVED' : i.max ? ' · MAX' : ` · LV ${i.level}`);
-  return `<span class="badge${i.evo ? ' evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" tabindex="0">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i>${tip(i.name, i.rarity ?? 'common', i.desc ?? '', level)}</span>`;
+  return `<span class="badge${i.evo ? ' evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" tabindex="0">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i>${tip(i.name, i.rarity, i.desc ?? '', level)}</span>`;
 }
 
 function modChip({ def: m, level }: { def: ModDef; level: number }): string {
@@ -290,6 +296,9 @@ export class Screens {
     <div class="code-label">GAME CODE</div>
     <div class="code-big"></div>
     <div class="players"></div>
+    <div class="section">GAME</div>
+    <div class="menu row diff-row mp-kind-row"></div>
+    <div class="note mp-kind-note"></div>
     <div class="section">DIFFICULTY</div>
     <div class="menu row diff-row mp-diff-row"></div>
     <div class="note mp-diff-note"></div>
@@ -575,6 +584,8 @@ export class Screens {
           actions.skinChanged();
           return this.renderModes();
         }
+        case 'mp-kind':
+          return actions.mpKind(btn.dataset.kind === 'pvp' ? 'pvp' : 'coop');
         case 'mp-diff': {
           const d = DIFFICULTIES.find((x) => x.id === btn.dataset.diff);
           if (!d || (d.unlock && !save.achievements.includes(d.unlock))) return;
@@ -732,7 +743,7 @@ export class Screens {
               <div class="desc">LOCKED${a ? `: ${a.desc}` : ''}</div>
             </button>`;
             }
-            return `<button class="lo-card r-${d.rarity} ${on ? 'on' : ''}" data-nav data-act="lo-pick" data-slot="${slot}" data-id="${id}" style="--c:${d.color}">
+            return `<button class="lo-card ${on ? 'on' : ''}" data-nav data-act="lo-pick" data-slot="${slot}" data-id="${id}" style="--c:${d.color}">
               <div class="icon">${iconHtml(icon, d.color, d.icon)}</div>
               <div class="name">${d.name}</div>
               <div class="desc">${d.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')}</div>
@@ -777,12 +788,22 @@ export class Screens {
       return `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-diff" data-diff="${d.id}" class="diff ${d.id === pick.id ? 'on' : ''} ${lock ? 'locked' : ''}" ${v.isHost ? '' : 'disabled'}>${lock ? '🔒 ' : ''}${d.name.toUpperCase()}</button>`;
     }).join('');
     el.querySelector('.mp-diff-note')!.textContent = `${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`;
+    // Game type: co-op, or PvP (everyone plays the same stage alone, then a last-one-standing duel).
+    const kind = v.kind ?? 'coop';
+    el.querySelector('.mp-kind-row')!.innerHTML = (['coop', 'pvp'] as const)
+      .map((k) => `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-kind" data-kind="${k}" class="diff ${k === kind ? 'on' : ''}" ${v.isHost ? '' : 'disabled'}>${k === 'coop' ? 'CO-OP' : 'PVP'}</button>`)
+      .join('');
+    el.querySelector('.mp-kind-note')!.textContent =
+      kind === 'pvp'
+        ? 'Everyone plays the same stage alone and builds up, then all of you fight in one arena. Last one standing wins.'
+        : 'Play the run together. Team XP, your own gold, shop and Mods.';
     el.querySelector('.mp-status')!.textContent = v.status;
     if (this.current !== 'online') this.show('online');
     else this.navs.online.refresh(this.navs.online.focus);
   }
 
-  showWait(who: string[]): void {
+  showWait(who: string[], note = 'Your teammates are still choosing:'): void {
+    this.els.wait.querySelector('.note')!.textContent = note;
     this.els.wait.querySelector('.who')!.innerHTML = who.map((n) => `<div class="lobby-player"><span class="dot"></span>${n}</div>`).join('');
     this.show('wait');
   }
@@ -1014,8 +1035,8 @@ export class Screens {
       : '';
     const r = v.relic;
     const relicCard = r
-      ? `<button class="mod-card rare relic-deal ${r.price > v.gold ? 'cant' : ''}" data-nav data-act="buy-relic">
-          <div class="rarity">RELIC</div>
+      ? `<button class="mod-card ${r.rarity ?? 'rare'} r-${r.rarity ?? 'rare'} relic-deal ${r.price > v.gold ? 'cant' : ''}" data-nav data-act="buy-relic">
+          <div class="rarity">${RARITY[r.rarity ?? 'rare'].label} RELIC</div>
           <div class="icon" style="--c:${r.color}">${iconHtml(r.id, r.color, r.icon)}</div>
           <div class="name">${r.name}</div>
           <div class="desc">${r.desc}</div>

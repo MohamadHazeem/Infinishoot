@@ -231,4 +231,52 @@ export const SPECIALS: Record<string, SpecialDef> = {
       { id: 'comet', name: "Ice Comets", color: '#9fe8ff', text: 'Icy comets freeze everything they hit for a moment (Frost).', tags: ['frost'], p: { ice: 1.5 } },
     ],
   },
+  blackhole: {
+    id: 'blackhole',
+    name: 'Black Hole',
+    short: 'B.HOLE',
+    icon: '◉',
+    color: '#b48cff',
+    rarity: 'legendary',
+    desc: 'Tears open a black hole where you aim: it drags enemies in, grinds them and collapses in a huge blast.',
+    starter: false,
+    levels: [{ text: 'A black hole pulls and grinds for 3 s, then collapses.', p: { dur: 3, radius: 7, pull: 9, dps: 60, implode: 300, charge: 1, range: 11, burn: 0 } }],
+    tracks: [
+      {
+        id: 'mass',
+        name: 'Mass',
+        ranks: [
+          { text: 'Grinds harder, bigger collapse.', p: { dps: 20, implode: 60 } },
+          { text: 'Grinds harder, bigger collapse.', p: { dps: 25, implode: 70 } },
+          { text: 'Grinds harder, bigger collapse.', p: { dps: 30, implode: 80 } },
+          { text: 'Crushing mass.', p: { dps: 35, implode: 100 } },
+        ],
+      },
+      {
+        id: 'horizon',
+        name: 'Event Horizon',
+        ranks: [
+          { text: 'Wider pull.', p: { radius: 0.8, pull: 1.5 } },
+          { text: 'Wider pull.', p: { radius: 0.8, pull: 1.5 } },
+          { text: 'Wider pull.', p: { radius: 0.8, pull: 1.5 } },
+          { text: 'Huge, inescapable pull.', p: { radius: 1.2, pull: 2 } },
+        ],
+      },
+      {
+        id: 'recharge',
+        name: 'Recharge',
+        ranks: [
+          { text: 'Recharges 10% faster.', p: { charge: 0.1 } },
+          { text: 'Lasts longer, recharges faster.', p: { charge: 0.1, dur: 0.4 } },
+          { text: 'Recharges 12% faster.', p: { charge: 0.12 } },
+          { text: 'Lasts longer, recharges faster.', p: { charge: 0.15, dur: 0.5 } },
+        ],
+      },
+    ],
+    evoAt: 8,
+    evos: [
+      { id: 'supermassive', name: 'Supermassive', color: '#7a4dff', text: 'A far bigger, longer-lasting hole whose collapse hits 60% harder.', tags: ['explosive'], p: { dur: 1 }, mul: { radius: 1.3, implode: 1.6 } },
+      { id: 'whitehole', name: 'White Hole', color: '#fff35c', text: 'Collapses into a blinding burst twice as wide that sets everything on fire (Fire).', tags: ['fire'], p: { burn: 1 } },
+    ],
+  },
 };

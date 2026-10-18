@@ -309,6 +309,8 @@ export class Enemy {
   shockT = 0;
   /** Exposed by a right-click hit: takes more damage from everyone. */
   exposeT = 0;
+  /** PvP: index of the hero this invisible stand-in belongs to (-1 for real enemies). */
+  pvpOwner = -1;
   lungeX = 0;
   lungeZ = 0;
   facing = 0;
@@ -344,6 +346,7 @@ export class Enemy {
   reset(x: number, z: number, o: SpawnOpts): void {
     this.uid = nextUid++;
     this.active = true;
+    this.pvpOwner = -1;
     this.state = 'spawning';
     this.t = o.instant ? 0.01 : SPAWN_TIME;
     this.x = this.px = x;
@@ -1263,7 +1266,7 @@ export class Enemies {
     d.setPulse(time);
 
     for (const e of this.list) {
-      if (!e.active) continue;
+      if (!e.active || e.def.hidden) continue;
       const x = e.px + (e.x - e.px) * alpha;
       const z = e.pz + (e.z - e.pz) * alpha;
       let sx = (1 - e.sq * 0.5) * e.scale;

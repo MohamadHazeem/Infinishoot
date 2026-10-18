@@ -748,4 +748,22 @@ export const WEAPONS: Record<string, WeaponDef> = {
     ],
     evolution: { name: 'Swarm Mother', color: '#a7f070', passive: 'growth', text: 'Five drones bounce 9 times.', p: { cd: 0.8, dmg: 26, bounces: 9, speed: 26, count: 5, hop: 8 } },
   },
+  starfall: {
+    id: 'starfall',
+    rarity: 'legendary',
+    tags: ['explosive', 'area'],
+    name: 'Starfall',
+    icon: '★',
+    color: '#ffcd75',
+    desc: 'Stars fall on the biggest crowds near you and explode.',
+    starter: true,
+    levels: [
+      { text: 'Calls 2 falling stars onto the biggest crowds nearby.', p: { cd: 3.2, count: 2, dmg: 90, radius: 2.4, range: 13, split: 0 } },
+      { text: 'Heavier stars.', p: { cd: 3.0, count: 2, dmg: 115, radius: 2.6, range: 13, split: 0 } },
+      { text: '+1 star.', p: { cd: 2.8, count: 3, dmg: 135, radius: 2.8, range: 14, split: 0 } },
+      { text: 'Bigger impacts.', p: { cd: 2.6, count: 3, dmg: 170, radius: 3.0, range: 15, split: 0 } },
+      { text: '4 stars at once!', p: { cd: 2.3, count: 4, dmg: 210, radius: 3.2, range: 16, split: 0 } },
+    ],
+    evolution: { name: 'Nova Hail', color: '#fff35c', passive: 'focus_lens', text: '5 stars that each burst into 3 more on impact.', p: { cd: 2.0, count: 5, dmg: 240, radius: 3.4, range: 17, split: 3 } },
+  },
 };

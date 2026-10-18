@@ -51,7 +51,7 @@ import { streaks } from './streaks';
 import { skinOf } from '../data/skins';
 import { RunEvents, type EventHost } from './runEvents';
 import { CURSE_BY_ID, type CurseDef } from '../data/curses';
-import { RELIC_BY_ID, RELICS } from '../data/relics';
+import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, type DifficultyId, type ModeId } from '../data/modes';
@@ -59,6 +59,7 @@ import { submitDaily } from './highscores';
 import { heroOf } from '../data/heroes';
 import { binds } from '../core/keybinds';
 import { boardId, fetchTop, leaderboardEnabled, submitGlobal } from '../net/leaderboard';
+import { PVP_TARGET, applyBuild, exportBuild, pvpTuning, type HeroBuild } from './pvp';
 
 export { economyTuning } from './hero';
 
@@ -171,6 +172,32 @@ const REVIVE_RANGE = 2.4;
 export function xpForLevel(level: number): number {
   const l = level - 1;
   return Math.round(6 + 8 * l + 1.4 * l * l);
+}
+
+/** PvP match state on this machine (see src/game/pvp.ts). Builds and progress are keyed by peer id ('' = host). */
+interface PvpState {
+  /** stage: playing your own stage; wait: done, waiting for the others; duel: the fight; over: someone won. */
+  phase: 'stage' | 'wait' | 'duel' | 'over';
+  /** The online role to come back to for the duel. */
+  net: 'host' | 'client';
+  seed: number;
+  ready: Map<string, HeroBuild>;
+  progress: Map<string, string>;
+  /** Stand-in enemy per hero index, pending hero damage per hero index and who hit them last. */
+  proxies: Enemy[];
+  acc: number[];
+  lastHit: number[];
+  zoneR: number;
+  zoneT: number;
+  zoneTick: number;
+}
+
+const PVP_WAIT_NOTE = 'Everyone plays their own stage first. The duel starts when all are done:';
+
+/** "2:31" */
+function clock(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
 interface LobbyEntry {
@@ -337,6 +364,12 @@ export class Game implements HeroWorld {
   private specialApi: SpecialApi = this.makeSpecialApi();
   /** The free starting shop before stage 1 is open (its gold is not kept). */
   private preShop = false;
+  /** PvP match in progress (null outside PvP). */
+  private pvp: PvpState | null = null;
+  /** The online lobby's game type, picked by the host. */
+  private lobbyKind: 'coop' | 'pvp' = 'coop';
+  /** The name this machine hosted or joined with (the saved name is shared by every tab on a PC). */
+  private netName = '';
   /** Last EXPOSED popup (run time), so a crowd doesn't spam it. */
   private exposeTextT = -1;
   private shownCharge = 0;
@@ -406,6 +439,10 @@ export class Game implements HeroWorld {
       mpDifficulty: (id) => {
         settings.difficulty = id;
         saveSettings();
+        this.refreshLobby();
+      },
+      mpKind: (kind) => {
+        this.lobbyKind = kind;
         this.refreshLobby();
       },
       skinChanged: () => this.applyLocalSkin(),
@@ -537,8 +574,13 @@ export class Game implements HeroWorld {
       firing: false,
       charging: false,
       damage: (e, base, o) => this.damage(e, base, o, hero),
-      nearest: (x, z, r, skip) => this.nearestEnemy(x, z, r, skip),
-      inRadius: (x, z, r, out) => this.enemiesInRadius(x, z, r, out),
+      // PvP: a hero's weapons never aim at or hit its own stand-in.
+      nearest: (x, z, r, skip) => this.nearestEnemy(x, z, r, (e) => e.pvpOwner === hero.index || !!skip?.(e)),
+      inRadius: (x, z, r, out) => {
+        this.enemiesInRadius(x, z, r, out);
+        if (this.pvp) for (let i = out.length - 1; i >= 0; i--) if (out[i].pvpOwner === hero.index) out.splice(i, 1);
+        return out;
+      },
       shake: (x, z, amount) => this.vfx.shake(x, z, amount),
       hitBarrels: (dmg, inside) => this.barrels.hitWhere(dmg, hero.index, inside),
       blast: (x, z, r, base, color, source, tags) => this.blast(x, z, r, base, color, source, tags ?? hero.tagsOf(source) ?? ['explosive'], false, hero),
@@ -673,6 +715,7 @@ export class Game implements HeroWorld {
 
   /** Back to a single local hero on the title screen, closing any connection. */
   leaveToTitle(): void {
+    this.pvp = null;
     this.host?.close();
     this.client?.close();
     this.host = null;
@@ -710,12 +753,12 @@ export class Game implements HeroWorld {
   }
 
   /** Start a run (solo or online host). */
-  startRun(): void {
+  startRun(fixed?: { seed: number; difficulty: string }): void {
     this.paused = false;
     if (this.role !== 'solo') this.runMode = 'standard';
-    this.difficulty = this.pickDifficulty();
+    this.difficulty = fixed ? DIFF_BY_ID[fixed.difficulty as DifficultyId] ?? DIFF_BY_ID.normal : this.pickDifficulty();
     this.runDate = today();
-    this.seed = this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
+    this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
     this.rng = new Rng(this.seed);
     this.stage = 1;
     this.score = this.kills = this.combo = this.maxCombo = 0;
@@ -825,7 +868,8 @@ export class Game implements HeroWorld {
   }
 
   private quitRun(): void {
-    if (this.role === 'solo') this.endRun(true);
+    if (this.pvp) this.leaveToTitle();
+    else if (this.role === 'solo') this.endRun(true);
     else this.leaveToTitle();
   }
 
@@ -929,10 +973,10 @@ export class Game implements HeroWorld {
   private grantRelics(): void {
     for (const h of this.heroes) {
       if (h.left) continue;
-      const left = RELICS.filter((r) => !h.hasRelic(r.id));
-      if (!left.length) continue;
-      const r = left[Math.floor(this.rng.next() * left.length)];
+      const r = rollRelic(h.relics, h.stats.luck, () => this.rng.next());
+      if (!r) continue;
       h.relics.push(r.id);
+      h.recomputeStats();
       h.loadoutDirty = true;
       const msg = `RELIC: ${r.name.toUpperCase()} - ${r.desc}`;
       if (h === this.hero) this.hud.toast(msg, 4);
@@ -1077,7 +1121,8 @@ export class Game implements HeroWorld {
       this.vfx.banner(`STAGE ${this.stage}`, this.stageSub(this.stage), 2.2);
       return;
     }
-    if (this.runMode === 'endless') this.endlessNextWave();
+    if (this.pvp?.phase === 'stage') this.pvpStageDone();
+    else if (this.runMode === 'endless') this.endlessNextWave();
     else this.openPortal();
   }
 
@@ -1202,6 +1247,11 @@ export class Game implements HeroWorld {
   }
 
   private endRun(quit = false): void {
+    // PvP: dying in your own stage still takes your build to the duel.
+    if (this.pvp?.phase === 'stage') {
+      this.pvpStageDone();
+      return;
+    }
     for (const h of this.heroes) {
       if (!h.peerId || h.left) continue;
       this.host?.send(h.peerId, { t: 'over', sum: this.summary(h) });
@@ -1449,6 +1499,7 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    if (this.pvp) this.pvpTick();
     this.coopInput();
     if (this.role === 'client') {
       this.clientUpdate(dt);
@@ -1535,6 +1586,7 @@ export class Game implements HeroWorld {
     this.targets.length = 0;
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
     this.enemies.update(dt, this.enemyCtx);
+    if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
@@ -1552,10 +1604,10 @@ export class Game implements HeroWorld {
       (t, who) => t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS,
     );
     this.updateChests();
-    if (this.mode === 'fight' && anyAlive) this.updateChestSpawns(dt);
+    if (this.mode === 'fight' && anyAlive && !this.pvp) this.updateChestSpawns(dt);
     this.particles.update(dt);
     this.fx.update(dt);
-    if (this.heroes.length > 1) this.updateRevives(dt);
+    if (this.heroes.length > 1 && !this.pvp) this.updateRevives(dt);
 
     if (this.mode === 'fight' && this.combo > 0) {
       this.comboT -= dt;
@@ -1572,7 +1624,7 @@ export class Game implements HeroWorld {
       this.updateEliteMods(dt);
       this.updatePets(dt);
     }
-    if (this.mode === 'fight' && anyAlive) {
+    if (this.mode === 'fight' && anyAlive && this.pvp?.phase !== 'duel' && this.pvp?.phase !== 'over') {
       this.director.teamLevel = this.level; // the Reaper comes for high-level teams
       const reqs = this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng);
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
@@ -1900,6 +1952,7 @@ export class Game implements HeroWorld {
   /** All damage to enemies, credited to the hero who dealt it. */
   private damage(e: Enemy, base: number, o: DamageOpts, by: Hero): number {
     if (!e.active || e.hp <= 0) return 0;
+    if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
     const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
     const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
     const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
@@ -2422,7 +2475,7 @@ export class Game implements HeroWorld {
     let worst: Enemy | null = null;
     let dmg = 0;
     this.hash.query(p.x, p.z, 2.5, (e) => {
-      if (!e.alive || e.frozen > 0 || e.hopY > 0.5) return;
+      if (!e.alive || e.frozen > 0 || e.hopY > 0.5 || e.pvpOwner >= 0) return;
       const rr = e.radius + p.radius;
       if ((e.x - p.x) ** 2 + (e.z - p.z) ** 2 > rr * rr) return;
       const d = e.contactDamage * (e.state === 'attack' ? 1.5 : 1);
@@ -2491,6 +2544,14 @@ export class Game implements HeroWorld {
       h.bombCharge = 1;
       this.tryBomb(h);
       this.vfx.banner('SECOND WIND!', `${h.name} is back on their feet`, 1.6);
+      return;
+    }
+    if (this.pvp?.phase === 'duel') {
+      this.vfx.sound('playerDie', p.x, p.z);
+      this.vfx.shake(p.x, p.z, 1);
+      this.vfx.burst(p.x, 1, p.z, { count: 40, color: h.color, color2: '#ffd23f', speed: [4, 12], size: [0.2, 0.45], life: [0.6, 1.2], up: 7, gravity: 16, drag: 1.5 });
+      this.vfx.toast(`${h.name.toUpperCase()} IS OUT!`, 2.5);
+      this.pvpCheckWinner();
       return;
     }
     this.vfx.sound('playerDie', p.x, p.z);
@@ -2595,7 +2656,7 @@ export class Game implements HeroWorld {
       let hit = null as Enemy | null;
       const r = b.radius[i];
       this.hash.query(x, z, r, (e) => {
-        if (hit || !e.alive || e.hp <= 0 || b.hasHit(i, e.uid)) return;
+        if (hit || !e.alive || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
         const rr = e.radius + r;
         if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr) hit = e;
       });
@@ -2835,6 +2896,7 @@ export class Game implements HeroWorld {
 
   private async hostGame(name: string): Promise<void> {
     this.saveName(name);
+    this.netName = name.trim().slice(0, 12) || 'Player';
     this.leaveToTitle();
     this.role = 'host';
     const host = new NetHost(3);
@@ -2857,8 +2919,9 @@ export class Game implements HeroWorld {
     if (!this.host) return;
     const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout) }));
     const difficulty = this.lobbyDifficulty().id;
-    this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty });
-    this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty });
+    const kind = this.lobbyKind;
+    this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind });
+    this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind });
   }
 
   /** Co-op difficulty: the host's pick, if their save has it unlocked. */
@@ -2869,6 +2932,17 @@ export class Game implements HeroWorld {
 
   private hostStart(): void {
     if (this.role !== 'host' || !this.host) return;
+    if (this.lobbyKind === 'pvp') {
+      if (this.lobby.length < 2) {
+        this.hud.toast('PVP NEEDS AT LEAST 2 PLAYERS', 2.5);
+        return;
+      }
+      const seed = randomSeed();
+      const difficulty = this.lobbyDifficulty().id;
+      this.host.broadcast({ t: 'pvpgo', seed, difficulty });
+      this.pvpBegin('host', seed, difficulty);
+      return;
+    }
     const heroes = this.lobby.map((p, i) => {
       if (i === 0) return this.hero;
       const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
@@ -2883,6 +2957,7 @@ export class Game implements HeroWorld {
 
   private async joinGame(name: string, code: string): Promise<void> {
     this.saveName(name);
+    this.netName = name.trim().slice(0, 12) || 'Player';
     this.leaveToTitle();
     this.role = 'client';
     const client = new NetClient(code);
@@ -2917,6 +2992,193 @@ export class Game implements HeroWorld {
     }
   }
 
+  // ------------------------------------------------------------------ PvP (src/game/pvp.ts)
+
+  /** Everyone: play the shared stage alone, keeping the connection open for the duel. */
+  private pvpBegin(net: 'host' | 'client', seed: number, difficulty: string): void {
+    this.pvp = { phase: 'stage', net, seed, ready: new Map(), progress: new Map(), proxies: [], acc: [], lastHit: [], zoneR: 0, zoneT: 0, zoneTick: 0 };
+    this.role = 'solo';
+    // Solo stage: nothing to replay on clients, so don't pile up effects for the duel's first snapshot.
+    this.vfx.recording = false;
+    this.vfx.drain();
+    this.runMode = 'standard';
+    this.hero.name = this.netName || playerName();
+    this.startRun({ seed, difficulty });
+    this.vfx.banner('PVP · YOUR STAGE', 'BEAT THE BOSS AND BUILD UP<br>THEN FIGHT EVERYONE ELSE', 3);
+  }
+
+  /** Your stage is over (boss beaten and shop closed, or you died): send your build and wait. */
+  private pvpStageDone(): void {
+    const pvp = this.pvp!;
+    pvp.phase = 'wait';
+    const build = exportBuild(this.hero, this.level);
+    this.mode = 'title';
+    this.screens.showWait([`${this.hero.name}: READY`], PVP_WAIT_NOTE);
+    if (pvp.net === 'client') this.client?.send({ t: 'pvpready', build });
+    else {
+      pvp.ready.set('', build);
+      this.pvpCheckReady();
+    }
+  }
+
+  /** Every second: progress for the waiting screen (clients report it, the host shares the list). */
+  private pvpTick(): void {
+    const pvp = this.pvp!;
+    if (this.stepN % 60 !== 0 || (pvp.phase !== 'stage' && pvp.phase !== 'wait')) return;
+    const mine = pvp.phase === 'wait' ? 'READY' : `LV ${this.level} · ${this.boss ? 'BOSS FIGHT' : clock(this.director.duration - this.director.time) + ' LEFT'}`;
+    if (pvp.net === 'client') {
+      this.client?.send({ t: 'pvpprog', text: mine });
+      return;
+    }
+    pvp.progress.set('', mine);
+    const rows = this.lobby.map((p) => `${p.name}: ${pvp.ready.has(p.peerId) ? 'READY' : pvp.progress.get(p.peerId) ?? 'PLAYING'}`);
+    this.host?.broadcast({ t: 'pvpstat', rows });
+    if (pvp.phase === 'wait') this.screens.showWait(rows, PVP_WAIT_NOTE);
+  }
+
+  /** Host: start the duel once everyone still here has handed in a build. */
+  private pvpCheckReady(): void {
+    const pvp = this.pvp;
+    if (!pvp || pvp.net !== 'host' || pvp.phase === 'duel' || pvp.phase === 'over') return;
+    if (!this.lobby.every((p) => pvp.ready.has(p.peerId))) return;
+    this.pvpStartDuel();
+  }
+
+  /** Host: rebuild every hero from its build and drop them all into one arena. */
+  private pvpStartDuel(): void {
+    const pvp = this.pvp!;
+    pvp.phase = 'duel';
+    this.role = 'host';
+    this.vfx.drain();
+    const heroes = this.lobby.map((p, i) => {
+      if (i === 0) return this.hero;
+      const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
+      applyBuild(h, pvp.ready.get(p.peerId)!, this.scene);
+      return h;
+    });
+    this.hero.name = this.lobby[0].name;
+    this.setHeroes(heroes);
+    this.local = 0;
+    this.hero.recomputeStats();
+    this.hero.player.reset(this.hero.stats);
+    this.hero.revivesLeft = pvp.ready.get('')?.revives ?? this.hero.revivesLeft;
+    for (const h of heroes) {
+      h.left = false;
+      h.player.showWhenDead = true;
+      h.pendingLevels = h.chestsPending = 0;
+      h.bombCharge = 1;
+    }
+    this.screens.show('none');
+    this.hud.setVisible(true);
+    for (const h of heroes) {
+      if (!h.peerId) continue;
+      this.host!.send(h.peerId, { t: 'start', seed: pvp.seed, difficulty: this.difficulty.id, you: h.index, players: heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
+    }
+    this.loadStage(1);
+    this.enemies.clear();
+    this.pickups.clear?.();
+    // Heroes start spread on a circle facing the middle, each with an invisible stand-in the others can hit.
+    pvp.proxies = [];
+    heroes.forEach((h, i) => {
+      const a = (i / heroes.length) * Math.PI * 2;
+      h.player.teleport(Math.cos(a) * pvpTuning.spawnRadius, Math.sin(a) * pvpTuning.spawnRadius);
+      h.player.setAimDir(-Math.cos(a), -Math.sin(a));
+      const e = this.enemies.spawn(PVP_TARGET, h.player.x, h.player.z, { instant: true });
+      e.pvpOwner = h.index;
+      pvp.proxies[h.index] = e;
+    });
+    pvp.acc = heroes.map(() => 0);
+    pvp.lastHit = heroes.map(() => -1);
+    pvp.zoneR = pvpTuning.zoneStart;
+    pvp.zoneT = pvp.zoneTick = 0;
+    this.vfx.banner('DUEL!', 'LAST ONE STANDING WINS<br>THE RED RING CLOSES IN', 2.8);
+    this.vfx.sound('boss', NaN, NaN);
+  }
+
+  /** A hit on a hero's stand-in: the attacker's stats, Mods and crits apply, then it's scaled down to hero damage. */
+  private pvpHit(e: Enemy, base: number, o: DamageOpts, by: Hero): number {
+    const pvp = this.pvp;
+    const target = this.heroes[e.pvpOwner];
+    if (!pvp || pvp.phase !== 'duel' || !target || target === by || target.player.dead || target.left || target.player.dashing) return 0;
+    const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
+    const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
+    const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
+    let amount = o.fixed ? base : by.synergy.damage(ev, base * by.stats.damageMul);
+    if (e.exposeT > 0) amount *= 1 + statusTuning.exposeMult;
+    if (crit) amount *= by.stats.critMult;
+    pvp.acc[target.index] += amount * pvpTuning.damageScale;
+    pvp.lastHit[target.index] = by.index;
+    if (!o.noStatus) {
+      if (isRightClick(o.source)) e.exposeT = statusTuning.exposeTime;
+      if (tags.includes('fire')) this.ignite(e, Math.max(3, amount * 0.15), by);
+    }
+    if (crit) this.vfx.star(target.player.x, 1.4, target.player.z, 1.2, '#fff35c', 0.1);
+    return amount;
+  }
+
+  /** Duel step: stand-ins follow their heroes, pending damage lands as hits, the ring closes. */
+  private updateDuel(dt: number): void {
+    const pvp = this.pvp!;
+    for (const h of this.heroes) {
+      const e = pvp.proxies[h.index];
+      if (!e) continue;
+      if (h.player.dead || h.left) {
+        if (e.active) this.enemies.kill(e);
+        pvp.acc[h.index] = 0;
+        continue;
+      }
+      e.x = e.px = h.player.x;
+      e.z = e.pz = h.player.z;
+      e.vx = e.vz = e.kx = e.kz = 0;
+      e.hp = e.maxHp;
+      e.frozen = 0;
+      // Damage lands as hits, so i-frames and the per-hit cap pace a duel instead of one volley deciding it.
+      if (pvp.acc[h.index] >= 1 && h.player.invuln <= 0) {
+        const by = this.heroes[pvp.lastHit[h.index]];
+        const raw = pvp.acc[h.index];
+        pvp.acc[h.index] = 0;
+        this.hurtHero(h, raw, by?.player.x ?? h.player.x, by?.player.z ?? h.player.z, null, by ? by.name : 'Opponent');
+      }
+    }
+    // The safe ring closes after a while; outside it you lose life every second.
+    pvp.zoneT += dt;
+    if (pvp.zoneT > pvpTuning.zoneDelay) pvp.zoneR = Math.max(pvpTuning.zoneMin, pvp.zoneR - pvpTuning.zoneSpeed * dt);
+    if (this.stepN % 12 === 0) this.vfx.ring(0, 0, pvp.zoneR * 2, 1.01, '#b13e53', 0.25); // ring sizes are diameters
+    pvp.zoneTick -= dt;
+    if (pvp.zoneTick <= 0) {
+      pvp.zoneTick = 1;
+      for (const h of this.aliveHeroes) {
+        if (Math.hypot(h.player.x, h.player.z) <= pvp.zoneR) continue;
+        this.hurtHero(h, h.player.maxHp * pvpTuning.zoneDps + h.stats.armor, 0, 0, null, 'The ring');
+      }
+    }
+  }
+
+  /** Host: one hero left (or none): that's the match. */
+  private pvpCheckWinner(): void {
+    const pvp = this.pvp;
+    if (!pvp || pvp.net !== 'host' || pvp.phase !== 'duel') return;
+    const alive = this.aliveHeroes;
+    if (alive.length > 1) return;
+    const name = alive[0]?.name ?? '';
+    this.host?.broadcast({ t: 'pvpend', winner: name });
+    this.pvpOver(name);
+  }
+
+  /** Everyone: show the winner, then back to the title a few seconds later. */
+  private pvpOver(winner: string): void {
+    const pvp = this.pvp!;
+    pvp.phase = 'over';
+    this.vfx.banner(winner ? `${winner.toUpperCase()} WINS!` : 'DRAW!', 'LAST ONE STANDING', 4);
+    this.vfx.flash(0.8);
+    this.vfx.sound('legendaryPick', NaN, NaN);
+    window.setTimeout(() => {
+      if (this.pvp !== pvp) return;
+      this.leaveToTitle();
+      this.hud.toast(winner ? `${winner.toUpperCase()} WON THE DUEL` : 'THE DUEL WAS A DRAW', 4);
+    }, 4500);
+  }
+
   private saveName(name: string): void {
     saveJson('profile', { name: name.trim().slice(0, 12) || 'Player' });
   }
@@ -2928,8 +3190,17 @@ export class Game implements HeroWorld {
   }
 
   private onHostMessage(from: string, m: Record<string, unknown>): void {
+    if (m.t === 'pvpready' && this.pvp) {
+      this.pvp.ready.set(from, m.build as HeroBuild);
+      this.pvpCheckReady();
+      return;
+    }
+    if (m.t === 'pvpprog' && this.pvp) {
+      this.pvp.progress.set(from, String(m.text ?? '').slice(0, 40));
+      return;
+    }
     if (m.t === 'hello') {
-      if (this.mode !== 'title' || this.lobby.some((p) => p.peerId === from)) {
+      if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from)) {
         this.host?.send(from, { t: 'full', reason: 'Game already started.' });
         return;
       }
@@ -2985,6 +3256,14 @@ export class Game implements HeroWorld {
   }
 
   private onClientLeft(id: string): void {
+    if (this.pvp && this.pvp.phase !== 'duel' && this.pvp.phase !== 'over') {
+      const who = this.lobby.find((p) => p.peerId === id);
+      this.lobby = this.lobby.filter((p) => p.peerId !== id);
+      this.pvp.ready.delete(id);
+      if (who) this.hud.toast(`${who.name.toUpperCase()} LEFT THE MATCH`, 3);
+      this.pvpCheckReady();
+      return;
+    }
     if (this.mode === 'title') {
       this.lobby = this.lobby.filter((p) => p.peerId !== id);
       this.refreshLobby();
@@ -3002,7 +3281,8 @@ export class Game implements HeroWorld {
     // Don't leave the others stuck on a menu waiting for them.
     if (this.mode === 'levelup' && !this.heroes.some((x) => !x.left && x.needsPick)) this.afterPick(this.hero, '#ffffff');
     if (this.mode === 'shop' && this.heroes.every((x) => x.left || x.shopDone)) this.closeShop();
-    if (this.aliveHeroes.length === 0 && this.isCombatMode) this.onHeroDown(h);
+    if (this.pvp?.phase === 'duel') this.pvpCheckWinner();
+    else if (this.aliveHeroes.length === 0 && this.isCombatMode) this.onHeroDown(h);
   }
 
   /** Send world snapshots to clients (20 Hz, slower while menus freeze the world). */
@@ -3090,14 +3370,28 @@ export class Game implements HeroWorld {
     switch (m.t) {
       case 'lobby': {
         const players = (m.players as { name: string; color: string }[]) ?? [];
-        this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal') });
+        this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind: m.kind === 'pvp' ? 'pvp' : 'coop' });
         break;
       }
+      case 'pvpgo':
+        this.pvpBegin('client', Number(m.seed), String(m.difficulty ?? 'normal'));
+        break;
+      case 'pvpstat':
+        if (this.pvp?.phase === 'wait') this.screens.showWait((m.rows as string[]) ?? [], PVP_WAIT_NOTE);
+        break;
+      case 'pvpend':
+        if (this.pvp) this.pvpOver(String(m.winner ?? ''));
+        break;
       case 'full':
         this.leaveToTitle();
         this.hud.toast(String(m.reason ?? 'THAT GAME IS FULL'), 3);
         break;
       case 'start':
+        // PvP: the duel starts; from here on this machine mirrors the host like co-op.
+        if (this.pvp) {
+          this.role = 'client';
+          this.pvp.phase = 'duel';
+        }
         this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
         this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
         break;
