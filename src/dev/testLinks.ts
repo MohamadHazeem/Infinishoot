@@ -5,6 +5,7 @@ import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
 import { coop2Links } from './coop2Links';
+import { coopplayLinks } from './coopplayLinks';
 import { cinematicsLinks } from './cinematicsLinks';
 import { sound2Links } from './sound2Links';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
@@ -113,6 +114,8 @@ import { SCAR_COLORS } from '../game/scars';
  * Cinematics lane (src/dev/cinematicsLinks.ts): &skyfall=1&skyat=0.5, &ending=1&endat=0.3, &reveal=starfall, &jackpot=1&jackkind=gold, &flawless=1&portalnow, &titleplay, &cine=short.
  * Time lane (src/dev/timeLinks.ts): &rewindgo=3&rewindat=0.5, &standgo=2, &btgo=2&btat=0.5, &replaygo=3&replayat=1,
  *   &mate&clutchgo=2&clutchat=0.5, &mate&votego=2.
+ * Coopplay lane (src/dev/coopplayLinks.ts): &mate&coopobj=door&cpme=a&cpmate=b, &mate&coopobj=escort&cpme=core&cpcore=40,
+ *   &mate&coopobj=zones&cpme=a, &mate&coopobj=bomb&cpbomb, &mate&carry=1, &mate&tether=12, &mate&banter=cycle&captions
  * Coop2 lane (src/dev/coop2Links.ts): &mate&emote=wave, &mate&mateemote=cheer, &mate&wheel=emotes, &mate&pool&downme=2,
  *   &mate&autopilot, &joincode=K7P2Q, &mate&teamult=2, &ghostgo=2.
  * MP lane (src/dev/mpLinks.ts): &versus (vs the AI Overlord), &versus=ol&god (you are the Overlord), &vstime=, &vspts=, &vsgo=,
@@ -242,6 +245,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const numbers = q.get('numbers');
   if (numbers && ['auto', 'all', 'mine', 'off'].includes(numbers)) settings.damageNumbers = numbers as typeof settings.damageNumbers;
   coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
+  coopplayLinks(game, q); // coopobj=, cpme=, cpmate=, cpcore=, cpbomb, carry=, tether=, banter=, notether (src/dev/coopplayLinks.ts)
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
   halloweenLinks(game, q);

@@ -29,6 +29,7 @@ import { rightClickHeld } from '../chargeMode';
 import { onHeartbeat } from '../netFeel';
 import { onCoverMsg } from '../coverBreak';
 import { applySoundLaneNet } from './sound2';
+import { applyCoopPlayNet, coopPlayClientInput, coopPlayLocal } from './coopplay';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
@@ -226,12 +227,14 @@ export function clientUpdate(this: Game, dt: number): void {
   }
   if (moving) applyVineGrab(this, this.hero.index, dt);
   if (moving) this.arenaLocal(dt);
+  if (moving) coopPlayLocal(this); // carrying slows you; carried, you ride along (systems/coopplay.ts)
   if (moving) this.worldEventLocal(dt);
   if (moving) this.modesLocal(dt); // the rhythm stage's beat keeps moving between snapshots (systems/modes.ts)
   this.biomeFoesClient(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
   this.skillClientInput(control);
+  coopPlayClientInput(this, control); // INTERACT: carry a downed teammate (before the team button)
   this.companionClientInput(control);
   this.gameplayClientInput(control);
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
@@ -402,6 +405,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyWorldEventNet(s.we, s.wt);
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
+  applyCoopPlayNet(this, s.cy); // co-op objectives, carried heroes, tethers (systems/coopplay.ts)
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

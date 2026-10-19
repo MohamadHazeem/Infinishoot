@@ -145,9 +145,9 @@ export class ObjectiveHud {
       this.last = '';
       return;
     }
-    const segs = o.kind === 'beacon' ? 10 : o.kind === 'envkills' ? 10 : o.max;
+    const segs = o.kind === 'beacon' ? 10 : o.kind === 'envkills' ? 10 : o.max > 12 ? 10 : o.max; // co-op escort/zones count in 10 segments too
     const on = Math.floor((Math.min(o.cur, o.max) / Math.max(1, o.max)) * segs + 1e-6);
-    const hp = o.kind === 'beacon' && o.active ? Math.round(o.hp) : -1;
+    const hp = (o.kind === 'beacon' || o.kind === 'escort') && o.active ? Math.round(o.hp) : -1; // escort: the core's life
     const sub = o.state === 'done' ? 'COMPLETE! CHEST + GOLD' : o.state === 'failed' ? 'FAILED' : o.hint;
     const key = `${o.kind}|${o.state}|${o.count}|${sub}|${on}|${hp}`;
     if (key !== this.last) {

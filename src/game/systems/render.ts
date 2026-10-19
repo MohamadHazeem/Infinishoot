@@ -1,5 +1,6 @@
 import { beginReadability, renderReadability } from './readability2';
 import { renderHalloween } from './halloween';
+import { renderCoopPlay } from './coopplay';
 import { weeklyChallenge } from '../../data/weekly';
 /**
  * Rendering: per-frame presentation, HUD, music and sky.
@@ -313,6 +314,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.renderTeam();
   this.renderCompanion(rdt);
   this.renderCoop2(rdt, netA); // emote bubbles, autopilot tags, help ghost, team panel, buy-back (systems/coop2.ts)
+  renderCoopPlay(this, rdt); // co-op objective pieces, buddy tethers, carried heroes (systems/coopplay.ts)
   this.renderEliteBars(alpha);
   this.renderMinimap();
   this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);

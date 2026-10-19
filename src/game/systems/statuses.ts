@@ -1,3 +1,4 @@
+import { coopPlayKill } from './coopplay';
 import { halloweenKill } from './halloween';
 import { markSeen } from '../save';
 /**
@@ -143,6 +144,7 @@ export function sourceName(this: Game, id: string): string {
   if (GP_SOURCE_NAMES[id]) return GP_SOURCE_NAMES[id]; // gameplay lane: mech, super weapons, relics
   if (id === 'pet' || id === 'team') return id === 'pet' ? 'Pet' : 'Team Moves'; // companion lane
   if (COOP2_SOURCE_NAMES[id]) return COOP2_SOURCE_NAMES[id]; // team ultimate, help ghosts
+  if (id === 'coopbomb') return 'Team Bomb'; // coopplay lane: the co-op bomb objective
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
 }
@@ -251,6 +253,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     }
   }
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
+  coopPlayKill(this, e, by); // co-op banter: nice save, great shot (systems/coopplay.ts)
   this.gpOnKill(e, source, by); // mutant rewards, mech drops, finale spots, Nova Heart, Powder Keg (systems/gameplay.ts)
   this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
   this.enemies.kill(e);

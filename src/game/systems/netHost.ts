@@ -22,6 +22,7 @@ import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
+import { coopPlayMessage, coopPlayNet } from './coopplay';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -115,6 +116,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     this.tryTeamMove(h);
   } else if (m.t === 'cash') {
     this.gpCashIn(h, Number(m.k) || 0); // combo cash-in (systems/gameplay.ts)
+  } else if (m.t === 'carry') {
+    coopPlayMessage(this, h, m); // pick up / put down a downed teammate (systems/coopplay.ts)
   } else if (m.t === 'emote' || m.t === 'cobuy' || m.t === 'bye') {
     this.coopMessage(h, m); // emotes, revive-pool buy-back, leaving on purpose (systems/coop2.ts)
   } else if (m.t === 'ui') {
@@ -245,6 +248,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     cn: this.cineNet(),
     vs: this.versusNet(),
     s2: soundLaneNet(this, forHero),
+    cy: coopPlayNet(this), // co-op objectives, carried heroes, tethers (systems/coopplay.ts)
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

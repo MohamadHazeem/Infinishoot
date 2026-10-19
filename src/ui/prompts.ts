@@ -125,6 +125,7 @@ const PAD_OF: Partial<Record<PromptId, PadBtn>> = {
   up: 12,
   cash: 15,
   cashpick: 14,
+  interact: 13, // coopplay lane: on a pad, the team button carries a downed teammate when one is in reach
 };
 
 function keys(a: Action): string[] {

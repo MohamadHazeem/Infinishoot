@@ -6,6 +6,7 @@
 import type { Game } from '../game';
 import { REVIVE_TIME, REVIVE_RANGE } from '../game';
 import { Hero } from '../hero';
+import { isCarried } from './coopplay';
 
 export function reviveHero(this: Game, h: Hero, hpFrac: number, effects = true): void {
   const p = h.player;
@@ -26,6 +27,7 @@ export function reviveHero(this: Game, h: Hero, hpFrac: number, effects = true):
 export function updateRevives(this: Game, dt: number): void {
   for (const h of this.heroes) {
     if (!h.player.dead || h.left) continue;
+    if (isCarried(this, h)) continue; // carried to safety: no revive until put down (systems/coopplay.ts)
     const helpers = this.aliveHeroes.filter((o) => Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) < REVIVE_RANGE);
     // Guardian Angel on a helper: faster revives, more life on getting up.
     const speed = 1 + Math.max(0, ...helpers.map((o) => o.stats.reviveSpeed));

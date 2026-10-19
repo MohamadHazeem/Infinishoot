@@ -80,6 +80,7 @@ import { FirstTen } from './systems/firstten';
 import { earlyXpMul } from './firstten';
 import { weaponCue, windupCue } from './systems/sound';
 import { soundLaneStep } from './systems/sound2';
+import { coopPlayStats, coopPlayStep, coopPlayTargets } from './systems/coopplay';
 import { rightClickHeld } from './chargeMode';
 import * as BiomeFoesSys from './systems/biomeFoes';
 import * as HeroMechsSys from './systems/heroMechs';
@@ -1356,6 +1357,7 @@ export class Game implements HeroWorld {
     this.targets.length = 0;
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
     this.companionTargets();
+    coopPlayTargets(this); // the escorted core draws enemies too (systems/coopplay.ts)
     this.enemies.update(dt, this.enemyCtx);
     HalloweenSys.halloweenStep.call(this, dt);
     lap('sim.enemies');
@@ -1364,6 +1366,7 @@ export class Game implements HeroWorld {
     this.updateHazards(dt);
     this.updateBiomeFoes(dt);
     this.updateArena(dt);
+    coopPlayStep(this, dt); // carrying teammates, buddy tether, co-op banter (systems/coopplay.ts)
     this.updateWind(dt);
     this.updateWorldEvent(dt);
     this.updateModes(dt); // pacifist timer and rewards, mini-games, ghost recording (systems/modes.ts)
@@ -1506,6 +1509,7 @@ export class Game implements HeroWorld {
     if (this.heroes.length > 1 && !p.dead) this.applyTeamAuras(h, dt);
     this.mods2Auras(h);
     this.coopRoleStats(h); // co-op roles: a mixed party's team bonus (systems/coop2.ts)
+    coopPlayStats(this, h); // buddy tether bonus (systems/coopplay.ts)
     this.updateFootsteps(h, dt);
   }
 

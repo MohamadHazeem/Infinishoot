@@ -69,6 +69,7 @@ row('CO-OP', 'coopPool', 'SHARED REVIVE POOL', 'Host rule for the next run: the 
 row('CO-OP', 'coopJoinable', 'JOIN IN PROGRESS', 'Host rule: friends may join or reconnect after a run starts.');
 row('CO-OP', 'lobbyPublic', 'PUBLIC LOBBY', 'Lists hosted games in Browse Games when the online service is enabled.');
 row('CO-OP', 'helpGhosts', 'HELP GHOSTS', 'Allows friends’ recorded help ghosts to appear in your runs.');
+row('CO-OP', 'tetherVisual', 'BUDDY TETHER', 'Shows the energy link between nearby teammates. The link bonus stays when hidden.');
 export const SETTINGS_ROWS: readonly SettingRow[] = rows;
 
 /** Only the active tab's keys; never loadouts, identity, bindings or other tabs. */

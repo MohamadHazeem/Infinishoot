@@ -19,6 +19,7 @@ import { objectiveGold, objectiveTuning } from '../objectives';
 import { PickupType } from '../pickups';
 import { SCAR_COLORS } from '../scars';
 import { bossLike } from '../bossRules';
+import { coopObjectiveLoad, coopObjectiveStep, coopObjectiveTarget, isCoopKind } from './coopplay';
 
 /** Damage sources that count as environmental kills (bonus score, ENVIRONMENTAL KILL popups, objective). */
 export const ENV_SOURCES = ['lava', 'thorns', 'quicksand', 'splat', 'pillar', 'barrel', 'crusher'];
@@ -31,6 +32,7 @@ export const TURRET_BULLET = 12;
 export function loadToys(this: Game): void {
   const n = this.arena.colliders.length;
   this.toys.load(this.arena, this.arenaStage, biomeForStage(this.arenaStage).pillarTint);
+  coopObjectiveLoad(this); // 2+ players: maybe a co-op objective instead (systems/coopplay.ts)
   if (this.arena.colliders.length !== n) this.walls = new StaticBoxGrid(this.arena.colliders);
   this.toys.sink.length = this.toys.sinkUid.length = 0;
   this.toys.envStreak = 0;
@@ -498,7 +500,7 @@ export function updateObjective(this: Game, dt: number): void {
       this.vfx.sound('explode', b.x, b.z);
       this.vfx.burst(b.x, 2.5, b.z, { count: 24, color: '#73eff7', color2: '#29366f', speed: [3, 8], size: [0.2, 0.4], life: [0.4, 0.8], up: 6, gravity: 14 });
     }
-  }
+  } else if (isCoopKind(o.kind)) coopObjectiveStep(this, dt); // two-switch vault, escort, two zones, bomb (systems/coopplay.ts)
 }
 
 /** Objective done: gold for everyone, score, and a treasure chest per hero. */
@@ -597,6 +599,7 @@ export function objectiveTarget(this: Game): { x: number; z: number } | null {
   const toys = this.toys;
   const o = toys.objective;
   if (!o.active) return null;
+  if (isCoopKind(o.kind)) return coopObjectiveTarget(this); // co-op objectives (systems/coopplay.ts)
   if (o.kind === 'beacon') return toys.beacon;
   const p = this.hero.player;
   let best: { x: number; z: number } | null = null;

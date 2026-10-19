@@ -311,6 +311,18 @@ export class Interactives {
     if (this.beacon) this.beaconGroup.position.set(this.beacon.x, 0, this.beacon.z);
   }
 
+  /** Co-op objectives (src/game/systems/coopplay.ts): drop the solo objective's pieces; totem boxes leave `colliders`. */
+  clearObjectivePieces(colliders: AABB[]): void {
+    for (const t of this.totems) {
+      const k = colliders.indexOf(t.box);
+      if (k >= 0) colliders.splice(k, 1);
+    }
+    this.totems = [];
+    this.shards = [];
+    this.beacon = null;
+    this.beaconGroup.visible = false;
+  }
+
   /** Index of a live prop whose box overlaps the circle, or -1. */
   propAt(x: number, z: number, r: number): number {
     for (let i = 0; i < this.props.length; i++) {

@@ -101,6 +101,8 @@ export interface Settings {
   coopJoinable: boolean;
   /** Friends' help ghosts appear in your runs (EXTRAS > HELP GHOSTS). */
   helpGhosts: boolean;
+  /** BUDDY TETHER: draw the energy link between nearby teammates (the bonus stays either way; coopplay lane). */
+  tetherVisual: boolean;
   /** CINEMATICS: sky-fall transitions, the ending, legendary reveals, jackpot reels (full, short or off). */
   cinematics: 'full' | 'short' | 'off';
   /** Weekly co-op team name this machine hosts under (MP lane; '' = "<name>'s Team"). */
@@ -176,6 +178,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   coopPool: false,
   coopJoinable: true,
   helpGhosts: true,
+  tetherVisual: true,
   cinematics: 'full',
   teamName: '',
   lobbyPublic: false,
@@ -210,6 +213,7 @@ settings.deathReplay ??= true;
 settings.coopPool ??= false;
 settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
+settings.tetherVisual ??= true;
 settings.cinematics ??= 'full';
 settings.teamName ??= '';
 settings.lobbyPublic ??= false;
