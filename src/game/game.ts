@@ -85,6 +85,7 @@ import * as CharSys from './systems/characters';
 import * as GameplaySys from './systems/gameplay';
 import * as WorldEventsSys from './systems/worldEvents';
 import * as TimeSys from './systems/time';
+import * as Coop2Sys from './systems/coop2';
 import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
@@ -580,6 +581,19 @@ export class Game implements HeroWorld {
   timeNet = TimeSys.timeNet;
   applyTimeNet = TimeSys.applyTimeNet;
   renderTime = TimeSys.renderTime;
+  // Co-op wave 2: drop-in/drop-out, revive pool, roles, team ultimate, emotes, help ghosts (src/game/systems/coop2.ts).
+  coop2Step = Coop2Sys.coop2Step;
+  coopHello = Coop2Sys.coopHello;
+  coopLeft = Coop2Sys.coopLeft;
+  coopMessage = Coop2Sys.coopMessage;
+  coopRoleStats = Coop2Sys.coopRoleStats;
+  coopPoolSave = Coop2Sys.coopPoolSave;
+  coopEmote = Coop2Sys.coopEmote;
+  coopNet = Coop2Sys.coopNet;
+  applyCoopNet = Coop2Sys.applyCoopNet;
+  coopClientMsg = Coop2Sys.coopClientMsg;
+  coopLobby = Coop2Sys.coopLobby;
+  renderCoop2 = Coop2Sys.renderCoop2;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -1130,6 +1144,7 @@ export class Game implements HeroWorld {
     this.onboarding.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
+    this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
     // Time holds (rewind playback, death replay) stop the world on this machine (systems/time.ts).
     if (this.timeStep(dt)) {
       this.input.endStep();
@@ -1383,6 +1398,7 @@ export class Game implements HeroWorld {
     if (!p.dead) h.synergy.tick(dt);
     h.refreshLive();
     if (this.heroes.length > 1 && !p.dead) this.applyTeamAuras(h, dt);
+    this.coopRoleStats(h); // co-op roles: a mixed party's team bonus (systems/coop2.ts)
     this.updateFootsteps(h, dt);
   }
 

@@ -15,6 +15,7 @@ import { settings } from '../settings';
 import { DIFF_BY_ID, type DifficultyDef, type DifficultyId } from '../../data/modes';
 import { prefetchIce } from '../../net/ice';
 import { cleanLook } from '../../data/customise';
+import { coopPlayerId } from '../coop2';
 
 export async function hostGame(this: Game, name: string): Promise<void> {
   this.saveName(name);
@@ -45,7 +46,7 @@ export function refreshLobby(this: Game): void {
   const difficulty = this.lobbyDifficulty().id;
   const kind = this.lobbyKind;
   this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind });
-  this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind });
+  this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind, co: this.coopLobby() }); // co: roles, revive pool, join anytime (systems/coop2.ts)
 }
 
 /** Co-op difficulty: the host's pick, if their save has it unlocked. */
@@ -105,7 +106,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
     return;
   }
-  client.send({ t: 'hello', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) });
+  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) });
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }
 

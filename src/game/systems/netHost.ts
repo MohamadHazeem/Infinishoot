@@ -25,6 +25,11 @@ import { noteParryLag } from '../netFeel';
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
 const fxEncoder = new FxEncoder();
 
+/** A hero's player reconnected (coop2 lane): forget that client's baselines so the next snapshot is a keyframe. */
+export function resetSnapFor(h: Hero): void {
+  snapEncoders.delete(h);
+}
+
 export function heroByPeer(this: Game, id: string): Hero | undefined {
   return this.heroes.find((h) => h.peerId === id);
 }
@@ -40,6 +45,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     return;
   }
   if (m.t === 'hello') {
+    if (this.coopHello(from, m)) return; // a run in progress: drop-in join (systems/coop2.ts)
     if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from)) {
       this.host?.send(from, { t: 'full', reason: 'Game already started.' });
       return;
@@ -104,6 +110,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     this.tryTeamMove(h);
   } else if (m.t === 'cash') {
     this.gpCashIn(h, Number(m.k) || 0); // combo cash-in (systems/gameplay.ts)
+  } else if (m.t === 'emote' || m.t === 'cobuy' || m.t === 'bye') {
+    this.coopMessage(h, m); // emotes, revive-pool buy-back, leaving on purpose (systems/coop2.ts)
   } else if (m.t === 'ui') {
     const d = m.d === -1 ? -1 : 1;
     this.heroAction(h, String(m.a), Number(m.i) || 0, d);
@@ -111,6 +119,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
 }
 
 export function onClientLeft(this: Game, id: string): void {
+  if (this.coopLeft(id)) return; // mid-run: autopilot grace period, then a clean leave (systems/coop2.ts)
   if (this.pvp && this.pvp.phase !== 'duel' && this.pvp.phase !== 'over') {
     const who = this.lobby.find((p) => p.peerId === id);
     this.lobby = this.lobby.filter((p) => p.peerId !== id);
@@ -225,6 +234,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     we: this.worldEventNet(),
     wt: this.worldEventLive(forHero),
     tm: this.timeNet(forHero),
+    co: this.coopNet(forHero),
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

@@ -139,6 +139,16 @@ export class Input {
     return this.padPressed.has(i);
   }
 
+  /** Swallow this step's press of an action (a wheel or prompt used it, so the game doesn't). */
+  consumeAction(a: Action): void {
+    for (const c of binds[a]) if (c) this.pressed.delete(c);
+  }
+
+  /** Swallow this step's press of a gamepad button. */
+  consumePad(i: number): void {
+    this.padPressed.delete(i);
+  }
+
   /** Call once per simulation step, before game logic. */
   poll(): void {
     // Keyboard move
