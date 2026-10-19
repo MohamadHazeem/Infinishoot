@@ -1,12 +1,13 @@
 import * as THREE from 'three';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
 import type { SkinDef } from '../data/skins';
 import { deathFall, toLocal, wrapAngle } from './animMath';
 
 /**
- * Placeholder chunky anime hero built from primitives: big head with a
- * painted face, helmet, oversized hands and boots, arm cannon. About three
- * heads tall. Faces +Z.
+ * Chunky armoured adventurer: layered plates, painted anime eyes and a
+ * readable three-head silhouette. Static parts merge by joint/material,
+ * preserving skin uniforms, procedural animation and the outline budget. Faces +Z.
  */
 const PALETTE = {
   armor: '#2f7bff',
@@ -71,8 +72,12 @@ export function createHero(armorColor: string = PALETTE.armor, skin?: SkinDef): 
     const leg = new THREE.Group();
     leg.position.set(0.2 * side, 0.62, 0);
     leg.add(mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.36, 6), suit, 0, -0.18, 0));
+    // Layered shin guard, bevelled toe and heel. The sole stays planted at y=0.
+    leg.add(mesh(new THREE.CylinderGeometry(0.13, 0.17, 0.22, 6), armor, 0, -0.28, 0));
+    leg.add(mesh(new THREE.BoxGeometry(0.23, 0.11, 0.07), accent, 0, -0.25, 0.14));
+    leg.add(mesh(new THREE.BoxGeometry(0.26, 0.1, 0.12), armorDark, 0, -0.49, -0.2));
     // Big boot
-    leg.add(mesh(new THREE.BoxGeometry(0.34, 0.26, 0.48), armor, 0, -0.46, 0.05));
+    leg.add(mesh(new THREE.CylinderGeometry(0.2, 0.23, 0.26, 6).scale(0.9, 1, 1.3), armor, 0, -0.46, 0.07));
     leg.add(mesh(new THREE.BoxGeometry(0.36, 0.08, 0.52), accent, 0, -0.58, 0.06));
     leg.add(mesh(new THREE.BoxGeometry(0.3, 0.12, 0.2), armorDark, 0, -0.3, 0.02));
     return leg;
@@ -87,19 +92,34 @@ export function createHero(armorColor: string = PALETTE.armor, skin?: SkinDef): 
   body.add(mesh(new THREE.BoxGeometry(0.3, 0.22, 0.06), accent, 0, 1.0, 0.2)); // chest plate
   body.add(mesh(new THREE.BoxGeometry(0.1, 0.08, 0.04), red, 0, 1.0, 0.24)); // gem
 
+  // Floating breastplate over a darker undershell, waist clasp and back vents.
+  body.add(mesh(new THREE.BoxGeometry(0.5, 0.1, 0.42), suit, 0, 0.8, 0));
+  body.add(mesh(new THREE.BoxGeometry(0.46, 0.1, 0.1), suit, 0, 1.15, 0.2));
+  for (const side of [-1, 1]) {
+    body.add(mesh(new THREE.BoxGeometry(0.12, 0.2, 0.1).rotateZ(side * 0.18), armor, side * 0.24, 0.9, 0.18));
+    body.add(mesh(new THREE.BoxGeometry(0.08, 0.22, 0.06), suit, side * 0.13, 0.98, -0.21));
+  }
+  body.add(mesh(new THREE.BoxGeometry(0.13, 0.1, 0.06), accent, 0, 0.73, 0.18));
+
   // --- Arms (pivot at shoulder) ---
   const makeArm = (side: number, cannon: boolean) => {
     const arm = new THREE.Group();
     arm.position.set(0.38 * side, 1.12, 0);
-    arm.add(mesh(new THREE.SphereGeometry(0.17, 7, 5), armor, 0, 0, 0)); // shoulder pad
+    arm.add(mesh(new THREE.SphereGeometry(0.19, 6, 4).scale(1, 0.8, 1), armor, 0, 0, 0));
+    arm.add(mesh(new THREE.BoxGeometry(0.25, 0.06, 0.24), armorDark, 0, -0.11, 0));
     arm.add(mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.3, 6), suit, 0.02 * side, -0.22, 0));
     if (cannon) {
       // Arm buster along the forearm (-Y); the arm is raised forward when aiming
       arm.add(mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.52, 8), armor, 0.04 * side, -0.42, 0));
       arm.add(mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.08, 8), accent, 0.04 * side, -0.64, 0));
       arm.add(mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 8), suit, 0.04 * side, -0.69, 0));
+      arm.add(mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.042, 6), accent, 0.04 * side, -0.7, 0));
+      arm.add(mesh(new THREE.BoxGeometry(0.06, 0.2, 0.05), accent, 0.04 * side, -0.4, 0.16));
     } else {
-      arm.add(mesh(new THREE.SphereGeometry(0.15, 6, 5), armor, 0.03 * side, -0.42, 0.02)); // big glove
+      arm.add(mesh(new THREE.BoxGeometry(0.22, 0.23, 0.25), armor, 0.03 * side, -0.42, 0.02));
+      arm.add(mesh(new THREE.BoxGeometry(0.24, 0.08, 0.24), accent, 0.03 * side, -0.3, 0.02));
+      arm.add(mesh(new THREE.BoxGeometry(0.09, 0.13, 0.14), armor, -0.09 * side, -0.41, 0.12));
+      arm.add(mesh(new THREE.BoxGeometry(0.18, 0.055, 0.04), suit, 0.03 * side, -0.46, 0.16));
     }
     return arm;
   };
@@ -134,16 +154,120 @@ export function createHero(armorColor: string = PALETTE.armor, skin?: SkinDef): 
     const fin = mesh(new THREE.BoxGeometry(0.04, 0.22, 0.14), red, 0.44 * s, 0.1, -0.02);
     head.add(fin);
   }
+  // Raised brow rim and cheek guards frame the expression without covering the eyes.
+  head.add(mesh(new THREE.BoxGeometry(0.53, 0.055, 0.1), armorDark, 0, 0.205, 0.31));
+  head.add(mesh(new THREE.BoxGeometry(0.13, 0.18, 0.07), accent, 0, 0.33, 0.23));
+  for (const side of [-1, 1])
+    head.add(mesh(new THREE.BoxGeometry(0.075, 0.2, 0.12).rotateZ(side * -0.18), armor, side * 0.29, -0.15, 0.24));
   // Painted face decal
   const facePlane = mesh(new THREE.PlaneGeometry(0.52, 0.52), face, 0, -0.04, 0.345);
   head.add(facePlane);
 
+  for (const joint of [body, head, armL, armR, legL, legR]) mergeJoint(joint);
   root.traverse((o) => {
     o.castShadow = false;
     o.receiveShadow = false;
   });
 
   return { mats: { armor, armorDark, accent, suit, red, hair, face }, expression: 'normal', iris, root, body, legL, legR, armL, armR, head, materials, anim: newAnimState() };
+}
+
+/** Merge only direct mesh children: animation pivots and skin material identities stay intact. */
+function mergeJoint(joint: THREE.Group): void {
+  const buckets = new Map<THREE.Material, THREE.Mesh[]>();
+  for (const child of joint.children) {
+    if (!(child instanceof THREE.Mesh) || Array.isArray(child.material)) continue;
+    const list = buckets.get(child.material) ?? [];
+    list.push(child);
+    buckets.set(child.material, list);
+  }
+  for (const [material, parts] of buckets) {
+    if (parts.length < 2) continue;
+    const geometries = parts.map((p) => {
+      p.updateMatrix();
+      const g = (p.geometry.index ? p.geometry.toNonIndexed() : p.geometry.clone()).applyMatrix4(p.matrix);
+      joint.remove(p);
+      p.geometry.dispose();
+      return g;
+    });
+    const merged = mergeGeometries(geometries)!;
+    const geometry = mergeVertices(merged);
+    merged.dispose();
+    for (const g of geometries) g.dispose();
+    joint.add(new THREE.Mesh(geometry, material));
+  }
+}
+
+const silhouettes = new WeakMap<HeroRig, { id: string; parts: THREE.Mesh[] }>();
+
+/** Hero identity is independent of the wardrobe. Called on every machine when the hero changes. */
+export function setHeroModel(rig: HeroRig, id: string): void {
+  const old = silhouettes.get(rig);
+  if (old?.id === id) return;
+  for (const m of old?.parts ?? []) { m.removeFromParent(); m.geometry.dispose(); }
+  // Restore the base palette after switching away from Twin.
+  for (const joint of [rig.legL, rig.legR, rig.armL]) joint.traverse((o) => {
+    if (o instanceof THREE.Mesh && o.userData.baseMaterial) o.material = o.userData.baseMaterial;
+  });
+  const body = new THREE.Group(), head = new THREE.Group();
+  const m = rig.mats;
+  const put = (parent: THREE.Group, g: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => {
+    const mesh = new THREE.Mesh(g, mat); mesh.position.set(x, y, z); parent.add(mesh);
+  };
+  const box = (parent: THREE.Group, mat: THREE.Material, w: number, h: number, d: number, x: number, y: number, z: number) =>
+    put(parent, new THREE.BoxGeometry(w, h, d), mat, x, y, z);
+  switch (id) {
+    case 'bulwark':
+      for (const side of [-1, 1]) {
+        box(body, m.armor, 0.34, 0.26, 0.5, side * 0.43, 1.18, 0);
+        box(body, m.accent, 0.36, 0.07, 0.52, side * 0.43, 1.31, 0);
+        box(head, m.armorDark, 0.15, 0.3, 0.28, side * 0.34, -0.12, 0.12);
+      }
+      box(body, m.armorDark, 0.52, 0.3, 0.1, 0, 0.99, 0.27);
+      box(body, m.accent, 0.35, 0.08, 0.12, 0, 1.08, 0.28);
+      break;
+    case 'dash':
+      box(body, m.red, 0.55, 0.12, 0.42, 0, 1.25, 0);
+      put(body, new THREE.BoxGeometry(0.2, 0.07, 0.84).rotateX(-0.3).rotateY(-0.3), m.red, -0.13, 1.08, -0.58);
+      put(body, new THREE.BoxGeometry(0.16, 0.07, 0.6).rotateX(-0.5).rotateY(0.25), m.accent, 0.1, 1.08, -0.5);
+      for (const side of [-1, 1]) put(head, new THREE.ConeGeometry(0.09, 0.4, 4).rotateX(-0.65), m.armor, side * 0.36, 0.2, -0.16);
+      break;
+    case 'ace':
+      put(head, new THREE.CylinderGeometry(0.025, 0.04, 0.45, 5).rotateZ(-0.25), m.accent, 0.25, 0.56, -0.05);
+      put(head, new THREE.OctahedronGeometry(0.09), m.red, 0.3, 0.8, -0.05);
+      box(head, m.armorDark, 0.22, 0.14, 0.12, -0.26, 0, 0.32);
+      box(head, m.accent, 0.13, 0.07, 0.13, -0.26, 0, 0.34);
+      box(body, m.armorDark, 0.38, 0.34, 0.2, 0, 1, -0.26);
+      break;
+    case 'duelist':
+      // The existing plume/scarf remains; this broad, split cape makes the back view distinct.
+      for (const side of [-1, 1]) {
+        put(body, new THREE.BoxGeometry(0.31, 0.8, 0.07).rotateX(0.32).rotateZ(side * 0.1), m.red, side * 0.16, 0.84, -0.37);
+        put(body, new THREE.BoxGeometry(0.3, 0.08, 0.075).rotateX(0.32), m.accent, side * 0.2, 0.47, -0.49);
+      }
+      break;
+    case 'furnace':
+      box(body, m.armorDark, 0.62, 0.57, 0.38, 0, 0.98, -0.35);
+      box(body, m.red, 0.4, 0.29, 0.05, 0, 0.97, -0.56);
+      for (const side of [-1, 1]) box(body, m.accent, 0.055, 0.34, 0.07, side * 0.12, 0.97, -0.58);
+      box(body, m.accent, 0.66, 0.07, 0.4, 0, 0.72, -0.35);
+      break;
+    case 'twin':
+      // Split armour is mirrored across the chest and carried through to opposing limbs.
+      for (const joint of [rig.legL, rig.armL]) joint.traverse((o) => {
+        if (o instanceof THREE.Mesh && o.material === m.armor) { o.userData.baseMaterial = o.material; o.material = m.accent; }
+      });
+      box(body, m.accent, 0.25, 0.33, 0.06, -0.135, 1, 0.24);
+      box(body, m.armorDark, 0.25, 0.33, 0.06, 0.135, 1, 0.24);
+      box(head, m.accent, 0.1, 0.2, 0.08, -0.12, 0.32, 0.24);
+      break;
+  }
+  mergeJoint(body); mergeJoint(head);
+  const parts = [...body.children, ...head.children] as THREE.Mesh[];
+  for (const child of [...body.children]) rig.body.add(child);
+  for (const child of [...head.children]) rig.head.add(child);
+  silhouettes.set(rig, { id, parts });
+  rig.root.userData.modelRevision = (rig.root.userData.modelRevision ?? 0) + 1;
 }
 
 function darker(c: string): string {
