@@ -47,10 +47,14 @@ export interface RouteRun {
   sentT: number;
   /** Test links: the current stage plays as this node. */
   force: NodeKind | null;
+  /** routeKind cache (it runs per spawn and per step): stage, node index, kind. */
+  cStage: number;
+  cIdx: number;
+  cKind: NodeKind;
 }
 
 export function newRouteRun(): RouteRun {
-  return { on: false, path: [0, 0], open: false, phase: 'map', options: [], votes: [], t: 0, event: 0, decided: -1, hold: 0, nextElite: routeTuning.eliteOffset, lastMode: '', sentT: -1, force: null };
+  return { on: false, path: [0, 0], open: false, phase: 'map', options: [], votes: [], t: 0, event: 0, decided: -1, hold: 0, nextElite: routeTuning.eliteOffset, lastMode: '', sentT: -1, force: null, cStage: -1, cIdx: -1, cKind: 'start' };
 }
 
 /** New run: the start node, and whether this mode uses the map. */
@@ -64,7 +68,12 @@ export function routeKind(this: Game, stage = this.stage): NodeKind {
   const r = this.route;
   if (r.force && stage === this.stage) return r.force;
   if (!r.on || stage <= 1 || r.path[stage] === undefined) return 'start';
-  return routeLayer(this.seed, stage, LOOP_STAGES).nodes[r.path[stage]]?.kind ?? 'start';
+  if (r.cStage !== stage || r.cIdx !== r.path[stage]) {
+    r.cStage = stage;
+    r.cIdx = r.path[stage];
+    r.cKind = routeLayer(this.seed, stage, LOOP_STAGES).nodes[r.cIdx]?.kind ?? 'start';
+  }
+  return r.cKind;
 }
 
 /** The current node's share of a curse-style modifier (added into curseSum). */
