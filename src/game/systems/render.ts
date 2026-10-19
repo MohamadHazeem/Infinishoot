@@ -279,6 +279,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const boss = client ? this.netBoss : this.boss && this.boss.active ? { name: this.boss.def.name, hp01: Math.max(0, this.boss.hp / this.boss.maxHp) } : null;
   this.updateMusic(frameDt, boss);
   this.updateSky(frameDt);
+  this.updateLook(frameDt);
   this.hud.update(
     {
       hp: p.hp,

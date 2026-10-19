@@ -8,6 +8,7 @@ import { juiceTuning } from './juice';
 import { fxQuality } from './ambience';
 import { streaks } from './streaks';
 import { DEFAULT_LOADOUT, validLoadout, type Loadout } from '../data/loadout';
+import { AUTO, AUTO_START, MANUAL_LEVELS, QualityGovernor, renderQuality, setRenderQuality } from '../render/quality';
 
 /** Player-facing settings, persisted between sessions. */
 export interface Settings {
@@ -32,8 +33,14 @@ export interface Settings {
   rumble: boolean;
   colorblind: boolean;
   reduceFlash: boolean;
-  /** 0 = low, 1 = medium, 2 = high. */
+  /** Legacy manual quality (0 = low, 1 = medium, 2 = high); `graphics` replaced it. */
   quality: number;
+  /** Graphics quality: 0 = low, 1 = medium, 2 = high, 3 = auto (holds 60 fps). */
+  graphics: number;
+  /** Screen-space shockwaves and heat shimmer. */
+  distortion: boolean;
+  /** Every third stage is at night. */
+  nightStages: boolean;
   /** Last loadout picked (left click, right click, special). */
   loadout: Loadout;
   /** Smart camera: auto zoom with the swarm and the boss kill-cam (off = plain follow camera). */
@@ -64,6 +71,9 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   colorblind: false,
   reduceFlash: false,
   quality: 1,
+  graphics: AUTO,
+  distortion: true,
+  nightStages: true,
   loadout: { ...DEFAULT_LOADOUT },
   dynamicCamera: true,
 });
@@ -73,11 +83,31 @@ settings.loadout = validLoadout(settings.loadout);
 /** Accessibility switches read by gameplay and effects code. */
 export const access = { colorblind: false, reduceFlash: false };
 
-const QUALITY = [
-  { resolution: 216, ambience: 0.35, streaks: false },
-  { resolution: 270, ambience: 1, streaks: true },
-  { resolution: 360, ambience: 1, streaks: true },
-];
+let governor: QualityGovernor | null = null;
+
+/** Switch the live quality rung (resolution, effects budget). */
+export function applyQualityLevel(level: number, auto: boolean): void {
+  setRenderQuality(level, auto);
+  const q = renderQuality;
+  if (postSettings.resolution !== q.resolution) {
+    postSettings.resolution = q.resolution;
+    window.dispatchEvent(new Event('resize'));
+  }
+  fxQuality.ambience = q.ambience;
+  streaks.enabled = q.streaks;
+}
+
+/** Auto quality: feed every rendered frame's time while playing; steps quality to hold 60 fps. */
+export function autoQualityTick(frameDt: number, active: boolean): void {
+  if (!renderQuality.auto || !governor || !active) return;
+  const l = governor.sample(frameDt);
+  if (l >= 0) applyQualityLevel(l, true);
+}
+
+/** The auto-quality governor (debug panel / tests). */
+export function qualityGovernor(): QualityGovernor | null {
+  return governor;
+}
 
 /** Push settings into the systems that use them. */
 export function applySettings(): void {
@@ -91,18 +121,21 @@ export function applySettings(): void {
   announcer.update();
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
-  postSettings.glow = settings.quality === 0 ? 0 : settings.glow;
+  postSettings.glow = settings.glow;
   postSettings.crt = settings.crt ? 1 : 0;
   access.colorblind = settings.colorblind;
   access.reduceFlash = settings.reduceFlash;
   document.body.classList.toggle('reduce-flash', settings.reduceFlash);
-  const q = QUALITY[Math.max(0, Math.min(2, Math.round(settings.quality)))];
-  if (postSettings.resolution !== q.resolution) {
-    postSettings.resolution = q.resolution;
-    window.dispatchEvent(new Event('resize'));
+  const g = Math.max(0, Math.min(AUTO, Math.round(settings.graphics)));
+  if (g === AUTO) {
+    // Keep the governor (and its rung) across unrelated settings changes.
+    if (!governor || !renderQuality.auto) governor = new QualityGovernor(AUTO_START);
+    applyQualityLevel(governor.level, true);
+  } else {
+    governor = null;
+    settings.quality = g;
+    applyQualityLevel(MANUAL_LEVELS[g], false);
   }
-  fxQuality.ambience = q.ambience;
-  streaks.enabled = q.streaks;
 }
 
 export function saveSettings(): void {

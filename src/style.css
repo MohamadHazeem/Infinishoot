@@ -1568,6 +1568,11 @@ div.mod-card.sold,
   color: var(--yellow);
 }
 
+.menu.settings label .set-val {
+  color: var(--yellow);
+  font-weight: normal;
+}
+
 input[type='range'] {
   appearance: none;
   width: 160px;

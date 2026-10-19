@@ -138,7 +138,14 @@ export interface RunSummary {
 }
 
 /** Settings switched by ON/OFF buttons. */
-type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera';
+/** Sliders with `data-labels` show their value's name (e.g. QUALITY: AUTO) in the label's `.set-val`. */
+function rangeLabel(inp: HTMLInputElement): void {
+  const names = inp.dataset.labels?.split(',');
+  const out = inp.closest('label')?.querySelector('.set-val');
+  if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
+}
+
+type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -278,8 +285,10 @@ export class Screens {
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>
     <label>GLOW <input data-nav type="range" min="0" max="1" step="0.1" data-set="glow"></label>
-    <label>QUALITY <input data-nav type="range" min="0" max="2" step="1" data-set="quality"></label>
+    <label><span>QUALITY <b class="set-val"></b></span><input data-nav type="range" min="0" max="3" step="1" data-set="graphics" data-labels="LOW,MEDIUM,HIGH,AUTO"></label>
     <button data-nav data-toggle="crt">CRT FILTER <b></b></button>
+    <button data-nav data-toggle="distortion">SHOCKWAVES <b></b></button>
+    <button data-nav data-toggle="nightStages">NIGHT STAGES <b></b></button>
     <button data-nav data-toggle="rumble">CONTROLLER RUMBLE <b></b></button>
     <button data-nav data-toggle="colorblind">COLOUR-BLIND BULLETS <b></b></button>
     <button data-nav data-toggle="reduceFlash">REDUCE FLASHING <b></b></button>
@@ -670,6 +679,7 @@ export class Screens {
       inp.addEventListener('input', () => {
         (settings as unknown as Record<string, number>)[inp.dataset.set!] = Number(inp.value);
         saveSettings();
+        rangeLabel(inp);
       });
     });
     setEl.querySelectorAll<HTMLElement>('[data-toggle]').forEach((b) => {
@@ -840,6 +850,7 @@ export class Screens {
     const el = this.els.settings;
     el.querySelectorAll<HTMLInputElement>('input[data-set]').forEach((inp) => {
       inp.value = String((settings as unknown as Record<string, number>)[inp.dataset.set!]);
+      rangeLabel(inp);
     });
     el.querySelectorAll<HTMLElement>('[data-toggle]').forEach((b) => {
       const on = settings[b.dataset.toggle as ToggleKey];

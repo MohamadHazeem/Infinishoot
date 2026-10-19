@@ -55,6 +55,7 @@ import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
 import * as EnemyAiSys from './systems/enemyAi';
 import * as AnimSys from './systems/anim';
+import * as LookSys from './systems/look';
 
 export { economyTuning } from './hero';
 
@@ -393,6 +394,7 @@ export class Game implements HeroWorld {
   renderTeam = RenderSys.renderTeam;
   cameraDirector = AnimSys.cameraDirector;
   onCorpse = AnimSys.onCorpse;
+  updateLook = LookSys.updateLook;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
