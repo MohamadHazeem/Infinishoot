@@ -44,6 +44,7 @@ import { applySoundLaneNet } from './sound2';
 import { applyNq, clientViewStep, netcodeBullets, netcodeClientMsg, netcodeSnapshot, netcodeStep, snapIfTeleported } from './netcode';
 import { applyHeroes3Net, heroes3ClientStep } from './heroes3';
 import { applyCoopPlayNet, coopPlayClientInput, coopPlayLocal } from './coopplay';
+import { voiceClientMsg } from './voicechat';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (netcodeClientMsg(this, m)) return; // probes; flushes the playout buffer before world changes (systems/netcode.ts)
@@ -53,6 +54,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
     return;
   }
   if (this.raidClientMessage(m)) return;
+  if (voiceClientMsg(this, m)) return; // voice chat roster (systems/voicechat.ts)
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
   if (this.lobbyClientMessage(m)) return; // lobby lane: cards, chat, pings, kick, party (systems/party.ts)
   if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)

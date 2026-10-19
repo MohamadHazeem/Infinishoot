@@ -71,6 +71,7 @@ import * as PvpFlowSys from './systems/pvpFlow';
 import * as Pvp2Sys from './systems/pvp2';
 import * as RaceSys from './systems/race';
 import * as NetHostSys from './systems/netHost';
+import { voiceTick } from './systems/voicechat';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
 import * as EnemyAiSys from './systems/enemyAi';
@@ -1313,6 +1314,7 @@ export class Game implements HeroWorld {
   update(dt: number): void {
     this.stepN++;
     this.mvpStep();
+    voiceTick(this, dt); // voice chat: roster, calls, push to talk, proximity (systems/voicechat.ts)
     accessibilityInput(this.input, this.isCombatMode && !this.paused && this.screens.current === 'none' && !this.photo?.active, dt, this.stage, this.hero.player.dead);
     if (this.photo?.active) {
       this.photo.update(dt);
