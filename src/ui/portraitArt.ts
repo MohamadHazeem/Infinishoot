@@ -679,7 +679,17 @@ export function paintPortrait(look: PortraitLook, expr: Expression, blink = fals
   else {
     const body = hexInt(look.colors.body ?? '#ff5e8a');
     const accent = hexInt(look.colors.accent ?? '#ffd23f');
-    if (look.model === 'king') paintKing(p, body, accent, expr);
+    if (look.model === 'pumpking') {
+      p.ellipse(16, 19, 13, 11, body);
+      for (const x of [9, 16, 23]) p.ellipse(x, 19, 4, 10, body);
+      p.poly([5, 9, 5, 3, 10, 6, 16, 1, 22, 6, 27, 3, 27, 9], accent);
+      const hurt = expr === 'hurt' || expr === 'shocked';
+      p.poly([7, 17, 11, hurt ? 12 : 14, 14, 18], accent);
+      p.poly([18, 18, 21, hurt ? 12 : 14, 25, 17], accent);
+      p.rect(9, 22, 23, hurt ? 26 : 24, 0x1a1c2c);
+      p.rect(12, 22, 14, 23, accent);
+      p.rect(19, 24, 21, 25, accent);
+    } else if (look.model === 'king') paintKing(p, body, accent, expr);
     else if (look.model === 'rex') paintRex(p, body, accent, expr);
     else if (look.model === 'queen') paintQueen(p, body, accent, expr);
     else if (look.model === 'omega') paintOmega(p, body, accent, expr);

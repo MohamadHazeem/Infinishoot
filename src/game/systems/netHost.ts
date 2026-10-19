@@ -1,3 +1,4 @@
+import { halloweenNet, cleanHalloweenLook } from './halloween';
 import { metaSkin } from '../../data/codex';
 /**
  * Online, host side: messages from clients and snapshots.
@@ -75,6 +76,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   const h = this.heroByPeer(from);
   if (!h) return;
   h.lastSeen = performance.now();
+  if (m.t === 'halook') { this.halloween.looks[h.index] = cleanHalloweenLook(m.look); return; }
   if (this.versusHostMessage(h, m)) return; // Versus Overlord orders and camera (systems/versus.ts)
   if (m.t === 'rvote') return this.routeVote(h, Number(m.i)); // route map vote (systems/route.ts)
   if (m.t === 'i') {
@@ -182,6 +184,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
   if (!enc) snapEncoders.set(forHero, (enc = new SnapEncoder()));
   // The body goes through the compact snapshot codec (src/net/snapCodec.ts); records and effects are binary.
   const body: Record<string, unknown> = {
+    ha: halloweenNet.call(this),
     meta: { heat: this.meta.heat, week: this.meta.week, clears: this.victories },
     mode: this.mode,
     stage: this.stage,

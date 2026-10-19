@@ -42,6 +42,9 @@ export const weaponSamples: Readonly<Record<string, string>> = {
   explode: 'explode_small',
 };
 export const cueSamples: Readonly<Record<string, string>> = {
+  pumpkinSquish: 'pumpkin_squish', witchCackle: 'witch_cackle', ghostWail: 'ghost_wail', halloweenBats: 'bats',
+  spookySting: 'spooky_sting', halloweenVoice: 'vo_halloween', pumpkingRoar: 'roar_pumpking',
+  pumpkingIntro: 'boss_pumpking_intro', pumpkingPhase: 'boss_pumpking_phase', pumpkingDefeat: 'boss_pumpking_defeat',
   shoot: 'w_buster',
   hit: 'hit_flesh',
   hitMetal: 'hit_metal',

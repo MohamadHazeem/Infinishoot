@@ -410,6 +410,7 @@ class Sfx {
     if (name.startsWith('s2:')) return this.laneCue(name, pitch);
     if (name.startsWith('evo:')) return this.evoLayer(name.slice(4));
     if (name.startsWith('call:')) return this.call(name.slice(5) as Family, pitch);
+    if (name in cueSamples && /^(pumpkin|pumpking|witch|ghostWail|halloween|spooky)/.test(name)) { this.play(name, 0.3, name === 'halloweenVoice' ? 'ui' : 'sfx', () => {}); return; }
     const fn = (this as unknown as Record<string, unknown>)[name];
     if (typeof fn === 'function') (fn as (p?: number) => void).call(this, pitch);
   }

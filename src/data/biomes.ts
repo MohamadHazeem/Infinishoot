@@ -1,3 +1,4 @@
+import { seasonalStage } from './seasons';
 import type { BiomeTexKey } from '../render/biomeTextures';
 import type { TrackId } from '../audio/music/composition';
 
@@ -86,7 +87,7 @@ export interface BiomeDef {
   // --- Sound (data only; the audio code plays it) ---
   footstep: 'grass' | 'sand' | 'snow' | 'metal';
   /** Ambience bed and room: the amb_<id> sample and reverb to reuse. */
-  ambience: 'meadow' | 'dunes' | 'peaks' | 'magma' | 'neon' | 'sky';
+  ambience: 'halloween' | 'meadow' | 'dunes' | 'peaks' | 'magma' | 'neon' | 'sky';
   music: TrackId;
   // --- Gameplay (identical on every machine: built from the arena seed) ---
   /** Extra ground hazard (lava and ice come from `pools`). */
@@ -143,6 +144,15 @@ export const BIOMES: BiomeDef[] = [
     music: 'meadow',
     hazard: 'thorns',
     remixes: [
+      { id: 'haunted', name: 'Haunted Meadow', ground: 'autumnGrass', groundTint: '#887699',
+        pathTint: '#bf96b8', wallTint: '#86719e', capColor: '#ef7d57', pillarTint: '#b13e53',
+        tree: 'dead', trunk: '#5d275d', rock: 'pumpkin', rockColors: ['#ef7d57', '#ffcd75'],
+        clusters: [0.3, 0.1, 0.25, 0.35], fog: '#5d275d', night: 0.85, dusk: 0, rain: 0,
+        light: { sun: [0.7, 0.46, 0.35], sky: [0.46, 0.36, 0.65], ground: [0.36, 0.25, 0.4] },
+        grade: { lift: [0.025, 0, 0.04], gamma: [1, 1, 1.02], gain: [1.06, 0.95, 1.03], saturation: 1.1 },
+        weather: 'fireflies', music: 'halloween', ambience: 'halloween', dust: '#b13e53',
+        edge: { tex: 'autumnLeaves', colors: ['#5d275d', '#ef7d57', '#b13e53'] },
+        tufts: ['#5d275d', '#b13e53'], eyeColor: '#ffcd75' },
       {
         id: 'autumn',
         name: 'Autumn Meadow',
@@ -460,7 +470,7 @@ export const biomeForce: { key: string | null } = { key: null };
 
 /** Stage 1 is the meadow; loop 1 tours the classics, later loops bring the new biomes and remixes. */
 export function biomeForStage(stage: number): BiomeDef {
-  return biomeByKey(biomeForce.key ?? biomeKeyForStage(stage));
+  return biomeByKey(biomeForce.key ?? seasonalStage(stage)?.biome ?? biomeKeyForStage(stage));
 }
 
 /** Every biome key that shows up in the first `stages` stages (title attract mode picks from these). */

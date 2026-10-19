@@ -1,3 +1,4 @@
+import { halloweenKill } from './halloween';
 import { markSeen } from '../save';
 /**
  * Statuses and combos, hazards, strikes, specials, pickups and other per-step systems.
@@ -148,6 +149,7 @@ export function sourceName(this: Game, id: string): string {
 
 export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null): void {
   if (this.finisherCatch(e, source, by)) return; // a stage boss's killing blow plays the finisher first
+  halloweenKill.call(this, e);
   const def = e.def;
   markSeen(def.id);
   const wasFrozen = e.frozen > 0;

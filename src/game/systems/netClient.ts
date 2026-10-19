@@ -1,3 +1,4 @@
+import { applyHalloweenNet, selectSeason, resetHalloween, applyVineGrab } from './halloween';
 import { applyMetaSnapshot, MetaRun } from './meta';
 /**
  * Online, client side: messages from the host and applying snapshots.
@@ -52,6 +53,9 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.hud.toast(String(m.reason ?? 'THAT GAME IS FULL'), 3);
       break;
     case 'start':
+      selectSeason.call(this, m.season);
+      resetHalloween.call(this);
+      this.halloween.earned = this.halloween.banked = Math.max(0, Number(m.candyBaseline) || 0);
       // PvP: the duel starts; from here on this machine mirrors the host like co-op.
       if (this.pvp) {
         this.role = 'client';
@@ -83,6 +87,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       break;
     }
     case 'stage':
+      selectSeason.call(this, m.season);
       this.clientStage(Number(m.stage), Number(m.seed));
       break;
     case 's':
@@ -216,6 +221,7 @@ export function clientUpdate(this: Game, dt: number): void {
     this.client?.send({ t: 'dash' });
     this.juice.shake(0.05);
   }
+  if (moving) applyVineGrab(this, this.hero.index, dt);
   if (moving) this.arenaLocal(dt);
   if (moving) this.worldEventLocal(dt);
   if (moving) this.modesLocal(dt); // the rhythm stage's beat keeps moving between snapshots (systems/modes.ts)
@@ -253,6 +259,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   if (this.snapTime) this.snapInterval += (Math.min(200, now - this.snapTime) - this.snapInterval) * 0.2;
   this.snapTime = now;
   applyMetaSnapshot(this, s.meta);
+  applyHalloweenNet.call(this, s.ha);
   const prevMode = this.mode;
   this.mode = s.mode as Mode;
   if (this.mode === 'transition' && prevMode !== 'transition') this.fadeT = 0;

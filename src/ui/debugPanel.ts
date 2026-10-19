@@ -1,3 +1,4 @@
+import { halloweenTuning } from '../data/seasons';
 import GUI from 'lil-gui';
 import * as THREE from 'three';
 import { retroGlobals } from '../render/retroMaterial';
@@ -287,6 +288,9 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addHudFolder(gui);
 
   // Onboarding: training field (src/game/training.ts) and first-time tips.
+  const halloween = gui.addFolder('Halloween').close();
+  for (const key of ['dropEvery', 'pickupRadius', 'witchEvery', 'swarmEvery', 'seedCount', 'vineRadius', 'vineWarning', 'spinRadius', 'spinWarning'] as const) halloween.add(halloweenTuning, key, key === 'dropEvery' || key === 'seedCount' ? 1 : 0.1, 60, key === 'dropEvery' || key === 'seedCount' ? 1 : 0.1);
+
   const ob = gui.addFolder('Onboarding').close();
   ob.add({ go: () => game.onboarding.startTraining() }, 'go').name('Start training');
   ob.add({ skip: () => game.onboarding.advance() }, 'skip').name('Skip training step');

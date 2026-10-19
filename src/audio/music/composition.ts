@@ -1,7 +1,7 @@
 import { Rng } from '../../core/rng';
 import { biomeForStage } from '../../data/biomes';
 
-export type TrackId = 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover';
+export type TrackId = 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover';
 export type Patch = OscillatorType | 'pluck' | 'bell' | 'wide';
 export type Section = 'intro' | 'verse' | 'chorus' | 'bridge' | 'final' | 'turnaround';
 
@@ -103,6 +103,7 @@ export const TRACKS: { id: TrackId; name: string; stage: number; boss?: boolean;
   { id: 'shop', stage: 0, name: 'Pocket Change', style: { name: 'shop', bpm: 96, root: 43, scale: MAJOR, lead: 'bell', arp: 'pluck', bass: 'triangle', padCut: 1000, swing: 0.2, drums: 'half', density: 4 } },
   { id: 'victory', stage: 1, bars: 2, name: 'Stage Clear!', theme: VICTORY_THEME, style: { name: 'victory', bpm: 132, root: 48, scale: MAJOR, lead: 'square', arp: 'bell', bass: 'triangle', padCut: 2400, swing: 0, drums: 'four', density: 6 } },
   { id: 'gameover', stage: 0, bars: 2, name: 'One More Coin', style: { name: 'gameover', bpm: 88, root: 48, scale: MINOR, lead: 'bell', arp: 'triangle', bass: 'triangle', padCut: 900, swing: 0, drums: 'half', density: 4 } },
+  { id: 'halloween', stage: 2, name: 'Midnight Candy Parade', style: { name: 'halloween', bpm: 116, root: 38, scale: HARM_MINOR, lead: 'sine', arp: 'square', bass: 'triangle', padCut: 750, swing: 0.12, drums: 'half', density: 4 } },
 ];
 
 export const TRACK_BY_ID = Object.fromEntries(TRACKS.map((t) => [t.id, t])) as Record<TrackId, (typeof TRACKS)[number]>;
