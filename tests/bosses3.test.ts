@@ -62,13 +62,13 @@ for (const id of BOSSES) {
 }
 for (const m of D.BIOME_MINIS) {
   const d = ENEMIES[m.id];
-  ok(d.miniboss === true && !d.boss && d.phases?.length === 1 && d.behavior === ENEMIES[m.of].behavior && d.model === ENEMIES[m.of].model && d.minStage === 5, `${m.id}: a 2-phase mini-boss on ${m.of}'s brain, from loop 2`);
+  ok(d.miniboss === true && !d.boss && d.phases?.length === 1 && d.behavior === ENEMIES[m.of].behavior && d.model === ENEMIES[m.of].model && d.minStage === (m.of === 'cake' || m.of === 'kraken' ? 9 : 5), `${m.id}: a 2-phase mini-boss on ${m.of}'s brain, from its biome's loop`);
   ok(MINI_BOSSES.some((x) => x.id === m.id) && bossLike(new Enemy(d)), `${m.id}: in the mini-boss pool and follows boss rules`);
 }
 ok(!!ENEMIES.dancer && !!ENEMIES.deckhand && ENEMIES.dancer.weight === 0 && ENEMIES.deckhand.minMinute === -1, 'minions exist and are never sent by the director');
 ok(Object.keys(ENEMIES).length <= 256, `enemy kinds still fit a byte (${Object.keys(ENEMIES).length})`);
 ok([5, 6, 7, 8].map((s) => bossForStage(s).id).join() === 'glitch,boxer,gale,omega', 'loop 2: Neon City, Toy Factory and Sky Fortress get their own bosses; Omega still ends the loop');
-ok([1, 2, 3, 4, 9, 10].map((s) => bossForStage(s).id).join() === 'king,rex,queen,omega,king,rex', 'other biomes keep the rotation');
+ok([1, 2, 3, 4, 9, 10].map((s) => bossForStage(s).id).join() === 'king,rex,queen,omega,cake,kraken', 'other biomes keep the rotation');
 ok(bossForStage(1, 'neon').id === 'glitch' && bossForStage(2, 'factory').id === 'boxer' && bossForStage(3, 'sky').id === 'gale' && bossForStage(4, 'sky').id === 'omega', 'the biome picks (any stage; never over Omega)');
 biomeForce.key = 'sky';
 ok(bossForStage(1).id === 'gale', 'a pinned biome (&biome=sky) brings its boss');

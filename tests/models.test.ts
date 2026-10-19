@@ -83,7 +83,11 @@ for (const def of Object.values(ENEMIES)) {
     else if (gate > 0) late++;
     if (detail.getY(i) > 0) glow++;
   }
-  ok(early > 0 && late > 0 && glow > 0, `${def.id}: core and both HP damage states are present`);
+  if (def.model === 'cake') {
+    let tiers = 0;
+    for (let i = 0; i < detail.count; i++) if (detail.getX(i) < 0) tiers++;
+    ok(tiers > 0, `${def.id}: breakable tiers carry HP thresholds`);
+  } else ok(early > 0 && late > 0 && glow > 0, `${def.id}: core and both HP damage states are present`);
   ok(geo.userData.modelOutlineCount < geo.index!.count, `${def.id}: hidden cracks and sparks do not leak into the outline`);
 }
 {

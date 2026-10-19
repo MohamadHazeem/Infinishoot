@@ -47,9 +47,9 @@ const { bossLike } = await import('../src/game/bossRules');
   const at = (s: number, beaten = all) => R.stageBossId(s, bossForStage(s).id, beaten);
   ok([1, 2, 3, 4].map((s) => at(s)).join() === 'king,rex,queen,omega', 'loop 1 is the regular rotation, even after beating them');
   ok(at(5) === 'glitch' && at(6) === 'boxer' && at(7) === 'gale' && at(8) === 'omega', `loop 2: the biome bosses keep their stages, then Omega (${[5, 6, 7, 8].map((s) => at(s))})`); // bosses3 lane
-  ok(at(9) === 'king_ex' && at(10) === 'rex_inferno' && at(11) === 'titan' && at(12) === 'omega', 'loop 3: the Titan moves to the Queen slot, Rex comes back as Inferno');
-  ok(at(13) === 'glitch' && at(16) === 'omega', 'loop 4: Neon City keeps its DJ over the Titan; Omega always ends the loop'); // bosses3 lane
-  ok(at(9, none) === 'king' && at(10, none) === 'rex', 'a boss you never beat this run comes back as itself');
+  ok(at(9) === 'cake' && at(10) === 'kraken' && at(11) === 'titan' && at(12) === 'omega', 'loop 3: Candy and Ruins keep native bosses, Titan keeps the Queen slot');
+  ok(at(13) === 'titan' && at(14) === 'rex_inferno' && at(16) === 'omega', 'loop 4: Titan takes the King slot, classic remixes return, then Omega'); // bosses3 lane
+  ok(at(14, none) === 'rex' && at(15, none) === 'queen', 'a boss you never beat this run comes back as itself');
   ok(R.stageBossId(1, 'king', none, { remix: true }) === 'king_ex' && R.stageBossId(2, 'rex', none, { titan: true }) === 'titan' && R.stageBossId(4, 'omega', none, { titan: true }) === 'omega', 'test-link forcing (never over Omega)');
   ok(R.remixBase('rex_inferno') === 'rex' && R.remixBase('king') === 'king', 'remix base ids');
 }
