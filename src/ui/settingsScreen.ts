@@ -84,6 +84,7 @@ export class SettingsScreen {
   get selectedTab(): number { return this.tabIndex; }
   private hint: HTMLElement;
   private lastFocus: Element | null = null;
+  private hintMode: string | null = null;
   constructor(screens: Pick<Screens, 'addScreen'>, back: () => void, controls: () => void) {
     injectSettingsCss();
     this.el.id = 'scr-settings';
@@ -189,8 +190,10 @@ export class SettingsScreen {
       this.lastFocus = focused; this.describe(focused as HTMLElement);
       if (focused && (input.device === 'pad' || input.keyPressed('ArrowDown') || input.keyPressed('ArrowUp') || input.keyPressed('KeyW') || input.keyPressed('KeyS') || input.keyPressed('KeyQ') || input.keyPressed('KeyE'))) (focused as HTMLElement).focus({ preventScroll: true });
     }
-    const hint = promptState.mode === 'kbm' ? 'Q / E · SWITCH TAB' : promptState.mode === 'touch' ? 'TAP A TAB TO SWITCH' : `${promptHtml('dash')} / ${promptHtml('bomb')} · SWITCH TAB`;
-    if (this.hint.innerHTML !== hint) this.hint.innerHTML = hint;
+    if (this.hintMode !== promptState.mode) {
+      this.hintMode = promptState.mode;
+      this.hint.innerHTML = promptState.mode === 'kbm' ? 'Q / E · SWITCH TAB' : promptState.mode === 'touch' ? 'TAP TABS · SWIPE TO SCROLL' : `${promptHtml('dash')} / ${promptHtml('bomb')} · SWITCH TAB`;
+    }
   }
 }
 
@@ -205,8 +208,8 @@ function injectSettingsCss(): void {
 #scr-settings .settings-tabs button { font:12px var(--label); padding:calc(3 * var(--p)); flex:1 1 auto; min-width:0; min-height:44px; }
 #scr-settings .settings-tabs button.on { --bg:var(--blue); --hi:var(--cyan); color:var(--white); }
 #scr-settings .settings[hidden] { display:none; }
-#scr-settings .settings { width:100%; max-height:46vh; min-height:110px; overflow-y:auto; padding:calc(4 * var(--p)); box-sizing:border-box; gap:calc(3 * var(--p)); align-items:stretch; }
-#scr-settings .settings > button, #scr-settings .settings > label { width:100%; box-sizing:border-box; min-height:44px; white-space:normal; font-size:21px; }
+#scr-settings .settings { width:100%; min-width:0; max-height:46vh; min-height:110px; overflow-y:auto; padding:calc(4 * var(--p)); box-sizing:border-box; gap:calc(3 * var(--p)); align-items:stretch; }
+#scr-settings .settings > button, #scr-settings .settings > label { width:100%; box-sizing:border-box; flex:0 0 auto; height:auto; min-height:44px; white-space:normal; font-size:21px; }
 #scr-settings .settings label { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; }
 #scr-settings .settings button { display:flex; align-items:center; justify-content:space-between; gap:12px; text-align:left; }
 #scr-settings .settings b { color:var(--yellow); margin-left:8px; }

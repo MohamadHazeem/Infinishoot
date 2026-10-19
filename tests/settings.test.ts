@@ -62,6 +62,11 @@ ok(screen.el.querySelector('[data-tab="2"]')!.getAttribute('aria-selected') === 
 const fakePad = { keyPressed: () => false, padButtonPressed: (b: number) => b === 5, device: 'pad' } as any;
 screen.update(fakePad, 1 / 60); ok(screen.el.querySelector('[data-tab="3"]')!.getAttribute('aria-selected') === 'true', 'RB switches tabs');
 screen.update({ ...fakePad, padButtonPressed: (b: number) => b === 4 }, 1 / 60); ok(screen.el.querySelector('[data-tab="2"]')!.getAttribute('aria-selected') === 'true', 'LB switches tabs');
+const { promptState } = await import('../src/ui/prompts');
+promptState.mode = 'xbox'; screen.update(input, 1 / 60);
+const hintNode = screen.el.querySelector('.settings-hint')!.firstChild;
+screen.update(input, 1 / 60);
+ok(screen.el.querySelector('.settings-hint')!.firstChild === hintNode, 'controller hints reuse DOM between frames');
 screen.selectTab(4); screen.el.querySelector<HTMLButtonElement>('[data-reset]')!.click();
 ok(settings.textScale === 100 && !settings.reduceScreenEffects, 'reset button restores active tab');
 ok(!!screen.el.querySelector('[data-act=ob-tips-reset]') && !!screen.el.querySelector('[data-act=ob-tips]'), 'onboarding tips and reset remain mounted across tabs');
