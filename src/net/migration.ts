@@ -23,8 +23,14 @@ export const hostmigTuning = {
   every: 1.5,
   /** Client: how long to wait for the old host to answer before electing a new one (s). 0 when it said goodbye. */
   probe: 4,
+  /** Client: the old host answered a reconnect but hasn't let us back in after this long (s): elect a new one after all. */
+  blip: 15,
   /** Client: how long to keep trying an elected host before skipping to the next candidate (s). */
   candidate: 16,
+  /** ...up to this many times as long while its room is found but not yet reachable (it's alive). */
+  aliveMul: 3,
+  /** New host that skipped an unreachable candidate: how long it keeps trying to join that one instead while nobody joins it (s). */
+  heal: 90,
   /** New host: how long menus wait for migrating teammates before the autopilot answers for them (s). */
   hold: 30,
   /** Snapshots older than this are not trusted for a promotion (s); the run is left instead. */
@@ -34,12 +40,16 @@ export const hostmigTuning = {
 /** Own primitive fields (numbers, booleans, strings) of a plain or class object: lane state with no nested objects. */
 export type Prims = Record<string, number | boolean | string>;
 
+const NUM_TAG = '#num:';
+
 export function prims(o: object | null | undefined): Prims {
   const out: Prims = {};
   if (!o) return out;
   for (const [k, v] of Object.entries(o)) {
     if (typeof v === 'number') {
-      if (Number.isFinite(v) || v === Infinity || v === -Infinity) out[k] = v;
+      // PeerJS's binarypack throws on integers it can't fit (Infinity counts as one): those travel as text.
+      if (Number.isFinite(v) && Math.abs(v) < 2 ** 52) out[k] = v;
+      else if (!Number.isNaN(v)) out[k] = NUM_TAG + v;
     } else if (typeof v === 'boolean' || typeof v === 'string') out[k] = v;
   }
   return out;
@@ -52,6 +62,10 @@ export function applyPrims(o: object | null | undefined, p: unknown): void {
   for (const [k, v] of Object.entries(p as Record<string, unknown>)) {
     if (!(k in t)) continue;
     const cur = t[k];
+    if (typeof cur === 'number' && typeof v === 'string' && v.startsWith(NUM_TAG)) {
+      t[k] = Number(v.slice(NUM_TAG.length));
+      continue;
+    }
     if (typeof cur !== typeof v || (typeof v !== 'number' && typeof v !== 'boolean' && typeof v !== 'string')) continue;
     try {
       t[k] = v;

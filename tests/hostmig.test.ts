@@ -39,7 +39,10 @@ const { ENEMIES } = await import('../src/data/enemies');
 // ---------------------------------------------------------------- pure parts
 {
   const p = MG.prims({ a: 1, b: 'x', c: true, d: { e: 1 }, f: [1], g: NaN, h: Infinity });
-  ok(p.a === 1 && p.b === 'x' && p.c === true && !('d' in p) && !('f' in p) && !('g' in p) && p.h === Infinity, `prims: only primitive fields (${JSON.stringify(p)})`);
+  ok(p.a === 1 && p.b === 'x' && p.c === true && !('d' in p) && !('f' in p) && !('g' in p) && typeof p.h === 'string', `prims: only primitive fields, Infinity as text (${JSON.stringify(p)})`);
+  const back = { h: 0, big: 0 };
+  MG.applyPrims(back, { ...p, big: MG.prims({ big: 1e300 }).big });
+  ok(back.h === Infinity && back.big === 1e300, 'prims: Infinity and huge integers come back as numbers (PeerJS binarypack cannot pack them)');
   const t = { a: 0, b: '', c: false, keep: 5 };
   MG.applyPrims(t, { a: 3, b: 'y', c: true, keep: 'nope', extra: 9 });
   ok(t.a === 3 && t.b === 'y' && t.c === true && t.keep === 5 && !('extra' in t), 'applyPrims: same-typed existing fields only');
@@ -234,6 +237,32 @@ const sB = HM.hostmigState(B);
 const sC = HM.hostmigState(C);
 ok(!!sB.mig && !!sC.mig && sB.mig.cands.join() === '1,2', `snapshot: both clients hold a migration snapshot naming the connected players (${sB.mig?.cands})`);
 ok(!!sB.mig && sB.mig.heroes.length === 3 && sB.mig.en.byteLength > 20, 'snapshot: every hero and every enemy');
+{
+  // The real transport (PeerJS binarypack) must be able to pack it: it throws on Infinity and oversized integers.
+  const { pack } = await import('peerjs-js-binarypack');
+  A.director.goldenAt = Infinity;
+  let err = '';
+  let bytes = 0;
+  try {
+    bytes = (pack(HM.buildMig(A) as never) as ArrayBuffer).byteLength;
+  } catch (e) {
+    err = String(e);
+  }
+  ok(!err && bytes > 0, `snapshot: PeerJS can pack it (${bytes} B${err ? `, ${err}` : ''})`);
+  A.director.goldenAt = -1;
+}
+{
+  // A closing tab loses connections around its goodbye: the goodbye snapshot still lists everyone the last one did.
+  const sA = HM.hostmigState(A);
+  HM.buildMig(A, sA);
+  const grace = C2.coop2Debug(A).grace;
+  grace.push({ index: 2, t: 60, pilot: null as never });
+  const bye = HM.buildMig(A, sA, true).cands.join();
+  const regular = HM.buildMig(A, sA).cands.join();
+  grace.pop();
+  HM.buildMig(A, sA);
+  ok(bye === '1,2' && regular === '1', `snapshot: the goodbye keeps the last connected list (${bye}; a regular one says ${regular})`);
+}
 
 // ---------------------------------------------------------------- 1: the host is lost mid-level-up
 for (const h of A.heroes) h.pendingLevels = 1;
@@ -355,4 +384,59 @@ ok(C.mode !== 'title' && C.mode !== 'dead' && HM.hostmigState(C).migrations === 
   step(2, false);
   ok(!wentToTitle && K.role === 'solo' && K.mode !== 'title', `a host quitting hands the run to the last player (${K.role}, ${K.mode})`);
   ok(HM.hostmigState(K).events.some((e) => /said goodbye/.test(e)), 'the client knew the host was leaving (no probe wait)');
+}
+
+// ---------------------------------------------------------------- healing a split: a skipped host turns out to be there
+{
+  const { saveJson } = await import('../src/core/storage');
+  const H = mk();
+  const P = mk();
+  const Q = mk();
+  const room = new Room('HEALX');
+  rooms.set('HEALX', room);
+  (H as any).role = 'host';
+  (H as any).host = room;
+  room.onMessage = (from, m) => H.onHostMessage(from, m as never);
+  room.onLeave = (id) => H.onClientLeft(id);
+  H.lobby = [{ peerId: '', name: 'HOTEL', unlocked: [], loadout: lo, skin: 'classic', pet: 'none', hero: 'rookie', look: '---00' } as any];
+  connect(P, room, 'peerP');
+  connect(Q, room, 'peerQ');
+  H.onHostMessage('peerP', { t: 'hello', pid: 'pidpapa1234', name: 'PAPA', loadout: lo });
+  H.onHostMessage('peerQ', { t: 'hello', pid: 'pidquebec12', name: 'QUEBEC', loadout: lo });
+  H.hostStart();
+  flush();
+  if (H.mode === 'shop') H.closeShop();
+  live = [H, P, Q];
+  step(120);
+  room.dead = true;
+  live = [P, Q];
+  for (const g of [P, Q]) {
+    NC.netcodeLost(g, (g as any).client);
+    NC.netcodeState(g).rc!.next = Infinity;
+  }
+  step(1, false);
+  ok(P.role === 'host' && NC.netcodeState(Q).rc?.code === 'HEALX-M1H1', 'heal: P hosts, Q heads for its room');
+  // Q never gets through (a slow route) and gives up on P: alone, it carries on solo...
+  const sQ = HM.hostmigState(Q);
+  NC.netcodeState(Q).rc!.lastError = 'No game found with that code.';
+  sQ.until = 0;
+  step(1, false);
+  ok(Q.role === 'solo' && sQ.yieldTo.join() === 'HEALX-M1H1', `heal: Q skipped P and carries on, still looking for P's room (${Q.role}, ${sQ.yieldTo})`);
+  // ...until P's room answers: Q joins it and gets its own hero back.
+  const roomP = rooms.get('HEALX-M1H1')!;
+  saveJson('coop.pid', 'pidquebec12');
+  HM.hostmigNet.makeClient = (code: string) => {
+    const r = rooms.get(code)!;
+    r.peers.set('peerQ2', Q);
+    r.lastHeard.set('peerQ2', performance.now());
+    return { code, open: true, lastHeard: 0, onMessage() {}, onClose() {}, ready: Promise.resolve(), send: (m: unknown) => q.push({ to: r, m, from: 'peerQ2', room: r }), close() {}, drop() {} } as never;
+  };
+  sQ.yieldNext = 0;
+  step(1, false);
+  await Promise.resolve();
+  await Promise.resolve();
+  flush();
+  step(5, false);
+  ok(Q.role === 'client' && P.heroes[2].peerId === 'peerQ2' && Q.local === 2 && Q.heroes.length === 3, `heal: Q joined P's room as hero 2 (${Q.role}, local ${Q.local}, P sees ${P.heroes[2].peerId})`);
+  ok(HM.hostmigState(Q).events.some((e) => /joining it instead/.test(e)), 'heal: logged');
 }

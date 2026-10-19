@@ -31,13 +31,13 @@
 import type { Game, LobbyEntry, Mode } from '../game';
 import { xpForLevel } from '../game';
 import type { Hero } from '../hero';
-import { NetHost, migrationCode } from '../../net/peer';
+import { NetClient, NetHost, migrationCode } from '../../net/peer';
 import { MIG_VERSION, applyPrims, baseCode, electHost, hostmigTuning, knownEnemy, packMigEnemies, packMigPickups, prims, unpackMigEnemies, unpackMigPickups, type Prims } from '../../net/migration';
 import { exportBuild, applyBuild, type HeroBuild } from '../pvp';
 import { coopState } from './coop2';
 import { coopPlayerId, joinTuning } from '../coop2';
 import { Autopilot } from '../autopilot';
-import { netcodeNote, netcodeState } from './netcode';
+import { helloMsg, netcodeJoined, netcodeLost, netcodeNote, netcodeState } from './netcode';
 import { isBotPeer } from './pvp2';
 import { ENEMIES } from '../../data/enemies';
 import { MOD_BY_ID } from '../../data/mods';
@@ -47,6 +47,7 @@ import { sfx } from '../../audio/sfx';
 import { samples } from '../../audio/samples';
 import { voiceGate } from '../../audio/announcer';
 import { caption } from '../../audio/captions';
+import { t } from '../../i18n';
 import { cleanLook } from '../../data/customise';
 import type { Offer } from '../../ui/screens';
 import type { RouteRun } from './route';
@@ -142,6 +143,10 @@ interface HostmigState {
   base: string;
   nextSend: number;
   sentKey: string;
+  sig: number;
+  lastWho: string;
+  /** The connected players the last regular snapshot listed. */
+  cands: number[];
   pagehide: boolean;
   /** New host: menus wait for these hero indexes until `holdUntil` (performance.now()). */
   waiting: Set<number>;
@@ -155,10 +160,18 @@ interface HostmigState {
   phase: Phase;
   until: number;
   cand: number;
+  joinAt: number;
   skip: Set<number>;
+  /** New host that skipped unreachable candidates: their rooms, tried now and then while nobody joins here (healing a split). */
+  yieldTo: string[];
+  yieldUntil: number;
+  yieldNext: number;
+  yieldTry: NetClient | null;
   // both
   panel: HTMLElement | null;
   panelText: string;
+  /** `npm run migrate`: leave without a goodbye, like a crash. */
+  crashTest: boolean;
   /** Test links: a panel text to show whatever the state. */
   demo: string;
   migrations: number;
@@ -171,8 +184,9 @@ const states = new WeakMap<Game, HostmigState>();
 export function hostmigState(g: Game): HostmigState {
   let s = states.get(g);
   if (!s) {
-    s = { epoch: 0, base: '', nextSend: 0, sentKey: '', pagehide: false, waiting: new Set(), holdUntil: 0, peerSeen: [], mig: null, migAt: 0, bye: false, phase: 'idle', until: 0, cand: -1, skip: new Set(), panel: null, panelText: '', demo: '', migrations: 0, events: [] };
+    s = { epoch: 0, base: '', nextSend: 0, sentKey: '', sig: 0, lastWho: '', cands: [], pagehide: false, waiting: new Set(), holdUntil: 0, peerSeen: [], mig: null, migAt: 0, bye: false, phase: 'idle', until: 0, cand: -1, joinAt: 0, skip: new Set(), yieldTo: [], yieldUntil: 0, yieldNext: 0, yieldTry: null, panel: null, panelText: '', crashTest: false, demo: '', migrations: 0, events: [] };
     states.set(g, s);
+    (g as unknown as { hostmig: HostmigState }).hostmig = s; // tests and `npm run migrate` read it from window.game
   }
   return s;
 }
@@ -187,6 +201,7 @@ function note(g: Game, msg: string): void {
 /** Test hook: how a promoted machine opens its room (tests swap in an in-process transport). */
 export const hostmigNet = {
   makeHost: (code: string): NetHost => new NetHost(3, code),
+  makeClient: (code: string): NetClient => new NetClient(code),
 };
 
 /** A run that can move to another host: co-op (standard or weekly), not PvP, Versus or local co-op. */
@@ -201,7 +216,10 @@ export function hostmigTick(g: Game): void {
   const s = hostmigState(g);
   if (g.role === 'host') hostStep(g, s);
   else if (g.role === 'client') clientStep(g, s);
-  else if (s.phase !== 'idle' || s.mig) resetClient(s);
+  else {
+    if (s.phase !== 'idle' || s.mig) resetClient(s);
+    healStep(g, s); // alone after skipping an unreachable host: join it if it turns up
+  }
   renderPanel(g, s);
 }
 
@@ -221,20 +239,57 @@ function hostStep(g: Game, s: HostmigState): void {
     });
   }
   holdStep(g, s);
+  healStep(g, s);
   if (!migratable(g)) return;
   const clients = connectedClients(g);
+  const who = clients.map((h) => h.index).join();
+  if (who !== s.lastWho) {
+    note(g, `host: connected players [${who}]`);
+    s.lastWho = who;
+  }
   if (!clients.length) return;
   const now = performance.now();
-  const key = `${g.mode}|${g.stage}|${g.route.open ? g.route.phase : ''}|${clients.map((h) => h.index).join()}|${g.heroes.length}`;
+  // Builds change without a mode change too (one hero's pick while others still pick, a chest item, a shop buy).
+  if (g.stepN % 10 === 0) s.sig = buildSig(g);
+  const key = `${g.mode}|${g.stage}|${g.route.open ? g.route.phase : ''}|${clients.map((h) => h.index).join()}|${g.heroes.length}|${s.sig}`;
   if (key === s.sentKey && now < s.nextSend) return;
   s.sentKey = key;
   s.nextSend = now + hostmigTuning.every * 1000;
-  const m = buildMig(g, s);
-  for (const h of clients) host.send(h.peerId, m);
+  sendMig(g, clients, buildMig(g, s) as unknown as Record<string, unknown>);
+}
+
+/** Send without ever breaking the host's loop (the transport packs synchronously and can throw). */
+function sendMig(g: Game, to: Hero[], ...msgs: Record<string, unknown>[]): void {
+  for (const h of to) {
+    for (const m of msgs) {
+      try {
+        g.host?.send(h.peerId, m);
+      } catch (e) {
+        note(g, `host: couldn't send ${String(m.t)}: ${(e as Error)?.message ?? e}`);
+      }
+    }
+  }
+}
+
+/** A cheap fingerprint of every hero's build (weapon levels and ranks, passives, Mods, relics). */
+function buildSig(g: Game): number {
+  let n = 0;
+  for (const h of g.heroes) {
+    n = (n * 31 + h.weapons.length * 7 + h.synergy.slots.length * 13 + h.relics.length * 17 + h.special.level) | 0;
+    for (const w of h.weapons) n = (n * 31 + w.level * 3 + w.buildKey.length) | 0;
+    for (const id in h.passives) n = (n * 31 + h.passives[id]) | 0;
+    for (const sl of h.synergy.slots) n = (n * 31 + sl.level) | 0;
+  }
+  return n;
 }
 
 /** The host's migration snapshot. */
-export function buildMig(g: Game, s = hostmigState(g)): MigSnapshot {
+export function buildMig(g: Game, s = hostmigState(g), leaving = false): MigSnapshot {
+  // Connected players, in join order. A closing tab tears its connections down around its goodbye:
+  // that last snapshot keeps everyone the previous one listed, so all clients still elect the same host.
+  let cands = connectedClients(g).map((h) => h.index);
+  if (leaving) cands = [...new Set([...s.cands, ...cands])].filter((i) => g.heroes[i] && !g.heroes[i].left).sort((a, b) => a - b);
+  else s.cands = cands;
   const cs = coopState(g);
   const run: Prims = {};
   for (const k of RUN_KEYS) {
@@ -248,7 +303,7 @@ export function buildMig(g: Game, s = hostmigState(g)): MigSnapshot {
     ep: s.epoch,
     code: s.base || baseCode(g.host?.code ?? ''),
     hi: g.local,
-    cands: connectedClients(g).map((h) => h.index),
+    cands,
     mode: g.mode,
     resume: g.resumeMode,
     run,
@@ -320,15 +375,11 @@ function plain<T>(v: T): T {
 
 /** Host: leaving on purpose (or the tab closing). Clients migrate at once instead of waiting for a timeout. */
 export function hostmigLeaving(g: Game): void {
-  if (g.role !== 'host' || !g.host || !migratable(g)) return;
+  if (g.role !== 'host' || !g.host || !migratable(g) || hostmigState(g).crashTest) return;
   const clients = connectedClients(g);
   if (!clients.length) return;
   const s = hostmigState(g);
-  const m = buildMig(g, s);
-  for (const h of clients) {
-    g.host.send(h.peerId, m);
-    g.host.send(h.peerId, { t: 'hmig', bye: 1 });
-  }
+  sendMig(g, clients, buildMig(g, s, true) as unknown as Record<string, unknown>, { t: 'hmig', bye: 1 });
   note(g, 'host: leaving, clients migrate');
 }
 
@@ -347,6 +398,8 @@ export function hostmigClientMsg(g: Game, m: Record<string, unknown>): boolean {
     case 'hmig':
       s.bye = true;
       note(g, 'client: the host is leaving');
+      // Its connection may linger (a closing tab): don't wait for it, the migration snapshot is already here.
+      if (s.mig && migratable(g)) setTimeout(() => g.role === 'client' && g.client?.drop(), 0);
       return true;
     case 'end':
       // The host left on purpose mid-run: migrate instead of going back to the title.
@@ -397,13 +450,27 @@ function clientStep(g: Game, s: HostmigState): void {
   if (s.phase === 'probe') {
     if (rc.hello) {
       s.phase = 'blip'; // the old host answered: the netcode lane's reconnect takes it from here
+      s.until = now + hostmigTuning.blip * 1000;
       note(g, 'client: the old host answered, no migration');
       return;
     }
     if (now >= s.until) decide(g, s, m);
     return;
   }
+  if (s.phase === 'blip' && (!rc.hello || now >= s.until)) {
+    // It answered but never let us back in (it died meanwhile, or hangs): look for a new host after all.
+    s.phase = 'probe';
+    s.until = now + (s.bye ? 0 : hostmigTuning.probe * 1000);
+    note(g, 'client: the old host went quiet again, probing it');
+    return;
+  }
   if (s.phase === 'join' && !rc.hello && now >= s.until) {
+    // The room exists (signalling worked, the direct route didn't yet: a busy machine, a slow ICE): it's alive, keep at it.
+    if (/^Found the game/.test(rc.lastError ?? '') && now < s.joinAt + hostmigTuning.candidate * hostmigTuning.aliveMul * 1000) {
+      s.until = now + 4000;
+      rc.lastError = '';
+      return;
+    }
     note(g, `client: hero ${s.cand}'s room never answered, next candidate`);
     s.skip.add(s.cand);
     decide(g, s, m);
@@ -414,6 +481,7 @@ function clientStep(g: Game, s: HostmigState): void {
 function decide(g: Game, s: HostmigState, m: MigSnapshot): void {
   const cand = electHost(m.cands, m.hi, s.skip);
   const now = performance.now();
+  note(g, `client: electing from snapshot epoch ${m.ep} of hero ${m.hi}, connected [${m.cands}], skipping [${[...s.skip]}] -> ${cand}`);
   if (cand < 0 || cand === g.local) {
     promote(g, s, m, cand < 0 || m.cands.filter((i) => i !== m.hi && !s.skip.has(i)).length <= 1);
     return;
@@ -423,6 +491,7 @@ function decide(g: Game, s: HostmigState, m: MigSnapshot): void {
   s.cand = cand;
   s.phase = 'join';
   s.until = now + hostmigTuning.candidate * 1000;
+  s.joinAt = now;
   rc.pending?.close();
   rc.pending = null;
   rc.hello = false;
@@ -450,6 +519,11 @@ function promote(g: Game, s: HostmigState, m: MigSnapshot, solo: boolean): void 
     // already gone
   }
   restoreRun(g, m);
+  // Candidates before us that we couldn't reach may be hosting anyway (a slow route, not a dead machine): try to join them for a while.
+  const now = performance.now();
+  s.yieldTo = [...s.skip].filter((i) => i < g.local && i !== m.hi).sort((a, b) => a - b).map((i) => migrationCode(m.code, m.ep + 1, i));
+  s.yieldUntil = now + hostmigTuning.heal * 1000;
+  s.yieldNext = now + 3000;
   s.epoch = m.ep + 1;
   s.base = m.code;
   s.phase = 'idle';
@@ -487,7 +561,7 @@ function promote(g: Game, s: HostmigState, m: MigSnapshot, solo: boolean): void 
     };
     host.onError = (msg) => note(g, `new host room error: ${msg}`);
     host.ready?.catch?.(() => {});
-    note(g, `promoted: new host in room ${code} (epoch ${s.epoch})`);
+    note(g, `promoted: new host in room ${code} (epoch ${s.epoch}, level ${g.level}, picks waiting ${g.heroes.map((h) => h.pendingLevels + h.chestsPending).join('/')})`);
   }
   // coop2: this run continues (no fresh-run reset on the next step), with everyone's player ids.
   cs.stage = g.stage;
@@ -701,6 +775,70 @@ function presentMenu(g: Game, h: Hero): void {
   }
 }
 
+// ---------------------------------------------------------------- healing a split
+
+/**
+ * A new host that skipped an earlier candidate it couldn't reach keeps trying
+ * that candidate's room while nobody has joined here. If it answers, the
+ * others are most likely there: this machine closes its room and joins as a
+ * client (its hero waits on that host's autopilot and is reclaimed as usual).
+ */
+function healStep(g: Game, s: HostmigState): void {
+  if (!s.yieldTo.length) return;
+  const now = performance.now();
+  if (now > s.yieldUntil || connectedClients(g).length > 0 || !migratable(g)) {
+    s.yieldTo = [];
+    s.yieldTry?.close();
+    s.yieldTry = null;
+    return;
+  }
+  if (s.yieldTry || now < s.yieldNext) return;
+  const code = s.yieldTo[0];
+  s.yieldTo.push(s.yieldTo.shift()!);
+  const c = hostmigNet.makeClient(code);
+  s.yieldTry = c;
+  c.onMessage = (m) => {
+    if (g.client === c) g.onClientMessage(m as Record<string, unknown>);
+  };
+  c.ready.then(
+    () => {
+      if (s.yieldTry !== c || g.role === 'client' || !migratable(g) || connectedClients(g).length > 0) {
+        c.close();
+        return;
+      }
+      s.yieldTry = null;
+      joinInstead(g, s, c, code);
+    },
+    () => {
+      if (s.yieldTry !== c) return;
+      s.yieldTry = null;
+      s.yieldNext = performance.now() + 4000;
+    },
+  );
+}
+
+function joinInstead(g: Game, s: HostmigState, c: NetClient, code: string): void {
+  note(g, `host: room ${code} answered, joining it instead of hosting alone`);
+  const host = g.host;
+  g.host = null;
+  try {
+    host?.close();
+  } catch {
+    // already gone
+  }
+  s.yieldTo = [];
+  s.waiting.clear();
+  g.role = 'client';
+  g.client = c;
+  c.onClose = () => {
+    if (g.client !== c) return;
+    if (netcodeLost(g, c)) return;
+    g.leaveToTitle();
+  };
+  netcodeJoined(g, c);
+  c.send(helloMsg(g.netName || g.hero.name));
+}
+
 // ---------------------------------------------------------------- new host: holding menus for returning players
 
 /** coop2 graceStep: menus and votes wait for this hero (a migrating player) instead of the autopilot answering. */
@@ -740,10 +878,10 @@ function holdStep(g: Game, s: HostmigState): void {
 
 // ---------------------------------------------------------------- banner, sound, panel
 
-function announce(g: Game, name: string, me: boolean, solo = false): void {
-  const title = solo ? 'YOU CARRY ON' : `NEW HOST: ${name.toUpperCase()}`;
-  const sub = solo ? 'THE HOST LEFT · THE RUN GOES ON SOLO' : me ? 'THE HOST LEFT · YOUR GAME RUNS THE RUN NOW' : 'THE HOST LEFT · RECONNECTING TO THE NEW HOST';
-  g.hud.showBanner(title, sub, 2.6);
+function announce(g: Game, name: string, me: boolean, solo = false, seconds = 2.6): void {
+  const title = solo ? t('hostmig.solo') : t('hostmig.newHost', { name: name.toUpperCase() });
+  const sub = t(solo ? 'hostmig.subSolo' : me ? 'hostmig.subMe' : 'hostmig.subOther');
+  g.hud.showBanner(title, sub, seconds);
   try {
     sfx.named('hostMigrate');
   } catch {
@@ -755,7 +893,7 @@ function announce(g: Game, name: string, me: boolean, solo = false): void {
   } catch {
     // audio not started
   }
-  caption({ who: 'ANNOUNCER', text: 'New host. Keep fighting!', color: '#ffcd75', kind: 'announcer' });
+  caption({ who: 'ANNOUNCER', text: t('hostmig.line'), color: '#ffcd75', kind: 'announcer' });
 }
 
 const CSS = `
@@ -765,7 +903,7 @@ const CSS = `
   --lo: var(--night);
   position: absolute;
   left: 50%;
-  top: 30%;
+  top: 22%;
   transform: translateX(-50%);
   zoom: var(--ui, 1);
   padding: calc(2 * var(--p)) calc(4 * var(--p));
@@ -785,6 +923,8 @@ const CSS = `
   white-space: nowrap;
 }
 #hm-panel[hidden] { display: none; }
+/* While a migration runs this panel says more than the netcode lane's CONNECTION LOST banner, in its place. */
+body.hm-active #net-lost { display: none; }
 #hm-panel .hd { font: 9px var(--label); letter-spacing: 1px; color: var(--orange); }
 #hm-panel .nm { font: 20px var(--heading, var(--font)); color: var(--yellow); line-height: 1.1; }
 #hm-panel .ft { font: 8px var(--label); letter-spacing: 1px; color: var(--mist); animation: hm-blink 1s steps(2) infinite; }
@@ -797,10 +937,10 @@ function renderPanel(g: Game, s: HostmigState): void {
   let text = s.demo;
   if (!text && g.role === 'client' && (s.phase === 'probe' || s.phase === 'join') && s.mig) {
     const rc = netcodeState(g).rc;
-    if (s.phase === 'probe') text = `HOST LOST|FINDING A NEW HOST...|THE RUN IS SAFE`;
+    if (s.phase === 'probe') text = `${t('hostmig.lost')}|${t('hostmig.finding')}|${t('hostmig.safe')}`;
     else {
       const name = s.mig.heroes.find((h) => h.i === s.cand)?.name ?? '?';
-      text = `HOST LEFT · NEW HOST|${name.toUpperCase()}|${rc?.hello ? 'GETTING BACK IN...' : 'CONNECTING...'}`;
+      text = `${t('hostmig.left')}|${name.toUpperCase()}|${t(rc?.hello ? 'hostmig.gettingIn' : 'hostmig.connecting')}`;
     }
   }
   if (text === s.panelText) return;
@@ -818,15 +958,25 @@ function renderPanel(g: Game, s: HostmigState): void {
     (document.getElementById('hud') ?? document.body).appendChild(s.panel);
   }
   s.panel.hidden = !text;
+  document.body.classList.toggle('hm-active', !!text);
   if (!text) return;
+  // Player names come from the network: text only, never markup.
   const [hd, nm, ft] = text.split('|');
-  s.panel.innerHTML = `<div class="hd">${hd}</div><div class="nm">${nm}</div><div class="ft">${ft}</div>`;
+  s.panel.replaceChildren(
+    ...([['hd', hd], ['nm', nm], ['ft', ft]] as const).map(([cls, v]) => {
+      const d = document.createElement('div');
+      d.className = cls;
+      d.textContent = v ?? '';
+      if (cls === 'nm') d.setAttribute('translate', 'no');
+      return d;
+    }),
+  );
 }
 
 /** Test links: the client-side migration panel or the NEW HOST banner in solo (src/dev/hostmigLinks.ts). */
 export function hostmigDemo(g: Game, kind: 'probe' | 'join' | 'banner'): void {
   const s = hostmigState(g);
   const mate = (g.heroes[1]?.name ?? 'BRAVO').toUpperCase();
-  if (kind === 'banner') announce(g, mate, false);
-  else s.demo = kind === 'probe' ? 'HOST LOST|FINDING A NEW HOST...|THE RUN IS SAFE' : `HOST LEFT · NEW HOST|${mate}|CONNECTING...`;
+  if (kind === 'banner') announce(g, mate, false, false, 30);
+  else s.demo = kind === 'probe' ? `${t('hostmig.lost')}|${t('hostmig.finding')}|${t('hostmig.safe')}` : `${t('hostmig.left')}|${mate}|${t('hostmig.connecting')}`;
 }

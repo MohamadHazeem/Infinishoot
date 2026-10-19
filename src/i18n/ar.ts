@@ -3256,5 +3256,17 @@ export const ar = {
   "meta2.ui.n_quests": "⟪n⟫ مهام",
   "meta2.ui.lv_n": "م ⟪n⟫",
   "meta2.ui.streak": "سلسلة ⟪n⟫ أيام",
-  "meta2.ui.new_quests_in2": "مهام جديدة بعد"
+  "meta2.ui.new_quests_in2": "مهام جديدة بعد",
+  "hostmig.newHost": "مضيف جديد: ⟪name⟫",
+  "hostmig.solo": "تابع وحدك",
+  "hostmig.subSolo": "غادر المضيف · تستمر الجولة بلاعب واحد",
+  "hostmig.subMe": "غادر المضيف · لعبتك تدير الجولة الآن",
+  "hostmig.subOther": "غادر المضيف · جارٍ الاتصال بالمضيف الجديد",
+  "hostmig.lost": "انقطع المضيف",
+  "hostmig.finding": "جارٍ البحث عن مضيف جديد...",
+  "hostmig.safe": "الجولة محفوظة",
+  "hostmig.left": "غادر المضيف · المضيف الجديد",
+  "hostmig.connecting": "جارٍ الاتصال...",
+  "hostmig.gettingIn": "جارٍ العودة إلى الجولة...",
+  "hostmig.line": "مضيف جديد. واصلوا القتال!"
 } satisfies Record<keyof typeof en, string>;
