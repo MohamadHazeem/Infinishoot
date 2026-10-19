@@ -123,6 +123,9 @@ export function previewRows(slots: readonly Slot[], b: PreviewBuild): PreviewRow
   const st = baseStats();
   syn.applyStatic(st);
   const pre = st.damageMul;
+  // Preserve remaining event windows while moving the sample clock past the
+  // initial Turret Mode grace. Only copied states are shifted.
+  for (const s of syn.slots) if (s.def.onEvent && s.st.t > b.time) s.st.t += 10;
   syn.time = b.time + 10; // well past Turret Mode's 1 s grace
   syn.moving = true;
   const hit = (k: string, ev: Partial<DamageEvent> & { e?: Enemy }, factor = 1): PreviewRow => {
@@ -149,6 +152,21 @@ export function previewRows(slots: readonly Slot[], b: PreviewBuild): PreviewRow
   syn.moving = false;
   syn.tick(0);
   rows.push(hit('still', {}));
+  // Lane-defined conditions run the same hooks on copied state, including Echo.
+  const conditions = new Set<string>();
+  for (const slot of slots) {
+    const c = slot.def.preview;
+    if (!c || conditions.has(c.label)) continue;
+    conditions.add(c.label);
+    const sample = Synergy.sandbox(slots, sandboxHost(b));
+    sample.time = b.time + 10;
+    sample.nearWall = !!c.nearWall;
+    sample.ownFire = !!c.ownFire;
+    if (c.event) sample.event(c.event);
+    const ev: DamageEvent = { e: fakeEnemy(), source: '', tags: c.tags ?? [], dist: c.dist ?? previewTuning.dist, crit: false };
+    const a = sample.damage(ev, 0);
+    rows.push({ k: c.label, m: round(sample.damage(ev, pre) - a), a: round(a) });
+  }
   return rows;
 }
 
@@ -168,7 +186,7 @@ function same(r: PreviewRow, all: PreviewRow, f: number): boolean {
 /** "x1.86", "x1.50 +4.5". */
 export function rowValue(r: PreviewRow): string {
   const m = `x${r.m.toFixed(2)}`;
-  return r.a >= 0.05 ? `${m} +${+r.a.toFixed(1)}` : m;
+  return Math.abs(r.a) >= 0.05 ? `${m} ${r.a < 0 ? '−' : '+'}${+Math.abs(r.a).toFixed(1)}` : m;
 }
 
 /** Before -> after for the rows that change (or that either side touches). */
@@ -272,6 +290,9 @@ export function modOfferNumbers(h: Hero, def: ModDef): CardNum[] {
   };
   const fa = before.flags;
   const fb = after.flags;
+  num('ALLY BURN CRIT', fa.allyBurnCrit, fb.allyBurnCrit, v => `+${Math.round(Math.min(0.3, v) * 100)}%`);
+  num('ALLY RELOAD', fa.allyReload, fb.allyReload, v => `+${Math.round(Math.min(0.3, v) * 100)}%`);
+  num('SHARED HEAL', fa.allySiphon, fb.allySiphon, v => `${Math.round(Math.min(0.2, v) * 100)}%`);
   num('INTEREST CAP', economyTuning.interestCap + fa.interestCap, economyTuning.interestCap + fb.interestCap, String);
   num('INTEREST', Math.max(2, economyTuning.interestPer - fa.interestPer), Math.max(2, economyTuning.interestPer - fb.interestPer), (v) => `1 PER ${v}`, true);
   num('SHOP PRICES', -Math.min(0.5, fa.shopDiscount), -Math.min(0.5, fb.shopDiscount), (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`, true);

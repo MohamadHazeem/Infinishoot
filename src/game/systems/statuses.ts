@@ -182,7 +182,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     if (this.rng.chance(dropTuning.nukeChance * thin)) this.pickups.spawn(PickupType.Nuke, e.x, e.z);
   }
   // Vampire Fang: life per kill, scaled by max life and budgeted per second (src/game/lifesteal.ts).
-  if (by && by.stats.killHeal > 0 && !by.player.dead) by.player.heal(vampHeal(by, by.stats.killHeal, this.runTime));
+  if (by && by.stats.killHeal > 0 && !by.player.dead) this.mods2Heal(by, by.player.heal(vampHeal(by, by.stats.killHeal, this.runTime)));
 
   // Feedback scales with importance; swarm kills stay light so hundreds don't stutter.
   const r = e.radius;
@@ -529,6 +529,7 @@ export function collect(this: Game, h: Hero, type: PickupType, value: number): v
       break;
     case PickupType.Chest:
       h.chestsPending++;
+      this.mods2Event(h, 'chest');
       h.gold += 2;
       this.vfx.sound('chest', p.x, p.z);
       if (h === this.hero) this.hud.flash(0.3);
@@ -649,6 +650,7 @@ export function openChest(this: Game, i: number, h: Hero): void {
   const c = this.chests.open(i);
   if (!c) return;
   this.host?.broadcast({ t: 'wchest', i });
+  this.mods2Event(h, 'chest');
   const item = h.chestItem();
   this.runEvents.onChest();
   h.player.happyT = 1.2;

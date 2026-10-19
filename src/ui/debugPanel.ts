@@ -47,6 +47,7 @@ import { teamTuning } from '../game/teamMoves';
 import { banishTuning } from '../game/banish';
 import { cardNumTuning } from '../game/cardNumbers';
 import { previewTuning } from '../game/shopPreview';
+import { mods2Tuning } from '../data/mods';
 import { trainingTuning } from '../game/training';
 import { addHudFolder } from './debugHud';
 import { addFixesFolder } from './fixesPanel';
@@ -189,6 +190,12 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   shop.add(previewTuning, 'dist', 0, 20, 0.5).name('Preview hit distance');
   shop.add(previewTuning, 'near', 0, 3.5, 0.1).name('Preview near distance');
   shop.add(previewTuning, 'far', 8, 30, 0.5).name('Preview far distance');
+
+  const mods2 = gui.addFolder('Mods: ally & position').close();
+  mods2.add(mods2Tuning, 'allyRadius', 2, 20, 1);
+  mods2.add(mods2Tuning, 'reloadCap', 0, 0.5, 0.05);
+  mods2.add(mods2Tuning, 'burnCritCap', 0, 0.5, 0.05);
+  mods2.add(mods2Tuning, 'wallRadius', 0.5, 4, 0.5);
 
   const dir = gui.addFolder('Director').close();
   dir.add(directorTuning, 'stageSeconds', 30, 900, 10);

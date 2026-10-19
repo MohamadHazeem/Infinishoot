@@ -18,6 +18,18 @@ export interface DamageEvent {
   crit: boolean;
 }
 
+export type ModEvent =
+  | 'parry'
+  | 'perfectDash'
+  | 'ultimate'
+  | 'cashIn'
+  | 'rewind'
+  | 'mechExit'
+  | 'chest'
+  | 'allyParry'
+  | 'allyDash'
+  | 'allyUltimate';
+
 /** Per-Mod runtime memory (counters, timers). Shared by Echo copies. */
 export interface ModState {
   n: number;
@@ -47,12 +59,17 @@ export interface ModApi {
   addGold(n: number): void;
   /** Empty Mod slots right now. */
   readonly freeSlots: number;
+  readonly nearWall: boolean;
+  readonly ownFire: boolean;
 }
 
 /** Flags are summed (numbers) or OR'd (booleans) across owned Mods. */
 export interface ModFlags {
   busterMegaEvery: number; // every Nth Buster shot is a mega shot (0 = off)
   busterDisabled: boolean;
+  allyBurnCrit: number;
+  allyReload: number;
+  allySiphon: number;
   shockMult: number; // extra damage multiplier on shocked enemies (added to base 0.2)
   chainBonus: number;
   shockTime: number;
@@ -80,7 +97,7 @@ export function modDesc(def: ModDef, lv = 1): string {
 export function modMaxLevel(def: ModDef): number {
   if (def.maxLevel !== undefined) return def.maxLevel;
   if (def.echo || def.cursed) return 1;
-  const hooks = def.stat || def.live || def.dmg || def.onHit || def.onCrit || def.onKill || def.onDash || def.onHurt || def.onGem || def.onLevelUp || def.onStageClear || def.tick;
+  const hooks = def.stat || def.live || def.dmg || def.onHit || def.onCrit || def.onKill || def.onDash || def.onHurt || def.onGem || def.onLevelUp || def.onStageClear || def.onEvent || def.tick;
   const numeric = def.flags && Object.values(def.flags).some((v) => typeof v === 'number');
   return hooks || numeric ? 3 : 1;
 }
@@ -89,6 +106,9 @@ export function emptyFlags(): ModFlags {
   return {
     busterMegaEvery: 0,
     busterDisabled: false,
+    allyBurnCrit: 0,
+    allyReload: 0,
+    allySiphon: 0,
     shockMult: 0,
     chainBonus: 0,
     shockTime: 0,
@@ -120,6 +140,19 @@ export interface ModDef {
   /** What it does; upgradable Mods give the text for a level (use modDesc). */
   desc: string | ((lv: number) => string);
   cursed?: boolean;
+  /** Only offered while the run has teammates. */
+  coop?: boolean;
+  /** Extra sample condition for the real shop damage pipeline. */
+  preview?: {
+    label: string;
+    event?: ModEvent;
+    tags?: Tag[];
+    dist?: number;
+    nearWall?: boolean;
+    ownFire?: boolean;
+  };
+  /** Successful gameplay events; copies includes levels and Echo, dispatched once per state. */
+  onEvent?(event: ModEvent, api: ModApi, st: ModState, copies: number): void;
   /** Tags this Mod cares about (shown as synergy hints in the shop). */
   synergy?: Tag[];
   /** Copies the Mod in the slot to its right. */

@@ -1,4 +1,4 @@
-import type { DamageEvent, ModApi, ModDef, ModState } from '../game/modTypes';
+import type { DamageEvent, ModApi, ModDef, ModState, ModEvent } from '../game/modTypes';
 import type { Enemy } from '../game/enemies';
 import { isRightClick } from './weapons';
 import { bossLike } from '../game/bossRules';
@@ -33,7 +33,298 @@ const f = (x: number): string => String(+x.toFixed(2));
 const cascadeGate = limiter(0.05);
 let wildfireLast: Enemy | null = null;
 
+/** Absolute timers: levels/Echo never shorten a window or multiply its duration. */
+const windowOn =
+  (event: ModEvent, seconds: number): ModDef['onEvent'] =>
+  (kind, api, st) => {
+    if (kind === event) st.t = api.time + seconds;
+  };
+const windowRead: ModDef['readout'] = (api, st) =>
+  st.t > api.time ? `${(st.t - api.time).toFixed(1)}s` : 'READY';
+
+export const mods2Tuning = { allyRadius: 10, reloadCap: 0.3, burnCritCap: 0.3, wallRadius: 2 };
+
+/** Non-economy choices, including six co-op-only Mods. */
+export const MODS2: ModDef[] = [
+  {
+    id: 'riposte_cell',
+    name: 'Riposte Cell',
+    icon: '↗',
+    color: '#73eff7',
+    rarity: 'uncommon',
+    price: 6,
+    maxLevel: 2,
+    desc: (n) => `Parry: hits gain +${3 * n} damage for 2s. Put before multipliers.`,
+    onEvent: windowOn('parry', 2),
+    readout: windowRead,
+    preview: { label: 'AFTER PARRY', event: 'parry' },
+    dmg: (_ev, api, st) => (api.time < st.t ? { add: 3 } : undefined),
+  },
+  {
+    id: 'slipstream',
+    name: 'Slipstream',
+    icon: '»',
+    color: '#b13e53',
+    rarity: 'uncommon',
+    price: 6,
+    maxLevel: 2,
+    desc: (n) => `Perfect dash: Orbit and Trail hits deal +${20 * n}% damage for 3s.`,
+    synergy: ['orbit', 'trail'],
+    onEvent: windowOn('perfectDash', 3),
+    readout: windowRead,
+    preview: { label: 'DASH: ORBIT / TRAIL', event: 'perfectDash', tags: ['trail'] },
+    dmg: (ev, api, st) =>
+      api.time < st.t && (ev.tags.includes('trail') || ev.tags.includes('orbit'))
+        ? { mult: 1.2 }
+        : undefined,
+  },
+  {
+    id: 'encore',
+    name: 'Encore',
+    icon: '★',
+    color: '#ffcd75',
+    rarity: 'rare',
+    price: 8,
+    maxLevel: 2,
+    desc: (n) => `Use your ultimate: +${15 * n}% damage for 6s.`,
+    onEvent: windowOn('ultimate', 6),
+    readout: windowRead,
+    preview: { label: 'AFTER ULTIMATE', event: 'ultimate' },
+    dmg: (_ev, api, st) => (api.time < st.t ? { mult: 1.15 } : undefined),
+  },
+  {
+    id: 'cash_capacitor',
+    name: 'Cash Capacitor',
+    icon: 'Σ',
+    color: '#a7f070',
+    rarity: 'uncommon',
+    price: 6,
+    maxLevel: 2,
+    desc: (n) => `Cash in a combo: hits gain +${3 * n} damage for 6s. No gold bonus.`,
+    onEvent: windowOn('cashIn', 6),
+    readout: windowRead,
+    preview: { label: 'AFTER CASH-IN', event: 'cashIn' },
+    dmg: (_ev, api, st) => (api.time < st.t ? { add: 3 } : undefined),
+  },
+  {
+    id: 'second_hand',
+    name: 'Second Hand',
+    icon: '◀',
+    color: '#b13e53',
+    rarity: 'rare',
+    price: 7,
+    maxLevel: 2,
+    desc: (n) => `After a rewind finishes: +${20 * n}% damage for 8s.`,
+    onEvent: windowOn('rewind', 8),
+    readout: windowRead,
+    preview: { label: 'AFTER REWIND', event: 'rewind' },
+    dmg: (_ev, api, st) => (api.time < st.t ? { mult: 1.2 } : undefined),
+  },
+  {
+    id: 'ejection_seat',
+    name: 'Ejection Seat',
+    icon: '↑',
+    color: '#ef7d57',
+    rarity: 'rare',
+    price: 7,
+    maxLevel: 2,
+    desc: (n) => `Survive a mech exit: +${25 * n}% damage for 8s, including the eject blast.`,
+    onEvent: windowOn('mechExit', 8),
+    readout: windowRead,
+    preview: { label: 'AFTER MECH EXIT', event: 'mechExit' },
+    dmg: (_ev, api, st) => (api.time < st.t ? { mult: 1.25 } : undefined),
+  },
+  {
+    id: 'jack_in_box',
+    name: 'Jack in the Box',
+    icon: '✷',
+    color: '#ffcd75',
+    rarity: 'common',
+    price: 4,
+    maxLevel: 2,
+    desc: (n) => `Open a chest: a 4m Shock nova deals ${35 * n} damage.`,
+    synergy: ['area', 'shock'],
+    onEvent: (kind, api, _st, n) => {
+      if (kind === 'chest')
+        api.blast(api.player.x, api.player.z, 4, 35 * n, '#ffcd75', 'jack_in_box', [
+          'area',
+          'shock',
+        ]);
+    },
+  },
+  {
+    id: 'hearth',
+    name: 'Hearth',
+    icon: '♨',
+    color: '#ef7d57',
+    rarity: 'uncommon',
+    price: 6,
+    maxLevel: 2,
+    desc: (n) => `Inside your Blaze Boots fire: Fire and Trail hits deal +${20 * n}% damage.`,
+    synergy: ['fire', 'trail'],
+    preview: { label: 'OWN FIRE: FIRE / TRAIL', ownFire: true, tags: ['trail', 'fire'] },
+    dmg: (ev, api) =>
+      api.ownFire && (ev.tags.includes('fire') || ev.tags.includes('trail'))
+        ? { mult: 1.2 }
+        : undefined,
+  },
+  {
+    id: 'wallflower',
+    name: 'Wallflower',
+    icon: '▥',
+    color: '#38b764',
+    rarity: 'common',
+    price: 4,
+    maxLevel: 2,
+    desc: (n) => `Within 2m of cover: Orbit and Area hits deal +${20 * n}% damage.`,
+    synergy: ['orbit', 'area'],
+    preview: { label: 'COVER: ORBIT / AREA', nearWall: true, tags: ['orbit', 'area'] },
+    dmg: (ev, api) =>
+      api.nearWall && (ev.tags.includes('orbit') || ev.tags.includes('area'))
+        ? { mult: 1.2 }
+        : undefined,
+  },
+  {
+    id: 'cold_front',
+    name: 'Cold Front',
+    icon: '❄',
+    color: '#73eff7',
+    rarity: 'uncommon',
+    price: 6,
+    maxLevel: 2,
+    desc: (n) => `At 8m or farther: Frost and Chain hits deal +${25 * n}% damage.`,
+    synergy: ['frost', 'chain'],
+    preview: { label: '8M+: FROST / CHAIN', dist: 10, tags: ['frost', 'chain'] },
+    dmg: (ev) =>
+      ev.dist >= 8 && (ev.tags.includes('frost') || ev.tags.includes('chain'))
+        ? { mult: 1.25 }
+        : undefined,
+  },
+  {
+    id: 'blood_primer',
+    name: 'Blood Primer',
+    icon: '+',
+    color: '#b13e53',
+    rarity: 'uncommon',
+    price: 5,
+    maxLevel: 2,
+    cursed: true,
+    desc: (n) => `Every hit +${3 * n} damage. Max life x${f(0.85 ** n)}. Put before multipliers.`,
+    stat: (s) => {
+      s.maxHp *= 0.85;
+    },
+    dmg: () => ({ add: 3 }),
+  },
+  {
+    id: 'last_word',
+    name: 'Last Word',
+    icon: '!',
+    color: '#ef7d57',
+    rarity: 'rare',
+    price: 7,
+    maxLevel: 2,
+    cursed: true,
+    desc: (n) =>
+      `Each hit loses ${2 * n} damage, then x${f(1 + 0.25 * n)}. Strong hits win; order matters.`,
+    dmg: () => ({ add: -2, mult: 1.25 }),
+  },
+  {
+    id: 'signal_flare',
+    name: 'Signal Flare',
+    icon: '♦',
+    color: '#ef7d57',
+    rarity: 'rare',
+    price: 8,
+    maxLevel: 2,
+    coop: true,
+    desc: (n) =>
+      `Your Burns give allies +${15 * n}% crit chance against that enemy (team cap +30%).`,
+    synergy: ['fire'],
+    flags: { allyBurnCrit: 0.15 },
+  },
+  {
+    id: 'pit_crew',
+    name: 'Pit Crew',
+    icon: '⚒',
+    color: '#41a6f6',
+    rarity: 'uncommon',
+    price: 6,
+    maxLevel: 2,
+    coop: true,
+    desc: (n) =>
+      `Other allies within 10m reload all weapons ${12 * n}% faster (team cap +30% speed).`,
+    flags: { allyReload: 0.12 },
+  },
+  {
+    id: 'counterchorus',
+    name: 'Counterchorus',
+    icon: '✦',
+    color: '#73eff7',
+    rarity: 'rare',
+    price: 8,
+    maxLevel: 2,
+    coop: true,
+    desc: (n) =>
+      `An ally parries within 10m: you fire a 3m Shock nova for ${20 * n} damage. 1s cooldown.`,
+    synergy: ['area', 'shock'],
+    onEvent: (kind, api, st, n) => {
+      if (kind !== 'allyParry' || api.time < st.n) return;
+      st.n = api.time + 1;
+      api.blast(api.player.x, api.player.z, 3, 20 * n, '#73eff7', 'counterchorus', [
+        'area',
+        'shock',
+      ]);
+    },
+  },
+  {
+    id: 'blood_bond',
+    name: 'Blood Bond',
+    icon: '♥',
+    color: '#b13e53',
+    rarity: 'uncommon',
+    price: 6,
+    maxLevel: 2,
+    coop: true,
+    desc: (n) =>
+      `Share ${10 * n}% of life actually recovered by your kill-heal with each ally within 10m (cap 20%).`,
+    flags: { allySiphon: 0.1 },
+  },
+  {
+    id: 'wing_guard',
+    name: 'Wing Guard',
+    icon: '◇',
+    color: '#a7f070',
+    rarity: 'uncommon',
+    price: 6,
+    maxLevel: 2,
+    coop: true,
+    desc: (n) =>
+      `An ally perfect-dashes within 10m: gain ${(0.15 * n).toFixed(2)}s invulnerability (cap 0.3s). 2s cooldown.`,
+    onEvent: (kind, api, st, n) => {
+      if (kind !== 'allyDash' || api.time < st.n) return;
+      st.n = api.time + 2;
+      api.player.invuln = Math.max(api.player.invuln, Math.min(0.3, 0.15 * n));
+    },
+  },
+  {
+    id: 'standing_ovation',
+    name: 'Standing Ovation',
+    icon: '♛',
+    color: '#ffcd75',
+    rarity: 'rare',
+    price: 8,
+    maxLevel: 2,
+    coop: true,
+    desc: (n) => `An ally uses an ultimate within 10m: your hits deal +${10 * n}% damage for 6s.`,
+    onEvent: windowOn('allyUltimate', 6),
+    readout: windowRead,
+    preview: { label: 'AFTER ALLY ULT', event: 'allyUltimate' },
+    dmg: (_ev, api, st) => (api.time < st.t ? { mult: 1.1 } : undefined),
+  },
+];
+
 export const MODS: ModDef[] = [
+  ...MODS2,
   // ---------------------------------------------------------------- tag synergies
   {
     id: 'demolition',

@@ -45,6 +45,12 @@ export class Fire extends Weapon {
     scene.add(this.mesh);
   }
 
+  /** Allocation-free query for Hearth; expired flames never grant the bonus. */
+  covers(x: number, z: number): boolean {
+    for (const f of this.flames) if (f.age < f.life && (x - f.x) ** 2 + (z - f.z) ** 2 <= f.r * f.r) return true;
+    return false;
+  }
+
   net(): number[] {
     const out: number[] = [this.flames.length];
     for (const f of this.flames) out.push(Math.round(f.x * 100) / 100, Math.round(f.z * 100) / 100, Math.round(f.age * 100) / 100, f.life, Math.round(f.r * 100) / 100);

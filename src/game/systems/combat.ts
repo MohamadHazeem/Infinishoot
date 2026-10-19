@@ -51,7 +51,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (this.modes.holster) return 0; // Pacifist road / mini-games: heroes deal no damage (systems/modes.ts)
   const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
   if (!familyCanHit(e, tags.includes('explosive') || o.source === 'nuke')) return 0;
-  const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
+  const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance + this.mods2Crit(e, by));
   const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
   // Stats first, then Mods left to right, then statuses and crit.
   let amount = o.fixed ? base : by.synergy.damage(ev, base * by.stats.damageMul);

@@ -386,6 +386,7 @@ function advanceHold(g: Game, s: TimeState, dt: number): void {
     if (pinned || H.t < H.dur) return;
     tl.restore(g, tl.at(H.to), 'full');
     s.rewindsUsed++;
+    for (const h of g.heroes) g.mods2Event(h, 'rewind');
     s.hold = null;
     for (const ht of s.heroes) if (ht && ht.standT > 0) ht.standT = 0; // the stand is undone (it stays used)
     tl.clear();

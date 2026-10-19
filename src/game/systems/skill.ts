@@ -161,6 +161,7 @@ export function perfectDash(this: Game, h: Hero): void {
   const T = skillTuning;
   if (sk.dashPerfect) return;
   sk.dashPerfect = true;
+  this.mods2Event(h, 'perfectDash');
   sk.dashScanT = 0;
   sk.buffT = T.buffTime;
   p.invuln = Math.max(p.invuln, T.perfectIframes);
@@ -344,6 +345,7 @@ function parried(g: Game, h: Hero, n: number): void {
   chargeUlt(g, h, ultTuning.parryGain * Math.min(4, n));
   sk.style.add(first ? styleTuning.parry + styleTuning.parryExtra * (n - 1) : styleTuning.parryExtra * n, first ? (n > 1 ? `PARRY x${n}` : 'PARRY!') : undefined);
   if (!first) return;
+  g.mods2Event(h, 'parry');
   g.onParryLanded(h);
   if (!g.online && h === g.hero) g.juice.freeze(T.parryFreeze);
   else if (h === g.hero) onlineStop(g, T.parryFreeze); // host's own parry; clients get theirs from the `pa` event
@@ -362,6 +364,7 @@ export function tryUlt(this: Game, h: Hero): void {
   if (sk.ult < 1 || sk.ultT > 0 || h.player.dead || !this.isCombatMode || this.pvp?.phase === 'duel' || this.modesHolster(h)) return;
   sk.ult = 0;
   sk.style.add(styleTuning.ult, ultOf(h).name);
+  this.mods2Event(h, 'ultimate');
   startUlt(this, h);
   // Mega Barrage opens with a beat of real bullet time (solo, setting on).
   if (ultOf(h).id === 'barrage' && !this.online && settings.slowMo !== false) this.slowMoT = Math.max(this.slowMoT, 0.5);

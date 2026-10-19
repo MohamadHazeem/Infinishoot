@@ -277,6 +277,7 @@ export function endMech(g: Game, h: Hero, eject: boolean): void {
   pl.mechW = null;
   p.noDash = h.mech.id === 'duelist';
   if (!eject) return;
+  g.mods2Event(h, 'mechExit');
   g.blast(p.x, p.z, mechTuning.ejectRadius, mechTuning.ejectDmg * power(g), '#ffb627', 'mech_eject', ['explosive'], false, h);
   g.vfx.ring(p.x, p.z, 1, mechTuning.ejectRadius * 2.2, '#ffffff', 0.45);
   g.vfx.burst(p.x, 2, p.z, { count: 26, color: '#566c86', color2: '#ffb627', speed: [4, 11], size: [0.2, 0.4], life: [0.6, 1.1], up: 9, gravity: 18, debris: 12, smoke: 4 });
@@ -616,6 +617,7 @@ export function gpCashIn(this: Game, h: Hero, k: number): string {
   this.comboT = 0;
   this.runEvents.onComboBreak();
   W.cashUses++;
+  this.mods2Event(h, 'cashIn');
   const fx = cashEffect(combo);
   const p = h.player;
   if (tier.id === 'heal') {
