@@ -443,6 +443,34 @@ const SCENARIO = [
     return { down: [h1, c1], up: [!h2, !c2[0], c2[1]] };
   }],
   [50, 'ultimates again', () => host(() => window.game.heroes.forEach((h) => (h.skill.ult = 1)))],
+  [62, 'route map vote (notes/lanes/route.md)', async () => {
+    const opened = await host(() => {
+      const g = window.game;
+      if (g.mode !== 'fight' || g.route.open) return false;
+      g.route.on = true;
+      g.mode = 'shop';
+      return g.openRoute() && g.stage;
+    });
+    if (!opened) return 'skipped (not fighting)';
+    // The bots vote within about half a second, so poll quickly for the client's map.
+    let seen = ['none', 0];
+    for (let k = 0; k < 30 && seen[0] !== 'route'; k++) {
+      await pause(100);
+      seen = await client(() => [window.game.screens.current, document.querySelectorAll('#scr-route button[data-ri]').length]);
+    }
+    if (seen[0] !== 'route' || seen[1] < 2) fail(`route map: client screen ${seen[0]} with ${seen[1]} options`);
+    else await shot('route');
+    // Both bots vote for the first road; give the vote (10 s) plus an encounter time to finish.
+    let st;
+    for (let k = 0; k < 50; k++) {
+      await pause(500);
+      st = await host((s) => ({ open: window.game.route.open, mode: window.game.mode, picked: window.game.route.path[s + 1] }), opened);
+      if (!st.open) break;
+    }
+    const cs = await client(() => window.game.screens.current);
+    if (st.open || st.picked === undefined || cs === 'route') fail(`route map: host ${JSON.stringify(st)}, client screen ${cs}`);
+    return { client: seen, host: st, clientAfter: cs };
+  }],
 ];
 
 SCENARIO.sort((a, b) => a[0] - b[0]);

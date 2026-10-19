@@ -46,7 +46,7 @@ const CSS = `
   --bg: var(--ink); --hi: var(--night); --lo: var(--ink);
   background-color: rgba(26, 28, 44, 0.72);
 }
-#scr-route.ev .rt-map { opacity: 0.55; }
+#scr-route.ev .rt-field, #scr-route.ev .rt-col { opacity: 0.5; }
 #scr-route .rt-field { position: absolute; left: 0; right: 0; top: 78px; bottom: 26px; }
 #scr-route .rt-map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 #scr-route .rt-map line { stroke: var(--slate); stroke-width: 3; stroke-dasharray: 6 6; vector-effect: non-scaling-stroke; shape-rendering: crispEdges; }
@@ -71,6 +71,14 @@ const CSS = `
 @keyframes rt-bob { 50% { translate: 0 calc(-1 * var(--p)); } }
 #scr-route .rn .vt { position: absolute; bottom: calc(-4 * var(--p)); left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
 #scr-route .vt i { width: calc(3 * var(--p)); height: calc(3 * var(--p)); background: var(--c); box-shadow: 0 0 0 var(--p) var(--ink); }
+#scr-route .rn .rtip {
+  display: none; position: absolute; bottom: calc(100% + 4 * var(--p)); left: 50%; transform: translateX(-50%); z-index: 5; pointer-events: none;
+  padding: 4px 8px 6px; white-space: nowrap; text-align: center; --bg: var(--ink); --hi: var(--night); --lo: var(--ink); --ring: var(--c);
+}
+#scr-route .rn:hover .rtip { display: block; }
+#scr-route .rn:hover { opacity: 1; z-index: 4; }
+#scr-route .rtip b { display: block; font: 20px var(--display); color: var(--white); letter-spacing: 1px; }
+#scr-route .rtip em { font: 16px var(--font); font-style: normal; color: var(--mist); }
 #scr-route .rt-cards { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
 #scr-route button.rc {
   width: 236px; min-height: 172px; padding: 12px 14px 14px; display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -78,6 +86,7 @@ const CSS = `
 }
 #scr-route button.rc:nth-child(2) { animation-delay: 0.06s; }
 #scr-route button.rc:nth-child(3) { animation-delay: 0.12s; }
+#scr-route .rt-cards.again button.rc { animation: none; }
 @keyframes rt-deal { from { translate: 0 calc(8 * var(--p)); opacity: 0; } }
 #scr-route button.rc.focused { --bg: var(--navy); --hi: var(--c); --lo: var(--ink); --ring: var(--white); }
 #scr-route button.rc.mine { --ring: var(--yellow); }
@@ -103,6 +112,22 @@ const CSS = `
   #scr-route button.rc { min-height: 150px; width: 220px; padding: 8px 12px 10px; }
   #scr-route .rc .ic { width: 52px; height: 52px; }
   #scr-route .rc ul { font-size: 16px; }
+}
+@media (max-height: 600px) {
+  #scr-route { gap: 6px; padding: 6px 12px; }
+  #scr-route h1 { font-size: 34px; }
+  #scr-route .rt-sub { display: none; }
+  #scr-route .rt-map { height: 176px; }
+  #scr-route .rt-field { top: 62px; bottom: 26px; }
+  #scr-route .rn.opt { width: 38px; height: 38px; }
+  #scr-route button.rc { min-height: 0; width: 200px; gap: 2px; padding: 6px 10px 8px; }
+  #scr-route .rc .ic { width: 36px; height: 36px; }
+  #scr-route .rc .ic img, #scr-route .rc .ic .glyph { width: 24px; height: 24px; }
+  #scr-route .rc .nm { font-size: 24px; }
+  #scr-route .rc .sh { font-size: 17px; }
+  #scr-route .rc ul { font-size: 15px; }
+  #scr-route .rt-ev b { font-size: 30px; }
+  #scr-route .rt-ev span, #scr-route .rt-status { font-size: 18px; }
 }
 `;
 
@@ -132,12 +157,14 @@ export class RouteMapView {
   }
 
   render(v: RouteView): void {
+    // Re-renders for votes don't deal the cards again.
+    const again = !!this.view && this.view.phase === v.phase && this.view.stage === v.stage && !this.el.hidden;
     this.view = v;
     this.el.classList.toggle('ev', v.phase === 'event');
     const next = v.stage + 1;
     const title = v.phase === 'event' ? 'ENCOUNTER' : 'ROUTE MAP';
     const sub = v.phase === 'event' ? `ON THE WAY TO STAGE ${next}` : `CHOOSE THE ROAD TO STAGE ${next}`;
-    this.el.innerHTML = `<h1>${title}</h1><div class="rt-sub">${sub}</div>${this.mapHtml(v)}${v.phase === 'event' ? this.eventHtml(v) : ''}<div class="rt-cards">${this.cardsHtml(v)}</div><div class="rt-status">${this.statusText(v)}</div>`;
+    this.el.innerHTML = `<h1>${title}</h1><div class="rt-sub">${sub}</div>${this.mapHtml(v)}${v.phase === 'event' ? this.eventHtml(v) : ''}<div class="rt-cards${again ? ' again' : ''}">${this.cardsHtml(v)}</div><div class="rt-status">${this.statusText(v)}</div>`;
   }
 
   /** Only the countdown line changes between votes. */
@@ -187,7 +214,7 @@ export class RouteMapView {
         const votes = opt >= 0 ? v.votes.filter((vt) => vt.option === opt) : [];
         const vt = votes.length ? `<span class="vt">${votes.map((vt) => `<i style="--c:${vt.color}"></i>`).join('')}</span>` : '';
         nodes.push(
-          `<span class="rn px ${cls}" ${opt >= 0 ? `data-ri="${opt}" data-o="${opt}"` : ''} style="left:${x(k)}%;top:${y(n.col)}%;--c:${def.color}" title="${esc(def.name)}">${iconHtml(def.icon, opt >= 0 || cls.includes('chosen') ? '#f4f4f4' : def.color, def.glyph)}${vt}</span>`,
+          `<span class="rn px ${cls}" ${opt >= 0 ? `data-ri="${opt}" data-o="${opt}"` : ''} style="left:${x(k)}%;top:${y(n.col)}%;--c:${def.color}">${iconHtml(def.icon, opt >= 0 || cls.includes('chosen') ? '#f4f4f4' : def.color, def.glyph)}${vt}<span class="rtip px"><b>${esc(def.name.toUpperCase())}</b><em>${esc(def.short)}</em></span></span>`,
         );
       });
     });
