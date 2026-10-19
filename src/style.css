@@ -3936,6 +3936,17 @@ table.history .cause {
   bottom: 220px;
 }
 
+#touch .parry {
+  right: 120px;
+  bottom: 220px;
+}
+
+#touch .ult {
+  right: 216px;
+  bottom: 150px;
+  --bg: var(--purple, var(--navy));
+}
+
 /* HUD lane: stepped console-style feedback, entirely cosmetic. */
 #xpbar .spark {
   position: absolute;
@@ -4246,3 +4257,6 @@ table.history .cause {
 #bossbar.mini .ph {
   display: none;
 }
+
+/* Toasts drop below the boss bar while a boss is up, so they never cover its name and phase. */
+#bossbar:not([hidden]) ~ #toast { top: calc(66 * var(--p)); }

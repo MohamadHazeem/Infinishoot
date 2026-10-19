@@ -3,7 +3,7 @@ import type { Input } from '../core/input';
 /**
  * On-screen twin-stick controls for touch screens. They appear on the first
  * touch: the left half of the screen is a floating move stick, the right half
- * an aim stick that also fires, plus DASH, RIGHT CLICK and SPECIAL buttons. Everything
+ * an aim stick that also fires, plus DASH, RIGHT CLICK, SPECIAL, PARRY and ULT buttons. Everything
  * feeds Input.virtual, which behaves like a gamepad, so the game needs no
  * special cases. Menus are normal buttons and work with taps.
  */
@@ -26,6 +26,8 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
         <button class="tbtn dash" data-b="0">DASH</button>
         <button class="tbtn charge" data-b="2">R-CLICK</button>
         <button class="tbtn bomb" data-b="5">SPECIAL</button>
+        <button class="tbtn parry" data-b="1">PARRY</button>
+        <button class="tbtn ult" data-b="10">ULT</button>
       </div>`,
     );
     layer = root.querySelector('#touch')!;
