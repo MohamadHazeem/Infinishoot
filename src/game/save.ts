@@ -1,6 +1,8 @@
 import { loadJson, saveJson } from '../core/storage';
 import { ACHIEVEMENTS } from '../data/meta';
 import { SPECIALS } from '../data/specials';
+import { cleanHeat, type HeatId } from '../data/heat';
+import { CODEX, META_REWARDS, META_KITS, rewardAvailable } from '../data/codex';
 import { WEAPONS } from '../data/weapons';
 
 /**
@@ -10,6 +12,9 @@ import { WEAPONS } from '../data/weapons';
  */
 /** One finished run, newest first in `history`. */
 export interface RunRecord {
+  heat?: number;
+  weekly?: string;
+  bolts?: number;
   date: string;
   label: string;
   hero: string;
@@ -24,6 +29,15 @@ export interface RunRecord {
 
 export interface SaveData {
   version: number;
+  meta: {
+    heat: HeatId[];
+    bolts: number;
+    bestHeat: Record<string, number>;
+    weekly: { week: string; score: number; stage: number }[];
+    codex: string[];
+    rewards: string[];
+    theme: string;
+  };
   achievements: string[];
   /** Enemy ids met (enemy guide). */
   seen: string[];
@@ -43,12 +57,14 @@ export interface SaveData {
 const KEY = 'save';
 // v2 dropped Bolts and Workshop upgrades; older saves keep their achievements and stats.
 // v3 added the enemy guide (`seen`) and run history.
-const VERSION = 3;
+// v4 adds opt-in heat, weekly records, lore and cosmetic-only Bolts. Legacy upgrades stay removed.
+const VERSION = 4;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
   return {
     version: VERSION,
+    meta: { heat: [], bolts: 0, bestHeat: {}, weekly: [], codex: [], rewards: [], theme: '' },
     achievements: [],
     seen: [],
     history: [],
@@ -57,7 +73,7 @@ function fresh(): SaveData {
 }
 
 /** Fill missing fields so older or partial saves keep working. */
-function normalize(raw: unknown): SaveData {
+export function normalize(raw: unknown): SaveData {
   const d = fresh();
   if (!raw || typeof raw !== 'object') return d;
   const r = raw as Partial<SaveData>;
@@ -72,6 +88,20 @@ function normalize(raw: unknown): SaveData {
       if (Number.isFinite(v) && v >= 0) d.lifetime[k] = v;
     }
   }
+  const m = r.meta;
+  if (m && typeof m === 'object') {
+    d.meta.heat = cleanHeat(m.heat);
+    if (Number.isFinite(m.bolts) && m.bolts >= 0) d.meta.bolts = Math.floor(m.bolts);
+    if (m.bestHeat && typeof m.bestHeat === 'object') for (const mode of ['standard', 'endless', 'bossrush']) {
+      const n = m.bestHeat[mode];
+      if (Number.isFinite(n) && n >= 0) d.meta.bestHeat[mode] = Math.min(14, Math.floor(n));
+    }
+    if (Array.isArray(m.weekly)) d.meta.weekly = m.weekly.filter(x => x && /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/.test(x.week) && Number.isFinite(x.score) && x.score >= 0 && Number.isFinite(x.stage)).slice(0, 52);
+    if (Array.isArray(m.codex)) d.meta.codex = [...new Set(m.codex.filter(id => CODEX.some(c => c.id === id)))];
+    if (Array.isArray(m.rewards)) d.meta.rewards = [...new Set(m.rewards.filter(id => META_REWARDS.some(c => c.id === id)))];
+    if (d.meta.rewards.includes(m.theme) && META_REWARDS.some(c => c.id === m.theme && c.kind === 'theme')) d.meta.theme = m.theme;
+  }
+  for (const id of d.seen) if (CODEX.some(c => c.id === `enemy:${id}`) && !d.meta.codex.includes(`enemy:${id}`)) d.meta.codex.push(`enemy:${id}`);
   return d;
 }
 
@@ -94,6 +124,7 @@ export function persist(): void {
 /** Note an enemy type as met (saved with the next persist). */
 export function markSeen(id: string): void {
   if (!save.seen.includes(id)) save.seen.push(id);
+  markCodex(`enemy:${id}`);
 }
 
 export function addRunRecord(r: RunRecord): void {
@@ -109,6 +140,29 @@ export function unlockedWeapons(): string[] {
   return ids;
 }
 
+export function markCodex(id: string): void {
+  if (!save.meta.codex.includes(id) && CODEX.some(c => c.id === id)) save.meta.codex.push(id);
+}
+export function unlockMeta(): void {
+  const p = { achievements: save.achievements, ...save.meta };
+  for (const r of META_REWARDS) if (r.cost === 0 && rewardAvailable(r.id, p) && !save.meta.rewards.includes(r.id)) save.meta.rewards.push(r.id);
+}
+export function buyMeta(id: string): boolean {
+  const r = META_REWARDS.find(x => x.id === id);
+  if (!r || save.meta.rewards.includes(id) || !rewardAvailable(id, { achievements: save.achievements, ...save.meta }) || save.meta.bolts < r.cost) return false;
+  save.meta.bolts -= r.cost;
+  save.meta.rewards.push(id);
+  persist();
+  return true;
+}
+export function recordWeekly(week: string, score: number, stage: number): void {
+  const old = save.meta.weekly.find(r => r.week === week);
+  if (old) { if (score > old.score) Object.assign(old, { score: Math.floor(score), stage }); }
+  else save.meta.weekly.unshift({ week, score: Math.floor(score), stage });
+  save.meta.weekly.sort((a, b) => b.week.localeCompare(a.week));
+  save.meta.weekly.length = Math.min(save.meta.weekly.length, 52);
+}
+
 /** Loadout items this save can pick: starters plus achievement unlocks. */
 export function unlockedLoadout(): string[] {
   const ids = [
@@ -120,7 +174,9 @@ export function unlockedLoadout(): string[] {
       .map((s) => s.id),
   ];
   for (const a of ACHIEVEMENTS) if (a.unlockLoadout && save.achievements.includes(a.id)) ids.push(a.unlockLoadout);
-  return ids;
+  unlockMeta();
+  for (const [id, kit] of Object.entries(META_KITS)) if (save.meta.rewards.includes(id)) ids.push(...Object.values(kit));
+  return [...new Set(ids)];
 }
 
 /** The achievement that unlocks a loadout item, for the locked card. */

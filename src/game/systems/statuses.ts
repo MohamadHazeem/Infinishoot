@@ -1,3 +1,4 @@
+import { markSeen } from '../save';
 /**
  * Statuses and combos, hazards, strikes, specials, pickups and other per-step systems.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -124,6 +125,7 @@ export function sourceName(this: Game, id: string): string {
 
 export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null): void {
   const def = e.def;
+  markSeen(def.id);
   const wasFrozen = e.frozen > 0;
   this.kills++;
   this.combo++;
@@ -150,7 +152,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive));
     const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 4 : 1);
     if (this.rng.chance(dropTuning.goldChance * thin * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
-    if (!this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
+    if (!this.meta.has('hearts') && !this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
     if (this.rng.chance(dropTuning.magnetChance * thin)) this.pickups.spawn(PickupType.Magnet, e.x, e.z);
     if (this.rng.chance(dropTuning.gearChance * thin * (1 + 0.25 * (by?.stats.luck ?? 0)))) this.pickups.spawn(PickupType.Gear, e.x, e.z);
     if (this.rng.chance(dropTuning.nukeChance * thin)) this.pickups.spawn(PickupType.Nuke, e.x, e.z);
@@ -373,8 +375,9 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   h.lastHitBy = cause || src?.def.name || 'Enemy fire';
   // One hit never takes more than maxHitFrac of max life (curses scale it before the cap).
   let dmg = Math.max(1, Math.round(Math.min((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken')), p.maxHp * playerTuning.maxHitFrac)));
+  if (this.meta.rule('glass')) dmg = Math.ceil(p.hp);
   // Frost Totem relic: once per stage a lethal hit leaves you at 1 life and freezes everything nearby.
-  if (dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
+  if (!this.meta.rule('glass') && dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
     h.phoenixUsed = true;
     dmg = Math.max(0, Math.ceil(p.hp) - 1);
     for (const e of this.enemiesInRadius(p.x, p.z, 7, this.scratch)) e.frozen = Math.max(e.frozen, e.def.boss ? 0.4 : 2.5);
@@ -465,6 +468,7 @@ export function collect(this: Game, h: Hero, type: PickupType, value: number): v
       break;
     }
     case PickupType.Heart: {
+      if (this.meta.has('hearts')) break;
       const healed = p.heal(30);
       this.vfx.sound('heal', p.x, p.z);
       if (healed > 0) this.vfx.num(p.x, 2.4, p.z, `+${Math.round(healed)}`, 'heal');
@@ -577,7 +581,7 @@ export function updateChests(this: Game): void {
 
 /** Host/solo: a new chest every chestTuning.every seconds at a random clear spot. */
 export function updateChestSpawns(this: Game, dt: number): void {
-  this.chestT += dt;
+  this.chestT += dt * (this.meta.has('chests') ? 0.5 : 1);
   if (this.chestT < chestTuning.every) return;
   this.chestT -= chestTuning.every;
   if (this.chests.closedCount >= chestTuning.maxClosed) return;

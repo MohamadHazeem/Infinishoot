@@ -31,6 +31,7 @@ export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x:
 
 export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId) {
   if (def.treasure) return this.spawnGolden(def);
+  if (this.meta.rule('elites') && !def.boss && !def.miniboss) elite = true;
   let pos: { x: number; z: number } | null = null;
   if (near) {
     const x = near.x + this.rng.range(-1.6, 1.6);

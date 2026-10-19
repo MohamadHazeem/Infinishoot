@@ -1,3 +1,4 @@
+import { applyMetaSnapshot, MetaRun } from './meta';
 /**
  * Online, client side: messages from the host and applying snapshots.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -46,6 +47,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       }
       this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
       this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
+      applyMetaSnapshot(this, m.meta);
       break;
     case 'wchest':
       this.chests.open(Number(m.i));
@@ -115,6 +117,7 @@ export function shopFromNet(this: Game, v: NetShop): ShopView {
 }
 
 export function clientStart(this: Game, seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string }[]): void {
+  this.meta = new MetaRun();
   this.seed = seed;
   const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie'));
   this.setHeroes(heroes);
@@ -203,6 +206,7 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
   const now = performance.now();
   if (this.snapTime) this.snapInterval += (Math.min(200, now - this.snapTime) - this.snapInterval) * 0.2;
   this.snapTime = now;
+  applyMetaSnapshot(this, s.meta);
   const prevMode = this.mode;
   this.mode = s.mode as Mode;
   if (this.mode === 'transition' && prevMode !== 'transition') this.fadeT = 0;

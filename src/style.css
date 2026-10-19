@@ -4260,3 +4260,25 @@ table.history .cause {
 
 /* Toasts drop below the boss bar while a boss is up, so they never cover its name and phase. */
 #bossbar:not([hidden]) ~ #toast { top: calc(66 * var(--p)); }
+
+/* Lane-local screens reuse the pixel frames and palette. */
+.meta-screen .scroll { width: min(960px, 94vw); }
+.meta-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(6 * var(--p)); padding: calc(4 * var(--p)); }
+.meta-grid .mode { min-width: 0; text-align: left; white-space: normal; padding: calc(6 * var(--p)); }
+.meta-grid b, .meta-grid small { display: block; }
+.meta-grid em { color: var(--yellow); font-style: normal; }
+.meta-grid .bst { width: auto; margin: 0; }
+.meta-grid .bst p { margin-bottom: 0; }
+.meta-screen .meta-note { max-width: min(960px, 94vw); }
+#score, #timer .stage { color: var(--meta-accent, var(--yellow)); }
+@media (max-width: 700px) { .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.screen.meta-screen { gap: 12px; overflow: hidden; }
+.meta-screen .scroll { min-height: 0; flex: 0 1 auto; max-height: calc(100vh - 220px); overflow-y: auto; overflow-x: hidden; }
+.screen.meta-screen h1 { font-size: 60px; flex-shrink: 0; }
+.screen.meta-screen button.mode { min-height: 98px; }
+.screen.meta-screen > .menu { flex-shrink: 0; }
+.meta-grid .bst { display: block; }
+.meta-grid .bst b { margin: 4px 0 8px; }
+.meta-grid .bst p { font-size: 18px; line-height: 1.3; }
+#scr-weekly .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.meta-grid .bst.focused { outline: var(--p) solid var(--yellow); }

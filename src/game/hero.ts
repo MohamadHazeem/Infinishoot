@@ -94,6 +94,7 @@ export interface HeroWorld {
   readonly fireRateBuff: number;
   readonly damageBuff: number;
   readonly dashCurse: number;
+  readonly shopPriceMul?: number;
   /** Curse ids already in effect (not offered again). */
   readonly activeCurses: readonly string[];
 }
@@ -705,7 +706,7 @@ export class Hero implements SynergyHost {
   }
 
   price(m: ModDef): number {
-    return Math.max(1, Math.round(m.price * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1)));
+    return Math.max(1, Math.round(m.price * (this.world.shopPriceMul ?? 1) * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1)));
   }
 
   /** Half of what you actually paid (purchase + upgrades), or all of it with Pawn Shop. */
