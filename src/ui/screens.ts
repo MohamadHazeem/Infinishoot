@@ -41,7 +41,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends';
+export type ExtraScreen = 'desktopKeyboard' | 'desktopHelp' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly';
 
@@ -747,7 +747,7 @@ export class Screens {
     this.extra[name] = { el, nav: opts instanceof MenuNav ? opts : new MenuNav(el, opts) };
   }
 
-  private nav(name: Exclude<ScreenName, 'none'>): MenuNav {
+  nav(name: Exclude<ScreenName, 'none'>): MenuNav {
     return this.extra[name as ExtraScreen]?.nav ?? this.navs[name as Named];
   }
 

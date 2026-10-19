@@ -15,6 +15,10 @@ const rows: SettingRow[] = [];
 function row(tab: SettingsTab, key: keyof Settings, label: string, desc: string, range?: SettingRow['range'], options?: readonly string[], labels?: readonly string[]): void {
   rows.push({ tab, key, label, desc, range, options, labels });
 }
+row('VIDEO', 'windowMode', 'WINDOW MODE', 'Desktop: windowed, fullscreen or borderless display. F11 toggles fullscreen.', undefined, ['windowed', 'fullscreen', 'borderless']);
+row('VIDEO', 'resolutionScale', 'RESOLUTION SCALE', 'Scales the internal pixel resolution relative to QUALITY. Lower values reduce GPU work.', [50, 200, 25]);
+row('VIDEO', 'frameCap', 'FRAME CAP', 'Presentation limit: 30, 60, 120 or unlimited. Simulation stays at 60 Hz. Browser refresh and VSync may limit the result.', undefined, ['30', '60', '120', 'unlimited']);
+row('VIDEO', 'vsync', 'VSYNC', 'Desktop: synchronize presentation with the display. Restart the app to apply. Browsers always control synchronization.');
 row('VIDEO', 'graphics', 'QUALITY', 'AUTO adjusts visual detail to keep the game running smoothly. POTATO is the lightest, for very old PCs.', [0, 4, 1], undefined, ['LOW', 'MEDIUM', 'HIGH', 'AUTO', 'POTATO']);
 row('VIDEO', 'retro', 'RETRO LOOK', 'Pixel-era colour depth, dithering and vertex wobble.', [0, 1, 0.1]);
 row('VIDEO', 'glow', 'GLOW', 'Brightness of the soft glow around lights and effects.', [0, 1, 0.1]);
@@ -167,7 +171,7 @@ export class SettingsScreen {
     this.el.querySelectorAll<HTMLElement>('[data-setting]').forEach((el) => {
       const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting)!;
       const v = settings[r.key];
-      const raw = r.key === 'language' ? (v === 'ar' ? 'العربية' : 'ENGLISH') : r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' ? '%' : ''}` : String(v).toUpperCase();
+      const raw = r.key === 'language' ? (v === 'ar' ? 'العربية' : 'ENGLISH') : r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' || r.key === 'resolutionScale' ? '%' : ''}` : String(v).toUpperCase();
       const value = localize(raw);
       this.el.querySelector(`[data-value="${r.key}"]`)!.textContent = value;
       el.setAttribute('aria-label', `${r.label}: ${value}`);
@@ -178,7 +182,7 @@ export class SettingsScreen {
   private describe(el: HTMLElement | null): void {
     if (!el) return;
     const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting);
-    if (r) this.description.textContent = r.desc;
+    if (r) this.description.textContent = localize(r.desc);
     else if (el.hasAttribute('data-reset')) this.description.textContent = 'Restore defaults for this tab only. Key bindings have their own reset on REBIND KEYS.';
     else if (el.hasAttribute('data-rebind')) this.description.textContent = 'Choose the keyboard keys for each action. Gamepad and touch layouts remain fixed.';
     else if (el.hasAttribute('data-settings-back')) this.description.textContent = 'Return to the previous menu. Your changes are already saved.';

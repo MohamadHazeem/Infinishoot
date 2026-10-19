@@ -1,3 +1,6 @@
+import './platform/desktop';
+import { installDesktopUi } from './platform/help';
+import { displayState } from './platform/display';
 import '@fontsource/jersey-10/latin-400.css';
 import '@fontsource/jersey-15/latin-400.css';
 import '@fontsource/silkscreen/latin-400.css';
@@ -27,6 +30,7 @@ renderer.gl.setClearColor(retroGlobals.uFogColor.value);
 const input = new Input(canvas);
 const game = new Game(input, renderer.aspect, hudEl, reticleEl);
 performance.mark('infinishoot:game');
+installDesktopUi(game.screens);
 window.addEventListener('resize', () => game.cam.setAspect(renderer.aspect));
 setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none');
 // Optional tools load only on their first use (including lil-gui and its tuning panels).
@@ -83,6 +87,7 @@ let titleMeasured = false;
 let stageMeasured = false;
 const loop = new GameLoop({
   // Co-op hosts keep simulating in a background tab so clients don't freeze.
+  frameCap: () => displayState.cap,
   runHidden: () => game.role === 'host',
 
   update(dt) {
@@ -121,7 +126,7 @@ const loop = new GameLoop({
       profUpdate = profSteps = 0;
     }
     // Auto quality: measured while actually playing (menus and pauses don't count).
-    autoQualityTick(frameDt, game.isCombatMode && !game.paused && game.screens.current === 'none' && !document.hidden);
+    autoQualityTick(frameDt * (displayState.cap === 30 ? 0.5 : 1), game.isCombatMode && !game.paused && game.screens.current === 'none' && !document.hidden);
 
     fpsAcc += frameDt;
     fpsFrames++;

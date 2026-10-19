@@ -1,3 +1,4 @@
+import { FramePacer } from '../platform/display';
 /**
  * Fixed-timestep game loop. Simulation runs at a constant rate; rendering
  * runs every animation frame with an interpolation factor between the last
@@ -15,11 +16,13 @@ export interface LoopCallbacks {
   update(dt: number): void;
   render(alpha: number, frameDt: number): void;
   runHidden(): boolean;
+  frameCap?(): number;
 }
 
 const TICKER = 'setInterval(() => postMessage(0), 1000 / 60);';
 
 export class GameLoop {
+  private pacer = new FramePacer();
   private acc = 0;
   private last = 0;
   private rafId = 0;
@@ -69,7 +72,7 @@ export class GameLoop {
   private frame = (now: number): void => {
     if (!this.running) return;
     const frameDt = this.step(now);
-    this.cb.render(this.paused ? 1 : this.acc / SIM_DT, frameDt);
+    if (this.pacer.ready(now, this.cb.frameCap?.() ?? 0)) this.cb.render(this.paused ? 1 : this.acc / SIM_DT, this.pacer.dt || frameDt);
     this.rafId = requestAnimationFrame(this.frame);
   };
 }

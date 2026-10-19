@@ -94,3 +94,8 @@ jobs:
         with:
           files: out/*
           generate_release_notes: true
+          # The unsigned desktop updater reads /releases/latest and opens this page.
+          # Stable releases must be published (not drafts); prereleases never replace latest.
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ contains(github.ref_name, '-') && 'false' || 'true' }}
