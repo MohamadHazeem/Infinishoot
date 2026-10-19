@@ -3,6 +3,8 @@ import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
 import { cheats, type Game } from '../game/game';
 import { settings } from '../game/settings';
+import { ENEMIES } from '../data/enemies';
+import { STYLE_RANKS, styleTuning } from '../game/style';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -14,6 +16,8 @@ import { settings } from '../game/settings';
  *   ?test&hero=ace&mode=endless&god    hero, mode, no damage
  *   ?test&elite=charger:shielded       spawn an elite with a modifier
  *   ?test&event=meteors&passives=armor:2,magnet:1&gold=200&seed=42
+ *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
+ *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -27,7 +31,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   };
   cheats.unlockAll = true;
   cheats.god = q.has('god');
-  if (q.get('hero')) settings.hero = q.get('hero')!;
+  if (q.get('hero')) {
+    settings.hero = q.get('hero')!;
+    game.applyLocalSkin(); // the hero was made before the link was read
+  }
   if (q.get('mode')) settings.mode = q.get('mode')!;
   if (q.get('difficulty')) settings.difficulty = q.get('difficulty')!;
   const lo = list('loadout');
@@ -57,5 +64,23 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
+  // Skill layer (src/game/systems/skill.ts).
+  for (const e of list('spawn')) {
+    const [id, n] = pair(e);
+    const def = ENEMIES[id];
+    if (!def) continue;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      game.enemies.spawn(def, h.player.x + Math.cos(a) * 7, h.player.z + Math.sin(a) * 7, game.spawnOpts());
+    }
+  }
+  const rank = STYLE_RANKS.indexOf((q.get('style') ?? '').toUpperCase() as (typeof STYLE_RANKS)[number]);
+  if (rank >= 0) {
+    const t = styleTuning.thresholds;
+    h.skill.style.add(t[rank] + ((t[rank + 1] ?? styleTuning.cap) - t[rank]) * 0.9, 'TEST LINK');
+  }
+  if (q.has('ult') || q.has('ultgo')) h.skill.ult = 1;
+  const go = Number(q.get('ultgo'));
+  if (go > 0) setTimeout(() => game.tryUlt(game.hero), go * 1000);
   return true;
 }

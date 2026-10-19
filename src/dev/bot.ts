@@ -138,6 +138,9 @@ export function installBot(game: Game, input: Input): void {
     inp.mouseButtons = best ? 1 | (rightT < 1.4 ? 4 : 0) : 0;
     if (bd < 1.3 && p.dashReady01 >= 1) inp.pressed.add('Space');
     if (g.hero.bombCharge >= 1 && Math.hypot(ax, az) > 1) inp.pressed.add('KeyQ');
+    // Skill layer: ultimate when charged with enemies close, parry when an enemy bullet is about to land.
+    if (g.hero.skill.ult >= 1 && bd < 8) inp.pressed.add('KeyV');
+    for (let i = 0; i < g.bullets.count; i++) if (g.bullets.team[i] === 1 && Math.hypot(g.bullets.x[i] - p.x, g.bullets.z[i] - p.z) < 1.4) inp.pressed.add('KeyC');
     // The bot picks the first card straight away (it skips the human pick lock).
     if (g.mode === 'levelup' && g.hero.needsPick) (g as unknown as { ui(a: string, i: number): void }).ui('pick', 0);
     if (g.mode === 'shop') shop();
