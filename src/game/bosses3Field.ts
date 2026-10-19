@@ -234,7 +234,7 @@ export class Bosses3Field {
           const z = g.cz + uz * off - ux * (g.len / 2);
           this.q.setFromAxisAngle(this.up, lineAng);
           if (kind === 2 && nh < LINE_CAP) {
-            this.m4.compose(this.v.set(x, 0.02, z), this.q, this.s.set(T.gridHalf * 2, 0.9, g.len));
+            this.m4.compose(this.v.set(x, 0.02, z), this.q, this.s.set(T.gridHalf * 2, 0.22, g.len));
             this.hot.setMatrixAt(nh, this.m4);
             this.hot.setColorAt(nh++, this.c.set(k % 2 ? '#ff3df0' : '#73eff7'));
           } else if (kind === 0 && nc < LINE_CAP) {
@@ -257,7 +257,7 @@ export class Bosses3Field {
         this.m4.compose(this.v.set(b.x, 0.045, b.z), this.q, this.s.set(w, 1, b.len));
         this.tele.setMatrixAt(nt++, this.m4);
       } else if (b.life > 0 && nh < LINE_CAP) {
-        this.m4.compose(this.v.set(b.x, 0.1, b.z), this.q, this.s.set(b.half * 2, 0.5, b.len));
+        this.m4.compose(this.v.set(b.x, 0.05, b.z), this.q, this.s.set(b.half * 2, 0.3, b.len));
         this.hot.setMatrixAt(nh, this.m4);
         this.hot.setColorAt(nh++, this.c.set('#ffcd75'));
       }

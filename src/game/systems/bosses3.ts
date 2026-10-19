@@ -114,6 +114,7 @@ export function makeBosses3Api(this: Game): Bosses3Api {
       this.vfx.zone(x, z, T.boltRadius, delay);
     },
     mark: (x, z, r, t) => this.vfx.zone(x, z, r, t),
+    ring: () => this.bossDuel,
     cue: (e, kind) => bossCue(this, e, kind),
   };
 }

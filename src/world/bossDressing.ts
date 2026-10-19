@@ -252,15 +252,15 @@ export function buildDressing(id: string, cx: number, cz: number, blocked: Block
     }
   } else if (id === 'gale') {
     // Admiral Gale: a wooden landing deck with mooring posts and a big anchor.
-    const plank = createRetroMaterial({ color: '#b86f50' });
-    const plank2 = createRetroMaterial({ color: '#a05c40' });
+    const plank = createRetroMaterial({ color: '#8f563b' });
+    const plank2 = createRetroMaterial({ color: '#7a4a35' });
     const iron = createRetroMaterial({ color: '#566c86' });
     const brass = createRetroMaterial({ color: '#ffcd75', unlit: 0.2 });
     for (let k = -8; k <= 8; k++) {
       const z = k * 1.25;
       const L = 2 * Math.sqrt(Math.max(0, R * R - z * z)) - 1;
       if (L < 2) continue;
-      floor.add(flat(new THREE.PlaneGeometry(L, 1.15), k & 1 ? plank : plank2, rng.range(-0.3, 0.3), z, 0.045));
+      floor.add(flat(new THREE.PlaneGeometry(L, 0.95), k & 1 ? plank : plank2, rng.range(-0.3, 0.3), z, 0.045));
     }
     floor.add(flat(new THREE.RingGeometry(3, 3.4, 16), brass, 0, 0, 0.047));
     for (let k = 0; k < 8; k++) {

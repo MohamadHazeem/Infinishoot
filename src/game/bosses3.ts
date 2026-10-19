@@ -109,6 +109,8 @@ export interface Bosses3Api {
   bolt(e: Enemy, x: number, z: number, delay: number): void;
   /** A red warning disc on the ground at (x, z) for `t` seconds (no damage). */
   mark(x: number, z: number, r: number, t: number): void;
+  /** The boss duel's ring of fire right now (src/game/bossDuel.ts), or null: pinballs bounce off it too. */
+  ring(): { x: number; z: number; r: number } | null;
   /** Cosmetic cue (sound, shake, toast) through the effects bus. */
   cue(e: Enemy, kind: Boss3Cue): void;
 }
@@ -163,26 +165,62 @@ export function segDist3(px: number, pz: number, x: number, z: number, ang: numb
   return Math.hypot(px - (x + dx * t), pz - (z + dz * t));
 }
 
+/** A pinball's motion state (position and unit heading). */
+export interface Pin {
+  x: number;
+  z: number;
+  dx: number;
+  dz: number;
+}
+
 /**
- * A pinball run: from (x, z) along (dx, dz) at `speed` for `time` seconds inside
- * a square of half-size `lim`, reflecting off its edges. Returns the corner
- * points [x0, z0, x1, z1, ...] (start, each bounce, end). Pure.
+ * One pinball step of `step` metres inside a square of half-size `lim` and,
+ * optionally, a circle (the duel's ring; `rad` = the ball's radius). Reflects
+ * the heading off whatever it would leave; returns true on a bounce. Pure: the
+ * brain and its telegraphed path share it, so the path is the run.
  */
-export function pinballPath(x: number, z: number, dx: number, dz: number, speed: number, time: number, lim: number, maxPts = 8): number[] {
-  const pts = [x, z];
-  let left = speed * time;
-  for (let guard = 0; guard < 32 && left > 1e-6 && pts.length < maxPts * 2; guard++) {
-    const tx = dx > 0 ? (lim - x) / dx : dx < 0 ? (-lim - x) / dx : Infinity;
-    const tz = dz > 0 ? (lim - z) / dz : dz < 0 ? (-lim - z) / dz : Infinity;
-    const t = Math.max(0, Math.min(tx, tz, left));
-    x += dx * t;
-    z += dz * t;
-    left -= t;
-    pts.push(x, z);
-    if (left <= 1e-6) break;
-    if (tx <= tz) dx = -dx;
-    if (tz <= tx) dz = -dz;
+export function pinStep(p: Pin, step: number, lim: number, ring: { x: number; z: number; r: number } | null, rad: number): boolean {
+  let hit = false;
+  if (Math.abs(p.x + p.dx * step) > lim) {
+    p.dx = -p.dx;
+    hit = true;
   }
+  if (Math.abs(p.z + p.dz * step) > lim) {
+    p.dz = -p.dz;
+    hit = true;
+  }
+  if (ring) {
+    const nx = p.x + p.dx * step - ring.x;
+    const nz = p.z + p.dz * step - ring.z;
+    const d = Math.hypot(nx, nz);
+    const max = Math.max(1, ring.r - rad);
+    if (d > max && (p.dx * nx + p.dz * nz) > 0) {
+      // Reflect off the ring's wall (normal points out from its centre).
+      const ux = nx / d;
+      const uz = nz / d;
+      const k = 2 * (p.dx * ux + p.dz * uz);
+      p.dx -= k * ux;
+      p.dz -= k * uz;
+      hit = true;
+    }
+  }
+  p.x += p.dx * step;
+  p.z += p.dz * step;
+  return hit;
+}
+
+/**
+ * A pinball run from (x, z) along (dx, dz) at `speed` for `time` seconds (see
+ * pinStep). Returns the corner points [x0, z0, x1, z1, ...]: start, each
+ * bounce, end. Pure.
+ */
+export function pinballPath(x: number, z: number, dx: number, dz: number, speed: number, time: number, lim: number, maxPts = 8, ring: { x: number; z: number; r: number } | null = null, rad = 0, dt = 1 / 60): number[] {
+  const pts = [x, z];
+  const p: Pin = { x, z, dx, dz };
+  for (let t = 0; t < time - 1e-9 && pts.length < maxPts * 2; t += dt) {
+    if (pinStep(p, speed * dt, lim, ring, rad)) pts.push(p.x - p.dx * speed * dt, p.z - p.dz * speed * dt);
+  }
+  if (pts.length < maxPts * 2) pts.push(p.x, p.z);
   return pts;
 }
 
@@ -209,6 +247,7 @@ function mem(e: Enemy): Mem {
 }
 
 const BEAT = { n: 0, f: 0 };
+const PIN: Pin = { x: 0, z: 0, dx: 0, dz: 0 };
 
 // ------------------------------------------------------------------ dispatch
 
@@ -448,7 +487,7 @@ function boxer(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
       if (e.t > T.pinWindup * 0.55) lockOn(e, nx, nz);
       else if (!m.pinShown && api) {
         m.pinShown = true;
-        api.path(e, pinballPath(e.x, e.z, e.lungeX, e.lungeZ, T.pinSpeed, T.pinTime, ctx.bounds() - e.radius - 1, 6), e.t + 0.4);
+        api.path(e, pinballPath(e.x, e.z, e.lungeX, e.lungeZ, T.pinSpeed, T.pinTime, ctx.bounds() - e.radius - 1, 6, api.ring(), e.radius), e.t + 0.4);
       }
       if (e.t > 0) return false;
       m.bounces = 0;
@@ -509,18 +548,13 @@ function boxer(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
     }
     if (e.move === 'pinball') {
       // Bounce off the arena edge like a pinball, smashing through cover.
-      const lim = ctx.bounds() - e.radius - 1;
-      const nx2 = e.x + e.lungeX * T.pinSpeed * dt;
-      const nz2 = e.z + e.lungeZ * T.pinSpeed * dt;
-      let hit = false;
-      if (Math.abs(nx2) > lim) {
-        e.lungeX = -e.lungeX;
-        hit = true;
-      }
-      if (Math.abs(nz2) > lim) {
-        e.lungeZ = -e.lungeZ;
-        hit = true;
-      }
+      PIN.x = e.x;
+      PIN.z = e.z;
+      PIN.dx = e.lungeX;
+      PIN.dz = e.lungeZ;
+      const hit = pinStep(PIN, T.pinSpeed * dt, ctx.bounds() - e.radius - 1, api?.ring() ?? null, e.radius);
+      e.lungeX = PIN.dx;
+      e.lungeZ = PIN.dz;
       if (hit) {
         m.bounces++;
         ring(e, ctx, 8, 6, 12, Math.random() * Math.PI);

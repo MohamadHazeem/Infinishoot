@@ -29,6 +29,7 @@ import { addSoundFolder } from './debugSound';
 import { addSkyFolder } from './debugSky';
 import { addGraphicsFolder } from './debugGraphics';
 import { addBossLaneFolder } from './debugBosses';
+import { addBosses3Folder } from './debugBosses3';
 import { rainTuning, weatherForce } from '../game/ambience';
 import { worldFxTuning } from '../game/particles';
 import { debrisTuning } from '../game/debris';
@@ -115,6 +116,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addSkyFolder(gui);
   addGraphicsFolder(gui);
   addBossLaneFolder(gui); // Titan, rematches, boss duel
+  addBosses3Folder(gui); // biome bosses (src/ui/debugBosses3.ts)
 
   const cam = gui.addFolder('Camera').close();
   cam.add(cameraTuning, 'pitchDeg', 30, 89, 1);

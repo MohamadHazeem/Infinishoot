@@ -12,7 +12,7 @@ import { bossLaneForce, titanDebug } from '../game/systems/bossLane';
  *   &remix              the stage boss comes as its rematch (King Bopper EX, Rampage Rex: Inferno, Hive Queen: Nightshade)
  *   &duel               push the boss into its last phase once its entrance ends: the ring-of-fire duel
  *
- *   ?test&stage=6&bossnow&god                 loop 2's Titan (stage 6) the normal way
+ *   ?test&stage=11&bossnow&god                loop 3's Titan (stage 11) the normal way (loop 2's slots belong to the biome bosses)
  *   ?test&stage=5&bossnow&remix&god&nointro   King Bopper EX
  *   ?test&stage=2&bossnow&duel&god&nointro    Rex's duel
  */

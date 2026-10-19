@@ -28,6 +28,7 @@ import { contentLinks } from './contentLinks';
 import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
 import { bossLinks } from './bossLinks';
+import { bosses3Links } from './bosses3Links';
 import { worldEventLinks } from './worldEventLinks';
 import { modesLinks } from './modesLinks';
 import { mpLinks } from './mpLinks';
@@ -248,6 +249,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
   if (q.has('nointro')) settings.bossIntros = false;
   bossLinks(game, q); // bosses lane: &titan, &titanphase=N, &titanmove=, &remix, &duel (src/dev/bossLinks.ts)
+  bosses3Links(game, q); // biome bosses: &b3move= (src/dev/bosses3Links.ts)
   game.debugBoss({ now: q.has('bossnow'), mini: q.has('miniboss'), phase: Number(q.get('phase')) || 0 });
   const near = q.get('near');
   if (near) nearToy(game, near);
