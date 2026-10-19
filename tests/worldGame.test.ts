@@ -171,5 +171,17 @@ ok(G.mode === 'fight' && G.kills === 0 && G.level === 1 && G.xpNext < 1e6 && G.s
 ok(G.hero.weapons.length <= 3 && G.chestT >= 0, 'the demo kit and chest block are gone');
 for (let i = 0; i < 600; i++) G.update(1 / 60);
 ok(G.mode === 'fight' || G.mode === 'levelup', 'the run plays on');
+// Loop 2 and 3 with the autoplay bot: every new biome and remix plays (crushers, wind, night, new weather).
+const { installBot } = await import('../src/dev/bot');
+installBot(G, G.input);
+const botRun = (globalThis as any).window.botRun as (s: number, god?: boolean) => Record<string, unknown>;
+const played: string[] = [];
+for (let st = 5; st <= 12; st++) {
+  G.loadStage(st);
+  const r = botRun(12, true);
+  played.push(`${st}:${(await import('../src/data/biomes')).biomeForStage(st).name}:${r.kills}`);
+}
+console.log('loop 2-3', played.join(' | '));
+ok(played.length === 8 && G.stage === 12, 'the bot plays every loop-2 and loop-3 stage');
 ok(errors.length === 0, 'no runtime errors' + (errors.length ? ':\n' + errors.slice(0, 5).join('\n') : ''));
 process.exit(process.exitCode ?? 0);

@@ -28,6 +28,7 @@ import { debrisTuning } from '../game/debris';
 import { decalTuning } from '../game/decals';
 import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
+import { worldDebugFolder } from '../world/worldDebug';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
 
@@ -223,6 +224,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   world.add(surfaceTuning, 'rippleEvery', 0.1, 3, 0.05);
   world.add(surfaceTuning, 'bubbleEvery', 0.05, 2, 0.05);
   world.add(surfaceTuning, 'glintsPerM2', 0, 1, 0.01);
+  worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
 
   return gui;
 }
