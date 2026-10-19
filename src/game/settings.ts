@@ -6,6 +6,8 @@ import { announcerSettings, announcer } from '../audio/announcer';
 import { voiceSettings as synthVoiceSettings } from '../audio/heroVoice';
 import { a11yAudio } from '../audio/captions';
 import { voiceSettings } from '../audio/voices';
+import { crowdSettings } from '../audio/crowd';
+import { radioSettings } from '../audio/radio';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
@@ -100,6 +102,10 @@ export interface Settings {
   teamName: string;
   /** Host lobbies as PUBLIC (listed in PLAY ONLINE > BROWSE GAMES when the online service is on). */
   lobbyPublic: boolean;
+  /** CROWD: the invisible arena crowd (cheers, gasps, boos; src/audio/crowd.ts). */
+  crowd: boolean;
+  /** RADIO DJ: the radio host between stages (src/audio/radio.ts). */
+  radioDj: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -158,6 +164,8 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   cinematics: 'full',
   teamName: '',
   lobbyPublic: false,
+  crowd: true,
+  radioDj: true,
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -174,6 +182,8 @@ settings.helpGhosts ??= true;
 settings.cinematics ??= 'full';
 settings.teamName ??= '';
 settings.lobbyPublic ??= false;
+settings.crowd ??= true;
+settings.radioDj ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */
@@ -224,6 +234,8 @@ export function applySettings(): void {
   a11yAudio.arrows = settings.soundArrows;
   announcer.update();
   voiceSettings.heroVoices = settings.heroVoices !== false;
+  crowdSettings.enabled = settings.crowd !== false;
+  radioSettings.enabled = settings.radioDj !== false;
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
   postSettings.glow = settings.glow;

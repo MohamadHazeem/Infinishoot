@@ -20,6 +20,7 @@ import { cleanLook } from '../../data/customise';
 import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
+import { soundLaneNet } from './sound2';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -239,6 +240,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     md: this.modesNet(),
     cn: this.cineNet(),
     vs: this.versusNet(),
+    s2: soundLaneNet(this, forHero),
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

@@ -17,6 +17,7 @@ import { threatAt } from '../../audio/captions';
 import { heroVoice, type Speaker } from '../../audio/heroVoice';
 import type { BarkKind } from '../../audio/voice';
 import { AudioA11y } from '../../ui/audioA11y';
+import { soundLaneFrame } from './sound2';
 
 // ---------------------------------------------------------------- cue names (host side, recorded for clients)
 
@@ -170,6 +171,7 @@ export function updateSound(this: Game, dt: number, frozen: boolean): void {
   music.setStyleRank(fighting ? this.hero.skill.style.rank : 0);
   reaperToll(this, state, dt, fighting);
   overlays(this, dt);
+  soundLaneFrame(this, dt, frozen); // duel music, crowd, radio DJ, instruments, beds (systems/sound2.ts)
   if (fighting) {
     const tier = this.combo >= 150 ? 3 : this.combo >= 100 ? 2 : this.combo >= 50 ? 1 : 0;
     if (tier > state.combo) {

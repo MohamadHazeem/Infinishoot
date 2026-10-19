@@ -45,7 +45,7 @@ class Param {
   cancelAndHoldAtTime(_time: number) {}
 }
 class Node {
-  gain = new Param(); frequency = new Param(); detune = new Param(); pan = new Param();
+  gain = new Param(); frequency = new Param(); detune = new Param(); pan = new Param(); Q = new Param();
   threshold = new Param(); knee = new Param(); ratio = new Param(); attack = new Param(); release = new Param();
   type = ''; buffer: unknown; disconnected = false; startTime = -1; stopTime = -1;
   connect(node: Node) { return node; }

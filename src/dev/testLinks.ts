@@ -5,6 +5,7 @@ import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
 import { coop2Links } from './coop2Links';
 import { cinematicsLinks } from './cinematicsLinks';
+import { sound2Links } from './sound2Links';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
@@ -224,6 +225,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   modesLinks(game, q); // rhythm, pacifist, pact=, minigame=, mgt=, ghost=demo, ghostlead=, modescreen=ghosts (src/dev/modesLinks.ts)
   cinematicsLinks(game, q); // skyfall=, ending=, reveal=, jackpot=, flawless=, titleplay=, cine= (src/dev/cinematicsLinks.ts)
   mpLinks(game, q); // MP lane: versus, localcoop, browse, teamboard, lobby= (src/dev/mpLinks.ts)
+  sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

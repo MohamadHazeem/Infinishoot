@@ -178,7 +178,7 @@ export function spawnTitan(this: Game, def: EnemyDef): void {
   }
   this.startBossIntro(core);
   this.vfx.shake(NaN, NaN, 0.8);
-  this.vfx.sound('bossSlam', cx, cz + 4, 0.6);
+  this.vfx.sound('s2:titanRise', cx, cz + 4);
   for (let k = -3; k <= 3; k++) {
     this.vfx.burst(cx + k * 2.4, 0.5, cz + 2.2, { count: 10, color: '#94b0c2', color2: '#566c86', speed: [3, 9], size: [0.3, 0.6], life: [0.6, 1.1], up: 9, gravity: 16, debris: 4 });
   }
@@ -232,7 +232,7 @@ export function titanStep(this: Game, e: Enemy, dt: number): void {
     if (POSE.hurt) armHits(this, s, e, a);
     if (s.sweepT[a] - dt < T.sweepTele && s.sweepT[a] >= T.sweepTele) {
       handPos(s.cx, s.cz, side, s.arm[a], P);
-      this.vfx.sound('whoosh', P.x, P.z, 0.7);
+      this.vfx.sound('s2:titanSweep', P.x, P.z);
       this.vfx.sound('bossSlam', P.x, P.z, 0.8);
       this.vfx.shake(P.x, P.z, 0.4);
     }
@@ -455,7 +455,7 @@ function partBroken(g: Game, s: TitanState, i: number, alive: boolean[]): void {
   g.vfx.star(P.x, 2.5, P.z, 5, '#ffffff', 0.18);
   g.vfx.num(P.x, 4, P.z, 'WEAK POINT!', 'crit');
   g.vfx.sound('explode', P.x, P.z);
-  g.vfx.sound('shieldBreak', P.x, P.z);
+  g.vfx.sound('s2:titanBreak', P.x, P.z);
   g.vfx.shake(P.x, P.z, 0.7);
   g.juice.freeze(0.08);
   for (let k = 0; k < titanTuning.partGold; k++) g.pickups.spawn(PickupType.Bolt, P.x + g.rng.range(-1, 1), P.z + 1.5 + g.rng.range(-1, 1), 1);

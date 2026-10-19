@@ -178,7 +178,7 @@ function rangeLabel(inp: HTMLInputElement): void {
   else if (inp.dataset.unit && out) out.textContent = `${inp.value}${inp.dataset.unit}`;
 }
 
-type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'captions' | 'soundArrows' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops' | 'deathReplay';
+type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'captions' | 'soundArrows' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops' | 'deathReplay' | 'crowd' | 'radioDj';
 /** Settings switched by buttons that cycle through `data-opts` (DAMAGE NUMBERS: ALL / MINE / OFF). */
 type CycleKey = 'damageNumbers' | 'chargeMode' | 'cinematics';
 
@@ -344,6 +344,8 @@ export class Screens {
     <label>VOICE <input data-nav type="range" min="0" max="1" step="0.1" data-set="voiceVolume"></label>
     <button data-nav data-toggle="captions">CAPTIONS <b></b></button>
     <button data-nav data-toggle="soundArrows">SOUND ARROWS <b></b></button>
+    <button data-nav data-toggle="crowd">CROWD <b></b></button>
+    <button data-nav data-toggle="radioDj">RADIO DJ <b></b></button>
     <label>MENU SOUNDS <input data-nav type="range" min="0" max="1" step="0.1" data-set="uiVolume"></label>
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>

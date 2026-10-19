@@ -63,14 +63,15 @@ export class WeaponStems {
       return { instrument: null as Instrument | null, intensity: 0, evolved: false, gain, filter, pan };
     });
   }
-  commit(weapons: readonly StemWeapon[], t: number): void {
+  /** `mul` scales every stem (the boss duel makes your stems answer louder, then pulls them back). */
+  commit(weapons: readonly StemWeapon[], t: number, mul = 1): void {
     for (let i = 0; i < this.slots.length; i++) {
       const slot = this.slots[i];
       const w = weapons[i];
       slot.instrument = w ? WEAPON_STEMS[w.def.id] ?? null : null;
       slot.intensity = w ? stemIntensity(w.level) : 0;
       slot.evolved = w?.evolved ?? false;
-      slot.gain.gain.setTargetAtTime(slot.instrument ? stemTuning.gain * slot.intensity / Math.sqrt(Math.max(1, weapons.length / 2)) : 0, t, 0.025);
+      slot.gain.gain.setTargetAtTime(slot.instrument ? mul * stemTuning.gain * slot.intensity / Math.sqrt(Math.max(1, weapons.length / 2)) : 0, t, 0.025);
       if (slot.instrument) {
         slot.pan.pan.setValueAtTime(slot.instrument.pan, t);
         slot.filter.frequency.setValueAtTime(slot.instrument.cutoff, t);

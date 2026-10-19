@@ -230,7 +230,7 @@ export class MechArsenal extends Weapon {
       ctx.bullets.spawn({ x, z, dirX: ax, dirZ: az, speed: 30, life: 0.8, radius: 0.36, damage: T.cannonDmg * this.power, knockback: 9, team: Team.Player, color: '#ffb627', width: 0.5, length: 1.3, pierce: 1, owner: ctx.owner, kind: GP_KINDS.cannon });
       ctx.particles.burst(x, BULLET_Y + 0.6, z, { count: 3, color: '#ffb627', color2: '#ffffff', speed: [3, 8], size: [0.12, 0.25], life: [0.06, 0.15], dir: { x: ax, z: az, spread: 1 } });
       this.muzzleT = 0.06;
-      ctx.sound('shoot');
+      ctx.sound('mechCannon');
     }
     // Missile salvo: fanned out of the shoulders, then they home in.
     this.salvoT -= dt;
@@ -241,7 +241,7 @@ export class MechArsenal extends Weapon {
         const a = base + Math.PI + (i / (T.salvoCount - 1) - 0.5) * 2.6 + (i % 2 ? 0.2 : -0.2);
         ctx.bullets.spawn({ x: pl.x, z: pl.z, dirX: Math.cos(a), dirZ: Math.sin(a), speed: 15, life: 2.2, radius: 0.3, damage: T.missileDmg * this.power, knockback: 6, team: Team.Player, color: '#ffe9a8', width: 0.32, length: 0.9, homing: 1, blast: T.missileBlast, owner: ctx.owner, kind: GP_KINDS.missile });
       }
-      ctx.sound('missile');
+      ctx.sound('mechMissile');
       ctx.particles.burst(pl.x, 2.6, pl.z, { count: 10, color: '#d8def0', color2: '#ffe9a8', speed: [1, 3], size: [0.25, 0.45], life: [0.4, 0.8], up: 3, drag: 2, smoke: 2, scorch: 0 });
     }
     this.steer(dt, ctx);
