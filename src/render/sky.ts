@@ -314,7 +314,7 @@ void main() {
   vec2 cp = vWorld.xz + R.xz / max(R.y, 0.15) * uCloudCut.z * 0.35;
   float cn = texture(uCloudMap, cp * uCloud.z + uCloud.xy).r;
   float cl = smoothstep(uCloudCut.x - 0.05, uCloudCut.x + uCloudCut.y, cn);
-  sky = mix(sky, uCloudCol, cl * 0.75);
+  sky = mix(sky, uCloudCol, cl * 0.55);
   // Sun: a broad glow and a glitter path of sparkling wave crests.
   float sd = max(dot(R, uSunVis), 0.0);
   float glow = pow(sd, 5.0) * 0.6 + pow(sd, 40.0) * 0.9;
@@ -340,7 +340,8 @@ void main() {
   // Fade at pond edges (vUv is the disc's 0..1 square) and into the fog.
   float edge = 1.0;
   #ifdef POND
-    edge = smoothstep(0.5, 0.36, length(vUv - 0.5));
+    // Ponds keep more of their own water colour: a lighter touch of sky.
+    edge = smoothstep(0.5, 0.36, length(vUv - 0.5)) * 0.6;
   #endif
   // Far water still mirrors the sky (it isn't simply fogged out), so the sunset glows on the sea.
   col = mix(col, uFogColor, vFog * 0.35);
@@ -605,7 +606,7 @@ export class SkyFx {
       hz.lerp(this.c2, f.rain * 0.5);
     }
     this.uni.uSunCol.value.setRGB(1, 0.95, 0.8).lerp(this.c1.setRGB(...P.goldSun), gold).lerp(this.c1.setRGB(...P.duskSun), dusk).multiplyScalar((1 - n) * (1 - f.rain * 0.8));
-    this.uni.uCloudCol.value.set(P.cloud).lerp(this.c1.set(P.duskHorizon), dusk * 0.5).lerp(this.c1.set('#2a3050'), n * 0.85);
+    this.uni.uCloudCol.value.set(P.cloud).lerp(this.c1.setRGB(...P.goldSun), gold * 0.3).lerp(this.c1.set(P.duskHorizon), dusk * 0.8).lerp(this.c1.set('#2a3050'), n * 0.85);
     const low = f.quality <= 0;
     this.uni.uStars.value = low ? 0 : n * T.stars * (1 - f.rain);
     this.uni.uMoon.value = n * (1 - f.rain * 0.8);
