@@ -1,6 +1,16 @@
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "replay.storage": "لا توجد مساحة كافية لحفظ إعادة اللعب في المتصفح. احفظها في ملف بدلاً من ذلك.",
+  "replay.exit": "الخروج من إعادة اللعب",
+
+  "replay.help": "مساعدة",
+  "replay.save": "حفظ إعادة اللعب",
+  "replay.watch": "مشاهدة إعادة اللعب",
+  "replay.crash": "مشاهدة إعادة اللعب عند التعطل",
+  "replay.back": "رجوع",
+  "replay.empty": "لا توجد جولة مسجلة بعد.",
+
   "content.84fee1b908": "شفرات الرياح المتقاطعة",
   "content.21f48f0714": "شفرتان هلاليتان تتقاطعان إلى الخارج، ثم تقطعان الأعداء في مسار عودة منحني.",
   "content.bceb0fd05d": "ملفات تسلا",

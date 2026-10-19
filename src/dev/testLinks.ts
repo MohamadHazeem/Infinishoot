@@ -14,7 +14,6 @@ import { cinematicsLinks } from './cinematicsLinks';
 import { sound2Links } from './sound2Links';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
-import { Rng } from '../core/rng';
 import { ENEMIES } from '../data/enemies';
 import { cheats, type Game } from '../game/game';
 import { applySettings, settings } from '../game/settings';
@@ -171,7 +170,6 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const bk = q.get('biome');
   biomeForce.key = bk && allBiomeKeys().includes(bk) ? bk : null;
   game.startSolo();
-  if (q.get('seed')) game.rng = new Rng(Number(q.get('seed')));
   // Skip the starting shop.
   if (game.mode === 'shop') game.closeShop();
   const stage = Number(q.get('stage'));
