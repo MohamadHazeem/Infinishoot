@@ -297,6 +297,7 @@ export class Screens {
     <button data-nav data-toggle="dynamicCamera">DYNAMIC CAMERA <b></b></button>
     <button data-nav data-toggle="bossIntros">BOSS INTROS <b></b></button>
     <button data-nav data-toggle="slowMo">SKILL SLOW-MO <b></b></button>
+    <button data-nav data-toggle="petSounds">PET SOUNDS <b></b></button>
     <button data-nav data-act="controls">CONTROLS...</button>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
     <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>

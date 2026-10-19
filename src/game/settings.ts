@@ -49,6 +49,8 @@ export interface Settings {
   bossIntros: boolean;
   /** Slow-motion on perfect dashes and Mega Barrage (solo only). */
   slowMo: boolean;
+  /** Pet zap sounds (pets zap often at high level). */
+  petSounds: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -82,8 +84,10 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   dynamicCamera: true,
   bossIntros: true,
   slowMo: true,
+  petSounds: true,
 });
 settings.dynamicCamera ??= true;
+settings.petSounds ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

@@ -84,6 +84,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     if (this.isCombatMode) this.tryBomb(h);
   } else if (m.t === 'parry' || m.t === 'ult') {
     this.skillMessage(h, m.t);
+  } else if (m.t === 'team') {
+    this.tryTeamMove(h);
   } else if (m.t === 'ui') {
     const d = m.d === -1 ? -1 : 1;
     this.heroAction(h, String(m.a), Number(m.i) || 0, d);
@@ -195,6 +197,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     bx: this.bossNet(),
     ar: this.arenaNet(),
     sk: this.skillNet(forHero),
+    cp: this.companionNet(),
     en: packEnemies(en),
     bu: packBullets(this.bullets, bi),
     pk: packPickups(this.pickups, pi),

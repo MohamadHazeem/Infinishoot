@@ -285,6 +285,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.hud.setMods(mods.map((m) => ({ id: m.def.id, icon: m.def.icon, color: m.def.color, name: m.def.name, readout: m.ro, cursed: !!m.def.cursed })));
   lap('ren.camera+reticle');
   this.renderTeam();
+  this.renderCompanion(rdt);
   this.renderEliteBars(alpha);
   this.renderMinimap();
   this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);

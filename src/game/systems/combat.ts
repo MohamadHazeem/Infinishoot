@@ -106,22 +106,6 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   return amount;
 }
 
-/** Sparky zaps the nearest enemy every 1.5 s. */
-export function updatePets(this: Game, dt: number): void {
-  for (const h of this.heroes) {
-    if (h.pet !== 'sparky' || h.left || h.player.dead || (h.sparkyT -= dt) > 0) continue;
-    h.sparkyT = 1.5;
-    const p = h.player;
-    const e = this.nearestEnemy(p.x, p.z, 9);
-    if (!e) continue;
-    this.damage(e, 10 + 3 * this.level, { source: 'pet', tags: ['shock'], canCrit: true, loud: true }, h);
-    this.vfx.star(e.x, 1, e.z, 1.3, '#fff35c', 0.12);
-    this.vfx.ring(e.x, e.z, 0.5, 2, '#fff35c', 0.2);
-    this.vfx.sound('w:zap', e.x, e.z);
-    h.petView?.zap();
-  }
-}
-
 /** Elite modifiers that act over time: vampiric regen and blinking teleports. */
 export function updateEliteMods(this: Game, dt: number): void {
   for (const e of this.enemies.list) {

@@ -20,7 +20,7 @@ import { SKINS, type SkinDef } from '../data/skins';
 import { CURSE_BY_ID, CURSES } from '../data/curses';
 import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { PET_BY_ID } from '../data/pets';
-import { PetView } from './pet';
+import { PetState, PetView } from './pet';
 import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { HEROES, heroOf, type HeroDef } from '../data/heroes';
 import { HeroSkill } from './style';
@@ -281,10 +281,10 @@ export class Hero implements SynergyHost {
     this.reviveT = 0;
     this.shopDone = true;
     this.skill.reset();
+    this.petState.reset();
     this.recomputeStats();
     this.rerollsLeft = Math.min(MAX_GEARS, this.stats.rerolls);
-    this.revivesLeft = this.stats.revives + (this.pet === 'guardian' ? 1 : 0);
-    this.sparkyT = 1.5;
+    this.revivesLeft = this.stats.revives;
     this.player.reset(this.stats);
     this.loadoutDirty = true;
   }
@@ -313,7 +313,8 @@ export class Hero implements SynergyHost {
   /** Companion (src/data/pets.ts); its body is drawn by PetView. */
   pet = 'none';
   petView: PetView | null = null;
-  sparkyT = 0;
+  /** The pet's level, skills and timers this run (src/game/systems/companion.ts). */
+  readonly petState = new PetState();
   /** Last ping time (ms), for rate limiting. */
   pingAt = 0;
   /** What last hurt this hero (run history: cause of death). */
@@ -325,8 +326,9 @@ export class Hero implements SynergyHost {
     const def = PET_BY_ID[id] ?? PET_BY_ID.none;
     if (def.id === this.pet && (this.petView || def.id === 'none')) return;
     this.pet = def.id;
+    this.petState.setDef(def);
     this.petView?.dispose();
-    this.petView = def.id === 'none' ? null : new PetView(this.world.scene, def);
+    this.petView = def.id === 'none' ? null : new PetView(this.world.scene, def, this.petState);
   }
 
   /** Rebuild static stats (passives + Mods) and the live copy. */
@@ -336,7 +338,7 @@ export class Hero implements SynergyHost {
       this.heroDef.add,
       this.relics.map((id) => RELIC_BY_ID[id]?.add ?? {}),
     );
-    if (this.pet === 'bit') this.statBase.magnet += 0.6;
+    this.statBase.magnet += this.petState.magnetBonus;
     this.synergy.applyStatic(this.statBase);
     this.refreshLive();
     this.player.stats = this.stats;
