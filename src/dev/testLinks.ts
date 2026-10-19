@@ -1,3 +1,4 @@
+import { architectLinks } from '../game/systems/architect';
 import { trialsTest } from '../game/systems/trials';
 import { biome3Force } from '../game/biome3Brain';
 import { clipsFor, markClip } from '../game/systems/clips';
@@ -201,7 +202,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   game.startSolo();
   // Skip the starting shop.
   if (game.mode === 'shop') game.closeShop();
-  const stage = Number(q.get('stage'));
+  const stage = Number(q.get('stage')) || (q.has('architect') ? 12 : 0);
   if (stage > 1) game.loadStage(stage);
   for (const w of list('weapons')) {
     const [id, n] = pair(w);
@@ -421,6 +422,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   }
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
+  architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
   return true;
 }
 

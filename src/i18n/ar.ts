@@ -1,3 +1,4 @@
+import { architectAr } from '../game/architect/strings';
 import { trialsAr } from './trials';
 import { followupsAr } from './followups';
 import { biome3Ar } from './biome3';
@@ -6,6 +7,7 @@ import { tips2Ar } from './tips2';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...architectAr,
   ...trialsAr,
   ...biome3Ar,
   "clips.title": "لقطات مميزة",

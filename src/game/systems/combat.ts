@@ -1,3 +1,4 @@
+import { architectCanDamage } from './architect';
 /**
  * Combat: damage, kills, drops, blasts and death effects.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -47,6 +48,7 @@ export function enemiesInRadius(this: Game, x: number, z: number, r: number, out
 /** All damage to enemies, credited to the hero who dealt it. */
 export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: Hero): number {
   if (!e.active || e.hp <= 0) return 0;
+  if (!architectCanDamage(this, e)) return 0;
   if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
   if (e.roarT > 0) return 0; // bosses are invulnerable while they roar or make their entrance
   if (this.modes.holster) return 0; // Pacifist road / mini-games: heroes deal no damage (systems/modes.ts)

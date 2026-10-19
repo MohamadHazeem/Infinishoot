@@ -1,6 +1,8 @@
+import { architectEn, architectAr } from '../architect/strings';
 import { biome3StoryEn, biome3StoryAr } from '../../i18n/biome3';
 /** Story copy is kept together for translation and content review. */
 export const storyEn = {
+  ...architectEn,
   ...biome3StoryEn,
   'story.menu': 'STORY',
   'story.intro': 'THE ISLANDS NEED YOU',
@@ -158,6 +160,7 @@ export const storyEn = {
 } as const;
 
 export const storyAr = {
+  ...architectAr,
   ...biome3StoryAr,
   'story.menu': 'القصة',
   'story.intro': 'الجزر بحاجة إليك',

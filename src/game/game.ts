@@ -1,3 +1,4 @@
+import * as ArchitectSys from './systems/architect';
 import { installTrials } from './systems/trials';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
@@ -396,7 +397,7 @@ export class Game implements HeroWorld {
   makeEventHost = SpiceSys.makeEventHost;
   spiceLines = SpiceSys.spiceLines;
   goldFx = SpiceSys.goldFx;
-  stageClear = GauntletSys.stageClear;
+  stageClear = ArchitectSys.stageClear;
   openShop = GauntletSys.openShop;
   shopFx = SpiceSys.shopFx;
   closeShop = GauntletSys.closeShop;
@@ -1319,6 +1320,7 @@ export class Game implements HeroWorld {
       this.input.endStep();
       return;
     }
+    if (ArchitectSys.architectEndingStep(this, dt)) { this.input.endStep(); this.hostTick(false); return; }
     if (this.storyStep(dt)) { this.input.endStep(); this.hostTick(false); return; }
     this.onboarding.step(dt);
     this.firstten.step(dt);
@@ -1415,6 +1417,7 @@ export class Game implements HeroWorld {
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
     GauntletSys.gauntletTick(this, dt);
+    ArchitectSys.updateArchitect(this, dt);
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
     this.updateSkill(dt);

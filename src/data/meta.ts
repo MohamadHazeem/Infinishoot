@@ -60,6 +60,7 @@ function m(id: string, name: string, desc: string, tier: T, cat: AchievementCat,
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
+  { id: 'true_ending', name: 'Unwritten Future', desc: 'Defeat the Architect after the third loop.', tier: 'gold', cat: 'bosses', hidden: true },
   ...TRIAL_ACHIEVEMENTS,
   ...SECRET_ACHIEVEMENTS,
   { id: 'hydra_engine', name: 'Engine Breakers', desc: 'Defeat the Hydra Engine raid.' },
