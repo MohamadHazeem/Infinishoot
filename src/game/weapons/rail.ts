@@ -4,6 +4,7 @@ import { BARREL_RADIUS } from '../barrels';
 import { BULLET_Y } from '../bullets';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
+import { trails, TrailStyle } from '../trails';
 
 const TRACES = 8;
 const FADE = 0.25; // seconds a rail trace stays visible
@@ -37,6 +38,8 @@ export class Rail extends Weapon {
   private coreMat: THREE.MeshBasicMaterial;
   private glowMat: THREE.MeshBasicMaterial;
   private geo = new THREE.BoxGeometry(1, 0.1, 1).translate(0, 0, 0.5);
+  /** Traces already given a spiral (keys of recent shots; works on clients, whose traces are rebuilt from snapshots). */
+  private spun: number[] = [];
 
   constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
@@ -130,9 +133,42 @@ export class Rail extends Weapon {
     if (p.ion) for (let d = ION_STEP; d <= len; d += ION_STEP) this.ions.push({ x: ox + dx * d, z: oz + dz * d, t: 0.2 + d * 0.012 });
   }
 
+  /** The rail's signature: a corkscrew ribbon wound round the shot's line that lingers after the beam. */
+  private spiral(t: Trace, w: number): void {
+    const key = Math.round(t.x * 10) * 7919 + Math.round(t.z * 10) * 104729 + Math.round(Math.atan2(t.dz, t.dx) * 100);
+    if (this.spun.includes(key)) return;
+    this.spun.push(key);
+    if (this.spun.length > 16) this.spun.shift();
+    const r = 0.22 + w * 0.6;
+    const turns = t.len / 1.6;
+    const steps = Math.min(90, Math.ceil(turns * 10));
+    // Perpendicular on the ground, plus up: the spiral's plane.
+    const sx = -t.dz;
+    const sz = t.dx;
+    let ox = t.x;
+    let oy = BULLET_Y;
+    let oz = t.z;
+    for (let i = 1; i <= steps; i++) {
+      const k = i / steps;
+      const a = k * turns * Math.PI * 2;
+      const d = k * t.len;
+      const c = Math.cos(a) * r;
+      const x = t.x + t.dx * d + sx * c;
+      const y = BULLET_Y + Math.sin(a) * r;
+      const z = t.z + t.dz * d + sz * c;
+      trails.seg(ox, oy, oz, x, y, z, 0.07, 0.07, this.color, 0.35 + k * 0.25, TrailStyle.Glow);
+      ox = x;
+      oy = y;
+      oz = z;
+    }
+    // A faint vapour line down the middle that hangs a moment longer.
+    trails.seg(t.x, BULLET_Y, t.z, t.x + t.dx * t.len, BULLET_Y, t.z + t.dz * t.len, w * 1.6, w * 2.2, this.color, 0.6, TrailStyle.Soft);
+  }
+
   render(_alpha: number, ctx: WeaponCtx): void {
     const p = this.p;
     this.glowMat.color.set(this.color);
+    for (const t of this.traces) if (t.t < 0.1) this.spiral(t, p.width * Math.sqrt(ctx.stats.areaMul) * (t.mega ? 2 : 1));
     this.beams.forEach((b, i) => {
       const t = this.traces[i];
       b.core.visible = b.glow.visible = !!t;

@@ -203,7 +203,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
   this.eliteTrails(frameDt);
-  this.bullets.render(a);
+  this.bullets.render(a, rdt);
   lap('ren.bullets');
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
@@ -298,6 +298,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.music+sky');
   this.updateLook(frameDt);
   lap('ren.look');
+  this.updateSkyFx(frameDt);
+  lap('ren.sky');
   this.worldFx(frameDt);
   lap('ren.worldfx');
   this.hud.update(

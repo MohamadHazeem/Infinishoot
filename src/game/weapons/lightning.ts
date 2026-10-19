@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { WeaponDef } from '../../data/weapons';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
+import { trails, trailTuning } from '../trails';
 
 const MAX_SEGMENTS = 1600;
 const BOLT_LIFE = 0.16;
@@ -18,6 +19,9 @@ export class Lightning extends Weapon {
   private positions: Float32Array;
   private mat: THREE.LineBasicMaterial;
   private chained = new Set<number>();
+  /** Trail clock when the arcs were last re-rolled (they flicker at trailTuning.arcRate). */
+  private arcAt = -1;
+  private arcColor = '#fff9b0';
 
   constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
@@ -33,6 +37,7 @@ export class Lightning extends Weapon {
 
   protected applyLook(c: string | null): void {
     this.mat.color.set(c ?? '#fff9b0');
+    this.arcColor = c ?? '#fff9b0';
   }
 
   /** Bolts as [count, len, ...points, len, ...points]. */
@@ -108,6 +113,25 @@ export class Lightning extends Weapon {
   }
 
   render(): void {
+    // Thick branching arcs (src/game/trails.ts), re-rolled a few times a second so they flicker.
+    // On LOW quality trails are off and the thin lines below carry the bolt.
+    this.lines.visible = !trails.enabled;
+    if (trails.enabled) {
+      const step = 1 / trailTuning.arcRate;
+      if (trails.clock - this.arcAt >= step || trails.clock < this.arcAt) {
+        this.arcAt = trails.clock;
+        for (const b of this.bolts) {
+          const p = b.pts;
+          const fresh = b.t > BOLT_LIFE * 0.6;
+          // Each pair of points is one jagged piece; join each hop end to end (every 6 pieces).
+          for (let i = 0; i + 35 < p.length; i += 36) {
+            const w = fresh ? 0.2 : 0.13;
+            trails.arc(p[i], p[i + 1], p[i + 2], p[i + 33], p[i + 34], p[i + 35], this.arcColor, w, step * 1.15, 0.5, true);
+          }
+        }
+      }
+      return;
+    }
     let n = 0;
     for (const b of this.bolts) {
       for (let i = 0; i < b.pts.length && n < this.positions.length; i++) this.positions[n++] = b.pts[i];

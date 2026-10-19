@@ -65,6 +65,7 @@ import * as ArenaSys from './systems/arena';
 import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
+import * as SkySys from './systems/sky';
 import * as SkillSys from './systems/skill';
 
 export { economyTuning } from './hero';
@@ -444,6 +445,7 @@ export class Game implements HeroWorld {
   renderArena = ArenaSys.renderArena;
   objectiveTarget = ArenaSys.objectiveTarget;
   worldFx = WorldFxSys.worldFx;
+  updateSkyFx = SkySys.updateSkyFx;
   skillInput = SkillSys.skillInput;
   skillClientInput = SkillSys.skillClientInput;
   skillMessage = SkillSys.skillMessage;

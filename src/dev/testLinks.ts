@@ -11,6 +11,8 @@ import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
+import { skyOverrides, skyTuning } from '../render/sky';
+import { SCAR_COLORS } from '../game/scars';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -44,6 +46,8 @@ import { renderQuality } from '../render/quality';
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
+ *   ?test&tod=0.9&scars=30             sky lane: time of day (0 midday .. 1 sunset), 30 craters/scorch/frost
+ *     around the hero after 0.5 s (`scars=30:crater` for one kind), `clouds=0.6` cloud shadow strength
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
@@ -143,6 +147,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       game.vfx.burst(x, 0.6, z, { count: 18, color: '#ffb627', color2: '#ff5e3a', speed: [3, 9], size: [0.2, 0.45], life: [0.3, 0.7], up: 4, gravity: 12 });
     }, 700);
   }
+  skyLinks(game, q);
   // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
   if (q.has('nointro')) settings.bossIntros = false;
   game.debugBoss({ now: q.has('bossnow'), mini: q.has('miniboss'), phase: Number(q.get('phase')) || 0 });
@@ -314,4 +319,25 @@ function animLinks(game: Game, q: URLSearchParams): void {
       p.hurt(1, -p.aim.x, -p.aim.z);
     }, every);
   }
+}
+
+/** Sky lane options: `tod=<0..1>` pins the time of day, `scars=<n>[:kind]` leaves battle damage around the hero, `clouds=<0..1>`. */
+function skyLinks(game: Game, q: URLSearchParams): void {
+  const tod = q.get('tod');
+  if (tod !== null) skyOverrides.tod = Math.max(0, Math.min(1, Number(tod) || 0));
+  const cl = q.get('clouds');
+  if (cl !== null) skyTuning.cloudStrength = Math.max(0, Math.min(1, Number(cl) || 0));
+  const sc = q.get('scars');
+  if (!sc) return;
+  const [n, kind] = sc.split(':');
+  const colors = kind === 'crater' ? [SCAR_COLORS.crater] : kind === 'frost' ? [SCAR_COLORS.frost] : kind === 'scorch' ? [SCAR_COLORS.scorch] : [SCAR_COLORS.crater, SCAR_COLORS.scorch, SCAR_COLORS.scorch, SCAR_COLORS.frost];
+  setTimeout(() => {
+    const p = game.hero.player;
+    const count = Math.min(300, Number(n) || 20);
+    for (let i = 0; i < count; i++) {
+      const a = i * 2.39996;
+      const r = 2.5 + Math.sqrt(i / count) * 13;
+      game.vfx.scar(p.x + Math.cos(a) * r, p.z + Math.sin(a) * r * 0.75, 1 + ((i * 7) % 5) * 0.45, colors[i % colors.length], 8 + (i % 4) * 6);
+    }
+  }, 500);
 }

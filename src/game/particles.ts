@@ -34,6 +34,8 @@ export interface BurstOptions {
   dust?: number;
   /** Scorch mark radius for smoke bursts (default from the burst speed); 0 = none. */
   scorch?: number;
+  /** An electric arc from the burst to this point (x, z) at the burst's height (chain zaps; drawn by systems/sky.ts). */
+  arc?: [number, number];
 }
 
 /** Quality knobs for the world effects (low preset thins them out). */

@@ -79,10 +79,8 @@ export function zap(this: Game, from: Enemy, hops: number, dmg: number, by: Hero
     const next = this.nearestEnemy(cur.x, cur.z, 5, (o) => hit.has(o.uid));
     if (!next) break;
     hit.add(next.uid);
-    for (let k = 1; k < 5; k++) {
-      const t = k / 5;
-      this.vfx.burst(cur.x + (next.x - cur.x) * t, 1, cur.z + (next.z - cur.z) * t, { count: 1, color: '#fff35c', color2: '#ffffff', speed: [0, 0.5], size: [0.12, 0.2], life: [0.08, 0.14] });
-    }
+    // One event per hop: a spark at the start plus the arc to the next enemy (systems/sky.ts draws it).
+    this.vfx.burst(cur.x, 1, cur.z, { count: 2, color: '#fff35c', color2: '#ffffff', speed: [0, 0.5], size: [0.12, 0.2], life: [0.08, 0.14], arc: [Math.round(next.x * 100) / 100, Math.round(next.z * 100) / 100] });
     this.vfx.star(next.x, 1, next.z, 1, '#fff35c', 0.1);
     this.damage(next, dmg, { source: 'zap', tags: ['chain', 'shock'] }, by);
     cur = next;
