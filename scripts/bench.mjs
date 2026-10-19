@@ -108,7 +108,7 @@ const res = await page.evaluate(() => {
   clearInterval(window.__benchTimer);
   const p = window.__prof;
   const q = window.__quality;
-  return { frames: p.frames, phase: p.phase, samples: window.__benchSamples, isolated: window.crossOriginIsolated, quality: `${q.name}${q.auto ? ' (auto)' : ''} ${q.resolution}p, ${q.lights} lights, outlines ${q.outlines ? 'on' : 'off'}` };
+  return { frames: p.frames, phase: p.phase, samples: window.__benchSamples, isolated: window.crossOriginIsolated, quality: q ? `${q.name}${q.auto ? ' (auto)' : ''} ${q.resolution}p, ${q.lights} lights, outlines ${q.outlines ? 'on' : 'off'}` : 'n/a' };
 });
 await browser.close();
 await server.close?.();
