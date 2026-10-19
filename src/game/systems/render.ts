@@ -249,6 +249,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.juice.shakeOffset(this.shake);
   this.cameraDirector();
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
+  this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 
   if (inMenu || p.dead) this.reticle.style.display = 'none';
   else if (input.device === 'pad') {

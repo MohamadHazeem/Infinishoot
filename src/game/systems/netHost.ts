@@ -96,6 +96,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   } else if (m.t === 'parry' || m.t === 'ult') {
     if (m.t === 'parry') noteParryLag(this, h, Number(m.rtt) || 0);
     this.skillMessage(h, m.t);
+  } else if (m.t === 'rw') {
+    this.timeMessage(h, m); // time lane: the rewind button
   } else if (m.t === 'team') {
     this.tryTeamMove(h);
   } else if (m.t === 'ui') {
@@ -214,6 +216,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     ar: this.arenaNet(),
     sk: this.skillNet(forHero),
     cp: this.companionNet(),
+    tm: this.timeNet(forHero),
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }
