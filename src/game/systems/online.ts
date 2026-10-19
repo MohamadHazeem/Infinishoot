@@ -24,6 +24,7 @@ import { hostCode, myProfile } from './party';
 import { parseInviteCode } from '../lobby';
 import { netcodeJoined, netcodeLost } from './netcode';
 import { pvpRules } from './pvp2';
+import { COOP_MAX_PLAYERS, lobbyCap } from '../eightp';
 
 /** `randomCode`: skip the friend code (lobby lane), e.g. when it is taken. */
 export async function hostGame(this: Game, name: string, randomCode = false): Promise<void> {
@@ -35,7 +36,7 @@ export async function hostGame(this: Game, name: string, randomCode = false): Pr
   if (this.role !== 'host' || this.host) return;
   // Lobby lane: host under the player's friend code (saved codes and invite links keep working); a taken code falls back to a random one.
   const fixed = randomCode ? undefined : hostCode();
-  const host = new NetHost(3, fixed);
+  const host = new NetHost(COOP_MAX_PLAYERS - 1, fixed); // eightp lane: up to 8 players (lobbyRows narrows Versus to 4)
   this.host = host;
   this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), pf: cleanSummary(profileSummary()) }];
   this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
@@ -92,8 +93,8 @@ export function hostStart(this: Game): void {
     this.pvpBegin('host', seed, difficulty, rules);
     return;
   }
-  if (this.lobby.length > 4) {
-    this.hud.toast('CO-OP AND VERSUS TAKE UP TO 4 PLAYERS (PVP TAKES 8)', 3);
+  if (this.lobby.length > lobbyCap(this.lobbyKind)) {
+    this.hud.toast(this.lobbyKind === 'versus' ? 'VERSUS TAKES UP TO 4 PLAYERS (CO-OP AND PVP TAKE 8)' : 'CO-OP TAKES UP TO 8 PLAYERS', 3);
     return;
   }
   // Versus Swarm: a player Overlord needs at least one hero to play against (or pick the AI Overlord).

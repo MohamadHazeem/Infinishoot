@@ -198,12 +198,21 @@ step(3);
 ok(!late.left && late.peerId === 'peerC3' && late.weapons.map((w) => w.def.id).join() === keepIds, 'coming back later rebuilds the kept build');
 ok(A.director.players === 3 && !sA.stash.length, 'and scaling counts them again');
 
-// ---- An old client (no player id) is matched by name; a 5th player is refused
+// ---- An old client (no player id) is matched by name; the run takes 8 (eightp lane), a 9th player is refused
 const D = mk();
 connect(D, 'peerD');
 q.push([A, { t: 'hello', name: 'Fourth', unlocked: [], hero: 'twin' }, 'peerD']);
 step(2);
 ok(A.heroes.length === 4 && D.local === 3, 'a fourth player joins');
+const extras: G[] = [];
+for (let k = 0; k < 4; k++) {
+  const X = mk();
+  connect(X, `peerX${k}`);
+  q.push([A, { t: 'hello', name: `Extra${k}`, unlocked: [] }, `peerX${k}`]);
+  extras.push(X);
+  step(2);
+}
+ok(A.heroes.length === 8 && extras[3].local === 7, 'players 5-8 join too');
 const E = mk();
 connect(E, 'peerE');
 let refused = '';
@@ -212,10 +221,18 @@ E.onClientMessage = (m: any) => {
   if (m.t === 'full') refused = String(m.reason);
   origE(m);
 };
-q.push([A, { t: 'hello', name: 'Fifth', unlocked: [] }, 'peerE']);
+q.push([A, { t: 'hello', name: 'Ninth', unlocked: [] }, 'peerE']);
 step(1);
-ok(refused.includes('full') && A.heroes.length === 4, `a fifth is refused (${refused})`);
+ok(refused.includes('full') && A.heroes.length === 8, `a ninth is refused (${refused})`);
 peers.delete('peerE');
+// Players 5-8 quit on purpose: the rest of this test plays with four.
+extras.forEach((X, k) => {
+  X.leaveToTitle();
+  flush();
+  drop(`peerX${k}`);
+});
+step(2);
+ok(A.heroes.slice(4).every((h) => h.left) && A.director.players === 4, 'players 5-8 leave again');
 
 // ---- A grace period that runs out
 joinTuning.grace = 1.5;
@@ -277,6 +294,8 @@ B.client!.send({ t: 'ult' });
 q.push([A, { t: 'ult' }, 'peerC3']);
 step(3);
 ok(sA.ult.count === n0 + 1, 'three ultimates within 2 s combine into a TEAM ULTIMATE');
+// Snapshots go out every 3 steps, or every 15 while a hit-stop freezes the world: wait for the next one.
+for (let i = 0; i < 20 && !(C2.coop2Debug(B).beatT > 0 && C2.coop2Debug(C).beatT > 0); i++) step(1);
 ok(C2.coop2Debug(B).beatT > 0 && C2.coop2Debug(C).beatT > 0, 'both clients play the team-ultimate beat');
 step(120);
 for (const h of A.heroes) if (!h.left) h.skill.ult = 1;

@@ -1,5 +1,6 @@
 import { saveLock } from '../save';
 import { secretsKill } from './secrets';
+import { lootMul, ownedChestSpot } from '../eightp';
 import { RARITY } from '../../data/rarity';
 import { halloweenKill } from './halloween';
 import { gauntletKill } from './gauntlet';
@@ -175,7 +176,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   const big = e.elite || isBoss || def.id === 'reaper' || !!def.miniboss;
   if (big && this.runMode !== 'gauntlet') {
     // Bosses drop one chest per hero that only its owner can open (value OWNED_CHEST + hero index); elites drop one for anyone.
-    if (isBoss) this.heroes.forEach((h, i) => !h.left && this.pickups.spawn(PickupType.Chest, e.x + i * 0.8, e.z, OWNED_CHEST + i));
+    if (isBoss) this.heroes.forEach((h, i) => { const o = ownedChestSpot(i, this.heroes.length); if (!h.left) this.pickups.spawn(PickupType.Chest, e.x + o.x, e.z + o.z, OWNED_CHEST + i); }); // a ring for 5-8 heroes (eightp lane)
     else this.pickups.spawn(PickupType.Chest, e.x, e.z);
     for (let i = 0; i < (isBoss ? 3 : 1); i++) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
     for (let i = 0; i < (isBoss ? 2 : 1); i++) this.pickups.spawn(PickupType.Gear, e.x, e.z);
@@ -184,7 +185,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
       this.runEvents.onElite();
     }
   } else if (this.runMode !== 'gauntlet') {
-    const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive));
+    const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive)) * lootMul(this.director.players); // eightp: 5-8 teams get a bit more
     const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 4 : 1);
     if (this.rng.chance(dropTuning.goldChance * thin * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
     if (!this.meta.has('hearts') && !this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);

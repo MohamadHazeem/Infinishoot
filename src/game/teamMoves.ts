@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
+import { teamHeroes } from './eightp';
 
 /**
  * Co-op team moves. When two or more living heroes stand close together
@@ -68,7 +69,7 @@ export const teamTuning = {
 
 /** Power factor for a move made by n heroes (1 for two). */
 export function teamScale(n: number): number {
-  return 1 + teamTuning.perHero * Math.max(0, n - 2);
+  return 1 + teamTuning.perHero * Math.max(0, teamHeroes(n) - 2); // eightp: heroes past 4 count half
 }
 
 /** How long a move runs (seconds). */
@@ -155,7 +156,7 @@ export class TeamMeter {
     }
     this.linkT = Math.min(teamTuning.linkTime + 1, this.linkT + dt);
     if (!inCombat || this.linkT < teamTuning.linkTime || this.charge >= 1) return false;
-    const rate = (1 + teamTuning.perExtraHero * (linked - 2)) / teamTuning.chargeTime;
+    const rate = (1 + teamTuning.perExtraHero * (teamHeroes(linked) - 2)) / teamTuning.chargeTime;
     this.charge = Math.min(1, this.charge + rate * dt);
     return this.charge >= 1;
   }

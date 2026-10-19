@@ -1,5 +1,6 @@
 import type { Rng } from '../core/rng';
 import { ENEMIES, familyTuning, VETERAN_OF, biomeAllows, bossForStage, type EnemyDef } from '../data/enemies';
+import { bossPlayers, capHpComp, countPlayers, hpPlayers } from './eightp';
 import { bossTuning } from './enemies';
 
 /**
@@ -184,13 +185,13 @@ export class Director {
 
   get hpMul(): number {
     const t = directorTuning;
-    return this.curve(t.hpPerStage, t.hpPerStage2) * (1 + t.hpPerMinute * this.paceMinute) * (1 + 0.45 * (this.players - 1)) * this.coop;
+    return this.curve(t.hpPerStage, t.hpPerStage2) * (1 + t.hpPerMinute * this.paceMinute) * (1 + 0.45 * (hpPlayers(this.players) - 1)) * this.coop * this.capHp; // eightp: players past 4 count 0.6
   }
 
   /** Bosses scale per stage only (not by minute), so they stay beatable. */
   get bossHpMul(): number {
     const loop = Math.ceil(this.stage / 4);
-    return bossTuning.hp * this.curve(directorTuning.bossPerStage, directorTuning.bossPerStage2) * Math.pow(directorTuning.bossLoopHp, loop - 1) * (1 + 0.6 * (this.players - 1)) * this.coop;
+    return bossTuning.hp * this.curve(directorTuning.bossPerStage, directorTuning.bossPerStage2) * Math.pow(directorTuning.bossLoopHp, loop - 1) * (1 + 0.6 * (bossPlayers(this.players) - 1)) * this.coop;
   }
 
   get dmgMul(): number {
@@ -203,10 +204,20 @@ export class Director {
 
   /** How many enemies the director wants alive right now. */
   get targetAlive(): number {
+    return Math.min(directorTuning.aliveCap, Math.round(this.aliveRaw(this.players)));
+  }
+
+  /** The alive target before the cap, for a team of `players`. */
+  private aliveRaw(players: number): number {
     const t = directorTuning;
     const k = Math.min(1, this.time / this.duration);
     const n = t.aliveStart + (t.aliveEnd - t.aliveStart) * Math.pow(k, 1.3) + t.alivePerStage * (this.stage - 1);
-    return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1)) * this.coop * this.countMul * this.adaptive.pressure));
+    return n * (1 + 0.5 * (countPlayers(players) - 1)) * this.coop * this.countMul * this.adaptive.pressure;
+  }
+
+  /** 5-8 players (eightp lane): enemies the alive cap cuts beyond what it cuts for 4 come back as life. 1 for up to 4. */
+  private get capHp(): number {
+    return this.players <= 4 ? 1 : capHpComp(this.aliveRaw(this.players), this.aliveRaw(4), directorTuning.aliveCap);
   }
 
   /** Enemy types the director may send right now (elites pick from these too). */

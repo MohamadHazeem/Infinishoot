@@ -14,6 +14,7 @@
  * and draw beams, zaps and the HUD locally.
  */
 import type { Game } from '../game';
+import { teamHeroes } from '../eightp';
 import type { Hero } from '../hero';
 import { PET_BY_ID, PET_SKILL_INFO, petTuning, rankOf } from '../../data/pets';
 import { PickupType } from '../pickups';
@@ -497,7 +498,7 @@ function runMove(g: Game, s: CompanionState, dt: number): void {
       g.vfx.flash(0.4);
     }
   } else if (m.id === 'nova') {
-    const R = T.novaRadius + T.novaPerHero * (n - 2);
+    const R = T.novaRadius + T.novaPerHero * (teamHeroes(n) - 2);
     while (s.done < T.novaWaves && m.t >= s.done * T.novaGap) {
       const k = (s.done + 1) / T.novaWaves;
       const r = R * (0.5 + 0.5 * k);
@@ -517,7 +518,7 @@ function runMove(g: Game, s: CompanionState, dt: number): void {
     }
   } else {
     // Meteor Call: drops spread over meteorTime, each lands meteorDelay after its marker.
-    const total = T.meteorCount + T.meteorPerHero * n;
+    const total = Math.round(T.meteorCount + T.meteorPerHero * teamHeroes(n));
     while (s.done < total && m.t >= (s.done / total) * T.meteorTime) {
       s.done++;
       let tx: number;

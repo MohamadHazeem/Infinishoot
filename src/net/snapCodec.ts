@@ -587,8 +587,11 @@ export class SnapEncoder {
    * `body`: the snapshot fields (no binary records); `recs`: enemy and pickup
    * records. Other fields of the wire message (bullets, effects) go in `extra`.
    */
+  /** `phase` staggers this client's keyframes against the others' (eightp lane: 7 clients' keyframes in one tick spiked the host). The first snapshot is always a keyframe. */
+  constructor(private phase = 0) {}
+
   encode(body: Record<string, unknown>, recs: SnapRecords, extra: Record<string, unknown>): Record<string, unknown> {
-    const key = this.n % KEYFRAME === 0;
+    const key = this.n === 0 || (this.n + this.phase) % KEYFRAME === 0;
     this.n++;
     if (key) {
       this.caches.clear();

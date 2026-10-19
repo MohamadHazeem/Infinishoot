@@ -20,6 +20,7 @@
  */
 import * as THREE from 'three';
 import type { Game, LobbyEntry } from '../game';
+import { lobbyCap } from '../eightp';
 import type { Hero } from '../hero';
 import { HERO_COLORS } from '../hero';
 import { Autopilot } from '../autopilot';
@@ -577,9 +578,9 @@ let lobbyView: LobbyView | null = null;
 function lobbyRows(g: Game, el: HTMLElement, v: LobbyView): void {
   lobbyEl = el;
   lobbyView = v;
-  // PvP lobbies take up to 8 (free-for-all); co-op and Versus keep 4.
+  // PvP and co-op lobbies take up to 8 (eightp lane); Versus keeps 4.
   const host = g.host as unknown as { max?: number } | null;
-  if (host && v.isHost) host.max = v.kind === 'pvp' ? PVP_MAX_PLAYERS - 1 : 3;
+  if (host && v.isHost) host.max = lobbyCap(v.kind) - 1;
   if (v.isHost && v.kind === 'pvp' && g.host) g.host.broadcast({ t: 'p2lobby', rules: pvp2State(g).rules });
   if (v.isHost && v.kind !== 'pvp' && g.lobby.some((p) => isBotPeer(p.peerId))) {
     g.lobby = g.lobby.filter((p) => !isBotPeer(p.peerId)); // bots only play PvP

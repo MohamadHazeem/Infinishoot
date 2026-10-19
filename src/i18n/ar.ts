@@ -3256,5 +3256,14 @@ export const ar = {
   "meta2.ui.n_quests": "⟪n⟫ مهام",
   "meta2.ui.lv_n": "م ⟪n⟫",
   "meta2.ui.streak": "سلسلة ⟪n⟫ أيام",
-  "meta2.ui.new_quests_in2": "مهام جديدة بعد"
+  "meta2.ui.new_quests_in2": "مهام جديدة بعد",
+  "eightp.coop_camera": "كاميرا اللعب الجماعي",
+  "eightp.coop_camera_desc": "الفريق: تُظهر الكاميرا زملاءك القريبين أيضًا. أنا: تتبع بطلك فقط (مفيد في الفرق الكبيرة المتفرقة).",
+  "eightp.mate_weapons": "أسلحة الزملاء",
+  "eightp.mate_weapons_desc": "مستوى صوت أسلحة اللاعبين الآخرين في اللعب الجماعي. أسلحتك تُسمع دائمًا كاملة.",
+  "eightp.me": "أنا",
+  "eightp.run_full": "هذه الجولة ممتلئة (8 لاعبين).",
+  "eightp.versus_cap": "المواجهة تتسع حتى 4 لاعبين (اللعب الجماعي وPVP حتى 8)",
+  "eightp.coop_cap": "اللعب الجماعي يتسع حتى 8 لاعبين",
+  "eightp.game_full": "هذه اللعبة ممتلئة."
 } satisfies Record<keyof typeof en, string>;

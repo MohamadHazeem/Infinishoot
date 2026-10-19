@@ -173,8 +173,8 @@ export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
     v.setUint8(o + 9, Math.min(255, Math.round(b.length[i] * 50)));
     const c = BULLET_COLORS.indexOf(b.colorOf(i));
     v.setUint8(o + 10, c < 0 ? 0 : c);
-    // Bit 0: team; bits 1-3: the silhouette (src/game/bulletShapes.ts); bits 4-5: the owner hero (weapon skins).
-    v.setUint8(o + 11, (b.team[i] & 1) | ((b.shape[i] & 7) << 1) | ((b.owner[i] & 3) << 4));
+    // Bit 0: team; bits 1-3: the silhouette (src/game/bulletShapes.ts); bits 4-6: the owner hero (weapon skins; 8 heroes).
+    v.setUint8(o + 11, (b.team[i] & 1) | ((b.shape[i] & 7) << 1) | ((b.owner[i] & 7) << 4));
     v.setUint16(o + 12, Math.min(65535, Math.round(Math.max(0, b.life[i]) * 1000)), true);
     o += BULLET_BYTES;
   }
@@ -201,7 +201,7 @@ export function unpackBullets(buf: NetBytes, b: Bullets): void {
       knockback: 0,
       team: v.getUint8(o + 11) & 1 ? 1 : 0,
       shape: (v.getUint8(o + 11) >> 1) & 7,
-      owner: (v.getUint8(o + 11) >> 4) & 3,
+      owner: (v.getUint8(o + 11) >> 4) & 7,
       color: BULLET_COLORS[v.getUint8(o + 10)] ?? BULLET_COLORS[0],
       width: v.getUint8(o + 8) / 100,
       length: v.getUint8(o + 9) / 50,

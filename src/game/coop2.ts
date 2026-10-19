@@ -5,6 +5,7 @@
  * access so it can be unit-tested on its own.
  */
 import { loadJson, saveJson } from '../core/storage';
+import { poolCostMul, teamHeroes } from './eightp';
 import type { Offer } from '../ui/screens';
 
 /** Damage sources this lane adds (names for the damage breakdown, statuses.ts sourceName). */
@@ -141,8 +142,8 @@ export function coopPlayerId(): string {
 // ---------------------------------------------------------------- revive pool
 
 /** Gold a buy-back costs the team on this stage. */
-export function poolCost(stage: number): number {
-  return poolTuning.costBase + poolTuning.costPerStage * Math.max(1, stage);
+export function poolCost(stage: number, team = 1): number {
+  return Math.round((poolTuning.costBase + poolTuning.costPerStage * Math.max(1, stage)) * poolCostMul(team)); // eightp: 5-8 teams pay a bit more
 }
 
 /**
@@ -207,7 +208,7 @@ export function teamUltDue(fired: readonly number[], now: number, since: number,
 
 /** Team ultimate damage per wave, in typical enemies, for `n` heroes. */
 export function teamUltDamage(n: number): number {
-  return teamUltTuning.dmg * n * teamUltTuning.synergy;
+  return teamUltTuning.dmg * teamHeroes(n) * teamUltTuning.synergy; // eightp: heroes past 4 count half
 }
 
 // ---------------------------------------------------------------- emotes
