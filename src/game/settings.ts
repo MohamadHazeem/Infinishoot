@@ -61,6 +61,10 @@ export interface Settings {
   weather: boolean;
   /** Pet zap sounds (pets zap often at high level). */
   petSounds: boolean;
+  /** Comic finisher on a stage boss's killing blow. */
+  finishers: boolean;
+  /** Character portraits popping in (announcer, bosses, pings). */
+  portraitPops: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -101,10 +105,14 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   slowMo: true,
   weather: true,
   petSounds: true,
+  finishers: true,
+  portraitPops: true,
 });
 settings.dynamicCamera ??= true;
 settings.weather ??= true;
 settings.petSounds ??= true;
+settings.finishers ??= true;
+settings.portraitPops ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

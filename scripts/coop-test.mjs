@@ -560,6 +560,35 @@ const SCENARIO = [
     await shot('teammove');
     return r;
   }],
+  // Finisher lane: a client ping pops the client's portrait in on both screens; the boss finisher plays on both.
+  [46, 'client pings: its portrait pops in on both machines', async () => {
+    await client(() => {
+      const p = window.game.hero.player;
+      window.game.client.send({ t: 'ping', x: p.x + 3, z: p.z });
+    });
+    await pause(700);
+    const showing = () => import('/src/ui/portraits.ts').then((m) => m.portraits.showing('hero:1'));
+    const [h, c] = await Promise.all([host(showing), client(showing)]);
+    if (!h || !c) fail(`ping portrait: host ${h}, client ${c}`);
+    return { host: h, client: c };
+  }],
+  [43, 'boss finisher on both machines', async () => {
+    const id = await host(() => {
+      const g = window.game;
+      const b = g.boss && g.boss.active ? g.boss : null;
+      if (!b) return null;
+      g.killEnemy(b, 'buster', g.heroes[1]);
+      return b.def.id;
+    });
+    if (!id) return 'no boss up';
+    await pause(700);
+    const on = () => !!document.getElementById('finisher') && !document.getElementById('finisher').hidden;
+    const [h1, c1, held] = await Promise.all([host(on), client(on), host(() => !!window.game.boss?.active)]);
+    await pause(2600);
+    const [h2, c2, gone] = await Promise.all([host(on), client(on), host(() => !window.game.boss || !window.game.boss.active)]);
+    if (!h1 || !c1 || !held || h2 || c2 || !gone) fail(`finisher: playing host ${h1} client ${c1}, boss held ${held}; after: host ${h2} client ${c2}, boss gone ${gone}`);
+    return { boss: id, playing: [h1, c1], held, after: [h2, c2], gone };
+  }],
 ];
 
 SCENARIO.sort((a, b) => a[0] - b[0]);

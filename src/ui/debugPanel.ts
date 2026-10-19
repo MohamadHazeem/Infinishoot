@@ -29,6 +29,8 @@ import { debrisTuning } from '../game/debris';
 import { decalTuning } from '../game/decals';
 import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
+import { finisherTuning } from '../game/finisher';
+import { portraitTuning } from './portraits';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
 import { petTuning } from '../data/pets';
@@ -110,6 +112,16 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   anim.add(enemyAnimTuning, 'hitWobble', 0, 2, 0.05);
   anim.add(enemyAnimTuning, 'flingSpeed', 0, 20, 0.5);
   anim.add(enemyAnimTuning, 'corpseLife', 0.1, 2, 0.05);
+  // Boss finishers and portraits (finisher lane).
+  const fin = cam.addFolder('Finisher & portraits').close();
+  fin.add(finisherTuning, 'length', 1, 4, 0.05);
+  fin.add(finisherTuning, 'calmLength', 0.8, 3, 0.05);
+  fin.add(finisherTuning, 'strike', 0.15, 1, 0.01);
+  fin.add(finisherTuning, 'title', 0.2, 1.5, 0.01);
+  fin.add(finisherTuning, 'shake', 0, 8, 1);
+  fin.add(portraitTuning, 'popSeconds', 1, 6, 0.1);
+  fin.add(portraitTuning, 'typeRate', 10, 120, 1);
+  fin.add(portraitTuning, 'hurtHold', 0.1, 2, 0.05);
 
   const pl = gui.addFolder('Player').close();
   pl.add(playerTuning, 'maxSpeed', 1, 20, 0.5);

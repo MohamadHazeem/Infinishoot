@@ -92,6 +92,7 @@ export function ping(this: Game, h: Hero, x: number, z: number): void {
   this.vfx.star(x, 2, z, 1.6, h.color, 0.5);
   this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${label}`, 'score');
   this.vfx.sound('telegraph', x, z);
+  this.pingPortrait(h, label);
 }
 
 /** Load the online top scores for the selected mode (no-op when offline). */
@@ -331,6 +332,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   );
   lap('ren.hud');
   this.renderSkill(frameDt, frozen);
+  this.renderCharacters(frameDt);
   lap('ren.skill');
 }
 

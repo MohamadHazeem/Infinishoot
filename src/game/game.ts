@@ -72,6 +72,8 @@ import * as SkillSys from './systems/skill';
 import * as RouteSys from './systems/route';
 import * as WindSys from './wind';
 import * as CompanionSys from './systems/companion';
+import * as CharSys from './systems/characters';
+import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
 
@@ -416,6 +418,13 @@ export class Game implements HeroWorld {
   renderTeam = RenderSys.renderTeam;
   cameraDirector = AnimSys.cameraDirector;
   onCorpse = AnimSys.onCorpse;
+  // Boss finishers and character portraits (src/game/systems/characters.ts).
+  finisherCatch = CharSys.finisherCatch;
+  finisherHold = CharSys.finisherHold;
+  onFinisher = CharSys.onFinisher;
+  renderCharacters = CharSys.renderCharacters;
+  resolveSpeaker = CharSys.resolveSpeaker;
+  pingPortrait = CharSys.pingPortrait;
   updateLook = LookSys.updateLook;
   makeBossApi = BossFightSys.makeBossApi;
   bossHpGate = BossFightSys.bossHpGate;
@@ -697,6 +706,8 @@ export class Game implements HeroWorld {
       zones: this.enemies.zones,
       scars: this.scars,
       corpse: (id, x, y, z, s, f, dx, dz) => this.onCorpse(id, x, y, z, s, f, dx, dz),
+      finisher: (id, hi, x, z) => this.onFinisher(id, hi, x, z),
+      portrait: (who, ex, text, sec) => portraits.popIn(who, ex as Parameters<typeof portraits.popIn>[1], text, sec),
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {
@@ -1087,6 +1098,12 @@ export class Game implements HeroWorld {
     }
     if (this.juice.hitStop > 0) {
       this.juice.hitStop -= dt;
+      this.hostTick(false);
+      return;
+    }
+    // Boss finisher: the world holds still until it ends, then the boss dies (systems/characters.ts).
+    if (this.finisherHold(dt)) {
+      input.endStep();
       this.hostTick(false);
       return;
     }

@@ -19,6 +19,8 @@ import { renderQuality } from '../render/quality';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import { BIOME_BY_ID, biomeOverride } from '../data/biomes';
 import type { PhotoMode } from '../ui/photoMode';
+import { charDebug } from '../game/systems/characters';
+import { portraits, type Expression } from '../ui/portraits';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -63,6 +65,8 @@ import type { PhotoMode } from '../ui/photoMode';
  *     comic, neon, bw), &photoframe=film (none, snapshot, film, arcade, comic), &stickers=star@0.3,0.4;pow@0.7,0.3
  *     (star, heart, bolt, crown, skull, pow, gg, wow, oneup), &nologo, &photocam=yaw,pitch,dist (0.6,40,18),
  *     &photohide (hide the photo UI), &photosnap (save a PNG)
+ *   ?test&stage=2&bossnow&nointro&killboss=2&finat=0.7   boss finisher, pinned 0.7 s in (screenshots); `nofinish` turns finishers off, `calm` = reduce flashing
+ *   ?test&face=shocked&pops            force the HUD face's expression; pop in the announcer, the boss and a ping
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
@@ -214,6 +218,23 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       pl.pos.x = pl.prev.x = x;
       pl.pos.z = pl.prev.z = z;
     }
+  }
+  // Finisher lane (src/game/systems/characters.ts).
+  if (q.get('finat')) charDebug.holdAt = Number(q.get('finat')) || 0.7;
+  if (q.has('nofinish')) settings.finishers = false;
+  if (q.has('calm')) {
+    settings.reduceFlash = true; // also the game's reduce-motion switch
+    applySettings();
+  }
+  const face = q.get('face');
+  if (face) charDebug.face = face as Expression;
+  if (q.has('pops')) {
+    setTimeout(() => {
+      portraits.popIn('announcer', 'grinning', 'S RANK! STYLISH!', 30);
+      const b = game.enemies.list.find((e) => e.active && e.def.boss);
+      portraits.popIn(`boss:${b?.def.id ?? 'king'}`, 'determined', 'OFF WITH YOUR HEAD!', 30);
+    }, 600);
+    setTimeout(() => portraits.popIn('hero:0', 'determined', 'CHEST!', 30), 900);
   }
   // Skill layer (src/game/systems/skill.ts).
   const rank = STYLE_RANKS.indexOf((q.get('style') ?? '').toUpperCase() as (typeof STYLE_RANKS)[number]);
