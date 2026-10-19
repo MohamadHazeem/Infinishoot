@@ -142,7 +142,7 @@ export class Vfx {
     const d = this.near(x, z);
     if (d > HEAR_RANGE) return;
     // Pan by the sideways offset from the listener and fade with distance.
-    if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7);
+    if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7, x, z);
     if (name.startsWith('w:')) sfx.weapon(name.slice(2));
     else {
       const fn = (sfx as unknown as Record<string, (p?: number) => void>)[name];

@@ -224,6 +224,7 @@ export function updateBossBoom(this: Game, dt: number): void {
   const b = this.bossBoom;
   if (!b || (b.t -= dt) > 0) return;
   if (b.n > 0) {
+    if (b.n === 3) this.vfx.sound('bossFinisher', b.x, b.z);
     b.n--;
     b.t = 0.17;
     const a = this.rng.next() * Math.PI * 2;

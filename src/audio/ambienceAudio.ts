@@ -32,7 +32,7 @@ class AmbienceAudio {
 
   update(biome: string, active: boolean, quiet: boolean): void {
     if (!this.ctx) {
-      const output = sfx.output('sfx');
+      const output = sfx.output('ambience');
       if (!output) return;
       this.ctx = output.ctx;
       this.node = output.node;
