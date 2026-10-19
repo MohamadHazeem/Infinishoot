@@ -896,6 +896,88 @@ if (args.includes('--modsupport')) SCENARIO.push([5, 'matching content packs', a
   return result;
 }]);
 
+// Spectate lane: a third page joins with JOIN AS SPECTATOR, watches (follow, auto director, free camera, broadcast
+// overlay), gets half the snapshots, sends an emote the client player sees, then leaves (--no-spectate skips it).
+if (!args.includes('--no-spectate')) SCENARIO.push([22, 'a spectator joins, watches, emotes and leaves (spectate lane)', async () => {
+  const C = await openPage('spectator');
+  try {
+    await patient(C.page);
+    await C.page.evaluate((code) => {
+      const g = window.game;
+      g.saveName('SPECBOT');
+      g.screens.showOnline('SPECBOT');
+      document.querySelector('#mp-code').value = code;
+      document.querySelector('#scr-online [data-act=sp-join]').click();
+    }, code);
+    const watching = await until(C, async () => {
+      const S = await import('/src/game/systems/spectate.ts');
+      const g = window.game;
+      return S.spectating(g) && g.mode !== 'title' && g.heroes.length === 2 && g.netEnemies.size > 0;
+    }, null, 30000);
+    const seats = await host(async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs.length);
+    const badge = await until(B, async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).watchers.n === 1, null, 6000);
+    if (!watching || seats !== 1 || !badge) fail(`spectator: watching ${watching}, host seats ${seats}, client badge ${badge}`);
+    // Snapshot rate: the spectator gets about half of what the client player gets.
+    const count = (p) => p.page.evaluate(() => {
+      const g = window.game;
+      window.__snaps = 0;
+      if (!window.__snapWrap) {
+        window.__snapWrap = true;
+        const on = g.onClientMessage;
+        g.onClientMessage = function (m) {
+          if (m?.t === 's') window.__snaps++;
+          return on.call(this, m);
+        };
+      }
+    });
+    await Promise.all([count(B), count(C)]);
+    await pause(3000);
+    const [nB, nC] = await Promise.all([B.page.evaluate(() => window.__snaps), C.page.evaluate(() => window.__snaps)]);
+    if (!(nC > 0 && nC < nB * 0.7)) fail(`spectator snapshots: client ${nB}, spectator ${nC} in 3 s (want about half)`);
+    // Heroes mirrored on the spectator.
+    const pos = async (p) => p.page.evaluate(() => window.game.heroes.map((h) => [h.player.x, h.player.z, h.player.dead]));
+    const [ph, pc] = await Promise.all([pos(A), pos(C)]);
+    const off = ph.map((a, i) => (pc[i] && !a[2] ? Math.hypot(a[0] - pc[i][0], a[1] - pc[i][1]) : 0));
+    if (off.some((d) => d > POS_TOL * 2)) fail(`spectator hero positions off by ${off.map((d) => d.toFixed(1))} m`);
+    // Follow the client player, then the auto director, then the free camera.
+    await C.page.evaluate(async () => {
+      const S = await import('/src/game/systems/spectate.ts');
+      const st = S.spectateState(window.game);
+      st.cam = 'follow';
+      st.follow = 1;
+    });
+    const followed = await until(A, async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs[0]?.follow === 1, null, 4000);
+    const local = await C.page.evaluate(() => window.game.local);
+    if (!followed || local !== 1) fail(`spectator follow: host knows ${followed}, spectator HUD on hero ${local}`);
+    try { await C.page.screenshot({ path: join(OUT, 'spectator-follow.png'), timeout: 90000 }); } catch {}
+    await C.page.evaluate(async () => { (await import('/src/game/systems/spectate.ts')).spectateState(window.game).cam = 'auto'; });
+    await pause(2500);
+    await C.page.evaluate(async () => {
+      const st = (await import('/src/game/systems/spectate.ts')).spectateState(window.game);
+      st.cam = 'free';
+      st.fx += 12;
+    });
+    const free = await until(A, async () => !!(await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs[0]?.free, null, 4000);
+    if (!free) fail('spectator free camera never reached the host');
+    try { await C.page.screenshot({ path: join(OUT, 'spectator-free.png'), timeout: 90000 }); } catch {}
+    // An emote from the spectator shows on the client player's screen.
+    await C.page.evaluate(() => window.game.client.send({ t: 'emote', k: 'cheer' }));
+    const seen = await until(B, () => (document.querySelector('#sp-root .sp-feed')?.textContent ?? '').includes('SPECBOT'), null, 6000);
+    if (!seen) fail("the spectator's emote never reached the client player");
+    try { await B.page.screenshot({ path: join(OUT, 'spectator-emote-client.png'), timeout: 90000 }); } catch {}
+    for (const e of C.errors) fail(`spectator page error: ${e}`);
+    return { watching, nB, nC, off: off.map((d) => +d.toFixed(2)), followed, free, seen };
+  } finally {
+    await C.page.context().close().catch(() => {});
+  }
+}]);
+// The data channel close can take a while to reach the host; the silent-spectator drop (patient: 30 s here) is the backstop.
+if (!args.includes('--no-spectate')) SCENARIO.push([66, 'the spectator seat is freed after it left (spectate lane)', async () => {
+  const gone = await until(A, async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs.length === 0, null, 40000);
+  if (!gone) fail('the host kept the spectator seat after it left');
+  return { gone };
+}]);
+
 SCENARIO.sort((a, b) => a[0] - b[0]);
 if (ONLY) for (let i = SCENARIO.length - 1; i >= 0; i--) if (!SCENARIO[i][1].includes(ONLY)) SCENARIO.splice(i, 1);
 let next = 0;

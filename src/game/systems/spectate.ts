@@ -33,6 +33,7 @@ import { EMOTES, EmoteLimiter, emoteOf } from '../coop2';
 import { coopState, joinable } from './coop2';
 import { heroTimeOf, timeState } from './time';
 import { netcodeStep, netInterpAlpha } from './netcode';
+import { netQualityTuning } from '../../net/netQuality';
 import { rankOf } from '../style';
 import { AutoDirector, clampView, cycleFollow, directorScore, seatFor, slotOpen, spectateTuning, type SeatReason } from '../spectate';
 import { SpectateUi, type CastCard } from '../../ui/spectateUi';
@@ -62,8 +63,10 @@ interface HostSpec {
   name: string;
   pid: string;
   hello: Record<string, unknown>;
-  /** Hero it follows (-1: free camera at x, z). */
+  /** Hero it follows (its HUD shows them, even with the free camera). */
   follow: number;
+  /** Free camera: the snapshot is centred on x, z instead. */
+  free: boolean;
   x: number;
   z: number;
   enc: SnapEncoder;
@@ -244,7 +247,8 @@ export function spectateHostMessage(g: Game, from: string, m: Record<string, unk
   switch (m.t) {
     case 'spv':
       spec.follow = Math.floor(Number(m.f));
-      if (!Number.isFinite(spec.follow)) spec.follow = 0;
+      if (!Number.isFinite(spec.follow) || spec.follow < 0) spec.follow = 0;
+      spec.free = !!m.free;
       spec.x = clampView(Number(m.x) || 0, g.arena.halfSize);
       spec.z = clampView(Number(m.z) || 0, g.arena.halfSize);
       break;
@@ -287,7 +291,7 @@ function seatHello(g: Game, st: SpecState, from: string, m: Record<string, unkno
     g.host!.send(from, { t: 'full', reason: t('spec.seatsFull') });
     return true;
   }
-  const spec: HostSpec = { peerId: from, name, pid, hello: { ...m, spec: undefined }, follow: 0, x: 0, z: 0, enc: new SnapEncoder(), cur: { sk: 0, ns: 0, tm: 0, co: 0 }, runKey: '', lim: new EmoteLimiter(), wantJoin: false, joining: false };
+  const spec: HostSpec = { peerId: from, name, pid, hello: { ...m, spec: undefined }, follow: 0, free: false, x: 0, z: 0, enc: new SnapEncoder(), cur: { sk: 0, ns: 0, tm: 0, co: 0 }, runKey: '', lim: new EmoteLimiter(), wantJoin: false, joining: false };
   st.specs.push(spec);
   if (pid) st.recent.add(pid);
   g.host!.send(from, { t: 'spwelcome', why, max: spectateTuning.max });
@@ -344,6 +348,12 @@ export function spectateHostStep(g: Game): void {
       st.specs.splice(i, 1);
       if (s.pid) st.recent.delete(s.pid);
     }
+  }
+  // A spectator that went silent (closed tab, lost link) frees its seat, like a silent player (netcode lane).
+  const tNow = performance.now();
+  for (const s of [...st.specs]) {
+    const heard = g.host.lastHeard?.get(s.peerId); // (in-process test transports have none)
+    if (heard !== undefined && tNow - heard > netQualityTuning.dropMs) g.host.drop?.(s.peerId); // onLeave -> spectateLeft
   }
   const key = runKey(g);
   for (const s of st.specs) {
@@ -421,8 +431,8 @@ export function spectateSend(g: Game, events: VfxEvent[]): void {
     for (const s of st.specs) {
       if (s.runKey !== key) continue;
       const fh = g.heroes[s.follow];
-      const follow = fh && !fh.left ? fh : null;
-      const forHero = follow ?? g.heroes.find((h) => !h.left) ?? g.heroes[0];
+      const forHero = fh && !fh.left ? fh : (g.heroes.find((h) => !h.left) ?? g.heroes[0]);
+      const follow = s.free ? null : forHero;
       if (!forHero) continue;
       const x = follow ? follow.player.x : s.x;
       const z = follow ? follow.player.z : s.z;
@@ -716,12 +726,13 @@ function directorStep(g: Game, st: SpecState, dt: number): void {
 function sendView(g: Game, st: SpecState, dt: number): void {
   st.viewT -= dt;
   if (st.viewT > 0) return;
-  const f = st.cam === 'free' ? -1 : st.follow;
-  const key = `${f}|${Math.round(st.fx)}|${Math.round(st.fz)}`;
+  const f = st.follow;
+  const free = st.cam === 'free' ? 1 : 0;
+  const key = `${f}|${free}|${Math.round(st.fx)}|${Math.round(st.fz)}`;
   if (key === st.sentView && st.viewT > -1) return; // nothing new: a keep-alive every ~1.25 s
   st.viewT = spectateTuning.viewEvery;
   st.sentView = key;
-  g.client?.send({ t: 'spv', f, x: r2(st.fx), z: r2(st.fz) });
+  g.client?.send({ t: 'spv', f, free, x: r2(st.fx), z: r2(st.fz) });
 }
 
 function sendEmote(g: Game, st: SpecState, k: number): void {

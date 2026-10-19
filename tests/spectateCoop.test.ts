@@ -202,7 +202,7 @@ sS.fx = 30;
 sS.fz = 30;
 step(30);
 const hs = sA.specs.find((x) => x.peerId === 'peerS')!;
-ok(hs.follow === -1 && Math.abs(hs.x - 30) < 0.1 && Math.abs(hs.z - 30) < 0.1, 'free camera: the host centres the spectator snapshot on its view');
+ok(hs.free && Math.abs(hs.x - 30) < 0.1 && Math.abs(hs.z - 30) < 0.1, 'free camera: the host centres the spectator snapshot on its view');
 sS.cam = 'follow';
 sS.follow = 0;
 step(10);

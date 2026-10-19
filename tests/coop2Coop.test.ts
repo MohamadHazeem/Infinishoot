@@ -212,8 +212,10 @@ E.onClientMessage = (m: any) => {
   if (m.t === 'full') refused = String(m.reason);
   origE(m);
 };
+settings.spectators = false; // with spectator seats on, the fifth would watch instead (tests/spectateCoop.test.ts)
 q.push([A, { t: 'hello', name: 'Fifth', unlocked: [] }, 'peerE']);
 step(1);
+settings.spectators = true;
 ok(refused.includes('full') && A.heroes.length === 4, `a fifth is refused (${refused})`);
 peers.delete('peerE');
 

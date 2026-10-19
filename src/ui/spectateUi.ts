@@ -45,7 +45,11 @@ const CSS = `
 #sp-root [hidden] { display: none !important; }
 #sp-root canvas { image-rendering: pixelated; display: block; }
 /* The players' side: who's watching and their emotes. */
-#sp-root .sp-watch { position: absolute; left: 18px; top: 44%; zoom: var(--ui, 1); display: flex; flex-direction: column; gap: calc(3 * var(--p)); align-items: flex-start; }
+/* Above the loadout (the goals stack on the left can grow long); the feed grows upward. */
+#sp-root .sp-watch { position: absolute; left: 20px; bottom: 150px; zoom: var(--ui, 1); display: flex; flex-direction: column-reverse; gap: calc(3 * var(--p)); align-items: flex-start; }
+/* A spectator: beside the broadcast cards, or above the controls box. */
+body.spectating.sp-cast #sp-root .sp-watch { left: calc(18px + 104 * var(--p)); top: calc(9 * var(--p)); bottom: auto; flex-direction: column; }
+
 #sp-root .sp-badge { font: 10px var(--label); letter-spacing: 1px; padding: calc(1.5 * var(--p)) calc(3 * var(--p)); display: flex; align-items: center; gap: calc(2 * var(--p)); --bg: var(--plum); --hi: #8a3f8a; }
 #sp-root .eye, .sp-lobby .eye { width: calc(5 * var(--p)); height: calc(3 * var(--p)); background: var(--white); box-shadow: inset 0 0 0 var(--p) var(--ink); position: relative; }
 #sp-root .eye::after, .sp-lobby .eye::after { content: ''; position: absolute; left: calc(2 * var(--p)); top: var(--p); width: var(--p); height: var(--p); background: var(--ink); }
