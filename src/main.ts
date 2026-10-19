@@ -1,6 +1,6 @@
-import '@fontsource/jersey-10/400.css';
-import '@fontsource/jersey-15/400.css';
-import '@fontsource/silkscreen/400.css';
+import '@fontsource/jersey-10/latin-400.css';
+import '@fontsource/jersey-15/latin-400.css';
+import '@fontsource/silkscreen/latin-400.css';
 import { GameLoop } from './core/loop';
 import { Input } from './core/input';
 import { RetroRenderer } from './render/renderer';
@@ -8,32 +8,63 @@ import { retroGlobals } from './render/retroMaterial';
 import { renderQuality } from './render/quality';
 import { Game, cheats } from './game/game';
 import { applySettings, autoQualityTick, settings } from './game/settings';
-import { createDebugPanel } from './ui/debugPanel';
 import { setupTouch } from './ui/touch';
 import { syncPrompts } from './ui/prompts';
-import { applyTestLink } from './dev/testLinks';
 import { prof } from './core/prof';
-import { PhotoMode } from './ui/photoMode';
+import type { PhotoMode } from './ui/photoMode';
 
+performance.mark('infinishoot:modules');
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const hudEl = document.getElementById('hud')!;
 const statsEl = document.getElementById('stats')!;
 const reticleEl = document.getElementById('reticle')!;
 
-const renderer = new RetroRenderer(canvas);
 applySettings();
+const renderer = new RetroRenderer(canvas);
+performance.mark('infinishoot:renderer');
 renderer.gl.setClearColor(retroGlobals.uFogColor.value);
 
 const input = new Input(canvas);
 const game = new Game(input, renderer.aspect, hudEl, reticleEl);
+performance.mark('infinishoot:game');
 window.addEventListener('resize', () => game.cam.setAspect(renderer.aspect));
 setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none');
-createDebugPanel(renderer, game, () => game.cam.setAspect(renderer.aspect));
-// Photo mode (pause menu): free camera, filters, stickers, PNG.
-const photo = new PhotoMode(game, canvas);
-game.photo = photo;
-// Test links (?test&stage=4&boss...): jump straight into a situation. See src/dev/testLinks.ts.
-applyTestLink(game);
+// Optional tools load only on their first use (including lil-gui and its tuning panels).
+let debugLoading = false;
+const openDebug = (e: KeyboardEvent) => {
+  if (e.code !== 'Backquote' || e.repeat || debugLoading) return;
+  debugLoading = true;
+  void import('./ui/debugPanel').then(({ createDebugPanel }) => {
+    createDebugPanel(renderer, game, () => game.cam.setAspect(renderer.aspect)).show();
+    window.removeEventListener('keydown', openDebug);
+  }).catch(() => {
+    debugLoading = false;
+    game.hud.toast('DEBUG PANEL COULD NOT LOAD. TRY AGAIN.', 3);
+  });
+};
+window.addEventListener('keydown', openDebug);
+let photo: PhotoMode | null = null;
+let photoLoading = false;
+const openPhoto = (e: MouseEvent) => {
+  if (!(e.target as HTMLElement | null)?.closest?.('[data-act="photo"]') || photoLoading) return;
+  photoLoading = true;
+  void import('./ui/photoMode').then(({ PhotoMode }) => {
+    photo = new PhotoMode(game, canvas);
+    game.photo = photo;
+    if (import.meta.env.DEV) Object.assign(window, { photo });
+    document.removeEventListener('click', openPhoto);
+    photo.open(); // open() rechecks the current session after the download.
+  }).catch(() => {
+    photoLoading = false;
+    game.hud.toast('PHOTO MODE COULD NOT LOAD. TRY AGAIN.', 3);
+  });
+};
+document.addEventListener('click', openPhoto);
+// Production title loads no debug/test helpers. Test links still finish setup before the loop.
+if (new URLSearchParams(location.search).has('test')) {
+  const { applyTestLink } = await import('./dev/testLinks');
+  applyTestLink(game);
+}
 
 // Leaving the tab mid-fight opens the pause menu.
 document.addEventListener('visibilitychange', () => {
@@ -69,11 +100,11 @@ const loop = new GameLoop({
     const t0 = prof.on ? performance.now() : 0;
     if (!game.paused && game.mode !== 'levelup') retroGlobals.uTime.value += frameDt;
     game.render(alpha, frameDt);
-    photo.frame(frameDt);
+    photo?.frame(frameDt);
     const t1 = prof.on ? performance.now() : 0;
     renderer.gl.setClearColor(retroGlobals.uFogColor.value); // follows the biome
     renderer.render(game.scene, game.cam.camera);
-    photo.afterRender();
+    photo?.afterRender();
     // Startup milestones: a submitted WebGL frame, not just constructed DOM.
     if (!titleMeasured && game.mode === 'title') {
       titleMeasured = true;

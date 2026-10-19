@@ -30,7 +30,7 @@ function files(dir) {
 if (!args.includes('--skip-build')) await build({ logLevel: 'error' });
 const all = files('dist');
 const report = {
-  conditions: { mbps, latencyMs: latency, cache: 'cold', compression: 'Vite preview (uncompressed)', renderer: 'Chromium SwiftShader', viewport: '1280x720' },
+  conditions: { mbps, latencyMs: latency, cache: 'cold', compression: 'reported per response; gzip sizes below are estimates', renderer: 'Chromium SwiftShader', viewport: '1280x720' },
   distBytes: all.reduce((n, p) => n + statSync(p).size, 0),
   audioBytes: all.filter(p => p.includes('/audio/')).reduce((n, p) => n + statSync(p).size, 0),
   js: all.filter(p => p.endsWith('.js')).map(p => ({ file: relative('dist', p), bytes: statSync(p).size, gzipBytes: gzipSync(readFileSync(p)).length })),
@@ -45,6 +45,10 @@ try {
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     const page = await context.newPage();
     const errors = [];
+    const encodings = new Set();
+    page.on('response', response => {
+      if (response.url().endsWith('.js')) encodings.add(response.headers()['content-encoding'] ?? 'identity');
+    });
     page.on('pageerror', e => errors.push(e.message));
     // A load measurement should not contact leaderboards or other external services.
     await page.route('**/*', route => route.request().url().startsWith(base) ? route.continue() : route.abort());
@@ -57,13 +61,18 @@ try {
     const first = await page.evaluate(mark => {
       const ms = performance.getEntriesByName('infinishoot:' + mark)[0].startTime;
       const resources = performance.getEntriesByType('resource').filter(r => r.startTime <= ms);
-      return { ms, resourceBytes: resources.reduce((n, r) => n + r.encodedBodySize, 0), resources: resources.map(r => ({ file: new URL(r.name).pathname, bytes: r.encodedBodySize, startMs: r.startTime })), audioRequests: resources.filter(r => r.name.includes('/audio/')).length };
+      return { ms, milestones: performance.getEntriesByType('mark').filter(m => m.name.startsWith('infinishoot:')).map(m => ({ name: m.name, ms: m.startTime })), resourceBytes: resources.reduce((n, r) => n + r.encodedBodySize, 0), resources: resources.map(r => ({ file: new URL(r.name).pathname, bytes: r.encodedBodySize, startMs: r.startTime })), audioRequests: resources.filter(r => r.name.includes('/audio/')).length };
     }, mark);
+    const readyMs = await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return performance.now();
+    });
     const gestureMs = await page.evaluate(() => performance.now());
     await page.mouse.click(1250, 700);
     await page.waitForTimeout(10000);
     const audio = await page.evaluate(() => performance.getEntriesByType('resource').filter(r => r.name.includes('/audio/')).map(r => ({ file: new URL(r.name).pathname, bytes: r.encodedBodySize, startMs: r.startTime })));
-    report.runs.push({ name, ...first, gestureMs, audioAfter10s: audio, errors });
+    report.runs.push({ name, ...first, readyMs, jsEncodings: [...encodings], gestureMs, audioAfter10s: audio, errors });
     await context.close();
   }
 } finally {

@@ -8,5 +8,5 @@ export default defineConfig({
   base: './',
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   server: { port: 5173, open: false },
-  build: { target: 'es2022', sourcemap: false, chunkSizeWarningLimit: 1000 }, // three.js ~550 kB + peerjs
+  build: { target: 'es2022', sourcemap: false, manifest: true, chunkSizeWarningLimit: 1000 }, // three.js ~550 kB + peerjs
 });

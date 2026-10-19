@@ -2,6 +2,17 @@ import { spatialRoute, spatialTuning } from './spatial';
 import { distanceCutoff, soundTuning, VoiceBudget } from './mix';
 import { sampleTune } from './soundTuning';
 
+/** Twelve short, common cues; the rest must not compete with the first stage. */
+export const CORE_SAMPLES = ['vo_go', 'w_buster', 'w_charge_shot', 'w_charge_full', 'dash', 'hit_metal', 'hit_flesh', 'enemy_die', 'explode_small', 'level_up', 'vo_level_up', 'parry'] as const;
+const CORE = new Set<string>(CORE_SAMPLES);
+const BIOME_STEPS: Readonly<Record<string, string>> = { meadow: 'grass', dunes: 'sand', peaks: 'snow', magma: 'metal', neon: 'metal', sky: 'metal', factory: 'metal' };
+/** Stable ordering: core, requested biome/cues, then the remaining optional pack. */
+export function sampleLoadOrder(ids: readonly string[], wanted: readonly string[] = []): string[] {
+  const available = new Set(ids);
+  return [...new Set([...CORE_SAMPLES, ...wanted, ...ids])].filter(id => available.has(id));
+}
+const pauseLoading = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
 export interface SampleOptions {
   bus?: 'sfx' | 'ui';
   gain?: number;
@@ -27,6 +38,12 @@ export class SampleEngine {
   private buffers = new Map<string, AudioBuffer>();
   private last = new Map<string, number>();
   private started = false;
+  private pending: string[] = [];
+  private promoted = new Set<string>();
+  private biome = '';
+  /** Core readiness is separate; gameplay never waits for either promise. */
+  coreReady: Promise<void> = Promise.resolve();
+  private coreDone: () => void = () => {};
   ready: Promise<void> = Promise.resolve();
   private enabled: (bus: 'sfx' | 'ui') => boolean = () => true;
 
@@ -40,6 +57,7 @@ export class SampleEngine {
     this.ctx = ctx;
     this.outputs = outputs;
     this.enabled = enabled;
+    this.coreReady = new Promise(resolve => { this.coreDone = resolve; });
     this.ready = this.load();
   }
 
@@ -49,25 +67,32 @@ export class SampleEngine {
       const response = await fetch(base + 'manifest.json');
       if (!response.ok) return;
       const manifest: unknown = await response.json();
-      const ids = manifestIds(manifest);
-      // Three workers keep decoding/network pressure away from startup and gameplay.
-      let cursor = 0;
-      const worker = async () => {
-        while (cursor < ids.length) {
-          const id = ids[cursor++];
-          try {
-            const file = await fetch(base + id + '.mp3');
-            if (!file.ok) continue;
-            const buffer = await this.ctx!.decodeAudioData(await file.arrayBuffer());
-            this.buffers.set(id, buffer);
-          } catch {
-            /* Missing/offline/unsupported audio leaves the synth fully usable. */
-          }
+      this.pending = sampleLoadOrder(manifestIds(manifest), [...this.promoted]);
+      const loadOne = async (id: string) => {
+        try {
+          const file = await fetch(base + id + '.mp3');
+          if (!file.ok) return;
+          const buffer = await this.ctx!.decodeAudioData(await file.arrayBuffer());
+          this.buffers.set(id, buffer);
+        } catch {
+          /* Missing/offline/unsupported audio leaves the synth fully usable. */
         }
       };
-      await Promise.all([worker(), worker(), worker()]);
+      // Two bounded workers for the small core. One paced worker for everything else.
+      const coreWorker = async () => {
+        while (this.pending.length && CORE.has(this.pending[0])) await loadOne(this.pending.shift()!);
+      };
+      await Promise.all([coreWorker(), coreWorker()]);
+      this.coreDone();
+      if (this.pending.length) await pauseLoading(1500);
+      while (this.pending.length) {
+        await loadOne(this.pending.shift()!);
+        await pauseLoading(120);
+      }
     } catch {
       /* Optional pack: never reject into the game loop. */
+    } finally {
+      this.coreDone();
     }
   }
 
@@ -76,13 +101,33 @@ export class SampleEngine {
     return !!this.ctx && this.ctx.state === 'running' && this.enabled(bus);
   }
 
+  /** Promote once per cue, without fetches or allocation on repeated playback attempts. */
+  private prioritize(id: string): void {
+    if (this.buffers.has(id) || this.promoted.has(id)) return;
+    this.promoted.add(id);
+    const at = this.pending.indexOf(id);
+    if (at < 0) return;
+    this.pending.splice(at, 1);
+    let firstOptional = 0;
+    while (firstOptional < this.pending.length && CORE.has(this.pending[firstOptional])) firstOptional++;
+    this.pending.splice(firstOptional, 0, id);
+  }
+
   buffer(id: string): AudioBuffer | undefined {
+    // Ambience asks for its current biome; reprioritize its bed and footsteps together.
+    if (id.startsWith('amb_') && id !== 'amb_rain' && this.biome !== id) {
+      this.biome = id;
+      const step = BIOME_STEPS[id.slice(4)];
+      if (step) this.prioritize('step_' + step);
+      this.prioritize(id);
+    }
+    if (!this.buffers.has(id)) this.prioritize(id);
     return this.buffers.get(id);
   }
 
   play(id: string, options: SampleOptions = {}): SampleVoice | null {
     const ctx = this.ctx;
-    const buffer = this.buffers.get(id);
+    const buffer = this.buffer(id);
     if (!ctx || ctx.state !== 'running' || !buffer || !this.enabled(options.bus ?? 'sfx'))
       return null;
     const now = ctx.currentTime;
@@ -142,7 +187,7 @@ export function manifestIds(value: unknown): string[] {
   if (!value || typeof value !== 'object') return [];
   const m = value as Record<string, unknown>;
   const ids: string[] = [];
-  // Voice first so Ready/Go becomes available quickly; ambience last.
+  // Validation is independent of scheduling; load() chooses core and biome priority.
   for (const list of [m.voice, m.sfx]) {
     if (!Array.isArray(list)) continue;
     for (const id of list)
