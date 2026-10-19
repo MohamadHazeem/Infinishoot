@@ -36,6 +36,8 @@ export interface Settings {
   quality: number;
   /** Last loadout picked (left click, right click, special). */
   loadout: Loadout;
+  /** Smart camera: auto zoom with the swarm and the boss kill-cam (off = plain follow camera). */
+  dynamicCamera: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -63,7 +65,9 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   reduceFlash: false,
   quality: 1,
   loadout: { ...DEFAULT_LOADOUT },
+  dynamicCamera: true,
 });
+settings.dynamicCamera ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

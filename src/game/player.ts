@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { resolveCircleVsBoxes, type AABB } from '../world/collision';
-import { animateHero, applySkin, createHero, poseVictory, setExpression, type Expression, type HeroRig } from './heroModel';
+import { animateHero, applySkin, createHero, newPose, setExpression, type Expression, type HeroRig } from './heroModel';
 import type { SkinDef } from '../data/skins';
 import { textures } from '../render/textures';
 import { baseStats, type Stats } from './stats';
@@ -68,7 +68,6 @@ export class Player {
   readonly rig: HeroRig;
   private shadow: THREE.Mesh;
   private facing = 0;
-  private animTime = 0;
   private blinkT = 0;
   // Face and pose (presentation only).
   /** Seconds of happy face left (level-ups, evolutions, chests). */
@@ -79,7 +78,7 @@ export class Player {
   focus = false;
   /** Hero build proportions (width, height). */
   buildScale: [number, number] = [1, 1];
-  private cheerK = 0;
+  private pose = newPose();
   private hurtT = 0;
   private lastHp = -1;
   private eyeT = 3;
@@ -361,23 +360,33 @@ export class Player {
     this.facing += diff * (1 - Math.exp(-playerTuning.turnSpeed * frameDt));
     this.rig.root.rotation.y = this.facing;
 
-    const speed01 = Math.min(1, Math.hypot(this.vel.x, this.vel.z) / playerTuning.maxSpeed);
-    this.animTime += frameDt;
-    animateHero(this.rig, this.animTime, this.dashing ? 0.3 : speed01, Math.min(1, this.recoil));
-    this.cheerK += ((this.cheer && !this.dead ? 1 : 0) - this.cheerK) * Math.min(1, frameDt * 6);
-    if (this.cheerK > 0.01) poseVictory(this.rig, this.animTime, this.cheerK);
-    const [bw, bh] = this.buildScale;
-    this.rig.body.scale.set((1 - this.sq * 0.5) * bw, (1 + this.sq) * bh, (1 - this.sq * 0.5) * bw);
+    // Pose inputs for the procedural animation (src/game/heroModel.ts).
+    const pose = this.pose;
+    pose.dt = frameDt;
+    pose.vx = this.vel.x / playerTuning.maxSpeed;
+    pose.vz = this.vel.z / playerTuning.maxSpeed;
+    pose.facing = this.facing;
+    pose.recoil = Math.min(1, this.recoil);
+    pose.dashing = this.dashing;
+    pose.hurtFlash = this.hurtFlash;
+    const kl = Math.hypot(this.kx, this.kz);
+    if (kl > 0.5) {
+      pose.hitX = this.kx / kl;
+      pose.hitZ = this.kz / kl;
+    } else if (this.hurtFlash <= 0) pose.hitX = pose.hitZ = 0;
+    pose.dead = this.dead;
+    pose.cheer = this.cheer && !this.dead;
+    pose.sq = this.sq;
+    [pose.bw, pose.bh] = this.buildScale;
+    animateHero(this.rig, pose);
 
-    // Downed in co-op: lie on the ground, greyed out.
-    this.rig.root.rotation.z = this.dead && this.showWhenDead ? Math.PI / 2 : 0;
+    // Down: the death fall plays, then the hero lies there greyed out (co-op: until revived).
     if (this.dead) {
-      this.rig.root.visible = this.showWhenDead;
-      this.rig.root.position.y = 0.4;
-      for (const m of this.rig.materials) m.uniforms.uFlash.value.set(0.5, 0.5, 0.6, 0.55);
+      this.rig.root.visible = true;
+      const grey = Math.min(1, Math.max(0, (this.rig.anim.deathT - 0.6) * 3)) * 0.55;
+      for (const m of this.rig.materials) m.uniforms.uFlash.value.set(0.5, 0.5, 0.6, grey);
       return;
     }
-    this.rig.root.position.y = 0;
     // Blink while invulnerable after a hit (not during dash i-frames).
     const blinking = this.invuln > 0 && !this.dashing && this.hurtFlash <= 0 && this.invuln > playerTuning.dashIframesExtra;
     this.blinkT += frameDt;

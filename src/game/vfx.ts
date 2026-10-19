@@ -20,7 +20,8 @@ export type VfxEvent =
   | ['k', number, number, number]
   | ['h', 'banner' | 'toast' | 'flash', string, string, number]
   | ['z', number, number, number, number]
-  | ['g', number, number, number, string, number];
+  | ['g', number, number, number, string, number]
+  | ['c', number, number, number, string, number, number, number, number];
 
 export interface DangerZone {
   x: number;
@@ -42,6 +43,8 @@ export interface VfxTargets {
   /** Danger zones drawn on the ground (telegraphed strikes). */
   zones: DangerZone[];
   scars: Scars;
+  /** A dead enemy's body is flung (x, y, z, scale, facing, push direction); cosmetic. */
+  corpse?(id: string, x: number, y: number, z: number, scale: number, facing: number, dirX: number, dirZ: number): void;
   listener(): { x: number; z: number };
 }
 
@@ -108,6 +111,13 @@ export class Vfx {
     this.rec(['g', x, z, r, color, life]);
   }
 
+  /** A dead enemy's body flies off tumbling along (dirX, dirZ); boss kills also start the kill-cam. */
+  corpse(id: string, x: number, y: number, z: number, scale: number, facing: number, dirX: number, dirZ: number): void {
+    const r2 = (v: number) => Math.round(v * 100) / 100;
+    this.t.corpse?.(id, x, y, z, scale, facing, dirX, dirZ);
+    this.rec(['c', r2(x), r2(z), r2(y), id, r2(scale), r2(facing), r2(dirX), r2(dirZ)]);
+  }
+
   /** Team-wide HUD messages. */
   banner(title: string, sub = '', seconds = 1.6): void {
     this.t.hud.showBanner(title, sub, seconds);
@@ -145,6 +155,12 @@ export class Vfx {
     const d = this.near(x, z);
     const k = d < 8 ? 1 : Math.max(0, 1 - (d - 8) / 20);
     if (k > 0) this.t.juice.shake(amount * k);
+    // Directional: the camera also punches toward where the impact happened.
+    if (k > 0 && d > 1) {
+      const l = this.t.listener();
+      const kick = Math.min(6, amount * k * 7);
+      this.t.juice.kick((x - l.x) / d, (z - l.z) / d, kick);
+    }
   }
 
   /** Client: replay an event received from the host. */
@@ -174,6 +190,9 @@ export class Vfx {
       case 'g':
         this.t.scars.add(e[1], e[2], e[3], e[4], e[5]);
         break;
+      case 'c':
+        this.t.corpse?.(e[4], e[1], e[3], e[2], e[5], e[6], e[7], e[8]);
+        break;
       case 'h':
         if (e[1] === 'banner') this.t.hud.showBanner(e[2], e[3], e[4]);
         else if (e[1] === 'toast') this.t.hud.toast(e[2], e[4]);
@@ -194,6 +213,7 @@ export class Vfx {
       case 'k':
       case 'z':
       case 'g':
+      case 'c':
         return [e[1], e[2]];
       default:
         return [NaN, NaN];
