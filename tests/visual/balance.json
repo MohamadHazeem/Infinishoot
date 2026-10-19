@@ -1,0 +1,113 @@
+{
+  "tolerance": 0.25,
+  "runs": {
+    "buster,charge,bomb": {
+      "stage": 3,
+      "stages": [
+        {
+          "stage": 1,
+          "level": 20,
+          "kills": 5468,
+          "ranks": 11,
+          "time": 304
+        },
+        {
+          "stage": 2,
+          "level": 28,
+          "kills": 13097,
+          "ranks": 15,
+          "time": 559
+        }
+      ],
+      "level": 28,
+      "kills": 13097,
+      "time": 559,
+      "actualKit": {
+        "primary": "buster",
+        "secondary": "charge",
+        "special": "bomb"
+      }
+    },
+    "laser,well,meteor": {
+      "stage": 3,
+      "stages": [
+        {
+          "stage": 1,
+          "level": 19,
+          "kills": 5551,
+          "ranks": 11,
+          "time": 279
+        },
+        {
+          "stage": 2,
+          "level": 28,
+          "kills": 13956,
+          "ranks": 16,
+          "time": 535
+        }
+      ],
+      "level": 28,
+      "kills": 13956,
+      "time": 535,
+      "actualKit": {
+        "primary": "laser",
+        "secondary": "well",
+        "special": "meteor"
+      }
+    },
+    "scatter,grenade,blizzard": {
+      "stage": 3,
+      "stages": [
+        {
+          "stage": 1,
+          "level": 19,
+          "kills": 5255,
+          "ranks": 7,
+          "time": 284
+        },
+        {
+          "stage": 2,
+          "level": 29,
+          "kills": 15312,
+          "ranks": 16,
+          "time": 560
+        }
+      ],
+      "level": 29,
+      "kills": 15312,
+      "time": 560,
+      "actualKit": {
+        "primary": "scatter",
+        "secondary": "grenade",
+        "special": "blizzard"
+      }
+    },
+    "rail,shield,storm": {
+      "stage": 3,
+      "stages": [
+        {
+          "stage": 1,
+          "level": 19,
+          "kills": 5155,
+          "ranks": 12,
+          "time": 287
+        },
+        {
+          "stage": 2,
+          "level": 27,
+          "kills": 12646,
+          "ranks": 18,
+          "time": 544
+        }
+      ],
+      "level": 27,
+      "kills": 12646,
+      "time": 544,
+      "actualKit": {
+        "primary": "rail",
+        "secondary": "shield",
+        "special": "storm"
+      }
+    }
+  }
+}

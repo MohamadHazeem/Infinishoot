@@ -114,6 +114,15 @@ export const en = {
   "raid.skin": "Hydra Armour",
   "raid.ember": "Hydra Ember Armour",
   "raid.skinDesc": "Complete the Hydra Engine raid.",
+  "replay.storage": "Replay could not fit in browser storage. Save it to a file instead.",
+  "replay.exit": "EXIT REPLAY",
+
+  "replay.help": "HELP",
+  "replay.save": "SAVE REPLAY",
+  "replay.watch": "WATCH REPLAY",
+  "replay.crash": "WATCH CRASH REPLAY",
+  "replay.back": "BACK",
+  "replay.empty": "No recorded run yet.",
 
   "content.84fee1b908": "Crosswind Blades",
   "content.21f48f0714": "Paired crescent blades cross outward, then slice back along a curved return path.",

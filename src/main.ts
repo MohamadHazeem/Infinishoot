@@ -2,6 +2,7 @@ import './platform/desktop';
 import { installDesktopUi } from './platform/help';
 import { displayState } from './platform/display';
 import { mods } from './mods/manager';
+import { installReplay } from './game/systems/ci2';
 import '@fontsource/jersey-10/latin-400.css';
 import '@fontsource/jersey-15/latin-400.css';
 import '@fontsource/silkscreen/latin-400.css';
@@ -41,6 +42,7 @@ renderer.gl.setClearColor(retroGlobals.uFogColor.value);
 const input = new Input(canvas);
 const game = new Game(input, renderer.aspect, hudEl, reticleEl);
 performance.mark('infinishoot:game');
+installReplay(game);
 // Audio is optional and gesture-unlocked; report the core pack without delaying play.
 let audioReported = false;
 const reportAudio = () => {
@@ -171,7 +173,7 @@ const loop = new GameLoop({
   },
 });
 
-loop.start();
+if (!new URLSearchParams(location.search).has('ci2')) loop.start();
 
 // Dev-only handle for console debugging/profiling.
 if (import.meta.env.DEV) {
