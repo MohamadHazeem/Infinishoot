@@ -63,7 +63,7 @@ const old = normalize({
   lifetime: { kills: 400 },
 });
 ok(
-  old.version === 4 && old.lifetime.kills === 400 && old.achievements.includes('first_steps'),
+  old.version === 5 && old.lifetime.kills === 400 && old.achievements.includes('first_steps'),
   'v1 stats and achievements migrate',
 );
 ok(
