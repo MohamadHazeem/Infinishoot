@@ -5,7 +5,7 @@ import { loadJson, saveJson } from './storage';
  * and the gamepad keep their fixed layout. Escape always pauses and backs out
  * of menus, whatever is bound.
  */
-export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping' | 'parry' | 'ult' | 'team' | 'cash' | 'cashpick' | 'rewind';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping' | 'parry' | 'ult' | 'team' | 'cash' | 'cashpick' | 'rewind' | 'talk';
 
 export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'up', name: 'Move up' },
@@ -24,6 +24,7 @@ export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'team', name: 'Team move (co-op)' },
   { id: 'cash', name: 'Cash in combo' },
   { id: 'cashpick', name: 'Cash-in choice' },
+  { id: 'talk', name: 'Push to talk (voice chat)' },
 ];
 
 const DEFAULTS: Record<Action, [string, string]> = {
@@ -43,6 +44,7 @@ const DEFAULTS: Record<Action, [string, string]> = {
   team: ['KeyT', ''],
   cash: ['KeyX', ''],
   cashpick: ['KeyZ', ''],
+  talk: ['KeyN', ''],
 };
 
 /** Gamepad buttons (standard mapping) for the skill actions: B parries; L3 or R3 fires the ultimate. */
@@ -55,6 +57,8 @@ export const PAD_CASH = [15];
 export const PAD_CASHPICK = [14];
 /** Gamepad: D-pad up rewinds time (src/game/systems/time.ts). */
 export const PAD_REWIND = [12];
+/** Gamepad: hold L3 to talk while VOICE CHAT is on in push-to-talk mode (the ultimate then stays on R3; src/net/voice.ts). */
+export const PAD_TALK = [10];
 
 const KEY = 'keys.v1';
 

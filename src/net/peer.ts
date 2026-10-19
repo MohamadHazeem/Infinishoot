@@ -110,6 +110,11 @@ export class NetHost {
     }
   }
 
+  /** The PeerJS peer, for voice chat media calls (src/net/voice.ts). */
+  get voicePeer(): Peer {
+    return this.peer;
+  }
+
   /** How many clients are connected right now. */
   get size(): number {
     return this.conns.size;
@@ -187,6 +192,11 @@ export class NetClient {
 
   send(msg: unknown): void {
     if (this.conn?.open && !this.closed) this.simOut.push(msg);
+  }
+
+  /** The PeerJS peer, for voice chat media calls (src/net/voice.ts). */
+  get voicePeer(): Peer {
+    return this.peer;
   }
 
   /** Connected and not closed. */

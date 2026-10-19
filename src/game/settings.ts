@@ -130,6 +130,16 @@ export interface Settings extends DisplayOptions {
   batterySaver: boolean;
   touchOpacity: number;
   touchAutoHide: boolean;
+  /** VOICE CHAT (voicechat lane, src/net/voice.ts): off by default; turning it on asks for the microphone. */
+  voiceChat: boolean;
+  /** Push to talk (the talk key / L3) or an open mic gated by MIC SENSITIVITY. */
+  voiceMode: 'ptt' | 'open';
+  /** Open-mic sensitivity 0..1 (higher picks up quieter speech). */
+  voiceSensitivity: number;
+  /** Volume of teammates' voices. */
+  voiceChatVolume: number;
+  /** TEAM RADIO: hear every teammate at full volume, wherever they are. */
+  teamRadio: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -205,6 +215,11 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   batterySaver: false,
   touchOpacity: 70,
   touchAutoHide: true,
+  voiceChat: false,
+  voiceMode: 'ptt',
+  voiceSensitivity: 0.5,
+  voiceChatVolume: 0.9,
+  teamRadio: false,
 };
 export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS, loadout: { ...DEFAULT_LOADOUT } });
 Object.assign(settings, displayOptions(settings));
@@ -236,6 +251,11 @@ settings.teamName ??= '';
 settings.lobbyPublic ??= false;
 settings.crowd ??= true;
 settings.radioDj ??= true;
+settings.voiceChat = settings.voiceChat === true;
+settings.voiceMode = settings.voiceMode === 'open' ? 'open' : 'ptt';
+settings.voiceSensitivity = Number.isFinite(settings.voiceSensitivity) ? Math.max(0, Math.min(1, settings.voiceSensitivity)) : 0.5;
+settings.voiceChatVolume = Number.isFinite(settings.voiceChatVolume) ? Math.max(0, Math.min(1, settings.voiceChatVolume)) : 0.9;
+settings.teamRadio = settings.teamRadio === true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

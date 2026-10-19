@@ -31,6 +31,7 @@ import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
 import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
 import { heroes3Net } from './heroes3';
+import { voiceHostMsg } from './voicechat';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -53,6 +54,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     setTimeout(() => host?.kick(from), 250);
     return;
   }
+  if (voiceHostMsg(this, from, m)) return; // voice chat roster (systems/voicechat.ts)
   if (this.lobbyHostMessage(from, m)) return; // lobby lane: ready, chat, pings, party votes, kicked players (systems/party.ts)
   if (m.t === 'pvpready' && this.pvp) {
     this.pvp.ready.set(from, m.build as HeroBuild);

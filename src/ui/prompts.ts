@@ -125,6 +125,7 @@ const PAD_OF: Partial<Record<PromptId, PadBtn>> = {
   up: 12,
   cash: 15,
   cashpick: 14,
+  talk: 10,
 };
 
 function keys(a: Action): string[] {
@@ -195,6 +196,7 @@ function padLegend(fam: PadFamily): string {
     [[5, 3], 'Special'],
     [[1], 'Parry'],
     [[11, 10], 'Ultimate'],
+    [[10], 'Push to talk (voice chat)'],
     [[12], 'Rewind time'],
     [[13], 'Team move (co-op)'],
     [[15], 'Cash in combo'],
