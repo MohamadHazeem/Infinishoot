@@ -20,6 +20,7 @@ import { settings } from '../settings';
 import { Rng } from '../../core/rng';
 import { sfx } from '../../audio/sfx';
 import { music } from '../../audio/music';
+import { playSurround } from '../../audio/surround';
 import { announcer } from '../../audio/announcer';
 import { caption } from '../../audio/captions';
 import { PASSIVES } from '../../data/passives';
@@ -595,6 +596,7 @@ export function onCine(this: Game, kind: string, hero: number, x: number, z: num
     view?.jackpotStart(v, r && r.width ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null);
     music.silence(rt.len);
     sfx.named('jingle');
+    playSurround('jackpot'); // coins rain around your head (sound lane, src/audio/surround.ts)
     void x;
     void z;
   }
