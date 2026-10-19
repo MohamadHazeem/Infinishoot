@@ -1,3 +1,4 @@
+import { addBiomeParts, biomePaint, biomeSkinKey, bossDamageMaterial, hasBiomeSkin, hasBossDamage, modelDetail, type BiomeSkinKey } from '../render/biomeSkins';
 import { dangerLayer, dangerLineMaterial } from '../render/noiseGovernor';
 import { halloweenModel, pumpkinBrain, ghostMaterial, halloweenMotion } from './systems/halloween';
 import * as THREE from 'three';
@@ -437,20 +438,102 @@ function buildModel(def: EnemyDef, add: Part): void {
   }
 }
 
+/** Portrait cues stay oversized: crown/eye, ivory snout, antennae/wings and emperor visor. */
+function addBossDetails(def: EnemyDef, add: Part): void {
+  const r = def.radius, A = def.accentColor;
+  const box = (w: number, h: number, d: number, c: string, x: number, y: number, z: number) =>
+    add(new THREE.BoxGeometry(w * r, h * r, d * r), c, x * r, y * r, z * r);
+  let cy = 0.7, cz = 0.96;
+  switch (def.model) {
+    case 'king':
+      add(new THREE.TorusGeometry(r * 0.57, r * 0.07, 4, 10).rotateX(Math.PI / 2), A, 0, r * 1.86, 0);
+      box(0.7, 0.12, 0.08, DARK, 0, 1.64, 0.78); // determined brow
+      box(0.42, 0.1, 0.08, DARK, 0, 0.99, 1.01); // smiling mouth
+      box(0.27, 0.04, 0.09, '#ffffff', 0, 1.02, 1.02);
+      for (const side of [-1, 1]) {
+        add(new THREE.SphereGeometry(r * 0.27, 6, 4), A, side * r * 0.92, r * 0.88, 0);
+        box(0.18, 0.08, 0.34, A, side * 0.5, 0.26, 0.18);
+      }
+      break;
+    case 'rex':
+      cy = 1.0; cz = 1.88;
+      box(1.08, 0.36, 0.28, '#f4f4f4', 0, 1, 1.64);
+      box(0.84, 0.07, 0.3, DARK, 0, 0.82, 1.66);
+      for (const side of [-1, 1]) {
+        box(0.14, 0.09, 0.04, DARK, side * 0.28, 1.1, 1.8); // nostrils
+        box(0.45, 0.12, 0.2, A, side * 0.47, 1.52, 1.43);
+        box(0.15, 0.48, 1.2, A, side * 0.79, 1.05, -0.12);
+        for (let k = 0; k < 3; k++) box(0.13, 0.11, 0.16, '#f4f4f4', side * (0.4 + k * 0.15), 0.12, 0.84);
+      }
+      break;
+    case 'queen':
+      cy = 0.9; cz = 1.02;
+      for (const side of [-1, 1]) {
+        add(new THREE.CylinderGeometry(r * 0.035, r * 0.055, r * 0.7, 5).rotateZ(-side * 0.5), DARK, side * r * 0.52, r * 2.2, r * 0.32);
+        add(new THREE.SphereGeometry(r * 0.11, 6, 4), A, side * r * 0.68, r * 2.52, r * 0.32);
+        add(new THREE.ConeGeometry(r * 0.1, r * 0.3, 4).rotateZ(side * 0.35).rotateX(Math.PI), A, side * r * 0.24, r * 1.02, r * 1.05);
+        add(new THREE.BoxGeometry(r * 1.5, r * 0.07, r * 0.065).rotateZ(side * -0.35), '#41a6f6', side * r * 1.3, r * 1.96, -r * 0.3);
+        box(0.3, 0.16, 0.35, A, side * 0.65, 1.58, -0.2);
+      }
+      break;
+    case 'omega':
+      cy = 1.35; cz = 0.64;
+      box(0.8, 0.25, 0.11, DARK, 0, 2.1, 0.33);
+      box(0.69, 0.085, 0.12, '#ff3d5a', 0, 2.12, 0.36);
+      box(0.5, 0.15, 0.08, DARK, 0, 1.89, 0.34);
+      for (let i = -1; i <= 1; i++) box(0.05, 0.11, 0.09, A, i * 0.12, 1.89, 0.35);
+      for (const side of [-1, 1]) {
+        box(0.52, 0.14, 0.59, A, side * 1.4, 0.73, 0.45);
+        for (let k = 0; k < 3; k++) box(0.1, 0.22, 0.09, A, side * (1.23 + k * 0.17), 0.91, 0.74);
+        box(0.16, 0.53, 0.12, A, side * 0.68, 1.4, 0.52);
+      }
+      break;
+  }
+  // Inset reactor: dark socket, bright rim and a smaller self-lit crystal.
+  add(new THREE.CylinderGeometry(r * 0.23, r * 0.23, r * 0.1, 8).rotateX(Math.PI / 2), DARK, 0, cy * r, cz * r);
+  add(new THREE.TorusGeometry(r * 0.19, r * 0.035, 4, 8), A, 0, cy * r, (cz + 0.06) * r);
+  add(modelDetail(new THREE.OctahedronGeometry(r * 0.15), 0, 0.85), '#73eff7', 0, cy * r, (cz + 0.08) * r);
+  // Authored zig-zag fissures and small steady sparks emerge at the phase HP gates.
+  const gates = def.phases ?? [0.66, 0.33];
+  for (let phase = 0; phase < 2; phase++) {
+    const side = phase ? 1 : -1, threshold = gates[phase] ?? (phase ? 0.33 : 0.66);
+    for (let k = 0; k < 3; k++) {
+      const y = cy + 0.06 + k * 0.13, x = side * (0.26 + (k % 2) * 0.07);
+      const g = new THREE.BoxGeometry(r * 0.035, r * 0.2, r * 0.025).rotateZ(side * (k % 2 ? -0.55 : 0.55));
+      add(modelDetail(g, threshold, 0.85), '#ffcd75', x * r, y * r, (cz + 0.065) * r);
+    }
+    for (let k = 0; k < 2; k++) {
+      const spark = new THREE.OctahedronGeometry(r * 0.045).scale(0.65, 2, 0.65).rotateZ(side * 0.5);
+      add(modelDetail(spark, threshold, 1), '#ffcd75', side * r * (0.5 + k * 0.13), (cy + 0.45 + k * 0.15) * r, (cz + 0.12) * r);
+    }
+  }
+}
+
 const geoCache = new Map<string, THREE.BufferGeometry>();
-function enemyGeometry(def: EnemyDef): THREE.BufferGeometry {
-  let geo = geoCache.get(def.id);
+export function enemyGeometry(def: EnemyDef, biome: BiomeSkinKey = 'meadow'): THREE.BufferGeometry {
+  const skinned = hasBiomeSkin(def), damage = hasBossDamage(def);
+  const key = def.id + (skinned ? ':' + biome : '');
+  let geo = geoCache.get(key);
   if (geo) return geo;
   const parts: THREE.BufferGeometry[] = [];
-  buildModel(def, (g, color, x, y, z) => {
-    // mergeGeometries needs matching attributes and index-ness: de-index everything.
+  const add: Part = (g, color, x, y, z) => {
     const ng = (g.index ? g.toNonIndexed() : g).translate(x, y, z);
+    if (damage && !ng.getAttribute('modelDetail')) modelDetail(ng);
     parts.push(paint(ng, color));
-  });
-  // Re-index: corners shared by a face's two triangles become one vertex, so every
-  // enemy (and its outline pass, which reuses the geometry) runs about a third fewer vertex shaders.
-  geo = mergeVertices(mergeGeometries(parts)!);
-  geoCache.set(def.id, geo);
+    if (ng !== g) g.dispose();
+  };
+  buildModel(def, (g, color, x, y, z) => add(g, skinned ? biomePaint(color, def, biome) : color, x, y, z));
+  if (skinned) addBiomeParts(def, biome, add);
+  if (damage) addBossDetails(def, add);
+  // Keep damage-only shards out of the inverted hull (the body retains its own outline).
+  if (damage) parts.sort((a, b) => Number(a.getAttribute('modelDetail').getX(0) > 0) - Number(b.getAttribute('modelDetail').getX(0) > 0));
+  const outlineCount = damage ? parts.reduce((n, g) => n + (g.getAttribute('modelDetail').getX(0) > 0 ? 0 : g.getAttribute('position').count), 0) : undefined;
+  const merged = mergeGeometries(parts)!;
+  geo = mergeVertices(merged);
+  if (outlineCount !== undefined) geo.userData.modelOutlineCount = outlineCount;
+  merged.dispose();
+  for (const g of parts) g.dispose();
+  geoCache.set(key, geo);
   return geo;
 }
 
@@ -738,13 +821,19 @@ class EnemyBatch {
   readonly material: RetroMaterial;
   readonly mesh: THREE.InstancedMesh;
   readonly flash: THREE.InstancedBufferAttribute;
+  readonly health?: THREE.InstancedBufferAttribute;
 
-  constructor(def: EnemyDef, scene: THREE.Scene) {
-    const geo = enemyGeometry(def).clone();
+  constructor(readonly def: EnemyDef, scene: THREE.Scene, biome: BiomeSkinKey) {
+    const geo = enemyGeometry(def, biome).clone();
     this.flash = new THREE.InstancedBufferAttribute(new Float32Array(BATCH_CAP * 4), 4);
     this.flash.setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('instanceFlash', this.flash);
     const mat = this.material = createRetroMaterial({ vertexColors: true, instanceFlash: true });
+    if (hasBossDamage(def)) {
+      this.health = new THREE.InstancedBufferAttribute(new Float32Array(BATCH_CAP).fill(1), 1).setUsage(THREE.DynamicDrawUsage);
+      geo.setAttribute('modelHealth', this.health);
+      bossDamageMaterial(mat);
+    }
     this.mesh = new THREE.InstancedMesh(geo, mat, BATCH_CAP);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
@@ -864,6 +953,7 @@ export class Enemies {
     const i = bt.mesh.count++;
     bt.mesh.setMatrixAt(i, m);
     bt.flash.setXYZW(i, r, g, b, a);
+    bt.health?.setX(i, 0);
   };
   private putShadow = (x: number, z: number, size: number): void => {
     const d = this.decals;
@@ -880,11 +970,29 @@ export class Enemies {
   private batch(def: EnemyDef): EnemyBatch {
     let b = this.batches.get(def.id);
     if (!b) {
-      this.batches.set(def.id, (b = new EnemyBatch(def, this.scene)));
+      this.batches.set(def.id, (b = new EnemyBatch(def, this.scene, this.biomeSkin)));
       tintBatch(b.mesh, this.tint);
       if (def.id === 'ghost') ghostMaterial(b.material);
     }
     return b;
+  }
+
+  private biomeSkin: BiomeSkinKey = 'meadow';
+  /** Arena-local geometry/vertex paint; no gameplay or network state is added. */
+  setBiome(key: string): void {
+    const skin = biomeSkinKey(key);
+    if (skin === this.biomeSkin) return;
+    this.biomeSkin = skin;
+    for (const b of this.batches.values()) {
+      if (!hasBiomeSkin(b.def)) continue;
+      const previous = b.mesh.geometry;
+      const next = enemyGeometry(b.def, skin).clone();
+      next.setAttribute('instanceFlash', b.flash);
+      // Preserve the existing outline's two passes when replacing the geometry.
+      for (const group of previous.groups) next.addGroup(group.start, group.count, group.materialIndex);
+      b.mesh.geometry = next;
+      previous.dispose();
+    }
   }
 
   /** Biome palette: multiplies every enemy's colours (Neon City's neon tint; white = none). */
@@ -1747,6 +1855,7 @@ export class Enemies {
       this.q.setFromEuler(this.euler.set(P.pitch, e.facing + P.yaw, P.roll));
       this.m4.compose(this.v.set(x + P.ox, y, z + P.oz), this.q, this.s.set(sx * P.sx, sy * P.sy, sx * P.sz));
       b.mesh.setMatrixAt(i, this.m4);
+      b.health?.setX(i, Math.max(0, Math.min(1, e.hp / Math.max(1, e.maxHp))));
 
       // Flash priority: hit > frozen > telegraph > elite glow.
       if (e.flash > 0) b.flash.setXYZW(i, 1, 1, 1, 0.9);
@@ -1815,6 +1924,7 @@ export class Enemies {
     for (const b of this.batches.values()) {
       commit(b.mesh.instanceMatrix, b.mesh.count);
       commit(b.flash, b.mesh.count);
+      if (b.health) commit(b.health, b.mesh.count);
     }
     for (const m of [d.shadows, d.markers, d.lines, d.zones, d.discs, d.auras, d.bubbles, d.heals, d.mounds, d.copyBeams]) commit(m.instanceMatrix, m.count);
     if (d.auras.instanceColor) commit(d.auras.instanceColor, d.auras.count);

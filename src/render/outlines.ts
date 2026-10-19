@@ -153,7 +153,7 @@ export function outlineInstanced(mesh: THREE.InstancedMesh): boolean {
   const mat = mesh.material;
   if (Array.isArray(mat) || geo.groups.length > 0 || !geo.attributes.instanceFlash || !geo.attributes.normal) return false;
   geo.addGroup(0, Infinity, 0);
-  geo.addGroup(0, Infinity, 1);
+  geo.addGroup(0, geo.userData.modelOutlineCount ?? Infinity, 1);
   mesh.material = [mat, mesh.instanceColor ? instancedHullColor : instancedHull];
   return true;
 }

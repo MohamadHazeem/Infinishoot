@@ -191,6 +191,7 @@ const WHITE = new THREE.Color(1, 1, 1);
 
 export class RigOverlay {
   private parts: THREE.Mesh[] = [];
+  private modelRevision = -1;
   private mats: THREE.Matrix4[] = [];
   private hull: THREE.Mesh | null = null;
   private xray: THREE.Mesh | null = null;
@@ -249,6 +250,7 @@ export class RigOverlay {
 
   /** (Re)build the merged meshes from the rig's current parts. */
   private build(): void {
+    this.modelRevision = this.root.userData.modelRevision ?? 0;
     this.parts = [];
     let count = 0;
     this.root.traverse((o) => {
@@ -300,6 +302,7 @@ export class RigOverlay {
   /** Per rendered frame, before the scene renders. */
   update(color: THREE.ColorRepresentation, ringVisible: boolean): void {
     this.frame++;
+    if (this.modelRevision !== (this.root.userData.modelRevision ?? 0)) this.build();
     // A rig that grows or loses parts (new hero bodies, gear) gets re-merged.
     if ((this.frame & 31) === 0) {
       let n = 0;

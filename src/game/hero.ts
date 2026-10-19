@@ -1,3 +1,4 @@
+import { setHeroModel } from './heroModel';
 import type * as THREE from 'three';
 import type { Rng } from '../core/rng';
 import { DEFAULT_LOADOUT, type Loadout } from '../data/loadout';
@@ -336,6 +337,7 @@ export class Hero implements SynergyHost {
 
   setHeroDef(id: string): void {
     this.heroDef = heroOf(id);
+    setHeroModel(this.player.rig, this.heroDef.id);
     const [w, h] = this.heroDef.build;
     this.player.rig.body.scale.set(w, h, w);
     this.player.buildScale = [w, h];
