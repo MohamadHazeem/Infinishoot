@@ -66,7 +66,16 @@ export const cueSamples: Readonly<Record<string, string>> = {
   coverBreak: 'cover_break',
   goldenLaugh: 'golden_laugh',
 };
+/**
+ * 0 swarm noise .. 4 big moments, then the sound lane's bands: 6 = off-screen
+ * threat telegraphs (outrank everything but the announcer, which plays at 10+),
+ * 5 = hero voice, 1 = enemy family calls (just above swarm hits and deaths).
+ */
 export function cuePriority(name: string): number {
+  if (/^(threat|cwind|bwind)/.test(name)) return 6;
+  if (name.startsWith('voice:')) return 5;
+  if (name.startsWith('call:')) return 1;
+  if (name.startsWith('evo:')) return 3;
   if (/^(boss|bomb|elite|chest|lvl|evolve|legendary|clear|pdie|hurt|parry|perfect)/.test(name))
     return 4;
   if (name.startsWith('w:') || /^(dash|gem|coin|gear|menu)/.test(name)) return 3;

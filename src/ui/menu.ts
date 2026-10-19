@@ -15,11 +15,22 @@ export class MenuNav {
     private root: HTMLElement,
     private opts: { horizontal?: boolean; columns?: number; onBack?: () => void } = {},
   ) {
-    // One selection sound for mouse, keyboard and gamepad: all activate via click().
+    // One UI kit for mouse, keyboard and gamepad: all activate via click() (src/audio/uiKit.ts).
     this.root.addEventListener('click', (event) => {
       const el = (event.target as HTMLElement).closest<HTMLElement>('[data-nav]');
-      if (!el || el.matches(':disabled, .cant, .locked, .rolling, input')) return;
+      if (!el || el.matches('.rolling, input')) return;
+      if (el.matches(':disabled, .cant, .locked')) return sfx.deny();
+      // Toggles run their own handler first, so the label already shows the new state.
+      if (el.dataset.toggle !== undefined) return sfx.ui('toggle', el.querySelector('b')?.textContent === 'ON' ? 1 : 0);
       sfx.menuSelect();
+    });
+    // Sliders tick up the scale with their value (mouse drags and keys alike).
+    this.root.addEventListener('input', (event) => {
+      const el = event.target as HTMLInputElement;
+      if (el.type !== 'range') return;
+      const min = Number(el.min || 0);
+      const max = Number(el.max || 1);
+      sfx.ui('tick', max > min ? (Number(el.value) - min) / (max - min) : 0);
     });
   }
 
@@ -34,7 +45,12 @@ export class MenuNav {
 
   private setFocus(i: number, sound = true, scroll = true): void {
     if (i < 0 || i >= this.items.length) return;
-    if (sound && i !== this.focus) sfx.menuMove();
+    if (sound && i !== this.focus) {
+      const el = this.items[i];
+      if (el.closest('.card, .mod-card')) sfx.ui('hover');
+      else if (el.matches('[role=tab], [data-tab]')) sfx.ui('tab');
+      else sfx.menuMove();
+    }
     this.focus = i;
     this.items.forEach((el, j) => el.classList.toggle('focused', j === i));
     if (sound && scroll) this.items[i].scrollIntoView({ block: 'nearest' });
@@ -109,14 +125,13 @@ export class MenuNav {
       }
       if (d !== 0) {
         el.value = String(Number(el.value) + d * Number(el.step || 1));
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        sfx.menuMove();
+        el.dispatchEvent(new Event('input', { bubbles: true })); // ticks via the input listener
       }
     } else if (k('Enter') || k('Space') || pad(0)) {
       el.click();
     }
     if ((k('Escape') || k('Backspace') || pad(1)) && this.opts.onBack) {
-      sfx.menuMove();
+      sfx.menuBack();
       this.opts.onBack();
     }
   }

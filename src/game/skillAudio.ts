@@ -1,6 +1,7 @@
 import { sfx } from '../audio/sfx';
 import { samples } from '../audio/samples';
 import { announcer } from '../audio/announcer';
+import { heroVoice } from '../audio/heroVoice';
 
 /**
  * Sounds for the skill layer: the recorded perfect-dash and parry cues through
@@ -37,4 +38,7 @@ export function skillSound(cue: SkillCue, mine: boolean, gain = 1): void {
     else if (cue === 'ult') sfx.legendary();
   }
   if (mine && f.voice) announcer.say(f.voice);
+  // The hero's own voice now and then (rate-limited in heroVoice).
+  if (mine && cue === 'parry') heroVoice.barkLocal('parry');
+  else if (mine && cue === 'perfect') heroVoice.barkLocal('dodge');
 }

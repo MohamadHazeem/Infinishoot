@@ -71,6 +71,7 @@ import { Onboarding } from './onboarding';
 import * as RunModsSys from './systems/runMods';
 import { RunMods } from './runMods';
 import { RunUi } from '../ui/runUi';
+import { weaponCue, windupCue } from './systems/sound';
 
 export { economyTuning } from './hero';
 
@@ -809,7 +810,7 @@ export class Game implements HeroWorld {
 
   makeCtx(hero: Hero): WeaponCtx {
     const game = this;
-    return {
+    const ctx: WeaponCtx = {
       scene: this.scene,
       get player() {
         return hero.player;
@@ -852,8 +853,10 @@ export class Game implements HeroWorld {
       get combos() {
         return hero.combos;
       },
-      sound: (name) => this.vfx.sound('w:' + name, hero.player.x, hero.player.z),
+      soundSource: null,
+      sound: (name) => this.vfx.sound(weaponCue(name, ctx.soundSource), hero.player.x, hero.player.z),
     };
+    return ctx;
   }
 
   makeEnemyCtx(): EnemyCtx {
@@ -873,12 +876,7 @@ export class Game implements HeroWorld {
         this.vfx.shake(e.x, e.z, 0.8);
         this.vfx.sound('bossPhase', e.x, e.z);
       },
-      onWindup: (e) => {
-        if (e.def.boss) this.vfx.sound('bossWindup', e.x, e.z);
-        else if (e.def.behavior === 'charger') this.vfx.sound('chargerWindup', e.x, e.z);
-        else if (e.def.behavior === 'exploder') e.tickT = 0;
-        else if (e.def.behavior !== 'spawner') this.vfx.sound('telegraph', e.x, e.z);
-      },
+      onWindup: (e) => windupCue(this, e), // telegraph, threat cue and family call (systems/sound.ts)
       fireBullet: (e, dx, dz, speed, damage) => {
         this.bullets.spawn({
           x: e.x + dx * (e.radius + 0.2),
@@ -1099,7 +1097,11 @@ export class Game implements HeroWorld {
 
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
-      for (const w of h.weapons) w.update(dt, h.ctx);
+      for (const w of h.weapons) {
+        h.ctx.soundSource = w; // evolved weapons layer their sound (systems/sound.ts weaponCue)
+        w.update(dt, h.ctx);
+      }
+      h.ctx.soundSource = null;
       this.weaponFeel(h);
     }
     for (const h of this.heroes) this.updateBomb(h, dt);

@@ -13,6 +13,7 @@ import { PASSIVES } from '../../data/passives';
 import { SPECIALS } from '../../data/specials';
 import { WEAPONS } from '../../data/weapons';
 import { startSpecial, type SpecialApi } from '../specials';
+import { specialEvoCue } from './sound';
 import { barrelTuning, type Barrel } from '../barrels';
 import { BULLET_Y, Team } from '../bullets';
 import { type Enemy } from '../enemies';
@@ -660,6 +661,7 @@ export function tryBomb(this: Game, h: Hero): void {
   if (h.special.id !== 'bomb') {
     h.bombCharge = 0;
     startSpecial(h, h.specialDef, h.specialP, this.specialApi);
+    specialEvoCue(this, h);
     return;
   }
   if (h.bombT >= 0 || h.bombNext > 0) return;
@@ -668,6 +670,7 @@ export function tryBomb(this: Game, h: Hero): void {
   h.bombNuke = false;
   h.bombWave = 1;
   this.startBombWave(h, p.x, p.z);
+  specialEvoCue(this, h);
   p.invuln = Math.max(p.invuln, 0.6);
   if (h === this.hero) {
     this.hud.flash(0.9);

@@ -1,4 +1,6 @@
 import { sfx } from '../audio/sfx';
+import { threatAt } from '../audio/captions';
+import { threatOf } from '../audio/threats';
 import type { DamageNumbers } from '../ui/damageNumbers';
 import type { Hud } from '../ui/hud';
 import type { Fx } from './fx';
@@ -143,12 +145,9 @@ export class Vfx {
     if (d > HEAR_RANGE) return;
     // Pan by the sideways offset from the listener and fade with distance.
     if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7);
-    if (name.startsWith('w:')) sfx.weapon(name.slice(2));
-    else {
-      const fn = (sfx as unknown as Record<string, (p?: number) => void>)[name];
-      if (typeof fn === 'function') fn.call(sfx, pitch);
-    }
+    sfx.named(name, pitch);
     sfx.at(0, 1);
+    if (threatOf(name)) threatAt(name, x, z); // SOUND ARROWS (off-screen telegraphs)
   }
 
   private playShake(x: number, z: number, amount: number): void {

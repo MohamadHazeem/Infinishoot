@@ -2,6 +2,8 @@ import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
 import { ambienceSettings } from '../audio/ambienceAudio';
 import { announcerSettings, announcer } from '../audio/announcer';
+import { voiceSettings } from '../audio/heroVoice';
+import { a11yAudio } from '../audio/captions';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
@@ -18,6 +20,13 @@ export interface Settings {
   uiVolume: number;
   ambienceVolume: number;
   announcer: boolean;
+  /** Hero voice barks (VOICE) and their volume. */
+  voice: boolean;
+  voiceVolume: number;
+  /** Caption strip for the announcer and voice lines. */
+  captions: boolean;
+  /** Screen-edge arrows toward off-screen threat sounds. */
+  soundArrows: boolean;
   retro: number;
   shake: number;
   autoFire: boolean;
@@ -62,6 +71,10 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   uiVolume: 0.8,
   ambienceVolume: 0.45,
   announcer: true,
+  voice: true,
+  voiceVolume: 0.8,
+  captions: false,
+  soundArrows: false,
   retro: 0.5,
   shake: 1,
   autoFire: false,
@@ -128,6 +141,10 @@ export function applySettings(): void {
   sfx.applyVolumes();
   ambienceSettings.volume = settings.ambienceVolume;
   announcerSettings.enabled = settings.announcer;
+  audioSettings.voice = settings.voiceVolume;
+  voiceSettings.enabled = settings.voice;
+  a11yAudio.captions = settings.captions;
+  a11yAudio.arrows = settings.soundArrows;
   announcer.update();
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
