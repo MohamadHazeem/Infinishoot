@@ -1,10 +1,12 @@
 /** Recorded layers with immediate synthesized attacks and offline fallback. */
+import { healthCutoff } from './lowHealth';
+import { spatialRoute, spatialTuning, updateListener } from './spatial';
 import type { Rarity } from '../data/rarity';
 import { samples } from './samples';
 import { announcer } from './announcer';
 import { cuePriority, cueSamples, distanceCutoff, soundTuning, swarmGap, weaponSamples } from './mix';
 
-export const audioSettings = { volume: 0.5, sfx: 1, music: 0.7, ui: 0.8, muted: false };
+export const audioSettings = { volume: 0.5, sfx: 1, music: 0.7, ui: 0.8, muted: false, interactiveMusic: true, adaptiveSilence: true, lowHealth: true };
 
 type Wave = OscillatorType;
 export type Bus = 'sfx' | 'music' | 'ui';
@@ -15,6 +17,14 @@ class Sfx {
   private buses!: Record<Bus, GainNode>;
   private duckGain!: GainNode;
   private duckUntil = 0;
+  private musicBed!: GainNode;
+  private ambienceBed!: GainNode;
+  private healthFilter!: BiquadFilterNode;
+  private healthPressure = -1;
+  private silenceUntil = 0;
+  private silenceStarted = -Infinity;
+  private sourceX = NaN;
+  private sourceZ = NaN;
   private reverb: ConvolverNode | null = null;
   private reverbGain: GainNode | null = null;
   private voice: { pending: number; release(): void; nodes: AudioNode[]; sources: AudioScheduledSourceNode[] } | null = null;
@@ -58,11 +68,17 @@ class Sfx {
     this.muffler = ctx.createBiquadFilter();
     this.muffler.type = 'lowpass';
     this.muffler.frequency.value = 20000;
-    this.muffler.connect(this.master);
+    this.healthFilter = ctx.createBiquadFilter();
+    this.healthFilter.type = 'lowpass';
+    this.healthFilter.frequency.value = 20000;
+    this.muffler.connect(this.healthFilter).connect(this.master);
     this.buses = { sfx: ctx.createGain(), music: ctx.createGain(), ui: ctx.createGain() };
     this.duckGain = ctx.createGain();
     this.buses.sfx.connect(this.duckGain).connect(this.muffler);
-    this.buses.music.connect(this.muffler);
+    this.musicBed = ctx.createGain();
+    this.ambienceBed = ctx.createGain();
+    this.buses.music.connect(this.musicBed).connect(this.muffler);
+    this.ambienceBed.connect(this.buses.sfx);
     this.buses.ui.connect(this.master);
     this.applyVolumes();
     // 1 s of white noise, reused by every noisy sound.
@@ -77,6 +93,8 @@ class Sfx {
   /** Push audioSettings into the bus gains. */
   applyVolumes(): void {
     if (!this.ctx) return;
+    if (!audioSettings.lowHealth) this.setLowHealth(0);
+    if (!audioSettings.adaptiveSilence) this.silenceBeds(0);
     this.master.gain.value = audioSettings.muted ? 0 : audioSettings.volume;
     this.buses.sfx.gain.value = audioSettings.sfx;
     this.buses.music.gain.value = audioSettings.music;
@@ -84,10 +102,10 @@ class Sfx {
   }
 
   /** The running context and a bus input, for the music player. */
-  output(bus: Bus): { ctx: AudioContext; node: AudioNode } | null {
+  output(bus: Bus | 'ambience'): { ctx: AudioContext; node: AudioNode } | null {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running') return null;
-    return { ctx, node: this.buses[bus] };
+    return { ctx, node: bus === 'ambience' ? this.ambienceBed : this.buses[bus] };
   }
 
   /** A parallel send: the dry signal is preserved, including in dry desert rooms. */
@@ -103,7 +121,9 @@ class Sfx {
   }
 
   /** Position the next sound: pan -1 (left) .. 1 (right), gain 0..1 for distance. Reset with at(0, 1). */
-  at(pan: number, gain: number): void {
+  at(pan: number, gain: number, x = NaN, z = NaN): void {
+    this.sourceX = x;
+    this.sourceZ = z;
     this.pan = Math.max(-1, Math.min(1, pan));
     this.posGain = Math.max(0, Math.min(1, gain));
   }
@@ -117,13 +137,16 @@ class Sfx {
     if (name === 'die' || name === 'hit' || name === 'hitMetal') minGap = Math.max(minGap, swarmGap(this.crowd));
     if (now - (this.lastPlay.get(name) ?? -Infinity) < minGap) return null;
     this.lastPlay.set(name, now);
+    const dip = name === 'bwind' ? 0.4 : name === 'bossPhase' ? 0.5 : name === 'bomb' ? 0.35 : 0;
+    if (dip) this.silenceBeds(dip);
     const line = ({ boss: 'boss', elite: 'elite', evolve: 'evolution', legendaryPick: 'legendary', lvl: 'level_up' } as Record<string, string>)[name];
     if (line) announcer.say(line);
     if (audioSettings.volume <= 0 || audioSettings[bus] <= 0) return null;
     const priority = cuePriority(name) - (name.startsWith('w:') && this.posGain < 0.7 ? 1 : 0);
     const nodes: AudioNode[] = [];
     const sources: AudioScheduledSourceNode[] = [];
-    const cleanup = () => { for (const node of nodes) node.disconnect(); };
+    let spatial: ReturnType<typeof spatialRoute> | null = null;
+    const cleanup = () => { spatial?.dispose(); for (const node of nodes) node.disconnect(); };
     const release = samples.budget.acquire('synth:' + name, priority, priority === 0 ? 2 : 4, () => {
       for (const source of sources) source.stop();
       cleanup();
@@ -132,15 +155,12 @@ class Sfx {
     this.applyVolumes();
     let node: AudioNode = this.buses[bus];
     if (bus === 'sfx') {
-      const p = ctx.createStereoPanner();
-      p.pan.value = this.pan;
-      p.connect(node);
-      nodes.push(p);
-      node = p;
-      if (this.posGain < 0.95) {
+      spatial = spatialRoute(ctx, node, this.pan, this.sourceX, this.sourceZ);
+      node = spatial.node;
+      if (this.posGain < 0.95 || spatial.rear > 0) {
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = distanceCutoff(this.posGain);
+        filter.frequency.value = Math.min(distanceCutoff(this.posGain), 20000 - spatial.rear * (20000 - spatialTuning.rearCutoff));
         filter.connect(node);
         nodes.push(filter);
         node = filter;
@@ -148,7 +168,7 @@ class Sfx {
     }
     const sample = name.startsWith('w:') ? weaponSamples[name.slice(2)] : cueSamples[name];
     const layered = sample ? samples.play(sample, { bus: bus === 'ui' ? 'ui' : 'sfx', pan: this.pan,
-      distance: this.posGain, priority, cooldown: minGap, limit: priority === 0 ? 2 : 3 }) : null;
+      distance: this.posGain, x: this.sourceX, z: this.sourceZ, priority, cooldown: minGap, limit: priority === 0 ? 2 : 3 }) : null;
     const g = ctx.createGain();
     g.gain.value = (bus === 'sfx' ? this.posGain : 1) * (layered ? soundTuning.synthLayer : 1);
     g.connect(node);
@@ -160,6 +180,46 @@ class Sfx {
     const voice = this.voice;
     queueMicrotask(() => { if (voice.pending === 0) voice.release(); });
     return ctx;
+  }
+
+  /** The listener follows only this machine's hero, including on clients. */
+  listener(x: number, z: number, fx: number, fz: number): void { updateListener(this.ctx, x, z, fx, fz); }
+
+  setLowHealth(pressure: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    pressure = audioSettings.lowHealth ? pressure : 0;
+    if (pressure === this.healthPressure || (pressure > 0 && Math.abs(pressure - this.healthPressure) < 0.005)) return;
+    this.healthPressure = pressure;
+    this.healthFilter.frequency.setTargetAtTime(healthCutoff(pressure), ctx.currentTime, pressure ? 0.12 : 0.3);
+  }
+
+  /** Dedicated bed gains leave effects/UI readable and preserve all volume controls. */
+  silenceBeds(seconds: number): void {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running' || !Number.isFinite(seconds)) return;
+    const t = ctx.currentTime;
+    if (seconds > 0 && (!audioSettings.adaptiveSilence || t - this.silenceStarted < 0.65)) return;
+    seconds = Math.max(0, Math.min(0.6, seconds));
+    if (seconds === 0 && this.silenceUntil === 0) return;
+    this.silenceUntil = seconds ? t + seconds : 0;
+    if (seconds > 0) this.silenceStarted = t;
+    for (const node of [this.musicBed, this.ambienceBed]) {
+      const gain = node.gain;
+      gain.cancelAndHoldAtTime(t);
+      gain.linearRampToValueAtTime(seconds ? 0.035 : 1, t + 0.018);
+      if (seconds) {
+        gain.setValueAtTime(0.035, this.silenceUntil);
+        gain.linearRampToValueAtTime(1, this.silenceUntil + 0.018);
+      }
+    }
+  }
+
+  /** Faint, short ring after a substantial local hit; uses the effects bus/voice cap. */
+  tinnitus(): void {
+    if (!audioSettings.lowHealth) return;
+    const ctx = this.begin('tinnitus', 3);
+    if (ctx) this.tone(ctx, 'sine', 3100, 2600, 0.65, 0.018);
   }
 
   private track(source: AudioScheduledSourceNode, nodes: AudioNode[]): void {
@@ -309,10 +369,11 @@ class Sfx {
 
   /** Low-life heartbeat (local player only). */
   heartbeat(): void {
+    if (!audioSettings.lowHealth) return;
     const ctx = this.begin('heart', 0.3);
     if (!ctx) return;
-    this.tone(ctx, 'sine', 70, 40, 0.12, 0.35);
-    this.tone(ctx, 'sine', 60, 35, 0.14, 0.28, 0.18);
+    this.tone(ctx, 'sine', 70, 40, 0.12, 0.2);
+    this.tone(ctx, 'sine', 60, 35, 0.14, 0.14, 0.18);
   }
 
   /** A chest-style jingle for big moments (stage events, challenges). */
@@ -739,6 +800,9 @@ class Sfx {
     const ctx = this.begin('eliteDie', 0.18);
     if (ctx) { this.noise(ctx, 0.4, 0.4, 800, 90); this.tone(ctx, 'sine', 150, 35, 0.35, 0.3); }
   }
+
+  /** The final three boss explosions lead into its finishing blast. */
+  bossFinisher(): void { this.silenceBeds(0.51); }
 
   bossSlam(): void {
     const ctx = this.begin('bossSlam', 0.3);

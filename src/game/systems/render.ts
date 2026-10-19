@@ -5,6 +5,7 @@
  */
 import type { Game } from '../game';
 import { updateSound } from './sound';
+import { updateAudioMix } from './audiomix';
 import { scoreTuning, AIM_HEIGHT, REVIVE_TIME } from '../game';
 import * as THREE from 'three';
 import { MOD_BY_ID } from '../../data/mods';
@@ -149,15 +150,8 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
 export function localAudio(this: Game, frameDt: number, frozen: boolean): void {
   const fighting = this.isCombatMode && !frozen && !this.paused;
   sfx.setHum(fighting ? Math.min(1, this.combo / 150) : 0);
-  const p = this.hero.player;
-  if (!fighting || p.dead || p.hp > p.maxHp * 0.3) {
-    this.heartT = 0;
-    return;
-  }
-  if ((this.heartT -= frameDt) <= 0) {
-    this.heartT = 0.55 + 0.6 * (p.hp / (p.maxHp * 0.3));
-    sfx.heartbeat();
-  }
+  // Damage hit-stop must not hide the HP drop from the local audio state.
+  updateAudioMix.call(this, frameDt, this.isCombatMode && !this.paused);
 }
 
 export function render(this: Game, alpha: number, frameDt: number): void {

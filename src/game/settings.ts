@@ -1,3 +1,4 @@
+import { spatialSettings } from '../audio/spatial';
 import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
 import { ambienceSettings } from '../audio/ambienceAudio';
@@ -18,6 +19,10 @@ export interface Settings {
   uiVolume: number;
   ambienceVolume: number;
   announcer: boolean;
+  interactiveMusic: boolean;
+  adaptiveSilence: boolean;
+  lowHealthAudio: boolean;
+  headphones3d: boolean;
   retro: number;
   shake: number;
   autoFire: boolean;
@@ -60,6 +65,10 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   uiVolume: 0.8,
   ambienceVolume: 0.45,
   announcer: true,
+  interactiveMusic: true,
+  adaptiveSilence: true,
+  lowHealthAudio: true,
+  headphones3d: false,
   retro: 0.5,
   shake: 1,
   autoFire: false,
@@ -121,6 +130,10 @@ export function applySettings(): void {
   audioSettings.sfx = settings.sfxVolume;
   audioSettings.music = settings.musicVolume;
   audioSettings.ui = settings.uiVolume;
+  audioSettings.interactiveMusic = settings.interactiveMusic;
+  audioSettings.adaptiveSilence = settings.adaptiveSilence;
+  audioSettings.lowHealth = settings.lowHealthAudio;
+  spatialSettings.headphones = settings.headphones3d;
   sfx.applyVolumes();
   ambienceSettings.volume = settings.ambienceVolume;
   announcerSettings.enabled = settings.announcer;

@@ -147,7 +147,7 @@ function rangeLabel(inp: HTMLInputElement): void {
   if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
 }
 
-type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo';
+type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -282,6 +282,10 @@ export class Screens {
     <label>MUSIC <input data-nav type="range" min="0" max="1" step="0.1" data-set="musicVolume"></label>
     <label>EFFECTS <input data-nav type="range" min="0" max="1" step="0.1" data-set="sfxVolume"></label>
     <label>AMBIENCE <input data-nav type="range" min="0" max="1" step="0.1" data-set="ambienceVolume"></label>
+    <button data-nav data-toggle="interactiveMusic">WEAPON MUSIC LAYERS <b></b></button>
+    <button data-nav data-toggle="adaptiveSilence">DRAMATIC MUSIC DIPS <b></b></button>
+    <button data-nav data-toggle="lowHealthAudio">LOW HEALTH AUDIO <b></b></button>
+    <button data-nav data-toggle="headphones3d">HEADPHONES 3D AUDIO <b></b></button>
     <button data-nav data-toggle="announcer">ANNOUNCER <b></b></button>
     <label>MENU SOUNDS <input data-nav type="range" min="0" max="1" step="0.1" data-set="uiVolume"></label>
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>

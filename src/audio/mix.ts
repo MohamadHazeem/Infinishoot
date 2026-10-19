@@ -131,3 +131,13 @@ export class VoiceBudget {
     };
   }
 }
+
+/** Snap a requested bed re-entry to a nearby beat, never delaying it by more than 80 ms. */
+export function silenceDuration(seconds: number, now: number, lastBeat: number, period: number): number {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+  const duration = Math.min(0.6, seconds);
+  if (!(period > 0) || !Number.isFinite(period) || lastBeat < 0 || !Number.isFinite(now)) return duration;
+  const beat = lastBeat + Math.round((now + duration - lastBeat) / period) * period;
+  const candidate = beat - now;
+  return candidate >= 0.3 && candidate <= 0.6 && Math.abs(candidate - duration) <= 0.08 ? candidate : duration;
+}

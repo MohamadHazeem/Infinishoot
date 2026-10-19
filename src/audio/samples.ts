@@ -1,9 +1,12 @@
+import { spatialRoute, spatialTuning } from './spatial';
 import { distanceCutoff, soundTuning, VoiceBudget } from './mix';
 
 export interface SampleOptions {
   bus?: 'sfx' | 'ui';
   gain?: number;
   pan?: number;
+  x?: number;
+  z?: number;
   distance?: number;
   pitch?: number;
   priority?: number;
@@ -82,7 +85,7 @@ export class SampleEngine {
     const cleanup = () => {
       src.disconnect();
       gain.disconnect();
-      pan.disconnect();
+      spatial.dispose();
       filter.disconnect();
     };
     const stop = () => {
@@ -96,7 +99,7 @@ export class SampleEngine {
     if (!release) return null;
     const src = ctx.createBufferSource();
     const gain = ctx.createGain();
-    const pan = ctx.createStereoPanner();
+    const spatial = spatialRoute(ctx, this.outputs[options.bus ?? 'sfx'], options.pan ?? 0, options.bus === 'ui' ? NaN : options.x, options.bus === 'ui' ? NaN : options.z);
     const filter = ctx.createBiquadFilter();
     this.last.set(id, now);
     const variation = options.variation ?? 0.07;
@@ -110,14 +113,12 @@ export class SampleEngine {
       (options.gain ?? soundTuning.sampleGain) *
       (options.distance ?? 1) *
       (1 - Math.random() * variation);
-    pan.pan.value = Math.max(-1, Math.min(1, options.pan ?? 0));
     filter.type = 'lowpass';
-    filter.frequency.value = distanceCutoff(options.distance ?? 1);
+    filter.frequency.value = Math.min(distanceCutoff(options.distance ?? 1), 20000 - spatial.rear * (20000 - spatialTuning.rearCutoff));
     src
       .connect(filter)
       .connect(gain)
-      .connect(pan)
-      .connect(this.outputs[options.bus ?? 'sfx']);
+      .connect(spatial.node);
     src.onended = () => {
       stopped = true;
       cleanup();

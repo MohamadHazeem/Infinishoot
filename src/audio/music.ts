@@ -1,4 +1,6 @@
-import { sfx } from './sfx';
+import { sfx, audioSettings } from './sfx';
+import { silenceDuration } from './mix';
+import { WeaponStems, type StemWeapon } from './stems';
 import {
   TRACKS, TRACK_BY_ID, makeSong, stageTranspose, sectionAt, chordAt, degreeMidi, phaseAt, inBeatWindow,
   type TrackId, type Song, type Section,
@@ -39,6 +41,7 @@ interface Playing {
   layers: Record<LayerId, GainNode>;
   nodes: AudioNode[];
   padDuck: GainNode;
+  stems: WeaponStems;
   step: number;
   nextTime: number;
   section: Section;
@@ -77,6 +80,18 @@ export class Music {
   private lastCueSeed = 0;
   private lastJukebox: TrackId | null = null;
   private duck = false;
+  private weapons: readonly StemWeapon[] = [];
+  private readonly noWeapons: readonly StemWeapon[] = [];
+
+  /** Borrow the local build; it is sampled only on the next scheduled downbeat. */
+  setWeapons(weapons: readonly StemWeapon[]): void { this.weapons = weapons; }
+
+  /** Brief music/ambience vacuum; audio-clock release keeps the re-entry sharp. */
+  silence(seconds: number): void {
+    if (!Number.isFinite(seconds)) return;
+    const now = this.synth?.ctx.currentTime ?? 0;
+    sfx.silenceBeds(silenceDuration(seconds, now, this.clockActive(now) ? this.lastBeat : -1, this.beatDuration));
+  }
 
   get playing(): TrackId | null { return this.cur?.id ?? null; }
   get section(): Section | null { return this.cur?.section ?? null; }
@@ -240,7 +255,8 @@ export class Music {
       layers[layer] = gain;
       nodes.push(gain, pan);
     }
-    return { id, seed, stage, song: makeSong(TRACK_BY_ID[id].style, seed), out, filter, menu, layers, nodes, padDuck,
+    const stems = new WeaponStems(ctx, out, nodes);
+    return { stems, id, seed, stage, song: makeSong(TRACK_BY_ID[id].style, seed), out, filter, menu, layers, nodes, padDuck,
       step: 0, nextTime: t, section: 'intro', transpose: 0, phase: 1, energy: 0, end: Infinity, finished: false };
   }
 
@@ -258,6 +274,7 @@ export class Music {
   }
 
   private arrange(p: Playing, t: number, legacyKeyUp: boolean): void {
+    p.stems.commit(audioSettings.interactiveMusic && !this.jukebox && p.id !== 'title' && p.id !== 'shop' && !TRACK_BY_ID[p.id].bars ? this.weapons : this.noWeapons, t);
     const bar = Math.floor(p.step / 16);
     const boss = TRACK_BY_ID[p.id].boss;
     p.phase = boss && !this.jukebox ? Math.max(this.bossPhase, legacyKeyUp ? 2 : 1) : 1;
@@ -333,6 +350,7 @@ export class Music {
       synth.note(L.counter, st.lead === 'bell' ? 'pluck' : 'bell', degreeMidi(st, chord + TONES[3 - Math.floor(s / 4)], p.transpose) + 12, t, d * 2.8, 0.65);
     }
     if (bar % 4 === 0 && s === 0 && !intro) synth.noiseHit(L.hat, t, 0.45, 0.5, 6500, true);
+    p.stems.play(synth, st, chord, p.transpose, p.step, t, d);
     // Phase 3 adds an octave pulse without changing the tempo/bonus grid.
     if (p.phase === 3 && s % 4 === 3) synth.note(L.bass, 'triangle', root + 12, t, d * 0.8, 0.4);
   }

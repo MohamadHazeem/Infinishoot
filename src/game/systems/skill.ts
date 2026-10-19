@@ -444,6 +444,7 @@ function playEvent(g: Game, ev: SkillEvent): void {
       g.input.rumble(0.7, 0.5, 140);
     }
   } else if (kind === 'ul') {
+    if (mine) music.silence(0.4);
     const def = ultOf(h);
     p.skillGlow = Math.max(p.skillGlow, def.duration);
     skillSound('ult', mine, gain);
