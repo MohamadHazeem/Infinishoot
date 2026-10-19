@@ -133,7 +133,9 @@ export function updateLook(this: Game, frameDt: number): void {
     refreshLook();
   }
   easeGrade(frameDt);
-  postfx.distortion = settings.distortion;
+  // Distortion follows its own toggle; screen shake at 0 (motion-sensitive players) also turns it off.
+  postfx.distortion = settings.distortion && settings.shake > 0;
+  const motion = Math.min(1, settings.shake);
 
   // --- Outlines: attach to new enemy batches (created lazily) and hero rigs.
   if ((st.frame++ & 31) === 0) {
@@ -195,7 +197,7 @@ export function updateLook(this: Game, frameDt: number): void {
     const fl = 0.85 + 0.15 * Math.sin(t * 3.1 + i * 1.7);
     pk.add(h.x, 0.6, h.z, h.r * 1.5 + 2.5, 1, 0.42, 0.12, lookTuning.lavaIntensity * fl, 1);
     if (heat < MAX_HEAT && Math.hypot(h.x - p.x, h.z - p.z) < 26) {
-      if (project(st, cam, h.x, 0.5, h.z, h.r * 1.2 + 1, postfx.heat, heat * 4, 0.85)) heat++;
+      if (project(st, cam, h.x, 0.5, h.z, h.r * 1.2 + 1, postfx.heat, heat * 4, 0.85 * motion)) heat++;
     }
   }
   postfx.heatCount = heat;
@@ -222,7 +224,7 @@ export function updateLook(this: Game, frameDt: number): void {
       continue;
     }
     const e = 1 - (1 - k) * (1 - k); // ease-out like the rings
-    const strength = st.ws[i] * (1 - k) * (access.reduceFlash ? 0.5 : 1);
+    const strength = st.ws[i] * (1 - k) * (access.reduceFlash ? 0.5 : 1) * motion;
     if (project(st, cam, st.wx[i], 0.2, st.wz[i], Math.max(0.3, st.wr[i] * e), postfx.waves, wn * 4, strength)) wn++;
   }
   postfx.waveCount = wn;

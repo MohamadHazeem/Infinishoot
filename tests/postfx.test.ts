@@ -84,6 +84,11 @@ ok(QUALITY_LEVELS.every((q) => q.lights <= MAX_LIGHTS), 'no rung asks for more l
   ok(!far, 'lights far from the view are ignored');
 
   pk.begin(0, 0, 30, 5);
+  for (let i = 0; i < 20; i++) pk.add(i * 0.01, 1, 0, 3, 1, 1, 1, 0.5); // 20 near-identical lights, budget 8
+  pk.pick(8, pos, col);
+  ok(col[0] >= 0.25 && col[7 * 4] >= 0.25, 'near-tied lights at the budget cut are dimmed, not blacked out');
+
+  pk.begin(0, 0, 30, 5);
   for (let i = 0; i < 300; i++) pk.addSmall(1 + (i % 3) * 0.1, 0.8, 1, 3, 1, 0, 1, 0.3); // 300 bullets in one cell
   const m = pk.pick(16, pos, col);
   ok(m === 1, 'hundreds of small emitters in one cell merge into one light');

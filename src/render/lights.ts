@@ -47,6 +47,7 @@ export class LightPicker {
   private b = new Float32Array(CAP);
   private score = new Float32Array(CAP);
   private used = new Uint8Array(CAP);
+  private order = new Int32Array(MAX_LIGHTS);
   n = 0;
 
   // Small-light grid: intensity-weighted sums per cell.
@@ -206,18 +207,28 @@ export class LightPicker {
     const n = this.n;
     const want = Math.min(max, MAX_LIGHTS, n);
     this.used.fill(0, 0, n);
+    const order = this.order;
     for (let o = 0; o < want; o++) {
       let best = -1;
       for (let i = 0; i < n; i++) if (!this.used[i] && (best < 0 || this.score[i] > this.score[best])) best = i;
       this.used[best] = 1;
+      order[o] = best;
+    }
+    // Lights that only just made the cut are dimmed (to half at the cut, full at
+    // 25% above it), so lights swapping in and out of the budget pop less.
+    let cut = 0;
+    for (let i = 0; i < n; i++) if (!this.used[i] && this.score[i] > cut) cut = this.score[i];
+    for (let o = 0; o < want; o++) {
+      const best = order[o];
+      const f = cut > 0 ? Math.min(1, 0.5 + 2 * (this.score[best] / cut - 1)) : 1;
       const p = o * 4;
       pos[p] = this.x[best];
       pos[p + 1] = this.y[best];
       pos[p + 2] = this.z[best];
       pos[p + 3] = this.rad[best];
-      col[p] = this.r[best] * scale;
-      col[p + 1] = this.g[best] * scale;
-      col[p + 2] = this.b[best] * scale;
+      col[p] = this.r[best] * scale * f;
+      col[p + 1] = this.g[best] * scale * f;
+      col[p + 2] = this.b[best] * scale * f;
       col[p + 3] = 0;
     }
     return want;

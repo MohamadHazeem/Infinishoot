@@ -21,6 +21,8 @@ export const outlineTuning = {
   eliteColor: new THREE.Color('#ffcd75'),
   /** Instance scale from which an enemy counts as an elite (elites are 1.6x). */
   eliteScale: 1.3,
+  /** Rig parts smaller than this (bounding radius, m) get no outline. */
+  minPartRadius: 0.12,
 };
 
 const uniforms = {
@@ -142,6 +144,10 @@ export function outlineRig(root: THREE.Object3D): void {
     const mat = m.material as THREE.ShaderMaterial;
     if (Array.isArray(mat) || mat.transparent || !m.geometry.attributes.normal) return;
     if (mat.uniforms?.uMap?.value) return; // painted face decal and other textured planes
+    // Tiny bits (fins, gems, antenna tips) would only add noise and draw calls.
+    const g = m.geometry;
+    if (!g.boundingSphere) g.computeBoundingSphere();
+    if ((g.boundingSphere?.radius ?? 1) < outlineTuning.minPartRadius) return;
     parts.push(m);
   });
   for (const m of parts) {
