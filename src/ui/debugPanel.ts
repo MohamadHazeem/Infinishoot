@@ -15,6 +15,7 @@ import { MODS } from '../data/mods';
 import { ELITE_MOD_IDS } from '../data/eliteMods';
 import { ENEMIES } from '../data/enemies';
 import { audioSettings } from '../audio/sfx';
+import { addLookFolder } from './debugLook';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -65,6 +66,8 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
     .onChange(() => renderer.gl.setClearColor(retroGlobals.uFogColor.value));
   light.add(retroGlobals.uFogNear, 'value', 0, 100, 1).name('Fog near');
   light.add(retroGlobals.uFogFar, 'value', 1, 200, 1).name('Fog far');
+
+  addLookFolder(gui);
 
   const cam = gui.addFolder('Camera').close();
   cam.add(cameraTuning, 'pitchDeg', 30, 89, 1);

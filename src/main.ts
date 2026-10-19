@@ -5,8 +5,9 @@ import { GameLoop } from './core/loop';
 import { Input } from './core/input';
 import { RetroRenderer } from './render/renderer';
 import { retroGlobals } from './render/retroMaterial';
+import { renderQuality } from './render/quality';
 import { Game, cheats } from './game/game';
-import { applySettings, settings } from './game/settings';
+import { applySettings, autoQualityTick, settings } from './game/settings';
 import { createDebugPanel } from './ui/debugPanel';
 import { setupTouch } from './ui/touch';
 import { applyTestLink } from './dev/testLinks';
@@ -52,6 +53,8 @@ const loop = new GameLoop({
     game.render(alpha, frameDt);
     renderer.gl.setClearColor(retroGlobals.uFogColor.value); // follows the biome
     renderer.render(game.scene, game.cam.camera);
+    // Auto quality: measured while actually playing (menus and pauses don't count).
+    autoQualityTick(frameDt, game.isCombatMode && !game.paused && game.screens.current === 'none' && !document.hidden);
 
     fpsAcc += frameDt;
     fpsFrames++;
@@ -63,7 +66,8 @@ const loop = new GameLoop({
         statsEl.textContent =
           `FPS ${Math.round(fpsFrames / fpsAcc)}\n` +
           `draws ${info.calls}  tris ${info.triangles}\n` +
-          `enemies ${game.enemies.activeCount}  bullets ${game.bullets.count}`;
+          `enemies ${game.enemies.activeCount}  bullets ${game.bullets.count}\n` +
+          `quality ${renderQuality.name}${renderQuality.auto ? ' (auto)' : ''}  ${renderer.height.value}p`;
       }
       fpsAcc = fpsFrames = statsTimer = 0;
     }

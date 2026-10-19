@@ -2,7 +2,8 @@ import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
 import { cheats, type Game } from '../game/game';
-import { settings } from '../game/settings';
+import { applySettings, settings } from '../game/settings';
+import { lookOverrides } from '../game/systems/look';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -14,6 +15,7 @@ import { settings } from '../game/settings';
  *   ?test&hero=ace&mode=endless&god    hero, mode, no damage
  *   ?test&elite=charger:shielded       spawn an elite with a modifier
  *   ?test&event=meteors&passives=armor:2,magnet:1&gold=200&seed=42
+ *   ?test&night&quality=high           force a night stage (or &day), pin quality (low|medium|high|auto)
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -27,6 +29,15 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   };
   cheats.unlockAll = true;
   cheats.god = q.has('god');
+  const ql = q.get('quality');
+  const qi = ql ? ['low', 'medium', 'high', 'auto'].indexOf(ql) : -1;
+  if (qi >= 0) {
+    settings.graphics = qi;
+    applySettings();
+  }
+  if (q.has('fps')) settings.showFps = true;
+  if (q.has('night')) lookOverrides.night = true;
+  else if (q.has('day')) lookOverrides.night = false;
   if (q.get('hero')) settings.hero = q.get('hero')!;
   if (q.get('mode')) settings.mode = q.get('mode')!;
   if (q.get('difficulty')) settings.difficulty = q.get('difficulty')!;
@@ -57,5 +68,22 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
+  // &screen=settings: open a menu screen on top (for screenshots of menus).
+  const scr = q.get('screen');
+  if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
+  // &boom: an explosion near the hero every 0.7 s (checks lights, bloom and shockwaves).
+  if (q.has('boom')) {
+    let n = 0;
+    setInterval(() => {
+      if (game.paused) return;
+      const p = game.hero.player;
+      const a = n++ * 2.4;
+      const x = p.x + Math.cos(a) * 5;
+      const z = p.z + Math.sin(a) * 4;
+      game.vfx.ring(x, z, 1, 10, '#ff7a2f', 0.45);
+      game.vfx.star(x, 1.2, z, 3, '#ffb627', 0.2);
+      game.vfx.burst(x, 0.6, z, { count: 18, color: '#ffb627', color2: '#ff5e3a', speed: [3, 9], size: [0.2, 0.45], life: [0.3, 0.7], up: 4, gravity: 12 });
+    }, 700);
+  }
   return true;
 }
