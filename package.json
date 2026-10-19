@@ -20,7 +20,8 @@
     "format": "prettier --write \"src/**/*.{ts,css}\"",
     "app": "npm run build && electron .",
     "dist": "npm run build && electron-builder --win portable --publish never -c.electronDist=node_modules/electron/dist",
-    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64 --publish never"
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64 --publish never",
+    "sweep": "node scripts/balance-sweep.mjs"
   },
   "allowScripts": {
     "electron@44.7.2": true,
