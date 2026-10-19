@@ -11,6 +11,8 @@ import { viewCull } from '../render/viewCull';
 import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
 import { Corpses, EnemyAnim, poseEnemy, type EnemyPose } from './enemyAnim';
 import { bossTuning, updateBoss, type BossApi } from './bosses';
+import { behaveBiome, buildBiomeModel, ignoresWalls, type BiomeFoeApi, type BiomeOut } from './biomeFoes';
+import { BiomeFoeView } from './biomeFoeView';
 
 export type EnemyState = 'spawning' | 'move' | 'windup' | 'attack' | 'recover';
 export type BossAction = 'ring' | 'summon' | 'slam' | 'charge' | 'spiral' | 'waves' | 'volley' | 'rain';
@@ -110,7 +112,7 @@ export function flankBend(flank: number, dist: number): number {
 }
 
 /** Elite timing: pauses shrink by eliteTuning.pace; telegraphs too, but never below minWindup. */
-function aggro(e: Enemy, t: number, telegraph = false): number {
+export function aggro(e: Enemy, t: number, telegraph = false): number {
   if (!e.elite) return t;
   const k = t * eliteTuning.pace;
   return telegraph ? Math.max(Math.min(t, eliteTuning.minWindup), k) : k;
@@ -378,6 +380,8 @@ function buildModel(def: EnemyDef, add: Part): void {
       add(new THREE.TorusGeometry(r * 0.9, r * 0.09, 3, 10, Math.PI * 0.75).rotateZ(-Math.PI / 4), A, r * 0.85, r * 2.6, r * 0.6);
       break;
     }
+    default:
+      buildBiomeModel(def, add); // biome-native enemies (src/game/biomeFoes.ts)
   }
 }
 
@@ -513,6 +517,10 @@ export class Enemy {
   blockT = 0;
   /** AI state clients draw (synced in the enemy record): 1 squad member, 2 rallied, 4 guarded. */
   aiBits = 0;
+  /** Biome foes' synced sub-state (3 bits): the shark underground (1), the snowball's size step. */
+  sub = 0;
+  /** Burrowed under the sand: can't be hit or touched (see `alive`). */
+  under = false;
   /** Cosmetic animation state (src/game/enemyAnim.ts). */
   readonly anim = new EnemyAnim();
 
@@ -560,13 +568,15 @@ export class Enemy {
     this.hasCover = false;
     this.reroute = this.rallyT = this.scatterT = this.guardT = this.blockT = this.aiBits = this.slot = this.leaderUid = 0;
     this.leader = null;
+    this.sub = 0;
+    this.under = false;
     this.rallyCd = squadTuning.rallyEvery * (0.5 + Math.random() * 0.5);
     if (this.def.treasure) this.timerA = this.def.treasure.life;
     if (this.def.leap) this.timerA = 0.5 + Math.random();
   }
 
   get alive(): boolean {
-    return this.active && this.state !== 'spawning';
+    return this.active && this.state !== 'spawning' && !this.under;
   }
 
   get contactDamage(): number {
@@ -611,6 +621,8 @@ export interface EnemyCtx {
   bounds(): number;
   /** Boss moves and arena twists (src/game/bosses.ts). */
   boss?: BossApi;
+  /** Biome foes: shark dust, snowball crashes, kite gusts (src/game/biomeFoes.ts). */
+  foe?: BiomeFoeApi;
 }
 
 // ------------------------------------------------------------------ rendering helpers
@@ -721,6 +733,8 @@ export class Enemies {
   private pose: EnemyPose = { y: 0, ox: 0, oz: 0, sx: 1, sy: 1, sz: 1, pitch: 0, roll: 0, yaw: 0 };
   private euler = new THREE.Euler(0, 0, 0, 'YXZ');
   private lastTime = -1;
+  /** Biome foes' telegraphs and lava puddles. */
+  private biomeView: BiomeFoeView;
   private putCorpse = (def: EnemyDef, m: THREE.Matrix4, r: number, g: number, b: number, a: number): void => {
     const bt = this.batch(def);
     if (bt.mesh.count >= BATCH_CAP) return;
@@ -737,6 +751,7 @@ export class Enemies {
 
   constructor(private scene: THREE.Scene) {
     this.decals = new GroundDecals(scene, 2048);
+    this.biomeView = new BiomeFoeView(scene);
   }
 
   private batch(def: EnemyDef): EnemyBatch {
@@ -929,7 +944,7 @@ export class Enemies {
         e.z = Math.max(-58, Math.min(58, e.z));
       }
       // Rex smashes straight through cover while it charges.
-      const walled = e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && e.def.behavior === 'rex') && e.hopY <= 0 && ctx.walls.resolveCircle(e, e.radius);
+      const walled = e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && e.def.behavior === 'rex') && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
       if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
       if (walled && rigid && e.def.behavior === 'charger') {
         // Rhinos stop (and wobble) when they hit a wall mid-charge.
@@ -1290,6 +1305,14 @@ export class Enemies {
         wantZ = e.vz = nz * e.def.speed;
         e.facing = Math.atan2(dx, dz);
         break;
+      default: {
+        // Biome-native enemies (src/game/biomeFoes.ts).
+        const o = this.biomeOut;
+        if (!behaveBiome(e, dt, ctx, dx, dz, nx, nz, dist, speed, o)) return false;
+        wantX = o.x;
+        wantZ = o.z;
+        rigid = o.rigid;
+      }
     }
     this.wantX = wantX;
     this.wantZ = wantZ;
@@ -1299,6 +1322,7 @@ export class Enemies {
 
   /** Scratch list for neighbour queries (SpatialHash.queryInto). */
   private near: Enemy[] = [];
+  private biomeOut: BiomeOut = { x: 0, z: 0, rigid: false };
 
   /** Scratch output of bend() / coverMove(). */
   private ax = 0;
@@ -1417,6 +1441,7 @@ export class Enemies {
     const d = this.decals;
     d.shadows.count = d.markers.count = d.lines.count = d.zones.count = d.discs.count = d.auras.count = d.bubbles.count = d.heals.count = 0;
     d.setPulse(time);
+    this.biomeView.begin();
     const fdt = this.lastTime < 0 ? 0 : Math.max(0, Math.min(0.05, time - this.lastTime));
     this.lastTime = time;
     const P = this.pose;
@@ -1441,6 +1466,7 @@ export class Enemies {
       }
       // Body language: gait, lean, wind-up pose, hit wobble (cosmetic, src/game/enemyAnim.ts).
       poseEnemy(e, e.anim, x, z, fdt, time, P);
+      if (e.def.biomes) this.biomeView.enemy(e, x, z, time, P);
       y += P.y;
 
       // Telegraphs drawn on the ground.
@@ -1545,6 +1571,7 @@ export class Enemies {
     }
 
     this.corpses.render(fdt, time, this.m4, this.putCorpse, this.putShadow);
+    this.biomeView.end(time);
 
     for (const zn of this.zones) {
       if (d.zones.count >= 62 || d.discs.count >= 32) break;

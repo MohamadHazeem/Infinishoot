@@ -163,6 +163,17 @@ export function gaitOf(model: Model): Gait {
       return 'flutter';
     case 'hive':
       return 'pulse';
+    case 'bee':
+      return 'flutter';
+    case 'shark':
+    case 'slug':
+      return 'glide';
+    case 'snowball':
+      return 'glide';
+    case 'soldier':
+      return 'stomp';
+    case 'kite':
+      return 'hover';
   }
 }
 
