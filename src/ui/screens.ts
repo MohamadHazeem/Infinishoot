@@ -351,7 +351,7 @@ export class Screens {
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>
     <label>GLOW <input data-nav type="range" min="0" max="1" step="0.1" data-set="glow"></label>
-    <label><span>QUALITY <b class="set-val"></b></span><input data-nav type="range" min="0" max="3" step="1" data-set="graphics" data-labels="LOW,MEDIUM,HIGH,AUTO"></label>
+    <label><span>QUALITY <b class="set-val"></b></span><input data-nav type="range" min="0" max="4" step="1" data-set="graphics" data-labels="POTATO,LOW,MEDIUM,HIGH,AUTO" data-values="4,0,1,2,3"></label>
     <button data-nav data-toggle="crt">CRT FILTER <b></b></button>
     <button data-nav data-toggle="distortion">SHOCKWAVES <b></b></button>
     <button data-nav data-toggle="nightStages">NIGHT STAGES <b></b></button>
@@ -799,7 +799,7 @@ export class Screens {
     const setEl = this.els.settings;
     setEl.querySelectorAll<HTMLInputElement>('input[data-set]').forEach((inp) => {
       inp.addEventListener('input', () => {
-        (settings as unknown as Record<string, number>)[inp.dataset.set!] = Number(inp.value);
+        (settings as unknown as Record<string, number>)[inp.dataset.set!] = Number(inp.dataset.values?.split(',')[Number(inp.value)] ?? inp.value);
         saveSettings();
         rangeLabel(inp);
       });
@@ -1020,6 +1020,7 @@ export class Screens {
     const el = this.els.settings;
     el.querySelectorAll<HTMLInputElement>('input[data-set]').forEach((inp) => {
       inp.value = String((settings as unknown as Record<string, number>)[inp.dataset.set!]);
+      if (inp.dataset.values) inp.value = String(Math.max(0, inp.dataset.values.split(',').indexOf(inp.value)));
       rangeLabel(inp);
     });
     el.querySelectorAll<HTMLElement>('[data-toggle]').forEach((b) => {

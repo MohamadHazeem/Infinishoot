@@ -303,7 +303,7 @@ function impact(st: GfxState, frames: number): void {
 
 function updateAnime(g: Game, st: GfxState, frameDt: number, frozen: boolean): void {
   const A = animeTuning;
-  const on = !!settings.animeLook;
+  const on = !!settings.animeLook && renderQuality.outlines;
   if (on !== st.animeOn) {
     st.animeOn = on;
     if (on) {
@@ -380,9 +380,9 @@ function blockedFor(g: Game): (x: number, z: number, r: number) => boolean {
 
 function updateWaterAndFog(g: Game, st: GfxState, dt: number): void {
   const biome = biomeForStage(g.arenaStage);
-  const lvl = renderQuality.level;
+  const lvl = renderQuality.level - 1;
   const rainy = g.ambience.rain > 0.05;
-  const puddles = g.mode === 'title' ? 0 : biome.id === 'neon' ? reflectTuning.puddles : rainy ? reflectTuning.rainPuddles : 0;
+  const puddles = lvl <= 0 || g.mode === 'title' ? 0 : biome.id === 'neon' ? reflectTuning.puddles : rainy ? reflectTuning.rainPuddles : 0;
   const pal = SKY_PALETTES[biome.id];
   st.c.copy(retroGlobals.uSkyColor.value).lerp(retroGlobals.uFogColor.value, 0.4);
   if (biome.id === 'neon') st.c.lerp(new THREE.Color('#5d275d'), 0.35);
@@ -452,6 +452,10 @@ function lightAt(a: Float32Array, i: number): THREE.Vector4 {
 
 function updateFraming(g: Game): void {
   const cam = g.cam;
+  if (!renderQuality.worldEffects) {
+    cam.cine = 0;
+    return;
+  }
   if (!g.isCombatMode) {
     if (g.mode === 'title' || g.mode === 'transition') cam.cine = 0;
     return;
@@ -496,7 +500,8 @@ export function updateGraphics(g: Game, frameDt: number): void {
     st.arena = g.arena;
     st.shatter.clear();
   }
-  st.shatter.density = renderQuality.level <= 0 ? shatterTuning.lowScale : 1;
+  st.shatter.density = renderQuality.worldEffects ? (renderQuality.level === 2 ? shatterTuning.lowScale : 1) : 0;
+  if (!renderQuality.worldEffects && st.shatter.live) st.shatter.clear();
   watchBreaks(g, st);
   st.shatter.update(dt);
   st.shatter.render();

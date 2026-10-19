@@ -125,7 +125,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   cheats.unlockAll = true;
   cheats.god = q.has('god');
   const ql = q.get('quality');
-  const qi = ql ? ['low', 'medium', 'high', 'auto'].indexOf(ql) : -1;
+  const qi = ql ? ['low', 'medium', 'high', 'auto', 'potato'].indexOf(ql) : -1;
   if (qi >= 0) {
     settings.graphics = qi;
     applySettings();

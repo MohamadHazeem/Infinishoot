@@ -118,6 +118,7 @@ export class SoftFx {
 
   /** Billowing smoke: puffs drift out, rise, swell and fade. `size` ~ explosion radius. */
   smoke(x: number, y: number, z: number, count: number, size = 1, rand = Math.random, color: THREE.ColorRepresentation = '#dcd8ec'): void {
+    if (!renderQuality.worldEffects) return;
     const t = worldFxTuning;
     const n = Math.max(1, Math.round(count * t.amount));
     for (let k = 0; k < n; k++) {
@@ -144,6 +145,7 @@ export class SoftFx {
 
   /** Low dust kicked along the ground. `dir` biases it (e.g. behind a dash); omit for a ring. */
   dust(x: number, z: number, count: number, size: number, color: THREE.ColorRepresentation, rand = Math.random, dirX = 0, dirZ = 0, speed = 2.2): void {
+    if (!renderQuality.worldEffects) return;
     const t = worldFxTuning;
     const n = Math.max(1, Math.round(count * t.amount));
     const biased = dirX !== 0 || dirZ !== 0;
@@ -171,6 +173,7 @@ export class SoftFx {
 
   /** Glowing sparks that arc, bounce and burn out. */
   sparks(x: number, y: number, z: number, count: number, color: THREE.ColorRepresentation, speed = 7, rand = Math.random): void {
+    if (!renderQuality.worldEffects) return;
     const n = Math.round(count * worldFxTuning.amount);
     this.c.set(color);
     for (let k = 0; k < n; k++) {
@@ -341,7 +344,7 @@ export class Particles {
   }
 
   burst(x: number, y: number, z: number, o: BurstOptions, rand = Math.random): void {
-    if (o.smoke || o.debris || o.sparks || o.dust) this.extras(x, y, z, o, rand);
+    if (renderQuality.worldEffects && (o.smoke || o.debris || o.sparks || o.dust)) this.extras(x, y, z, o, rand);
     this.c1.set(o.color);
     this.c2.set(o.color2 ?? o.color);
     const count = o.count <= 2 ? o.count : Math.ceil(o.count * renderQuality.particles);
@@ -386,6 +389,11 @@ export class Particles {
   }
 
   update(dt: number): void {
+    if (!renderQuality.worldEffects) {
+      this.soft.clear();
+      this.debris.clear();
+      this.decals.clear();
+    }
     this.soft.update(dt);
     this.debris.update(dt);
     this.decals.update(dt);

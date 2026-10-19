@@ -262,7 +262,7 @@ export class Ambience {
 
   /** Rain fades in over the stage's first seconds and swells and eases; heavy rain brings lightning. */
   private updateRain(dt: number, cx: number, cz: number): void {
-    if (!this.rainy || !weatherSettings.enabled) {
+    if (!this.rainy || !weatherSettings.enabled || fxQuality.ambience === 0) {
       this.rain = Math.max(0, this.rain - dt * 0.5);
       this.flash = 0;
       return;
@@ -392,12 +392,12 @@ export class Ambience {
     }
     this.motes.count = n;
     commit(this.motes.instanceMatrix, n);
-    this.surfaces.render(dt, cx, cz, weatherSettings.enabled ? this.rain : 0, walkers, Math.max(0.4, fxQuality.ambience));
+    this.surfaces.render(dt, cx, cz, weatherSettings.enabled ? this.rain : 0, walkers, Math.max(0, fxQuality.ambience));
 
     // Grass: sway with the wind; bend away from nearby walkers and spring back.
     // Only tufts in view are written (packed to the front with their colours), so off-screen grass costs no vertex work.
     // Lower quality thins the grass (tufts are scattered at random, so a prefix is an even thinning).
-    const nt = Math.ceil(this.nTufts * Math.min(1, Math.max(0.5, fxQuality.ambience)));
+    const nt = Math.ceil(this.nTufts * Math.min(1, Math.max(0, fxQuality.ambience)));
     const col = this.tufts.instanceColor!.array as Float32Array;
     let vis = 0;
     for (let i = 0; i < nt; i++) {

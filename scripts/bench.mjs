@@ -1,6 +1,7 @@
 // Repeatable performance benchmark in headless Chromium.
 //   npm run bench                         heavy scene, HIGH quality, 20 s, production build
-//   npm run bench -- --quality low        pin another quality (low|medium|high|auto)
+//   npm run bench -- --quality low        pin another quality (potato|low|medium|high|auto)
+//   npm run bench -- --gpu metal         native Apple GPU (default: portable SwiftShader)
 //   npm run bench -- --scene magma        another preset (see SCENES), or --link "?test&..."
 //   npm run bench -- --seconds 30 --warmup 5 --dev --json out.json --size 1280x720
 // Builds the game (vite build to dist/, skipped with --dev, which uses the dev server),
@@ -44,6 +45,8 @@ const SCENES = {
 const seconds = Number(opt('--seconds', '20'));
 const warmup = Number(opt('--warmup', '4'));
 const quality = opt('--quality', 'high');
+const gpu = opt('--gpu', 'swiftshader');
+if (!['swiftshader', 'metal'].includes(gpu)) throw new Error('--gpu must be swiftshader or metal');
 const scene = opt('--scene', 'heavy');
 const [w, h] = opt('--size', '1280x720').split('x').map(Number);
 const jsonOut = opt('--json', null);
@@ -82,14 +85,14 @@ if (dev) {
 const browser = await chromium.launch({
   headless: true,
   executablePath: findChrome(),
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--enable-precise-memory-info'],
+  args: [`--use-angle=${gpu}`, '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required', '--enable-precise-memory-info'],
 });
 const page = await browser.newPage({ viewport: { width: w, height: h } });
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 await page.goto(base + link);
-await page.waitForFunction(() => !!window.__prof, null, { timeout: 30000 });
+await page.waitForFunction(() => !!window.__prof, null, { timeout: 90000 });
 await page.waitForTimeout(warmup * 1000);
 
 // Reset the timers and start a heap sampler + entity counter in the page.
@@ -159,7 +162,7 @@ out.push(`link     ${link}`);
 out.push(`build    ${dev ? 'dev server' : 'production'}  ${w}x${h}  ${seconds}s after ${warmup}s warm-up`);
 out.push(`quality  ${res.quality} (at the end)`);
 out.push(`isolated ${res.isolated ? 'yes (5 us timers)' : 'no (100 us timers)'}`);
-out.push(`frames   ${frames} rendered (${(frames / seconds).toFixed(1)} fps, SwiftShader), ${steps} sim steps (${(steps / seconds).toFixed(1)}/s)`);
+out.push(`frames   ${frames} rendered (${(frames / seconds).toFixed(1)} fps, ${gpu}), ${steps} sim steps (${(steps / seconds).toFixed(1)}/s)`);
 out.push('');
 out.push('ms per frame              avg    p95   worst');
 out.push(`simulation (all steps) ${fmt(stat(upd))}`);
@@ -185,7 +188,7 @@ console.log(out.join('\n'));
 if (jsonOut) {
   writeFileSync(
     jsonOut,
-    JSON.stringify({ link, seconds, frames, steps, update: stat(upd), render: stat(ren), gl: stat(gl), cpu: stat(cpu), interval: stat(interval), calls, tris, phase: Object.fromEntries(phases), gc: { minorMs: gcMs('MinorGC'), majorMs: gcMs('MajorGC'), worst: gcWorst }, allocMBs: alloc / seconds / 1048576, styleLayoutMs: styleMs / frames, paintMs: paintMs / frames, errors }, null, 2),
+    JSON.stringify({ link, seconds, frames, steps, quality: res.quality, gpu, update: stat(upd), render: stat(ren), gl: stat(gl), cpu: stat(cpu), interval: stat(interval), calls, tris, phase: Object.fromEntries(phases), gc: { minorMs: gcMs('MinorGC'), majorMs: gcMs('MajorGC'), worst: gcWorst }, allocMBs: alloc / seconds / 1048576, styleLayoutMs: styleMs / frames, paintMs: paintMs / frames, errors }, null, 2),
   );
 }
 process.exit(errors.length ? 1 : 0);

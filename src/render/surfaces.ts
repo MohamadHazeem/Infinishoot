@@ -437,6 +437,14 @@ export class Surfaces {
 
   /** Per frame. `cx, cz` camera target, `rain` 0..1, `walkers` wade through water. */
   render(dt: number, cx: number, cz: number, rain: number, walkers: readonly { x: number; z: number; speed?: number }[], amount = 1): void {
+    if (amount <= 0) {
+      this.clear();
+      this.ripples.begin(); this.ripples.end();
+      this.glints.begin(); this.glints.end();
+      this.glow.begin(); this.glow.end();
+      this.bubbles.count = 0;
+      return; // Keep the base water/lava/ice meshes so terrain remains readable.
+    }
     this.t += dt;
     const T = surfaceTuning;
     const near2 = T.near * T.near;

@@ -195,6 +195,7 @@ export class LightPicker {
    * into the packed uniform arrays. Returns how many were written.
    */
   pick(max: number, pos: Float32Array, col: Float32Array, scale = 1): number {
+    if (max <= 0) return 0;
     // Grid cells become candidates first.
     for (let c = 0; c < GRID * GRID; c++) {
       const w = this.gw[c];

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { retroGlobals } from './retroMaterial';
+import { renderQuality } from './quality';
 
 /**
  * Persistent battle damage on the ground: one scar map per stage.
@@ -485,7 +486,7 @@ export class GroundScars {
   }
 
   stamp(kind: ScarKind, x: number, z: number, r: number, strength = 1): void {
-    this.map.stamp(kind, x, z, r, strength);
+    if (renderQuality.worldEffects) this.map.stamp(kind, x, z, r, strength);
   }
 
   clear(): void {
@@ -495,6 +496,8 @@ export class GroundScars {
 
   /** Fade, then upload what changed (only the dirty row spans). */
   render(dt: number): void {
+    this.mesh.visible = renderQuality.worldEffects;
+    if (!this.mesh.visible) return;
     this.time.value += dt;
     this.mat.uniforms.uScorchA.value = scarTuning.scorchAlpha;
     this.mat.uniforms.uCraterA.value = scarTuning.craterAlpha;

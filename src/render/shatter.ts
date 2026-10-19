@@ -273,6 +273,7 @@ export class Shatter {
 
   /** Break a box into flying chunks. */
   burst(o: ShatterSpec, rand: () => number = Math.random): void {
+    if (this.density <= 0) return;
     const T = shatterTuning;
     const pool = o.crate ? this.crate : this.plain;
     const n = Math.max(2, Math.round(o.pieces * this.density));

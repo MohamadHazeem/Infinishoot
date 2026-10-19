@@ -159,7 +159,7 @@ export function updateLook(this: Game, frameDt: number): void {
   }
   easeGrade(frameDt);
   // Distortion follows its own toggle; screen shake at 0 (motion-sensitive players) also turns it off.
-  postfx.distortion = settings.distortion && settings.shake > 0;
+  postfx.distortion = renderQuality.distortion && settings.distortion && settings.shake > 0;
   const motion = Math.min(1, settings.shake);
 
   // --- Outlines: attach to new enemy batches (created lazily) and hero rigs.
@@ -187,13 +187,13 @@ export function updateLook(this: Game, frameDt: number): void {
       pk.add(r.x, 2.4, r.z, T.lanternRadius * (down ? 0.55 : 1) * Math.max(0.5, lookOverrides.lantern), c.r, c.g, c.b, T.lanternIntensity * night * (down ? 0.6 : 1) * lookOverrides.lantern, 1000);
     }
   }
-  for (const m of this.flashes) {
+  if (renderQuality.lights > 0) for (const m of this.flashes) {
     if (m.visible) pk.add(m.position.x, m.position.y, m.position.z, lookTuning.muzzleRadius, 1, 0.92, 0.65, lookTuning.muzzleIntensity, 5);
   }
   // Bullets: merged per grid cell.
   const b = this.bullets;
   const bc = b.mesh.instanceColor?.array as Float32Array | undefined;
-  if (bc) {
+  if (bc && renderQuality.lights > 2) {
     const br = lookTuning.bulletRadius;
     for (let i = 0; i < b.count; i++) {
       const enemy = b.team[i] !== Team.Player;
@@ -203,7 +203,7 @@ export function updateLook(this: Game, frameDt: number): void {
   }
   // Burning and shocked enemies, elites with a modifier, raging bosses.
   const t = this.animTime;
-  for (const e of this.enemies.list) {
+  if (renderQuality.lights > 2) for (const e of this.enemies.list) {
     if (!e.active || e.def.hidden) continue;
     if (e.burnT > 0) pk.addSmall(e.x, 1, e.z, 3.2, 1, 0.45, 0.12, 0.55 * (0.8 + 0.2 * Math.sin(t * 23 + e.uid)));
     if (e.shockT > 0) pk.addSmall(e.x, 1, e.z, 3, 0.6, 0.8, 1, Math.sin(t * 50 + e.uid) > 0.2 ? 0.45 : 0.1);
@@ -221,7 +221,7 @@ export function updateLook(this: Game, frameDt: number): void {
     if (h.kind !== 'lava') continue;
     const fl = 0.85 + 0.15 * Math.sin(t * 3.1 + i * 1.7);
     pk.add(h.x, 0.6, h.z, h.r * 1.5 + 2.5, 1, 0.42, 0.12, lookTuning.lavaIntensity * fl, 1);
-    if (heat < MAX_HEAT && Math.hypot(h.x - p.x, h.z - p.z) < 26) {
+    if (postfx.distortion && heat < MAX_HEAT && Math.hypot(h.x - p.x, h.z - p.z) < 26) {
       if (project(st, cam, h.x, 0.5, h.z, h.r * 1.2 + 1, postfx.heat, heat * 4, 0.85 * motion)) heat++;
     }
   }
@@ -253,6 +253,10 @@ export function updateLook(this: Game, frameDt: number): void {
   const scale = lightTuning.dayScale + (lightTuning.nightScale - lightTuning.dayScale) * night;
   lightUniforms.uLightCount.value = pk.pick(renderQuality.lights, lightUniforms.uLightPos.value, lightUniforms.uLightCol.value, scale);
 
+  if (!postfx.distortion) {
+    st.wn = postfx.waveCount = postfx.heatCount = 0;
+    return;
+  }
   // --- Shockwaves: age and project to the screen.
   let wn = 0;
   for (let i = 0; i < st.wn; i++) {
