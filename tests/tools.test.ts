@@ -9,6 +9,7 @@ import type { VfxEvent } from '../src/game/vfx';
 import type { BurstOptions } from '../src/game/particles';
 import { FxEncoder, decodeFx, fxRelevant } from '../src/net/fxCodec';
 import { KEYFRAME, SnapDecoder, SnapEncoder, packValue, unpackValue } from '../src/net/snapCodec';
+import { PHOTO_FILTERS, applyPhotoFilter, clampPhotoCam, filterScratch, photoCamPosition, photoFileName, photoScale, photoTuning } from '../src/ui/photoFilters';
 
 const near = (a: number, b: number, eps: number) => (Number.isNaN(a) && Number.isNaN(b)) || Math.abs(a - b) <= eps;
 
@@ -224,3 +225,79 @@ for (let step = 0; step < KEYFRAME * 2 + 5; step++) {
 ok(okBody, `${KEYFRAME * 2 + 5} snapshots: the decoded body equals what the host built (unchanged fields filled in, across keyframes)`);
 ok(okRecs, 'enemy and pickup records survive the deltas (moves, deaths, arrivals, keyframes)');
 ok(wire < plain * 0.5, `snapshot wire size under half of plain binarypack (${plain} -> ${wire} bytes over the run)`);
+
+// ---------------------------------------------------------------- photo mode helpers
+
+
+/** A 32x18 test card: left half a saturated magenta, right half sandy beige, a dark square in the middle. */
+function card(): Uint8ClampedArray {
+  const w = 32;
+  const h = 18;
+  const px = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const dark = x >= 12 && x < 20 && y >= 5 && y < 13;
+      const c = dark ? [30, 30, 40] : x < 16 ? [255, 61, 240] : [232, 200, 150];
+      px.set([...c, 255], i);
+    }
+  return px;
+}
+const W = 32;
+const H = 18;
+const at = (px: Uint8ClampedArray, x: number, y: number) => Array.from(px.subarray((y * W + x) * 4, (y * W + x) * 4 + 4));
+const scratch = filterScratch();
+{
+  const p = card();
+  applyPhotoFilter(p, W, H, 'normal', scratch);
+  ok(p.every((v, i) => v === card()[i]), 'NORMAL leaves the pixels alone');
+}
+{
+  const p = card();
+  applyPhotoFilter(p, W, H, 'bw', scratch);
+  let grey = true;
+  for (let i = 0; i < p.length; i += 4) if (p[i] !== p[i + 1] || p[i] !== p[i + 2]) grey = false;
+  ok(grey && p.every((v, i) => i % 4 !== 3 || v === 255), 'BLACK & WHITE is grey everywhere and keeps alpha');
+}
+{
+  const p = card();
+  applyPhotoFilter(p, W, H, 'sepia', scratch);
+  const [r, g, b] = at(p, 26, 2);
+  ok(r >= g && g >= b && r - b > 30, `SEPIA is warm (r ${r} >= g ${g} >= b ${b})`);
+}
+{
+  const p = card();
+  applyPhotoFilter(p, W, H, 'crt', scratch);
+  const even = at(p, 26, 8)[1];
+  const odd = at(p, 26, 9)[1];
+  ok(odd < even * 0.8, `RETRO CRT darkens every other row (${even} vs ${odd})`);
+}
+{
+  const p = card();
+  applyPhotoFilter(p, W, H, 'comic', scratch);
+  const ink = at(p, 12, 8);
+  ok(ink[0] === 26 && ink[1] === 28 && ink[2] === 44, 'COMIC INK draws ink on the dark side of a strong edge');
+  ok(at(p, 26, 2).slice(0, 3).every((v) => v % 85 === 0), 'COMIC INK posterizes flat areas');
+}
+{
+  const p = card();
+  applyPhotoFilter(p, W, H, 'neon', scratch);
+  const sand = at(p, 28, 2);
+  const neon = at(p, 3, 2);
+  ok(sand[0] + sand[1] + sand[2] < 232 + 200 + 150 - 250, `NEON GLOW sinks dull colours (sand ${sand.slice(0, 3)})`);
+  ok(neon[0] > 180 && neon[2] > 180, `NEON GLOW keeps saturated colours bright (${neon.slice(0, 3)})`);
+}
+ok(PHOTO_FILTERS.length === 6 && new Set(PHOTO_FILTERS.map((f) => f.id)).size === 6, 'six filters with unique ids');
+{
+  const c = clampPhotoCam({ x: 100, z: 0, yaw: 7, pitch: 120, dist: 500 }, 0, 0);
+  ok(Math.abs(Math.hypot(c.x, c.z) - photoTuning.maxPan) < 1e-9, 'the photo camera stays within reach of where it opened');
+  ok(c.pitch === photoTuning.maxPitch && c.dist === photoTuning.maxDist && Math.abs(c.yaw - (7 - Math.PI * 2)) < 1e-9, 'pitch and distance are clamped, yaw wraps');
+  const c2 = clampPhotoCam({ x: 1, z: 1, yaw: 0, pitch: -40, dist: 0 }, 0, 0);
+  ok(c2.pitch === photoTuning.minPitch && c2.dist === photoTuning.minDist, 'and from below');
+  const pos = photoCamPosition({ x: 2, z: 3, yaw: 0, pitch: 90, dist: 10 }, { x: 0, y: 0, z: 0 });
+  ok(Math.abs(pos.x - 2) < 1e-9 && Math.abs(pos.y - 10) < 1e-9 && Math.abs(pos.z - 3) < 1e-6, 'straight down at pitch 90');
+  const side = photoCamPosition({ x: 0, z: 0, yaw: 0, pitch: 0, dist: 10 }, { x: 0, y: 0, z: 0 });
+  ok(Math.abs(side.z - 10) < 1e-9, 'yaw 0 looks from +z, like the game camera');
+}
+ok(photoScale(270) === 4 && photoScale(216) === 5 && photoScale(360) === 3 && photoScale(1080) === 1 && photoScale(2000) === 1, 'PNG scale is a whole number toward 1080p');
+ok(photoFileName(new Date(2026, 9, 19, 14, 3, 5)) === 'InfiniShoot-2026-10-19-140305.png', 'photo file names sort by time');
