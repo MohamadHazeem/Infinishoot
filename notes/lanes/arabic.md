@@ -1,0 +1,41 @@
+# Arabic — English + العربية
+
+Players can switch LANGUAGE in Settings without restarting or losing the current run. The initial language follows the browser's first preference (`ar-*` selects Arabic); saved preferences take priority. Menus, HUD labels, cards, shop previews, tips, banners, captions/subtitles, achievements, arsenal/codex content, enemy/item/weapon descriptions, music names and local/online co-op UI use the catalogs. Recorded voices remain the existing recordings; their captions are Arabic.
+
+## Integration decisions
+- `src/i18n/en.ts` is the English base (2,663 matching entries); `ar.ts` contains Modern Standard Arabic. `t(key, params)` is the interface for new strings. Stable `text.*` keys identify the existing copy. See CONTRIBUTING.md for examples and adding strings from other lanes.
+- Existing data/saves/network payloads stay canonical English and IDs stay unchanged. `localize(text)` resolves existing data and host messages through `t` at the UI boundary; `localizeHtml` translates text and accessible labels while preserving functional attributes. No gameplay or snapshot changes and no save-format migration. Older settings automatically receive the browser-language default.
+- Missing Arabic values fall back to English at runtime; catalog parity and placeholder tests catch omissions before release. Unknown data copy remains readable. New lanes should add complete sentences to both catalogs rather than rely on partial phrase replacement.
+- Local OFL Noto Sans Arabic (variable weight, ~825 KiB) supports readable joined Arabic offline. Its license is in `public/fonts/`. Existing Latin pixel fonts remain for the logo and numeric counters. No runtime dependency or CDN was added.
+- `dir=rtl` mirrors menu flow and HUD anchoring. Numeric runs/timers use LTR isolation. The Mod pipeline deliberately keeps its gameplay left-to-right order. Physical key labels, room codes and player-name markup stay verbatim. Arabic descriptions wrap with taller line heights; long menus retain keyboard-accessible scrolling.
+- Translation is cached (2,048 strings, cleared on language change); numeric/English fast paths avoid catalog matching. DOM traversal occurs only on screen entry/language change. Existing UI update cadence/pools are unchanged.
+- Arabic tuning: headings 34px, buttons 19px, settings 17px, descriptions 15px; loadout cards 18px names/14px descriptions. CSS is injected once from `src/i18n/layout.ts`, leaving shared style.css untouched.
+
+## Files and merge guidance
+New `src/i18n/*`, `public/fonts/*`, `tests/i18n.test.ts`; additive language default/validation/application in `src/game/settings.ts`; mechanical display-boundary replacements across `src/ui/*` (screens, HUD, menus, onboarding/meta, captions, portraits, all lane overlays, build PNG, photo-mode text/stickers and multiplayer screens); CONTRIBUTING.md. One defensive data-display fix in `src/data/codex.ts` removes an `undefined` lore prefix for heroes without an authored lore paragraph. No gameplay, net host/client, package manifest or save.ts edits.
+
+The settings lane may move the LANGUAGE row from screens.ts into its new settings screen: retain `data-cycle="language"`, options `en,ar`, and show `t('language.' + settings.language)`. Preserve applyLanguage(settings.language) in applySettings. Other lanes' new markup should use `t` or the display adapter and add catalog entries.
+
+## Reproduction
+- `?lang=ar` (title), `?test&lang=ar&screen=settings`, `?test&lang=ar&screen=controls`
+- `?test&lang=ar&screen=arsenal&discover=all`, `?test&lang=ar&screen=codex`
+- `?test&lang=ar&levelup`, `?test&lang=ar&shop&gold=60&mods=hoarder:2,momentum:2,echo,kindling`
+- `?test&lang=ar&training=4`, `?test&lang=ar&trainingdone`, `?test&lang=ar&recap`
+- `?test&lang=ar&stage=2&weapons=drones:5`, `?test&lang=ar&captions&arrows&spawn=sniper:2`
+- `?test&lang=ar&photo=2&photofilter=comic&photoframe=comic&stickers=pow@0.3,0.4;gg@0.7,0.4`
+- Replace `lang=ar` with `lang=en` for comparison. URL overrides only the initial locale; subsequent explicit settings changes persist normally.
+
+## Validation
+- PASS: `npm run typecheck`, `npx vite build`, `npm test` (all 57 files, repeated full pass), `npm run smoke` (all modes/local co-op/mortal game-over run). The final targeted i18n test also passes after the navigation/content fixes.
+- i18n assertions: every catalog key/placeholder; browser default and missing-Arabic fallback; every caption; data names/descriptions and Mod levels; every generated arsenal/codex entry and unlock-progress unit; HTML escaping; player names/physical keys; in-place switching with live listeners; RTL menu navigation and the intentionally LTR Mod pipeline; main-screen DOM-write scanner.
+- Visual QA: captured and inspected all menu screens plus level-up, shop, relic selection, training/ready, route/encounter, game-over/recap, build-card PNG, HUD, captions, photo-mode filters/frame captions/word stickers, and populated arsenal/codex/bestiary. Inspected scrolling bottoms for long menus and both language-switch directions. No page errors or horizontal screen overflow in the final scans. Physical key names, branding, technical service identifiers and UTC/week IDs remain literal. Developer-only tuning/debug panels remain English.
+- Required shot command completed: `npm run shot -- '?test&stage=2&weapons=drones:5&lang=ar' shots/arabic-final-hud.png --wait 4`. Final corrected banners/captions are in `shots/arabic-final-captions.png`; final populated content, relic, photo-mode and game-over screenshots use `shots/arabic-final-*.png`. QA harnesses/reports and screenshots are local ignored artifacts, not committed.
+- `npm run bench` ran in both languages with the same high-quality heavy scene (200-enemy hold, 500 bullets, drones/missiles/lightning/fire level 6). Concurrent overnight SwiftShader load yielded only 4 Arabic frames and 1 English frame: simulation per step was 1.03 ms Arabic / 1.07 ms English; Arabic HUD render was 0.267 ms. English GL submission stalled for 24 seconds. These samples do **not** establish real 60 fps or a reliable total-CPU comparison; repeat the benchmark without competing browser tests for performance signoff.
+- Browser co-op: NOT GREEN. Earlier normal-size runs timed out during startup/connection. The frozen-source Arabic run with `npm run coop -- --size 480x270` connected, ran both bots, advanced to stage 2 and completed its route vote. It finished with six failed scenario checks: jump pad, pet levels, pillar replication, fusion, team move and ping portrait. Skill/effect events and 376 snapshots flowed (average 1,541 bytes, maximum 8,300 bytes). A local ignored Playwright preload gave browser startup 120 seconds and set both browser locales to `ar-SA`; it did not change game/network timings or assertions.
+- Baseline check: the original `da1ded7` game code also failed `npm run coop -- --secs 20 --size 480x270`: the jump request reached the host while it was on a level-up menu (`started:false`) while the client reported jumping. Both peers connected; snapshots/effects flowed. The baseline copy only had isolated Vite cache/asset-serving setup for symlinked dependencies. This reproduces a baseline failure, but does not prove every later Arabic-run failure has the same cause. All in-process host/client test files pass.
+
+## Remaining integration risks
+- Real-time browser co-op validation remains unresolved under the current headless load. Re-run the scenario checks on an unloaded machine; investigate any reproducible failures with the co-op lane. No relay credentials, network settings, gameplay timing or assertions were changed to make tests pass.
+- Other overnight lanes will add copy after this branch: add keys/translations and run the parity/content scanner. The fallback deliberately keeps new English readable until translated.
+- The wide UI diff is mechanical, but screens.ts overlaps the settings lane. Keep its extracted Settings UI and transplant the LANGUAGE control/hook as described above.
+- One initial test run hit the randomized late-join rank-budget assertion in `coop2Coop.test.ts` (7 picks versus the minimum 8). Later full suites passed; gameplay logic was not changed for this failure.
