@@ -18,6 +18,7 @@ import { arenaTuning, jumpHeight, underPillar, type PropState, type TotemState }
 import { objectiveGold, objectiveTuning } from '../objectives';
 import { PickupType } from '../pickups';
 import { SCAR_COLORS } from '../scars';
+import { bossLike } from '../bossRules';
 
 /** Damage sources that count as environmental kills (bonus score, ENVIRONMENTAL KILL popups, objective). */
 export const ENV_SOURCES = ['lava', 'thorns', 'quicksand', 'splat', 'pillar', 'barrel'];
@@ -257,7 +258,7 @@ export function updateEnvHazards(this: Game, dt: number): void {
       continue;
     }
     const kind = zones[z].kind;
-    const tough = e.elite || e.def.behavior === 'reaper';
+    const tough = e.elite || e.def.behavior === 'reaper' || !!e.def.miniboss;
     if (kind === 'lava') {
       if (!knockedIn(e.kx, e.kz)) continue;
       e.kx = e.kz = 0;
@@ -447,7 +448,7 @@ export function updatePillars(this: Game, dt: number): void {
     const midZ = z + dz * T.pillarLen * 0.5;
     for (const e of this.enemiesInRadius(midX, midZ, T.pillarLen * 0.5 + 1, this.scratch).slice()) {
       if (e.pvpOwner >= 0 || !underPillar(e.x, e.z, e.radius, x, z, a, T.pillarLen, T.pillarHalfWidth)) continue;
-      this.damage(e, e.def.boss ? e.maxHp * T.pillarBossFrac : e.hp + e.shield + 1, { source: 'pillar', fixed: true, noStatus: true }, by);
+      this.damage(e, bossLike(e) ? e.maxHp * T.pillarBossFrac : e.hp + e.shield + 1, { source: 'pillar', fixed: true, noStatus: true }, by);
     }
     const inside = (px: number, pz: number) => underPillar(px, pz, 0.5, x, z, a, T.pillarLen, T.pillarHalfWidth);
     this.barrels.hitWhere(999, p.by, inside);

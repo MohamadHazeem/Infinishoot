@@ -25,6 +25,7 @@ import { bulletThreat, rankName, skillTuning, styleTuning, type StyleNote } from
 import { endUlt, power, startUlt, ultHitGain, ultKillGain, ultOf, ultTuning, updateUlt } from '../ultimates';
 import { preloadSkillAudio, skillSound } from '../skillAudio';
 import { SkillHud } from '../../ui/styleMeter';
+import { bossLike } from '../bossRules';
 
 /** Skill events: [seq, kind, hero index, x, z, extra]. pd = perfect dash, pa = parry, ul = ultimate, rk = rank up (extra = rank). */
 type SkillEvent = [number, 'pd' | 'pa' | 'ul' | 'rk', number, number, number, number];
@@ -245,7 +246,7 @@ function doParry(g: Game, h: Hero): void {
     e.kx += (dx / d) * k;
     e.kz += (dz / d) * k;
     e.squash(-8);
-    if (!e.def.boss && e.def.behavior !== 'reaper') {
+    if (!bossLike(e) && e.def.behavior !== 'reaper') {
       e.frozen = Math.max(e.frozen, T.parryStun);
       e.state = 'move';
     }

@@ -6,6 +6,7 @@ import { createRetroMaterial, type RetroMaterial } from '../../render/retroMater
 import { BULLET_Y } from '../bullets';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
+import { bossLike } from '../bossRules';
 
 const MAX = 12;
 const STORM_TAGS: Tag[] = ['projectile', 'area', 'shock'];
@@ -93,7 +94,7 @@ export class PlasmaOrb extends Weapon {
         for (const e of near) {
           ctx.damage(e, p.dmg * (o.mega ? 4 : 1), { source: 'orb', tags: evo ? STORM_TAGS : undefined, knockback: 0, canCrit: true, loud: n < 3 });
           // Cryo Sphere: a short freeze on whatever it zaps (not bosses), opening the Frost combos.
-          if (p.chill > 0 && e.hp > 0 && !e.def.boss) e.frozen = Math.max(e.frozen, p.chill);
+          if (p.chill > 0 && e.hp > 0 && !bossLike(e)) e.frozen = Math.max(e.frozen, p.chill);
           if (n++ < 4) ctx.fx.star(e.x, 0.9, e.z, 0.7, this.color, 0.08);
         }
         if (n) ctx.sound('zap');

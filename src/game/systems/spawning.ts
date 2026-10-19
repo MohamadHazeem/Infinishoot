@@ -7,6 +7,7 @@ import type { Game } from '../game';
 import { RECYCLE_DIST } from '../game';
 import { ELITE_MOD_IDS, ELITE_MODS, type EliteModId } from '../../data/eliteMods';
 import { type EnemyDef } from '../../data/enemies';
+import { bossLike } from '../bossRules';
 
 /** A point on a ring just off-screen around a living hero, inside the arena and not in a wall. */
 export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x: number; z: number } | null {
@@ -100,7 +101,7 @@ export function recycleFarEnemies(this: Game, dt: number): void {
   const alive = this.aliveHeroes;
   if (!alive.length) return;
   for (const e of this.enemies.list) {
-    if (!e.alive || e.elite || e.def.boss || e.def.behavior === 'spawner') continue;
+    if (!e.alive || e.elite || bossLike(e) || e.def.behavior === 'spawner') continue;
     if (alive.some((h) => Math.hypot(e.x - h.player.x, e.z - h.player.z) < RECYCLE_DIST)) continue;
     const pos = this.ringPoint(18, 24, e.radius + 0.2);
     if (!pos) continue;

@@ -21,6 +21,7 @@ import { PickupType } from '../pickups';
 import { playerTuning } from '../player';
 import { SCAR_COLORS } from '../scars';
 import { CURSE_BY_ID } from '../../data/curses';
+import { bossLike } from '../bossRules';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
@@ -377,7 +378,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   if (dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
     h.phoenixUsed = true;
     dmg = Math.max(0, Math.ceil(p.hp) - 1);
-    for (const e of this.enemiesInRadius(p.x, p.z, 7, this.scratch)) e.frozen = Math.max(e.frozen, e.def.boss ? 0.4 : 2.5);
+    for (const e of this.enemiesInRadius(p.x, p.z, 7, this.scratch)) e.frozen = Math.max(e.frozen, bossLike(e) ? 0.4 : 2.5);
     this.vfx.ring(p.x, p.z, 1, 14, '#ff7a2f', 0.5);
     this.vfx.burst(p.x, 1, p.z, { count: 30, color: '#ff7a2f', color2: '#ffd23f', speed: [4, 10], size: [0.15, 0.3], life: [0.4, 0.8], up: 6, gravity: 10 });
     this.vfx.banner('PHOENIX!', `${h.name.toUpperCase()} RISES`, 1.4);
@@ -755,7 +756,7 @@ export function updateBomb(this: Game, h: Hero, dt: number): void {
     e.bombStamp = stamp;
     const n = d || 1;
     // The nuke over-kills normal enemies and takes a big bite out of bosses.
-    const tough = e.def.boss || e.def.id === 'reaper';
+    const tough = bossLike(e) || e.def.id === 'reaper';
     const dmg = !nuke ? sp.dmg * dmgMul : tough ? e.maxHp * nukeTuning.bossHpFrac : e.maxHp * 20;
     // Implosion's first wave drags enemies toward the centre instead of blasting them away.
     const dir = pull ? -Math.min(1, d / Math.max(1, sp.radius)) : 1;

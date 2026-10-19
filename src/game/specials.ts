@@ -5,6 +5,7 @@ import type { Enemy } from './enemies';
 import type { Hero } from './hero';
 import type { Vfx } from './vfx';
 import type { DamageOpts } from './weapons';
+import { freezeMul } from './bossRules';
 
 /** What a special may touch. Implemented by Game (host/solo only). */
 export interface SpecialApi {
@@ -200,7 +201,7 @@ function blizzard(h: Hero, p: Record<string, number>, api: SpecialApi): Enemy[] 
     const d = Math.hypot(dx, dz);
     if (d > R + e.radius) continue;
     // Bosses shrug off most of the freeze (as with Frost Nova).
-    e.frozen = Math.max(e.frozen, p.freeze * (e.def.boss ? 0.15 : 1));
+    e.frozen = Math.max(e.frozen, p.freeze * freezeMul(e));
     e.shatter = Math.max(e.shatter, p.shatter);
     const k = d || 1;
     api.damage(e, p.dmg, { source: 'blizzard', tags: ICE_TAGS, dirX: dx / k, dirZ: dz / k, knockback: 3, canCrit: true, loud: n++ < 4 }, h);
@@ -293,7 +294,7 @@ function meteors(h: Hero, s: Running, dt: number, api: SpecialApi): boolean {
     if (ice) {
       for (const e of api.enemies) {
         if (!e.alive || e.hp <= 0 || (e.x - m.x) ** 2 + (e.z - m.z) ** 2 > (p.blast + e.radius) ** 2) continue;
-        e.frozen = Math.max(e.frozen, p.ice * (e.def.boss ? 0.15 : 1));
+        e.frozen = Math.max(e.frozen, p.ice * freezeMul(e));
         e.shatter = Math.max(e.shatter, 0.3);
       }
     }
