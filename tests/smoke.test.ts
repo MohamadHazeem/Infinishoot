@@ -102,6 +102,7 @@ console.log('mortal', JSON.stringify({ stage: rr.stage, mode: rr.mode, t: rr.t, 
 if (game.mode !== 'dead') {
   const p = game.hero.player;
   game.hero.revivesLeft = 0;
+  game.hero.petState.reviveUsed = true; // the Guardian pet's one revive would pick the hero straight back up
   p.invuln = 0;
   if (p.hurt(p.hp + 1, 0, 1)) game.onHeroDown(game.hero);
 }

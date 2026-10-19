@@ -6,6 +6,8 @@ import { markSeen } from '../save';
  */
 import { ARENA_SOURCE_NAMES } from './arena';
 import { MECH_SOURCE_NAMES } from './heroMechs';
+import { gpBulletBlast } from './gameplay';
+import { GP_SOURCE_NAMES } from '../gameplay';
 import { copyOrbPulse } from './enemyAi';
 import type { Game } from '../game';
 import { scoreTuning, bombTuning, dropTuning, chestTuning, nukeTuning, statusTuning, cheats, BULLET_KINDS, IMPACT_BLAST } from '../game';
@@ -136,6 +138,7 @@ export function sourceName(this: Game, id: string): string {
   if (PASSIVES[id]) return PASSIVES[id].name;
   if (id === 'parry' || id === 'ult') return id === 'parry' ? 'Parry' : 'Ultimate'; // skill layer
   if (MECH_SOURCE_NAMES[id]) return MECH_SOURCE_NAMES[id]; // hero mechanics, biome foes
+  if (GP_SOURCE_NAMES[id]) return GP_SOURCE_NAMES[id]; // gameplay lane: mech, super weapons, relics
   if (id === 'pet' || id === 'team') return id === 'pet' ? 'Pet' : 'Team Moves'; // companion lane
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
@@ -244,6 +247,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     }
   }
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
+  this.gpOnKill(e, source, by); // mutant rewards, mech drops, finale spots, Nova Heart, Powder Keg (systems/gameplay.ts)
   this.enemies.kill(e);
   // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
   // (a stale `boss` once became a Chonk: wrong boss bar on clients and a stage that wouldn't clear).
@@ -657,6 +661,7 @@ export function openChest(this: Game, i: number, h: Hero): void {
 export function bulletBlast(this: Game, i: number): void {
   const b = this.bullets;
   if (b.team[i] !== Team.Player || b.blast[i] <= 0) return;
+  if (gpBulletBlast(this, i)) return; // mech missiles
   const by = this.heroes[b.owner[i]] ?? this.hero;
   if (b.kind[i] === 5) {
     this.blast(b.x[i], b.z[i], b.blast[i], b.damage[i] * 0.5, this.bullets.colorOf(i), 'scatter', ['projectile', 'explosive'], false, by);

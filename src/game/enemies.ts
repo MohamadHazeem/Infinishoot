@@ -571,6 +571,10 @@ export class Enemy {
   copyInterval = 0.25;
   copySpeed = 12;
   copyFlash = 0;
+  /** Gameplay lane: mutated (left alive too long), seconds alive toward mutating, and the spit timer (src/game/systems/gameplay.ts). */
+  mutated = false;
+  mutAge = 0;
+  mutT = 0;
   /** Cosmetic animation state (src/game/enemyAnim.ts). */
   readonly anim = new EnemyAnim();
 
@@ -635,6 +639,8 @@ export class Enemy {
     this.leader = null;
     this.sub = 0;
     this.under = false;
+    this.mutated = false;
+    this.mutAge = this.mutT = 0;
     this.rallyCd = squadTuning.rallyEvery * (0.5 + Math.random() * 0.5);
     if (this.def.behavior === 'egg') this.timerA = familyTuning.eggHatch;
     if (this.def.behavior === 'swarmwall') this.timerA = familyTuning.wallLife;
@@ -1710,6 +1716,7 @@ export class Enemies {
         b.flash.setXYZW(i, 1, 0.95, 0.55, blink ? 0.75 : 0.2 + 0.2 * Math.sin(time * 10 + e.uid));
       } else if (e.def.boss && e.enraged) b.flash.setXYZW(i, 1, 0.15, 0.2, (e.phase >= 3 ? 0.35 : 0.2) + 0.15 * Math.sin(time * (e.phase >= 3 ? 14 : 8)));
       else if (e.exposeT > 0) b.flash.setXYZW(i, 0.8, 0.6, 1, 0.3 + 0.15 * Math.sin(time * 12 + e.uid));
+      else if (e.mutated) b.flash.setXYZW(i, 0.55, 1, 0.3, 0.28 + 0.14 * Math.sin(time * 7 + e.uid)); // mutated (gameplay lane)
       else if (e.mod) b.flash.setXYZW(i, e.mod.glow[0], e.mod.glow[1], e.mod.glow[2], 0.3 + 0.15 * Math.sin(time * 6));
       else if (e.elite) b.flash.setXYZW(i, 1, 0.85, 0.2, 0.25 + 0.15 * Math.sin(time * 6));
       else if (e.aiBits & 2) b.flash.setXYZW(i, 1, 0.8, 0.3, 0.25 + 0.15 * Math.sin(time * 14 + e.uid));

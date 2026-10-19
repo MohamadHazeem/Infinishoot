@@ -38,6 +38,13 @@ export const RELICS: RelicDef[] = [
   { id: 'r_coil', name: 'Overcharged Coil', desc: 'Your Q/E special recharges 25% faster.', icon: '⚡', color: '#41a6f6', rarity: 'rare', add: { specialCooldownMul: -0.25 } },
   { id: 'r_scale', name: 'Dragon Scale', desc: '+3 armor, and getting hit bursts spikes around you.', icon: '◈', color: '#38b764', rarity: 'legendary', add: { armor: 3, thorns: 40 } },
   { id: 'r_halo', name: 'Angel Halo', desc: '+20 max life and regenerate 1 life per second.', icon: '○', color: '#ffcd75', rarity: 'legendary', add: { maxHp: 20, regen: 1 } },
+  // Build-defining rule relics (gameplay lane: hooks in src/game/systems/gameplay.ts, numbers in relicTuning).
+  { id: 'r_dashfire', name: 'Trigger Dash', desc: 'Dashing fires a ring of 10 rounds, and your weapons fire 40% faster for 1.2 s after.', icon: '✺', color: '#fff35c', rarity: 'rare' },
+  { id: 'r_orbit', name: 'Satellite Rounds', desc: 'While you fire, rounds gather in orbit around you (up to 6), then launch at the nearest enemy.', icon: '◌', color: '#73eff7', rarity: 'legendary' },
+  { id: 'r_nova', name: 'Nova Heart', desc: 'Every 10th kill sets off a frost nova around you that freezes what it hits.', icon: '❄', color: '#9fe8ff', rarity: 'rare' },
+  { id: 'r_adrenal', name: 'Adrenal Gland', desc: 'Below half life: weapons fire 35% faster and hit 15% harder.', icon: '♣', color: '#b13e53', rarity: 'rare' },
+  { id: 'r_keg', name: 'Powder Keg', desc: 'Enemies you kill have a 20% chance to explode, and the blast can chain.', icon: '✹', color: '#ef7d57', rarity: 'rare' },
+  { id: 'r_combo', name: 'Combo Engine', desc: 'Your damage grows with the team combo: +4% per multiplier step (x8 = +28%).', icon: '∞', color: '#a7f070', rarity: 'legendary' },
 ];
 
 export const RELIC_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r])) as Record<string, RelicDef>;
