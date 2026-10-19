@@ -1380,7 +1380,7 @@ export const ar = {
   "text.one_arena_no_portals_a_boss_every_4_minutes_the__68b389": "حلبة واحدة بلا بوابات. زعيم كل 4 دقائق ومتجر بين المواجهات، بلا نهاية.",
   "text.every_stage_starts_at_the_boss_bonus_levels_each_57cb64": "تبدأ كل مرحلة عند الزعيم. مستويات إضافية في كل مرحلة.",
   "text.weekly_challenge_19a512": "التحدي الأسبوعي",
-  "text.a_shared_utc_iso_week_seed_two_wild_rules_fixed__9eae83": "خريطة أسبوعية موحدة بتوقيت UTC، وقاعدتان جامحتان وتجهيزات المبتدئ. لوحة أسبوعية خاصة بك.",
+  "text.a_shared_utc_iso_week_seed_two_wild_rules_fixed__9eae83": "بذرة أسبوعية مشتركة بالتوقيت العالمي، وقاعدتان جامحتان، وعتاد المبتدئ الثابت. جدول نقاط أسبوعي خاص بك.",
   "text.daily_challenge_d53a74": "التحدي اليومي",
   "text.today_s_seed_medium_difficulty_same_arenas_for_e_95ca48": "خريطة اليوم بصعوبة متوسطة. الحلبات نفسها للجميع؛ حطم أفضل نتيجة لك اليوم.",
   "text.easy_7f9439": "سهل",
