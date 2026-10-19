@@ -4,6 +4,7 @@
  * installed on the class as fields, e.g. `hostGame = Online.hostGame;`.
  */
 import { profileSummary } from './meta2';
+import { cleanSummary } from '../../data/profile';
 import type { Game } from '../game';
 import { localHero, kitText } from '../game';
 import { randomSeed } from '../../core/rng';
@@ -28,7 +29,7 @@ export async function hostGame(this: Game, name: string): Promise<void> {
   if (this.role !== 'host' || this.host) return;
   const host = new NetHost(3);
   this.host = host;
-  this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), pf: profileSummary() }];
+  this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), pf: cleanSummary(profileSummary()) }];
   this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
   host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
   host.onLeave = (id) => this.onClientLeft(id);

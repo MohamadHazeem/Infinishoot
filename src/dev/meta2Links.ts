@@ -10,6 +10,7 @@ import { meta2Ui, ensureQuests } from '../game/systems/meta2';
  * - `m2screen=profile|achievements` opens that screen; `m2screen=title` shows the title with its quest panel.
  * - `m2lv=37` sets the profile level; `m2demo` fills lifetime stats, kills, best runs and a few achievements (screenshots).
  * - `m2quests=0.5` sets today's quest progress to that fraction (1 = all done).
+ * - `m2pet=bit` gives this hero a pet (to see the hat).
  * - `m2equip=hat_party,tr_ember,h_lime,b_plum,t_ranger` equips cosmetics (needs the level: use with m2lv).
  */
 export function meta2Links(game: Game, q: URLSearchParams): void {
@@ -41,6 +42,8 @@ export function meta2Links(game: Game, q: URLSearchParams): void {
     const kind = id.startsWith('hat_') ? 'hat' : id.startsWith('tr_') ? 'trail' : id.startsWith('h_') ? 'hud' : id.startsWith('b_') ? 'banner' : id.startsWith('t_') ? 'title' : '';
     if (kind) P.equip[kind] = id;
   }
+  const pet = q.get('m2pet');
+  if (pet) game.hero.setPet(pet);
   const scr = q.get('m2screen');
   if (scr === 'profile' || scr === 'achievements') {
     // Opened a moment later: the run's opening (sky fall, starting shop) may still switch screens.

@@ -615,13 +615,15 @@ function applyCosmetics(g: Game, s: Meta2Run, dt: number): void {
   const pv = g.hero?.petView ?? null;
   const hat = equipped('hat');
   if (pv !== s.hatPet || hat !== s.hatId) {
-    if (s.hat && s.hatPet === pv) pv?.root.remove(s.hat);
+    if (s.hat && s.hatPet === pv) s.hat.parent?.remove(s.hat);
     s.hat = null;
     s.hatPet = pv;
     s.hatId = hat;
     if (pv && hat) {
       s.hat = hatMesh(hat);
-      pv.root.add(s.hat);
+      // On the pet's body group (first child group) so the hat grows and spins with it.
+      const body = pv.root.children.find((c) => (c as THREE.Group).isGroup) ?? pv.root;
+      body.add(s.hat);
     }
   }
   // Trail dust behind this machine's hero while it moves.
@@ -680,7 +682,8 @@ function hatMesh(id: string): THREE.Object3D {
     put(new THREE.SphereGeometry(0.21, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2), mat, -0.02);
     put(new THREE.SphereGeometry(0.06, 6, 4), createRetroMaterial({ color: '#f4f4f4' }), 0.21);
   }
-  g.position.y = 0.2;
+  g.position.y = 0.25; // sits on the 0.26 m shell
+  g.scale.setScalar(1.3); // pets are small from the top-down camera
   return g;
 }
 
@@ -703,6 +706,7 @@ html.m2-hud #timer .clock, html.m2-hud #xpbar .lv b, html.m2-hud #combo .mult { 
 .m2-bar { height: calc(2 * var(--p)); background: var(--ink); box-shadow: 0 0 0 calc(0.5 * var(--p)) var(--slate); margin: var(--p) 0; }
 .m2-bar i { display: block; height: 100%; background: var(--lime); }
 @keyframes m2-blink { 50% { color: var(--white); } }
+body.reduce-flash #scr-gameover .m2-strip .m2-up { animation: none; }
 `;
 let cssDone = false;
 export function ensureCss(): void {
