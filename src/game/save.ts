@@ -9,6 +9,7 @@ import { cleanFriends, type FriendsData } from './lobby';
 import { freshFirstTen, normalizeFirstTen, type FirstTenSave } from './firstten';
 import { DEFAULT_EQUIP, REWARD_BY_ID, profileTuning, xpForLevel, type RewardKind, type SetKey } from '../data/profile';
 import { HEROES } from '../data/heroes';
+import { normalizeRanked, type RankedSave } from '../data/ranked';
 
 /**
  * Persistent profile: achievements (weapon unlocks) and lifetime stats.
@@ -65,6 +66,8 @@ export interface SaveData {
   quests: QuestData;
   /** meta2 (v5): unlock date (YYYY-MM-DD) per achievement earned since v5. */
   achDates: Record<string, string>;
+  /** RANKED (race lane): this season's Elo-style rating for online PvP and race results, plus past seasons. */
+  ranked: RankedSave;
   lifetime: {
     runs: number;
     kills: number;
@@ -139,9 +142,9 @@ const KEY = 'save';
 // v2 dropped Bolts and Workshop upgrades; older saves keep their achievements and stats.
 // v3 added the enemy guide (`seen`) and run history.
 // v4 adds opt-in heat, weekly records, lore and cosmetic-only Bolts (main), first-time tips (`tips`), the Arsenal (`discovered`) and the training field (`training`). Legacy upgrades stay removed.
-// v5: seasonal candy + cosmetics (halloween), `friends` (lobby); v6: merged; v7: meta2 profile (XP, stats, best runs, cosmetics), daily quests and achievement dates.
-// Each lane normalises its own fields, so any older save loads.
-const VERSION = 7;
+// v5: seasonal candy + cosmetics (halloween), `friends` (lobby); v6: merged; v7: meta2 profile (XP, stats, best runs, cosmetics), daily quests and achievement dates;
+// v8: `ranked` (race lane: rating, monthly seasons, ladder id). Each lane normalises its own fields, so any older save loads.
+const VERSION = 8;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
@@ -160,6 +163,7 @@ function fresh(): SaveData {
     profile: freshProfile(),
     quests: { day: '', ids: [], prog: [], done: [], all: false, streak: 0, lastAll: '' },
     achDates: {},
+    ranked: normalizeRanked(null),
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
   };
 }
@@ -186,6 +190,7 @@ export function normalize(raw: unknown): SaveData {
     }
   }
   d.firstten = normalizeFirstTen(r.firstten, d.lifetime.runs);
+  d.ranked = normalizeRanked(r.ranked);
   const m = r.meta;
   if (m && typeof m === 'object') {
     d.meta.heat = cleanHeat(m.heat);

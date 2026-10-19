@@ -5,7 +5,7 @@
  * the build has VITE_LEADERBOARD_URL; without it every call returns null and
  * invite codes work as before.
  */
-export type LobbyMode = 'coop' | 'pvp' | 'versus' | 'weekly';
+export type LobbyMode = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race';
 
 export interface PublicLobby {
   code: string;

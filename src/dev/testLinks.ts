@@ -39,6 +39,7 @@ import { firsttenLinks } from './firsttenLinks';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
+import { raceLinks } from './raceLinks';
 import { weapons3Links } from './weapons3Links';
 import { heroes3Links } from './heroes3Links';
 import { graphicsLinks } from './graphicsLinks';
@@ -273,6 +274,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   mpLinks(game, q); // MP lane: versus, localcoop, browse, teamboard, lobby= (src/dev/mpLinks.ts)
   lobbyLinks(game, q); // lobby lane: lobbyx, lobbyx=count, party, friends (src/dev/lobbyLinks.ts)
   pvp2Links(game, q); // pvp2 lane: pvp=ffa|teams, pvpn=, pvparena=, pvpout, pvpboard (src/dev/pvp2Links.ts)
+  raceLinks(game, q); // race lane: racex[=wait|end], chal=, gochal, compete=, tourney=, lobbyrace, rating= (src/dev/raceLinks.ts)
   sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
   meta2Links(game, q); // m2screen=profile|achievements, m2lv=, m2demo, m2quests=, m2equip= (src/dev/meta2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).

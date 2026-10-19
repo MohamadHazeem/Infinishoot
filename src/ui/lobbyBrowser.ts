@@ -11,8 +11,8 @@ import { sfx } from '../audio/sfx';
  * while open; pick one to join it with its invite code. Without the service
  * the screen says how to turn it on (invite codes keep working).
  */
-export const KIND_NAMES: Record<string, string> = { coop: 'CO-OP', pvp: 'PVP', versus: 'VERSUS', weekly: 'WEEKLY CO-OP' };
-const KINDS = ['', 'coop', 'pvp', 'versus', 'weekly'];
+export const KIND_NAMES: Record<string, string> = { coop: 'CO-OP', pvp: 'PVP', versus: 'VERSUS', weekly: 'WEEKLY CO-OP', race: 'RACE' };
+const KINDS = ['', 'coop', 'pvp', 'versus', 'weekly', 'race'];
 
 export class LobbyBrowserUi {
   readonly screen: HTMLElement;

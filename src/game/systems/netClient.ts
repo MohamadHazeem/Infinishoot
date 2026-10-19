@@ -56,7 +56,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   switch (m.t) {
     case 'lobby': {
       const players = (m.players as { name: string; color: string }[]) ?? [];
-      const kind = (['pvp', 'versus', 'weekly'] as const).find((k) => k === m.kind) ?? 'coop';
+      const kind = (['pvp', 'versus', 'weekly', 'race'] as const).find((k) => k === m.kind) ?? 'coop';
       this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind, extra: m.mp });
       break;
     }

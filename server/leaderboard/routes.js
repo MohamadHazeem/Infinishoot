@@ -5,5 +5,6 @@ import { ghostRoute } from './ghost.js'; // coop2 lane: help ghosts (/ghost)
 import { ghostsRoute } from './ghosts.js'; // modes lane: weekly ghost board (/ghosts)
 import { lobbies } from './lobbies.js'; // MP lane: public lobby browser
 import { teamboard } from './teamboard.js'; // MP lane: weekly co-op team board
+import { ranked } from './ranked.js'; // race lane: RANKED season ladder (/ranked)
 
-export const ROUTES = [ghostRoute, ghostsRoute, lobbies, teamboard];
+export const ROUTES = [ghostRoute, ghostsRoute, lobbies, teamboard, ranked];

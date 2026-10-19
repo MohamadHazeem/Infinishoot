@@ -65,6 +65,7 @@ import * as StatusesSys from './systems/statuses';
 import * as OnlineSys from './systems/online';
 import * as PvpFlowSys from './systems/pvpFlow';
 import * as Pvp2Sys from './systems/pvp2';
+import * as RaceSys from './systems/race';
 import * as NetHostSys from './systems/netHost';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
@@ -867,6 +868,8 @@ export class Game implements HeroWorld {
   pvp: PvpState | null = null;
   /** The online lobby's game type, picked by the host. */
   lobbyKind: LobbyKind = 'coop';
+  /** Race lane: this machine's RACE (online) or hot-seat tournament turn (src/game/systems/race.ts). */
+  race: RaceSys.RaceRun | null = null;
   /** The name this machine hosted or joined with (the saved name is shared by every tab on a PC). */
   netName = '';
   /** Last EXPOSED popup (run time), so a crowd doesn't spam it. */
@@ -987,6 +990,7 @@ export class Game implements HeroWorld {
     MpSys.installMp(this, hudRoot);
     PartySys.installParty(this, hudRoot);
     Pvp2Sys.installPvp2(this); // PvP formats, bots, arenas and rules rows (systems/pvp2.ts)
+    RaceSys.installRace(this, hudRoot); // race lane: race, challenge codes, tournament, ranked (chains onto Game methods)
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     HalloweenSys.installHalloween.call(this, hudRoot);
     this.story = StorySys.installStory.call(this, hudRoot);
@@ -1298,6 +1302,7 @@ export class Game implements HeroWorld {
     this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
     this.mpTick(dt); // MP lane: Versus command view, local co-op menu turns, lobby heartbeat (systems/mp.ts)
     this.partyTick(dt); // lobby lane: pings, ready-up countdown, party votes (systems/party.ts)
+    RaceSys.raceTick(this, dt); // race lane: race board and finish, challenge chip (systems/race.ts)
     // Time holds (rewind playback, death replay) stop the world on this machine (systems/time.ts).
     if (this.timeStep(dt)) {
       this.input.endStep();

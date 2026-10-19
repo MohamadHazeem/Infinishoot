@@ -37,6 +37,11 @@ export class NetHost {
   /** PeerJS error type of the last error ('unavailable-id' = the code is taken). */
   errorType = '';
 
+  /** Race lane: RACE lobbies take up to 8 players (7 guests); every other game type 4. */
+  setMax(n: number): void {
+    this.max = n;
+  }
+
   /** `code`: a fixed room code (the player's friend code, lobby lane); random if absent. */
   constructor(public max = 3, code?: string) {
     this.code = code ? normalizeCode(code) : makeCode();
