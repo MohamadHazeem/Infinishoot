@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
 import { renderQuality } from '../render/quality';
-import { SpritePool, spriteTextures } from './fx';
+import { SpritePool, spriteTextures, fxFor } from './fx';
+import type { Material } from '../data/enemies';
 import { Debris } from './debris';
 import { Decals } from './decals';
 
@@ -37,6 +38,19 @@ export interface BurstOptions {
   scorch?: number;
   /** An electric arc from the burst to this point (x, z) at the burst's height (chain zaps; drawn by systems/sky.ts). */
   arc?: [number, number];
+  /** Rare reward presentation, carried by the existing burst codec extras. */
+  flourish?: 'level' | 'evolution' | 'chest';
+  /** Optional silhouette; templates carry this through the codec's extra fields. */
+  shape?: 'splat' | 'chip';
+}
+
+/** Material-specific hits use compact burst fields, with no new frequent wire event. */
+export function materialHit(material: Material | undefined, color: string, dx = 0, dz = 0): BurstOptions {
+  const dir = { x: -dx, z: -dz, spread: 2.4 };
+  if (material === 'metal' || material === 'shield') return { count: 3, color: material === 'shield' ? '#73eff7' : '#ffcd75', color2: '#f4f4f4', speed: [4, 8], size: [0.06, 0.12], life: [0.12, 0.3], up: 2, gravity: 16, sparks: 2, dir };
+  if (material === 'slime') return { shape: 'splat', count: 4, color, color2: '#a7f070', speed: [1.5, 3.5], size: [0.16, 0.28], life: [0.25, 0.45], up: 1.8, gravity: 14, drag: 5, dir };
+  if (material === 'stone') return { shape: 'chip', count: 3, color: '#94b0c2', color2: color, speed: [2, 5], size: [0.1, 0.2], life: [0.3, 0.55], up: 3, gravity: 22, drag: 2, dir };
+  return { count: 3, color: '#ffffff', color2: color, speed: [3, 7], size: [0.1, 0.18], life: [0.12, 0.25], dir };
 }
 
 /** Quality knobs for the world effects (low preset thins them out). */
@@ -127,19 +141,20 @@ export class SoftFx {
     const n = this.noise.take('smoke', Math.round(count * t.amount));
     for (let k = 0; k < n; k++) {
       const a = rand() * Math.PI * 2;
-      const sp = (0.4 + rand() * 1.0) * size;
+      const column = k % 3 === 0;
+      const sp = (column ? 0.12 : 0.4 + rand()) * size;
       const dark = rand() < 0.3;
       this.addPuff(
         x + Math.cos(a) * 0.3 * size,
-        y + rand() * 0.4,
+        y + (column ? 0.6 + rand() * 0.8 : rand() * 0.4),
         z + Math.sin(a) * 0.3 * size,
         Math.cos(a) * sp,
-        0.3 + rand() * 0.6,
+        column ? 1.6 : 0.3 + rand() * 0.6,
         Math.sin(a) * sp,
         t.smokeLife[0] + rand() * (t.smokeLife[1] - t.smokeLife[0]),
         (0.4 + rand() * 0.3) * size,
         (1.0 + rand() * 0.6) * size,
-        0.75,
+        column ? 0.4 : 0.6,
         t.smokeRise * (0.6 + rand() * 0.6),
         dark ? '#aaa6c6' : color,
         rand,
@@ -317,6 +332,7 @@ export class Particles {
   private grav = new Float32Array(MAX);
   private drag = new Float32Array(MAX);
   private spin = new Float32Array(MAX);
+  private shape = new Uint8Array(MAX);
   private colors: THREE.Color[] = [];
   private alive = 0; // particles [0, alive) are live; dead ones are swapped out
   private m4 = new THREE.Matrix4();
@@ -335,7 +351,7 @@ export class Particles {
 
   private noise: NoiseGovernor;
 
-  constructor(scene: THREE.Scene) {
+  constructor(private scene: THREE.Scene) {
     this.noise = noiseFor(scene);
     this.soft = new SoftFx(scene);
     this.debris = new Debris(scene);
@@ -351,6 +367,7 @@ export class Particles {
   }
 
   burst(x: number, y: number, z: number, o: BurstOptions, rand = Math.random): void {
+    if (o.flourish) fxFor(this.scene)?.flourish(x, z, o.color, o.flourish === 'evolution');
     if (renderQuality.worldEffects && (o.smoke || o.debris || o.sparks || o.dust)) this.extras(x, y, z, o, rand);
     this.c1.set(o.color);
     this.c2.set(o.color2 ?? o.color);
@@ -371,6 +388,7 @@ export class Particles {
       this.grav[i] = o.gravity ?? 0;
       this.drag[i] = o.drag ?? 3;
       this.spin[i] = rand() * 10;
+      this.shape[i] = o.shape === 'splat' ? 1 : o.shape === 'chip' ? 2 : 0;
       this.colors[i].copy(this.c1).lerp(this.c2, rand());
     }
   }
@@ -379,6 +397,9 @@ export class Particles {
   private extras(x: number, y: number, z: number, o: BurstOptions, rand: () => number): void {
     const size = Math.max(0.6, Math.min(2.2, Math.max((o.speed[1] + o.speed[0]) / 9, o.size[1] * 2.5)));
     if (o.smoke) {
+      // Ring + the original debris + a narrower smoke column make the blast silhouette legible.
+      if (!this.noise.calm) fxFor(this.scene)?.ring(x, z, size * 0.8, 3, o.color2 ?? o.color, 0.32);
+      if (!o.debris) this.debris.spawn(x, Math.max(0.3, y), z, Math.min(3, o.smoke), '#566c86', o.color, 0.18, 4, rand);
       this.soft.smoke(x, Math.max(0.3, y), z, o.smoke, size, rand);
       const r = o.scorch ?? size * 0.9;
       if (r > 0) this.decals.scorch(x, z, r, rand);
@@ -441,6 +462,7 @@ export class Particles {
     this.grav[i] = this.grav[j];
     this.drag[i] = this.drag[j];
     this.spin[i] = this.spin[j];
+    this.shape[i] = this.shape[j];
     this.colors[i].copy(this.colors[j]);
   }
 
@@ -452,8 +474,10 @@ export class Particles {
     for (let i = 0; i < this.alive; i++) {
       const k = this.life[i] / this.maxLife[i];
       const sc = this.size[i] * Math.min(1, k * 2.5) * Math.sqrt(this.noise.alpha(this.px[i], this.pz[i]));
-      this.q.setFromEuler(this.e.set(this.spin[i], this.spin[i] * 0.7, 0));
-      this.m4.compose(this.v.set(this.px[i], this.py[i], this.pz[i]), this.q, this.s.set(sc, sc, sc));
+      const splat = this.shape[i] === 1;
+      const flat = splat ? Math.max(0.12, Math.min(1, this.py[i] * 2)) : this.shape[i] === 2 ? 0.45 : 1;
+      this.q.setFromEuler(this.e.set(splat ? 0 : this.spin[i], this.spin[i] * 0.7, 0));
+      this.m4.compose(this.v.set(this.px[i], this.py[i], this.pz[i]), this.q, this.s.set(sc * (splat ? 1.4 : 1), sc * flat, sc));
       this.mesh.setMatrixAt(i, this.m4);
       this.mesh.setColorAt(i, this.colors[i]);
     }

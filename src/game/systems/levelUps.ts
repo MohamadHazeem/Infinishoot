@@ -23,6 +23,7 @@ export function gainXp(this: Game, v: number): void {
       h.synergy.levelUp();
       // Every level-up tops you up a little (downed heroes stay down).
       if (!h.player.dead) {
+        this.vfx.burst(h.player.x, 0.2, h.player.z, { flourish: 'level', count: 8, color: '#73eff7', color2: '#ffcd75', speed: [0.5, 1.5], size: [0.08, 0.16], life: [0.4, 0.7], up: 6, gravity: 3 });
         const healed = h.player.heal(scoreTuning.levelUpHeal);
         if (healed > 0) this.vfx.num(h.player.x, 2.4, h.player.z, `+${Math.round(healed)}`, 'heal');
       }
@@ -107,7 +108,7 @@ export function heroAction(this: Game, h: Hero, a: string, i: number, d: -1 | 1)
       h.consumePick();
       if (h === this.hero && (o.kind === 'evo' || o.kind === 'track')) this.checkAchievements();
       this.vfx.sound('powerUp', h.player.x, h.player.z);
-      if (o.kind === 'evolve') this.evolveFx(h, o.name, color);
+      if (o.kind === 'evolve' || o.kind === 'evo') this.evolveFx(h, o.name, color);
       else if (o.kind === 'fusion') this.fusionFx(h, o.id);
       else if (o.rarity === 'legendary') this.legendaryFx(h, o.name);
       this.afterPick(h, color);
@@ -169,7 +170,7 @@ export function evolveFx(this: Game, h: Hero, name: string, color: string): void
   const p = h.player;
   this.vfx.ring(p.x, p.z, 1, 9, color, 0.5);
   this.vfx.ring(p.x, p.z, 0.6, 6, '#ffffff', 0.35);
-  this.vfx.burst(p.x, 1, p.z, { count: 40, color, color2: '#ffcd75', speed: [4, 10], size: [0.14, 0.34], life: [0.5, 1], up: 8, gravity: 10 });
+  this.vfx.burst(p.x, 1, p.z, { flourish: 'evolution', count: 40, color, color2: '#ffcd75', speed: [4, 10], size: [0.14, 0.34], life: [0.5, 1], up: 8, gravity: 10 });
   this.vfx.shake(p.x, p.z, 0.35);
   this.vfx.flash(0.35);
   this.vfx.sound('evolve', NaN, NaN);

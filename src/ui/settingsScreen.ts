@@ -23,6 +23,7 @@ row('VIDEO', 'graphics', 'QUALITY', 'AUTO adjusts visual detail to keep the game
 row('VIDEO', 'batterySaver', t('mobile.battery'), t('mobile.batteryDesc'));
 row('CONTROLS', 'touchOpacity', t('mobile.opacity'), t('mobile.opacityDesc'), [25, 100, 5]);
 row('CONTROLS', 'touchAutoHide', t('mobile.autoHide'), t('mobile.autoHideDesc'));
+row('VIDEO', 'dynamicShadows', 'DYNAMIC SHADOWS', 'Real sun shadows for heroes, bosses and large props. HIGH quality only.');
 row('VIDEO', 'retro', 'RETRO LOOK', 'Pixel-era colour depth, dithering and vertex wobble.', [0, 1, 0.1]);
 row('VIDEO', 'glow', 'GLOW', 'Brightness of the soft glow around lights and effects.', [0, 1, 0.1]);
 row('VIDEO', 'crt', 'CRT FILTER', 'Adds scanlines and darkens the screen edges.');

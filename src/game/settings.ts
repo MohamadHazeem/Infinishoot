@@ -64,6 +64,8 @@ export interface Settings extends DisplayOptions {
   quality: number;
   /** Graphics quality: 0 = low, 1 = medium, 2 = high, 3 = auto (holds 60 fps), 4 = Potato. */
   graphics: number;
+  /** Real sun shadows, active only on the HIGH quality rung. */
+  dynamicShadows: boolean;
   /** Screen-space shockwaves and heat shimmer. */
   distortion: boolean;
   /** Every third stage is at night. */
@@ -165,6 +167,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   reduceFlash: false,
   quality: 1,
   graphics: AUTO,
+  dynamicShadows: false,
   distortion: true,
   nightStages: true,
   loadout: { ...DEFAULT_LOADOUT },

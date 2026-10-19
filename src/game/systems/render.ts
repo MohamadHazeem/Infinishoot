@@ -2,6 +2,7 @@ import { eventBehavior } from '../../data/stageEvents';
 import { renderSecrets } from './secrets';
 import { encounterTrack, updateAudio3 } from './audio3';
 import { PING_BANTER } from '../../audio/teammateVoice';
+import { renderGfx3, styleMuzzles } from './gfx3';
 import { gauntletScore } from '../../data/ascension';
 import { renderGauntlet, challengeState } from './gauntlet';
 import { beginReadability, renderReadability } from './readability2';
@@ -351,6 +352,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   updateGraphics(this, frameDt); // graphics lane: destruction, anime look, water, fog, framing, customisation
   renderReadability.call(this);
   lap('ren.graphics');
+  renderGfx3(this);
+  lap('ren.gfx3');
   this.hud.update(
     {
       hp: p.hp,
@@ -402,6 +405,7 @@ export function renderMuzzleFlashes(this: Game): void {
     m.position.set(this.mz.x, BULLET_Y, this.mz.z);
     m.scale.setScalar((0.8 + Math.random() * 0.6) * this.muzzleScale(h));
   });
+  styleMuzzles(this);
 }
 
 /** Point at the nearest closed chest when it is off screen. */

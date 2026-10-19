@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { prepareShadows } from './shadows';
 import { retroGlobals } from './retroMaterial';
 import { renderQuality } from './quality';
 import { setOutlines } from './outlines';
@@ -148,6 +149,7 @@ export class RetroRenderer {
 
   render(scene: THREE.Scene, camera: THREE.Camera): void {
     this.gl.info.reset();
+    prepareShadows(this.gl, scene);
     setOutlines(renderQuality.outlines, this.height.value);
     const u = this.postMat.uniforms;
     const glowMode = postSettings.glow > 0 ? renderQuality.glow : 0;
