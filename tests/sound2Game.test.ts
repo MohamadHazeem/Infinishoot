@@ -117,8 +117,14 @@ ok(S2.soundLane(g2).band === 0, 'a new run starts without a band');
   run(h, 5);
   clearField(h);
   const p = h.hero.player;
-  // Four swarmers around the hero, 16 m out (one of them may end up against cover).
-  const ring = [0, 1, 2, 3].map((k) => h.enemies.spawn(ENEMIES.swarmer, p.x + Math.cos(k * 1.571) * 16, p.z + Math.sin(k * 1.571) * 16, h.spawnOpts({ instant: true })));
+  // Four swarmers around the hero, 16 m out, on lines with no cover in the way (cover made "come running" flaky).
+  const clearLine = (a: number) => {
+    for (let r = 1; r <= 17; r += 0.5) if (h.walls.hitCircle(p.x + Math.cos(a) * r, p.z + Math.sin(a) * r, 0.7)) return false;
+    return true;
+  };
+  const angles = Array.from({ length: 32 }, (_, k) => (k / 32) * Math.PI * 2).filter(clearLine);
+  const picks = [0, 1, 2, 3].map((k) => angles[Math.floor((k * angles.length) / 4)] ?? k * 1.571);
+  const ring = picks.map((a) => h.enemies.spawn(ENEMIES.swarmer, p.x + Math.cos(a) * 16, p.z + Math.sin(a) * 16, h.spawnOpts({ instant: true })));
   const sw = ring[0];
   const dist = (e: typeof sw) => Math.hypot(e.x - p.x, e.z - p.z);
   const d0 = ring.map(dist);
@@ -248,10 +254,16 @@ ok(S2.soundLane(g2).band === 0, 'a new run starts without a band');
   // Tells near the client's hero.
   const pB = A.heroes[1].player;
   const far = A.enemies.spawn(ENEMIES.bee, pB.x + 16, pB.z + 2, A.spawnOpts({ instant: true }));
+  far.hp = far.maxHp = 1e7; // auto weapons must not kill it before its tell is read (flaky)
   for (let i = 0; i < 30; i++) {
     if (i % 10 === 0) A.vfx.sound('bomb', pB.x + 28, pB.z + 2);
     step(1);
   }
-  const st = LA.shown.get(far.uid);
-  ok(!!st && LB.netTells.get(far.uid) === st, `client: mirrors the bee's tell (${st})`);
+  // Snapshots arrive a few steps behind the host: give the client up to 20 steps to catch up.
+  let st = LA.shown.get(far.uid);
+  for (let i = 0; i < 20 && !(st && LB.netTells.get(far.uid) === st); i++) {
+    step(1);
+    st = LA.shown.get(far.uid);
+  }
+  ok(!!st && LB.netTells.get(far.uid) === st, `client: mirrors the bee's tell (${st}, client ${LB.netTells.get(far.uid)})`);
 }
