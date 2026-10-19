@@ -313,7 +313,7 @@ export const BIOMES: BiomeDef[] = [
     id: 'factory',
     name: 'Toy Factory',
     ground: 'toyMat',
-    tileColors: ['#7ee8b0', '#ffe680', '#8fd0ff', '#ffb38a', '#9ff0e0'],
+    tileColors: ['#5cb98c', '#d6bd5e', '#68a4d4', '#d58f6c', '#72bfb0'],
     path: 'plate',
     rim: 'toyBox',
     wall: 'blockFace',

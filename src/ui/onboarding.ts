@@ -293,8 +293,21 @@ const CSS = `
   z-index: 12;
   text-shadow: none;
 }
+/* Over a menu: a compact panel in the top-right corner, which the level-up
+ * cards and the shop's first row leave free (top-left covers the first card). */
 .menu-open #ob-tip {
   top: calc(6 * var(--p));
+  left: auto;
+  right: calc(6 * var(--p));
+  width: min(250px, 30vw);
+  padding: 6px 10px 8px;
+}
+.menu-open #ob-tip .ob-tip-h b {
+  font-size: 18px;
+}
+.menu-open #ob-tip p {
+  margin: 2px 0 4px;
+  font-size: 15px;
 }
 #ob-tip.in {
   animation: ob-in 0.24s steps(3) both;

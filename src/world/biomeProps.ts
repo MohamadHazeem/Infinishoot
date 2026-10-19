@@ -28,7 +28,8 @@ const CREAM = new THREE.Color('#fff6e8');
  */
 export function tileTint(colors: readonly string[], tx: number, tz: number, v: number): THREE.Color {
   const h = (Math.imul((tx >> 1) + 7, 73856093) ^ Math.imul((tz >> 1) + 3, 19349663)) >>> 0;
-  return new THREE.Color(colors[(h >>> 3) % colors.length]).lerp(CREAM, 0.4).multiplyScalar(v);
+  // Mid-tones (only a little cream, slightly darkened) so enemies and bullets stand out on the floor.
+  return new THREE.Color(colors[(h >>> 3) % colors.length]).lerp(CREAM, 0.15).multiplyScalar(v * 0.9);
 }
 
 /** The edge-ring piece: a leafy bush, a glossy ball (gumballs) or a round cloud puff. */
