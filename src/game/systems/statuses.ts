@@ -121,6 +121,7 @@ export function sourceName(this: Game, id: string): string {
   if (ARENA_SOURCE_NAMES[id]) return ARENA_SOURCE_NAMES[id];
   if (PASSIVES[id]) return PASSIVES[id].name;
   if (id === 'parry' || id === 'ult') return id === 'parry' ? 'Parry' : 'Ultimate'; // skill layer
+  if (id === 'pet' || id === 'team') return id === 'pet' ? 'Pet' : 'Team Moves'; // companion lane
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
 }
@@ -377,6 +378,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   const p = h.player;
   if (cheats.god || p.dead || p.invuln > 0) return;
   h.lastHitBy = cause || src?.def.name || 'Enemy fire';
+  if (this.petShield(h, raw, fromX, fromZ)) return; // pet shield: blocks one big hit per stage
   // One hit never takes more than maxHitFrac of max life (curses scale it before the cap).
   let dmg = Math.max(1, Math.round(Math.min((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken')), p.maxHp * playerTuning.maxHitFrac)));
   if (this.meta.rule('glass')) dmg = Math.ceil(p.hp);
@@ -433,6 +435,7 @@ export function onHeroDown(this: Game, h: Hero): void {
     this.vfx.banner('SECOND WIND!', `${h.name} is back on their feet`, 1.6);
     return;
   }
+  if (this.petRevive(h)) return; // pet revive: once per run
   if (this.pvp?.phase === 'duel') {
     this.vfx.sound('playerDie', p.x, p.z);
     this.vfx.shake(p.x, p.z, 1);

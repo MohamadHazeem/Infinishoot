@@ -1,6 +1,7 @@
 import { cleanHeat } from '../data/heat';
 import { save } from '../game/save';
 import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
+import { companionLinks } from './companionLinks';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
@@ -163,6 +164,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('boss')) game.debugSkipToBoss();
   routeLinks(game, q);
   animLinks(game, q);
+  companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

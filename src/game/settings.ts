@@ -59,6 +59,8 @@ export interface Settings {
   slowMo: boolean;
   /** Weather: rain, snow and other motes, lightning (off = always clear skies). */
   weather: boolean;
+  /** Pet zap sounds (pets zap often at high level). */
+  petSounds: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -98,9 +100,11 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   bossIntros: true,
   slowMo: true,
   weather: true,
+  petSounds: true,
 });
 settings.dynamicCamera ??= true;
 settings.weather ??= true;
+settings.petSounds ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

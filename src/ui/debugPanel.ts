@@ -31,6 +31,8 @@ import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
+import { petTuning } from '../data/pets';
+import { teamTuning } from '../game/teamMoves';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -232,6 +234,22 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   world.add(surfaceTuning, 'rippleEvery', 0.1, 3, 0.05);
   world.add(surfaceTuning, 'bubbleEvery', 0.05, 2, 0.05);
   world.add(surfaceTuning, 'glintsPerM2', 0, 1, 0.01);
+
+  // Companion lane: pets and co-op team moves.
+  const comp = gui.addFolder('Pets & team moves').close();
+  comp.add(petTuning, 'fetchMagnet', 0, 2, 0.05).name('Fetch range +');
+  comp.add(petTuning, 'zapDmg', 0, 100, 1).name('Zap damage');
+  comp.add(petTuning, 'zapPerLevel', 0, 20, 0.5).name('Zap per team lv');
+  comp.add(petTuning, 'tauntMinEnemies', 1, 10, 1).name('Taunt min crowd');
+  comp.add(petTuning, 'shieldMinFrac', 0, 1, 0.01).name('Shield min hit');
+  comp.add(petTuning, 'reviveHp', 0.1, 1, 0.05).name('Revive life');
+  comp.add(teamTuning, 'linkRange', 2, 15, 0.5).name('Team link range');
+  comp.add(teamTuning, 'linkTime', 0, 5, 0.1).name('Team link time');
+  comp.add(teamTuning, 'chargeTime', 2, 60, 1).name('Team charge (s)');
+  comp.add(teamTuning, 'highFiveBonus', 0, 1, 0.05).name('High-five bonus');
+  comp.add(teamTuning, 'dmg', 10, 400, 5).name('Team move damage');
+  comp.add({ fill: () => (game.companionState().meter.charge = 1) }, 'fill').name('Fill TEAM meter');
+  comp.add({ lv: () => game.heroes.forEach((h) => h.petState.levelUp() && h.recomputeStats()) }, 'lv').name('Pet level up');
 
   return gui;
 }

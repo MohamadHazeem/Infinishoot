@@ -41,6 +41,7 @@ export function updateRevives(this: Game, dt: number): void {
         this.vfx.num(o.player.x, 2.8, o.player.z, 'TEAMWORK!', 'heal');
         this.vfx.ring(o.player.x, o.player.z, 1, 4, '#ffcd75', 0.35);
       }
+      this.highFive(h, helpers); // companion lane: high-five heals both
     }
   }
 }

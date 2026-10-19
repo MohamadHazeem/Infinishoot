@@ -816,6 +816,21 @@ class Sfx {
     if (ctx) { this.tone(ctx, 'square', 700, 950, 0.1, 0.07); this.tone(ctx, 'square', 1000, 650, 0.15, 0.07, 0.12); }
   }
 
+  petLevel(): void {
+    const ctx = this.begin('petLevel', 0.3);
+    if (ctx) [784, 988, 1175, 1568].forEach((f, i) => this.tone(ctx, 'square', f, f, 0.09, 0.07, i * 0.07));
+  }
+
+  teamCharge(pitch = 1): void {
+    const ctx = this.begin('teamCharge', 0.4);
+    if (ctx) { this.tone(ctx, 'triangle', 300 * pitch, 900 * pitch, 0.35, 0.12); this.tone(ctx, 'sine', 600 * pitch, 1800 * pitch, 0.3, 0.06, 0.05); }
+  }
+
+  highFive(): void {
+    const ctx = this.begin('highFive', 0.3);
+    if (ctx) { this.noise(ctx, 0.06, 0.3, 3000, 1200); [1047, 1319, 1568].forEach((f, i) => this.tone(ctx, 'square', f, f, 0.12, 0.06, 0.05 + i * 0.06)); }
+  }
+
   hitMetal(): void {
     const ctx = this.begin('hitMetal', 0.06);
     if (ctx) { this.tone(ctx, 'triangle', 1700, 600, 0.08, 0.1); this.noise(ctx, 0.06, 0.15, 5000, 1800); }

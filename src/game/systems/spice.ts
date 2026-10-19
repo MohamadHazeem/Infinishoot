@@ -161,6 +161,7 @@ export function stageClear(this: Game): void {
     if (h.player.dead) this.reviveHero(h, 0.3, false);
     h.player.heal(h.player.maxHp * 0.3);
   }
+  this.companionStageClear(); // pets level up
   let sub = `+${economyTuning.clearGold} GOLD + INTEREST`;
   if (noHit) sub += `<br>NO-HIT BONUS +${noHit.toLocaleString('en-US')}`;
   if (this.stage % LOOP_STAGES === 0) {

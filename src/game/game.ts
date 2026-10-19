@@ -71,6 +71,7 @@ import * as WorldFxSys from './systems/worldFx';
 import * as SkillSys from './systems/skill';
 import * as RouteSys from './systems/route';
 import * as WindSys from './wind';
+import * as CompanionSys from './systems/companion';
 
 export { economyTuning } from './hero';
 
@@ -334,7 +335,7 @@ export class Game implements HeroWorld {
   nearestEnemy = CombatSys.nearestEnemy;
   enemiesInRadius = CombatSys.enemiesInRadius;
   damage = CombatSys.damage;
-  updatePets = CombatSys.updatePets;
+  updatePets = CompanionSys.updatePets;
   updateEliteMods = CombatSys.updateEliteMods;
   groundAt = CombatSys.groundAt;
   updateHazards = CombatSys.updateHazards;
@@ -498,6 +499,20 @@ export class Game implements HeroWorld {
   applySkillNet = SkillSys.applySkillNet;
   renderSkill = SkillSys.renderSkill;
   bestStyle = SkillSys.bestStyle;
+  // Companion: growing pets, TEAM meter and team moves, high-five revives (src/game/systems/companion.ts).
+  companionState = CompanionSys.companionState;
+  companionTargets = CompanionSys.companionTargets;
+  companionStageClear = CompanionSys.companionStageClear;
+  petGrowth = CompanionSys.petGrowth;
+  petShield = CompanionSys.petShield;
+  petRevive = CompanionSys.petRevive;
+  highFive = CompanionSys.highFive;
+  updateCompanion = CompanionSys.updateCompanion;
+  companionClientInput = CompanionSys.companionClientInput;
+  tryTeamMove = CompanionSys.tryTeamMove;
+  companionNet = CompanionSys.companionNet;
+  applyCompanionNet = CompanionSys.applyCompanionNet;
+  renderCompanion = CompanionSys.renderCompanion;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -1129,6 +1144,7 @@ export class Game implements HeroWorld {
     // Enemies chase the nearest living hero.
     this.targets.length = 0;
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
+    this.companionTargets();
     this.enemies.update(dt, this.enemyCtx);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
@@ -1162,6 +1178,7 @@ export class Game implements HeroWorld {
     this.fx.update(dt);
     lap('sim.particles+fx');
     if (this.heroes.length > 1 && !this.pvp) this.updateRevives(dt);
+    this.updateCompanion(dt);
 
     if (this.mode === 'fight' && this.combo > 0) {
       this.comboT -= dt;

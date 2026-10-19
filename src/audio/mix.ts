@@ -70,6 +70,9 @@ export const cueSamples: Readonly<Record<string, string>> = {
   burrow: 'burrow',
   mirrorCopy: 'mirror_copy',
   swarmScreech: 'swarm_screech',
+  petLevel: 'pet_level',
+  teamCharge: 'team_charge',
+  highFive: 'high_five',
 };
 export function cuePriority(name: string): number {
   if (/^(boss|bomb|elite|chest|lvl|evolve|legendary|clear|pdie|hurt|parry|perfect)/.test(name))
