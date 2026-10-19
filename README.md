@@ -73,6 +73,12 @@ Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to
 - **Arena toys**: turrets to switch on, jump pads, breakable cover, pillars to topple, hazards to knock enemies into, and an optional objective every stage.
 - **Night stages and rain**, dynamic lights, outlines, shockwaves, smoke and debris, with automatic quality to hold 60 fps.
 - **Sound**: recorded effects layered on the synths, positional audio, ambience per area, footsteps, and an announcer.
+- **Route map** between stages: pick elite fights, shops, treasure, events, rest or the hard path. **Weapon fusion** turns two maxed weapons into one of 10 hybrids.
+- **Pets that level up** and learn skills; in co-op, a **TEAM meter** for team moves and **high-five revives**.
+- **Heat modifiers** for harder runs, a **weekly challenge** with weird rules, cosmetic unlocks and a **codex**.
+- **Boss finishers**, character portraits with expressions, boss voices and hero voice lines.
+- **Neon City** and **Sky Fortress** areas, sunsets and cloud shadows, craters that stay, weapon trails, and **photo mode** (PAUSE > PHOTO MODE).
+- **Music** that adds an instrument for each weapon you hold, plus an optional 3D headphones mode.
 - **Elites** roll a modifier (Shielded, Fast, Splitting, Vampiric, Blinking, Volatile); bosses enrage as they lose life.
 - **Arenas**: four biomes with weather, swaying grass, lava that burns, slippery ice and conveyor belts, going from midday to sunset over each stage.
 - **Music** composed on the fly per area, with verses, choruses and boss themes that build with the fight; a jukebox in EXTRAS.
@@ -90,6 +96,7 @@ Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to
 | Special (Bomb, Thunderstorm, Blizzard, Meteor Shower) | Q, E, middle click | RB / Y |
 | Parry (just as a bullet or attack lands) | C | B |
 | Hero ultimate (when the ULT meter is full) | V | L3 / R3 / D-pad up |
+| Team move (co-op, when the TEAM meter is full) | T | D-pad down |
 | Ping (co-op) | G | View / Back |
 | Pause | Esc / P / pause button | Start |
 | Auto-fire | F | |
