@@ -1,3 +1,4 @@
+import { storyAr } from '../game/story/strings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
@@ -160,6 +161,7 @@ export const ar = {
   "menu.tip.charge": "سلاحك الثانوي يجعل الأعداء عرضة لضرر إضافي.",
   "menu.tip.gear": "احتفظ بالتروس لتجديد خياراتك عند رفع المستوى.",
   "menu.tip.build": "تعمل التعديلات بالترتيب من اليسار إلى اليمين. ترتيبها مهم.",
+  ...storyAr,
   "text.showdown_stay_in_the_ring_3b2966": "المواجهة الحاسمة · ابق داخل الحلبة",
   "text.infinishoot_3c78cb": "INFINISHOOT",
   "text.build_card_f5687c": "بطاقة التجهيزات",

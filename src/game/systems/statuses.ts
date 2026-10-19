@@ -1,3 +1,4 @@
+import { saveLock } from '../save';
 import { halloweenKill } from './halloween';
 import { gauntletKill } from './gauntlet';
 import { pvpFriendly } from '../pvp';
@@ -157,6 +158,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   const def = e.def;
   markSeen(def.id);
   this.mvpKill(e, by);
+  if ((def.boss || def.miniboss) && !saveLock.on) this.vfx.cine('story-chapter', 0, 0, 0, def.id);
   const wasFrozen = e.frozen > 0;
   this.kills++;
   this.combo++;

@@ -1,3 +1,4 @@
+import { storyEn } from '../game/story/strings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
   "content.84fee1b908": "Crosswind Blades",
@@ -159,6 +160,7 @@ export const en = {
   "menu.tip.charge": "Your secondary weapon exposes enemies to extra damage.",
   "menu.tip.gear": "Save gears to reroll your next level-up choices.",
   "menu.tip.build": "Mods trigger from left to right. Their order matters.",
+  ...storyEn,
   "text.showdown_stay_in_the_ring_3b2966": "SHOWDOWN · STAY IN THE RING",
   "text.infinishoot_3c78cb": "INFINISHOOT",
   "text.build_card_f5687c": "BUILD CARD",

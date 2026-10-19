@@ -306,6 +306,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     if (this.mode === 'transition') this.hud.setFade(Math.min(1, (this.fadeT += frameDt) / 0.35));
     else this.hud.setFade(Math.max(0, this.fadeT / 0.45));
   }
+  this.renderStory();
   this.renderCinematics(frameDt); // cinematics lane: sky fall, reveal camera, overlays (systems/cinematics.ts)
 
   if (local.loadoutDirty) {
