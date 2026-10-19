@@ -1,11 +1,8 @@
-/**
- * SFX synthesized with WebAudio, so there are no asset files. Chunky,
- * arcade-y blips routed through three buses (effects, music, menus) into a
- * master gain. Effects and music pass through a shared low-pass "muffle"
- * filter that big hit-stops close for a moment. Positioned sounds are panned
- * left/right and quieter with distance (see `at()`).
- */
+/** Recorded layers with immediate synthesized attacks and offline fallback. */
 import type { Rarity } from '../data/rarity';
+import { samples } from './samples';
+import { announcer } from './announcer';
+import { cuePriority, cueSamples, distanceCutoff, soundTuning, swarmGap, weaponSamples } from './mix';
 
 export const audioSettings = { volume: 0.5, sfx: 1, music: 0.7, ui: 0.8, muted: false };
 
@@ -16,6 +13,12 @@ class Sfx {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
   private buses!: Record<Bus, GainNode>;
+  private duckGain!: GainNode;
+  private duckUntil = 0;
+  private reverb: ConvolverNode | null = null;
+  private reverbGain: GainNode | null = null;
+  private voice: { pending: number; release(): void; nodes: AudioNode[]; sources: AudioScheduledSourceNode[] } | null = null;
+  crowd = 0;
   private muffler!: BiquadFilterNode;
   private noiseBuf!: AudioBuffer;
   private lastPlay = new Map<string, number>();
@@ -30,7 +33,7 @@ class Sfx {
   constructor() {
     const unlock = () => {
       this.ensure();
-      if (this.ctx?.state === 'suspended') void this.ctx.resume();
+      if (this.ctx?.state === 'suspended') void this.ctx.resume().catch(() => {});
     };
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
@@ -45,13 +48,20 @@ class Sfx {
     }
     const ctx = this.ctx;
     this.master = ctx.createGain();
-    this.master.connect(ctx.destination);
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -12;
+    limiter.knee.value = 9;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.18;
+    this.master.connect(limiter).connect(ctx.destination);
     this.muffler = ctx.createBiquadFilter();
     this.muffler.type = 'lowpass';
     this.muffler.frequency.value = 20000;
     this.muffler.connect(this.master);
     this.buses = { sfx: ctx.createGain(), music: ctx.createGain(), ui: ctx.createGain() };
-    this.buses.sfx.connect(this.muffler);
+    this.duckGain = ctx.createGain();
+    this.buses.sfx.connect(this.duckGain).connect(this.muffler);
     this.buses.music.connect(this.muffler);
     this.buses.ui.connect(this.master);
     this.applyVolumes();
@@ -59,6 +69,8 @@ class Sfx {
     this.noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    samples.init(ctx, this.buses, (bus) => !audioSettings.muted && audioSettings.volume > 0 && audioSettings[bus] > 0);
+    announcer.configure(() => ctx.currentTime, (seconds) => this.duck(seconds, 0.4, true));
     return ctx;
   }
 
@@ -78,10 +90,22 @@ class Sfx {
     return { ctx, node: this.buses[bus] };
   }
 
+  /** A parallel send: the dry signal is preserved, including in dry desert rooms. */
+  setReverb(impulse: AudioBuffer, wet: number): void {
+    if (!this.ctx) return;
+    if (!this.reverb) {
+      this.reverb = this.ctx.createConvolver();
+      this.reverbGain = this.ctx.createGain();
+      this.buses.sfx.connect(this.reverb).connect(this.reverbGain).connect(this.duckGain);
+    }
+    this.reverb.buffer = impulse;
+    this.reverbGain!.gain.setTargetAtTime(wet, this.ctx.currentTime, 0.15);
+  }
+
   /** Position the next sound: pan -1 (left) .. 1 (right), gain 0..1 for distance. Reset with at(0, 1). */
   at(pan: number, gain: number): void {
     this.pan = Math.max(-1, Math.min(1, pan));
-    this.posGain = gain;
+    this.posGain = Math.max(0, Math.min(1, gain));
   }
 
   /** Returns a ready context, or null if muted / locked / rate-limited. */
@@ -89,24 +113,79 @@ class Sfx {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running' || audioSettings.muted) return null;
     const now = ctx.currentTime;
-    if (now - (this.lastPlay.get(name) ?? -1) < minGap) return null;
+    if (name === 'w:drone' || name === 'w:flame' || name === 'w:laser' || name === 'w:aura') minGap = Math.max(minGap, 0.18);
+    if (name === 'die' || name === 'hit' || name === 'hitMetal') minGap = Math.max(minGap, swarmGap(this.crowd));
+    if (now - (this.lastPlay.get(name) ?? -Infinity) < minGap) return null;
     this.lastPlay.set(name, now);
+    const line = ({ boss: 'boss', elite: 'elite', evolve: 'evolution', legendaryPick: 'legendary', lvl: 'level_up' } as Record<string, string>)[name];
+    if (line) announcer.say(line);
+    if (audioSettings.volume <= 0 || audioSettings[bus] <= 0) return null;
+    const priority = cuePriority(name) - (name.startsWith('w:') && this.posGain < 0.7 ? 1 : 0);
+    const nodes: AudioNode[] = [];
+    const sources: AudioScheduledSourceNode[] = [];
+    const cleanup = () => { for (const node of nodes) node.disconnect(); };
+    const release = samples.budget.acquire('synth:' + name, priority, priority === 0 ? 2 : 4, () => {
+      for (const source of sources) source.stop();
+      cleanup();
+    });
+    if (!release) return null;
     this.applyVolumes();
     let node: AudioNode = this.buses[bus];
-    if (bus === 'sfx' && this.pan !== 0) {
+    if (bus === 'sfx') {
       const p = ctx.createStereoPanner();
       p.pan.value = this.pan;
       p.connect(node);
+      nodes.push(p);
       node = p;
+      if (this.posGain < 0.95) {
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = distanceCutoff(this.posGain);
+        filter.connect(node);
+        nodes.push(filter);
+        node = filter;
+      }
     }
-    if (this.posGain !== 1) {
-      const g = ctx.createGain();
-      g.gain.value = this.posGain;
-      g.connect(node);
-      node = g;
-    }
-    this.route = node;
+    const sample = name.startsWith('w:') ? weaponSamples[name.slice(2)] : cueSamples[name];
+    const layered = sample ? samples.play(sample, { bus: bus === 'ui' ? 'ui' : 'sfx', pan: this.pan,
+      distance: this.posGain, priority, cooldown: minGap, limit: priority === 0 ? 2 : 3 }) : null;
+    const g = ctx.createGain();
+    g.gain.value = (bus === 'sfx' ? this.posGain : 1) * (layered ? soundTuning.synthLayer : 1);
+    g.connect(node);
+    nodes.push(g);
+    this.route = g;
+    this.voice = { pending: 0, release: () => { release(); cleanup(); }, nodes, sources };
+    if (name === 'bomb' || name === 'bossSlam') this.duck(0.25, 0.7);
+    // Some optional weapon cues only have a sample. Release their empty synth lease.
+    const voice = this.voice;
+    queueMicrotask(() => { if (voice.pending === 0) voice.release(); });
     return ctx;
+  }
+
+  private track(source: AudioScheduledSourceNode, nodes: AudioNode[]): void {
+    const voice = this.voice!;
+    voice.pending++;
+    voice.sources.push(source);
+    voice.nodes.push(...nodes);
+    source.onended = () => { for (const node of nodes) node.disconnect(); if (--voice.pending === 0) voice.release(); };
+  }
+
+  /** Dedicated gain automation survives volume changes and overlapping big moments. */
+  duck(seconds: number, depth = 0.4, replace = false): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const until = now + seconds;
+    if (!replace && until < this.duckUntil) return;
+    this.duckUntil = until;
+    const gain = this.duckGain.gain;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    gain.linearRampToValueAtTime(seconds > 0 ? depth : 1, now + 0.025);
+    if (seconds > 0) {
+      gain.setValueAtTime(depth, Math.max(until, now + 0.025));
+      gain.linearRampToValueAtTime(1, until + 0.35);
+    }
   }
 
   private tone(ctx: AudioContext, wave: Wave, f0: number, f1: number, dur: number, vol: number, delay = 0) {
@@ -119,6 +198,7 @@ class Sfx {
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     o.connect(g).connect(this.route);
+    this.track(o, [o, g]);
     o.start(t);
     o.stop(t + dur + 0.02);
   }
@@ -136,6 +216,7 @@ class Sfx {
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     src.connect(f).connect(g).connect(this.route);
+    this.track(src, [src, f, g]);
     src.start(t, Math.random() * 0.5);
     src.stop(t + dur + 0.02);
   }
@@ -440,14 +521,23 @@ class Sfx {
     if (!ctx) return;
     const p = 1 + (Math.random() - 0.5) * 0.1;
     switch (name) {
+      case 'scatter':
+      case 'pellets':
       case 'shoot':
         this.tone(ctx, 'square', 880 * p, 220 * p, 0.08, 0.1);
         this.noise(ctx, 0.04, 0.12, 3000);
         break;
+      case 'laser':
+      case 'sweeper':
+      case 'storm':
+      case 'lightning':
+      case 'aura':
       case 'zap':
         this.noise(ctx, 0.12, 0.25, 5000, 2000, 4);
         this.tone(ctx, 'sawtooth', 1200 * p, 300, 0.08, 0.06);
         break;
+      case 'drone':
+      case 'bouncer':
       case 'disc':
         this.tone(ctx, 'triangle', 300 * p, 900 * p, 0.15, 0.08);
         break;
@@ -457,12 +547,14 @@ class Sfx {
       case 'mine':
         this.tone(ctx, 'square', 200, 160, 0.05, 0.06);
         break;
+      case 'nova':
       case 'freeze':
         this.tone(ctx, 'sine', 1800, 600, 0.35, 0.1);
         this.noise(ctx, 0.35, 0.2, 6000, 3000, 6);
         break;
       case 'explode':
-        this.explode();
+        this.noise(ctx, 0.35, 0.5, 500, 80, 0.7);
+        this.tone(ctx, 'sine', 160, 40, 0.3, 0.3);
         break;
       case 'charge':
         this.tone(ctx, 'triangle', 500 * p, 900 * p, 0.06, 0.04);
@@ -471,6 +563,7 @@ class Sfx {
         this.tone(ctx, 'square', 1320, 1320, 0.08, 0.07);
         this.tone(ctx, 'square', 1760, 1760, 0.12, 0.06, 0.07);
         break;
+      case 'orb':
       case 'chargeShot':
         this.tone(ctx, 'sawtooth', 220 * p, 60, 0.3, 0.16);
         this.noise(ctx, 0.25, 0.25, 900, 3000, 2);
@@ -480,11 +573,13 @@ class Sfx {
         this.tone(ctx, 'sawtooth', 160 * p, 90, 0.18, 0.08);
         break;
       // Right-click weapons: each gets a heavy, distinct report.
+      case 'meteor':
       case 'lob':
         this.tone(ctx, 'sine', 190 * p, 80, 0.14, 0.28);
         this.noise(ctx, 0.1, 0.3, 700, 300, 1);
         this.tone(ctx, 'square', 900 * p, 600, 0.05, 0.05, 0.05);
         break;
+      case 'blackhole':
       case 'vortex':
         this.noise(ctx, 0.45, 0.3, 250, 2400, 3);
         this.tone(ctx, 'sine', 140 * p, 50, 0.45, 0.25);
@@ -608,6 +703,64 @@ class Sfx {
     const ctx = this.begin('spawn', 0.1);
     if (!ctx) return;
     this.tone(ctx, 'triangle', 200, 400, 0.12, 0.06);
+  }
+
+  parry(): void {
+    const ctx = this.begin('parry', 0.2);
+    if (ctx) { this.tone(ctx, 'triangle', 2300, 900, 0.18, 0.17); this.noise(ctx, 0.1, 0.2, 5000, 1600); }
+  }
+
+  perfectDash(): void {
+    const ctx = this.begin('perfectDash', 0.3);
+    if (ctx) { this.noise(ctx, 0.22, 0.2, 700, 3200); this.tone(ctx, 'sine', 1200, 2400, 0.2, 0.09); }
+  }
+
+  jumpPad(): void {
+    const ctx = this.begin('jumpPad', 0.2);
+    if (ctx) this.tone(ctx, 'triangle', 160, 950, 0.22, 0.14);
+  }
+
+  coverBreak(): void {
+    const ctx = this.begin('coverBreak', 0.15);
+    if (ctx) this.noise(ctx, 0.25, 0.25, 1200, 180);
+  }
+
+  goldenLaugh(): void {
+    const ctx = this.begin('goldenLaugh', 2);
+    if (ctx) { this.tone(ctx, 'square', 700, 950, 0.1, 0.07); this.tone(ctx, 'square', 1000, 650, 0.15, 0.07, 0.12); }
+  }
+
+  hitMetal(): void {
+    const ctx = this.begin('hitMetal', 0.06);
+    if (ctx) { this.tone(ctx, 'triangle', 1700, 600, 0.08, 0.1); this.noise(ctx, 0.06, 0.15, 5000, 1800); }
+  }
+
+  eliteDie(): void {
+    const ctx = this.begin('eliteDie', 0.18);
+    if (ctx) { this.noise(ctx, 0.4, 0.4, 800, 90); this.tone(ctx, 'sine', 150, 35, 0.35, 0.3); }
+  }
+
+  bossSlam(): void {
+    const ctx = this.begin('bossSlam', 0.3);
+    if (ctx) { this.noise(ctx, 0.45, 0.45, 350, 60); this.tone(ctx, 'sine', 100, 28, 0.4, 0.4); }
+  }
+
+  bossPhase(): void {
+    const ctx = this.begin('bossPhase', 1);
+    if (ctx) this.tone(ctx, 'sawtooth', 110, 660, 0.6, 0.14);
+  }
+
+  footstep(ground: string): void {
+    if (samples.play('step_' + ground, { gain: 0.1, priority: 0, cooldown: 0.22, limit: 2, variation: 0.12 })) return;
+    const ctx = this.begin('step', 0.22);
+    if (ctx) this.noise(ctx, 0.045, 0.045, ground === 'metal' ? 1900 : 650, 300);
+  }
+
+  whoosh(pan: number): void {
+    this.at(pan, 0.7);
+    const ctx = this.begin('whoosh', 0.35);
+    if (ctx) this.noise(ctx, 0.13, 0.1, 500, 2600, 1.5);
+    this.at(0, 1);
   }
 
   playerDie(): void {
