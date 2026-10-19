@@ -1,6 +1,6 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
 export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper';
-export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper';
+export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive';
 
 export interface EnemyDef {
   id: string;
@@ -57,6 +57,15 @@ export interface EnemyDef {
   treasure?: { life: number };
   /** Stage boss (boss bar, bounty, no crowd separation). */
   boss?: boolean;
+  /**
+   * Bosses and mini-bosses: HP fractions where the next phase starts (src/game/bosses.ts).
+   * Crossing one triggers an invulnerable roar and a new attack set; damage can't skip a phase.
+   */
+  phases?: number[];
+  /** Mid-stage mini-boss (own bar, drops a chest, not the stage boss). */
+  miniboss?: boolean;
+  /** Subtitle on the boss entrance title card. */
+  title?: string;
   /** How it dies: robots scatter bolts and springs, goo splashes, shards shatter. */
   death?: 'robot' | 'goo' | 'shards';
 }
@@ -424,6 +433,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     behavior: 'boss',
     model: 'king',
     boss: true,
+    phases: [0.66, 0.33],
+    title: 'RULER OF THE BOUNCE',
     hp: 2400,
     speed: 2.5,
     radius: 2.0,
@@ -443,6 +454,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     behavior: 'rex',
     model: 'rex',
     boss: true,
+    phases: [0.66, 0.33],
+    title: 'THE HORN THAT FEARS NO WALL',
     hp: 2700,
     speed: 3.2,
     radius: 2.1,
@@ -462,6 +475,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     behavior: 'queen',
     model: 'queen',
     boss: true,
+    phases: [0.66, 0.33],
+    title: 'MOTHER OF THE SWARM',
     hp: 2300,
     speed: 4.5,
     radius: 1.8,
@@ -481,6 +496,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     behavior: 'omega',
     model: 'omega',
     boss: true,
+    phases: [0.6, 0.25], // omegaTuning.phase2At / phase3At
+    title: 'THE FINAL PROGRAM',
     hp: 5000, // ~2x King, before bossTuning.hp and stage scaling
     speed: 2.8,
     radius: 2.4,
@@ -494,6 +511,96 @@ export const ENEMIES: Record<string, EnemyDef> = {
     weight: 0,
     // Its charge chain: range = distance that triggers a gap-closing charge or jump.
     charge: { range: 15, windup: 0.85, speed: 26, duration: 0.5, recover: 1.0 },
+  },
+  /**
+   * Mid-stage mini-bosses (from stage 2, see src/game/systems/bossFight.ts): smaller
+   * variants of the bosses with the same brains, two phases and their own bar.
+   */
+  prince: {
+    id: 'prince',
+    death: 'robot',
+    name: 'Prince Bopper',
+    behavior: 'boss',
+    model: 'king',
+    miniboss: true,
+    phases: [0.5],
+    title: 'HEIR TO THE BOUNCE',
+    hp: 720,
+    speed: 2.8,
+    radius: 1.3,
+    bodyColor: '#41a6f6',
+    accentColor: '#ffcd75',
+    contactDamage: 16,
+    knockbackResist: 0.9,
+    xp: 40,
+    score: 3000,
+    minMinute: -1,
+    minStage: 2,
+    weight: 0,
+  },
+  rexling: {
+    id: 'rexling',
+    death: 'robot',
+    name: 'Rex Jr.',
+    behavior: 'rex',
+    model: 'rex',
+    miniboss: true,
+    phases: [0.5],
+    title: 'LITTLE HORN, BIG TEMPER',
+    hp: 800,
+    speed: 3.4,
+    radius: 1.35,
+    bodyColor: '#a7f070',
+    accentColor: '#ef7d57',
+    contactDamage: 18,
+    knockbackResist: 0.9,
+    xp: 40,
+    score: 3000,
+    minMinute: -1,
+    minStage: 2,
+    weight: 0,
+  },
+  princess: {
+    id: 'princess',
+    death: 'goo',
+    name: 'Hive Princess',
+    behavior: 'queen',
+    model: 'queen',
+    miniboss: true,
+    phases: [0.5],
+    title: 'HEIR TO THE HIVE',
+    hp: 700,
+    speed: 4.8,
+    radius: 1.2,
+    bodyColor: '#f4f4f4',
+    accentColor: '#b13e53',
+    contactDamage: 15,
+    knockbackResist: 0.9,
+    xp: 40,
+    score: 3000,
+    minMinute: -1,
+    minStage: 2,
+    weight: 0,
+  },
+  /** Planted by the Hive Queen: hatches Swarmers until destroyed, and heals her while it stands. */
+  hive: {
+    id: 'hive',
+    death: 'goo',
+    name: 'Royal Hive',
+    behavior: 'spawner',
+    model: 'hive',
+    hp: 180,
+    speed: 0,
+    radius: 0.85,
+    bodyColor: '#ffcd75',
+    accentColor: '#ef7d57',
+    contactDamage: 8,
+    knockbackResist: 1,
+    xp: 4,
+    score: 400,
+    minMinute: -1,
+    weight: 0,
+    spawn: { into: 'swarmer', count: 3, interval: 5.5 },
   },
   /**
    * Late-run filter: the director sends Reapers once the team level reaches
@@ -609,4 +716,18 @@ export function squadSize(stage: number): number {
 export const BOSS_ORDER = ['king', 'rex', 'queen', 'omega'];
 export function bossForStage(stage: number): EnemyDef {
   return ENEMIES[BOSS_ORDER[(Math.max(1, stage) - 1) % BOSS_ORDER.length]];
+}
+
+/** Mini-bosses and the boss each one is a smaller copy of. */
+export const MINI_BOSSES: { id: string; of: string }[] = [
+  { id: 'prince', of: 'king' },
+  { id: 'rexling', of: 'rex' },
+  { id: 'princess', of: 'queen' },
+];
+
+/** The mid-stage mini-boss for a stage: never a copy of that stage's own boss, rotating by stage. */
+export function miniBossForStage(stage: number): EnemyDef {
+  const boss = bossForStage(stage).id;
+  const pool = MINI_BOSSES.filter((m) => m.of !== boss);
+  return ENEMIES[pool[Math.max(0, stage) % pool.length].id];
 }

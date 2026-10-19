@@ -56,6 +56,10 @@ import * as RenderSys from './systems/render';
 import * as EnemyAiSys from './systems/enemyAi';
 import * as AnimSys from './systems/anim';
 import * as LookSys from './systems/look';
+import * as BossFightSys from './systems/bossFight';
+import { BossField } from './bossField';
+import { BossIntro } from './bossIntro';
+import type { BossApi } from './bosses';
 
 export { economyTuning } from './hero';
 
@@ -395,6 +399,17 @@ export class Game implements HeroWorld {
   cameraDirector = AnimSys.cameraDirector;
   onCorpse = AnimSys.onCorpse;
   updateLook = LookSys.updateLook;
+  makeBossApi = BossFightSys.makeBossApi;
+  bossHpGate = BossFightSys.bossHpGate;
+  startBossIntro = BossFightSys.startBossIntro;
+  skipBossIntro = BossFightSys.skipBossIntro;
+  updateBossFight = BossFightSys.updateBossFight;
+  updateMiniBoss = BossFightSys.updateMiniBoss;
+  bossNet = BossFightSys.bossNet;
+  applyBossNet = BossFightSys.applyBossNet;
+  renderBossFight = BossFightSys.renderBossFight;
+  bossHud = BossFightSys.bossHud;
+  debugBoss = BossFightSys.debugBoss;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -509,6 +524,13 @@ export class Game implements HeroWorld {
   mz = { x: 0, z: 0 };
   tmp = new THREE.Vector3();
   scratch: Enemy[] = [];
+  /** Boss arena state and drawing, entrance cinematic, boss move hooks (systems/bossFight.ts). */
+  bossField!: BossField;
+  bossIntro!: BossIntro;
+  bossApi: BossApi = this.makeBossApi();
+  /** Host: uid of the boss whose entrance plays, and seconds of it left (sent to clients). */
+  introUid = 0;
+  introLeft = 0;
   /** What the Q/E specials (other than the Bomb) may touch; see specials.ts. */
   specialApi: SpecialApi = this.makeSpecialApi();
   /** The free starting shop before stage 1 is open (its gold is not kept). */
@@ -553,6 +575,9 @@ export class Game implements HeroWorld {
     this.cam = new CameraRig(aspect);
     this.dmg = new DamageNumbers(hudRoot);
     this.hud = new Hud(hudRoot);
+    this.bossField = new BossField(this.scene);
+    this.bossIntro = new BossIntro(hudRoot);
+    this.bossIntro.onSkip = () => this.skipBossIntro();
     this.vfx = new Vfx({
       fx: this.fx,
       particles: this.particles,
@@ -786,6 +811,7 @@ export class Game implements HeroWorld {
       },
       detonate: (e) => this.detonate(e),
       slam: (e) => this.bossSlam(e),
+      boss: this.bossApi,
       strike: (x, z, r, delay, damage) => {
         this.strikes.push({ x, z, r, t: delay, dmg: damage * this.director.dmgMul });
         this.vfx.zone(x, z, r, delay);
@@ -988,6 +1014,7 @@ export class Game implements HeroWorld {
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
     this.updateStrikes(dt);
+    this.updateBossFight(dt);
     this.recycleFarEnemies(dt);
 
     this.updateBullets(dt);

@@ -132,7 +132,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   // Drops
   this.pickups.spawn(PickupType.Gem, e.x, e.z, xp * dropTuning.xpMul);
   const isBoss = !!def.boss;
-  const big = e.elite || isBoss || def.id === 'reaper';
+  const big = e.elite || isBoss || def.id === 'reaper' || !!def.miniboss;
   if (big) {
     // Every hero gets a chest from bosses; elites drop one.
     const chests = isBoss ? Math.max(1, this.heroes.filter((h) => !h.left).length) : 1;

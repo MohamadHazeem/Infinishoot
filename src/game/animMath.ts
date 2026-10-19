@@ -161,6 +161,8 @@ export function gaitOf(model: Model): Gait {
       return 'hop';
     case 'golden':
       return 'flutter';
+    case 'hive':
+      return 'pulse';
   }
 }
 

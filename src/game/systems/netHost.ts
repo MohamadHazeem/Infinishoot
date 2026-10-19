@@ -188,6 +188,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
       stats: { moveSpeedMul: forHero.stats.moveSpeedMul, dashCooldownMul: forHero.stats.dashCooldownMul, dashCharges: forHero.stats.dashCharges, maxHp: forHero.stats.maxHp, magnet: forHero.stats.magnet, areaMul: forHero.stats.areaMul },
     },
     portal: this.portal.active ? [r2(this.portal.x), r2(this.portal.z)] : null,
+    bx: this.bossNet(),
     en: packEnemies(en),
     bu: packBullets(this.bullets, bi),
     pk: packPickups(this.pickups, pi),

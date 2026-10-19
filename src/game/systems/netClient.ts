@@ -4,6 +4,7 @@
  * installed on the class as fields, e.g. `onClientMessage = NetClient.onClientMessage;`.
  */
 import type { Game } from '../game';
+import type { BossNet } from '../bossField';
 import { Mode, INPUT_EVERY, REVIVE_TIME, PVP_WAIT_NOTE, NetShop } from '../game';
 import { MOD_BY_ID } from '../../data/mods';
 import { sfx } from '../../audio/sfx';
@@ -309,6 +310,7 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
     this.enemies.kill(e);
     this.netEnemies.delete(uid);
   }
+  this.applyBossNet(s.bx as BossNet | undefined);
 
   unpackBullets(s.bu as ArrayBuffer, this.bullets);
   unpackPickups(s.pk as ArrayBuffer, this.pickups);

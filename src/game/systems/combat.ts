@@ -42,6 +42,7 @@ export function enemiesInRadius(this: Game, x: number, z: number, r: number, out
 export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: Hero): number {
   if (!e.active || e.hp <= 0) return 0;
   if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
+  if (e.roarT > 0) return 0; // bosses are invulnerable while they roar or make their entrance
   const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
   const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
   const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
@@ -99,6 +100,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
     if (crit) by.synergy.crit(ev);
     if (crit && by.hasRelic('r_static') && o.source !== 'zap' && e.active) this.zap(e, 2, Math.max(4, amount * 0.35), by);
   }
+  if (e.def.phases) this.bossHpGate(e); // boss phases: can't skip one or die early
   if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);
   return amount;
 }

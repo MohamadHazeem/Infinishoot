@@ -4076,3 +4076,173 @@ table.history .cause {
   .screen button { translate: none !important; scale: none; }
   .level-burst, .card-shine, .hud-pick-layer { display: none !important; }
 }
+/* ---- Boss lane: phase ticks, mini-boss bar, entrance cinematic ---- */
+#bossbar .bar {
+  position: relative;
+}
+
+#bossbar .ticks i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--p);
+  background: var(--white);
+  box-shadow: var(--p) 0 0 var(--ink);
+}
+
+#bossbar .ph {
+  position: absolute;
+  right: 0;
+  top: 0;
+  font: 10px var(--label);
+  color: var(--yellow);
+  letter-spacing: 2px;
+}
+
+#bossbar.mini {
+  width: min(360px, 60vw);
+}
+
+#bossbar.mini .name {
+  color: var(--cyan);
+}
+
+#bossbar.mini .fill {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 calc(12 * var(--p)), rgba(26, 28, 44, 0.5) 0 calc(13 * var(--p))),
+    linear-gradient(var(--cyan) 0 34%, var(--sky) 0);
+}
+
+#bossintro {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#bossintro[hidden] {
+  display: none;
+}
+
+/* The entrance hides the busy HUD bits (bars, banners, event lines). */
+.cinematic #bossbar,
+.cinematic #banner,
+.cinematic #toast,
+.cinematic #spice,
+.cinematic #minimap {
+  visibility: hidden !important;
+}
+
+#bossintro .lb {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 13vh;
+  background: var(--ink);
+}
+
+#bossintro .lb.top {
+  top: 0;
+  box-shadow: 0 var(--p) 0 var(--boss, var(--red));
+}
+
+#bossintro .lb.bot {
+  bottom: 0;
+  box-shadow: 0 calc(-1 * var(--p)) 0 var(--boss, var(--red));
+}
+
+#bossintro.in .lb.top {
+  animation: lb-top 0.3s steps(4) both;
+}
+
+#bossintro.in .lb.bot {
+  animation: lb-bot 0.3s steps(4) both;
+}
+
+#bossintro.out .lb.top {
+  animation: lb-top 0.4s steps(4) reverse both;
+}
+
+#bossintro.out .lb.bot {
+  animation: lb-bot 0.4s steps(4) reverse both;
+}
+
+#bossintro .card {
+  position: absolute;
+  left: 6vw;
+  bottom: calc(13vh - 18px);
+  text-align: left;
+}
+
+#bossintro.in .card {
+  animation: card-in 0.5s steps(5) 0.25s both;
+}
+
+#bossintro.out .card {
+  animation: card-out 0.3s steps(3) both;
+}
+
+#bossintro .nm {
+  font-family: var(--display);
+  font-size: clamp(48px, 9vw, 110px);
+  line-height: 0.9;
+  color: var(--white);
+  letter-spacing: 3px;
+  text-shadow:
+    var(--outline),
+    0 6px 0 var(--boss, var(--red)),
+    0 9px 0 var(--ink);
+}
+
+#bossintro .sb {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 2px 12px;
+  font: 26px var(--font);
+  letter-spacing: 2px;
+  text-shadow: none;
+  color: var(--ink);
+  background: var(--yellow);
+  box-shadow: var(--p) var(--p) 0 var(--ink);
+}
+
+#bossintro .skip {
+  position: absolute;
+  right: 4vw;
+  bottom: 3vh;
+  font: 10px var(--label);
+  color: var(--mist);
+  letter-spacing: 2px;
+}
+
+@keyframes lb-top {
+  from {
+    transform: translateY(-100%);
+  }
+}
+
+@keyframes lb-bot {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes card-in {
+  from {
+    transform: translateX(-60vw);
+  }
+  70% {
+    transform: translateX(2vw);
+  }
+}
+
+@keyframes card-out {
+  to {
+    transform: translateX(-60vw);
+    opacity: 0;
+  }
+}
+
+#bossbar.mini .ph {
+  display: none;
+}

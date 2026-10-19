@@ -45,6 +45,8 @@ export interface Settings {
   loadout: Loadout;
   /** Smart camera: auto zoom with the swarm and the boss kill-cam (off = plain follow camera). */
   dynamicCamera: boolean;
+  /** Boss entrance cinematics (letterbox, camera pan, title card). */
+  bossIntros: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -76,6 +78,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   nightStages: true,
   loadout: { ...DEFAULT_LOADOUT },
   dynamicCamera: true,
+  bossIntros: true,
 });
 settings.dynamicCamera ??= true;
 settings.loadout = validLoadout(settings.loadout);

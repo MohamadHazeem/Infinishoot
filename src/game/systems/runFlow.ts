@@ -42,6 +42,8 @@ export function clearWorld(this: Game): void {
   this.portal.close();
   this.juice.reset();
   this.boss = null;
+  this.bossField.clear();
+  this.bossIntro.stop(this.cam.camera);
   this.bossBoom = null;
   this.slowMoT = 0;
   this.strikes.length = 0;

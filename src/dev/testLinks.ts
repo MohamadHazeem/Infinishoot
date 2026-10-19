@@ -28,6 +28,8 @@ import { lookOverrides } from '../game/systems/look';
  *   &hurt=1.5    a small hit every 1.5 s (flinch)   &die=3  fall down after 3 s
  *   &frozen      stop enemies moving (close-ups)     &dashes=1  dash every second
  *   ?test&night&quality=high           force a night stage (or &day), pin quality (low|medium|high|auto)
+ *   ?test&stage=2&bossnow&phase=2&god  boss right away, pushed into phase 2 (nointro skips the entrance)
+ *   ?test&stage=3&miniboss             the stage's mini-boss lands now
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -113,6 +115,9 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       game.vfx.burst(x, 0.6, z, { count: 18, color: '#ffb627', color2: '#ff5e3a', speed: [3, 9], size: [0.2, 0.45], life: [0.3, 0.7], up: 4, gravity: 12 });
     }, 700);
   }
+  // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
+  if (q.has('nointro')) settings.bossIntros = false;
+  game.debugBoss({ now: q.has('bossnow'), mini: q.has('miniboss'), phase: Number(q.get('phase')) || 0 });
   return true;
 }
 
