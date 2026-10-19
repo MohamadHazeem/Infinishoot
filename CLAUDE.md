@@ -9,6 +9,8 @@ Roadmap and decision log: @PLAN.md
 - `npm run build`: typecheck + production build to `dist/`
 - `npm test`: unit tests in tests/*.test.ts (bundled with rolldown, run in Node)
 - `npm run smoke`: headless whole-game smoke test (jsdom, autoplay bot through every mode and hero, fails on any runtime error); CI runs both
+- `npm run shot -- "?test&stage=4&boss" shots/x.png`: headless screenshot of a test link (src/dev/testLinks.ts); see CONTRIBUTING.md for the link options
+- Workflow rules for people and agents: CONTRIBUTING.md (Codex reads AGENTS.md). Most Game methods live in src/game/systems/*.ts.
 - `npm run app`: build and open the Electron desktop app
 - `npm run dist`: build the portable Windows exe to `release/InfiniShoot.exe` (Electron, electron/main.cjs).
 - `npm run dist:mac`: build unsigned Mac dmgs (arm64 + x64) to `release/`. The exe and the dmgs are the shipped builds; there is no itch.io build.

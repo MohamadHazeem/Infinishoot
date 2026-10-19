@@ -4,7 +4,7 @@
  * installed on the class as fields, e.g. `clearWorld = RunFlow.clearWorld;`.
  */
 import type { Game } from '../game';
-import { LOOP_STAGES, TITLE_SEED, xpForLevel, playerName } from '../game';
+import { LOOP_STAGES, TITLE_SEED, xpForLevel, playerName, cheats } from '../game';
 import { Rng, randomSeed } from '../../core/rng';
 import { StaticBoxGrid } from '../../core/spatialHash';
 import { ACHIEVEMENTS } from '../../data/meta';
@@ -139,7 +139,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.runEvents.reset();
   this.director.players = this.heroes.length;
   // Everyone keeps the loadout they picked; this machine's comes from its settings.
-  if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, unlockedLoadout());
+  if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, cheats.unlockAll ? undefined : unlockedLoadout());
   for (const h of this.heroes) {
     h.left = false;
     h.startRun();

@@ -129,7 +129,8 @@ export const statusTuning = {
   exposeMult: 0.3,
 };
 
-export const cheats = { god: false };
+/** Dev cheats: `god` ignores damage; `unlockAll` lets test links use locked loadout items. */
+export const cheats = { god: false, unlockAll: false };
 
 export type Mode = 'title' | 'fight' | 'levelup' | 'shop' | 'cleared' | 'portal' | 'transition' | 'dead';
 export type Role = 'solo' | 'host' | 'client';

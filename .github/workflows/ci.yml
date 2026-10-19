@@ -1,4 +1,5 @@
-# Typecheck and build every push and pull request, so nothing broken reaches main.
+# Checks every push and pull request, so nothing broken reaches main.
+# The three jobs run in parallel to keep feedback fast.
 name: CI
 
 on:
@@ -6,12 +7,13 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # The web build doesn't need the Electron binary.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # The web build doesn't need the Electron binary.
-      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,7 +21,26 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
       - run: npm run build
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm test
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm run smoke

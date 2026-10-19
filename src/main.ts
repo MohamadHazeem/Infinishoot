@@ -9,6 +9,7 @@ import { Game, cheats } from './game/game';
 import { applySettings, settings } from './game/settings';
 import { createDebugPanel } from './ui/debugPanel';
 import { setupTouch } from './ui/touch';
+import { applyTestLink } from './dev/testLinks';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const hudEl = document.getElementById('hud')!;
@@ -24,6 +25,8 @@ const game = new Game(input, renderer.aspect, hudEl, reticleEl);
 window.addEventListener('resize', () => game.cam.setAspect(renderer.aspect));
 setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none');
 createDebugPanel(renderer, game, () => game.cam.setAspect(renderer.aspect));
+// Test links (?test&stage=4&boss...): jump straight into a situation. See src/dev/testLinks.ts.
+applyTestLink(game);
 
 // Leaving the tab mid-fight opens the pause menu.
 document.addEventListener('visibilitychange', () => {
