@@ -313,7 +313,9 @@ export function coopHello(this: Game, from: string, m: Record<string, unknown>):
     host.send(from, { t: 'full', reason });
     return true;
   };
-  if (!joinable(this)) return refuse(this.mode === 'dead' ? 'That run just ended.' : 'That run is closed to new players.');
+  // A dropped player whose hero waits on autopilot may always come back (netcode lane), even into a closed run.
+  const waiting = typeof m.pid === 'string' && m.pid !== '' && s.grace.some((x) => s.pids[x.index] === m.pid);
+  if (!joinable(this) && !(waiting && this.mode !== 'dead' && this.role === 'host' && !!this.host)) return refuse(this.mode === 'dead' ? 'That run just ended.' : 'That run is closed to new players.');
   if (s.pending.some((p) => p.peerId === from) || this.heroByPeer(from)) return true;
   const name = String(m.name ?? 'Player').slice(0, 12);
   const pid = typeof m.pid === 'string' ? m.pid.slice(0, 16) : '';

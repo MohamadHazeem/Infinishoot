@@ -126,6 +126,11 @@ export class Bullets {
   private shapeMeshes: { core: THREE.InstancedMesh; halo: THREE.InstancedMesh }[] = [];
   /** Visual identity (BulletLook) and where the bullet was drawn last frame (NaN = not yet). */
   readonly look = new Uint8Array(MAX);
+  /** Per-bullet id (online: the bullet delta codec, src/net/bulletCodec.ts) and the next one to hand out. */
+  readonly uid = new Uint32Array(MAX);
+  private nextUid = 1;
+  /** Seconds this pool has been integrated (the bullet clock the codec predicts with). */
+  simTime = 0;
   private rx = new Float32Array(MAX);
   private rz = new Float32Array(MAX);
   private tail: THREE.InstancedMesh;
@@ -266,6 +271,7 @@ export class Bullets {
     this.colors[i].set(b.color);
     this.look[i] = bulletLook(b.team, this.colors[i].getHex(), b.width, b.length);
     this.rx[i] = this.rz[i] = NaN;
+    this.uid[i] = this.nextUid++;
   }
 
   hasHit(i: number, uid: number): boolean {
@@ -315,6 +321,7 @@ export class Bullets {
     this.rx[i] = this.rx[j];
     this.rz[i] = this.rz[j];
     this.colors[i].copy(this.colors[j]);
+    this.uid[i] = this.uid[j];
   }
 
   clear(): void {
@@ -338,6 +345,7 @@ export class Bullets {
 
   /** Integrate motion. Collision is resolved by the game (needs enemies/walls). */
   integrate(dt: number): void {
+    this.simTime += dt;
     for (let i = 0; i < this.count; i++) {
       this.px[i] = this.x[i];
       this.pz[i] = this.z[i];

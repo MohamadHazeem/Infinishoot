@@ -15,7 +15,7 @@ export const COOP2_SOURCE_NAMES: Record<string, string> = { teamult: 'Team Ultim
 /** Drop-in / drop-out. */
 export const joinTuning = {
   /** Seconds a disconnected player's hero stays in the run on autopilot, waiting for them to come back. */
-  grace: 45,
+  grace: 60, // netcode lane: a full minute to reconnect (was 45)
   /** Invulnerability for a hero joining (or coming back) mid-run. */
   spawnProtect: 3,
   /** A new hero gets this share of the team's level-ups, picked automatically. */

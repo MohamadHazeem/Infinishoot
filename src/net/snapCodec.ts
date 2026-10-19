@@ -1,4 +1,6 @@
 import { ByteReader, ByteWriter, type NetBytes } from './bytes';
+import { BulletDeltaEncoder } from './bulletCodec';
+import type { Bullets } from '../game/bullets';
 
 /**
  * Leaner co-op snapshots. The host builds the same snapshot object as before
@@ -560,6 +562,8 @@ export interface SnapRecords {
   /** Packed pickup records (fixed size) and how many. */
   pk: ArrayBuffer;
   pkN: number;
+  /** Bullets this client sees (indices into the pool): sent as deltas in `bd` (src/net/bulletCodec.ts). */
+  bu?: { b: Bullets; idx: readonly number[] };
 }
 
 /** Host: one per client. */
@@ -570,6 +574,7 @@ export class SnapEncoder {
   private tmp = new ValueWriter();
   private en = new KeyedDeltaEncoder();
   private pk = new SetDeltaEncoder();
+  private bu = new BulletDeltaEncoder();
   private rw = new ByteWriter(4096);
 
   private cache = (path: string): Map<string, Uint8Array> => {
@@ -589,6 +594,7 @@ export class SnapEncoder {
       this.caches.clear();
       this.en.reset();
       this.pk.reset();
+      this.bu.reset();
     }
     const vw = this.vw;
     vw.w.reset();
@@ -601,7 +607,10 @@ export class SnapEncoder {
     rw.reset();
     this.pk.encode(recs.pk, recs.pkN ? Math.round(recs.pk.byteLength / recs.pkN) : 0, rw);
     const pk = rw.bytes();
-    return { t: 's', b: vw.w.bytes(), en, pk, ...extra };
+    if (!recs.bu) return { t: 's', b: vw.w.bytes(), en, pk, ...extra };
+    rw.reset();
+    this.bu.encode(recs.bu.b, recs.bu.idx, rw);
+    return { t: 's', b: vw.w.bytes(), en, pk, bd: rw.bytes(), ...extra };
   }
 }
 

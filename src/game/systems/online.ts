@@ -19,6 +19,7 @@ import { coopPlayerId } from '../coop2';
 import { versusOverlordIndex } from './mp';
 import { hostCode, myProfile } from './party';
 import { parseInviteCode } from '../lobby';
+import { netcodeJoined, netcodeLost } from './netcode';
 
 /** `randomCode`: skip the friend code (lobby lane), e.g. when it is taken. */
 export async function hostGame(this: Game, name: string, randomCode = false): Promise<void> {
@@ -121,6 +122,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
   client.onMessage = (m) => this.onClientMessage(m as Record<string, unknown>);
   client.onClose = () => {
     if (this.client !== client) return;
+    if (netcodeLost(this, client)) return; // mid-run: keep the run and reconnect (systems/netcode.ts)
     this.leaveToTitle();
     this.hud.toast('DISCONNECTED FROM HOST', 3);
   };
@@ -133,6 +135,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
     return;
   }
+  netcodeJoined(this, client); // snapshot playout buffer, ICE watch (systems/netcode.ts)
   client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile() }); // prof: lobby card (systems/party.ts)
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }

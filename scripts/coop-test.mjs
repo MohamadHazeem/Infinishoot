@@ -22,6 +22,12 @@
 // starts by READY-UP (both ready, countdown). After the run: game over, the
 // PARTY screen, a unanimous RESTART vote, a second game over, BACK TO LOBBY
 // (still connected), then the host KICKs the client.
+// Netcode lane: the client's connection is a simulated bad one by default
+// (--netsim <latency ms>,<jitter ms>,<loss>, default 70,30,0.02; --netsim off
+// for a clean link): every message both ways is delayed, jittered and now and
+// then held up by a resent packet (src/net/netsim.ts). Late in the run the
+// client's connection is cut and it must reconnect and reclaim its hero
+// (--reload: also reload the client's tab and rejoin from the reloaded page).
 import { chromium } from 'playwright-core';
 import { createServer } from 'vite';
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
@@ -37,6 +43,12 @@ const SECS = Number(opt('--secs', '80'));
 const PAGE_TIMEOUT = Number(process.env.COOP_TIMEOUT_MS ?? 30000);
 const OUT = opt('--out', join('shots', 'coop'));
 const [W, H] = opt('--size', '960x540').split('x').map(Number);
+const NETSIM = opt('--netsim', '70,30,0.02') === 'off' ? '' : opt('--netsim', '70,30,0.02');
+const RELOAD = args.includes('--reload');
+/** --only <text>: run only the scenarios whose name contains it (checks still run). */
+const ONLY = opt('--only', '');
+/** Host and client positions may differ by what the client's view lags behind (more on a simulated slow link). */
+const POS_TOL = NETSIM ? 4.5 : 3;
 mkdirSync(OUT, { recursive: true });
 
 function findChrome() {
@@ -97,6 +109,21 @@ async function openPage(name) {
 const A = await openPage('host');
 const B = await openPage('client');
 log('pages loaded');
+const setNetSim = (page) => page.evaluate(async (c) => {
+  const m = await import('/src/net/netsim.ts');
+  m.setNetSim(m.parseNetSim(c));
+}, NETSIM);
+// Headless pages on a busy machine stall for seconds at a time (screenshots, arena loads); the game would read that
+// as a dead connection and reconnect. Be patient here: the reconnect scenario cuts the connection on purpose.
+const patient = (page) => page.evaluate(async () => {
+  const { netQualityTuning } = await import('/src/net/netQuality.ts');
+  netQualityTuning.dropMs = netQualityTuning.hostSilentMs = 30000;
+});
+await Promise.all([patient(A.page), patient(B.page)]);
+if (NETSIM) {
+  await setNetSim(B.page);
+  log(`client link simulated: ${NETSIM} (latency ms, jitter ms, loss)`);
+}
 
 // ---------------------------------------------------------------- lobby
 // Pets: Sparky for the host, Bit for the client (companion lane checks pet levels and team moves).
@@ -160,7 +187,7 @@ await Promise.all(
   ),
 );
 await lobbyPhase();
-await B.page.waitForFunction(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.heroes.length === 2, null, { timeout: 15000 }).catch(() => fail('client never started the run'));
+await B.page.waitForFunction(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.heroes.length === 2, null, { timeout: 60000 }).catch(() => fail('client never started the run'));
 // Optional weapons3 coverage: both fork choices plus all four evolved auto weapons.
 if (args.includes('--weapons3')) await A.page.evaluate(async () => {
   const { createWeapon } = await import('/src/game/weapons/index.ts');
@@ -216,7 +243,7 @@ await Promise.all(
           c.total += bytes;
           c.max = Math.max(c.max, bytes);
           if (bytes > 16000) c.over16k++;
-          if (c.n % 4 === 0) for (const k of ['ev', 'b', 'fx', 'en', 'bu', 'pk', 'heroes', 'sk', 'ar', 'bx', 'you']) if (r[k] !== undefined) c.parts[k] = (c.parts[k] ?? 0) + size(r[k]) * 4;
+          if (c.n % 4 === 0) for (const k of ['ev', 'b', 'fx', 'en', 'bu', 'bd', 'pk', 'heroes', 'sk', 'ar', 'bx', 'you']) if (r[k] !== undefined) c.parts[k] = (c.parts[k] ?? 0) + size(r[k]) * 4;
           return r;
         };
         const net = g.skillNet;
@@ -337,7 +364,7 @@ async function compare(tag) {
     for (const e of h.sample) {
       const m = c.byUid[e.uid];
       if (!m) continue;
-      check(`pos${e.uid}`, Math.hypot(m.x - e.x, m.z - e.z) < 3 && m.id === e.id, `enemy ${e.uid} (${e.id}) host ${e.x.toFixed(1)},${e.z.toFixed(1)} vs client ${m.id} ${m.x.toFixed(1)},${m.z.toFixed(1)}`);
+      check(`pos${e.uid}`, Math.hypot(m.x - e.x, m.z - e.z) < POS_TOL && m.id === e.id, `enemy ${e.uid} (${e.id}) host ${e.x.toFixed(1)},${e.z.toFixed(1)} vs client ${m.id} ${m.x.toFixed(1)},${m.z.toFixed(1)}`);
     }
     const missing = h.defs.filter((d) => !c.defs.includes(d));
     check('defs', missing.length <= 2, `enemy types near the client on the host, not on the client: ${missing.join(',')}`);
@@ -362,7 +389,7 @@ async function compare(tag) {
       console.log('host trace', JSON.stringify(ta), '\nclient trace', JSON.stringify(tb));
     }
     // Both fighting: during level-ups the host holds the client's hero while the client may still be finishing its last step.
-    check(`pos${i}`, !fighting || Math.hypot(a.x - b.x, a.z - b.z) < 3, `hero ${i} position host ${a.x.toFixed(1)},${a.z.toFixed(1)} vs client ${b.x.toFixed(1)},${b.z.toFixed(1)}`);
+    check(`pos${i}`, !fighting || Math.hypot(a.x - b.x, a.z - b.z) < POS_TOL, `hero ${i} position host ${a.x.toFixed(1)},${a.z.toFixed(1)} vs client ${b.x.toFixed(1)},${b.z.toFixed(1)}`);
     check(`style${i}`, Math.abs(a.style - b.style) <= 120, `hero ${i} style host ${a.style} vs client ${b.style}`);
     check(`ult${i}`, Math.abs(a.ult - b.ult) <= 0.15 && !(a.ultT > 0.3 && b.ultT <= 0), `hero ${i} ult host ${a.ult}/${a.ultT} vs client ${b.ult}/${b.ultT}`);
     check(`weap${i}`, a.weapons === b.weapons, `hero ${i} weapons host [${a.weapons}] vs client [${b.weapons}]`);
@@ -374,8 +401,13 @@ async function compare(tag) {
 }
 
 async function shot(tag) {
-  await Promise.all([A, B].map((p) => p.page.screenshot({ path: join(OUT, `${tag}-${p.name}.png`) })));
-  log(`screenshots ${tag}`);
+  // A busy machine can take very long to render a headless frame: a missed screenshot isn't a co-op failure.
+  try {
+    await Promise.all([A, B].map((p) => p.page.screenshot({ path: join(OUT, `${tag}-${p.name}.png`), timeout: 90000 })));
+    log(`screenshots ${tag}`);
+  } catch (e) {
+    log(`screenshots ${tag} skipped: ${String(e.message).split('\n')[0]}`);
+  }
 }
 
 /** Host-side scenario steps (run through the dev handles). */
@@ -425,10 +457,21 @@ const SCENARIO = [
         window.__jumps.push({ hero: h.index, k, mode: this.mode, started: !!this.toys.jumps[h.index] });
       };
     });
-    const at = await clientTo('pad');
-    if (!at) return 'no pads on this arena';
-    await pause(400);
-    const [h, c] = await Promise.all([host(() => window.__jumps), client(() => !!window.game.toys.jumps[window.game.local])]);
+    // A level-up menu on the host holds the world (and jumps): try again after it (slow machines level up mid-scenario).
+    let h, c;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      for (let k = 0; k < 40 && (await host(() => window.game.mode)) !== 'fight'; k++) await pause(250);
+      const at = await clientTo('pad');
+      if (!at) return 'no pads on this arena';
+      for (let k = 0; k < 10; k++) {
+        await pause(250);
+        let cj;
+        [h, cj] = await Promise.all([host(() => window.__jumps), client(() => !!window.game.toys.jumps[window.game.local])]);
+        c ||= cj;
+        if (h.some((j) => j.hero === 1 && j.started)) break;
+      }
+      if (h.some((j) => j.hero === 1 && j.started)) break;
+    }
     if (!h.some((j) => j.hero === 1 && j.started) || !c) fail(`jump pad: host got ${JSON.stringify(h)}, client jumping ${c}`);
     return { host: h, client: c };
   }],
@@ -462,8 +505,12 @@ const SCENARIO = [
       return best;
     });
     if (i < 0) return 'no pillars';
-    await pause(600);
-    const c = await client((i) => window.game.toys.props[i] && { alive: window.game.toys.props[i].alive, fallT: window.game.toys.props[i].fallT }, i);
+    let c;
+    for (let k = 0; k < 16; k++) {
+      await pause(250);
+      c = await client((i) => window.game.toys.props[i] && { alive: window.game.toys.props[i].alive, fallT: window.game.toys.props[i].fallT }, i);
+      if (c && !c.alive && c.fallT >= 0) break;
+    }
     if (!c || c.alive || c.fallT < 0) fail(`pillar ${i} toppled on the host, client sees ${JSON.stringify(c)}`);
     return c;
   }],
@@ -521,16 +568,19 @@ const SCENARIO = [
     });
     // Poll briefly: a teammate standing close (with Guardian Angel) can revive within ~1.5 s.
     let h1, c1;
-    for (let k = 0; k < 15 && !(h1 && c1); k++) {
+    // (40 x 100 ms: the client's view runs a little behind on the simulated slow link)
+    for (let k = 0; k < 40 && !(h1 && c1); k++) {
       await pause(100);
       [h1, c1] = await Promise.all([host(() => window.game.heroes[1].player.dead), client(() => window.game.hero.player.dead)]);
     }
     await host(() => window.game.reviveHero(window.game.heroes[1], 0.5));
     await pause(1500);
+    // The client's view runs behind (playout buffer, simulated link): wait for it to see itself standing.
+    for (let k = 0; k < 30 && (await client(() => window.game.hero.player.dead)); k++) await pause(200);
     const [h2, c2] = await Promise.all([host(() => window.game.heroes[1].player.dead), client(async () => {
       // Visible at some point (it blinks while the revive i-frames run).
       let seen = false;
-      for (let k = 0; k < 12 && !seen; k++, await new Promise((r) => setTimeout(r, 40))) seen = window.game.hero.player.rig.root.visible;
+      for (let k = 0; k < 75 && !seen; k++, await new Promise((r) => setTimeout(r, 40))) seen = window.game.hero.player.rig.root.visible;
       return [window.game.hero.player.dead, seen];
     })]);
     if (!h1 || !c1 || h2 || c2[0] || !c2[1]) fail(`down/revive: down host ${h1} client ${c1}; revived host ${!h2} client ${!c2[0]} visible ${c2[1]}`);
@@ -553,11 +603,14 @@ const SCENARIO = [
       return f?.def.id ?? null;
     });
     if (id !== 'storm_drones') fail(`fusion: host could not fuse (${id})`);
-    await pause(1200);
-    const c = await client(() => {
-      const w = window.game.hero.weapons.find((x) => x.def.id === 'storm_drones');
-      return w ? { parts: w.parts.map((p) => p.def.id), drones: w.parts[0].net().length, merge: !!document.querySelector('.fusion-merge') } : null;
-    });
+    let c = null;
+    for (let k = 0; k < 20 && !(c && c.drones); k++) {
+      await pause(300);
+      c = await client(() => {
+        const w = window.game.hero.weapons.find((x) => x.def.id === 'storm_drones');
+        return w ? { parts: w.parts.map((p) => p.def.id), drones: w.parts[0].net().length, merge: !!document.querySelector('.fusion-merge') } : null;
+      });
+    }
     if (!c || c.parts.join() !== 'drones,lightning' || !c.drones) fail(`fusion: client sees ${JSON.stringify(c)}`);
     return c;
   }],
@@ -594,11 +647,15 @@ const SCENARIO = [
     await host(() => {
       for (const h of window.game.heroes) for (let i = 0; i < 3; i++) h.petState.levelUp();
     });
-    await pause(600);
-    const [h, c] = await Promise.all([
-      host(() => window.game.heroes.map((h) => [h.pet, h.petState.level, h.petState.reviveUsed])),
-      client(() => window.game.heroes.map((h) => [h.pet, h.petState.level, h.petState.reviveUsed])),
-    ]);
+    let h, c;
+    for (let k = 0; k < 24; k++) {
+      await pause(250);
+      [h, c] = await Promise.all([
+        host(() => window.game.heroes.map((h) => [h.pet, h.petState.level, h.petState.reviveUsed])),
+        client(() => window.game.heroes.map((h) => [h.pet, h.petState.level, h.petState.reviveUsed])),
+      ]);
+      if (JSON.stringify(h) === JSON.stringify(c)) break;
+    }
     if (JSON.stringify(h) !== JSON.stringify(c) || h.some((p) => p[1] !== 4)) fail(`pet levels: host ${JSON.stringify(h)} vs client ${JSON.stringify(c)}`);
     return { host: h, client: c };
   }],
@@ -626,12 +683,44 @@ const SCENARIO = [
       await pause(150);
       r = { host: await host(() => window.game.companionState().move?.id ?? null) };
     }
-    await pause(200);
-    r.client = await client(() => window.game.companionState().move?.id ?? null);
+    for (let k = 0; k < 16; k++) {
+      await pause(250);
+      r.client = await client(() => window.game.companionState().move?.id ?? null);
+      if (r.client) break;
+    }
     r.hostMeter = await host(() => { window.__restoreTeamMove(); return window.__teamSpent; });
     if (!r.host || r.client !== r.host || r.hostMeter !== 0) fail(`team move: host ${r.host} (meter ${r.hostMeter}), client ${r.client}`);
     await shot('teammove');
     return r;
+  }],
+  // Netcode lane: the client's connection dies mid-fight; it reconnects on its own and gets its hero back.
+  [66, 'client connection cut: autopilot, reconnect, same hero (netcode lane)', async () => {
+    const before = await host(() => ({ peer: window.game.heroes[1].peerId, n: window.game.heroes.length, weapons: window.game.heroes[1].weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' ') }));
+    await client(() => window.game.client.drop());
+    // The host notices (the stale connection is dropped when the hello comes back, or by silence) and the hero waits on autopilot.
+    let sawBanner = false;
+    let back = null;
+    let last = null;
+    for (let k = 0; k < 90 && !back; k++) {
+      await pause(500);
+      const c = await client(() => ({ banner: !!document.querySelector('#net-lost:not([hidden])'), role: window.game.role, mode: window.game.mode, local: window.game.local, n: window.game.heroes.length }));
+      sawBanner ||= c.banner;
+      const h = await host(() => ({ peer: window.game.heroes[1].peerId, n: window.game.heroes.length, left: window.game.heroes[1].left }));
+      if (c.role === 'client' && !c.banner && c.local === 1 && c.n === h.n && h.peer && h.peer !== before.peer && !h.left) back = { client: c, host: h };
+      if (c.role !== 'client') break;
+      last = { c, h };
+    }
+    if (!back) {
+      fail(`reconnect: client never got its hero back (before ${JSON.stringify(before)}, last ${JSON.stringify(last)})`);
+      return { before };
+    }
+    if (back.host.n !== before.n) fail(`reconnect: hero count changed ${before.n} -> ${back.host.n} (a new hero instead of the old one)`);
+    if (!sawBanner) fail('reconnect: the client never showed CONNECTION LOST');
+    await pause(1500);
+    const wc = await client(() => window.game.hero.weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' '));
+    if (wc.split(' ').length < before.weapons.split(' ').length) fail(`reconnect: client build after rejoin [${wc}] lost weapons vs [${before.weapons}]`);
+    await client(() => window.botAuto(true));
+    return { before: before.peer, after: back.host.peer, weapons: wc };
   }],
   // Finisher lane: a client ping pops the client's portrait in on both screens; the boss finisher plays on both.
   [46, 'client pings: its portrait pops in on both machines', async () => {
@@ -639,9 +728,14 @@ const SCENARIO = [
       const p = window.game.hero.player;
       window.game.client.send({ t: 'ping', x: p.x + 3, z: p.z });
     });
-    await pause(700);
     const showing = () => import('/src/ui/portraits.ts').then((m) => m.portraits.showing('hero:1'));
-    const [h, c] = await Promise.all([host(showing), client(showing)]);
+    let h = false, c = false;
+    for (let k = 0; k < 16 && !(h && c); k++) {
+      await pause(200);
+      const r = await Promise.all([host(showing), client(showing)]);
+      h ||= r[0];
+      c ||= r[1];
+    }
     if (!h || !c) fail(`ping portrait: host ${h}, client ${c}`);
     return { host: h, client: c };
   }],
@@ -654,11 +748,21 @@ const SCENARIO = [
       return b.def.id;
     });
     if (!id) return 'no boss up';
-    await pause(700);
     const on = () => !!document.getElementById('finisher') && !document.getElementById('finisher').hidden;
-    const [h1, c1, held] = await Promise.all([host(on), client(on), host(() => !!window.game.boss?.active)]);
-    await pause(2600);
-    const [h2, c2, gone] = await Promise.all([host(on), client(on), host(() => !window.game.boss || !window.game.boss.active)]);
+    let h1 = false, c1 = false, held = false;
+    for (let k = 0; k < 20 && !(h1 && c1); k++) {
+      await pause(250);
+      const r = await Promise.all([host(on), client(on), host(() => !!window.game.boss?.active)]);
+      h1 ||= r[0];
+      c1 ||= r[1];
+      held ||= r[2] && r[0];
+    }
+    let h2, c2, gone;
+    for (let k = 0; k < 40; k++) {
+      await pause(250);
+      [h2, c2, gone] = await Promise.all([host(on), client(on), host(() => !window.game.boss || !window.game.boss.active)]);
+      if (!h2 && !c2 && gone) break;
+    }
     if (!h1 || !c1 || !held || h2 || c2 || !gone) fail(`finisher: playing host ${h1} client ${c1}, boss held ${held}; after: host ${h2} client ${c2}, boss gone ${gone}`);
     return { boss: id, playing: [h1, c1], held, after: [h2, c2], gone };
   }],
@@ -679,7 +783,26 @@ if (opt('--season', 'off') === 'halloween') SCENARIO.push([14, 'Halloween shared
   return result;
 }]);
 
+if (RELOAD) {
+  SCENARIO.push([74, 'client reloads its tab and rejoins within 60 s (netcode lane)', async () => {
+    const before = await host(() => window.game.heroes.length);
+    await B.page.reload({ timeout: 120000 });
+    await B.page.waitForFunction(() => window.game && window.botAuto, null, { timeout: 120000 });
+    if (NETSIM) await setNetSim(B.page);
+    await patient(B.page);
+    let ok = false;
+    for (let k = 0; k < 120 && !ok; k++) {
+      await pause(500);
+      ok = await client(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.local === 1);
+    }
+    const after = await host(() => ({ n: window.game.heroes.length, left: window.game.heroes[1].left }));
+    if (!ok || after.n !== before || after.left) fail(`reload: rejoined ${ok}, host heroes ${before} -> ${after.n}, left ${after.left}`);
+    await client(() => window.botAuto(true));
+    return { rejoined: ok, host: after };
+  }]);
+}
 SCENARIO.sort((a, b) => a[0] - b[0]);
+if (ONLY) for (let i = SCENARIO.length - 1; i >= 0; i--) if (!SCENARIO[i][1].includes(ONLY)) SCENARIO.splice(i, 1);
 let next = 0;
 let shots = 0;
 const shotAt = [12, 30, 48, SECS - 4];
@@ -830,6 +953,14 @@ async function done() {
     const [ha, cb] = await Promise.all([A.page.evaluate(() => window.__coop), B.page.evaluate(() => window.__coop)]);
     log(`skill events sent to the client: ${JSON.stringify(ha?.skill)}; received: ${JSON.stringify(cb?.skill)}`);
     log(`effects received by the client: ${JSON.stringify(cb?.vfx)}`);
+    const net = await B.page.evaluate(async () => {
+      const m = await import('/src/game/systems/netcode.ts');
+      const s = m.netcodeState(window.game);
+      return { playout: s.playout?.stats, nq: s.nq, events: s.events };
+    });
+    const hev = await A.page.evaluate(async () => (await import('/src/game/systems/netcode.ts')).netcodeState(window.game).events);
+    log(`client playout (netcode lane): ${JSON.stringify(net.playout)}; host's numbers for everyone: ${JSON.stringify(net.nq)}`);
+    log(`connection events: host ${JSON.stringify(hev)}; client ${JSON.stringify(net.events)}`);
     const sn = ha?.snap;
     if (sn?.n) {
       log(`snapshots${sn.wire ? ' (wire bytes)' : ' (JSON estimate)'}: ${sn.n}, avg ${Math.round(sn.total / sn.n)} B, max ${sn.max} B, ${sn.over16k} over 16 KB (PeerJS chunks those)`);

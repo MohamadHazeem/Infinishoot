@@ -10,6 +10,7 @@ import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
 import { coop2Links } from './coop2Links';
+import { netcodeLinks } from './netcodeLinks';
 import { cinematicsLinks } from './cinematicsLinks';
 import { sound2Links } from './sound2Links';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
@@ -121,6 +122,7 @@ import { SCAR_COLORS } from '../game/scars';
  *   &mate&clutchgo=2&clutchat=0.5, &mate&votego=2.
  * Coop2 lane (src/dev/coop2Links.ts): &mate&emote=wave, &mate&mateemote=cheer, &mate&wheel=emotes, &mate&pool&downme=2,
  *   &mate&autopilot, &joincode=K7P2Q, &mate&teamult=2, &ghostgo=2.
+ * Netcode lane (src/dev/netcodeLinks.ts): &mate&netdemo (NETWORK panel + a bad-connection warning), &mate&netdemo=rc, &netdemo=lost.
  * MP lane (src/dev/mpLinks.ts): &versus (vs the AI Overlord), &versus=ol&god (you are the Overlord), &vstime=, &vspts=, &vsgo=,
  *   &localcoop[=run]&lcpads=2, &browse=fake, &teamboard=fake, &lobby=versus|weekly.
  *
@@ -249,6 +251,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const numbers = q.get('numbers');
   if (numbers && ['auto', 'all', 'mine', 'off'].includes(numbers)) settings.damageNumbers = numbers as typeof settings.damageNumbers;
   coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
+  netcodeLinks(game, q); // netdemo, netdemo=rc, netdemo=lost (src/dev/netcodeLinks.ts)
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
   halloweenLinks(game, q);

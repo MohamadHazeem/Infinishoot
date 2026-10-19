@@ -46,6 +46,7 @@ row('CONTROLS', 'rewindMode', 'REWIND MODE', 'HOLD: hold for 0.35 seconds to con
 row('CONTROLS', 'teamMoveMode', 'TEAM MOVE MODE', 'HOLD: hold for 0.35 seconds to confirm. TOGGLE: one press activates the team move or buys a revive.', undefined, ['hold', 'toggle']);
 row('CONTROLS', 'aimAssist', 'AIM ASSIST', 'Gamepad and touch: gently turns aim toward the nearest visible enemy within 12 metres and 25 degrees.');
 row('CONTROLS', 'mouseAimAssist', 'MOUSE AIM ASSIST', 'Optional soft aim correction for mouse. Off by default; independent of gamepad and touch.');
+row('CO-OP', 'netOverlay', 'NETWORK STATS', 'Shows ping, packet loss and snapshot rate for every player in online games.');
 row('GAMEPLAY', 'language', 'LANGUAGE', 'English or Arabic (العربية). Arabic switches menus to right-to-left.', undefined, ['en', 'ar']);
 row('GAMEPLAY', 'autoFire', 'AUTO-FIRE', 'Automatically fires the primary weapon with keyboard and mouse.');
 row('GAMEPLAY', 'tips', 'FIRST-TIME TIPS', 'Shows help when you encounter a mechanic for the first time.');
