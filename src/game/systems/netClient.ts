@@ -1,4 +1,5 @@
 import { applyArchitectNet, architectLocalStep } from './architect';
+import { applyWeather2Net, weather2Local } from './weather2';
 import { acceptTrialStart, applyTrialsNet } from './trials';
 import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
@@ -263,6 +264,7 @@ export function clientUpdate(this: Game, dt: number): void {
   if (moving) this.arenaLocal(dt);
   if (moving) coopPlayLocal(this); // carrying slows you; carried, you ride along (systems/coopplay.ts)
   if (moving) this.worldEventLocal(dt);
+  if (moving) weather2Local(this);
   if (moving) this.modesLocal(dt); // the rhythm stage's beat keeps moving between snapshots (systems/modes.ts)
   this.biomeFoesClient(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
@@ -448,6 +450,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyDirector2Net(s.d2);
   applyFollowupsNet(this, s.fu);
   this.applyWorldEventNet(s.we, s.wt);
+  applyWeather2Net(this, s.w2);
   applyGauntletNet(this, s.gl);
   this.applyRaidNet(s.rd);
   this.applyModesNet(s.md);

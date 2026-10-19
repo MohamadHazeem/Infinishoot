@@ -1,4 +1,5 @@
 import { architectNet } from './architect';
+import { weather2Net } from './weather2';
 import { trialsNet } from './trials';
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
@@ -286,6 +287,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[], vie
     fu: [this.elitesRun, this.bossesRun], // team FIRST STEPS goals on guests, including drop-in
     gpw: this.gameplayNet(forHero),
     ss: secretsNet(this),
+    w2: weather2Net(this),
     we: this.worldEventNet(),
     wt: this.worldEventLive(forHero),
     tm: this.timeNet(forHero),

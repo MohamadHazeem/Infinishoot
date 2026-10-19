@@ -1747,6 +1747,9 @@ export class Enemies {
   // ---------------------------------------------------------------- render
 
   /** Write every active enemy into its type's instanced mesh, plus ground decals. */
+  /** Optional visibility for bodies/shadows; dangerous ground telegraphs remain visible. */
+  bodyVisible: ((x: number, z: number) => boolean) | null = null;
+
   render(alpha: number, time: number): void {
     for (const b of this.batches.values()) b.mesh.count = 0;
     const d = this.decals;
@@ -1808,6 +1811,7 @@ export class Enemies {
         this.m4.makeScale(e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch), 1, e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch)).setPosition(x, 0.06, z);
         instanceMatrix(d.heals, d.heals.count++, this.m4);
       }
+      if (this.bodyVisible && !this.bodyVisible(x, z)) continue;
       // Body language: gait, lean, wind-up pose, hit wobble (cosmetic, src/game/enemyAnim.ts).
       poseEnemy(e, e.anim, x, z, fdt, time, P);
       if (e.def.biomes) this.biomeView.enemy(e, x, z, time, P);

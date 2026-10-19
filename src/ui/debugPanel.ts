@@ -51,6 +51,7 @@ import { decalTuning } from '../game/decals';
 import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
 import { worldDebugFolder } from '../world/worldDebug';
+import { weather2Tuning } from '../data/weather2';
 import { addWorldEventsFolder } from './debugWorldEvents';
 import { addModesFolder } from './debugModes';
 import { finisherTuning } from '../game/finisher';
@@ -366,6 +367,9 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addCinematicsFolder(gui, game); // cinematics lane: sky fall, ending, reveals, jackpot, flawless (src/ui/debugCinematics.ts)
   addMpFolder(gui, game); // MP lane: Versus Swarm, local co-op, lobby browser (src/ui/debugMp.ts)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
+  const weather2 = gui.addFolder('Combat weather');
+  for (const key of Object.keys(weather2Tuning) as (keyof typeof weather2Tuning)[]) weather2.add(weather2Tuning, key);
+  weather2.close();
   addWorldEventsFolder(gui, game); // world events: start any now, force one, knobs (src/ui/debugWorldEvents.ts)
   const rf = gui.addFolder('Hydra raid').close();
   for (const key of ['weaponDamage','headHp','enrage','wipe','ghostDps','parryDamage','fireWarn','stumpSeconds'] as const) rf.add(raidTuning, key);

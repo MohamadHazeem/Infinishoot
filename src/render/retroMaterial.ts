@@ -30,6 +30,10 @@ export const retroGlobals = {
   uFogColor: { value: new THREE.Color('#9fd8ff') },
   uFogNear: { value: 28 },
   uFogFar: { value: 70 },
+  /** Combat sandstorm: centre x/z, clear radius, outer radius (0 = off). */
+  uWeatherSight: { value: new THREE.Vector4() },
+  uWeatherHeroes: { value: Array.from({ length: 8 }, () => new THREE.Vector2()) },
+  uWeatherHeroCount: { value: 0 },
   uTime: { value: 0 },
   /** 0..1 night: enemy eyes (white vertex colours on instance-flash meshes) glow, faint self-glow dims. */
   uNight: { value: 0 },
@@ -122,6 +126,9 @@ uniform vec3 uSunColor;
 uniform float uToonSteps;
 uniform float uCelSoft;
 uniform vec3 uFogColor;
+uniform vec4 uWeatherSight;
+uniform vec2 uWeatherHeroes[8];
+uniform int uWeatherHeroCount;
 uniform vec4 uLightPos[MAX_LIGHTS];
 uniform vec4 uLightCol[MAX_LIGHTS];
 uniform int uLightCount;
@@ -221,6 +228,19 @@ void main() {
       col = mix(col, uEyeColor, eye * uNight * (1.0 - 0.4 * vFog) * (1.0 - vFlash.a * 0.5));
     }
   #endif
+  // Unlit projectiles and danger zones remain readable beyond the sight bubble.
+  if (uWeatherSight.w > 0.0 && uUnlit < 0.5) {
+    float wd = distance(vWorld.xz, uWeatherSight.xy);
+    for (int wi = 0; wi < 8; wi++) {
+      if (wi >= uWeatherHeroCount) break;
+      wd = min(wd, distance(vWorld.xz, uWeatherHeroes[wi]));
+    }
+    float wk = smoothstep(uWeatherSight.z, uWeatherSight.w, wd);
+    #ifdef RETRO_INSTANCE_FLASH
+      col = mix(col, vec3(0.24, 0.20, 0.25), smoothstep(uWeatherSight.z - 0.5, uWeatherSight.z + 1.0, wd));
+    #endif
+    col = mix(col, vec3(0.86, 0.68, 0.40), wk);
+  }
   #ifdef RETRO_EMISSIVE_ALPHA
     // Opaque materials write a glow mask into alpha for the bloom pass: self-lit
     // things (bullets, lava, sparks), hit flashes and night eyes glow; lit surfaces don't.

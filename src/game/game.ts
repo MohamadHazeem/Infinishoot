@@ -54,6 +54,7 @@ import { Ambience } from './ambience';
 import { Scars } from './scars';
 import { streaks } from './streaks';
 import { skinOf } from '../data/skins';
+import { updateWeather2, weather2Local } from './systems/weather2';
 import { RunEvents } from './runEvents';
 import { DIFF_BY_ID, MODE_BY_ID, type DifficultyDef, type ModeId } from '../data/modes';
 import { heroOf } from '../data/heroes';
@@ -1424,6 +1425,7 @@ export class Game implements HeroWorld {
     ArchitectSys.updateArchitect(this, dt);
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
+    weather2Local(this);
     this.updateSkill(dt);
     lap('sim.heroes+skill');
 
@@ -1470,6 +1472,7 @@ export class Game implements HeroWorld {
     this.updateArena(dt);
     coopPlayStep(this, dt); // carrying teammates, buddy tether, co-op banter (systems/coopplay.ts)
     this.updateWind(dt);
+    updateWeather2.call(this, dt);
     if (this.runMode !== 'raid') this.updateWorldEvent(dt);
     this.updateRaid(dt);
     this.updateModes(dt); // pacifist timer and rewards, mini-games, ghost recording (systems/modes.ts)

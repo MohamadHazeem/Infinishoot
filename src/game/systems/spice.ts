@@ -1,3 +1,6 @@
+import { weatherEligible, isWeatherKind } from '../../data/weather2';
+import { biomeForStage } from '../../data/biomes';
+import { settings } from '../settings';
 import { recordHeatClear } from './meta';
 /**
  * Run spice: curses, relics, stage events, side challenges, pets, co-op pings and spectating.
@@ -88,6 +91,7 @@ export function makeEventHost(this: Game): EventHost {
     get dmgMul() {
       return game.director.dmgMul;
     },
+    eventAllowed: (id) => weatherEligible(id, biomeForStage(game.arenaStage).id, settings.weatherEffects && !game.pvp && !game.onboarding.training && game.runMode !== 'bossrush'),
     targets: () => this.aliveHeroes.map((h) => h.player),
     ownedWeapons: () => [...new Set(this.heroes.flatMap((h) => h.weapons.map((w) => w.def.id)))],
     meteor: (x, z, r, delay, dmg) => {
@@ -116,7 +120,7 @@ export function spiceLines(this: Game): { text: string; kind: 'event' | 'challen
   const client = this.role === 'client';
   const out: { text: string; kind: 'event' | 'challenge' | 'done' | 'buff' }[] = [];
   const ev = client ? this.netEvent : this.runEvents.event ? [this.runEvents.event.id, this.runEvents.event.t] : null;
-  if (ev && STAGE_EVENTS[ev[0] as EventId]) out.push({ text: `${STAGE_EVENTS[ev[0] as EventId].name.replace('!', '')} ${Math.ceil(Number(ev[1]))}`, kind: 'event' });
+  if (ev && !isWeatherKind(String(ev[0])) && STAGE_EVENTS[ev[0] as EventId]) out.push({ text: `${STAGE_EVENTS[ev[0] as EventId].name.replace('!', '')} ${Math.ceil(Number(ev[1]))}`, kind: 'event' });
   const c = this.runEvents.challenge;
   const ch = client ? this.netChallenge : c ? ([c.text, c.cur, c.max, c.done] as [string, number, number, boolean]) : null;
   if (ch) out.push({ text: ch[3] ? `✓ ${ch[0]}` : `★ ${ch[0]} ${ch[1]}/${ch[2]}`, kind: ch[3] ? 'done' : 'challenge' });

@@ -1,4 +1,5 @@
 import { architectLinks } from '../game/systems/architect';
+import { weather2Links } from '../game/systems/weather2';
 import { trialsTest } from '../game/systems/trials';
 import { pets2Links } from './pets2Links';
 import { biome3Force } from '../game/biome3Brain';
@@ -289,6 +290,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
   netcodeLinks(game, q); // netdemo, netdemo=rc, netdemo=lost (src/dev/netcodeLinks.ts)
   coopplayLinks(game, q); // coopobj=, cpme=, cpmate=, cpcore=, cpbomb, carry=, tether=, banter=, notether (src/dev/coopplayLinks.ts)
+  weather2Links(game, q); // weather=sandstorm|blizzard|lightning|heatwave; weatheroff
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
   halloweenLinks(game, q);
