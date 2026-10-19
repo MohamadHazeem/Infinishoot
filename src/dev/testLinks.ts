@@ -33,6 +33,7 @@ import { firsttenLinks } from './firsttenLinks';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
+import { raceLinks } from './raceLinks';
 import { weapons3Links } from './weapons3Links';
 import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
@@ -256,6 +257,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   cinematicsLinks(game, q); // skyfall=, ending=, reveal=, jackpot=, flawless=, titleplay=, cine= (src/dev/cinematicsLinks.ts)
   mpLinks(game, q); // MP lane: versus, localcoop, browse, teamboard, lobby= (src/dev/mpLinks.ts)
   lobbyLinks(game, q); // lobby lane: lobbyx, lobbyx=count, party, friends (src/dev/lobbyLinks.ts)
+  raceLinks(game, q); // race lane: racex[=wait|end], chal=, gochal, compete=, tourney=, lobbyrace, rating= (src/dev/raceLinks.ts)
   sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');

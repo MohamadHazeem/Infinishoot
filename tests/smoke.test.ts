@@ -158,6 +158,28 @@ try {
 } catch (e) {
   errors.push('mp: ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
 }
+// Race lane: a hot-seat tournament turn played to the boss, then a friend's challenge.
+try {
+  const { raceState, playTurn, startChallenge } = await import('../src/game/systems/race');
+  const { createTourney, decodeChallenge, encodeChallenge } = await import('../src/game/raceRules');
+  const rs = raceState(game)!;
+  rs.tourney = createTourney(['Ann', 'Bo', 'Cy', 'Di'], 'race', 5);
+  playTurn(game, 0, 0, 'a');
+  const tr = botRun(330, true);
+  const res = rs.tourney.rounds[0][0].ra;
+  console.log('race', JSON.stringify({ stage: tr.stage, kills: tr.kills, turn: res, screen: game.screens.current, avgMs: tr.avgMs }));
+  if (!res) errors.push('race: the hot-seat turn never ended');
+  else if (res.p < 1) errors.push(`race: the bot never reached the boss in a race turn (${JSON.stringify(res)})`);
+  game.leaveToTitle();
+  startChallenge(game, decodeChallenge(encodeChallenge({ seed: 99, mode: 'standard', difficulty: 'normal', hero: 'rookie', loadout: { ...settings.loadout }, score: 5000, stage: 1, name: 'Lina' })));
+  const cr = botRun(40, true);
+  if (game.seed !== 99 || !rs.chal) errors.push('race: the challenge lost its seed or target');
+  console.log('challenge', JSON.stringify({ score: game.score, passed: rs.chalPassed, avgMs: cr.avgMs }));
+  rs.tourney = null;
+  game.leaveToTitle();
+} catch (e) {
+  errors.push('race: ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
+}
 // A mortal run: die, game over, run history.
 settings.mode = 'standard';
 settings.difficulty = 'nightmare';

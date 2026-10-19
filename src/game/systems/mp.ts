@@ -174,7 +174,7 @@ function heartbeat(g: Game, st: MpState, dt: number): void {
     return;
   }
   const kind = g.lobbyKind as LobbyMode;
-  const entry = { code: g.host!.code, name: g.netName || g.lobby[0]?.name || 'Player', players: g.lobby.length, max: 4, mode: kind, difficulty: g.lobbyDifficulty().id, region: regionOf(), version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '' };
+  const entry = { code: g.host!.code, name: g.netName || g.lobby[0]?.name || 'Player', players: g.lobby.length, max: kind === 'race' ? 8 : 4, mode: kind, difficulty: g.lobbyDifficulty().id, region: regionOf(), version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '' };
   const key = JSON.stringify(entry);
   const due = st.sentT <= 0 || (key !== st.sentKey && st.sentT <= lobbyTuning.heartbeat - lobbyTuning.minResend);
   if (!due) return;
