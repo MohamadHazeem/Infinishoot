@@ -10,6 +10,7 @@ import { unlockedWeapons } from '../game/save';
  * - `teamfull`: the TEAM meter starts full; `teamgo=<s>`: fire a team move
  *   after <s> seconds (with `mate`); `teammove=beam|nova|meteor` picks which
  * - `teamloop=<s>`: refill and fire a team move every <s> seconds (no level-up menus)
+ * - `petgrow=<s>`: the pets' level-up moment (as after a stage clear) every <s> seconds, from level petlv
  * - `taunt`: the pet taunts right away (needs 3 enemies nearby, e.g. `spawn=chonk:6`)
  * - `downmate=<s>`: the dummy teammate goes down after <s> seconds (revive it for a high-five)
  */
@@ -54,6 +55,17 @@ export function companionLinks(game: Game, q: URLSearchParams): void {
       s.meter.charge = 1;
       if (!s.move) game.tryTeamMove(h);
     }, loop * 1000);
+  }
+  // petgrow=<s>: the pets' stage-clear growth moment every <s> seconds (back to petlv first, for screenshots).
+  const grow = Number(q.get('petgrow'));
+  if (grow > 0) {
+    setInterval(() => {
+      for (const o of game.heroes) {
+        o.petState.reset();
+        for (let i = 1; i < lv; i++) o.petState.levelUp();
+      }
+      game.petGrowth();
+    }, grow * 1000);
   }
   const down = Number(q.get('downmate'));
   if (down > 0 && game.heroes[1]) {

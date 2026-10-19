@@ -47,6 +47,8 @@ export interface CompanionState {
   lastRunTime: number;
   /** The charging chime plays once per link. */
   chimed: boolean;
+  /** Stage clears whose pet growth hasn't played yet. */
+  growPending: number;
   // Presentation (every machine)
   view: TeamMoveView | null;
   hud: CompanionHud;
@@ -74,6 +76,7 @@ export function companionState(this: Game): CompanionState {
       rocks: [],
       lastRunTime: 0,
       chimed: false,
+      growPending: 0,
       view: null,
       hud: new CompanionHud(),
       seen: new Map(),
@@ -199,8 +202,22 @@ export function companionTargets(this: Game): void {
   }
 }
 
-/** Stage clear: every pet grows a level and learns its next skill; shields come back. */
+/**
+ * Stage clear: every pet will grow a level. The growth itself waits for a calm
+ * moment (the portal walk after the shop, or a few seconds into the next
+ * wave in Endless) so the STAGE CLEAR banner and the shop don't hide it.
+ */
 export function companionStageClear(this: Game): void {
+  this.companionState().growPending++;
+}
+
+/** A calm moment after a stage clear: no banner, no menu. */
+function calm(g: Game): boolean {
+  return (g.mode === 'portal' && g.modeT > 0.6) || (g.mode === 'fight' && g.modeT > 2.6);
+}
+
+/** Every pet grows a level and learns its next skill; shields come back. */
+export function petGrowth(this: Game): void {
   for (const h of this.heroes) {
     const st = h.petState;
     if (!st.has || h.left) continue;
@@ -215,6 +232,11 @@ export function companionStageClear(this: Game): void {
     this.vfx.ring(p.x, p.z, 1, 5, st.def.color, 0.5);
     this.vfx.burst(p.x, 1.6, p.z, { count: 26, color: st.def.color, color2: '#ffcd75', speed: [3, 8], size: [0.12, 0.28], life: [0.5, 0.9], up: 7, gravity: 10 });
     this.vfx.star(p.x, 1.8, p.z, 2, '#ffffff', 0.2);
+    // Tell the owner what the pet just learned.
+    const rank = st.ranks[learned];
+    const msg = `${NAME(h)} LV ${st.level}: ${info.name}${rank > 1 ? ' ' + 'I'.repeat(rank) : ''} - ${info.desc(rank).toUpperCase()}`;
+    if (h === this.hero) this.hud.toast(msg, 3);
+    else this.tell(h, { t: 'toast', msg });
   }
 }
 
@@ -315,8 +337,13 @@ export function updateCompanion(this: Game, dt: number): void {
     s.move = null;
     s.rocks.length = 0;
     s.chimed = false;
+    s.growPending = 0;
   }
   s.lastRunTime = this.runTime;
+  if (s.growPending > 0 && calm(this)) {
+    s.growPending--;
+    this.petGrowth();
+  }
   if (!teamOn(this)) {
     s.meter.linked = 0;
     s.move = null;

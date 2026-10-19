@@ -468,6 +468,7 @@ export class Game implements HeroWorld {
   companionState = CompanionSys.companionState;
   companionTargets = CompanionSys.companionTargets;
   companionStageClear = CompanionSys.companionStageClear;
+  petGrowth = CompanionSys.petGrowth;
   petShield = CompanionSys.petShield;
   petRevive = CompanionSys.petRevive;
   highFive = CompanionSys.highFive;

@@ -135,15 +135,29 @@ ok(B.heroes.length === 2 && B.heroes[0].pet === 'sparky' && B.heroes[1].pet === 
 ok(hA.petState.level === 1 && gA.petState.level === 1, 'pets start at level 1');
 const magnet1 = gA.stats.magnet;
 
-// Stage clear: pets level up, client mirrors it.
+// Stage clear: pets level up once things calm down (portal walk), client mirrors it.
+const toPortal = () => {
+  // Back in the fight a few seconds in (the same calm moment as the portal walk).
+  A.mode = 'fight';
+  A.modeT = 3;
+};
 A.stageClear();
 step(10);
-ok(hA.petState.level === 2 && gA.petState.level === 2, 'pets level up on stage clear');
+ok(hA.petState.level === 1, 'no growth under the STAGE CLEAR banner');
+toPortal();
+step(5);
+ok(hA.petState.level === 2 && gA.petState.level === 2, 'pets level up after a stage clear');
 ok(hA.petState.ranks.taunt === 1 && gA.petState.ranks.zap === 1, 'Sparky learned Taunt, Bit learned Zap');
 ok(B.heroes[0].petState.level === 2 && B.heroes[1].petState.level === 2 && B.heroes[1].petState.ranks.zap === 1, 'client mirrors pet levels and skills');
-for (let i = 0; i < 3; i++) A.stageClear();
+for (let i = 0; i < 3; i++) {
+  A.stageClear();
+  toPortal();
+  step(5);
+}
 ok(gA.petState.level === 5 && gA.petState.ranks.fetch === 2 && gA.stats.magnet > magnet1, 'Bit at level 5: Fetch II widens pickup range');
 A.stageClear();
+toPortal();
+step(5);
 ok(gA.petState.level === 5, 'level caps at 5');
 // Back into the fight.
 A.mode = 'fight';
