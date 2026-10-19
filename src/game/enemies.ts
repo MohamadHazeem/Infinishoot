@@ -935,9 +935,9 @@ export class Enemies {
             wantZ = nz * speed;
             e.facing = Math.atan2(dx, dz);
             if (dist < C.range && ctx.targetAlive) {
-              if (this.walled(e.x, e.z, nx, nz, Math.min(dist + 1, C.speed * C.duration), e.radius * 0.8, ctx.colliders)) {
+              if (this.walled(e.x, e.z, nx, nz, Math.min(dist - 0.5, C.speed * C.duration), e.radius * 0.8, ctx.colliders)) {
+                // Keep sidestepping the same way (it turns round if it bumps into something).
                 e.reroute = aiTuning.rerouteTime;
-                if (Math.random() < 0.3) e.strafe *= -1;
               } else {
                 this.lockOn(e, nx, nz, dx, dz);
                 this.enter(e, 'windup', aggro(e, C.windup, true), -5, ctx);
@@ -1230,6 +1230,7 @@ export class Enemies {
         e.z = Math.max(-58, Math.min(58, e.z));
       }
       const walled = e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && e.hopY <= 0 && resolveCircleVsBoxes(e, e.radius, ctx.colliders);
+      if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
       if (walled && rigid && e.def.behavior === 'charger') {
         // Rhinos stop (and wobble) when they hit a wall mid-charge.
         this.enter(e, 'recover', aggro(e, e.def.charge!.recover), -7);

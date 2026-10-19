@@ -38,9 +38,10 @@ export function enemyCtxExtras(this: Game): Pick<EnemyCtx, 'land' | 'heal' | 'ra
     heal: (e, r, frac) => {
       let n = 0;
       for (const o of this.enemies.list) {
-        if (o === e || !o.alive || o.def.boss || o.pvpOwner >= 0 || o.hp >= o.maxHp) continue;
+        if (o === e || !o.alive || o.def.boss || o.def.behavior === 'reaper' || o.pvpOwner >= 0 || o.hp >= o.maxHp) continue;
         if ((o.x - e.x) ** 2 + (o.z - e.z) ** 2 > r * r) continue;
-        const amt = Math.min(o.maxHp - o.hp, o.maxHp * frac);
+        // Elites heal at half rate so a medic can't make one unkillable.
+        const amt = Math.min(o.maxHp - o.hp, o.maxHp * frac * (o.elite ? 0.5 : 1));
         o.hp += amt;
         if (n++ < 4) this.vfx.num(o.x, 1.8 * o.scale, o.z, `+${Math.round(amt)}`, 'heal');
       }
