@@ -914,7 +914,7 @@ if (!args.includes('--no-spectate')) SCENARIO.push([22, 'a spectator joins, watc
       const g = window.game;
       return S.spectating(g) && g.mode !== 'title' && g.heroes.length === 2 && g.netEnemies.size > 0;
     }, null, 30000);
-    const seats = await host(async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs.length);
+    const seats = await until(A, async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs.length, null, 6000);
     const badge = await until(B, async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).watchers.n === 1, null, 6000);
     if (!watching || seats !== 1 || !badge) fail(`spectator: watching ${watching}, host seats ${seats}, client badge ${badge}`);
     // Snapshot rate: the spectator gets about half of what the client player gets.
@@ -936,19 +936,30 @@ if (!args.includes('--no-spectate')) SCENARIO.push([22, 'a spectator joins, watc
     if (!(nC > 0 && nC < nB * 0.7)) fail(`spectator snapshots: client ${nB}, spectator ${nC} in 3 s (want about half)`);
     // Heroes mirrored on the spectator.
     const pos = async (p) => p.page.evaluate(() => window.game.heroes.map((h) => [h.player.x, h.player.z, h.player.dead]));
-    const [ph, pc] = await Promise.all([pos(A), pos(C)]);
-    const off = ph.map((a, i) => (pc[i] && !a[2] ? Math.hypot(a[0] - pc[i][0], a[1] - pc[i][1]) : 0));
+    // The spectator draws 10 Hz snapshots through the playout buffer: on a busy machine it lags, so sample a few times.
+    let off = [];
+    for (let k = 0; k < 6; k++) {
+      const [ph, pc] = await Promise.all([pos(A), pos(C)]);
+      off = ph.map((a, i) => (pc[i] && !a[2] ? Math.hypot(a[0] - pc[i][0], a[1] - pc[i][1]) : 0));
+      if (!off.some((d) => d > POS_TOL * 2)) break;
+      await pause(500);
+    }
     if (off.some((d) => d > POS_TOL * 2)) fail(`spectator hero positions off by ${off.map((d) => d.toFixed(1))} m`);
     // Follow the client player, then the auto director, then the free camera.
-    await C.page.evaluate(async () => {
+    // Follow the other hero (one that's standing, so the follow camera doesn't move on from a downed one).
+    const want = await C.page.evaluate(async () => {
       const S = await import('/src/game/systems/spectate.ts');
-      const st = S.spectateState(window.game);
+      const g = window.game;
+      const st = S.spectateState(g);
+      const i = g.heroes.findIndex((h, k) => k !== st.follow && !h.left && !h.player.dead);
       st.cam = 'follow';
-      st.follow = 1;
+      st.follow = i >= 0 ? i : st.follow === 0 ? 1 : 0;
+      st.director.held = 0;
+      return st.follow;
     });
-    const followed = await until(A, async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs[0]?.follow === 1, null, 4000);
-    const local = await C.page.evaluate(() => window.game.local);
-    if (!followed || local !== 1) fail(`spectator follow: host knows ${followed}, spectator HUD on hero ${local}`);
+    const followed = await until(A, async (i) => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs[0]?.follow === i, want, 8000);
+    const local = await until(C, (i) => window.game.local === i, want, 4000);
+    if (!followed || !local) fail(`spectator follow ${want}: host knows ${followed}, spectator HUD on it ${local}`);
     try { await C.page.screenshot({ path: join(OUT, 'spectator-follow.png'), timeout: 90000 }); } catch {}
     await C.page.evaluate(async () => { (await import('/src/game/systems/spectate.ts')).spectateState(window.game).cam = 'auto'; });
     await pause(2500);

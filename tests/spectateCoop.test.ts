@@ -234,6 +234,14 @@ for (const m of [{ t: 'i', x: 99, z: 99, vx: 0, vz: 0, ax: 1, az: 0, f: true }, 
 flush();
 ok(A.heroes.length === before && Math.abs(A.heroes[1].player.x - hx) < 0.5, 'player messages from a spectator are ignored');
 
+// ---- A spectator whose connection drops comes back (a plain reconnect hello) and keeps watching
+drop('peerF');
+ok(sA.specs.length === 1, 'a dropped spectator frees its seat');
+connect(F, 'peerF2');
+q.push([A, hello('Fifth', 'pidfifth0001'), 'peerF2']); // the netcode lane's reconnect hello has no spec flag
+step(10);
+ok(sA.specs.length === 2 && SP.spectateState(F).why === 'back' && SP.spectating(F) && F.mode === 'fight' && A.heroes.length === 2, 'reconnecting: back in a spectator seat (not a player), watching the run again');
+
 // ---- Play from the next stage
 q.push([A, { t: 'spjoin', on: 1 }, 'peerS']);
 flush();
@@ -250,7 +258,7 @@ ok(!document.body.classList.contains('spectating') || SP.spectating(F), 'the spe
 ok(SP.spectating(F) && F.heroes.length === 3, 'the other spectator gets the new roster');
 
 // ---- Leaving, and the seat cap
-drop('peerF');
+drop('peerF2');
 ok(sA.specs.length === 0, 'a spectator who leaves frees the seat');
 const crowd: G[] = [];
 for (let i = 0; i < spectateTuning.max + 1; i++) {
@@ -265,5 +273,11 @@ ok((got.get(crowd[spectateTuning.max])?.full ?? 0) === 1 && !SP.spectateState(cr
 step(10);
 ok(crowd.slice(0, 3).every((g) => SP.spectating(g) && g.mode !== 'title'), 'late spectators are dropped straight into the run');
 ok(SP.spectateState(B).watchers.n === spectateTuning.max, `the players see ${spectateTuning.max} WATCHING`);
+// ---- A spectator that goes silent (closed tab, the close never arrived) frees its seat
+const { netQualityTuning } = await import('../src/net/netQuality');
+(A as any).host.lastHeard = new Map([['peerW0', performance.now() - netQualityTuning.dropMs - 1000]]);
+(A as any).host.drop = (id: string) => drop(id);
+step(2);
+ok(sA.specs.length === spectateTuning.max - 1 && !sA.specs.some((x) => x.peerId === 'peerW0'), 'a silent spectator is dropped and its seat freed');
 console.log('spectate online checks done');
 process.exit(process.exitCode ?? 0);
