@@ -1,0 +1,58 @@
+# Desktop lane
+
+## What players get
+
+- Unsigned-friendly release notifications on desktop startup. A non-blocking GitHub Releases check for `MohamadHazeem/Infinishoot` shows **NEW VERSION AVAILABLE - DOWNLOAD** in the title/pause menus and SETTINGS > HELP. Selection opens the verified release page in the normal browser. HELP > AUTOMATIC UPDATE CHECK disables checks and hides the notice. Development/browser builds do not contact GitHub.
+- VIDEO: WINDOWED / FULLSCREEN / BORDERLESS, RESOLUTION SCALE 50–200% in 25% steps, VSYNC, and FRAME CAP 30 / 60 / 120 / UNLIMITED. Defaults: windowed, 100%, VSync on, 60 fps. Existing settings merge/validation preserves old preferences. No profile/save-schema change.
+- The desktop remembers normal window bounds and restores them onto an available display. Default size is 1280×800, minimum 640×360. A small draggable pixel title bar provides minimize/maximize/close; HELP also exposes minimize/quit to controllers. F11 and macOS Ctrl+Cmd+F toggle fullscreen and synchronize the saved setting. macOS borderless uses simple fullscreen on the current desktop; FULLSCREEN uses the native fullscreen space. Windows/Linux borderless covers the display bounds.
+- SETTINGS > HELP > EXPORT ERROR LOG saves a text report: native save dialog on desktop, download on web. Contains version, OS, current non-identifying settings and the newest 200 local error entries. Renderer errors/rejections, console errors, failed loads, unresponsive/crashed renderers, child-process crashes and main-process errors are captured. Desktop logs survive restarts in Electron userData; web logs use the guarded storage helper. Nothing is uploaded.
+- Controller activation of editable name/code fields opens a 40-key screen keyboard with case, space, delete, cancel, done and clipboard paste. Legacy editable fields become navigable on screen entry. It preserves field length limits (100,000-character ceiling when a field has no limit), fires the original input/change handlers and restores navigation focus. Keyboard/mouse/touch retain normal editing. All new controls use MenuNav/data-nav, existing prompts and audio, English/Arabic catalogs, UI/text scaling and pixel styling.
+
+## Decisions and tuning
+
+- Chose the explicitly allowed release-page fallback: the existing portable exe and unsigned dmgs do not support a reliable silent updater. No electron-updater dependency, NSIS installer, signing requirement or runtime dependency was added. The workflow stamps the application version from the `v*` tag in both build jobs, explicitly publishes stable releases as latest and excludes prereleases. This prevents a tagged download with an older package version from repeatedly advertising itself as an update. The updater consumes GitHub's latest-release metadata directly; **latest.yml is not required for this strategy**. Existing exe/dmg names and upload paths remain unchanged. Release assets still require a real tagged CI run; this lane does not publish anything.
+- Stable three-part versions only, numeric comparison (1.10 > 1.9), reject drafts/prereleases/malformed tags, construct download URLs from the fixed repository rather than trusting response URLs. One shared in-flight request, 6-second timeout, at most one request per minute in a session. Offline/rate-limit failures only add a log entry. Disabling while a request is in flight suppresses its result.
+- VSync uses Chromium startup switches; changing it requires restarting the app, as explained in VIDEO and HELP. Unlimited removes the game's render cap; the browser/display/compositor may still constrain presentation. Browser VSync/window settings have no native effect and their descriptions say so.
+- Render pacing has no per-frame allocations and leaves fixed simulation, input updates and the hidden-host worker at 60 Hz. Auto-quality's frame budget is adjusted for an intentional 30 fps cap so it does not mistake the cap for GPU overload. Resolution scale multiplies the quality preset's internal resolution, preserving the retro renderer and independent UI resolution.
+- Desktop writes are atomic/best-effort; errors flush after 250 ms (crash events immediately), bounds save after a 200 ms debounce. Each error message is limited to 8,000 characters; persisted records are validated. URL query strings and common credential patterns are redacted. The settings context omits player/team names, loadout/customization and credentials. Diagnostic text remains technical English.
+- Decision log lives in this lane note rather than shared PLAN.md, per lane ownership. Necessary small integration edits are listed below. No gameplay systems, snapshot fields, effects, host/client code, audio or assets changed.
+
+## Files / merge guidance
+
+Owned implementation: `electron/main.cjs`, `electron/preload.cjs`, `electron/logic.mjs` + `.d.mts`, `src/platform/{desktop,display,help,keyboard}.ts`, `tests/desktop.test.ts`, `.github/workflows/release.yml`.
+
+Small integration edits:
+- `src/game/settings.ts`: five defaulted/validated display/update options; apply platform settings; scale the quality resolution.
+- `src/ui/settingsScreen.ts`: four VIDEO rows, percentage display, localize the new rows’ focus descriptions while preserving existing-row behavior. HELP footer is attached by the platform module.
+- `src/ui/screens.ts`: two ExtraScreen IDs and expose its existing nav accessor so asynchronous update notices can refresh the active menu without reopening it.
+- `src/main.ts`: install error listeners before construction, register platform UI, feed frame cap and adjusted auto-quality budget.
+- `src/core/loop.ts`: optional presentation-cap callback and allocation-free pacer; simulation is unchanged.
+- `src/i18n/en.ts`, `ar.ts`: matching `desktop.*` strings.
+
+The controller keyboard chains `screens.onShow`; preserve that chain when adding later screen hooks.
+
+No repository package.json/lockfile change was needed (tagged CI builds stamp only their temporary checkout): `electron/**` is already packaged, and the current dependencies build both dmgs. No generated files, logs, screenshots, secrets or binaries are committed.
+
+## Reproduction / checks
+
+- `npm run shot -- '?test&screen=settings&pad=xbox' shots/desktop-video.png --wait 4 --size 1280x800`
+- `?test&screen=desktopHelp&pad=xbox`, `?test&screen=desktopHelp&lang=ar`, `?test&screen=settings&lang=ar&pad=xbox`.
+- `?test&screen=online&pad=xbox`: activate a name/code field to test controller text entry.
+- `?test&stage=2&weapons=drones:5&god`, `?test&levelup&pad=xbox`, `?test&route&pad=xbox`, `?test&shop&gold=60&pad=xbox`.
+- Headless screenshots used installed Chromium with `--use-angle=metal` through `SHOT_CHROME`; default software SwiftShader stalled on this machine. The normal shot script was retained.
+
+- `npm run typecheck` and `npx vite build`: passed; existing large-chunk advisory only. Electron main/preload syntax checks passed.
+- `CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist:mac`: passed on the final production sources, producing unsigned arm64 (126 MiB) and x64 (130 MiB) dmgs and blockmaps. No artifact names changed. The release-tag version-stamping command also passed in an isolated temporary package; the workspace version was not modified.
+- `tests/desktop.test.ts`: passed. Numeric release comparison, invalid/draft/prerelease data and URL safety; 200-entry persistence/ordering/truncation/redaction; display defaults; all frame caps; actual GameLoop fixed simulation under a 120 Hz input clock; controller text entry, cancellation, field length and focus restoration.
+- Native Electron integration (isolated temporary userData, mocked GitHub response and save dialog): passed. Banner opens the exact repository release URL; one request despite repeated settings changes; disabled checks return null; text export contains the recorded sentinel; ordinary disk logging resumes after an urgent unresponsive/crash flush; windowed/fullscreen/borderless transitions work; a 1000×700 window at (50,80) restores on relaunch; VSync OFF applies on restart; disabled startup makes zero requests. No native page errors. Local fixtures/results are ignored under `shots/desktop-electron*`.
+- Browser visual/navigation review: captured 36 existing screen roots at 1280×800, then populated loadout, level-up, relic, shop, route, Halloween, ghost/ghost-race and photo screens. Inspected contact sheets and full-size English/Arabic VIDEO, HELP, text keyboard, native title and update banner captures. No horizontal overflow or page errors in the 36-screen scan. Long existing screens use their existing scroll navigation. Actual MenuNav controller activation reaches a previously untagged name field, enters a character, and returns to the original online field/focus; web export downloaded a valid text file; 150% internal scale changed the 216p preset to 324p.
+- `npm run coop`: **passed** on final sources with the Metal browser backend, including boss phases, jump pad/turret, pillar, fusion, ultimate/team move/parry, down/revive, route vote, stage progression, party restart, lobby return and kick. 1,571 snapshots, average 1,921 B, maximum 12,524 B, zero over 16 KiB; skill event counts matched. An earlier run overlapped edits and reloaded through Vite; it was discarded. A later run observed the existing team-meter timing assertion at 0.021875 after both peers had already activated BEAM; the unchanged full rerun passed. No scenario assertion was relaxed.
+- `npm run bench -- --gpu metal --seconds 20 --warmup 8 --json shots/desktop-bench.json`: 2.54 ms average CPU/frame, p95 3.31 ms, 61.7 rendered fps, 271 average enemies / 489 bullets (max 317 / 514). Same range as the prior settings-lane 2.58 ms on this GPU. These are local headless Apple Metal measurements, not physical Steam Deck certification.
+- `npm test`: completed all 67 suites; 64 passed, with the three inherited failures detailed below. The desktop and settings suites passed; the intermittent co-op suite passed its targeted rerun. No assertions were removed or weakened.
+- `npm run smoke`: **passed**, including Standard/Endless/Boss Rush/Daily, all seven heroes, training, rhythm/Pacifist/mini-games/ghost recording, Versus, three-player local co-op, a mortal run, game-over/history recording and menu entry. No runtime errors; exit 0. The final mortal run reached stage 3 before the test forced its final hit.
+
+## Limits / integration risks
+
+- Notifications/downloads are implemented; silent installation is intentionally not used for unsigned portable releases. Windows/Steam Deck physical hardware and signed/notarized releases remain untested locally. macOS arm64 Electron behavior was exercised; both arm64/x64 dmgs built unsigned.
+- Controller text entry provides Latin letters, digits and common name/code punctuation, plus Unicode clipboard paste for longer codes/text. Arbitrary-language typing and system file-dialog navigation still depend on the OS keyboard/file picker. Clipboard access can be denied by the browser; the keyboard reports that failure. Existing photo mode already has its own full controller bindings.
+- The base revision `53ba485` has two reproducible unrelated unit failures: `firstten.test.ts` lacks advice for `pumpking`; `halloween.test.ts` expects v4 migration to version 5 while `save.ts` now normalizes to version 6. Both failures were reproduced from an isolated `git archive HEAD` source tree with none of this lane's changes. Those files belong to other lanes and were not changed or weakened here. The complete suite also observed the intermittent `coop2Coop.test.ts` late-join rank-budget assertion (7 picks at team level 13); the targeted unchanged rerun passed. This flake is already recorded in `notes/lanes/arabic.md`.

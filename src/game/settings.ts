@@ -1,3 +1,5 @@
+import { applyDesktopSettings } from '../platform/desktop';
+import { displayOptions, type DisplayOptions } from '../../electron/logic.mjs';
 import { applyColorblind, type ColorblindMode } from '../render/colorblind';
 import { applyTextScale } from '../ui/settingsScreen';
 import { browserLanguage, type Language } from '../i18n';
@@ -22,7 +24,7 @@ import { applyUiScale } from '../ui/hudLayout';
 import { AUTO, AUTO_START, POTATO, qualitySettingLevel, QualityGovernor, renderQuality, setRenderQuality } from '../render/quality';
 
 /** Player-facing settings, persisted between sessions. */
-export interface Settings {
+export interface Settings extends DisplayOptions {
   language: Language;
   volume: number;
   sfxVolume: number;
@@ -127,6 +129,7 @@ export interface Settings {
 const KEY = 'settings.v1';
 
 export const SETTINGS_DEFAULTS: Readonly<Settings> = {
+  windowMode: 'windowed', resolutionScale: 100, frameCap: '60', vsync: true, autoUpdate: true,
   language: browserLanguage(),
   volume: 0.6,
   sfxVolume: 1,
@@ -194,6 +197,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   mouseAimAssist: false,
 };
 export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS, loadout: { ...DEFAULT_LOADOUT } });
+Object.assign(settings, displayOptions(settings));
 settings.damageNumbers ??= 'auto';
 settings.language = settings.language === 'ar' || settings.language === 'en' ? settings.language : browserLanguage();
 // Screenshot/test locale override. Subsequent explicit settings changes persist normally.
@@ -230,8 +234,9 @@ let governor: QualityGovernor | null = null;
 export function applyQualityLevel(level: number, auto: boolean): void {
   setRenderQuality(level, auto);
   const q = renderQuality;
-  if (postSettings.resolution !== q.resolution) {
-    postSettings.resolution = q.resolution;
+  const resolution = Math.round(q.resolution * settings.resolutionScale / 100);
+  if (postSettings.resolution !== resolution) {
+    postSettings.resolution = resolution;
     window.dispatchEvent(new Event('resize'));
   }
   fxQuality.ambience = q.ambience;
@@ -252,6 +257,7 @@ export function qualityGovernor(): QualityGovernor | null {
 
 /** Push settings into the systems that use them. */
 export function applySettings(): void {
+  applyDesktopSettings(settings);
   applyLanguage(settings.language);
   audioSettings.volume = settings.volume;
   audioSettings.sfx = settings.sfxVolume;
