@@ -81,6 +81,7 @@ import * as RouteSys from './systems/route';
 import * as WindSys from './wind';
 import * as CompanionSys from './systems/companion';
 import * as CharSys from './systems/characters';
+import * as WorldEventsSys from './systems/worldEvents';
 import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
@@ -278,6 +279,12 @@ export function playerName(): string {
 export class Game implements HeroWorld {
   // Methods that live in src/game/systems/ (see the header of each file).
   updateWind = WindSys.updateWind;
+  // Mid-stage world events and Night Raid stealth stages (src/game/systems/worldEvents.ts).
+  updateWorldEvent = WorldEventsSys.updateWorldEvent;
+  worldEventNet = WorldEventsSys.worldEventNet;
+  applyWorldEventNet = WorldEventsSys.applyWorldEventNet;
+  worldEventLocal = WorldEventsSys.worldEventLocal;
+  renderWorldEvent = WorldEventsSys.renderWorldEvent;
   clearWorld = RunFlowSys.clearWorld;
   loadArena = RunFlowSys.loadArena;
   spawnSpot = RunFlowSys.spawnSpot;
@@ -1199,6 +1206,7 @@ export class Game implements HeroWorld {
     this.updateBiomeFoes(dt);
     this.updateArena(dt);
     this.updateWind(dt);
+    this.updateWorldEvent(dt);
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);

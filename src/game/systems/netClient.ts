@@ -207,6 +207,7 @@ export function clientUpdate(this: Game, dt: number): void {
     this.juice.shake(0.05);
   }
   if (moving) this.arenaLocal(dt);
+  if (moving) this.worldEventLocal(dt);
   this.biomeFoesClient(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
@@ -370,6 +371,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyCompanionNet(s.cp);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
+  this.applyWorldEventNet(s.we);
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

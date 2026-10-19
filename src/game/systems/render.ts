@@ -220,6 +220,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.bullets');
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
+  this.renderWorldEvent(rdt);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
   lap('ren.barrels+arena+chests');
   if (!held) this.particles.render();
