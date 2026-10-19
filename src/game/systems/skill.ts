@@ -1,3 +1,4 @@
+import { trialParryShot } from './trials';
 /**
  * Skill layer: perfect dashes, parries, the style meter, hero ultimates and
  * per-weapon feel (src/game/style.ts, src/game/ultimates.ts, WEAPON_FEEL in
@@ -279,6 +280,7 @@ function reflectBullet(g: Game, h: Hero, i: number): void {
   b.team[i] = Team.Player;
   b.vx[i] = (ux / l) * T.reflectSpeed;
   b.vz[i] = (uz / l) * T.reflectSpeed;
+  trialParryShot(g);
   b.damage[i] = T.reflectDmg * 30 * power(g);
   b.knockback[i] = 8;
   b.life[i] = 1.2;

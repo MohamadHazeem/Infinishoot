@@ -1,3 +1,4 @@
+import { installTrials } from './systems/trials';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
 import * as RaidSys from './systems/raid';
@@ -1016,6 +1017,7 @@ export class Game implements HeroWorld {
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     HalloweenSys.installHalloween.call(this, hudRoot);
     this.story = StorySys.installStory.call(this, hudRoot);
+    installTrials(this);
     this.goTitle();
   }
 
