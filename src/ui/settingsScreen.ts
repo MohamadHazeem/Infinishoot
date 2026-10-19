@@ -77,6 +77,11 @@ row('ACCESSIBILITY', 'soundArrows', 'SOUND ARROWS', 'Screen-edge arrows point to
 row('CO-OP', 'coopPool', 'SHARED REVIVE POOL', 'Host rule for the next run: the team shares a limited pool of lives.');
 row('CO-OP', 'coopJoinable', 'JOIN IN PROGRESS', 'Host rule: friends may join or reconnect after a run starts.');
 row('CO-OP', 'lobbyPublic', 'PUBLIC LOBBY', 'Lists hosted games in Browse Games when the online service is enabled.');
+row('CO-OP', 'voiceChat', 'VOICE CHAT', 'Talk to teammates in online games. Turning it on asks for your microphone.');
+row('CO-OP', 'voiceMode', 'VOICE MODE', 'PTT: hold the talk key (N by default, L3 on a pad) to speak. OPEN: your mic sends whenever you speak louder than MIC SENSITIVITY.', undefined, ['ptt', 'open'], undefined);
+row('CO-OP', 'voiceSensitivity', 'MIC SENSITIVITY', 'Open mic: higher values pick up quieter speech (and more background noise). Try it with TEST MIC below.', [0, 1, 0.1]);
+row('CO-OP', 'voiceChatVolume', 'VOICE CHAT VOLUME', 'Volume of your teammates\' voices.', [0, 1, 0.1]);
+row('CO-OP', 'teamRadio', 'TEAM RADIO', 'ON: hear every teammate at full volume. OFF: voices fade with distance (quiet beyond 25 m) and pan to where the speaker stands.');
 row('CO-OP', 'helpGhosts', 'HELP GHOSTS', 'Allows friends’ recorded help ghosts to appear in your runs.');
 export const SETTINGS_ROWS: readonly SettingRow[] = rows;
 

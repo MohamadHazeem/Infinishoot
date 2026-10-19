@@ -15,6 +15,7 @@
     "smoke": "node scripts/run-tests.mjs smoke",
     "shot": "node scripts/shot.mjs",
     "coop": "node scripts/coop-test.mjs",
+    "voicechat": "node scripts/voicechat-test.mjs",
     "bench": "node scripts/bench.mjs",
     "loadtime": "node scripts/loadtime.mjs",
     "icons": "node scripts/icons.mjs",
@@ -47,7 +48,12 @@
       "target": "dmg",
       "category": "public.app-category.games",
       "hardenedRuntime": true,
-      "notarize": false
+      "notarize": false,
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "InfiniShoot uses the microphone for voice chat with your co-op teammates (only when VOICE CHAT is turned on)."
+      }
     },
     "dmg": {
       "artifactName": "InfiniShoot-mac-${arch}.dmg"

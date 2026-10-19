@@ -56,6 +56,7 @@ import { charDebug } from '../game/systems/characters';
 import { portraits, type Expression } from '../ui/portraits';
 import { skyOverrides, skyTuning } from '../render/sky';
 import { SCAR_COLORS } from '../game/scars';
+import { voiceLinks } from './voiceLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -270,6 +271,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   lobbyLinks(game, q); // lobby lane: lobbyx, lobbyx=count, party, friends (src/dev/lobbyLinks.ts)
   pvp2Links(game, q); // pvp2 lane: pvp=ffa|teams, pvpn=, pvparena=, pvpout, pvpboard (src/dev/pvp2Links.ts)
   sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
+  voiceLinks(game, q); // voicedemo, voicedemo=screen (src/dev/voiceLinks.ts)
   meta2Links(game, q); // m2screen=profile|achievements, m2lv=, m2demo, m2quests=, m2equip= (src/dev/meta2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
