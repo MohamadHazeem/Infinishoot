@@ -16,13 +16,20 @@ import { Vfx, type VfxEvent } from '../vfx';
 import { FxEncoder, fxRelevant } from '../../net/fxCodec';
 import { SnapEncoder } from '../../net/snapCodec';
 import { skinOf } from '../../data/skins';
+import { cleanLook } from '../../data/customise';
 import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
+import { soundLaneNet } from './sound2';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
 const fxEncoder = new FxEncoder();
+
+/** A hero's player reconnected (coop2 lane): forget that client's baselines so the next snapshot is a keyframe. */
+export function resetSnapFor(h: Hero): void {
+  snapEncoders.delete(h);
+}
 
 export function heroByPeer(this: Game, id: string): Hero | undefined {
   return this.heroes.find((h) => h.peerId === id);
@@ -39,6 +46,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     return;
   }
   if (m.t === 'hello') {
+    if (this.coopHello(from, m)) return; // a run in progress: drop-in join (systems/coop2.ts)
     if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from)) {
       this.host?.send(from, { t: 'full', reason: 'Game already started.' });
       return;
@@ -51,6 +59,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       skin: (metaSkin(String(m.skin ?? '')) ?? skinOf(String(m.skin ?? ''))).id,
       pet: String(m.pet ?? 'none'),
       hero: heroOf(String(m.hero ?? '')).id,
+      look: cleanLook(m.look),
     });
     this.refreshLobby();
     return;
@@ -66,6 +75,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   const h = this.heroByPeer(from);
   if (!h) return;
   h.lastSeen = performance.now();
+  if (this.versusHostMessage(h, m)) return; // Versus Overlord orders and camera (systems/versus.ts)
   if (m.t === 'rvote') return this.routeVote(h, Number(m.i)); // route map vote (systems/route.ts)
   if (m.t === 'i') {
     h.remote = {
@@ -96,8 +106,14 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   } else if (m.t === 'parry' || m.t === 'ult') {
     if (m.t === 'parry') noteParryLag(this, h, Number(m.rtt) || 0);
     this.skillMessage(h, m.t);
+  } else if (m.t === 'rw') {
+    this.timeMessage(h, m); // time lane: the rewind button
   } else if (m.t === 'team') {
     this.tryTeamMove(h);
+  } else if (m.t === 'cash') {
+    this.gpCashIn(h, Number(m.k) || 0); // combo cash-in (systems/gameplay.ts)
+  } else if (m.t === 'emote' || m.t === 'cobuy' || m.t === 'bye') {
+    this.coopMessage(h, m); // emotes, revive-pool buy-back, leaving on purpose (systems/coop2.ts)
   } else if (m.t === 'ui') {
     const d = m.d === -1 ? -1 : 1;
     this.heroAction(h, String(m.a), Number(m.i) || 0, d);
@@ -105,6 +121,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
 }
 
 export function onClientLeft(this: Game, id: string): void {
+  if (this.coopLeft(id)) return; // mid-run: autopilot grace period, then a clean leave (systems/coop2.ts)
   if (this.pvp && this.pvp.phase !== 'duel' && this.pvp.phase !== 'over') {
     const who = this.lobby.find((p) => p.peerId === id);
     this.lobby = this.lobby.filter((p) => p.peerId !== id);
@@ -141,7 +158,7 @@ export function hostTick(this: Game, frozen: boolean): void {
   if (this.stepN % (frozen ? 15 : SNAP_EVERY) !== 0) return;
   const events = this.vfx.drain();
   for (const h of this.heroes) {
-    if (!h.peerId || h.left) continue;
+    if (!h.peerId || (h.left && this.versus?.overlord !== h.index)) continue; // a Versus Overlord sits out but still watches
     this.host.send(h.peerId, this.buildSnapshot(h, events));
   }
 }
@@ -198,6 +215,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
         w: h.weapons.map((w) => [w.def.id, w.level, Math.round(w.ready * 20) / 20, w.buildKey, ...w.net()]),
         rl: h.relics,
         tw: this.heroMechNet(h),
+        gp: this.gpHeroNet(h),
       };
     }),
     you: {
@@ -214,6 +232,15 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     ar: this.arenaNet(),
     sk: this.skillNet(forHero),
     cp: this.companionNet(),
+    gpw: this.gameplayNet(forHero),
+    we: this.worldEventNet(),
+    wt: this.worldEventLive(forHero),
+    tm: this.timeNet(forHero),
+    co: this.coopNet(forHero),
+    md: this.modesNet(),
+    cn: this.cineNet(),
+    vs: this.versusNet(),
+    s2: soundLaneNet(this, forHero),
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

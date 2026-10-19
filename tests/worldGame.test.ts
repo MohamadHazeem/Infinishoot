@@ -99,7 +99,7 @@ ok(killed && A.toys.envKills > envBefore, 'a crusher flattens an enemy on its pa
 // The client sees the press move (its stage clock follows the synced timer).
 ok(Math.abs((B as any).director.duration - B.netTimeLeft - A.director.time) < 0.5, 'client stage clock follows the host timer');
 // Boss dressing appears with the boss on both machines and goes after it dies.
-A.loadStage(6);
+A.loadStage(5); // loop 2's King (stage 6 is the Titan's, which has no dressing)
 flush();
 step(5);
 A.debugBoss({ now: true, mini: false, phase: 0 });

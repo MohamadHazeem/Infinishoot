@@ -4,7 +4,7 @@
  * (spawns, rewards, an event); the biome and boss order stay as they are.
  */
 
-export type NodeKind = 'start' | 'elite' | 'shop' | 'treasure' | 'event' | 'rest' | 'hard';
+export type NodeKind = 'start' | 'elite' | 'shop' | 'treasure' | 'event' | 'rest' | 'hard' | 'stealth' | 'rhythm' | 'arcade' | 'pacifist' | 'secret';
 
 export interface RouteNodeDef {
   id: NodeKind;
@@ -113,7 +113,63 @@ export const ROUTE_NODES: Record<NodeKind, RouteNodeDef> = {
     color: '#5d275d',
     weight: 2,
   },
+  // World-events lane: a stealth stage (src/game/systems/worldEvents.ts). Glyph fallback: no icon art yet.
+  stealth: {
+    id: 'stealth',
+    name: 'Night Raid',
+    short: 'Sneak through a dark stage',
+    lines: ['Enemies only see you in light or hear you when you go loud', 'Grab 3 intel caches: gold and score, double if unseen', 'All 3: a treasure chest for everyone'],
+    icon: 'route_stealth',
+    glyph: '◐',
+    color: '#3b5dc9',
+    weight: 2,
+  },
+  // Modes lane (src/game/systems/modes.ts). Glyph fallbacks: no icon art yet.
+  rhythm: {
+    id: 'rhythm',
+    name: 'Rhythm Stage',
+    short: 'The whole field moves to the music',
+    lines: ['Enemies step, lunge, shoot and slam on the beat', 'Kills on the beat: x3 score and extra combo', 'Watch the floor and the crosshair for the beat'],
+    icon: 'route_rhythm',
+    glyph: '♪',
+    color: '#73eff7',
+    weight: 2,
+  },
+  arcade: {
+    id: 'arcade',
+    name: 'Bonus Arcade',
+    short: 'A 20-second game for gold first',
+    lines: ['Shooting Gallery, Coin Dash or Whack-a-Bot', 'Everyone plays at once, everyone keeps their gold', 'Then a normal stage'],
+    icon: 'route_arcade',
+    glyph: '★',
+    color: '#ffcd75',
+    weight: 2.5,
+  },
+  // Hidden: drawn as ??? (the `secret` look below) until it is picked.
+  pacifist: {
+    id: 'pacifist',
+    name: 'Pacifist Road',
+    short: 'Survive without a single kill',
+    lines: ['Weapons holstered: dash and parry', 'No boss: survive 2:00', 'No kills: a relic, gold and a legendary card'],
+    icon: 'route_pacifist',
+    glyph: '☮',
+    color: '#a7f070',
+    weight: 0.6,
+  },
+  secret: {
+    id: 'secret',
+    name: '???',
+    short: 'A hidden road. Nobody knows where it goes',
+    lines: ['It rarely shows up', 'Pick it to find out'],
+    icon: 'route_secret',
+    glyph: '??',
+    color: '#566c86',
+    weight: 0,
+  },
 };
+
+/** Route kinds the map hides as ??? until they are on the road taken (src/game/systems/route.ts). */
+export const HIDDEN_NODES: readonly NodeKind[] = ['pacifist'];
 
 /** Kinds a map layer can roll. */
 export const ROLLABLE: readonly NodeKind[] = (Object.keys(ROUTE_NODES) as NodeKind[]).filter((k) => ROUTE_NODES[k].weight > 0);

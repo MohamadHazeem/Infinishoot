@@ -1,0 +1,55 @@
+import type GUI from 'lil-gui';
+import type { Game } from '../game/game';
+import { cineDebug, endingTuning, flawlessTuning, jackpotTuning, revealTuning, skyfallTuning, titlePlayTuning } from '../game/cinematics';
+import { debugEnding, debugFlawless, debugJackpotChest, debugSkyfall } from '../game/systems/cinematics';
+
+/** Debug panel folder for the cinematics lane (sky fall, ending, reveals, jackpot, flawless, playable title). */
+export function addCinematicsFolder(gui: GUI, game: Game): void {
+  const f = gui.addFolder('Cinematics: sky fall, ending, jackpot').close();
+  f.add(cineDebug, 'pin', -1, 1, 0.01).name('Pin progress (-1 off)');
+  const sky = f.addFolder('Sky fall').close();
+  sky.add(skyfallTuning.full, 'len', 1, 8, 0.1).name('Length s');
+  sky.add(skyfallTuning.full, 'cut', 0.2, 2, 0.05).name('Cut at s');
+  sky.add(skyfallTuning.full, 'land', 0.5, 7, 0.05).name('Touchdown s');
+  sky.add(skyfallTuning, 'top', 10, 90, 1).name('Fall from m');
+  sky.add(skyfallTuning, 'exp', 0.6, 3, 0.05).name('Fall curve');
+  sky.add(skyfallTuning, 'camDist', 3, 30, 0.5).name('Camera distance');
+  sky.add(skyfallTuning, 'camPitch', 30, 89, 1).name('Camera pitch');
+  sky.add(skyfallTuning, 'camYaw', 0, 3, 0.05).name('Camera turn');
+  sky.add(skyfallTuning, 'assembleFrom', 0, 1, 0.05).name('Assembly starts');
+  sky.add(skyfallTuning, 'tileRise', 0.1, 2, 0.05).name('Tile rise s');
+  sky.add(skyfallTuning, 'tileDrop', 0.5, 10, 0.1).name('Tile drop m');
+  sky.add({ go: () => debugSkyfall(game) }, 'go').name('Sky fall now');
+  sky.add({ go: () => debugSkyfall(game, true) }, 'go').name('Golden sky fall now');
+  const end = f.addFolder('Ending').close();
+  end.add(endingTuning, 'delay', 0, 5, 0.1).name('Delay after VICTORY');
+  end.add(endingTuning, 'panel', 1, 8, 0.1).name('Seconds per panel');
+  end.add(endingTuning, 'fade', 0.1, 2, 0.05).name('Cross-fade s');
+  end.add(endingTuning, 'endCard', 1, 8, 0.1).name('THE END? s');
+  end.add(endingTuning, 'zoom', 0, 0.3, 0.01).name('Ken Burns zoom');
+  end.add(endingTuning, 'strokes', 0.2, 3, 0.1).name('Brush density');
+  end.add({ go: () => debugEnding(game) }, 'go').name('Play the ending');
+  const rev = f.addFolder('Legendary reveal').close();
+  rev.add(revealTuning, 'full', 0.8, 6, 0.1).name('Length s');
+  rev.add(revealTuning, 'online', 0.8, 4, 0.1).name('Online length s');
+  rev.add(revealTuning, 'landAt', 0.1, 0.9, 0.05).name('Lands at');
+  rev.add(revealTuning, 'height', 2, 20, 0.5).name('Drop from m');
+  rev.add(revealTuning, 'zoom', 0, 0.8, 0.05).name('Push-in');
+  rev.add(revealTuning, 'silence', 0, 4, 0.1).name('Music out s');
+  const jack = f.addFolder('Jackpot chest').close();
+  jack.add(jackpotTuning, 'chance', 0, 1, 0.01).name('Chance per chest');
+  jack.add(jackpotTuning, 'perStage', 0, 5, 1).name('Max per stage');
+  jack.add(jackpotTuning, 'goldShare', 0, 1, 0.05).name('Gold pile share');
+  jack.add(jackpotTuning, 'gold', 0, 200, 5).name('Gold');
+  jack.add(jackpotTuning, 'goldPerStage', 0, 50, 1).name('Gold per stage');
+  jack.add(jackpotTuning, 'items', 1, 6, 1).name('Items');
+  jack.add(jackpotTuning, 'full', 1, 8, 0.1).name('Reels s');
+  jack.add({ go: () => debugJackpotChest(game, game.hero.player.x + 3, game.hero.player.z) }, 'go').name('Golden chest here');
+  const fl = f.addFolder('Flawless').close();
+  fl.add(flawlessTuning, 'gold', 0, 100, 1).name('Bonus gold');
+  fl.add(flawlessTuning, 'goldPerStage', 0, 30, 1).name('Bonus gold per stage');
+  fl.add(flawlessTuning, 'relicChance', 0, 1, 0.05).name('Relic chance');
+  fl.add({ go: () => debugFlawless(game, true) }, 'go').name('Flawless clear now');
+  f.add(titlePlayTuning, 'enabled').name('Playable title');
+  f.add(titlePlayTuning, 'idle', 1, 30, 0.5).name('Title idle hand-back s');
+}

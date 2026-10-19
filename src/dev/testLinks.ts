@@ -2,6 +2,10 @@ import { cleanHeat } from '../data/heat';
 import { save } from '../game/save';
 import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { companionLinks } from './companionLinks';
+import { timeLinks } from './timeLinks';
+import { coop2Links } from './coop2Links';
+import { cinematicsLinks } from './cinematicsLinks';
+import { sound2Links } from './sound2Links';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
@@ -21,6 +25,12 @@ import { onboardingLinks } from './onboardingLinks';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
+import { graphicsLinks } from './graphicsLinks';
+import { gameplayLinks } from './gameplayLinks';
+import { bossLinks } from './bossLinks';
+import { worldEventLinks } from './worldEventLinks';
+import { modesLinks } from './modesLinks';
+import { mpLinks } from './mpLinks';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import type { PhotoMode } from '../ui/photoMode';
@@ -87,7 +97,20 @@ import { SCAR_COLORS } from '../game/scars';
  *
  * Onboarding (src/dev/onboardingLinks.ts): &training=4, &trainingdone, &tip=boss, &discover=all, &recap, &offer, &screen=codex
  *
+ * Bosses lane (src/dev/bossLinks.ts): &titan, &titanphase=3, &titanmove=beam, &remix, &duel.
+ *
  * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
+ *
+ * Modes lane (src/dev/modesLinks.ts): &rhythm, &pacifist&pact=40, &minigame=gallery|coins|whack&mgt=6, &ghost=demo&ghostlead=3, &modescreen=ghosts.
+ *
+ * World events (src/dev/worldEventLinks.ts): &wev=collapse|flood|split|giant|eclipse|flower|volcano|stealth, &wevt=6 (jump its clock), &wevoff.
+ * Cinematics lane (src/dev/cinematicsLinks.ts): &skyfall=1&skyat=0.5, &ending=1&endat=0.3, &reveal=starfall, &jackpot=1&jackkind=gold, &flawless=1&portalnow, &titleplay, &cine=short.
+ * Time lane (src/dev/timeLinks.ts): &rewindgo=3&rewindat=0.5, &standgo=2, &btgo=2&btat=0.5, &replaygo=3&replayat=1,
+ *   &mate&clutchgo=2&clutchat=0.5, &mate&votego=2.
+ * Coop2 lane (src/dev/coop2Links.ts): &mate&emote=wave, &mate&mateemote=cheer, &mate&wheel=emotes, &mate&pool&downme=2,
+ *   &mate&autopilot, &joincode=K7P2Q, &mate&teamult=2, &ghostgo=2.
+ * MP lane (src/dev/mpLinks.ts): &versus (vs the AI Overlord), &versus=ol&god (you are the Overlord), &vstime=, &vspts=, &vsgo=,
+ *   &localcoop[=run]&lcpads=2, &browse=fake, &teamboard=fake, &lobby=versus|weekly.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -196,6 +219,13 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   hudLinks(game, q);
   contentLinks(game, q);
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
+  coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
+  worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
+  timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
+  modesLinks(game, q); // rhythm, pacifist, pact=, minigame=, mgt=, ghost=demo, ghostlead=, modescreen=ghosts (src/dev/modesLinks.ts)
+  cinematicsLinks(game, q); // skyfall=, ending=, reveal=, jackpot=, flawless=, titleplay=, cine= (src/dev/cinematicsLinks.ts)
+  mpLinks(game, q); // MP lane: versus, localcoop, browse, teamboard, lobby= (src/dev/mpLinks.ts)
+  sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
@@ -214,8 +244,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     }, 700);
   }
   skyLinks(game, q);
+  graphicsLinks(game, q); // anime, look=, customise, shatter=, impact=, fog=, puddles=, cine= (src/dev/graphicsLinks.ts)
   // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
   if (q.has('nointro')) settings.bossIntros = false;
+  bossLinks(game, q); // bosses lane: &titan, &titanphase=N, &titanmove=, &remix, &duel (src/dev/bossLinks.ts)
   game.debugBoss({ now: q.has('bossnow'), mini: q.has('miniboss'), phase: Number(q.get('phase')) || 0 });
   const near = q.get('near');
   if (near) nearToy(game, near);
@@ -288,6 +320,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
+  gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   return true;

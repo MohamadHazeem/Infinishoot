@@ -24,6 +24,8 @@ export const retroGlobals = {
   uSkyColor: { value: new THREE.Color(0.5, 0.56, 0.78) },
   uGroundColor: { value: new THREE.Color(0.36, 0.3, 0.4) },
   uToonSteps: { value: 3 }, // 0 = smooth Gouraud
+  /** Half-width of the soft edge between cel bands (0.15 default; ANIME LOOK makes it hard). */
+  uCelSoft: { value: 0.15 },
   uFogColor: { value: new THREE.Color('#9fd8ff') },
   uFogNear: { value: 28 },
   uFogFar: { value: 70 },
@@ -115,6 +117,7 @@ uniform vec4 uFlash;
 uniform float uUnlit;
 uniform vec3 uSunColor;
 uniform float uToonSteps;
+uniform float uCelSoft;
 uniform vec3 uFogColor;
 uniform vec4 uLightPos[MAX_LIGHTS];
 uniform vec4 uLightCol[MAX_LIGHTS];
@@ -157,7 +160,7 @@ void main() {
   if (uToonSteps > 0.5) {
     // Soft-edged cel bands: chunky anime shading that still reads as lit.
     float s = d * uToonSteps;
-    d = (floor(s) + smoothstep(0.35, 0.65, fract(s))) / uToonSteps;
+    d = (floor(s) + smoothstep(0.5 - uCelSoft, 0.5 + uCelSoft, fract(s))) / uToonSteps;
   }
   if (uCloud.w > 0.0 && uUnlit < 0.99) {
     // Cloud shadows: the sun's light through a drifting noise layer projected from uCloudCut.z metres up.

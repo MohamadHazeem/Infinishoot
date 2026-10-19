@@ -157,6 +157,17 @@ const ART = {
   r_coil: 'lightning-spanner',
   r_scale: 'dragon-shield',
   r_halo: 'angel-outfit',
+  r_dashfire: 'bullet-impacts',
+  r_orbit: 'orbit',
+  r_nova: 'ice-bolt',
+  r_adrenal: 'pulse',
+  r_keg: 'barrel',
+  r_combo: 'infinity',
+  // gameplay lane HUD: super weapons and the mech suit
+  gp_minigun: 'minigun',
+  gp_railgun: 'laser-gun',
+  gp_flamer: 'flamethrower',
+  gp_mech: 'battle-mech',
   // legendary auto weapon and special (and their evolutions)
   starfall: 'barbed-star',
   starfall_evo: 'polar-star',

@@ -7,6 +7,15 @@ export function rearAmount(dx: number, dz: number, forwardX: number, forwardZ: n
 }
 let listenerX = 0, listenerZ = 0, facingX = 0, facingZ = -1;
 let hrtfVoices = 0;
+const listenerOut = { x: 0, z: 0, fx: 0, fz: -1 };
+/** Where the listener is and faces (the local hero), for sounds that move around it (src/audio/surround.ts). */
+export function listenerState(): { readonly x: number; readonly z: number; readonly fx: number; readonly fz: number } {
+  listenerOut.x = listenerX;
+  listenerOut.z = listenerZ;
+  listenerOut.fx = facingX;
+  listenerOut.fz = facingZ;
+  return listenerOut;
+}
 export function updateListener(ctx: AudioContext | null, x: number, z: number, fx: number, fz: number): void {
   listenerX = x; listenerZ = z;
   const length = Math.hypot(fx, fz);

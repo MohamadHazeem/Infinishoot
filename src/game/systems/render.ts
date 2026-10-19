@@ -32,6 +32,8 @@ import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
 import { tickOnlineStop } from '../netFeel';
 import { closePingWheel, pingInput, pingKind } from '../teamPlay';
+import { updateGraphics } from './graphics';
+import { bossCamera } from './bossLane';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -220,6 +222,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.bullets');
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
+  this.renderWorldEvent(rdt);
+  this.renderModes(rdt); // rhythm floor, mini-games, race ghost, their HUD (systems/modes.ts)
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
   lap('ren.barrels+arena+chests');
   if (!held) this.particles.render();
@@ -231,6 +235,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.pickups.render(this.animTime);
   for (const h of this.heroes) for (const w of h.weapons) w.draw(a, h.ctx);
   this.renderHeroMechs(a, rdt);
+  this.renderGameplay(a, netA, rdt); // mech bodies, drops, satellites, mutant spikes, HUD (systems/gameplay.ts)
   this.fx.render(this.cam.camera);
   this.portal.render(rdt);
   this.renderMuzzleFlashes();
@@ -248,7 +253,10 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.renderBossFight(frameDt, frozen || this.paused);
   this.juice.shakeOffset(this.shake);
   this.cameraDirector();
+  bossCamera.call(this); // the Titan and the duel ring pull the camera back (systems/bossLane.ts)
+  this.mpFrame(frameDt); // Versus command view and local co-op team camera, their HUDs (systems/mp.ts)
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
+  this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 
   if (inMenu || p.dead) this.reticle.style.display = 'none';
   else if (input.device === 'pad') {
@@ -288,6 +296,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     if (this.mode === 'transition') this.hud.setFade(Math.min(1, (this.fadeT += frameDt) / 0.35));
     else this.hud.setFade(Math.max(0, this.fadeT / 0.45));
   }
+  this.renderCinematics(frameDt); // cinematics lane: sky fall, reveal camera, overlays (systems/cinematics.ts)
 
   if (local.loadoutDirty) {
     local.loadoutDirty = false;
@@ -300,6 +309,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.camera+reticle');
   this.renderTeam();
   this.renderCompanion(rdt);
+  this.renderCoop2(rdt, netA); // emote bubbles, autopilot tags, help ghost, team panel, buy-back (systems/coop2.ts)
   this.renderEliteBars(alpha);
   this.renderMinimap();
   this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);
@@ -317,6 +327,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.sky');
   this.worldFx(frameDt);
   lap('ren.worldfx');
+  updateGraphics(this, frameDt); // graphics lane: destruction, anime look, water, fog, framing, customisation
+  lap('ren.graphics');
   this.hud.update(
     {
       hp: p.hp,

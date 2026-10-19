@@ -233,6 +233,11 @@ export function speechBusy(): boolean {
   return voiceChannel.current > VOICE_PRIORITY.bark.lowhp && voiceChannel.remaining(clock()) > 0;
 }
 
+/** Is anybody talking (any priority: barks, the announcer, boss lines, the radio DJ)? The crowd dips under it. */
+export function speaking(): boolean {
+  return voiceChannel.remaining(clock()) > 0;
+}
+
 /** Heroes with recorded barks; the others speak with the synthesized voice (src/audio/heroVoice.ts). */
 export const RECORDED_VOICES: ReadonlySet<string> = new Set(['rookie', 'bulwark', 'dash', 'ace']);
 

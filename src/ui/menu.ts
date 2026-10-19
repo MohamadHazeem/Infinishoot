@@ -1,5 +1,6 @@
 import type { Input } from '../core/input';
 import { sfx } from '../audio/sfx';
+import { navLock } from '../game/titlePlay';
 
 /**
  * Keyboard / gamepad / mouse navigation for one menu. Navigable elements are
@@ -79,7 +80,9 @@ export class MenuNav {
 
   update(input: Input, dt: number): void {
     if (this.items.length === 0) return;
-    const k = (c: string) => input.keyPressed(c);
+    // Playable title: WASD, Space and the left stick drive the demo hero, not the menu (src/game/titlePlay.ts).
+    const lock = navLock.move;
+    const k = (c: string) => input.keyPressed(c) && !(lock && (c === 'Space' || c === 'KeyW' || c === 'KeyA' || c === 'KeyS' || c === 'KeyD'));
     const pad = (b: number) => input.padButtonPressed(b);
 
     // Analog stick with auto-repeat.
@@ -87,7 +90,7 @@ export class MenuNav {
     const axis = this.opts.horizontal ? input.move.x : input.move.y;
     const cross = this.opts.horizontal ? input.move.y : input.move.x;
     this.repeat -= dt;
-    if (input.device === 'pad' && Math.abs(axis) > 0.6) {
+    if (input.device === 'pad' && Math.abs(axis) > 0.6 && !lock) {
       if (this.repeat <= 0) {
         stick = Math.sign(axis);
         this.repeat = 0.22;

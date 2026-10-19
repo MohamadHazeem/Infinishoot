@@ -147,7 +147,7 @@ export function worldRender(g: Game, frameDt: number): void {
   }
   if (boss && boss.uid !== s.dressUid && (!s.dressing || s.gone)) {
     clearDressing(g, s);
-    const d = buildDressing(boss.def.id, boss.x, boss.z, (x, z, r) => g.walls.hitCircle(x, z, r), g.arena.seed);
+    const d = buildDressing(boss.def.remixOf ?? boss.def.id, boss.x, boss.z, (x, z, r) => g.walls.hitCircle(x, z, r), g.arena.seed);
     if (d) {
       d.floor.position.set(boss.x, 0, boss.z);
       d.props.position.set(boss.x, 0, boss.z);

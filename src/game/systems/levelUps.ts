@@ -38,6 +38,7 @@ export function openLevelUp(this: Game): void {
     if (h.left) continue;
     if (h.needsPick) {
       h.offers = h.buildOffers();
+      this.modesOffers(h); // the Pacifist road's legendary card (systems/modes.ts)
       this.presentLevelUp(h);
     } else this.presentWait(h);
   }

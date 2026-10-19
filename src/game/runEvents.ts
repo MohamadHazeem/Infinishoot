@@ -108,6 +108,11 @@ export class RunEvents {
 
   // ---------------------------------------------------------------- events
 
+  /** A world event (src/game/systems/worldEvents.ts) takes this stage: no classic event as well. */
+  suppressEvent(): void {
+    if (!this.event) this.eventDone = true;
+  }
+
   /** Test links: start a specific event now. */
   forceEvent(id: EventId): void {
     this.eventAt = 0;

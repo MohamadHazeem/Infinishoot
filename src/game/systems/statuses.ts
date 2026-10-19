@@ -6,6 +6,8 @@ import { markSeen } from '../save';
  */
 import { ARENA_SOURCE_NAMES } from './arena';
 import { MECH_SOURCE_NAMES } from './heroMechs';
+import { gpBulletBlast } from './gameplay';
+import { GP_SOURCE_NAMES } from '../gameplay';
 import { copyOrbPulse } from './enemyAi';
 import type { Game } from '../game';
 import { scoreTuning, bombTuning, dropTuning, chestTuning, nukeTuning, statusTuning, cheats, BULLET_KINDS, IMPACT_BLAST, OWNED_CHEST } from '../game';
@@ -30,6 +32,7 @@ import { noteBulletHit } from '../netFeel';
 import { vampHeal } from '../lifesteal';
 import { noteShock, overloadPartner, teamCombo, teamGame, teamTuning } from '../teamPlay';
 import { bossVoiceCue } from '../../audio/voices';
+import { COOP2_SOURCE_NAMES } from '../coop2';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
@@ -136,7 +139,9 @@ export function sourceName(this: Game, id: string): string {
   if (PASSIVES[id]) return PASSIVES[id].name;
   if (id === 'parry' || id === 'ult') return id === 'parry' ? 'Parry' : 'Ultimate'; // skill layer
   if (MECH_SOURCE_NAMES[id]) return MECH_SOURCE_NAMES[id]; // hero mechanics, biome foes
+  if (GP_SOURCE_NAMES[id]) return GP_SOURCE_NAMES[id]; // gameplay lane: mech, super weapons, relics
   if (id === 'pet' || id === 'team') return id === 'pet' ? 'Pet' : 'Team Moves'; // companion lane
+  if (COOP2_SOURCE_NAMES[id]) return COOP2_SOURCE_NAMES[id]; // team ultimate, help ghosts
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
 }
@@ -244,6 +249,8 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     }
   }
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
+  this.gpOnKill(e, source, by); // mutant rewards, mech drops, finale spots, Nova Heart, Powder Keg (systems/gameplay.ts)
+  this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
   this.enemies.kill(e);
   // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
   // (a stale `boss` once became a Chonk: wrong boss bar on clients and a stage that wouldn't clear).
@@ -256,6 +263,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.runEvents.onKill(source, this.combo);
   this.onEnvKill(e, source);
   this.skillKill(e, source, by);
+  this.timeKill(e, by);
   if (isBoss) this.grantRelics();
   // Combos and Mod triggers after the kill is resolved (they may kill more).
   if (by) {
@@ -446,7 +454,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   this.vfx.num(p.x, 2.2, p.z, dmg, 'player');
   this.vfx.star(p.x, 1.1, p.z, 2, '#ff3d5a', 0.15);
   this.vfx.burst(p.x, 1, p.z, { count: 10, color: '#ff3d5a', color2: '#ffffff', speed: [3, 8], size: [0.12, 0.25], life: [0.2, 0.4], up: 3, gravity: 12 });
-  if (p.dead) this.onHeroDown(h);
+  if (p.dead && !this.lastStand(h)) this.onHeroDown(h); // a big combo can turn a killing blow into a last stand (systems/time.ts)
 }
 
 export function onHeroDown(this: Game, h: Hero): void {
@@ -476,6 +484,7 @@ export function onHeroDown(this: Game, h: Hero): void {
     this.juice.freeze(0.25);
     this.hud.flash(0.5);
   }
+  if (this.aliveHeroes.length === 0 && this.coopPoolSave(h)) return; // shared revive pool (systems/coop2.ts)
   if (this.aliveHeroes.length === 0) {
     this.mode = 'dead';
     this.modeT = 0;
@@ -625,6 +634,7 @@ export function updateChestSpawns(this: Game, dt: number): void {
     const z = this.rng.range(-lim, lim);
     if (this.walls.hitCircle(x, z, 1.2)) continue;
     const facing = this.rng.range(0, Math.PI * 2);
+    if (this.jackpotRoll(x, z, facing)) return; // now and then a golden jackpot chest instead (systems/cinematics.ts)
     this.chests.add(x, z, facing);
     this.host?.broadcast({ t: 'chestspawn', x, z, f: facing });
     this.vfx.ring(x, z, 1, 6, '#ffcd75', 0.6);
@@ -657,6 +667,7 @@ export function openChest(this: Game, i: number, h: Hero): void {
 export function bulletBlast(this: Game, i: number): void {
   const b = this.bullets;
   if (b.team[i] !== Team.Player || b.blast[i] <= 0) return;
+  if (gpBulletBlast(this, i)) return; // mech missiles
   const by = this.heroes[b.owner[i]] ?? this.hero;
   if (b.kind[i] === 5) {
     this.blast(b.x[i], b.z[i], b.blast[i], b.damage[i] * 0.5, this.bullets.colorOf(i), 'scatter', ['projectile', 'explosive'], false, by);
@@ -688,7 +699,7 @@ export function makeSpecialApi(this: Game): SpecialApi {
 
 /** Q/E: fire the hero's special once its meter is full. */
 export function tryBomb(this: Game, h: Hero): void {
-  if (h.bombCharge < 1 || h.player.dead) return;
+  if (h.bombCharge < 1 || h.player.dead || this.modesHolster(h)) return;
   if (h.special.id !== 'bomb') {
     h.bombCharge = 0;
     startSpecial(h, h.specialDef, h.specialP, this.specialApi);

@@ -6,6 +6,9 @@ import {
   type TrackId, type Song, type Section,
 } from './music/composition';
 import { MusicSynth, musicTuning } from './music/synth';
+import { InstrumentLayers } from './instruments';
+import { answerDegree, duelTuning, duelTurnAt, minorScale, tensionTuning, type DuelTurn } from './musicDuel';
+import type { Style } from './music/composition';
 export { TRACKS, makeSong, bossTrack, trackUnlocked } from './music/composition';
 export type { TrackId } from './music/composition';
 export { musicTuning } from './music/synth';
@@ -21,10 +24,12 @@ export interface MusicWant {
   cue?: 'victory' | 'gameover';
 }
 
-type LayerId = 'pad' | 'hat' | 'bass' | 'drums' | 'lead' | 'arp' | 'counter' | 'style';
-const LAYERS: readonly LayerId[] = ['pad', 'hat', 'bass', 'drums', 'lead', 'arp', 'counter', 'style'];
-const VOLUME: Record<LayerId, number> = { pad: 0.028, hat: 0.065, bass: 0.1, drums: 0.22, lead: 0.075, arp: 0.035, counter: 0.038, style: 0.05 };
-const PAN: Record<LayerId, number> = { pad: -0.18, hat: 0.18, bass: 0, drums: 0, lead: -0.12, arp: 0.32, counter: -0.32, style: 0.24 };
+type LayerId = 'pad' | 'hat' | 'bass' | 'drums' | 'lead' | 'arp' | 'counter' | 'style' | 'duel';
+const LAYERS: readonly LayerId[] = ['pad', 'hat', 'bass', 'drums', 'lead', 'arp', 'counter', 'style', 'duel'];
+/** `duel`: the boss duel's call/answer and accents, and the comeback heartbeat (src/audio/musicDuel.ts). */
+const VOLUME: Record<LayerId, number> = { pad: 0.028, hat: 0.065, bass: 0.1, drums: 0.22, lead: 0.075, arp: 0.035, counter: 0.038, style: 0.05, duel: 0.06 };
+const PAN: Record<LayerId, number> = { pad: -0.18, hat: 0.18, bass: 0, drums: 0, lead: -0.12, arp: 0.32, counter: -0.32, style: 0.24, duel: 0.1 };
+const NO_CALL = -999;
 /**
  * Style-rank layer (playing well sounds better). Ranks are the style meter's
  * 0 = D .. 5 = SS; it changes on the next bar.
@@ -59,6 +64,13 @@ interface Playing {
   finished: boolean;
   /** Style rank in effect this bar (set by arrange). */
   rank: number;
+  /** Instrument pickups' layers (src/audio/instruments.ts). */
+  instruments: InstrumentLayers;
+  /** Boss duel phrase this bar, comeback tension this bar, the minor style and the boss's last called phrase. */
+  duel: DuelTurn;
+  tense: boolean;
+  tenseStyle: Style | null;
+  call: Int16Array;
 }
 
 /** Procedural songs with bar-quantized transitions and an audio-clock beat API. */
@@ -92,6 +104,31 @@ export class Music {
   private duck = false;
   private weapons: readonly StemWeapon[] = [];
   private readonly noWeapons: readonly StemWeapon[] = [];
+  private duelOn = false;
+  private accent = 0;
+  private tension = false;
+  private band = 0;
+  private talk = false;
+
+  /** Boss music duel on/off (sound lane: a boss's last phase or the ring-of-fire duel). Takes effect next bar. */
+  setDuel(on: boolean): void { this.duelOn = on; }
+  /** Your hits/kills during your phrase: accent strength (decays). */
+  duelAccent(amount: number): void {
+    if (amount > 0 && Number.isFinite(amount)) this.accent = Math.min(duelTuning.accentMax, this.accent + amount);
+  }
+  /** Whose phrase is playing now: 'boss', 'hero' or null (no duel). */
+  get duelTurn(): 'boss' | 'hero' | null {
+    const d = this.cur?.duel ?? 0;
+    return d === 1 ? 'boss' : d === 2 ? 'hero' : null;
+  }
+  /** Comeback mode: the song turns minor and muffled (next bar; the filter moves at once). */
+  setTension(on: boolean): void { this.tension = on; }
+  get tense(): boolean { return this.cur?.tense ?? false; }
+  /** The run's band (bitmask of src/audio/instruments.ts INSTRUMENT_IDS), committed at the next bar. */
+  setInstruments(mask: number): void { this.band = Number.isFinite(mask) ? mask | 0 : 0; }
+  get instruments(): number { return this.cur?.instruments.active ?? 0; }
+  /** Pull the music back while the radio DJ talks. */
+  setTalkover(on: boolean): void { this.talk = on; }
 
   /** Borrow the local build; it is sampled only on the next scheduled downbeat. */
   setWeapons(weapons: readonly StemWeapon[]): void { this.weapons = weapons; }
@@ -138,6 +175,25 @@ export class Music {
     return this.lastBeat >= 0 && inBeatWindow(now, this.lastBeat, this.beatDuration, ms);
   }
 
+  /**
+   * Rhythm stages (modes lane, src/game/systems/modes.ts): pull the beat grid toward the game's own
+   * deterministic beat clock. `phase` is where that clock's beat is now, in [0, 1). Moves future
+   * scheduling by at most `maxShift` seconds per call (call once per frame), so the tempo bends
+   * slightly while it locks on. No-op without a playing song. Gameplay never reads the audio.
+   */
+  alignBeat(phase: number, maxShift = 0.002): void {
+    const p = this.cur;
+    const ctx = this.synth?.ctx;
+    if (!p || !ctx || ctx.state !== 'running' || TRACK_BY_ID[p.id].bars || !Number.isFinite(phase)) return;
+    const beat = 60 / p.song.style.bpm;
+    const now = ctx.currentTime;
+    const audio = ((((p.step % 4) / 4 - (p.nextTime - now) / beat) % 1) + 1) % 1;
+    let err = phase - audio;
+    err -= Math.round(err);
+    const shift = Math.max(-maxShift, Math.min(maxShift, err * beat));
+    p.nextTime = Math.max(now + 0.005, p.nextTime - shift);
+  }
+
   private clockActive(now: number): boolean {
     return this.synth?.ctx.state === 'running' && now <= this.beatEnd && (this.lastBeat >= 0 || this.beatTimes.length > 0);
   }
@@ -175,8 +231,10 @@ export class Music {
     if (!this.cur && (this.cue || this.desiredTrack)) this.switchTrack(ctx.currentTime + 0.04);
     let p = this.cur;
     if (!p) { this.consumeBeats(ctx.currentTime); return; }
-    p.filter.frequency.setTargetAtTime(this.duck ? 900 : 16000, ctx.currentTime, 0.15);
-    p.menu.gain.setTargetAtTime(this.duck ? 0.45 : 1, ctx.currentTime, 0.12);
+    this.accent *= Math.exp(-Math.max(0, dt) * 1.2);
+    const tenseNow = this.tension && !this.jukebox && p.id !== 'title' && !TRACK_BY_ID[p.id].bars;
+    p.filter.frequency.setTargetAtTime(this.duck ? 900 : tenseNow ? tensionTuning.cutoff : 16000, ctx.currentTime, tenseNow ? 0.4 : 0.15);
+    p.menu.gain.setTargetAtTime((this.duck ? 0.45 : 1) * (this.talk ? 0.5 : 1), ctx.currentTime, 0.12);
     if (p.nextTime < ctx.currentTime - 0.25) {
       // Tab sleep: skip backlog, resume a fresh bar, discard stale bonus windows.
       p.step = Math.ceil(p.step / 16) * 16;
@@ -275,8 +333,10 @@ export class Music {
       nodes.push(gain, pan);
     }
     const stems = new WeaponStems(ctx, out, nodes);
+    const instruments = new InstrumentLayers(ctx, out, nodes);
     return { stems, id, seed, stage, song: makeSong(TRACK_BY_ID[id].style, seed, TRACK_BY_ID[id].theme), out, filter, menu, layers, nodes, padDuck,
-      step: 0, nextTime: t, section: 'intro', transpose: 0, phase: 1, energy: 0, end: Infinity, finished: false, rank: 0 };
+      step: 0, nextTime: t, section: 'intro', transpose: 0, phase: 1, energy: 0, end: Infinity, finished: false, rank: 0,
+      instruments, duel: 0, tense: false, tenseStyle: null, call: new Int16Array(32).fill(NO_CALL) };
   }
 
   private fadeOut(p: Playing, t: number): void {
@@ -293,9 +353,14 @@ export class Music {
   }
 
   private arrange(p: Playing, t: number, legacyKeyUp: boolean): void {
-    p.stems.commit(audioSettings.interactiveMusic && !this.jukebox && p.id !== 'title' && p.id !== 'shop' && !TRACK_BY_ID[p.id].bars ? this.weapons : this.noWeapons, t);
     const bar = Math.floor(p.step / 16);
     const boss = TRACK_BY_ID[p.id].boss;
+    const inRun = !this.jukebox && p.id !== 'title' && !TRACK_BY_ID[p.id].bars;
+    p.duel = boss && inRun && this.duelOn ? duelTurnAt(bar) : 0;
+    p.tense = this.tension && inRun;
+    const stemMul = p.duel === 1 ? duelTuning.bossStems : p.duel === 2 ? duelTuning.heroStems : 1;
+    p.stems.commit(audioSettings.interactiveMusic && inRun && p.id !== 'shop' ? this.weapons : this.noWeapons, t, stemMul);
+    p.instruments.commit(inRun ? this.band : 0, t);
     p.phase = boss && !this.jukebox ? Math.max(this.bossPhase, legacyKeyUp ? 2 : 1) : 1;
     p.energy = Math.max(0, Math.min(1, this.intensity));
     p.rank = this.jukebox || TRACK_BY_ID[p.id].bars ? 0 : this.styleRank;
@@ -316,6 +381,11 @@ export class Music {
       if (boss && layer === 'counter') k = p.phase >= 2 ? 0.85 : 0;
       if (boss && layer === 'arp') k = p.phase >= 3 ? 1 : p.phase >= 2 ? 0.65 : 0.25;
       if (layer === 'style') k = p.rank >= styleLayerTuning.shakerAt ? (0.55 + 0.09 * p.rank) * styleLayerTuning.gain : 0;
+      // Boss duel: the boss calls (its lead louder), then the boss lead and counter drop out while you answer.
+      if (p.duel === 2 && (layer === 'lead' || layer === 'counter')) k = 0;
+      if (p.duel === 2 && layer === 'arp') k *= 0.3;
+      if (p.duel === 1 && layer === 'lead') k *= 1.15;
+      if (layer === 'duel') k = p.duel ? 1 : p.tense ? 0.8 : 0;
       p.layers[layer].gain.setTargetAtTime(VOLUME[layer] * k, t, 0.06);
     }
   }
@@ -324,7 +394,7 @@ export class Music {
     if (TRACK_BY_ID[p.id].bars) { this.playStinger(p, t, d); return; }
     const synth = this.synth!;
     const song = p.song;
-    const st = song.style;
+    const st = p.tense ? (p.tenseStyle ??= { ...song.style, scale: minorScale(song.style.scale) }) : song.style;
     const s = p.step % 16;
     const bar = Math.floor(p.step / 16);
     const chord = chordAt(song, p.section, bar);
@@ -375,6 +445,9 @@ export class Music {
       synth.note(L.lead, st.lead, degreeMidi(st, leadDeg, p.transpose) + 24, t, d * Math.min(n.len, 3.8), 0.7);
     }
     if (p.rank >= styleLayerTuning.shakerAt) this.playStyle(p, t, d, s, bar, chord, leadDeg, b);
+    if (p.duel) this.playDuel(p, st, t, d, s, chord, leadDeg);
+    // Comeback: a heartbeat under the tense song.
+    else if (p.tense && (s === 0 || s === 3)) synth.kick(L.duel, t);
     if ((!intro && !bridge && (full || p.energy > 0.45)) && (s % 2 === 0 || p.phase === 3)) {
       synth.note(L.arp, st.arp, degreeMidi(st, chord + TONES[song.arp[s]], p.transpose) + 24, t, d * 0.85, 0.55);
     }
@@ -383,8 +456,29 @@ export class Music {
     }
     if (bar % 4 === 0 && s === 0 && !intro) synth.noiseHit(L.hat, t, 0.45, 0.5, 6500, true);
     p.stems.play(synth, st, chord, p.transpose, p.step, t, d);
+    p.instruments.play(synth, st, chord, p.transpose, p.step, p.section, t, d);
     // Phase 3 adds an octave pulse without changing the tempo/bonus grid.
     if (p.phase === 3 && s % 4 === 3) synth.note(L.bass, 'triangle', root + 12, t, d * 0.8, 0.4);
+  }
+
+  /** Boss duel for one step: record the boss's call, or answer it (src/audio/musicDuel.ts). */
+  private playDuel(p: Playing, st: Style, t: number, d: number, s: number, chord: number, leadDeg: number | null): void {
+    const synth = this.synth!;
+    const L = p.layers.duel;
+    const i = p.step % 32;
+    if (p.duel === 1) {
+      p.call[i] = leadDeg ?? NO_CALL;
+      // The boss's voice: its lead doubled an octave down, gritty.
+      if (leadDeg !== null) synth.note(L, 'sawtooth', degreeMidi(st, leadDeg, p.transpose) + 12, t, d * 1.5, 0.4);
+      return;
+    }
+    const a = this.accent;
+    const c = p.call[i];
+    if (c !== NO_CALL) synth.note(L, 'square', degreeMidi(st, answerDegree(c), p.transpose) + 24, t, d * 1.3, Math.min(0.85, duelTuning.answerVol * (0.6 + a * 0.5)));
+    if (a > 0.05 && s % 2 === 0) {
+      synth.note(L, 'bell', degreeMidi(st, chord + TONES[(s / 2) % 4], p.transpose) + 36, t, d * 0.9, Math.min(0.7, 0.25 + a * 0.3));
+      this.accent *= duelTuning.accentDecay;
+    }
   }
 
   /** The style-rank layer for one step (see styleLayerTuning). */

@@ -3,6 +3,7 @@ import type { Input } from '../core/input';
 import { resolveCircleVsBoxes, type AABB } from '../world/collision';
 import { animateHero, applySkin, createHero, newPose, setExpression, type Expression, type HeroRig } from './heroModel';
 import type { SkinDef } from '../data/skins';
+import { dressHero } from './heroLooks';
 import { textures } from '../render/textures';
 import { baseStats, type Stats } from './stats';
 
@@ -86,6 +87,8 @@ export class Player {
   focus = false;
   /** Hero build proportions (width, height). */
   buildScale: [number, number] = [1, 1];
+  /** CUSTOMISE code (src/data/customise.ts): colours, accessory, weapon skin. Set before setSkin; synced in hello/start. */
+  look = '---00';
   private pose = newPose();
   private hurtT = 0;
   private lastHp = -1;
@@ -353,6 +356,7 @@ export class Player {
 
   setSkin(armorColor: string, skin: SkinDef): void {
     applySkin(this.rig, armorColor, skin);
+    dressHero(this.rig, this.look, armorColor === skin.armor); // CUSTOMISE colours and accessory (graphics lane)
   }
 
   /** Pick the painted face from what's happening. */

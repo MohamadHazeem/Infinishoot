@@ -571,6 +571,10 @@ export class Enemy {
   copyInterval = 0.25;
   copySpeed = 12;
   copyFlash = 0;
+  /** Gameplay lane: mutated (left alive too long), seconds alive toward mutating, and the spit timer (src/game/systems/gameplay.ts). */
+  mutated = false;
+  mutAge = 0;
+  mutT = 0;
   /** Cosmetic animation state (src/game/enemyAnim.ts). */
   readonly anim = new EnemyAnim();
 
@@ -635,6 +639,8 @@ export class Enemy {
     this.leader = null;
     this.sub = 0;
     this.under = false;
+    this.mutated = false;
+    this.mutAge = this.mutT = 0;
     this.rallyCd = squadTuning.rallyEvery * (0.5 + Math.random() * 0.5);
     if (this.def.behavior === 'egg') this.timerA = familyTuning.eggHatch;
     if (this.def.behavior === 'swarmwall') this.timerA = familyTuning.wallLife;
@@ -695,6 +701,17 @@ export interface EnemyCtx {
   boss?: BossApi;
   /** Biome foes: shark dust, snowball crashes, kite gusts (src/game/biomeFoes.ts). */
   foe?: BiomeFoeApi;
+  /**
+   * Stealth stages (src/game/systems/worldEvents.ts): a spot an unaware enemy walks to instead of
+   * chasing (patrol or investigate), at `speed` x its own; null = chase as usual. It doesn't attack.
+   */
+  lure?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
+  /** Rhythm stages (src/game/systems/modes.ts): move speed x this, a pulse that peaks on the beat (unset = x1). */
+  beatStep?: number;
+  /** Rhythm stages: true on steps between beats, so wind-ups that end then wait for the next beat. */
+  beatHold?: boolean;
+  /** Sound-reactive enemies (`EnemyDef.ears`, src/game/systems/sound2.ts): same contract as `lure`, asked when lure says null. */
+  hear?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
 }
 
 // ------------------------------------------------------------------ rendering helpers
@@ -938,7 +955,7 @@ export class Enemies {
         continue;
       }
 
-      // Chase the nearest living player.
+      // Chase the nearest living player (an unaware enemy on a stealth stage patrols instead: ctx.lure).
       let best: EnemyCtx['target'] | null = null;
       let bd = Infinity;
       for (const t of ctx.targets) {
@@ -949,19 +966,22 @@ export class Enemies {
           best = t;
         }
       }
-      ctx.target = best ?? away;
-      ctx.targetAlive = !!best;
+      const lure = ctx.lure?.(e) ?? ctx.hear?.(e) ?? null;
+      ctx.target = lure ?? best ?? away;
+      ctx.targetAlive = !lure && !!best;
       const tgt = ctx.target;
       const dx = tgt.x - e.x;
       const dz = tgt.z - e.z;
       const dist = Math.sqrt(dx * dx + dz * dz) || 1;
       const nx = dx / dist;
       const nz = dz / dist;
-      const speed = e.def.speed * e.speedMul * (e.slowT > 0 ? 1 - e.slowAmt : 1) * (e.rallyT > 0 ? squadTuning.rallySpeed : 1);
+      const speed = e.def.speed * e.speedMul * (e.slowT > 0 ? 1 - e.slowAmt : 1) * (e.rallyT > 0 ? squadTuning.rallySpeed : 1) * (lure ? lure.speed : 1) * (ctx.beatStep ?? 1);
       let wantX = 0;
       let wantZ = 0;
       let rigid = false; // attack movement ignores steering smoothing
       e.t -= dt;
+      // Rhythm stages: attacks (the end of a wind-up) land on the beat.
+      if (ctx.beatHold && e.state === 'windup' && e.t <= 0 && e.def.behavior !== 'reaper') e.t = 1e-6;
 
       // Elites rally their squad now and then.
       if (e.elite && (e.rallyCd -= dt) <= 0) {
@@ -1424,6 +1444,8 @@ export class Enemies {
       case 'rex':
       case 'queen':
       case 'omega':
+      case 'titan': // the Titan and its weak points (src/game/titan.ts)
+      case 'titanpart':
         rigid = updateBoss(e, dt, ctx, nx, nz, dist, speed);
         wantX = e.vx;
         wantZ = e.vz;
@@ -1710,6 +1732,7 @@ export class Enemies {
         b.flash.setXYZW(i, 1, 0.95, 0.55, blink ? 0.75 : 0.2 + 0.2 * Math.sin(time * 10 + e.uid));
       } else if (e.def.boss && e.enraged) b.flash.setXYZW(i, 1, 0.15, 0.2, (e.phase >= 3 ? 0.35 : 0.2) + 0.15 * Math.sin(time * (e.phase >= 3 ? 14 : 8)));
       else if (e.exposeT > 0) b.flash.setXYZW(i, 0.8, 0.6, 1, 0.3 + 0.15 * Math.sin(time * 12 + e.uid));
+      else if (e.mutated) b.flash.setXYZW(i, 0.55, 1, 0.3, 0.28 + 0.14 * Math.sin(time * 7 + e.uid)); // mutated (gameplay lane)
       else if (e.mod) b.flash.setXYZW(i, e.mod.glow[0], e.mod.glow[1], e.mod.glow[2], 0.3 + 0.15 * Math.sin(time * 6));
       else if (e.elite) b.flash.setXYZW(i, 1, 0.85, 0.2, 0.25 + 0.15 * Math.sin(time * 6));
       else if (e.aiBits & 2) b.flash.setXYZW(i, 1, 0.8, 0.3, 0.25 + 0.15 * Math.sin(time * 14 + e.uid));

@@ -53,6 +53,7 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
         <button class="tbtn bomb" data-b="5">SPECIAL</button>
         <button class="tbtn parry" data-b="1">PARRY</button>
         <button class="tbtn ult" data-b="10">ULT</button>
+        <button class="tbtn rewind" data-b="14">REWIND</button>
       </div>`,
     );
     layer = root.querySelector('#touch')!;

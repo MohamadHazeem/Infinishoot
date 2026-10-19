@@ -1,5 +1,6 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
-export type Behavior = 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
+import { bossLaneDefs, type RemixFlags } from './bossRemix';
+export type Behavior = 'titan' | 'titanpart' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
 export type Model = 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel;
 /** Biome-native enemies (src/game/biomeFoes.ts): one per biome. */
 export type BiomeBehavior = 'diver' | 'shark' | 'roller' | 'slug' | 'marcher' | 'kite';
@@ -93,6 +94,14 @@ export interface EnemyDef {
   gust?: { keepDistance: number; interval: number; windup: number; range: number; arcDeg: number; push: number; damage: number };
   /** What hits sound like (src/audio/voices.ts); set for every enemy from ENEMY_MATERIALS below. */
   material?: Material;
+  /** Sound-reactive (sound lane): hearing range x this; drawn to loud weapons, loses track when it's quiet (src/audio/loudness.ts). */
+  ears?: number;
+  /** Boss rematch (src/data/bossRemix.ts): the boss it remixes, its brain tweaks and phase subtitles. */
+  remixOf?: string;
+  remix?: RemixFlags;
+  remixLines?: [string, string];
+  /** A Titan weak point (src/game/titan.ts): boss rules (Nuke, recycling, freezes), drawn by the Titan's view. */
+  titanPart?: 'plate' | 'hand' | 'eye';
 }
 
 /** Hit-sound materials: each maps to a recorded impact (hit_metal, hit_flesh, hit_slime, hit_stone, hit_shield). */
@@ -154,6 +163,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   swarmer: {
     id: 'swarmer',
+    ears: 1, // sound-reactive (sound lane)
     death: 'goo',
     name: 'Swarmer',
     behavior: 'chase',
@@ -445,6 +455,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   leaper: {
     id: 'leaper',
+    ears: 0.9, // sound-reactive (sound lane)
     death: 'goo',
     name: 'Hop Frog',
     behavior: 'leaper',
@@ -708,6 +719,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   // ---------------------------------------------------------------- biome-native enemies (src/game/biomeFoes.ts)
   bee: {
     id: 'bee',
+    ears: 1.2, // sound-reactive (sound lane)
     death: 'goo',
     name: 'Bumble Bee',
     behavior: 'diver',
@@ -964,6 +976,9 @@ export function miniBossForStage(stage: number): EnemyDef {
   return ENEMIES[pool[Math.max(0, stage) % pool.length].id];
 }
 
+// Boss rematches and the Titan (src/data/bossRemix.ts).
+Object.assign(ENEMIES, bossLaneDefs(ENEMIES));
+
 /** Every enemy's hit material (veterans use their base enemy's). Unlisted enemies sound like flesh. */
 export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {
   swarmer: 'flesh',
@@ -1002,5 +1017,5 @@ export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {
   swarm_wall: 'flesh',
 };
 for (const def of Object.values(ENEMIES)) {
-  def.material ??= ENEMY_MATERIALS[def.id] ?? ENEMY_MATERIALS[def.id.replace(/^v_/, '')] ?? 'flesh';
+  def.material ??= ENEMY_MATERIALS[def.id] ?? ENEMY_MATERIALS[def.id.replace(/^v_/, '')] ?? ENEMY_MATERIALS[def.remixOf ?? ''] ?? 'flesh';
 }

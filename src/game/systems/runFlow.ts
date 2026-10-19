@@ -33,6 +33,7 @@ import { WEAPON_COMBOS } from '../../data/weaponCombos';
 import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, type DifficultyId, type ModeId } from '../../data/modes';
 import { submitDaily } from '../highscores';
 import { boardId, leaderboardEnabled, submitGlobal } from '../../net/leaderboard';
+import { clearBossLane } from './bossLane';
 
 export function clearWorld(this: Game): void {
   this.enemies.clear();
@@ -46,6 +47,7 @@ export function clearWorld(this: Game): void {
   this.juice.reset();
   this.boss = null;
   this.bossField.clear();
+  clearBossLane.call(this); // no Titan, no boss duel (systems/bossLane.ts)
   this.bossIntro.stop(this.cam.camera);
   this.bossBoom = null;
   this.slowMoT = 0;
@@ -96,7 +98,9 @@ export function goTitle(this: Game): void {
 
 /** Back to a single local hero on the title screen, closing any connection. */
 export function leaveToTitle(this: Game): void {
+  if (this.role === 'client' && this.mode !== 'title') this.client?.send({ t: 'bye' }); // leaving on purpose: no autopilot wait (systems/coop2.ts)
   this.pvp = null;
+  this.mpReset(); // no Versus match, local co-op pads or public listing (systems/mp.ts)
   this.host?.close();
   this.client?.close();
   this.host = null;
@@ -129,7 +133,7 @@ export function pickDifficulty(this: Game): DifficultyDef {
 /** Start a run (solo or online host). */
 export function startRun(this: Game, fixed?: { seed: number; difficulty: string }): void {
   this.paused = false;
-  if (this.role !== 'solo') this.runMode = 'standard';
+  if (this.role !== 'solo' && this.lobbyKind !== 'weekly') this.runMode = 'standard'; // online weekly co-op keeps 'weekly'
   this.difficulty = fixed ? DIFF_BY_ID[fixed.difficulty as DifficultyId] ?? DIFF_BY_ID.normal : this.pickDifficulty();
   this.runDate = today();
   this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
@@ -163,7 +167,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.role === 'host') {
     for (const h of this.heroes) {
       if (!h.peerId) continue;
-      this.host!.send(h.peerId, { t: 'start', meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
+      this.host!.send(h.peerId, { t: 'start', meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
     }
   }
   this.loadStage(1);
@@ -223,6 +227,7 @@ export function loadStage(this: Game, stage: number): void {
   this.vfx.banner(`STAGE ${stage}`, this.stageSub(stage), 2.2);
   this.vfx.sound('wave', NaN, NaN);
   this.routeStageStart();
+  this.modesStageStart(); // rhythm stage / Pacifist road rules, weekly ghost (systems/modes.ts)
   this.checkAchievements();
 }
 
@@ -275,8 +280,10 @@ export function summary(this: Game, h: Hero): RunSummary {
 /** Bank lifetime stats into this machine's save, then show game over. */
 export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   if (this.meta.banked) return;
+  this.modesRunEnd(); // keep this week's ghost (systems/modes.ts)
   const bolts = bankMeta(this, sum);
   sum.bolts = bolts;
+  this.mpRunBanked(sum); // weekly co-op team best and board (systems/mp.ts)
   const L = save.lifetime;
   L.runs++;
   L.kills += sum.kills;

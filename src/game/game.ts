@@ -65,6 +65,7 @@ import * as BossFightSys from './systems/bossFight';
 import { BossField } from './bossField';
 import { BossIntro } from './bossIntro';
 import type { BossApi } from './bosses';
+import type { BossDuel } from './bossDuel';
 import * as ArenaSys from './systems/arena';
 import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
@@ -73,6 +74,7 @@ import * as SkySys from './systems/sky';
 import * as SkillSys from './systems/skill';
 import { Onboarding } from './onboarding';
 import { weaponCue, windupCue } from './systems/sound';
+import { soundLaneStep } from './systems/sound2';
 import { rightClickHeld } from './chargeMode';
 import * as BiomeFoesSys from './systems/biomeFoes';
 import * as HeroMechsSys from './systems/heroMechs';
@@ -81,6 +83,16 @@ import * as RouteSys from './systems/route';
 import * as WindSys from './wind';
 import * as CompanionSys from './systems/companion';
 import * as CharSys from './systems/characters';
+import * as GameplaySys from './systems/gameplay';
+import * as WorldEventsSys from './systems/worldEvents';
+import * as TimeSys from './systems/time';
+import * as Coop2Sys from './systems/coop2';
+import * as ModesSys from './systems/modes';
+import * as CineSys from './systems/cinematics';
+import * as VersusSys from './systems/versus';
+import * as LocalCoopSys from './systems/localCoop';
+import * as MpSys from './systems/mp';
+import type { LobbyKind } from '../ui/screens';
 import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
@@ -238,6 +250,8 @@ export interface LobbyEntry {
   pet: string;
   hero: string;
   loadout: Loadout;
+  /** CUSTOMISE code (src/data/customise.ts), checked with cleanLook. */
+  look?: string;
 }
 
 /** "Scattergun / Grenade Lobber / Bomb" for the lobby list. */
@@ -281,6 +295,13 @@ export function playerName(): string {
 export class Game implements HeroWorld {
   // Methods that live in src/game/systems/ (see the header of each file).
   updateWind = WindSys.updateWind;
+  // Mid-stage world events and Night Raid stealth stages (src/game/systems/worldEvents.ts).
+  updateWorldEvent = WorldEventsSys.updateWorldEvent;
+  worldEventNet = WorldEventsSys.worldEventNet;
+  worldEventLive = WorldEventsSys.worldEventLive;
+  applyWorldEventNet = WorldEventsSys.applyWorldEventNet;
+  worldEventLocal = WorldEventsSys.worldEventLocal;
+  renderWorldEvent = WorldEventsSys.renderWorldEvent;
   clearWorld = RunFlowSys.clearWorld;
   loadArena = RunFlowSys.loadArena;
   spawnSpot = RunFlowSys.spawnSpot;
@@ -547,6 +568,87 @@ export class Game implements HeroWorld {
   companionNet = CompanionSys.companionNet;
   applyCompanionNet = CompanionSys.applyCompanionNet;
   renderCompanion = CompanionSys.renderCompanion;
+  // Gameplay lane: mech suits, supply crates, rule relics, mutations, overload, cash-ins, finale, comeback (systems/gameplay.ts).
+  gameplayPreWeapons = GameplaySys.gameplayPreWeapons;
+  updateGameplay = GameplaySys.updateGameplay;
+  gpOnDash = GameplaySys.gpOnDash;
+  gpOnKill = GameplaySys.gpOnKill;
+  gpFinale = GameplaySys.gpFinale;
+  gpCashIn = GameplaySys.gpCashIn;
+  gpHeroNet = GameplaySys.gpHeroNet;
+  applyGpHeroNet = GameplaySys.applyGpHeroNet;
+  gameplayNet = GameplaySys.gameplayNet;
+  applyGameplayNet = GameplaySys.applyGameplayNet;
+  gameplayClientInput = GameplaySys.gameplayClientInput;
+  renderGameplay = GameplaySys.renderGameplay;
+  // Time: rewind, last stand, bullet-time dodges, death replay, clutch revives (src/game/systems/time.ts).
+  timeStep = TimeSys.timeStep;
+  requestRewind = TimeSys.requestRewind;
+  lastStand = TimeSys.lastStand;
+  timeKill = TimeSys.timeKill;
+  clutchRevive = TimeSys.clutchRevive;
+  timeMessage = TimeSys.timeMessage;
+  timeNet = TimeSys.timeNet;
+  applyTimeNet = TimeSys.applyTimeNet;
+  renderTime = TimeSys.renderTime;
+  // Co-op wave 2: drop-in/drop-out, revive pool, roles, team ultimate, emotes, help ghosts (src/game/systems/coop2.ts).
+  coop2Step = Coop2Sys.coop2Step;
+  coopHello = Coop2Sys.coopHello;
+  coopLeft = Coop2Sys.coopLeft;
+  coopMessage = Coop2Sys.coopMessage;
+  coopRoleStats = Coop2Sys.coopRoleStats;
+  coopPoolSave = Coop2Sys.coopPoolSave;
+  coopEmote = Coop2Sys.coopEmote;
+  coopNet = Coop2Sys.coopNet;
+  applyCoopNet = Coop2Sys.applyCoopNet;
+  coopClientMsg = Coop2Sys.coopClientMsg;
+  coopLobby = Coop2Sys.coopLobby;
+  renderCoop2 = Coop2Sys.renderCoop2;
+  // Modes lane: rhythm stages, the Pacifist road, bonus mini-games, weekly ghost races (src/game/systems/modes.ts).
+  modes: ModesSys.ModesRun = ModesSys.newModesRun();
+  modesStageStart = ModesSys.modesStageStart;
+  modesTick = ModesSys.modesTick;
+  modesPreWeapons = ModesSys.modesPreWeapons;
+  updateModes = ModesSys.updateModes;
+  modesOnKill = ModesSys.modesOnKill;
+  modesOffers = ModesSys.modesOffers;
+  modesHolster = ModesSys.modesHolster;
+  modesArcade = ModesSys.modesArcade;
+  startMiniGame = ModesSys.startMiniGame;
+  modesNet = ModesSys.modesNet;
+  applyModesNet = ModesSys.applyModesNet;
+  modesLocal = ModesSys.modesLocal;
+  modesRunEnd = ModesSys.modesRunEnd;
+  renderModes = ModesSys.renderModes;
+  // Cinematics: sky-fall transition, ending, legendary reveal, jackpot chest, flawless reward (src/game/systems/cinematics.ts).
+  cineStep = CineSys.cineStep;
+  skyfallTransition = CineSys.skyfallTransition;
+  jackpotRoll = CineSys.jackpotRoll;
+  onCine = CineSys.onCine;
+  cineNet = CineSys.cineNet;
+  applyCineNet = CineSys.applyCineNet;
+  renderCinematics = CineSys.renderCinematics;
+  // MP lane: Versus Swarm, local co-op, lobby browser, weekly team board (systems/versus.ts, localCoop.ts, mp.ts).
+  versusBegin = VersusSys.versusBegin;
+  versusSolo = VersusSys.versusSolo;
+  versusWorld = VersusSys.versusWorld;
+  versusReqs = VersusSys.versusReqs;
+  versusStep = VersusSys.versusStep;
+  versusCommand = VersusSys.versusCommand;
+  versusHostMessage = VersusSys.versusHostMessage;
+  versusNet = VersusSys.versusNet;
+  applyVersusNet = VersusSys.applyVersusNet;
+  localCoopStart = LocalCoopSys.localCoopStart;
+  localHeroUpdate = LocalCoopSys.localHeroUpdate;
+  mpTick = MpSys.mpTick;
+  mpFrame = MpSys.mpFrame;
+  mpReset = MpSys.mpReset;
+  mpLobbyExtra = MpSys.mpLobbyExtra;
+  mpClientMessage = MpSys.mpClientMessage;
+  mpRunBanked = MpSys.mpRunBanked;
+  /** Versus Swarm match (null outside one) and shared-screen local co-op run (null outside one). */
+  versus: VersusSys.VersusRun | null = null;
+  localCoop: LocalCoopSys.LocalCoopRun | null = null;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -684,7 +786,7 @@ export class Game implements HeroWorld {
   /** PvP match in progress (null outside PvP). */
   pvp: PvpState | null = null;
   /** The online lobby's game type, picked by the host. */
-  lobbyKind: 'coop' | 'pvp' = 'coop';
+  lobbyKind: LobbyKind = 'coop';
   /** The name this machine hosted or joined with (the saved name is shared by every tab on a PC). */
   netName = '';
   /** Last EXPOSED popup (run time), so a crowd doesn't spam it. */
@@ -695,6 +797,12 @@ export class Game implements HeroWorld {
   /** Telegraphed ground strikes (Hive Queen) counting down. */
   /** Telegraphed ground strikes; `foe` > 0 also blasts enemies (meteors). */
   strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number; cause?: string }[] = [];
+  /**
+   * Boss duel (src/game/bossDuel.ts): non-null on every machine while a stage boss's
+   * last phase plays as a one-on-one inside a closing ring of fire; `t` = seconds
+   * since it began. The music can switch to a call-and-response duel while it's set.
+   */
+  bossDuel: BossDuel | null = null;
 
   constructor(
     readonly input: Input,
@@ -736,6 +844,7 @@ export class Game implements HeroWorld {
       corpse: (id, x, y, z, s, f, dx, dz) => this.onCorpse(id, x, y, z, s, f, dx, dz),
       finisher: (id, hi, x, z) => this.onFinisher(id, hi, x, z),
       portrait: (who, ex, text, sec) => portraits.popIn(who, ex as Parameters<typeof portraits.popIn>[1], text, sec),
+      cine: (kind, hero, x, z, data) => this.onCine(kind, hero, x, z, data),
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {
@@ -794,6 +903,7 @@ export class Game implements HeroWorld {
     this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
+    MpSys.installMp(this, hudRoot);
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     this.goTitle();
   }
@@ -1091,6 +1201,20 @@ export class Game implements HeroWorld {
     this.onboarding.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
+    this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
+    this.mpTick(dt); // MP lane: Versus command view, local co-op menu turns, lobby heartbeat (systems/mp.ts)
+    // Time holds (rewind playback, death replay) stop the world on this machine (systems/time.ts).
+    if (this.timeStep(dt)) {
+      this.input.endStep();
+      this.hostTick(false);
+      return;
+    }
+    // Cinematics (systems/cinematics.ts): solo holds the world for the ending, reveals and jackpots.
+    if (this.cineStep(dt)) {
+      this.input.endStep();
+      this.hostTick(false);
+      return;
+    }
     if (this.role === 'client') {
       this.clientUpdate(dt);
       return;
@@ -1126,6 +1250,7 @@ export class Game implements HeroWorld {
       this.hostTick(true);
       return;
     }
+    this.modesTick(dt); // the rhythm stage's beat clock runs in real time (systems/modes.ts)
     if (this.juice.hitStop > 0) {
       this.juice.hitStop -= dt;
       this.hostTick(false);
@@ -1171,6 +1296,8 @@ export class Game implements HeroWorld {
     for (const e of this.enemies.list) if (e.alive) this.hash.insert(e, e.x, e.z, e.radius);
     lap('sim.hash');
 
+    this.gameplayPreWeapons(dt); // mech suit, super weapon, overload; idles the clicks they replace (systems/gameplay.ts)
+    this.modesPreWeapons(dt); // enemy beat pulse, holstered weapons (systems/modes.ts)
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
       for (const w of h.weapons) {
@@ -1182,6 +1309,7 @@ export class Game implements HeroWorld {
       this.weaponFeel(h);
     }
     this.updateHeroMechs(dt);
+    this.updateGameplay(dt);
     for (const h of this.heroes) this.updateBomb(h, dt);
     updateSpecials(this.heroes, dt, this.specialApi);
     // Q/E specials recharge over time; the meter waits while the special (or bomb wave) still runs.
@@ -1198,10 +1326,14 @@ export class Game implements HeroWorld {
     this.enemies.update(dt, this.enemyCtx);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
+    if (this.versus) this.versusStep(dt);
     this.updateHazards(dt);
     this.updateBiomeFoes(dt);
     this.updateArena(dt);
     this.updateWind(dt);
+    this.updateWorldEvent(dt);
+    this.updateModes(dt); // pacifist timer and rewards, mini-games, ghost recording (systems/modes.ts)
+    soundLaneStep(this, dt); // instrument pickups, sound-reactive enemies (systems/sound2.ts)
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
@@ -1248,7 +1380,7 @@ export class Game implements HeroWorld {
     }
     if (this.mode === 'fight' && anyAlive && this.pvp?.phase !== 'duel' && this.pvp?.phase !== 'over') {
       this.director.teamLevel = this.level; // the Reaper comes for high-level teams
-      const reqs = this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng);
+      const reqs = this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
       for (const r of reqs) {
         if (r.kind === 'boss') this.spawnBoss(r.def);
@@ -1287,6 +1419,7 @@ export class Game implements HeroWorld {
 
   /** Movement, aim and per-hero timers. Local hero reads Input; remote heroes follow their client. */
   updateHero(h: Hero, dt: number, localControl: boolean): void {
+    if (this.localCoop && this.localHeroUpdate(h, dt, localControl)) return; // local co-op: pad heroes read their own pad
     const p = h.player;
     if (h.left) return;
     if (!p.dead && h.stats.regen > 0) p.heal(h.stats.regen * dt);
@@ -1335,6 +1468,7 @@ export class Game implements HeroWorld {
     if (!p.dead) h.synergy.tick(dt);
     h.refreshLive();
     if (this.heroes.length > 1 && !p.dead) this.applyTeamAuras(h, dt);
+    this.coopRoleStats(h); // co-op roles: a mixed party's team bonus (systems/coop2.ts)
     this.updateFootsteps(h, dt);
   }
 
@@ -1352,6 +1486,7 @@ export class Game implements HeroWorld {
   }
 
   updateTransition(): void {
+    if (this.skyfallTransition()) return; // the sky-fall cinematic (systems/cinematics.ts)
     const t = this.modeT;
     if (t < 0.35) this.hud.setFade(t / 0.35);
     else if (!this.stageLoaded) {
@@ -1378,6 +1513,7 @@ export class Game implements HeroWorld {
     h.dashes++;
     h.synergy.dash();
     this.skillDash(h);
+    this.gpOnDash(h);
     if (h.hasRelic('r_dashbomb')) this.blast(p.x, p.z, 2.6, 30 + 8 * this.stage, '#ffb627', 'r_dashbomb', ['explosive'], false, h);
     this.vfx.sound('dash', p.x, p.z);
     if (h === this.hero) {

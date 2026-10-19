@@ -1,4 +1,5 @@
 import { BIOME_BY_ID, biomeForStage } from '../data/biomes';
+import { laneCuePriority } from './featureCues';
 /** Pure mix policy shared by samples and synth voices. */
 export const soundTuning = {
   voices: 32,
@@ -81,6 +82,7 @@ export const cueSamples: Readonly<Record<string, string>> = {
  */
 export function cuePriority(name: string): number {
   if (/^(threat|cwind|bwind)/.test(name)) return 6;
+  if (name.startsWith('s2:')) return laneCuePriority(name); // the sound lane's cues (featureCues.ts)
   if (name.startsWith('voice:')) return 5;
   if (name.startsWith('call:')) return 1;
   if (name.startsWith('evo:')) return 3;

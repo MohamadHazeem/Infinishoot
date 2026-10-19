@@ -15,6 +15,7 @@ import { type Offer, type RunSummary, type ShopFx, type ShopView } from '../../u
 import { Hero } from '../hero';
 import { markSeen, unlockedWeapons } from '../save';
 import { settings } from '../settings';
+import { cleanLook } from '../../data/customise';
 import { decodeFx } from '../../net/fxCodec';
 import { SnapDecoder } from '../../net/snapCodec';
 import { createWeapon } from '../weapons';
@@ -25,12 +26,16 @@ import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
 import { rightClickHeld } from '../chargeMode';
 import { onHeartbeat } from '../netFeel';
 import { onCoverMsg } from '../coverBreak';
+import { applySoundLaneNet } from './sound2';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
+  if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
+  if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)
   switch (m.t) {
     case 'lobby': {
       const players = (m.players as { name: string; color: string }[]) ?? [];
-      this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind: m.kind === 'pvp' ? 'pvp' : 'coop' });
+      const kind = (['pvp', 'versus', 'weekly'] as const).find((k) => k === m.kind) ?? 'coop';
+      this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind, extra: m.mp });
       break;
     }
     case 'pvpgo':
@@ -53,6 +58,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
         this.pvp.phase = 'duel';
       }
       this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
+      snapDecoders.get(this)?.reset(); // a new (or re-)joined game: no baselines from an earlier connection
       this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
       applyMetaSnapshot(this, m.meta);
       break;
@@ -141,10 +147,14 @@ export function shopFromNet(this: Game, v: NetShop): ShopView {
   };
 }
 
-export function clientStart(this: Game, seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string }[]): void {
+export function clientStart(this: Game, seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string; look?: string }[]): void {
   this.meta = new MetaRun();
   this.seed = seed;
-  const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie'));
+  const heroes = players.map((p, i) => {
+    const h = this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie');
+    h.player.look = cleanLook(p.look); // CUSTOMISE (graphics lane); setHeroes applies it
+    return h;
+  });
   this.setHeroes(heroes);
   this.local = you;
   for (const h of heroes) {
@@ -207,11 +217,14 @@ export function clientUpdate(this: Game, dt: number): void {
     this.juice.shake(0.05);
   }
   if (moving) this.arenaLocal(dt);
+  if (moving) this.worldEventLocal(dt);
+  if (moving) this.modesLocal(dt); // the rhythm stage's beat keeps moving between snapshots (systems/modes.ts)
   this.biomeFoesClient(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
   this.skillClientInput(control);
   this.companionClientInput(control);
+  this.gameplayClientInput(control);
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
   const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
   const charging = rightClickHeld(input, control);
@@ -286,6 +299,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     this.syncWeapons(h, hs.w as (string | number)[][]);
     h.relics = (hs.rl as string[]) ?? [];
     this.applyHeroMechNet(h, hs.tw);
+    this.applyGpHeroNet(h, hs.gp);
   }
 
   // Private info for this machine's hero
@@ -362,14 +376,22 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     this.netEnemies.delete(uid);
   }
   this.applyBossNet(s.bx as BossNet | undefined);
+  this.applyGameplayNet(s.gpw);
 
   unpackBullets(s.bu as NetBytes, this.bullets);
   unpackPickups(s.pk as NetBytes, this.pickups);
   if (s.fx) decodeFx(s.fx as NetBytes, (e) => this.vfx.apply(e));
   this.applySkillNet(s.sk);
   this.applyCompanionNet(s.cp);
+  this.applyTimeNet(s.tm);
+  this.applyCoopNet(s.co);
+  this.applyCineNet(s.cn);
+  this.applyVersusNet(s.vs);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
+  this.applyWorldEventNet(s.we, s.wt);
+  this.applyModesNet(s.md);
+  applySoundLaneNet(this, s.s2);
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

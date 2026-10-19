@@ -95,6 +95,12 @@ export function installBot(game: Game, input: Input): void {
     if (o.special) inp.pressed.add('KeyQ');
     if (o.ult) inp.pressed.add('KeyV');
     if (o.parry) inp.pressed.add('KeyC');
+    if (o.cash >= 0) {
+      g.hero.play.cashSel = o.cash; // cash in the combo (gameplay lane)
+      inp.pressed.add('KeyX');
+    }
+    // Time lane: rewind (once per stage) when it's going badly; tried every 2 s.
+    if (g.mode === 'fight' && !g.player.dead && g.player.hp < g.player.maxHp * 0.4 && g.stepN % 120 === 0) inp.pressed.add('KeyB');
     // The bot picks the first card straight away (it skips the human pick lock).
     const ui = (g as unknown as { ui(a: string, i: number): void }).ui.bind(g);
     if (g.role === 'client') {

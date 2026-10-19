@@ -9,6 +9,8 @@
 // Scores are sanity-checked and each IP may submit once a minute. This keeps
 // casual nonsense out; it is not real anti-cheat (the game runs on the player's PC).
 
+import { ROUTES } from './routes.js';
+
 const KEEP = 100;
 const SHOW = 20;
 const BOARD_RE = /^(standard|endless|bossrush)-(easy|normal|hard|nightmare)$|^daily-\d{4}-\d{2}-\d{2}$|^weekly-\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
@@ -32,6 +34,11 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
+    // Extra endpoints (lobbies, ghosts, team boards...) live in their own modules: see routes.js.
+    for (const route of ROUTES) {
+      const res = await route(req, env, url, { json, cors, clean });
+      if (res) return res;
+    }
     if (url.pathname !== '/scores') return json({ error: 'not found' }, 404);
 
     if (req.method === 'GET') {

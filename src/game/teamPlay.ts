@@ -10,13 +10,16 @@
  * Ping wheel: tap the ping key (G / pad View) for the contextual ping as
  * before; hold it to open a wheel of six pings (GO HERE, DANGER, NEED HELP,
  * CHEST, ON MY WAY, NICE), pick with the mouse or the right stick, release to
- * send. Clients send `{ t: 'ping', x, z, k }`; hosts validate the kind and
+ * send. While it's open, Tab / the mouse wheel / LB or RB flips to the EMOTES
+ * page (wave, cheer, thumbs up, laugh, sorry, help: coop2 lane); the wheel
+ * opens on the page you used last. Clients send `{ t: 'ping', x, z, k }`; hosts validate the kind and
  * rate-limit as before, so old hosts just ignore `k`.
  */
 import type { Game } from './game';
 import type { Hero } from './hero';
 import type { Enemy } from './enemies';
 import { PingWheel } from '../ui/pingWheel';
+import { EMOTES } from './coop2';
 
 export const teamTuning = {
   /** Overload damage multiplier when two different heroes made it. */
@@ -137,6 +140,28 @@ interface WheelState {
   my: number;
   pick: number;
   ui: PingWheel | null;
+  /** 0 = pings, 1 = emotes. */
+  page: number;
+  /** Test links: held open on screen until closed. */
+  pinned?: boolean;
+}
+
+/** Mouse-wheel notches while the wheel is open (they flip the page instead of zooming). */
+let wheelFlips = 0;
+let wheelHooked = false;
+function hookWheel(isOpen: () => boolean): void {
+  if (wheelHooked || typeof document === 'undefined') return;
+  wheelHooked = true;
+  // Bubbling at the document runs before the window's camera-zoom listener, so the camera stays put.
+  document.addEventListener(
+    'wheel',
+    (e) => {
+      if (!isOpen() || e.deltaY === 0) return;
+      e.stopPropagation();
+      wheelFlips++;
+    },
+    { passive: true },
+  );
 }
 const wheels = new WeakMap<Game, WheelState>();
 
@@ -144,7 +169,10 @@ const wheels = new WeakMap<Game, WheelState>();
 export function pingInput(g: Game): void {
   const input = g.input;
   let w = wheels.get(g);
-  if (!w) wheels.set(g, (w = { held: -1, open: false, ox: 0, oz: 0, mx: 0, my: 0, pick: -1, ui: null }));
+  if (!w) wheels.set(g, (w = { held: -1, open: false, ox: 0, oz: 0, mx: 0, my: 0, pick: -1, ui: null, page: 0 }));
+  const ws = w;
+  hookWheel(() => ws.open);
+  if (w.pinned) return;
   const down = input.actionDown('ping') || input.padButton(8);
   const p = g.hero.player;
   if (down) {
@@ -165,8 +193,19 @@ export function pingInput(g: Game): void {
       w.open = true;
       w.ui ??= new PingWheel();
       w.ui.show(input.device === 'pad' ? innerWidth / 2 : w.mx, input.device === 'pad' ? innerHeight / 2 : w.my);
+      w.ui.setPage(w.page);
+      wheelFlips = 0;
     }
     if (w.open) {
+      // Flip between PINGS and EMOTES; the presses don't reach the game (LB dashes, RB fires the special).
+      const flip = input.keyPressed('Tab') || input.padButtonPressed(4) || input.padButtonPressed(5) || wheelFlips > 0;
+      wheelFlips = 0;
+      input.consumePad(4);
+      input.consumePad(5);
+      if (flip) {
+        w.page = 1 - w.page;
+        w.ui?.setPage(w.page);
+      }
       w.pick = input.device === 'pad' ? wheelSlice(input.padAim.x, input.padAim.y, teamTuning.pickStick) : wheelSlice(input.mouse.x - w.mx, input.mouse.y - w.my, teamTuning.pickPx);
       w.ui?.select(w.pick);
     }
@@ -174,7 +213,16 @@ export function pingInput(g: Game): void {
   }
   if (w.held < 0) return;
   // Released.
-  const kind = w.open && w.pick >= 0 ? PING_KINDS[w.pick] : null;
+  const emote = w.open && w.page === 1 && w.pick >= 0 ? EMOTES[w.pick] : null;
+  if (emote) {
+    w.held = -1;
+    w.open = false;
+    w.ui?.hide();
+    if (g.role === 'client') g.client?.send({ t: 'emote', k: emote.id });
+    else g.coopEmote(g.hero, emote.id);
+    return;
+  }
+  const kind = w.open && w.page === 0 && w.pick >= 0 ? PING_KINDS[w.pick] : null;
   const wasOpen = w.open;
   w.held = -1;
   w.open = false;
@@ -186,11 +234,23 @@ export function pingInput(g: Game): void {
   else g.ping(g.hero, x, z, kind?.id);
 }
 
+/** Test links / screenshots: open the wheel on a page and keep it there. */
+export function pinWheel(g: Game, page: number, pick = 1): void {
+  let w = wheels.get(g);
+  if (!w) wheels.set(g, (w = { held: -1, open: false, ox: 0, oz: 0, mx: 0, my: 0, pick: -1, ui: null, page: 0 }));
+  w.ui ??= new PingWheel();
+  w.ui.show(innerWidth / 2, innerHeight / 2);
+  w.ui.setPage(page);
+  w.ui.select(pick);
+  w.page = page;
+  w.open = w.pinned = true;
+}
+
 /** Close the wheel (menus, death, leaving). */
 export function closePingWheel(g: Game): void {
   const w = wheels.get(g);
   if (!w) return;
   w.held = -1;
-  w.open = false;
+  w.open = w.pinned = false;
   w.ui?.hide();
 }

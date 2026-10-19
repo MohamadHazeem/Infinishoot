@@ -11,7 +11,7 @@ export const bossRuleTuning = {
   freezeMul: 0.15,
 };
 
-export const bossLike = (e: Enemy): boolean => !!(e.def.boss || e.def.miniboss);
+export const bossLike = (e: Enemy): boolean => !!(e.def.boss || e.def.miniboss || e.def.titanPart); // Titan weak points too (src/game/titan.ts)
 
 /** Scale a freeze duration for the enemy it lands on. */
 export const freezeMul = (e: Enemy): number => (bossLike(e) ? bossRuleTuning.freezeMul : 1);

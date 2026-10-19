@@ -12,6 +12,7 @@ import { type Enemy } from '../enemies';
 import { Hero } from '../hero';
 import { type DamageOpts } from '../weapons';
 import { PVP_TARGET, applyBuild, exportBuild, pvpTuning } from '../pvp';
+import { cleanLook } from '../../data/customise';
 
 /** Everyone: play the shared stage alone, keeping the connection open for the duel. */
 export function pvpBegin(this: Game, net: 'host' | 'client', seed: number, difficulty: string): void {
@@ -72,6 +73,7 @@ export function pvpStartDuel(this: Game): void {
   const heroes = this.lobby.map((p, i) => {
     if (i === 0) return this.hero;
     const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
+    h.player.look = cleanLook(p.look);
     applyBuild(h, pvp.ready.get(p.peerId)!, this.scene);
     return h;
   });
@@ -91,7 +93,7 @@ export function pvpStartDuel(this: Game): void {
   this.hud.setVisible(true);
   for (const h of heroes) {
     if (!h.peerId) continue;
-    this.host!.send(h.peerId, { t: 'start', seed: pvp.seed, difficulty: this.difficulty.id, you: h.index, players: heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
+    this.host!.send(h.peerId, { t: 'start', seed: pvp.seed, difficulty: this.difficulty.id, you: h.index, players: heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
   }
   this.loadStage(1);
   this.enemies.clear();

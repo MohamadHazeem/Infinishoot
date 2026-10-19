@@ -27,6 +27,8 @@ import { addAudioFolder } from './debugAudio';
 import { addContentFolder } from './debugContent';
 import { addSoundFolder } from './debugSound';
 import { addSkyFolder } from './debugSky';
+import { addGraphicsFolder } from './debugGraphics';
+import { addBossLaneFolder } from './debugBosses';
 import { rainTuning, weatherForce } from '../game/ambience';
 import { worldFxTuning } from '../game/particles';
 import { debrisTuning } from '../game/debris';
@@ -34,6 +36,8 @@ import { decalTuning } from '../game/decals';
 import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
 import { worldDebugFolder } from '../world/worldDebug';
+import { addWorldEventsFolder } from './debugWorldEvents';
+import { addModesFolder } from './debugModes';
 import { finisherTuning } from '../game/finisher';
 import { portraitTuning } from './portraits';
 import { skillTuning, styleTuning } from '../game/style';
@@ -46,6 +50,12 @@ import { previewTuning } from '../game/shopPreview';
 import { trainingTuning } from '../game/training';
 import { addHudFolder } from './debugHud';
 import { addFixesFolder } from './fixesPanel';
+import { addGameplayFolder } from './debugGameplay';
+import { addTimeFolder } from './debugTime';
+import { addCoop2Folder } from './debugCoop2';
+import { addCinematicsFolder } from './debugCinematics';
+import { addMpFolder } from './debugMp';
+import { addSound2Folder } from './debugSound2';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -103,6 +113,8 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addContentFolder(gui);
   addSoundFolder(gui); // Sound designer: samples, cues, live tuning, export
   addSkyFolder(gui);
+  addGraphicsFolder(gui);
+  addBossLaneFolder(gui); // Titan, rematches, boss duel
 
   const cam = gui.addFolder('Camera').close();
   cam.add(cameraTuning, 'pitchDeg', 30, 89, 1);
@@ -283,7 +295,15 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   ob.add(trainingTuning, 'shotSpeed', 2, 20, 0.5);
   ob.add(trainingTuning, 'skipAfter', 0, 60, 1).name('SKIP shows after (s)');
   addFixesFolder(gui);
+  addGameplayFolder(gui, game); // mech suits, crates, mutations, overload, cash-ins (gameplay lane)
+  addTimeFolder(gui, game); // time lane: rewind, last stand, bullet time, replay (src/ui/debugTime.ts)
+  addCoop2Folder(gui, game); // coop2 lane: drop-in, revive pool, roles, team ultimate, ghosts (src/ui/debugCoop2.ts)
+  addCinematicsFolder(gui, game); // cinematics lane: sky fall, ending, reveals, jackpot, flawless (src/ui/debugCinematics.ts)
+  addMpFolder(gui, game); // MP lane: Versus Swarm, local co-op, lobby browser (src/ui/debugMp.ts)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
+  addWorldEventsFolder(gui, game); // world events: start any now, force one, knobs (src/ui/debugWorldEvents.ts)
+  addModesFolder(gui, game); // rhythm stages, pacifist road, mini-games, ghosts (src/ui/debugModes.ts)
+  addSound2Folder(gui, game); // sound lane 2: duel music, crowd, radio DJ, instruments, ears (src/ui/debugSound2.ts)
 
   // Companion lane: pets and co-op team moves.
   const comp = gui.addFolder('Pets & team moves').close();

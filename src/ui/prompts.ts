@@ -33,7 +33,7 @@ export function promptModeFor(device: 'kbm' | 'pad', padId: string | null): Prom
 // ---------------------------------------------------------------- glyphs
 
 /** Standard-mapping button index -> glyph name. */
-type PadBtn = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 'ls' | 'rs';
+type PadBtn = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 'ls' | 'rs';
 
 const FACE: Record<PadFamily, { body: string[]; mark: string[]; shapes: string[][] }> = {
   // A, B, X, Y: coloured buttons with a letter.
@@ -65,8 +65,8 @@ const DPAD = ['...###...', '...#o#...', '...#o#...', '####o####', '#ooooooo#', '
 const MOUSE = ['.#####.', '#..#..#', '#..#..#', '#######', '#.....#', '#.....#', '#.....#', '.#####.'];
 
 const NAMES: Record<PadFamily, Record<string, string>> = {
-  xbox: { 0: 'A', 1: 'B', 2: 'X', 3: 'Y', 4: 'LB', 5: 'RB', 6: 'LT', 7: 'RT', 8: 'VIEW', 9: 'MENU', 10: 'LS', 11: 'RS', 12: 'D-UP', ls: 'L-STICK', rs: 'R-STICK' },
-  ps: { 0: 'CROSS', 1: 'CIRCLE', 2: 'SQUARE', 3: 'TRIANGLE', 4: 'L1', 5: 'R1', 6: 'L2', 7: 'R2', 8: 'SHARE', 9: 'OPTIONS', 10: 'L3', 11: 'R3', 12: 'D-UP', ls: 'L-STICK', rs: 'R-STICK' },
+  xbox: { 0: 'A', 1: 'B', 2: 'X', 3: 'Y', 4: 'LB', 5: 'RB', 6: 'LT', 7: 'RT', 8: 'VIEW', 9: 'MENU', 10: 'LS', 11: 'RS', 12: 'D-UP', 13: 'D-DOWN', 14: 'D-LEFT', 15: 'D-RIGHT', ls: 'L-STICK', rs: 'R-STICK' },
+  ps: { 0: 'CROSS', 1: 'CIRCLE', 2: 'SQUARE', 3: 'TRIANGLE', 4: 'L1', 5: 'R1', 6: 'L2', 7: 'R2', 8: 'SHARE', 9: 'OPTIONS', 10: 'L3', 11: 'R3', 12: 'D-UP', 13: 'D-DOWN', 14: 'D-LEFT', 15: 'D-RIGHT', ls: 'L-STICK', rs: 'R-STICK' },
 };
 
 const rect = (x: number, y: number, c: string) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`;
@@ -90,6 +90,7 @@ export function padGlyph(fam: PadFamily, b: PadBtn): string {
     return `<span class="pad-face" title="${NAMES[fam][b]}">${svg(ROUND, (ch) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? f.body[b] : null), marks)}</span>`;
   }
   if (b === 12) return svg(DPAD, (ch, x, y) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? (y < 4 && x === 4 ? '#ffcd75' : '#566c86') : null));
+  if (b === 14) return svg(DPAD, (ch, x, y) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? (x < 4 && y === 4 ? '#ffcd75' : '#566c86') : null));
   return `<span class="kc pad">${NAMES[fam][b]}</span>`;
 }
 
@@ -109,6 +110,7 @@ const PAD_OF: Partial<Record<PromptId, PadBtn>> = {
   bomb: 5,
   parry: 1,
   ult: 11,
+  rewind: 12,
   pause: 9,
   reroll: 3,
   ping: 8,
@@ -120,6 +122,8 @@ const PAD_OF: Partial<Record<PromptId, PadBtn>> = {
   move: 'ls',
   aim: 'rs',
   up: 12,
+  cash: 15,
+  cashpick: 14,
 };
 
 function keys(a: Action): string[] {
@@ -173,6 +177,7 @@ function controlsLine(mode: PromptMode): string {
     ['bomb', 'special'],
     ['parry', 'parry'],
     ['ult', 'ultimate'],
+    ['rewind', 'rewind'],
     ['ping', 'ping'],
     ['pause', 'pause'],
   ];
@@ -188,7 +193,11 @@ function padLegend(fam: PadFamily): string {
     [[4, 6, 0], 'Dash'],
     [[5, 3], 'Special'],
     [[1], 'Parry'],
-    [[11, 10, 12], 'Ultimate'],
+    [[11, 10], 'Ultimate'],
+    [[12], 'Rewind time'],
+    [[13], 'Team move (co-op)'],
+    [[15], 'Cash in combo'],
+    [[14], 'Cash-in choice'],
     [[8], 'Ping'],
     [[9], 'Pause'],
   ];
