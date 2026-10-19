@@ -4,6 +4,7 @@
  * installed on the class as fields, e.g. `clearWorld = RunFlow.clearWorld;`.
  */
 import type { Game } from '../game';
+import { heroUnlockedBy } from './heroMechs';
 import { LOOP_STAGES, TITLE_SEED, xpForLevel, playerName, cheats } from '../game';
 import { Rng, randomSeed } from '../../core/rng';
 import { StaticBoxGrid } from '../../core/spatialHash';
@@ -337,13 +338,14 @@ export function checkAchievements(this: Game): void {
     ['boss_rush', L.bosses + this.bossesRun >= 5],
     ['elite_slayer', L.elites + this.elitesRun >= 25],
     ['victory', this.victories > 0 || this.stage > LOOP_STAGES],
+    ...this.heroMechAchievements(),
   ];
   for (const [id, ok] of want) {
     if (!ok) continue;
     const def = grantAchievement(id);
     if (!def) continue;
     this.newAchievements.push(id);
-    const item = def.unlockWeapon ? WEAPONS[def.unlockWeapon]?.name : def.unlockLoadout ? (WEAPONS[def.unlockLoadout] ?? SPECIALS[def.unlockLoadout])?.name : '';
+    const item = def.unlockWeapon ? WEAPONS[def.unlockWeapon]?.name : def.unlockLoadout ? (WEAPONS[def.unlockLoadout] ?? SPECIALS[def.unlockLoadout])?.name : heroUnlockedBy(id) && `Hero ${heroUnlockedBy(id)}`;
     const unlock = item ? ` - ${item} unlocked${def.unlockLoadout ? ' for your loadout' : ''}!` : '';
     this.hud.toast(`★ ${def.name}${unlock}`, 4);
     sfx.powerUp();

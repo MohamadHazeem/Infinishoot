@@ -180,6 +180,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
         area: r2(h.stats.areaMul),
         w: h.weapons.map((w) => [w.def.id, w.level, Math.round(w.ready * 20) / 20, w.buildKey, ...w.net()]),
         rl: h.relics,
+        tw: this.heroMechNet(h),
       };
     }),
     you: {

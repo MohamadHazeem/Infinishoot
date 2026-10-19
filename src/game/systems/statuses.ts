@@ -4,6 +4,7 @@
  * installed on the class as fields, e.g. `ignite = Statuses.ignite;`.
  */
 import { ARENA_SOURCE_NAMES } from './arena';
+import { MECH_SOURCE_NAMES } from './heroMechs';
 import type { Game } from '../game';
 import { scoreTuning, bombTuning, dropTuning, chestTuning, nukeTuning, statusTuning, cheats, BULLET_KINDS, IMPACT_BLAST } from '../game';
 import { StaticBoxGrid } from '../../core/spatialHash';
@@ -118,6 +119,7 @@ export function sourceName(this: Game, id: string): string {
   if (ARENA_SOURCE_NAMES[id]) return ARENA_SOURCE_NAMES[id];
   if (PASSIVES[id]) return PASSIVES[id].name;
   if (id === 'parry' || id === 'ult') return id === 'parry' ? 'Parry' : 'Ultimate'; // skill layer
+  if (MECH_SOURCE_NAMES[id]) return MECH_SOURCE_NAMES[id]; // hero mechanics, biome foes
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
 }

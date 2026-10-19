@@ -66,6 +66,8 @@ import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
 import * as SkillSys from './systems/skill';
+import * as BiomeFoesSys from './systems/biomeFoes';
+import * as HeroMechsSys from './systems/heroMechs';
 
 export { economyTuning } from './hero';
 
@@ -462,6 +464,16 @@ export class Game implements HeroWorld {
   skillNet = SkillSys.skillNet;
   applySkillNet = SkillSys.applySkillNet;
   renderSkill = SkillSys.renderSkill;
+  snowballCrash = BiomeFoesSys.snowballCrash;
+  kiteGust = BiomeFoesSys.kiteGust;
+  updateBiomeFoes = BiomeFoesSys.updateBiomeFoes;
+  biomeFoesClient = BiomeFoesSys.biomeFoesClient;
+  updateHeroMechs = HeroMechsSys.updateHeroMechs;
+  onParryLanded = HeroMechsSys.onParryLanded;
+  heroMechNet = HeroMechsSys.heroMechNet;
+  applyHeroMechNet = HeroMechsSys.applyHeroMechNet;
+  renderHeroMechs = HeroMechsSys.renderHeroMechs;
+  heroMechAchievements = HeroMechsSys.heroMechAchievements;
   bestStyle = SkillSys.bestStyle;
 
   readonly scene = new THREE.Scene();
@@ -880,6 +892,7 @@ export class Game implements HeroWorld {
         this.vfx.zone(x, z, r, delay);
       },
       ...EnemyAiSys.enemyCtxExtras.call(this),
+      foe: BiomeFoesSys.biomeFoeApi.call(this),
     };
   }
 
@@ -1064,6 +1077,7 @@ export class Game implements HeroWorld {
       for (const w of h.weapons) w.update(dt, h.ctx);
       this.weaponFeel(h);
     }
+    this.updateHeroMechs(dt);
     for (const h of this.heroes) this.updateBomb(h, dt);
     updateSpecials(this.heroes, dt, this.specialApi);
     // Q/E specials recharge over time; the meter waits while the special (or bomb wave) still runs.
@@ -1080,6 +1094,7 @@ export class Game implements HeroWorld {
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
+    this.updateBiomeFoes(dt);
     this.updateArena(dt);
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);

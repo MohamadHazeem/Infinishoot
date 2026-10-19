@@ -24,6 +24,7 @@ import { PetView } from './pet';
 import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { HEROES, heroOf, type HeroDef } from '../data/heroes';
 import { HeroSkill } from './style';
+import { HeroMech, attachHeroGear, detachHeroGear } from './heroMechs';
 
 /** Auto-weapon slots (the loadout's clicks don't use them). */
 export const MAX_WEAPONS = 4;
@@ -171,6 +172,9 @@ export class Hero implements SynergyHost {
   loadoutDirty = true;
   /** Skill layer: style meter, perfect dash, parry and ultimate (src/game/style.ts). */
   readonly skill = new HeroSkill();
+  /** Hero mechanic state: Furnace heat, Duelist chain, Twin clone (src/game/heroMechs.ts). */
+  readonly mech = new HeroMech();
+  private gear: THREE.Object3D[] = [];
 
   constructor(
     private world: HeroWorld,
@@ -281,11 +285,13 @@ export class Hero implements SynergyHost {
     this.reviveT = 0;
     this.shopDone = true;
     this.skill.reset();
+    this.mech.reset();
     this.recomputeStats();
     this.rerollsLeft = Math.min(MAX_GEARS, this.stats.rerolls);
     this.revivesLeft = this.stats.revives + (this.pet === 'guardian' ? 1 : 0);
     this.sparkyT = 1.5;
     this.player.reset(this.stats);
+    this.mech.twin?.snap();
     this.loadoutDirty = true;
   }
 
@@ -296,6 +302,8 @@ export class Hero implements SynergyHost {
 
   dispose(): void {
     this.disposeWeapons();
+    this.mech.twin?.dispose();
+    this.mech.twin = null;
     this.player.dispose();
     this.petView?.dispose();
   }
@@ -308,6 +316,18 @@ export class Hero implements SynergyHost {
     const [w, h] = this.heroDef.build;
     this.player.rig.body.scale.set(w, h, w);
     this.player.buildScale = [w, h];
+    // Mechanic heroes: their gear (silhouette), no dash for the Duelist, and the Twin's clone (made on first use).
+    const mech = this.heroDef.mech ?? '';
+    if (mech !== this.mech.id || !this.gear.length) {
+      detachHeroGear(this.player.rig, this.gear);
+      this.gear = attachHeroGear(this.player.rig, this.heroDef.mech);
+    }
+    this.mech.id = mech;
+    this.player.noDash = mech === 'duelist';
+    if (mech !== 'twin' && this.mech.twin) {
+      this.mech.twin.dispose();
+      this.mech.twin = null;
+    }
   }
 
   /** Companion (src/data/pets.ts); its body is drawn by PetView. */
@@ -351,6 +371,7 @@ export class Hero implements SynergyHost {
     this.stats.cooldownMul *= this.world.fireRateBuff;
     this.stats.damageMul *= this.world.damageBuff;
     this.stats.damageMul *= this.skill.damageMul;
+    this.stats.damageMul *= this.mech.damageMul;
   }
 
   get specialDef(): SpecialDef {

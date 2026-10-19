@@ -16,6 +16,7 @@ import { markSeen, unlockedWeapons } from '../save';
 import { settings } from '../settings';
 import { type VfxEvent } from '../vfx';
 import { createWeapon } from '../weapons';
+import { syncSub } from '../biomeFoes';
 import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
@@ -94,6 +95,10 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.juice.shake(0.35);
       this.juice.kick(Number(m.dx), Number(m.dz), 6);
       sfx.playerHurt();
+      break;
+    case 'shove':
+      this.player.shove(Number(m.dx), Number(m.dz), Number(m.f));
+      this.juice.kick(Number(m.dx), Number(m.dz), 4);
       break;
     case 'over':
       this.mode = 'dead';
@@ -179,6 +184,7 @@ export function clientUpdate(this: Game, dt: number): void {
     this.juice.shake(0.05);
   }
   if (moving) this.arenaLocal(dt);
+  this.biomeFoesClient(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
   this.skillClientInput(control);
@@ -248,6 +254,7 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
     }
     this.syncWeapons(h, hs.w as (string | number)[][]);
     h.relics = (hs.rl as string[]) ?? [];
+    this.applyHeroMechNet(h, hs.tw);
   }
 
   // Private info for this machine's hero
@@ -302,6 +309,10 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
     e.shockT = r.shock ? 1 : 0;
     e.flash = r.flash ? 0.07 : 0;
     e.action = r.action;
+    if (e.def.biomes && e.sub !== r.sub) {
+      e.sub = r.sub;
+      syncSub(e);
+    }
     e.lungeX = Math.sin(r.lunge);
     e.lungeZ = Math.cos(r.lunge);
     e.targetX = r.targetX;
