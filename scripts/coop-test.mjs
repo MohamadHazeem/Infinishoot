@@ -1240,6 +1240,66 @@ if (!args.includes('--no-spectate')) SCENARIO.push([66, 'the spectator seat is f
   const gone = await until(A, async () => (await import('/src/game/systems/spectate.ts')).spectateState(window.game).specs.length === 0, null, 40000);
   if (!gone) fail('the host kept the spectator seat after it left');
   return { gone };
+// ultboss: optional real-WebRTC coverage, including the terminal ending snapshot.
+// npm run coop -- --offline --only architect --architect --secs 22
+if (args.includes('--architect')) SCENARIO.push([3, 'architect phases, ordered cores and true ending', async () => {
+  await host(() => window.botAuto(false)); await client(() => window.botAuto(false));
+  const expected = await host(async () => {
+    const S = await import('/src/game/systems/architect.ts');
+    const { settings } = await import('/src/game/settings.ts');
+    const g = window.game; settings.finishers = false; g.loadStage(12); S.startArchitect(g, true);
+    g.xpNext = 1e12; return { uid: g.boss.uid, hp: g.boss.maxHp };
+  });
+  const initial = await until(B, async expected => {
+    const s = (await import('/src/game/systems/architect.ts')).architectState(window.game);
+    return s.active && s.uid === expected.uid && s.phase === 1;
+  }, expected);
+  if (!initial) fail('architect arrival did not reach client');
+  await host(async () => {
+    const S = await import('/src/game/systems/architect.ts'), s = S.architectState(window.game);
+    s.layout = 1; s.layoutTime = 3; s.pause = 10;
+  });
+  await until(B, async () => (await import('/src/game/systems/architect.ts')).architectState(window.game).layout === 1);
+  await client(() => window.game.player.teleport(16, 16));
+  const rescued = await until(B, async () => {
+    const s = (await import('/src/game/systems/architect.ts')).architectState(window.game), p = window.game.player;
+    return s.rescues[window.game.hero.index][0] > 0 && Math.min(Math.abs(p.x), Math.abs(p.z)) < 6;
+  });
+  if (!rescued) fail('architect host floor rescue did not correct the client');
+  await host(async () => { (await import('/src/game/systems/architect.ts')).architectState(window.game).pause = 0; });
+  for (const phase of [2, 3]) {
+    await host(async () => {
+      const S = await import('/src/game/systems/architect.ts'), g = window.game;
+      S.updateArchitect(g, 3.1); g.damage(g.boss, 1e9, { source: 'qa', fixed: true, noStatus: true }, g.hero);
+    });
+    const mirrored = await until(B, async phase => (await import('/src/game/systems/architect.ts')).architectState(window.game).phase === phase, phase);
+    if (!mirrored) fail('architect phase ' + phase + ' did not reach client');
+  }
+  for (let index = 0; index < 3; index++) {
+    await host(async index => {
+      const S = await import('/src/game/systems/architect.ts'), g = window.game;
+      S.updateArchitect(g, 2.1); const s = S.architectState(g), e = g.enemies.list.find(e => e.active && e.uid === s.coreUids[index]);
+      g.damage(e, 1e9, { source: 'qa', fixed: true, noStatus: true }, g.hero); S.updateArchitect(g, 1 / 60);
+    }, index);
+    const core = await until(B, async index => (await import('/src/game/systems/architect.ts')).architectState(window.game).core === index + 1, index);
+    if (!core) fail('architect ordered core ' + index + ' did not reach client');
+  }
+  await host(async () => {
+    const S = await import('/src/game/systems/architect.ts'), g = window.game;
+    g.damage(g.boss, 1e9, { source: 'qa', fixed: true, noStatus: true }, g.hero);
+  });
+  if (!await until(B, async () => (await import('/src/game/systems/architect.ts')).architectState(window.game).desperate)) fail('architect desperation missing on client');
+  await host(async () => {
+    const S = await import('/src/game/systems/architect.ts'), g = window.game;
+    for (let i = 0; i < 480; i++) S.updateArchitect(g, 1 / 60);
+    g.damage(g.boss, 1e9, { source: 'qa', fixed: true, noStatus: true }, g.hero); g.stageClear();
+  });
+  const ending = await until(B, () => window.game.screens.current === 'architect-ending');
+  if (!ending) fail('architect true ending screen missing on client');
+  await shot('architect-ending');
+  // Leave the shared harness ready for its party/restart checks.
+  for (const p of [A, B]) await p.page.evaluate(() => { for (let i = 0; i < 3; i++) document.querySelector('#scr-architect-ending [data-nav]')?.click(); });
+  return { ...expected, rescued, ending };
 }]);
 
 SCENARIO.sort((a, b) => a[0] - b[0]);

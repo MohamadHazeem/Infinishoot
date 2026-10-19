@@ -1,4 +1,5 @@
 import { reduceMotion } from '../../ui/hud';
+import { renderArchitect, architectActive, architectState } from './architect';
 import { eventBehavior } from '../../data/stageEvents';
 import { renderSecrets } from './secrets';
 import { encounterTrack, updateAudio3 } from './audio3';
@@ -175,8 +176,10 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
   updateAudio3(this);
   const omega = bossTrack(this.stage) === 'omega';
   music.setBossPhase(!boss ? 1 : omega && boss.hp01 < omegaTuning.phase3At ? 3 : boss.hp01 < (omega ? omegaTuning.phase2At : bossTuning.enrageAt) ? 2 : 1);
+  if (architectActive(this)) { track = 'architect'; music.setBossPhase(architectState(this).phase); }
+  if (architectState(this).done) track = 'victory';
   const duck = this.paused || m === 'levelup' || (track !== 'shop' && this.screens.current !== 'none' && inRun);
-  music.update(frameDt, { track, seed: track === 'title' || track === 'titleRemix' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, stage: track === 'titleRemix' ? 1 : this.stage, cue: m === 'cleared' ? 'victory' : m === 'dead' ? 'gameover' : undefined });
+  music.update(frameDt, { track, seed: track === 'title' || track === 'titleRemix' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, stage: track === 'titleRemix' ? 1 : this.stage, cue: m === 'cleared' ? 'victory' : m === 'dead' ? architectState(this).done ? 'victory' : 'gameover' : undefined });
   document.documentElement.style.setProperty('--beat', music.pulse.toFixed(2));
 }
 
@@ -284,6 +287,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   pvp2Frame(this, frameDt); // PvP ring, team rings, round HUD, scoreboard, spectator camera (systems/pvp2.ts)
   raidCamera(this);
   spectateFrame(this, frameDt); // spectators: camera, follow card, broadcast overlay; WATCHING badge (systems/spectate.ts)
+  renderArchitect(this); // ultboss: floating arena and camera framing
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
   this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 

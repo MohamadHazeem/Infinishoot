@@ -1,3 +1,4 @@
+import { pilotArchitect } from './systems/architect';
 import { pilotRaid } from './systems/raid';
 import type { Game } from './game';
 import { Team } from './bullets';
@@ -129,6 +130,7 @@ export class Autopilot {
       }
     }
     pilotRaid(g, o);
+    pilotArchitect(g, o);
     return o;
   }
 

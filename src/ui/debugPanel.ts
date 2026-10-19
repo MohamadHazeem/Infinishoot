@@ -1,3 +1,4 @@
+import { architectTuning } from '../game/architect/model';
 import { pvpTuning } from '../game/pvp';
 import { addBiome3Folder } from './debugBiome3';
 import { secretsTuning } from '../data/secrets';
@@ -159,6 +160,8 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   gfx3.add(shadowTuning, 'normalBias', 0, 0.1, 0.005);
   gfx3.add(shadowTuning, 'hz', 10, 60, 1);
   for (const key of ['beamStrength', 'beamLife', 'evolutionLife', 'beamHeight', 'evolutionHeight'] as const) gfx3.add(gfx3Tuning, key, 0.05, key.endsWith('Height') ? 10 : 2, 0.05);
+  const architect = gui.addFolder('The Architect'); architect.close();
+  for (const key of ['hp', 'teamHp', 'warning', 'cycle', 'bulletSpeed', 'pulseEvery', 'hazardDamage', 'fallDamage', 'desperationWarn'] as const) architect.add(architectTuning, key);
   addBossLaneFolder(gui); // Titan, rematches, boss duel
   addBiome3Folder(gui);
   addBosses3Folder(gui); // biome bosses (src/ui/debugBosses3.ts)

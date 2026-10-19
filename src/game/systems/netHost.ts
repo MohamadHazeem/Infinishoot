@@ -1,3 +1,4 @@
+import { architectNet } from './architect';
 import { trialsNet } from './trials';
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
@@ -277,6 +278,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[], vie
     },
     portal: this.portal.active ? [r2(this.portal.x), r2(this.portal.z)] : null,
     bx: this.bossNet(),
+    ac: architectNet(this),
     ar: this.arenaNet(),
     sk: this.skillNet(forHero),
     cp: this.companionNet(),

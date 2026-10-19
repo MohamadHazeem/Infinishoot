@@ -1,3 +1,4 @@
+import { architectDefs } from '../game/architect/defs';
 import { biome3Defs } from './biome3';
 import { secretBossDefs } from './secrets';
 import { raidDefs } from '../game/raid/defs';
@@ -126,6 +127,7 @@ export const familyTuning = {
 };
 
 export const ENEMIES: Record<string, EnemyDef> = {
+  ...architectDefs,
   pumpkin: { id: 'pumpkin', name: 'Pumpkin Head', behavior: 'chase', model: 'pumpkin', hp: 28, speed: 3.2, radius: 0.65, bodyColor: '#ef7d57', accentColor: '#ffcd75', contactDamage: 9, knockbackResist: 0.2, xp: 3, score: 100, minMinute: -1, weight: 0, death: 'goo' },
   ghost: { id: 'ghost', name: 'Phantom', behavior: 'ghost', model: 'ghost', hp: 24, speed: 3.5, radius: 0.6, bodyColor: '#f4f4f4', accentColor: '#73eff7', contactDamage: 8, knockbackResist: 0.6, xp: 3, score: 120, minMinute: -1, weight: 0, voice: 'ghost' },
   bat: { id: 'bat', name: 'Candy Bat', behavior: 'chase', model: 'bat', hp: 9, speed: 5.2, radius: 0.35, bodyColor: '#5d275d', accentColor: '#ef7d57', contactDamage: 5, knockbackResist: 0, xp: 1, score: 45, minMinute: -1, weight: 0 },

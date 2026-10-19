@@ -1,3 +1,4 @@
+import { clearArchitect, architectState } from './architect';
 import { trialsNet } from './trials';
 import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
@@ -48,6 +49,7 @@ import { clearBossLane } from './bossLane';
 import { clearBosses3 } from './bosses3';
 
 export function clearWorld(this: Game): void {
+  clearArchitect(this);
   clearSecrets(this);
   this.resetRaid();
   clearHalloween.call(this);
@@ -343,7 +345,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
     kills: sum.kills,
     time: sum.time,
     level: sum.level,
-    cause: h.player.dead ? h.lastHitBy || 'Unknown' : this.runMode === 'bossrush' && this.victories > 0 ? 'Boss Rush complete' : 'Quit',
+    cause: architectState(this).done ? 'TRUE ENDING' : h.player.dead ? h.lastHitBy || 'Unknown' : this.runMode === 'bossrush' && this.victories > 0 ? 'Boss Rush complete' : 'Quit',
     weapons: h.weapons.map((w) => ({ id: w.def.id, level: w.level, evo: w.evolved })),
   });
   persist();

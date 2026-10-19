@@ -1,3 +1,4 @@
+import { architectHpGate } from './architect';
 import { makeBiome3Api, updateBiome3, biome3Net, applyBiome3Net, renderBiome3 } from './biome3';
 /**
  * Boss fights: phase changes, the new boss moves' gameplay (shockwaves, burning
@@ -118,6 +119,7 @@ export function makeBossApi(this: Game): BossApi {
 
 /** Game.damage hook: clamp HP at a phase threshold and start the phase change. */
 export function bossHpGate(this: Game, e: Enemy): void {
+  if (architectHpGate(this, e)) return;
   if (e.def.behavior === 'titan') return; // the Titan's phases follow its weak points (systems/bossLane.ts)
   const phase = phaseGate(e);
   if (!phase) return;

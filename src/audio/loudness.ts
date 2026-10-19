@@ -712,6 +712,7 @@ export const SYNTH_GAINS: Readonly<Record<string, number>> = {
   "whoosh": 1.99526
 };
 export const MUSIC_GAINS: Readonly<Record<string, number>> = {
+  "architect": 0.73282, // Local 20 s audit, seed 42, intensity .9: -25.3 LUFS / -12.1 dBTP → -28 LUFS.
   "candy": 1,
   "ruins": 1.10917,
   "cake": 0.78524,

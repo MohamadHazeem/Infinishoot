@@ -7,6 +7,7 @@ import type { Loadout } from './loadout';
 import { BIOME_LORE2, ENEMY_LORE2, ENEMY_TIPS2, EXTRA_CODEX, VETERAN_LORE } from './codex2';
 
 const ENEMY_LORE: Record<string, string> = {
+  architect: 'The first machine drew a perfect world and forgot to leave room for choice. Its three orbiting cores hold the instructions that made Omega.',
   cake: "The royal bakery never stopped baking. Its proudest cake crowned itself and declared every day a birthday.",
   kraken: "The keeper of the flooded archive guards a crown made from the last lighthouse bell.",
   cupcake: "The royal taster decided that a smaller crown leaves more room for frosting.",
@@ -93,7 +94,7 @@ function enemyText(id: string): string {
 export const CODEX = [
   ...SECRET_LORE,
   ...Object.values(ENEMIES)
-    .filter((e) => !e.hidden)
+    .filter((e) => !e.hidden || e.id === 'architect')
     .map((e) => ({
       id: `enemy:${e.id}`,
       kind: SECRET_BOSSES.some(id => id === e.id) ? 'SECRET' : e.boss || e.miniboss ? 'BOSS' : 'ENEMY',
@@ -129,6 +130,7 @@ export const CODEX = [
   ...EXTRA_CODEX,
 ];
 export const META_REWARDS = [
+  { id: 'architect_skin', name: 'Blueprint Armour', kind: 'skin', cost: 0, color: '#73eff7', condition: 'Defeat the Architect.' },
   { id: 'secret_skin', name: 'Pixel Relay Armour', kind: 'skin', cost: 0, color: '#a7f070', condition: 'Solve a secret room or discover the old directional code.' },
   { id: 'raid_skin', name: 'Hydra Armour', kind: 'skin', cost: 0, color: '#73eff7', condition: 'Complete the Hydra Engine raid.' },
   { id: 'raid_ember', name: 'Hydra Ember Armour', kind: 'skin', cost: 0, color: '#ef7d57', condition: 'Complete the Hydra Engine raid.' },
@@ -199,6 +201,7 @@ export interface MetaProgress {
   weekly: { score: number }[];
 }
 export function rewardAvailable(id: string, p: MetaProgress): boolean {
+  if (id === 'architect_skin') return p.achievements.includes('true_ending');
   if (id === 'secret_skin') return p.achievements.includes('secret_room') || p.achievements.includes('secret_code');
   if (id === 'raid_skin' || id === 'raid_ember') return p.achievements.includes('hydra_engine');
   if (id === 'mint') return p.achievements.length > 0;
@@ -211,6 +214,7 @@ export function rewardAvailable(id: string, p: MetaProgress): boolean {
 
 /** These colour sets travel through the existing skin id in co-op start messages. */
 export const META_SKINS = [
+  { id: 'architect_skin', name: 'Blueprint Armour', armor: '#41a6f6', accent: '#73eff7', suit: '#29366f', hair: '#f4f4f4', gem: '#ffcd75', iris: '#a7f070' },
   { id: 'secret_skin', name: 'Pixel Relay', armor: '#a7f070', accent: '#ffcd75', suit: '#29366f', hair: '#f4f4f4', gem: '#73eff7', iris: '#5d275d' },
   { id: 'raid_skin', name: 'Hydra Armour', armor: '#3b5dc9', accent: '#73eff7', suit: '#29366f', hair: '#f4f4f4', gem: '#ffcd75', iris: '#a7f070' },
   { id: 'raid_ember', name: 'Hydra Ember Armour', armor: '#b13e53', accent: '#ef7d57', suit: '#1a1c2c', hair: '#ffcd75', gem: '#a7f070', iris: '#73eff7' },

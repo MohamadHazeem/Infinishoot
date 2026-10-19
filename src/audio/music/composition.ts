@@ -2,7 +2,7 @@ import { Rng } from '../../core/rng';
 import { biomeForStage } from '../../data/biomes';
 import { BIOME_BOSSES, DJ_BPM } from '../../data/bosses3';
 
-export type TrackId = 'candy' | 'ruins' | 'cake' | 'kraken' | 'raid' | 'pvp' | 'gauntlet' | 'titleRemix' | 'pumpking' | 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover' | 'glitch' | 'boxer' | 'gale';
+export type TrackId = 'architect' | 'candy' | 'ruins' | 'cake' | 'kraken' | 'raid' | 'pvp' | 'gauntlet' | 'titleRemix' | 'pumpking' | 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover' | 'glitch' | 'boxer' | 'gale';
 export type Patch = OscillatorType | 'pluck' | 'bell' | 'wide' | 'organ';
 export type Section = 'intro' | 'verse' | 'chorus' | 'bridge' | 'final' | 'turnaround';
 
@@ -113,6 +113,7 @@ export const TRACKS: { id: TrackId; name: string; stage: number; boss?: boolean;
   { id: 'boss', stage: 1, boss: true, name: 'King Bopper · Crown Bounce', style: { name: 'boss', bpm: 152, root: 35, scale: MIXO, lead: 'square', arp: 'pluck', bass: 'sawtooth', padCut: 1000, swing: 0, drums: 'gallop', density: 8 } },
   { id: 'rex', stage: 2, boss: true, name: 'Rampage Rex · Redline', style: { name: 'rex', bpm: 160, root: 34, scale: MINOR, lead: 'wide', arp: 'square', bass: 'sawtooth', padCut: 850, swing: 0, drums: 'gallop', density: 7 } },
   { id: 'queen', stage: 3, boss: true, name: 'Hive Queen · Royal Flight', style: { name: 'queen', bpm: 146, root: 41, scale: HARM_MINOR, lead: 'bell', arp: 'pluck', bass: 'square', padCut: 2200, swing: 0.08, drums: 'break', density: 6 } },
+  { id: 'architect', stage: 12, boss: true, name: 'The Architect · Unwritten Future', theme: OMEGA_THEME, style: { name: 'architect', bpm: 180, root: 36, scale: PHRYG_DOM, lead: 'wide', arp: 'bell', bass: 'sawtooth', padCut: 1800, swing: 0, drums: 'gallop', density: 9 } },
   { id: 'omega', stage: 4, boss: true, name: 'Omega · Last Light', theme: OMEGA_THEME, style: { name: 'omega', bpm: 168, root: 36, scale: PHRYG_DOM, lead: 'wide', arp: 'bell', bass: 'sawtooth', padCut: 1200, swing: 0, drums: 'gallop', density: 8 } },
   // Biome bosses (src/data/bosses3.ts): Glitch DJ plays at DJ_BPM, the tempo its attacks keep.
   { id: 'glitch', theme: AUDIO3_THEMES.glitch, stage: 5, boss: true, name: 'Glitch DJ · Bass Drop', style: { name: 'glitch', bpm: DJ_BPM, root: 37, scale: MINOR, lead: 'square', arp: 'pluck', bass: 'sawtooth', padCut: 1100, swing: 0, drums: 'four', density: 8 } },

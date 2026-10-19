@@ -1,3 +1,4 @@
+import { applyArchitectNet, architectLocalStep } from './architect';
 import { acceptTrialStart, applyTrialsNet } from './trials';
 import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
@@ -257,6 +258,7 @@ export function clientUpdate(this: Game, dt: number): void {
     this.client?.send({ t: 'dash' });
     this.juice.shake(0.05);
   }
+  if (moving) architectLocalStep(this); // predict the Architect arena bounds and walls
   if (moving) applyVineGrab(this, this.hero.index, dt);
   if (moving) this.arenaLocal(dt);
   if (moving) coopPlayLocal(this); // carrying slows you; carried, you ride along (systems/coopplay.ts)
@@ -457,6 +459,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   applyPvp2Net(this, s.p2); // PvP rounds, teams and ring (systems/pvp2.ts)
   applyCoopPlayNet(this, s.cy); // co-op objectives, carried heroes, tethers (systems/coopplay.ts)
   applySpectateNet(this, s.sp); // watchers and their emotes (systems/spectate.ts)
+  applyArchitectNet(this, s.ac); // ultboss: field, ordered cores and ending
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();
