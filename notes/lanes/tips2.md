@@ -46,3 +46,9 @@ tests/tips2.test.ts: catalog parity (title and text in both languages, same butt
 - Mode descriptions in the Codex are the MODES descriptions; if the modes lane rewrites them, add the Arabic for the new copy.
 - Tips name what each lane's notes describe; if a lane changes its numbers (rewind seconds, cash-in tiers, raid timings), update src/i18n/tips2.ts.
 - Mod-pack content (src/game/modsupport) gets no tips or Codex lore; content packs registered at runtime aren't covered by the coverage test (it uses the shipped data).
+
+## Validation (2026-10-20)
+- PASS: `npm run typecheck`, `npx vite build`, `npm run smoke`, tests/tips2.test.ts (run 6 times in a row, stable).
+- `npm test`: 5 files fail. Three fail the same way on the base commit 309ab1e: coopplayCoop (bomb carry), meta2 (achievement names/medals) and tradingCoop (lobby title). pvp2 and raceCoop failed once while the machine was loaded with screenshot runs, then passed twice each on this branch, and they pass on base.
+- `npm run coop`: the first run had two 21 s host stalls (other builders were loading the machine) and 12 failures in party/kick/turret/carry. The second run had one failure (the co-op vault door timing) and no page errors.
+- Screenshots looked at: shots/tips2-raid-en.png, tips2-ronin-en.png, tips2-cashin-ar.png (Arabic, Z/X prompts), tips2-arsenal.png (POWER-UPS tab).
