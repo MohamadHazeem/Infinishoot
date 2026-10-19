@@ -706,6 +706,8 @@ export interface EnemyCtx {
    * chasing (patrol or investigate), at `speed` x its own; null = chase as usual. It doesn't attack.
    */
   lure?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
+  /** Sound-reactive enemies (`EnemyDef.ears`, src/game/systems/sound2.ts): same contract as `lure`, asked when lure says null. */
+  hear?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
 }
 
 // ------------------------------------------------------------------ rendering helpers
@@ -960,7 +962,7 @@ export class Enemies {
           best = t;
         }
       }
-      const lure = ctx.lure?.(e) ?? null;
+      const lure = ctx.lure?.(e) ?? ctx.hear?.(e) ?? null;
       ctx.target = lure ?? best ?? away;
       ctx.targetAlive = !lure && !!best;
       const tgt = ctx.target;

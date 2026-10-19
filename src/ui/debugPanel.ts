@@ -51,6 +51,7 @@ import { addHudFolder } from './debugHud';
 import { addFixesFolder } from './fixesPanel';
 import { addGameplayFolder } from './debugGameplay';
 import { addTimeFolder } from './debugTime';
+import { addSound2Folder } from './debugSound2';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -294,6 +295,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addTimeFolder(gui, game); // time lane: rewind, last stand, bullet time, replay (src/ui/debugTime.ts)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
   addWorldEventsFolder(gui, game); // world events: start any now, force one, knobs (src/ui/debugWorldEvents.ts)
+  addSound2Folder(gui, game); // sound lane 2: duel music, crowd, radio DJ, instruments, ears (src/ui/debugSound2.ts)
 
   // Companion lane: pets and co-op team moves.
   const comp = gui.addFolder('Pets & team moves').close();

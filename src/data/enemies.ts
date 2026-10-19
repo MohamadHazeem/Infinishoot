@@ -94,6 +94,8 @@ export interface EnemyDef {
   gust?: { keepDistance: number; interval: number; windup: number; range: number; arcDeg: number; push: number; damage: number };
   /** What hits sound like (src/audio/voices.ts); set for every enemy from ENEMY_MATERIALS below. */
   material?: Material;
+  /** Sound-reactive (sound lane): hearing range x this; drawn to loud weapons, loses track when it's quiet (src/audio/loudness.ts). */
+  ears?: number;
   /** Boss rematch (src/data/bossRemix.ts): the boss it remixes, its brain tweaks and phase subtitles. */
   remixOf?: string;
   remix?: RemixFlags;
@@ -161,6 +163,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   swarmer: {
     id: 'swarmer',
+    ears: 1, // sound-reactive (sound lane)
     death: 'goo',
     name: 'Swarmer',
     behavior: 'chase',
@@ -452,6 +455,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   },
   leaper: {
     id: 'leaper',
+    ears: 0.9, // sound-reactive (sound lane)
     death: 'goo',
     name: 'Hop Frog',
     behavior: 'leaper',
@@ -715,6 +719,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
   // ---------------------------------------------------------------- biome-native enemies (src/game/biomeFoes.ts)
   bee: {
     id: 'bee',
+    ears: 1.2, // sound-reactive (sound lane)
     death: 'goo',
     name: 'Bumble Bee',
     behavior: 'diver',

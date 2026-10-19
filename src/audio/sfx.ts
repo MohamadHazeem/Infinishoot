@@ -10,6 +10,7 @@ import { playCall, type Family } from './families';
 import { playThreat, threatTuning, type ThreatId } from './threats';
 import { speakSyllables, type Utterance } from './voice';
 import { playUi, type UiCue } from './uiKit';
+import { LANE_CUES, laneHooks, playLaneWeapon } from './featureCues';
 
 /** `voice` is the hero-voice volume (VOICE setting). */
 export const audioSettings = { volume: 0.5, sfx: 1, music: 0.7, ui: 0.8, voice: 0.8, muted: false, interactiveMusic: true, adaptiveSilence: true, lowHealth: true };
@@ -25,7 +26,9 @@ export type Bus = 'sfx' | 'music' | 'ui' | 'threat' | 'voice';
 /** Building blocks the cue recipes (evolution layers, calls, telegraphs, voice, UI) play with. */
 export interface SynthKit {
   tone(wave: Wave, f0: number, f1: number, dur: number, vol: number, delay?: number): void;
-  noise(dur: number, vol: number, hz: number, hzEnd?: number, q?: number, delay?: number): void;
+  noise(dur: number, vol: number, hz: number, hzEnd?: number, q?: number, delay?: number, attack?: number): void;
+  /** A tone that swells in over `attack` seconds (rumbles, drones, brass). */
+  swell(wave: Wave, f0: number, f1: number, dur: number, vol: number, attack: number, delay?: number): void;
   /** A sung vowel: glottal wave at f0a -> f0b through two formant band-passes (F1, F2) gliding from `from` to `to`. */
   vowel(wave: Wave, f0a: number, f0b: number, dur: number, from: readonly [number, number], to: readonly [number, number], vol: number, delay?: number): void;
 }
@@ -305,22 +308,43 @@ class Sfx {
     o.stop(t + dur + 0.02);
   }
 
-  private noise(ctx: AudioContext, dur: number, vol: number, filterHz: number, filterEnd = filterHz, q = 1, delay = 0) {
+  private noise(ctx: AudioContext, dur: number, vol: number, filterHz: number, filterEnd = filterHz, q = 1, delay = 0, attack = 0) {
     const t = ctx.currentTime + delay;
     const src = ctx.createBufferSource();
     src.buffer = this.noiseBuf;
+    // Longer than the 1 s buffer (rumbles, drones): loop it.
+    if (dur > 0.9) src.loop = true;
     const f = ctx.createBiquadFilter();
     f.type = 'bandpass';
     f.Q.value = q;
     f.frequency.setValueAtTime(filterHz, t);
     f.frequency.exponentialRampToValueAtTime(filterEnd, t + dur);
     const g = ctx.createGain();
-    g.gain.setValueAtTime(vol, t);
+    if (attack > 0) {
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol), t + Math.min(attack, dur * 0.9));
+    } else g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     src.connect(f).connect(g).connect(this.route);
     this.track(src, [src, f, g]);
     src.start(t, Math.random() * 0.5);
     src.stop(t + dur + 0.02);
+  }
+
+  private swell(ctx: AudioContext, wave: Wave, f0: number, f1: number, dur: number, vol: number, attack: number, delay = 0) {
+    const t = ctx.currentTime + delay;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = wave;
+    o.frequency.setValueAtTime(Math.max(1, f0), t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.001, vol), t + Math.min(attack, dur * 0.9));
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g).connect(this.route);
+    this.track(o, [o, g]);
+    o.start(t);
+    o.stop(t + dur + 0.02);
   }
 
   private vowel(ctx: AudioContext, wave: Wave, f0a: number, f0b: number, dur: number, from: readonly [number, number], to: readonly [number, number], vol: number, delay = 0) {
@@ -358,8 +382,11 @@ class Sfx {
     tone: (wave, f0, f1, dur, vol, delay = 0) => {
       if (this.ctx) this.tone(this.ctx, wave, f0, f1, dur, vol, delay);
     },
-    noise: (dur, vol, hz, hzEnd = hz, q = 1, delay = 0) => {
-      if (this.ctx) this.noise(this.ctx, dur, vol, hz, hzEnd, q, delay);
+    noise: (dur, vol, hz, hzEnd = hz, q = 1, delay = 0, attack = 0) => {
+      if (this.ctx) this.noise(this.ctx, dur, vol, hz, hzEnd, q, delay, attack);
+    },
+    swell: (wave, f0, f1, dur, vol, attack, delay = 0) => {
+      if (this.ctx) this.swell(this.ctx, wave, f0, f1, dur, vol, attack, delay);
     },
     vowel: (wave, f0a, f0b, dur, from, to, vol, delay = 0) => {
       if (this.ctx) this.vowel(this.ctx, wave, f0a, f0b, dur, from, to, vol, delay);
@@ -380,10 +407,18 @@ class Sfx {
   /** Any cue by name: an sfx method, `w:<weapon>[|<evo key>]`, `evo:<key>` or `call:<family>`. Used by the effects bus. */
   named(name: string, pitch = 1): void {
     if (name.startsWith('w:')) return this.weapon(name.slice(2));
+    if (name.startsWith('s2:')) return this.laneCue(name, pitch);
     if (name.startsWith('evo:')) return this.evoLayer(name.slice(4));
     if (name.startsWith('call:')) return this.call(name.slice(5) as Family, pitch);
     const fn = (this as unknown as Record<string, unknown>)[name];
     if (typeof fn === 'function') (fn as (p?: number) => void).call(this, pitch);
+  }
+
+  /** A sound-lane cue ('s2:<name>', src/audio/featureCues.ts), plus its surround stinger if it has one. */
+  laneCue(name: string, pitch = 1): void {
+    const c = LANE_CUES[name.slice(3)];
+    if (!c) return;
+    if (this.play(name, c.gap, c.bus ?? 'sfx', (k) => c.recipe(k, pitch)) && c.surround) laneHooks.surround?.(c.surround);
   }
 
   /** An evolved item's extra layer on its own (specials, the Bomb). */
@@ -824,6 +859,9 @@ class Sfx {
         this.tone(ctx, 'triangle', 1568, 1568, 0.06, 0.06);
         this.tone(ctx, 'triangle', 2093, 2093, 0.12, 0.06, 0.05);
         break;
+      default:
+        // The sound lane's weapon cues (the mech's guns: src/audio/featureCues.ts).
+        playLaneWeapon(this.kit, name, p);
     }
   }
 
@@ -868,6 +906,7 @@ class Sfx {
   elite(): void {
     const ctx = this.begin('elite', 0.5);
     if (!ctx) return;
+    laneHooks.surround?.('elite'); // a swoosh around you (src/audio/surround.ts)
     this.tone(ctx, 'sawtooth', 160, 120, 0.4, 0.15);
     this.tone(ctx, 'sawtooth', 240, 180, 0.4, 0.1, 0.1);
   }

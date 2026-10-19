@@ -26,6 +26,7 @@ import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
 import { rightClickHeld } from '../chargeMode';
 import { onHeartbeat } from '../netFeel';
 import { onCoverMsg } from '../coverBreak';
+import { applySoundLaneNet } from './sound2';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   switch (m.t) {
@@ -381,6 +382,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   this.applyWorldEventNet(s.we, s.wt);
+  applySoundLaneNet(this, s.s2);
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

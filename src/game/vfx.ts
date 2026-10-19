@@ -62,6 +62,8 @@ const HEAR_RANGE = 32;
 export class Vfx {
   recording = false;
   events: VfxEvent[] = [];
+  /** Every gameplay sound played here (solo/host): sound-reactive enemies listen (src/game/systems/sound2.ts). */
+  onSound: ((name: string, x: number, z: number) => void) | null = null;
 
   constructor(private t: VfxTargets) {}
 
@@ -100,6 +102,7 @@ export class Vfx {
 
   /** Positional sound: plays if the local player is in earshot. `name` is an sfx method or "w:<weapon sound>". */
   sound(name: string, x: number, z: number, pitch = 1): void {
+    this.onSound?.(name, x, z);
     this.playSound(name, x, z, pitch);
     this.rec(['a', x, z, name, pitch]);
   }

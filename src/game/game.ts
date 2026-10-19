@@ -74,6 +74,7 @@ import * as SkySys from './systems/sky';
 import * as SkillSys from './systems/skill';
 import { Onboarding } from './onboarding';
 import { weaponCue, windupCue } from './systems/sound';
+import { soundLaneStep } from './systems/sound2';
 import { rightClickHeld } from './chargeMode';
 import * as BiomeFoesSys from './systems/biomeFoes';
 import * as HeroMechsSys from './systems/heroMechs';
@@ -1250,6 +1251,7 @@ export class Game implements HeroWorld {
     this.updateArena(dt);
     this.updateWind(dt);
     this.updateWorldEvent(dt);
+    soundLaneStep(this, dt); // instrument pickups, sound-reactive enemies (systems/sound2.ts)
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);

@@ -142,7 +142,7 @@ export function gameplayPreWeapons(this: Game, dt: number): void {
       const steps = m.steps;
       m.update(dt, h.ctx);
       // Heavy footsteps: a thump per step, a slam on every stomp.
-      if (m.steps !== steps) this.vfx.sound(m.steps % mechTuning.stompEvery === 0 ? 'bossSlam' : 'impact', h.player.x, h.player.z, 1.6);
+      if (m.steps !== steps) this.vfx.sound(m.steps % mechTuning.stompEvery === 0 ? 's2:mechStomp' : 's2:mechStep', h.player.x, h.player.z, 1.6);
     } else if (pl.superW) {
       const s = pl.superW as SuperWeapon;
       s.power = pw;
@@ -217,7 +217,7 @@ function updateHeroPlay(g: Game, h: Hero, dt: number): void {
   if (cb && !pl.comeback) {
     g.vfx.num(p.x, 3, p.z, 'COMEBACK! x2 DAMAGE', 'crit');
     g.vfx.ring(p.x, p.z, 1, 8, '#ff3d5a', 0.5);
-    g.vfx.sound('powerUp', p.x, p.z, 0.7);
+    g.vfx.sound('s2:comeback', p.x, p.z);
   }
   pl.comeback = cb;
   // Relics.
@@ -263,7 +263,7 @@ export function startMech(g: Game, h: Hero): void {
   g.vfx.star(p.x, 2, p.z, 3, '#ffffff', 0.18);
   g.vfx.burst(p.x, 1.5, p.z, { count: 30, color: '#ffb627', color2: '#ffffff', speed: [4, 10], size: [0.15, 0.35], life: [0.4, 0.8], up: 6, gravity: 12, sparks: 8 });
   g.vfx.shake(p.x, p.z, 0.6);
-  g.vfx.sound('evolve', p.x, p.z);
+  g.vfx.sound('s2:mechBoot', p.x, p.z);
   g.vfx.num(p.x, 3.6, p.z, 'MECH SUIT!', 'crit');
   if (h === g.hero) g.hud.toast(`MECH SUIT: ${mechTuning.duration} SECONDS OF HEAVY METAL`, 2.5);
 }
@@ -283,6 +283,7 @@ export function endMech(g: Game, h: Hero, eject: boolean): void {
   g.vfx.shake(p.x, p.z, 1);
   g.vfx.flash(0.35);
   g.vfx.num(p.x, 3.2, p.z, 'EJECT!', 'crit');
+  g.vfx.sound('s2:mechEject', p.x, p.z);
   p.invuln = Math.max(p.invuln, 1.2);
   p.recoil = 2;
 }
@@ -350,7 +351,7 @@ export function spawnCrate(g: Game, x: number, z: number, kind: SuperId): GpDrop
   const d: GpDrop = { id: W.nextId++, kind, x, z, t: 0 };
   W.drops.push(d);
   g.vfx.toast('SUPPLY DROP INCOMING!', 2);
-  g.vfx.sound('telegraph', x, z);
+  g.vfx.sound('s2:crateDrop', x, z);
   g.vfx.ring(x, z, 1, 4, '#ff7a2f', 0.6);
   return d;
 }
@@ -362,7 +363,7 @@ export function spawnMechDrop(g: Game, x: number, z: number): GpDrop {
   W.drops.push(d);
   W.mechCd = mechTuning.dropCooldown;
   g.vfx.toast('A MECH SUIT DROPPED!', 2.4);
-  g.vfx.sound('chest', x, z);
+  g.vfx.sound('s2:mechDrop', x, z);
   g.vfx.ring(x, z, 1, 6, '#ffb627', 0.6);
   g.vfx.burst(x, 1, z, { count: 24, color: '#ffb627', color2: '#ffffff', speed: [3, 7], size: [0.15, 0.3], life: [0.5, 0.9], up: 8, gravity: 12 });
   return d;
@@ -385,7 +386,7 @@ function updateDrops(g: Game, W: GpWorld, dt: number): void {
       g.vfx.shake(d.x, d.z, 0.4);
       g.vfx.ring(d.x, d.z, 1, 5, '#ffcd75', 0.4);
       g.vfx.burst(d.x, 0.3, d.z, { count: 10, color: '#d9c49c', color2: '#ffffff', speed: [2, 5], size: [0.2, 0.4], life: [0.3, 0.6], up: 2, dust: 10, scorch: 0 });
-      g.vfx.sound('bossSlam', d.x, d.z, 1.6);
+      g.vfx.sound('s2:crateLand', d.x, d.z);
     }
     const life = crate ? fall + crateTuning.life : fall + mechTuning.dropLife;
     if (d.t > life) {

@@ -6,6 +6,8 @@ import { announcerSettings, announcer } from '../audio/announcer';
 import { voiceSettings as synthVoiceSettings } from '../audio/heroVoice';
 import { a11yAudio } from '../audio/captions';
 import { voiceSettings } from '../audio/voices';
+import { crowdSettings } from '../audio/crowd';
+import { radioSettings } from '../audio/radio';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
@@ -88,6 +90,10 @@ export interface Settings {
   look: string;
   /** Slow-motion replay of the hit that ended the run, before the game-over screen. */
   deathReplay: boolean;
+  /** CROWD: the invisible arena crowd (cheers, gasps, boos; src/audio/crowd.ts). */
+  crowd: boolean;
+  /** RADIO DJ: the radio host between stages (src/audio/radio.ts). */
+  radioDj: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -140,6 +146,8 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   animeLook: false,
   look: '---00',
   deathReplay: true,
+  crowd: true,
+  radioDj: true,
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -150,6 +158,8 @@ settings.portraitPops ??= true;
 settings.animeLook ??= false;
 settings.look ??= '---00';
 settings.deathReplay ??= true;
+settings.crowd ??= true;
+settings.radioDj ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */
@@ -200,6 +210,8 @@ export function applySettings(): void {
   a11yAudio.arrows = settings.soundArrows;
   announcer.update();
   voiceSettings.heroVoices = settings.heroVoices !== false;
+  crowdSettings.enabled = settings.crowd !== false;
+  radioSettings.enabled = settings.radioDj !== false;
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
   postSettings.glow = settings.glow;

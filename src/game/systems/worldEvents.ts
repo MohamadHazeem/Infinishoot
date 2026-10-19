@@ -269,7 +269,7 @@ function startEvent(g: Game, W: WorldRun, kind: WorldEventKind): void {
   if (kind === 'stealth') ev.stealth = newStealth(ev.p);
   const def = WORLD_EVENTS[kind];
   g.vfx.banner(def.name, def.sub, 2.4);
-  g.vfx.sound(kind === 'flower' ? 'jingle' : 'ominous', NaN, NaN);
+  g.vfx.sound('s2:ev_' + kind, NaN, NaN); // start stinger (src/audio/featureCues.ts)
   if (kind !== 'flower' && kind !== 'stealth') g.vfx.shake(NaN, NaN, 0.25);
 }
 
@@ -444,7 +444,7 @@ function tickCollapse(g: Game, ev: WorldEvent, t0: number, t: number, dt: number
   const p = ev.p;
   for (let w = 0; w < T.waves; w++) {
     if (crossed(collapseCrackAt(w))) {
-      g.vfx.sound('coverBreak', NaN, NaN, 0.6);
+      g.vfx.sound('s2:crack', NaN, NaN);
       g.vfx.shake(NaN, NaN, 0.18);
       if (w === 0) g.vfx.toast('CRACKS! GET OFF THEM!', 2);
     }
@@ -464,7 +464,7 @@ function tickCollapse(g: Game, ev: WorldEvent, t0: number, t: number, dt: number
         g.vfx.sound('explode', p[i], p[i + 1], 0.7);
       }
       g.vfx.shake(NaN, NaN, 0.35);
-      g.vfx.sound('bossSlam', NaN, NaN, 0.8);
+      g.vfx.sound('s2:collapse', NaN, NaN);
     }
   }
   void dt;
@@ -474,7 +474,7 @@ function tickSplit(g: Game, ev: WorldEvent, t: number, dt: number, crossed: (at:
   if (t < T.splitWarn && (ev.tick -= dt) <= 0) {
     ev.tick = 0.8;
     g.vfx.shake(NaN, NaN, 0.12);
-    g.vfx.sound('coverBreak', NaN, NaN, 0.5);
+    g.vfx.sound('s2:crack', NaN, NaN, 0.8);
   }
   if (crossed(T.splitWarn)) {
     for (const b of ev.boxes) openGround(g, b.box, T.splitHeroDmg, 'The Chasm');
@@ -490,7 +490,7 @@ function tickSplit(g: Game, ev: WorldEvent, t: number, dt: number, crossed: (at:
       g.vfx.burst(x, 0.3, z, { count: 6, color: '#7a6a5a', color2: '#3a2c2c', speed: [2, 5], size: [0.25, 0.45], life: [0.4, 0.8], up: 5, gravity: 14, debris: 2, dust: 2 });
     }
     g.vfx.shake(NaN, NaN, 0.5);
-    g.vfx.sound('bossSlam', NaN, NaN, 0.7);
+    g.vfx.sound('s2:collapse', NaN, NaN);
   }
 }
 
@@ -552,7 +552,7 @@ function tickGiant(g: Game, ev: WorldEvent, crossed: (at: number) => boolean): v
     }
     if (!crossed(at)) continue;
     g.vfx.shake(NaN, NaN, 0.1); // every step rumbles the whole field
-    g.vfx.sound('bossSlam', pt.x, pt.z, 0.6);
+    g.vfx.sound('s2:giantStep', pt.x, pt.z);
     if (!inField) {
       g.vfx.burst(pt.x, 0.2, pt.z, { count: 14, color: '#f4f4f4', color2: '#41a6f6', speed: [3, 8], size: [0.25, 0.5], life: [0.5, 0.9], up: 9, gravity: 16 });
       continue;
@@ -605,7 +605,7 @@ function tickEclipse(g: Game, W: WorldRun, ev: WorldEvent, crossed: (at: number)
   restoreBoost(W);
   g.vfx.banner('THE SUN RETURNS!', 'ENEMIES DAZZLED', 1.6);
   g.vfx.flash(0.8);
-  g.vfx.sound('powerUp', NaN, NaN);
+  g.vfx.sound('s2:sunBurst', NaN, NaN);
   for (const h of g.aliveHeroes) g.vfx.ring(h.player.x, h.player.z, 1, 40, '#ffcd75', 0.6);
   for (const e of g.enemies.list) {
     if (!e.alive || e.def.boss) continue;
@@ -628,7 +628,7 @@ function tickFlower(g: Game, ev: WorldEvent, dt: number, crossed: (at: number) =
   const ph = flowerPhase(ev.t);
   if (crossed(T.flowerGrow)) {
     g.vfx.toast('THE FLOWER BLOOMS! STAND IN IT TO HEAL', 2.6);
-    g.vfx.sound('heal', x, z);
+    g.vfx.sound('s2:bloom', x, z);
     g.vfx.ring(x, z, 1, T.flowerR * 2.4, '#a7f070', 0.6);
     g.vfx.burst(x, 2.5, z, { count: 30, color: '#ffcd75', color2: '#f4f4f4', speed: [2, 6], size: [0.15, 0.3], life: [0.6, 1.1], up: 5, gravity: 3, drag: 1 });
   }
