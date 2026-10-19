@@ -1,4 +1,5 @@
 import { modSession } from '../../mods/manager';
+import { hostmigLeaving } from './hostmig';
 import { resetSecrets, clearSecrets } from './secrets';
 import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
 import { seasonAt, seasonalStage } from '../../data/seasons';
@@ -110,6 +111,7 @@ export function goTitle(this: Game): void {
 
 /** Back to a single local hero on the title screen, closing any connection. */
 export function leaveToTitle(this: Game): void {
+  hostmigLeaving(this); // a host leaving mid-run hands the run over (systems/hostmig.ts)
   if (this.role === 'client' && this.mode !== 'title') this.client?.send({ t: 'bye' }); // leaving on purpose: no autopilot wait (systems/coop2.ts)
   this.pvp = null;
   this.mpReset(); // no Versus match, local co-op pads or public listing (systems/mp.ts)

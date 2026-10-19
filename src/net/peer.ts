@@ -20,6 +20,17 @@ export function normalizeCode(code: string): string {
   return code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
 }
 
+/** Host migration lane: the room a new host opens, derived from the run's code ("ABCDE-M1H2": epoch 1, hero 2). */
+export function migrationCode(base: string, epoch: number, index: number): string {
+  return `${normalizeCode(base)}-M${epoch}H${index}`;
+}
+
+/** A room code as typed or derived: migration rooms keep their suffix, plain codes are normalized. */
+export function roomCode(code: string): string {
+  const up = code.trim().toUpperCase();
+  return /^[A-Z0-9]{5}-M\d{1,3}H\d$/.test(up) ? up : normalizeCode(code);
+}
+
 type Handler = (from: string, msg: unknown) => void;
 
 /** Host side: accepts up to `max` clients. */
@@ -39,7 +50,7 @@ export class NetHost {
 
   /** `code`: a fixed room code (the player's friend code, lobby lane); random if absent. */
   constructor(public max = 3, code?: string) {
-    this.code = code ? normalizeCode(code) : makeCode();
+    this.code = code ? roomCode(code) : makeCode();
     this.peer = new Peer(PREFIX + this.code, { debug: 0, config: iceConfig() });
     this.ready = new Promise((resolve, reject) => {
       this.peer.on('open', () => resolve());
@@ -142,7 +153,7 @@ export class NetClient {
   });
 
   constructor(code: string) {
-    this.code = normalizeCode(code);
+    this.code = roomCode(code);
     this.peer = new Peer({ debug: 0, config: iceConfig() });
     this.ready = new Promise((resolve, reject) => {
       // Signalling worked but no direct route was found: say so (and point at a relay) instead of a vague timeout.
@@ -153,7 +164,7 @@ export class NetClient {
         reject(new Error(friendlyError(e)));
       });
       this.peer.on('open', () => {
-        const conn = this.peer.connect(PREFIX + normalizeCode(code), { reliable: true });
+        const conn = this.peer.connect(PREFIX + this.code, { reliable: true });
         this.conn = conn;
         signalled = true;
         (conn as unknown as { on(ev: 'iceStateChanged', fn: (s: string) => void): void }).on('iceStateChanged', (s) => {

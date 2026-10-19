@@ -31,6 +31,7 @@ import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
 import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
 import { heroes3Net } from './heroes3';
+import { hostmigTick } from './hostmig';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -178,6 +179,7 @@ export function onClientLeft(this: Game, id: string): void {
 /** Send world snapshots to clients (20 Hz, slower while menus freeze the world). */
 export function hostTick(this: Game, frozen: boolean): void {
   netcodeStep(this, frozen); // probes, silent clients, enemy history, tab-reload rejoin (systems/netcode.ts)
+  hostmigTick(this); // migration snapshots for clients; a client taking over as host (systems/hostmig.ts)
   if (this.role !== 'host' || !this.host) return;
   this.vfx.recording = true;
   if (this.stepN % (frozen ? 15 : SNAP_EVERY) !== 0) return;
