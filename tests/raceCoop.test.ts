@@ -106,9 +106,14 @@ const sb = raceState(B)!;
 ok(sa.ranks.get('peerB') === 1200 && sb.lobbyRanks.length === 2 && sb.lobbyRanks[1].r === 1200 && sb.lobbyRanks[0].r === 1200, 'ratings shared through the lobby: ' + JSON.stringify(sb.lobbyRanks));
 ok(rootB.querySelectorAll('#scr-online .lobby-player .rk-badge').length === 2 && rootA.querySelectorAll('#scr-online .lobby-player .rk-badge').length === 2, 'rank badges on the lobby cards (both sides)');
 ok((rootB.querySelector('#scr-online .mp-kind-row .on')?.textContent ?? '').includes('RACE'), 'client sees GAME: RACE');
+// The race lane was written against a 4-player co-op cap; since the eightp lane co-op takes 8
+// and only Versus keeps 4, so each kind gets its own cap from lobbyCap (src/game/eightp.ts).
 A.lobbyKind = 'coop';
 A.refreshLobby();
-ok(maxSet === 3, 'other game types are back to 4 players');
+ok(maxSet === 7, 'co-op is back to its own cap: 8 players (7 guests)');
+A.lobbyKind = 'versus';
+A.refreshLobby();
+ok(maxSet === 3, 'Versus is back to 4 players');
 A.lobbyKind = 'race';
 A.refreshLobby();
 flush();
@@ -167,15 +172,18 @@ A.leaveToTitle();
 B.leaveToTitle();
 q.length = 0;
 
-// ---------------------------------------------------------------- co-op refuses a crowd
-connect();
-A.lobbyKind = 'coop';
-A.lobby = Array.from({ length: 5 }, (_, i) => ({ peerId: i ? 'p' + i : '', name: 'P' + i, unlocked: unlockedWeapons(), loadout: validLoadout(DEFAULT_LOADOUT), skin: 'classic', pet: 'none', hero: 'rookie' }));
-A.hostStart();
-ok(A.mode === 'title' && A.heroes.length === 1, 'co-op with 5 players is refused');
-A.leaveToTitle();
-B.leaveToTitle();
-q.length = 0;
+// ---------------------------------------------------------------- co-op and Versus refuse a crowd
+// (co-op takes 8 since the eightp lane, so the crowd is 9; Versus still takes 4, so 5 is too many)
+for (const [kind, n] of [['coop', 9], ['versus', 5]] as const) {
+  connect();
+  A.lobbyKind = kind;
+  A.lobby = Array.from({ length: n }, (_, i) => ({ peerId: i ? 'p' + i : '', name: 'P' + i, unlocked: unlockedWeapons(), loadout: validLoadout(DEFAULT_LOADOUT), skin: 'classic', pet: 'none', hero: 'rookie' }));
+  A.hostStart();
+  ok(A.mode === 'title' && A.heroes.length === 1, `${kind} with ${n} players is refused`);
+  A.leaveToTitle();
+  B.leaveToTitle();
+  q.length = 0;
+}
 
 // ---------------------------------------------------------------- challenge a friend
 A.startSolo();

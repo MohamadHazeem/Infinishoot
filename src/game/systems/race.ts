@@ -169,7 +169,7 @@ export function installRace(g: Game, root: HTMLElement): void {
     st.lobbyRanks = [];
     st.ranks.clear();
     st.rankSentTo = null;
-    if (this.host) this.host.setMax?.(3);
+    if (this.host) this.host.setMax?.(lobbyCap(this.lobbyKind) - 1);
     return leave.call(this);
   };
   const startRun = g.startRun;
@@ -190,7 +190,7 @@ export function installRace(g: Game, root: HTMLElement): void {
   };
   const refresh = g.refreshLobby;
   g.refreshLobby = function (this: Game) {
-    this.host?.setMax?.(this.lobbyKind === 'race' ? 7 : lobbyCap(this.lobbyKind) - 1);
+    this.host?.setMax?.(lobbyCap(this.lobbyKind) - 1); // race 8, co-op 8, versus 4 (src/game/eightp.ts)
     refresh.call(this);
     if (!this.host) return;
     st.ranks.set('', save.ranked.rating);
