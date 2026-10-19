@@ -53,6 +53,7 @@ import * as PvpFlowSys from './systems/pvpFlow';
 import * as NetHostSys from './systems/netHost';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
+import * as WorldFxSys from './systems/worldFx';
 
 export { economyTuning } from './hero';
 
@@ -385,6 +386,7 @@ export class Game implements HeroWorld {
   renderMinimap = RenderSys.renderMinimap;
   renderEliteBars = RenderSys.renderEliteBars;
   renderTeam = RenderSys.renderTeam;
+  worldFx = WorldFxSys.worldFx;
 
   readonly scene = new THREE.Scene();
   arena: Arena;

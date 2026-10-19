@@ -15,6 +15,12 @@ import { MODS } from '../data/mods';
 import { ELITE_MOD_IDS } from '../data/eliteMods';
 import { ENEMIES } from '../data/enemies';
 import { audioSettings } from '../audio/sfx';
+import { rainTuning, weatherForce } from '../game/ambience';
+import { worldFxTuning } from '../game/particles';
+import { debrisTuning } from '../game/debris';
+import { decalTuning } from '../game/decals';
+import { surfaceTuning } from '../render/surfaces';
+import { worldDustTuning } from '../game/systems/worldFx';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -138,6 +144,27 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   fx.add(juiceTuning, 'shakeDecay', 0.2, 5, 0.1);
   fx.add(audioSettings, 'volume', 0, 1, 0.05);
   fx.add(audioSettings, 'muted');
+
+  // World effects (cosmetic): weather, smoke/dust, debris, decals, surfaces.
+  const world = gui.addFolder('World FX').close();
+  world.add(game.ambience, 'rain', 0, 1, 0.01).name('Rain now').listen().disable();
+  world.add({ rain: () => game.ambience.setRain(!game.ambience.raining) }, 'rain').name('Toggle rain');
+  world.add(weatherForce, 'mode', { seeded: null, rain: 'rain', clear: 'clear' }).name('Next stages');
+  world.add(rainTuning, 'dark', 0, 1, 0.05).name('Rain darkness');
+  world.add(rainTuning, 'flash', 0, 1, 0.05).name('Lightning');
+  world.add(worldFxTuning, 'amount', 0, 2, 0.1).name('FX amount');
+  world.add(worldFxTuning, 'smokeRise', 0, 4, 0.1);
+  world.add(worldFxTuning, 'sparkGravity', 0, 60, 1);
+  world.add(debrisTuning, 'gravity', 5, 60, 1).name('Debris gravity');
+  world.add(debrisTuning, 'bounce', 0, 0.9, 0.05).name('Debris bounce');
+  world.add(debrisTuning, 'life', 0.5, 10, 0.1).name('Debris life');
+  world.add(decalTuning, 'footLife', 1, 20, 0.5).name('Footprint life');
+  world.add(decalTuning, 'footAlpha', 0, 1, 0.05).name('Footprint alpha');
+  world.add(decalTuning, 'scorchLife', 1, 20, 0.5).name('Scorch life');
+  world.add(worldDustTuning, 'stride', 0.3, 2, 0.05).name('Footprint stride');
+  world.add(surfaceTuning, 'rippleEvery', 0.1, 3, 0.05);
+  world.add(surfaceTuning, 'bubbleEvery', 0.05, 2, 0.05);
+  world.add(surfaceTuning, 'glintsPerM2', 0, 1, 0.01);
 
   return gui;
 }

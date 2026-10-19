@@ -3,6 +3,7 @@ import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
 import { cheats, type Game } from '../game/game';
 import { settings } from '../game/settings';
+import { weatherForce } from '../game/ambience';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -14,6 +15,8 @@ import { settings } from '../game/settings';
  *   ?test&hero=ace&mode=endless&god    hero, mode, no damage
  *   ?test&elite=charger:shielded       spawn an elite with a modifier
  *   ?test&event=meteors&passives=armor:2,magnet:1&gold=200&seed=42
+ *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
+ *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -32,6 +35,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.get('difficulty')) settings.difficulty = q.get('difficulty')!;
   const lo = list('loadout');
   if (lo.length) settings.loadout = { primary: lo[0] ?? settings.loadout.primary, secondary: lo[1] ?? settings.loadout.secondary, special: lo[2] ?? settings.loadout.special };
+  weatherForce.mode = q.has('rain') ? 'rain' : q.has('dry') ? 'clear' : null;
   game.startSolo();
   if (q.get('seed')) game.rng = new Rng(Number(q.get('seed')));
   // Skip the starting shop.
@@ -57,5 +61,21 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
+  const at = q.get('at');
+  if (at) {
+    let x = NaN;
+    let z = NaN;
+    if (/^-?[\d.]+,-?[\d.]+$/.test(at)) [x, z] = at.split(',').map(Number);
+    else {
+      game.worldFx(0); // builds the stage's surfaces now
+      const p = game.ambience.surfaces.patches.find((s) => s.kind === at);
+      if (p) [x, z] = [p.x, p.z + p.r + 1.5];
+    }
+    if (!Number.isNaN(x)) {
+      const pl = game.hero.player;
+      pl.pos.x = pl.prev.x = x;
+      pl.pos.z = pl.prev.z = z;
+    }
+  }
   return true;
 }
