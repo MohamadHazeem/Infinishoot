@@ -1,4 +1,5 @@
 import { storyAr } from '../game/story/strings';
+import { tips2Ar } from './tips2';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
@@ -310,6 +311,7 @@ export const ar = {
   "menu.tip.gear": "احتفظ بالتروس لتجديد خياراتك عند رفع المستوى.",
   "menu.tip.build": "تعمل التعديلات بالترتيب من اليسار إلى اليمين. ترتيبها مهم.",
   ...storyAr,
+  ...tips2Ar,
   "desktop.paste": "لصق",
   "desktop.clipboardUnavailable": "الحافظة غير متاحة. أدخل النص أو حمّل ملفًا.",
 

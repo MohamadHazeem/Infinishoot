@@ -1,4 +1,5 @@
 import { binds, keyLabel, type Action } from '../core/keybinds';
+import { TIPS2, TIP2_PRIORITY, type Tip2Id } from '../data/tips2';
 
 /**
  * First-time tips: a small pixel panel the first time something happens in a
@@ -24,7 +25,8 @@ export type TipId =
   | 'gear'
   | 'portal'
   | 'down'
-  | 'matedown';
+  | 'matedown'
+  | Tip2Id;
 
 /** "Q / E" for an action's bound keys. */
 export function keysOf(a: Action): string {
@@ -60,10 +62,12 @@ export const TIPS: Record<TipId, TipDef> = {
   portal: { title: 'STAGE CLEAR', text: () => 'Walk into the portal for the next stage. Every stage hits harder, and every 4th ends with the final boss.' },
   down: { title: "YOU'RE DOWN", text: () => 'A teammate revives you by standing next to you for 3 s. Click to watch another teammate meanwhile.' },
   matedown: { title: 'TEAMMATE DOWN', text: () => 'Stand next to them for 3 s to revive them. You both get a moment of invincibility.' },
+  // tips2 lane: the newer mechanics (src/data/tips2.ts, detection in src/game/systems/tips2.ts)
+  ...TIPS2,
 };
 
 /** In-fight tips that jump the queue (lower first): telegraphs beat trivia. Menu tips always go first. */
-export const TIP_PRIORITY: Partial<Record<TipId, number>> = { boss: 0, bosssoon: 1, elite: 2, special: 3, chest: 4, down: 0, matedown: 1 };
+export const TIP_PRIORITY: Partial<Record<TipId, number>> = { boss: 0, bosssoon: 1, elite: 2, special: 3, chest: 4, down: 0, matedown: 1, ...TIP2_PRIORITY };
 
 /** Where a new in-fight tip goes in the queue: after every tip of the same or higher priority. */
 export function tipInsertAt(id: TipId, queue: readonly TipId[]): number {

@@ -13,9 +13,11 @@ import { saveSettings, settings } from './settings';
 import { TIPS, tipInsertAt, tipTime, tipWanted, type TipId } from './tips';
 import { firstTenTuning } from './firstten';
 import { Training, trainingTuning } from './training';
+import { TIP2_MENUS } from '../data/tips2';
+import { detectTips2, tip2Still } from './systems/tips2';
 
 /** Tips that belong to a menu: shown only while it's open, and ahead of the rest. */
-const MENU_TIPS: Partial<Record<TipId, ScreenName>> = { levelup: 'levelup', evofork: 'levelup', shop: 'shop', modorder: 'shop' };
+const MENU_TIPS: Partial<Record<TipId, ScreenName>> = { levelup: 'levelup', evofork: 'levelup', shop: 'shop', modorder: 'shop', ...TIP2_MENUS };
 
 /**
  * Onboarding: the TRAINING field, first-time tips, the Codex's discovery
@@ -200,6 +202,7 @@ export class Onboarding {
       const menu = MENU_TIPS[id];
       if (menu && g.screens.current !== menu) continue; // missed its menu: it comes back next time
       if (save.tips.includes(id)) continue;
+      if (!tip2Still(g, id)) continue; // tips2: its moment passed; it comes back next time
       const def = TIPS[id];
       const t = tipTime(def);
       this.tip = { id, left: t };
@@ -231,6 +234,7 @@ export class Onboarding {
       this.want('levelup');
       if (root.querySelector('#scr-levelup .card.evo')) this.want('evofork');
     }
+    detectTips2(g, (id) => this.want(id));
     if (scr === 'shop') {
       this.want('shop');
       if (root.querySelectorAll('#scr-shop .owned-mod:not(.empty)').length >= 2) this.want('modorder');
