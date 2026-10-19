@@ -2,32 +2,33 @@ import type { Hero } from './hero';
 
 /**
  * Vampire Fang (life per kill) without the snowball (fixes lane).
- * Bot runs showed Fang 3 healing back ~97% of all damage taken from stage 3
- * on (kill rates of 40-80 a second), and with Glass Cannon the flat heal
- * filled its 40 max life several times a second, so the curse cost nothing.
+ * Bot runs showed Fang 3 healing back ~95% of all damage taken through
+ * stages 1-5: heal per second grew with the kill rate (40-80 kills a second
+ * late on, 6-12 life a second), and with Glass Cannon the flat heal refilled
+ * its 40 max life every few seconds, so the curse cost nothing.
  *  - The heal scales with max life (`killHeal` is per 100 max life), so Glass
  *    Cannon's x0.4 life also means x0.4 healing.
- *  - A per-hero budget: full healing up to `perSec` of max life per second,
- *    then only `overflow` of the rest, so big hordes don't make you immortal.
+ *  - Full rate only up to `killsPerSec` kills a second; kills beyond that
+ *    heal `overflow` of their share. Fang 3 tops out near 1.8 life a second
+ *    (per 100 max life) plus a trickle, about Nanobots 5 (1.5 a second).
  */
 export const lifestealTuning = {
-  /** Full-rate healing per second, as a share of max life. */
-  perSec: 0.025,
-  /** Share of the healing beyond the budget that still lands. */
-  overflow: 0.2,
+  /** Kills per second that heal in full. */
+  killsPerSec: 12,
+  /** Share of the healing beyond that which still lands. */
+  overflow: 0.1,
 };
 
-/** Rolling budget: refills at perSec x max life per second, holds at most one second's worth. */
+/** Rolling budget: refills at `rate` life per second, holds at most one second's worth. */
 export class LifestealBudget {
   private left = 0;
   private t = -1;
 
-  /** Heal for `amount` at sim time `now`: returns what actually lands. */
-  take(amount: number, maxHp: number, now: number): number {
-    if (amount <= 0 || maxHp <= 0) return 0;
-    const cap = lifestealTuning.perSec * maxHp;
+  /** Heal `amount` at sim time `now` with a full-rate budget of `rate` life a second: returns what lands. */
+  take(amount: number, rate: number, now: number): number {
+    if (amount <= 0) return 0;
     // A new run restarts the clock: start full.
-    this.left = this.t < 0 || now < this.t ? cap : Math.min(cap, this.left + (now - this.t) * cap);
+    this.left = this.t < 0 || now < this.t ? rate : Math.min(rate, this.left + (now - this.t) * rate);
     this.t = now;
     const full = Math.min(amount, this.left);
     this.left -= full;
@@ -37,10 +38,10 @@ export class LifestealBudget {
 
 const budgets = new WeakMap<Hero, LifestealBudget>();
 
-/** Vampire Fang heal for one kill by hero h at sim time `now` (killHeal is per 100 max life). */
+/** Vampire Fang heal for one kill by hero h at sim time `now` (killHeal is life per kill per 100 max life). */
 export function vampHeal(h: Hero, killHeal: number, now: number): number {
   let b = budgets.get(h);
   if (!b) budgets.set(h, (b = new LifestealBudget()));
-  const maxHp = h.player.maxHp;
-  return b.take((killHeal * maxHp) / 100, maxHp, now);
+  const per = (killHeal * h.player.maxHp) / 100;
+  return b.take(per, per * lifestealTuning.killsPerSec, now);
 }

@@ -84,19 +84,23 @@ const NF = await import('../src/game/netFeel');
   const LS = await import('../src/game/lifesteal');
   const T = LS.lifestealTuning;
   const b = new LS.LifestealBudget();
-  // 100 max life: 2.5 life a second at full rate.
+  // Fang 3 at 100 max life: 0.15 a kill, full rate up to killsPerSec kills a second.
+  const rate = 0.15 * T.killsPerSec;
   let got = 0;
-  for (let i = 0; i < 100; i++) got += b.take(0.15, 100, i * 0.01); // 100 kills in one second at Fang 3
+  for (let i = 0; i < 100; i++) got += b.take(0.15, rate, i * 0.01); // 100 kills in one second
   // Full rate: one second in reserve plus the 0.99 s refill; the rest at the overflow rate.
-  const full = T.perSec * 100 * 1.99;
-  ok(Math.abs(got - (full + (15 - full) * T.overflow)) < 0.05, `a burst of kills heals the budget plus a fifth of the rest (${got.toFixed(2)} of 15)`);
+  const full = rate * 1.99;
+  ok(Math.abs(got - (full + (15 - full) * T.overflow)) < 0.05, `a burst of 100 kills heals ${got.toFixed(2)} instead of 15`);
   const b2 = new LS.LifestealBudget();
   let slow = 0;
-  for (let i = 0; i < 10; i++) slow += b2.take(0.15, 100, i * 0.5); // a kill every half second
+  for (let i = 0; i < 10; i++) slow += b2.take(0.15, rate, i * 0.5); // two kills a second
   ok(Math.abs(slow - 1.5) < 1e-9, 'a trickle of kills heals in full');
   const b3 = new LS.LifestealBudget();
-  b3.take(5, 100, 50);
-  ok(b3.take(1, 100, 1) === 1, 'a new run (clock went back) starts with a full budget');
+  b3.take(5, 5, 50);
+  ok(b3.take(1, 5, 1) === 1, 'a new run (clock went back) starts with a full budget');
+  // Glass Cannon: x0.4 max life means x0.4 healing.
+  const hero = (max: number) => ({ player: { maxHp: max } }) as never;
+  ok(Math.abs(LS.vampHeal(hero(40), 0.15, 0) - 0.06) < 1e-9 && Math.abs(LS.vampHeal(hero(100), 0.15, 0) - 0.15) < 1e-9, 'the heal scales with max life');
 }
 
 // ---- TURN relay config ----

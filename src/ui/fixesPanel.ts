@@ -13,7 +13,7 @@ export function addFixesFolder(gui: GUI): void {
   f.add(aiTuning, 'losRetry', 0.05, 1, 0.05).name('Shooter LOS retry');
   f.add(bossRuleTuning, 'freezeMul', 0, 1, 0.05).name('Boss/mini freeze x');
   f.add(coverTuning, 'reach', 0, 2, 0.1).name('Rex smash reach');
-  f.add(lifestealTuning, 'perSec', 0, 0.2, 0.005).name('Lifesteal %/s');
+  f.add(lifestealTuning, 'killsPerSec', 1, 60, 1).name('Lifesteal kills/s');
   f.add(lifestealTuning, 'overflow', 0, 1, 0.05).name('Lifesteal overflow');
   f.add(netFeelTuning, 'stopScale', 0, 2, 0.1).name('Online hit-stop x');
   f.add(netFeelTuning, 'stopMax', 0, 0.3, 0.01).name('Online hit-stop max');
