@@ -17,7 +17,7 @@ export const PORTRAIT = 32;
 
 export interface PortraitLook {
   kind: 'hero' | 'boss' | 'announcer';
-  /** Hero id (rookie, bulwark, dash, ace) or boss model (king, rex, queen, omega; anything else gets a generic blob). */
+  /** Hero id (rookie, bulwark, dash, ace) or boss model (king, rex, queen, omega, dj, jack, airship; anything else gets a generic blob). */
   model: string;
   /** Hero: armor, accent, suit, hair, gem, iris. Boss: body, accent. */
   colors: Readonly<Record<string, string>>;
@@ -581,6 +581,133 @@ function paintBlob(p: Painter, body: number, accent: number, expr: Expression): 
   mouth(p, 20, expr);
 }
 
+// ---------------------------------------------------------------- biome bosses (bosses3 lane)
+
+const NEON_PINK = 0xff3df0;
+
+/** Glitch DJ: square robot head, big headphones, a visor of pixel eyes, an equalizer for a mouth. */
+function paintDj(p: Painter, body: number, accent: number, expr: Expression): void {
+  const hurt = expr === 'hurt' ? 1 : 0;
+  const band = mix(body, 0x1a1c2c, 0.55);
+  // Shoulders, then the headphone band over the head.
+  p.rect(3, 27, 28, 31, mix(body, 0x1a1c2c, 0.3));
+  p.rect(13, 27, 18, 31, accent, { shade: 'flat' });
+  p.rect(7, 2 + hurt, 24, 4 + hurt, band);
+  p.rect(5, 4 + hurt, 7, 12 + hurt, band);
+  p.rect(24, 4 + hurt, 26, 12 + hurt, band);
+  // Antenna with a blinking tip.
+  p.line(21, 5 + hurt, 23, 0 + hurt, INK);
+  p.dot(23, 0 + hurt, accent);
+  // Head.
+  p.rect(8, 6 + hurt, 23, 26, body);
+  p.line(9, 7 + hurt, 22, 7 + hurt, mix(body, 0xfff6d0, 0.4));
+  // Ear cups.
+  p.ellipse(5.5, 16 + hurt, 3.6, 5.2, NEON_PINK);
+  p.ellipse(26.5, 16 + hurt, 3.6, 5.2, NEON_PINK);
+  p.dots([5, 15 + hurt, 26, 15 + hurt], WHITE);
+  // Visor.
+  const vy = 11 + hurt;
+  p.rect(10, vy, 21, vy + 6, INK, { shade: 'flat' });
+  const E = accent;
+  switch (expr) {
+    case 'neutral':
+      p.rect(12, vy + 2, 13, vy + 3, E, { shade: 'flat' });
+      p.rect(18, vy + 2, 19, vy + 3, E, { shade: 'flat' });
+      break;
+    case 'determined':
+      p.dots([11, vy + 2, 12, vy + 3, 13, vy + 3, 14, vy + 4, 20, vy + 2, 19, vy + 3, 18, vy + 3, 17, vy + 4], E);
+      break;
+    case 'hurt':
+      p.dots([12, vy + 1, 14, vy + 1, 13, vy + 2, 12, vy + 3, 14, vy + 3, 17, vy + 1, 19, vy + 1, 18, vy + 2, 17, vy + 3, 19, vy + 3], E);
+      break;
+    case 'grinning':
+    case 'victorious':
+      p.dots([11, vy + 3, 12, vy + 2, 13, vy + 2, 14, vy + 3, 17, vy + 3, 18, vy + 2, 19, vy + 2, 20, vy + 3], E);
+      break;
+    case 'shocked':
+      p.rect(11, vy + 1, 14, vy + 4, E, { shade: 'flat' });
+      p.rect(17, vy + 1, 20, vy + 4, E, { shade: 'flat' });
+      p.rect(12, vy + 2, 13, vy + 3, INK, { shade: 'flat' });
+      p.rect(18, vy + 2, 19, vy + 3, INK, { shade: 'flat' });
+      break;
+  }
+  // Glitch: a couple of stray pixels off the visor's edge.
+  p.dots([22, vy + 1, 9, vy + 4, 21, vy + 5], NEON_PINK);
+  // Equalizer mouth: bar heights follow the mood.
+  const H: Record<Expression, number[]> = {
+    neutral: [1, 2, 3, 2, 1],
+    determined: [2, 1, 2, 1, 2],
+    hurt: [0, 1, 0, 1, 0],
+    grinning: [2, 3, 4, 3, 2],
+    shocked: [4, 4, 4, 4, 4],
+    victorious: [3, 4, 4, 4, 3],
+  };
+  const my = 24;
+  p.rect(10, my - 5, 21, my, mix(body, 0x1a1c2c, 0.45), { shade: 'flat' });
+  H[expr].forEach((h, i) => {
+    const x = 11 + i * 2;
+    if (h > 0) p.rect(x, my - h, x, my - 1, i === 2 ? NEON_PINK : accent, { shade: 'flat' });
+  });
+  if (expr === 'shocked') sweat(p, 28, 5);
+  if (expr === 'victorious') sparkle(p, 28, 22);
+}
+
+/** Boxer Jack: clown face on a spring, striped hat, red nose, a frilled collar over the box. */
+function paintJack(p: Painter, body: number, accent: number, expr: Expression): void {
+  const hurt = expr === 'hurt' ? 1 : 0;
+  const red = 0xff3d5a;
+  // The box under the collar.
+  p.rect(5, 28, 26, 31, body);
+  p.rect(5, 28, 26, 28, accent, { shade: 'flat' });
+  // Frilled collar.
+  for (let k = 0; k < 6; k++) p.ellipse(6 + k * 4, 26.5, 2.6, 2.4, k % 2 ? accent : WHITE);
+  // Face.
+  p.ellipse(16, 16 + hurt, 9.6, 9.4, WHITE);
+  // Hat: a striped cone, tilted when hurt, with a pom-pom.
+  const t = hurt * 2;
+  p.poly([8 + t, 9, 16 + t, -1, 24 + t, 9], NEON_PINK);
+  p.poly([11 + t, 6, 16 + t, 2, 21 + t, 6, 20 + t, 7, 12 + t, 7], accent);
+  p.rect(7 + t, 8, 25 + t, 9, accent, { shade: 'flat' });
+  p.ellipse(16 + t, 0.5, 1.8, 1.6, accent);
+  // Painted diamonds round the eyes.
+  for (const cx of [12, 20]) p.poly([cx - 3, 15 + hurt, cx, 11 + hurt, cx + 3, 15 + hurt, cx, 19 + hurt], mix(body, WHITE, 0.25), { shade: 'flat' });
+  eyes(p, 10, 18, 12 + hurt, 0x41a6f6, expr, false, INK);
+  // Cheeks and the big red nose.
+  p.dots([8, 20 + hurt, 9, 20 + hurt, 23, 20 + hurt, 22, 20 + hurt], 0xff7eb6);
+  p.ellipse(16, 19 + hurt, 2.2, 2, red);
+  p.dot(15, 18 + hurt, WHITE);
+  mouth(p, 22 + hurt, expr);
+  if (expr === 'shocked') sweat(p, 27, 8);
+  if (expr === 'victorious') sparkle(p, 27, 4);
+}
+
+/** Admiral Gale: bicorne hat, grand white moustache, navy coat with gold epaulettes. */
+function paintAdmiral(p: Painter, _body: number, accent: number, expr: Expression): void {
+  const hurt = expr === 'hurt' ? 1 : 0;
+  const navy = 0x29366f;
+  // Coat and epaulettes.
+  p.rect(5, 26, 26, 31, navy);
+  p.line(16, 26, 16, 31, accent);
+  p.dots([15, 28, 15, 30], accent);
+  p.ellipse(5, 27, 4, 2.6, accent);
+  p.ellipse(26, 27, 4, 2.6, accent);
+  // Face.
+  p.ellipse(16, 17 + hurt, 8.2, 8.8, SKIN, { tones: SKIN_TONES });
+  // Bicorne hat with gold trim and a cockade.
+  p.poly([1, 11 + hurt, 16, 1 + hurt, 31, 11 + hurt, 26, 13 + hurt, 6, 13 + hurt], INK);
+  p.line(4, 11 + hurt, 27, 11 + hurt, accent);
+  p.ellipse(16, 7 + hurt, 2, 2, 0xb13e53);
+  p.dot(16, 7 + hurt, WHITE);
+  eyes(p, 11, 17, 14 + hurt, 0x41a6f6, expr, false, WHITE);
+  // Nose and the moustache curling out to both sides.
+  p.dots([16, 19 + hurt, 15, 20 + hurt], mix(SKIN, MOUTH, 0.3));
+  p.poly([7, 21 + hurt, 10, 20 + hurt, 15, 21 + hurt, 16, 22 + hurt, 17, 21 + hurt, 22, 20 + hurt, 25, 21 + hurt, 24, 23 + hurt, 20, 22.5 + hurt, 16, 23.5 + hurt, 12, 22.5 + hurt, 8, 23 + hurt], WHITE);
+  p.dots([7, 20 + hurt, 25, 20 + hurt], WHITE);
+  mouth(p, 24 + hurt, expr);
+  if (expr === 'shocked') sweat(p, 26, 14);
+  if (expr === 'victorious') sparkle(p, 28, 16);
+}
+
 // ---------------------------------------------------------------- announcer
 
 function paintAnnouncer(p: Painter, expr: Expression, blink: boolean): void {
@@ -693,6 +820,9 @@ export function paintPortrait(look: PortraitLook, expr: Expression, blink = fals
     else if (look.model === 'rex') paintRex(p, body, accent, expr);
     else if (look.model === 'queen') paintQueen(p, body, accent, expr);
     else if (look.model === 'omega') paintOmega(p, body, accent, expr);
+    else if (look.model === 'dj') paintDj(p, body, accent, expr);
+    else if (look.model === 'jack') paintJack(p, body, accent, expr);
+    else if (look.model === 'airship') paintAdmiral(p, body, accent, expr);
     else paintBlob(p, body, accent, expr);
   }
   return p.finish();

@@ -13,6 +13,7 @@
  * while it is still being evaluated.
  */
 import type { EnemyDef } from './enemies';
+import { BIOME_BOSS_IDS } from './bosses3';
 
 /** Remix tweaks the boss brains read. Missing = the original's behaviour. */
 export interface RemixFlags {
@@ -142,6 +143,7 @@ export function titanSlot(loop: number): number {
 export function stageBossId(stage: number, base: string, beaten: ReadonlySet<string>, force: { titan?: boolean; remix?: boolean } = {}): string {
   if (base === 'omega') return base;
   if (force.titan) return 'titan';
+  if (BIOME_BOSS_IDS.includes(base)) return base; // a biome's own boss keeps its stage (src/data/bosses3.ts)
   const L = remixTuning.loopStages;
   const loop = Math.ceil(Math.max(1, stage) / L);
   const slot = (Math.max(1, stage) - 1) % L;

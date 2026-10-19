@@ -174,8 +174,12 @@ function speak(id: string, priority: number, gain: number, duck: number): boolea
   return true;
 }
 
+/** Biome bosses' models -> their recorded voice (roar_<id>, boss_<id>_intro/phase/defeat). */
+const BIOME_BOSS_VOICES: Readonly<Record<string, string>> = { dj: 'glitch', jack: 'boxer', airship: 'gale' };
+
 const SPEAKER_NAMES: Readonly<Record<string, string>> = {
   king: 'KING BOPPER', rex: 'RAMPAGE REX', queen: 'HIVE QUEEN', omega: 'OMEGA OVERLORD',
+  glitch: 'GLITCH DJ', boxer: 'BOXER JACK', gale: 'ADMIRAL GALE',
   rookie: 'ROOKIE', bulwark: 'BULWARK', dash: 'DASH', ace: 'ACE',
 };
 
@@ -200,7 +204,8 @@ export function sayLine(id: string, priority: number, gain: number, duck: number
 export function bossVoiceId(def: Pick<EnemyDef, 'model' | 'boss' | 'miniboss'>): string {
   if (!def.boss && !def.miniboss) return '';
   const m = def.model;
-  return m === 'pumpking' || m === 'king' || m === 'rex' || m === 'queen' || m === 'omega' ? m : '';
+  if (m === 'pumpking' || m === 'king' || m === 'rex' || m === 'queen' || m === 'omega') return m;
+  return BIOME_BOSS_VOICES[m] ?? ''; // Glitch DJ, Boxer Jack, Admiral Gale (bosses3 lane)
 }
 
 /**

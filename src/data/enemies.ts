@@ -1,7 +1,9 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
 import { bossLaneDefs, type RemixFlags } from './bossRemix';
-export type Behavior = 'pumpking' | 'ghost' | 'titan' | 'titanpart' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
-export type Model = 'pumpkin' | 'pumpking' | 'ghost' | 'bat' | 'witch' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel;
+import { BIOME_BOSSES, BIOME_MINIS, bosses3Defs } from './bosses3';
+import { biomeForStage } from './biomes';
+export type Behavior = 'pumpking' | 'ghost' | 'titan' | 'titanpart' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior | 'glitch' | 'boxer' | 'gale';
+export type Model = 'pumpkin' | 'pumpking' | 'ghost' | 'bat' | 'witch' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel | 'dj' | 'jack' | 'airship';
 /** Biome-native enemies (src/game/biomeFoes.ts): one per biome. */
 export type BiomeBehavior = 'diver' | 'shark' | 'roller' | 'slug' | 'marcher' | 'kite';
 export type BiomeModel = 'bee' | 'shark' | 'snowball' | 'slug' | 'soldier' | 'kite';
@@ -964,8 +966,10 @@ export function biomeAllows(def: EnemyDef, biome: string): boolean {
 }
 
 export const BOSS_ORDER = ['king', 'rex', 'queen', 'omega'];
-export function bossForStage(stage: number): EnemyDef {
-  return ENEMIES[BOSS_ORDER[(Math.max(1, stage) - 1) % BOSS_ORDER.length]];
+export function bossForStage(stage: number, biome = biomeForStage(stage).id): EnemyDef {
+  const id = BOSS_ORDER[(Math.max(1, stage) - 1) % BOSS_ORDER.length];
+  // Neon City, Toy Factory and Sky Fortress have their own boss (src/data/bosses3.ts); Omega still ends the loop.
+  return ENEMIES[id !== 'omega' ? (BIOME_BOSSES[biome] ?? id) : id];
 }
 
 /** Mini-bosses and the boss each one is a smaller copy of. */
@@ -973,17 +977,23 @@ export const MINI_BOSSES: { id: string; of: string }[] = [
   { id: 'prince', of: 'king' },
   { id: 'rexling', of: 'rex' },
   { id: 'princess', of: 'queen' },
+  ...BIOME_MINIS, // from stage 5 (their defs' minStage)
 ];
 
 /** The mid-stage mini-boss for a stage: never a copy of that stage's own boss, rotating by stage. */
 export function miniBossForStage(stage: number): EnemyDef {
   const boss = bossForStage(stage).id;
-  const pool = MINI_BOSSES.filter((m) => m.of !== boss);
+  // From loop 2 (their minStage) the biome bosses' minis take over: MC Static, Jack Jr., Commodore Squall.
+  const mine = (m: { id: string; of: string }) => m.of !== boss;
+  const late = BIOME_MINIS.filter((m) => mine(m) && (ENEMIES[m.id].minStage ?? 1) <= Math.max(1, stage));
+  const pool = late.length ? late : MINI_BOSSES.filter((m) => mine(m) && !BIOME_MINIS.includes(m));
   return ENEMIES[pool[Math.max(0, stage) % pool.length].id];
 }
 
 // Boss rematches and the Titan (src/data/bossRemix.ts).
 Object.assign(ENEMIES, bossLaneDefs(ENEMIES));
+// Biome bosses, their mini-bosses and minions (src/data/bosses3.ts).
+Object.assign(ENEMIES, bosses3Defs());
 
 /** Every enemy's hit material (veterans use their base enemy's). Unlisted enemies sound like flesh. */
 export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {

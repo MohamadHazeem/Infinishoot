@@ -14,7 +14,9 @@
  *    and closes a ring of fire; `game.bossDuel` is set on every machine.
  */
 import type { Game } from '../game';
-import { ENEMIES, type EnemyDef } from '../../data/enemies';
+import { ENEMIES, BOSS_ORDER, bossForStage, type EnemyDef } from '../../data/enemies';
+import { BIOME_BOSS_IDS } from '../../data/bosses3';
+import { biomeForStage } from '../../data/biomes';
 import { TITAN_CORE_SHARE, TITAN_PARTS, remixBase, stageBossId } from '../../data/bossRemix';
 import {
   SWEEP_IDLE,
@@ -121,6 +123,7 @@ export function bossesBeaten(this: Game): ReadonlySet<string> {
 export function stageBossDef(this: Game, def: EnemyDef): EnemyDef {
   const L = lane(this);
   trackRun(this, L);
+  if (BOSS_ORDER.includes(def.id) || BIOME_BOSS_IDS.includes(def.id)) def = bossForStage(this.stage, biomeForStage(this.arenaStage).id); // the arena's biome may have its own boss (bosses3 lane)
   L.pendingBase = remixBase(def.id);
   const id = stageBossId(this.stage, def.id, L.beaten, { titan: bossLaneForce.titan, remix: bossLaneForce.remix });
   return ENEMIES[id] ?? def;

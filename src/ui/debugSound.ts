@@ -16,7 +16,7 @@ function cueList(): string[] {
   const methods = Object.getOwnPropertyNames(proto).filter((n) => !NOT_CUES.has(n) && typeof proto[n] === 'function');
   const weapons = Object.keys(weaponSamples).map((w) => 'w:' + w);
   const voices: string[] = [];
-  for (const b of ['king', 'rex', 'queen', 'omega']) for (const l of ['intro', 'phase', 'defeat']) voices.push(`v:b:${b}:${l}`);
+  for (const b of ['king', 'rex', 'queen', 'omega', 'glitch', 'boxer', 'gale']) for (const l of ['intro', 'phase', 'defeat']) voices.push(`v:b:${b}:${l}`);
   const impacts = Object.keys(MATERIAL_SAMPLES).flatMap((m) => ['m:' + m, `m:${m}:c`]);
   return [...methods.sort(), ...weapons, ...voices, ...impacts];
 }

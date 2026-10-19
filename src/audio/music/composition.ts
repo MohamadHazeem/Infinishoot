@@ -1,7 +1,8 @@
 import { Rng } from '../../core/rng';
 import { biomeForStage } from '../../data/biomes';
+import { BIOME_BOSSES, DJ_BPM } from '../../data/bosses3';
 
-export type TrackId = 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover';
+export type TrackId = 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover' | 'glitch' | 'boxer' | 'gale';
 export type Patch = OscillatorType | 'pluck' | 'bell' | 'wide';
 export type Section = 'intro' | 'verse' | 'chorus' | 'bridge' | 'final' | 'turnaround';
 
@@ -100,6 +101,10 @@ export const TRACKS: { id: TrackId; name: string; stage: number; boss?: boolean;
   { id: 'rex', stage: 2, boss: true, name: 'Rampage Rex · Redline', style: { name: 'rex', bpm: 160, root: 34, scale: MINOR, lead: 'wide', arp: 'square', bass: 'sawtooth', padCut: 850, swing: 0, drums: 'gallop', density: 7 } },
   { id: 'queen', stage: 3, boss: true, name: 'Hive Queen · Royal Flight', style: { name: 'queen', bpm: 146, root: 41, scale: HARM_MINOR, lead: 'bell', arp: 'pluck', bass: 'square', padCut: 2200, swing: 0.08, drums: 'break', density: 6 } },
   { id: 'omega', stage: 4, boss: true, name: 'Omega · Last Light', theme: OMEGA_THEME, style: { name: 'omega', bpm: 168, root: 36, scale: PHRYG_DOM, lead: 'wide', arp: 'bell', bass: 'sawtooth', padCut: 1200, swing: 0, drums: 'gallop', density: 8 } },
+  // Biome bosses (src/data/bosses3.ts): Glitch DJ plays at DJ_BPM, the tempo its attacks keep.
+  { id: 'glitch', stage: 5, boss: true, name: 'Glitch DJ · Bass Drop', style: { name: 'glitch', bpm: DJ_BPM, root: 37, scale: MINOR, lead: 'square', arp: 'pluck', bass: 'sawtooth', padCut: 1100, swing: 0, drums: 'four', density: 8 } },
+  { id: 'boxer', stage: 6, boss: true, name: 'Boxer Jack · Pop Goes the Beat', style: { name: 'boxer', bpm: 150, root: 43, scale: MIXO, lead: 'square', arp: 'bell', bass: 'square', padCut: 1500, swing: 0.12, drums: 'gallop', density: 7 } },
+  { id: 'gale', stage: 7, boss: true, name: 'Admiral Gale · Stormy Seas', style: { name: 'gale', bpm: 144, root: 38, scale: DORIAN, lead: 'wide', arp: 'triangle', bass: 'sawtooth', padCut: 1400, swing: 0, drums: 'gallop', density: 7 } },
   { id: 'shop', stage: 0, name: 'Pocket Change', style: { name: 'shop', bpm: 96, root: 43, scale: MAJOR, lead: 'bell', arp: 'pluck', bass: 'triangle', padCut: 1000, swing: 0.2, drums: 'half', density: 4 } },
   { id: 'victory', stage: 1, bars: 2, name: 'Stage Clear!', theme: VICTORY_THEME, style: { name: 'victory', bpm: 132, root: 48, scale: MAJOR, lead: 'square', arp: 'bell', bass: 'triangle', padCut: 2400, swing: 0, drums: 'four', density: 6 } },
   { id: 'gameover', stage: 0, bars: 2, name: 'One More Coin', style: { name: 'gameover', bpm: 88, root: 48, scale: MINOR, lead: 'bell', arp: 'triangle', bass: 'triangle', padCut: 900, swing: 0, drums: 'half', density: 4 } },
@@ -208,7 +213,9 @@ export function makeSong(style: Style, seed: number, theme?: Theme): Song {
 
 /** Legacy `boss` id remains King Bopper so existing jukebox selections still work. */
 export function bossTrack(stage: number): TrackId {
-  return (['boss', 'rex', 'queen', 'omega'] as const)[(Math.max(1, Math.floor(stage)) - 1) % 4];
+  const rot = (['boss', 'rex', 'queen', 'omega'] as const)[(Math.max(1, Math.floor(stage)) - 1) % 4];
+  // Neon City, Toy Factory and Sky Fortress have their own boss and theme (its id is the track id).
+  return rot === 'omega' ? rot : ((BIOME_BOSSES[biomeForStage(stage).id] as TrackId | undefined) ?? rot);
 }
 
 /** Whole-tone stage modulation, wrapped to keep instruments in their intended register. */

@@ -36,6 +36,7 @@ import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, ty
 import { submitDaily } from '../highscores';
 import { boardId, leaderboardEnabled, submitGlobal } from '../../net/leaderboard';
 import { clearBossLane } from './bossLane';
+import { clearBosses3 } from './bosses3';
 
 export function clearWorld(this: Game): void {
   clearHalloween.call(this);
@@ -51,6 +52,7 @@ export function clearWorld(this: Game): void {
   this.boss = null;
   this.bossField.clear();
   clearBossLane.call(this); // no Titan, no boss duel (systems/bossLane.ts)
+  clearBosses3.call(this); // no grids, gusts or bolts left (systems/bosses3.ts)
   this.bossIntro.stop(this.cam.camera);
   this.bossBoom = null;
   this.slowMoT = 0;

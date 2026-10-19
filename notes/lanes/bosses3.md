@@ -1,0 +1,79 @@
+# Lane: bosses3, a boss for each new biome
+
+(Earlier boss lanes: notes/lanes/bosses.md for phases, mini-bosses and entrances; notes/lanes/bosses2.md for the Titan, rematches and the duel.)
+
+## What players get
+Neon City, Toy Factory and Sky Fortress now end with their own stage boss instead of reusing King, Rex and Queen. Omega still ends every loop. Each boss has 3 phases (66% / 33%, the usual roar, banner and HP clamp), an entrance title card, its recorded roar and three voice lines with captions, a pixel portrait in all six expressions (HUD pop-ins and the comic finisher), its own boss theme, an arena dressing, a mini-boss on the same brain, Enemy Guide tips and codex lore.
+
+- **Glitch DJ** (Neon City, "MASTER OF THE BASS DROP"). A robot DJ behind a floating deck, with an equalizer ring that pulses on the beat. **Every attack starts and lands on its beat**: a deterministic 128 BPM clock that runs on the host and is synced to clients. Its boss theme plays at the same tempo, and every machine pulls its music onto that clock with `music.alignBeat`. It hovers over cover at 8.5-12 m.
+  - P1: **pulse rings** (one ring per beat for 8 beats, turning half a gap each beat). **Bass drop**: a 4-beat count-in (record scratches, pink rings), then a shockwave on the downbeat; dash through it. **Laser grid**: 9 parallel lines over you. Dim cyan shows where the lines are and thin red where they will be on the next beat. On each beat they step a quarter gap and burn white for 0.2 s. Stand between a line and its next spot. **Backup dancers**.
+  - P2 "TURN IT UP": two grids crossing, double drops, **scratch spirals** (two arms that flip direction on the beat), slow rings during grids.
+  - P3 "REMIX": grids step back and forth by the bar, rings spin both ways, and every drop echoes from the spot mirrored across you (marked a beat and a half ahead). A REMIX! toast and a tape-rewind cue.
+- **Boxer Jack** (Toy Factory, "POP GOES THE KNOCKOUT"). A giant jack-in-the-box: crate, spring, clown head and striped hat, plus two spring-arm boxing gloves drawn by the arena view. **Every move starts with the crank** (click-click music-box cue and the red wind-up flash).
+  - P1: **glove punches**. The glove aims at you, then locks 0.35 s before the hit, when a red line 17 m long and 1.7 m wide lights up. The glove shoots out along it, and the line burns for 0.22 s. **Springs**: hops to a landing ring with the slam and its bullet ring. **Pop**: the head springs up and sprays toy balls. **Toy soldiers**: a rank of Wind-up Soldiers.
+  - P2 "ONE-TWO": punches come in pairs, springs in double hops, and pops add a second ring.
+  - P3 "THE BOX OPENS: PINBALL!": **pinball runs**. The whole path (start, every bounce, end) is drawn first. Then Jack bounces off the arena edge (or the duel's ring of fire) at 16 m/s for 4.2 s, smashing cover. Each bounce gives a bumper sound and an 8-bullet ring. It ends dizzy for a long recovery, which is your window. Also **double hooks** (two lines either side of you), and landings send a shockwave.
+- **Admiral Gale** (Sky Fortress, "TERROR OF THE TRADE WINDS"). A sky-pirate admiral at the bow of a little airship, with a balloon, gold bands and cannons. It flies over cover and circles at 10-13.5 m.
+  - P1: **cannon volleys** (fans of big pink cannonballs). **Walking barrages**: 7 telegraphed shell strikes along the line through you. **Gusts**: white chevrons sweep across the screen, blinking for 0.9 s, then 2.8 s of wind. It shoves every hero (dash to hold your ground) and pushes **every bullet**, yours too, using the Sky Fortress wind's team factors. The next attack fires into the gust. **Boarding parties**: a rope point is marked, then 3 Sky Deckhands drop in.
+  - P2 "FULL SAIL": volleys add broadsides from both sides of the ship, and two boarding parties come at once.
+  - P3 "THE STORM": lightning keeps striking near every hero (every 1.7 s, 1 s telegraph). **Thunder rings**: 6 bolts around you, then one where you stand. Barrages come in crossed pairs.
+- **Mini-bosses** (from loop 2; stage 5 on): **MC Static** (DJ), **Jack Jr.** (Jack) and **Commodore Squall** (Gale): smaller, two phases, simpler rotations, no storm. From stage 5 they replace the classic minis (Prince Bopper, Rex Jr., Hive Princess), which keep loop 1. As before, a stage never gets a copy of its own boss.
+- **Arena dressings**: a light-up dance floor with speaker stacks, a toy boxing ring (posts, ropes, blocks), and a wooden airship deck with mooring posts and an anchor.
+
+## Rotation decisions
+- `bossForStage(stage, biome = biomeForStage(stage).id)`: the rotation boss (King, Rex, Queen, Omega) unless the biome has its own (`BIOME_BOSSES` in src/data/bosses3.ts). Omega is never replaced. `stageBossDef` (spawnBoss) re-picks with the **arena's** biome, so Endless (one arena, stage counter moving on) and `&biome=` test links get the right boss.
+- **Biome bosses keep their stage over the Titan and rematches** (`stageBossId`). Loop 2 is Neon / Factory / Sky / Ashen Magma, so the Titan's loop-2 slot (stage 6) is now Boxer Jack, and **the Titan first appears in loop 3 (stage 11)**, then loop 5, and so on (it skips loops whose slot is a biome boss's). Remixes (King EX, Inferno, Nightshade) still appear in loop 3. tests/bossLane.test.ts was updated to match. If the lead prefers the Titan in loop 2, flip the order of the two early returns in `stageBossId`. That costs Boxer Jack its only loop-2 stage.
+- Music `bossTrack(stage)` follows the same rule: `glitch` (128 BPM, four-on-the-floor), `boxer` (150 BPM, swing), `gale` (144 BPM, gallop). They are jukebox entries too (unlocked at stages 5/6/7 after a boss). tests/music.test.ts was updated to 18 tracks.
+
+## Key numbers (`bosses3Tuning`, src/game/bosses3.ts)
+- Def HP before `bossTuning.hp` (x8) and the stage curve: DJ 2,600, Jack 2,800, Gale 2,500 (King 2,400, Rex 2,700, Queen 2,300). Minis: 760 / 820 / 700.
+- DJ: pulse 10 bullets (+4 per phase), 6.5 m/s, 12 dmg. Grid: 9 lines, 4 m gap, 44 m long, ±0.38 m hurts, 0.2 s hot per beat, 10 hot beats (+4 from P2), 14 dmg once per beat per hero. Drop: 4-beat count-in, `bossMoveTuning.shockDamage` (16). Dancers: 4 (+2 from P2).
+- Jack: crank 0.85 s (x0.9 P2, x0.8 P3); punch 17 m, ±0.85 m, 22 dmg, 0.22 s hot; spring 0.7 s in the air, 6 m high; 4 soldiers (+1 P2); pinball 16 m/s for 4.2 s after a 1.1 s wind-up.
+- Gale: cannonballs 9 m/s, 14 dmg, 0.5 m; gust 0.9 s telegraph, 2.8 s blow (+0.6 P3), heroes shoved 2.6 every 0.2 s, bullets pushed 7 m/s² x the wind's team factors; 3 boarders per party; bolts 1 s telegraph, 1.8 m, 18 dmg; storm one bolt per hero every 1.7 s.
+- **God-bot boss times** (standard / normal, rookie, one run per kit, seconds from boss spawn to death, entrances included):
+
+  | Kit | King | Rex | Queen | Omega | **DJ** | **Jack** | **Gale** | Omega 2 |
+  |---|---|---|---|---|---|---|---|---|
+  | Scattergun / Grenade / Thunderstorm | 16 | 7 | 13 | 20 | **13** | **14** | **19** | 18 |
+  | Buster / Charge Shot / Bomb | 21 | 8 | 15 | 21 | **28** | **15** | **21** | 18 |
+
+  The new bosses fall in the same band as the classic ones on the same run (bosses2's runs: King 12-24, Rex 7-23, Queen 8-46, Omega 15-64). The DJ with the default kit was the slowest at 28 s: it hovers at range and the Buster has to keep up. Single runs vary a lot, so re-measure after balance passes. The bot doesn't dodge, so how hard the grids, punches and gusts feel to a person is untested.
+
+## Co-op / sync
+- The host simulates everything. The snapshot's boss extras (`bx`) gain `g` (`Bosses3Net`, src/game/bosses3Field.ts): the DJ's beat clock, grids (centre, angle, lines, gap, length, first beat, beats, remix flag), punch lines and pinball path segments (with their telegraph and hot clocks), the gust and lightning bolts. It is sent only while a biome boss lives (or bolts are still falling). It goes through the snapshot codec's generic fallback, so there are no codec changes and the enemy record is unchanged.
+- Clients run every clock on between snapshots (`Bosses3Field.advance`) and only snap the beat clock when it drifts by more than 0.12 s. They draw everything from that state plus synced enemy state: Jack's gloves come from `move`, state and facing; spring landing rings from `targetX/Z`.
+- Gust shoves reach other heroes through `tell({ t: 'shove' })` (like the Gust Kite), 5 times a second. Bullets drift on the host, which owns them.
+- Banners, toasts, zones, rings, bursts, shakes and sounds go through the vfx bus. The new synth cues are `s2:b3scratch|drop|crank|boing|pop|bounce|cannon|horn|remix` (src/audio/bosses3Cues.ts, registered into `LANE_CUES`).
+- Tested in-process (tests/bosses3.test.ts): host and client Games for each boss on its stage. The client gets the beat clock (within 0.3 s), the grid, a punch line and a gust. The arena clears on both when the boss dies, and each fight ends in a stage clear. `npm run coop`: see "How it was verified".
+
+## Files
+- New: src/data/bosses3.ts (defs, `BIOME_BOSSES`, `BIOME_MINIS`, `DJ_BPM`, phase lines), src/game/bosses3.ts (tuning, pure beat/grid/punch/pinball helpers, the three brains, `Bosses3Api`, `bosses3Force`), src/game/bosses3Field.ts (arena state, pack/unpack/advance, drawing), src/game/bosses3Models.ts (dj, jack, airship), src/game/systems/bosses3.ts (Game functions: api, host step, net, render, music lock), src/audio/bosses3Cues.ts, src/dev/bosses3Links.ts, src/ui/debugBosses3.ts, tests/bosses3.test.ts.
+- Small hooks in shared files: data/enemies.ts (2 union members each, `bossForStage` biome argument, mini pool, one registration line), data/bossRemix.ts (biome bosses keep their stage), game/bosses.ts (move names, `b3` on BossApi, flyers keep their height in roars, helper exports, phase lines, 3 dispatch cases), game/enemies.ts (3 dispatch cases, flyers and pinball skip walls, Jack's slam ring, 3 model cases), animMath.ts (gaits), bossField.ts (`g` on BossNet), systems/bossFight.ts (5 hook lines), systems/bossLane.ts (arena-biome pick in `stageBossDef`), systems/runFlow.ts (clear), audio/music/composition.ts (3 tracks, `bossTrack`), audio/voices.ts + voiceText.ts (voice ids, speaker names, captions), audio/radio.ts (nicknames), systems/characters.ts (pop-in lines), ui/portraitArt.ts (3 painters), ui/debugSound.ts, ui/debugPanel.ts (one line), data/bestiary.ts, data/codex.ts, world/bossDressing.ts (3 dressings), dev/testLinks.ts, dev/bossLinks.ts (doc line), CONTRIBUTING.md, tests/bossLane.test.ts and tests/music.test.ts (expectations).
+
+## Test links
+- `?test&biome=neon&bossnow&god`: Glitch DJ with its entrance (`biome=factory`: Boxer Jack, `biome=sky`: Admiral Gale, on any stage).
+- `?test&biome=neon&bossnow&god&nointro&b3move=grid&phase=2`: crossing laser grids. `phase=3` gives the REMIX.
+- `?test&biome=factory&bossnow&god&nointro&b3move=pinball&phase=3`: pinball runs (the duel's ring of fire starts too).
+- `?test&biome=sky&bossnow&god&nointro&b3move=gust&phase=3`: gusts during the storm.
+- `b3move=` takes DJ `ring|grid|drop|summon|spiral`, Jack `punch|slam|ring|summon|pinball`, Gale `volley|rain|gust|summon|waves`. `b3near` moves the boss next to you. `b3pose` keeps it posing there (model close-ups).
+- `?test&stage=5&miniboss&god`: a loop-2 mini-boss (stage 5 Squall, 6 MC Static, 7 Jack Jr.).
+- Screenshots read best with `&day&noweather&nolevel`.
+
+## How it was verified
+- `npm run typecheck`, `npx vite build`, `npm test` (all 57 files, incl. tests/bosses3.test.ts) and `npm run smoke` pass.
+- `npm run coop`: **not completed**. The build machine was saturated by the parallel lanes (load average about 114), so the stock script timed out loading the pages (30 s). A copy with longer page timeouts did connect host and client through the PeerJS broker and started the run. It then died on a 30 s `page.screenshot` timeout at its third scenario, and one jump-pad check fell during a level-up. That was long before any boss scenario, and nothing in it is this lane's code. The coop script still fights the stage-1 boss (King), so it would not reach these bosses anyway. Their co-op sync is covered in-process by tests/bosses3.test.ts (host and client Games for all three). **Re-run `npm run coop` on a quiet machine before merging.**
+- Screenshots, each one looked at: the DJ with its entrance pop-in portrait; the DJ's deck, headphones and equalizer ring on the dance floor; phase-2 crossing grids (hot lines in magenta/cyan, next-beat lines in red); Jack's clown head, crate, crank, gloves and boxing ring; the pinball phase inside the ring of fire; Gale's airship on the deck dressing; gust chevrons with lightning telegraphs in the storm.
+- Two god-bot runs (table above), no errors.
+
+## Unfinished / risky
+- No person has played any of this. How fair the grid, the gust shoves and the pinball feel is unknown. The knobs are all in `bosses3Tuning` (debug panel folder "Biome bosses", src/ui/debugBosses3.ts).
+- The DJ's beat is the game's own clock. The music is pulled toward it (`alignBeat`, at most 3 ms per frame), so for the first second or two of the fight the audio beat may lead or trail the attacks slightly. Gameplay never reads the audio.
+- Phase 3 starts the bosses2 duel (horde cleared, ring of fire). Jack's pinball bounces off the ring (the path telegraph uses the ring's radius when it starts; the ring keeps closing, so late in a long run the path can be off by the ring's shrink). The storm and grids work inside it unchanged.
+- The Titan moved from stage 6 to stage 11 (loop 3) as a side effect of biome bosses owning loop 2. This is a design call for the lead (see "Rotation decisions").
+- No rematch (remix) versions of the biome bosses yet (`BOSS_REMIXES` could add Glitch DJ "B-Side" and so on in loop 4).
+- The Enemy Guide (bestiary) shows the minis and minions once met. The minions (Backup Dancer, Sky Deckhand) reuse the Bopper model in new colours.
+- No sound-lane extras (crowd, radio DJ banter about these bosses beyond the nickname; `bossNick` returns "the DJ", "Jack", "the Admiral").
+- Not benched: none of this runs in the bench scene. The arena view is created lazily the first time a biome boss appears, and its per-frame work is one pass over the enemy list plus instanced draws (8 meshes).
+
+## PLAN.md decision-log paragraph (ready to paste)
+- 2026-10-19: Bosses3 lane (notes/lanes/bosses3.md): **a boss for each new biome**. `bossForStage` now gives Neon City **Glitch DJ**, Toy Factory **Boxer Jack** and Sky Fortress **Admiral Gale**. Omega still ends every loop, and the arena's biome decides (Endless, `&biome=`). Each has 3 phases, an entrance card, recorded roar and lines, portraits, its own boss theme, arena dressing and a loop-2 mini-boss (MC Static, Jack Jr., Commodore Squall, which take over the mini slot from stage 5). The DJ fights on a deterministic 128 BPM beat clock synced to clients. Its theme plays at that tempo and the music is aligned to the clock, so pulse rings, bass-drop shockwaves and laser grids (lines step a quarter gap per beat, next position shown in red) land on the beat. P3 REMIX makes grids go back and forth and mirrors drops across you. Jack telegraphs everything with its crank: glove punches along red lines, springs, toy soldiers, and in P3 pinball runs whose whole bounce path is drawn first (off the arena edge or the duel ring). Gale circles at range with cannon volleys, walking barrages and boarding parties; its gusts shove heroes and push every bullet, and in P3 a lightning storm runs. Biome bosses keep their stage over the Titan and rematches, so the Titan now first comes in loop 3 (stage 11). God bot (single runs; Scattergun / Grenade / Thunderstorm, then Buster / Charge / Bomb): DJ 13 / 28 s, Jack 14 / 15 s, Gale 19 / 21 s, against King 16 / 21, Rex 7 / 8, Queen 13 / 15, Omega 20 / 21 in the same runs. Arena state rides in the boss extras (`bx.g`) with no codec change.

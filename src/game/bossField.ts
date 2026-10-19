@@ -6,6 +6,7 @@ import { BOSS_MOVES, bossMoveTuning, breathAngle, eightPoint, eightSize, eightTi
 import type { Enemy } from './enemies';
 import type { TitanNet } from './titan';
 import type { DuelNet } from './bossDuel';
+import type { Bosses3Net } from './bosses3Field';
 
 /** A slam shockwave: a ring wall expanding from (x, z). `hit` = bitmask of heroes it already hit. */
 export interface Shockwave {
@@ -41,6 +42,8 @@ export interface BossNet {
   /** The Titan and the boss duel (src/game/systems/bossLane.ts). */
   t?: TitanNet | null;
   d?: DuelNet | null;
+  /** Biome bosses' arena (src/game/systems/bosses3.ts). */
+  g?: Bosses3Net;
 }
 
 const SEG_CAP = 640;

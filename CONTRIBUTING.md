@@ -28,6 +28,7 @@ Open the game straight into a situation: `http://localhost:5173/?test&...` (also
 - Areas: `biome=neon` / `biome=sky` (any biome id, whatever the stage); `at=holo`, `at=vent`, `at=sign`, `at=flag`, `at=gap` start next to that piece
 - Bosses: `bossnow` (the stage boss right away), `phase=2` (push it into a phase once its entrance ends), `miniboss` (this stage's mini-boss now), `nointro` (skip entrances)
 - Titan, rematches, duel: `titan` (the stage boss is the Titan), `titanphase=3` (break the earlier weak points), `titanmove=beam`, `remix` (the boss's rematch), `duel` (straight to its last phase: the ring of fire); see src/dev/bossLinks.ts
+- Biome bosses: `biome=neon|factory|sky` with `bossnow` (Glitch DJ, Boxer Jack, Admiral Gale on any stage), `b3move=grid` (only that attack; see src/dev/bosses3Links.ts), `b3near` (move the boss in front of you for screenshots)
 - Sound lane 2: `band=cowbell,sax` (or `band=all`: the run's soundtrack already has them), `instrument=steel` (that pickup lands near you), `duelmusic`, `tension` (comeback music), `djnow` (the radio DJ keeps talking), `crowd=cheer`, `audio` (unlock audio without a click); see src/dev/sound2Links.ts
 
 ## Rules of thumb

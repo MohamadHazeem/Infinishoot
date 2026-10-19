@@ -39,6 +39,9 @@ export const BOSS_LINES: Record<string, { intro: string; phase: string[]; gloat:
   king: { intro: 'BOW BEFORE THE BOUNCE!', phase: ['ROYAL GUARD, SLAM!', 'OFF WITH YOUR HEAD!'], gloat: 'LONG LIVE THE KING!' },
   rex: { intro: 'NO WALL CAN STOP ME!', phase: ['RAMPAGE TIME!', 'FEEL THE FIRE!'], gloat: 'FLATTENED!' },
   queen: { intro: 'MY SWARM HUNGERS...', phase: ['HATCH, MY DARLINGS!', 'THERE IS NO GAP!'], gloat: 'BACK TO THE HIVE!' },
+  dj: { intro: 'DROP THE BEAT!', phase: ['TURN IT UP!', 'REMIX TIME!'], gloat: 'YOU MISSED THE BEAT!' },
+  jack: { intro: 'SURPRISE!', phase: ['ONE-TWO!', 'THE BOX IS OPEN!'], gloat: 'POP GOES THE HERO!' },
+  airship: { intro: 'ALL HANDS, FIRE!', phase: ['FULL SAIL!', 'THE STORM IS MINE!'], gloat: 'OVERBOARD WITH YOU!' },
   omega: { intro: 'I AM THE FINAL PROGRAM.', phase: ['OVERDRIVE ENGAGED.', 'LAST PROTOCOL: DELETE.'], gloat: 'PROCESS TERMINATED.' },
 };
 

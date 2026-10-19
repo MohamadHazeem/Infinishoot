@@ -101,6 +101,9 @@ export function bossNick(name: string): string {
   if (n.includes('king')) return 'the King';
   if (n.includes('omega')) return 'Omega';
   if (n.includes('titan')) return 'the Titan';
+  if (n.includes('glitch')) return 'the DJ';
+  if (n.includes('jack')) return 'Jack';
+  if (n.includes('gale')) return 'the Admiral';
   return name || 'the boss';
 }
 

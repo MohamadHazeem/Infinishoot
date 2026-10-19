@@ -17,6 +17,8 @@ import { bossTuning, updateBoss, type BossApi } from './bosses';
 import { crowdTuning, keepOffHeroes } from './crowd';
 import { behaveBiome, buildBiomeModel, ignoresWalls, type BiomeFoeApi, type BiomeOut } from './biomeFoes';
 import { BiomeFoeView } from './biomeFoeView';
+import { buildBosses3Model } from './bosses3Models';
+import { isFlyer3 } from './bosses3';
 
 export type EnemyState = 'spawning' | 'move' | 'windup' | 'attack' | 'recover';
 export type BossAction = 'ring' | 'summon' | 'slam' | 'charge' | 'spiral' | 'waves' | 'volley' | 'rain';
@@ -419,6 +421,11 @@ function buildModel(def: EnemyDef, add: Part): void {
       add(new THREE.TorusGeometry(r * 0.9, r * 0.09, 3, 10, Math.PI * 0.75).rotateZ(-Math.PI / 4), A, r * 0.85, r * 2.6, r * 0.6);
       break;
     }
+    case 'dj':
+    case 'jack':
+    case 'airship':
+      buildBosses3Model(def, add); // biome bosses (src/game/bosses3Models.ts)
+      break;
     default:
       buildBiomeModel(def, add); // biome-native enemies (src/game/biomeFoes.ts)
   }
@@ -1086,7 +1093,7 @@ export class Enemies {
         e.z = Math.max(-58, Math.min(58, e.z));
       }
       // Rex smashes straight through cover while it charges.
-      const walled = e.def.behavior !== 'ghost' && e.def.id !== 'bat' && e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && e.def.behavior === 'rex') && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
+      const walled = e.def.behavior !== 'ghost' && e.def.id !== 'bat' && e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && (e.def.behavior === 'rex' || e.def.behavior === 'boxer')) && !isFlyer3(e) && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
       if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
       if (walled && rigid && e.def.behavior === 'charger') {
         // Rhinos stop (and wobble) when they hit a wall mid-charge.
@@ -1461,6 +1468,9 @@ export class Enemies {
       case 'omega':
       case 'titan': // the Titan and its weak points (src/game/titan.ts)
       case 'titanpart':
+      case 'glitch': // biome bosses (src/game/bosses3.ts)
+      case 'boxer':
+      case 'gale':
         rigid = updateBoss(e, dt, ctx, nx, nz, dist, speed);
         wantX = e.vx;
         wantZ = e.vz;
@@ -1717,7 +1727,7 @@ export class Enemies {
         this.m4.makeScale(hr, 1, hr).setPosition(x, 0.05, z);
         d.heals.setMatrixAt(d.heals.count++, this.m4);
       }
-      if ((e.def.behavior === 'boss' || e.def.behavior === 'omega') && e.action === 'slam' && (e.state === 'windup' || e.state === 'attack')) {
+      if ((e.def.behavior === 'boss' || e.def.behavior === 'omega' || e.def.behavior === 'boxer') && e.action === 'slam' && (e.state === 'windup' || e.state === 'attack')) {
         this.m4.makeScale(3.8, 1, 3.8).setPosition(e.targetX, 0.05, e.targetZ);
         if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
       }
