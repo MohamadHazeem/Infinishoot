@@ -35,6 +35,7 @@ export class Story {
   private audioStartedAt = -1;
   private preview = false;
   private pendingEnding = false;
+  private automaticEnding = false;
   /** Test links pin a sequence page (no profile writes). */
   pin = false;
   constructor(
@@ -55,6 +56,7 @@ export class Story {
   play(sequence: Sequence, hero = this.g.hero.heroDef.id, preview = false, frame?: number): void {
     this.close();
     this.preview = preview;
+    this.automaticEnding = false;
     this.sequence = sequence;
     this.hero = hero;
     this.stage = this.g.stage;
@@ -83,7 +85,10 @@ export class Story {
     return false;
   }
   finishEnding(skipped: boolean): void {
-    if (this.pendingEnding && !skipped) this.play('ending');
+    if (this.pendingEnding && !skipped) {
+      this.play('ending');
+      this.automaticEnding = true;
+    }
     this.pendingEnding = false;
   }
   tick(dt: number): boolean {
@@ -105,7 +110,7 @@ export class Story {
     }
     if (!this.sequence) return false;
     if (
-      !this.preview &&
+      this.automaticEnding &&
       this.sequence === 'ending' &&
       (g.mode === 'fight' || g.mode === 'title' || g.stage !== this.stage)
     ) {
@@ -173,10 +178,7 @@ export class Story {
     if (this.sequence !== 'intro' && this.frame === 2 && reduceMotion() && this.ui.advanceCredits())
       return;
     this.frame++;
-    if (
-      (this.sequence === 'intro' && this.frame >= 3) ||
-      (this.sequence !== 'intro' && this.frame >= 3)
-    ) {
+    if (this.frame >= 3) {
       this.close();
       return;
     }
