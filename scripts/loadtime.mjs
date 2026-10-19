@@ -1,5 +1,5 @@
-// Cold production loads, using Chromium + SwiftShader. No external services.
-// npm run loadtime -- --json shots/loadtime.json [--skip-build] [--mbps 20] [--latency 40]
+// Cold production loads in Chromium (SwiftShader by default; optional native Metal). No external services.
+// npm run loadtime -- --json shots/loadtime.json [--skip-build] [--mbps 20] [--latency 40] [--gpu swiftshader|metal]
 import { chromium } from 'playwright-core';
 import { build, preview } from 'vite';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -9,6 +9,8 @@ import { gzipSync } from 'node:zlib';
 const args = process.argv.slice(2);
 const opt = (k, d) => args.includes(k) ? args[args.indexOf(k) + 1] : d;
 const mbps = Number(opt('--mbps', 20)), latency = Number(opt('--latency', 40));
+const gpu = opt('--gpu', 'swiftshader');
+if (!['swiftshader', 'metal'].includes(gpu)) throw new Error('--gpu must be swiftshader or metal');
 function chrome() {
   if (process.env.SHOT_CHROME) return process.env.SHOT_CHROME;
   for (const root of [join(homedir(), 'Library/Caches/ms-playwright'), join(homedir(), '.cache/ms-playwright')]) {
@@ -30,7 +32,7 @@ function files(dir) {
 if (!args.includes('--skip-build')) await build({ logLevel: 'error' });
 const all = files('dist');
 const report = {
-  conditions: { mbps, latencyMs: latency, cache: 'cold', compression: 'reported per response; gzip sizes below are estimates', renderer: 'Chromium SwiftShader', viewport: '1280x720' },
+  conditions: { mbps, latencyMs: latency, cache: 'cold', compression: 'reported per response; gzip sizes below are estimates', renderer: `Chromium ANGLE ${gpu}`, viewport: '1280x720' },
   distBytes: all.reduce((n, p) => n + statSync(p).size, 0),
   audioBytes: all.filter(p => p.includes('/audio/')).reduce((n, p) => n + statSync(p).size, 0),
   js: all.filter(p => p.endsWith('.js')).map(p => ({ file: relative('dist', p), bytes: statSync(p).size, gzipBytes: gzipSync(readFileSync(p)).length })),
@@ -40,7 +42,7 @@ let server, browser;
 try {
   server = await preview({ preview: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
   const base = `http://127.0.0.1:${server.httpServer.address().port}/`;
-  browser = await chromium.launch({ executablePath: chrome(), headless: true, args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  browser = await chromium.launch({ executablePath: chrome(), headless: true, args: [`--use-angle=${gpu}`, '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
   for (const [name, query, mark] of [['title', '', 'title-frame'], ['stage1', '?test&stage=1&seed=42&god', 'stage1-frame']]) {
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     const page = await context.newPage();
@@ -59,9 +61,12 @@ try {
     await page.goto(base + query, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(mark => performance.getEntriesByName('infinishoot:' + mark).length > 0, mark, { timeout: 60000 });
     const first = await page.evaluate(mark => {
+      const gl = document.getElementById('game').getContext('webgl2');
+      const debug = gl?.getExtension('WEBGL_debug_renderer_info');
+      const gpuRenderer = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : 'unknown';
       const ms = performance.getEntriesByName('infinishoot:' + mark)[0].startTime;
       const resources = performance.getEntriesByType('resource').filter(r => r.startTime <= ms);
-      return { ms, milestones: performance.getEntriesByType('mark').filter(m => m.name.startsWith('infinishoot:')).map(m => ({ name: m.name, ms: m.startTime })), resourceBytes: resources.reduce((n, r) => n + r.encodedBodySize, 0), resources: resources.map(r => ({ file: new URL(r.name).pathname, bytes: r.encodedBodySize, startMs: r.startTime })), audioRequests: resources.filter(r => r.name.includes('/audio/')).length };
+      return { ms, gpuRenderer, milestones: performance.getEntriesByType('mark').filter(m => m.name.startsWith('infinishoot:')).map(m => ({ name: m.name, ms: m.startTime })), resourceBytes: resources.reduce((n, r) => n + r.encodedBodySize, 0), resources: resources.map(r => ({ file: new URL(r.name).pathname, bytes: r.encodedBodySize, startMs: r.startTime })), audioRequests: resources.filter(r => r.name.includes('/audio/')).length };
     }, mark);
     const readyMs = await page.evaluate(async () => {
       await document.fonts.ready;
