@@ -111,6 +111,8 @@ interface SpecState {
   joinMsg: string;
   me: [number, number, number] | null;
   pvpWait: boolean;
+  /** Test links: the spectator view over a solo run (no connection; src/dev/spectateLinks.ts). */
+  preview: boolean;
   // everyone
   watchers: { n: number; w: string[] };
   shown: number;
@@ -149,6 +151,7 @@ export function spectateState(g: Game): SpecState {
       joinMsg: '',
       me: null,
       pvpWait: false,
+      preview: false,
       watchers: { n: 0, w: [] },
       shown: 0,
       lobbyNames: [],
@@ -207,7 +210,10 @@ function renderLobbyWatchers(g: Game, el: HTMLElement, isHost: boolean): void {
   const st = spectateState(g);
   const box = el.querySelector<HTMLElement>('.sp-lobby');
   if (!box) return;
+  const players = el.querySelector<HTMLElement>('.lobby .players');
+  if (players && box.previousElementSibling !== players) players.after(box); // right under the player cards
   const names = isHost ? st.specs.map((s) => s.name) : st.lobbyNames;
+  document.body.classList.toggle('sp-lobbywatch', !isHost && st.on); // no READY UP for spectators
   box.hidden = !names.length;
   const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
   box.innerHTML = names.map((n) => `<div class="lobby-player sp-watcher"><span class="eye" aria-hidden="true"></span><bdi>${esc(n)}</bdi> <small>${t('spec.lobbyRow')}</small></div>`).join('');
@@ -741,7 +747,8 @@ function requestJoin(g: Game, st: SpecState): void {
 export function spectateFrame(g: Game, frameDt: number): void {
   const st = states.get(g);
   if (!st?.ui) return;
-  const watching = st.on && g.role === 'client' && inRun(g);
+  const watching = st.on && (g.role === 'client' || st.preview) && inRun(g);
+  if (watching && st.preview) directorStep(g, st, frameDt);
   if (watching) {
     const fh = g.heroes[st.follow];
     if (st.cam === 'free' || !fh) g.playerPos.set(st.fx, 0, st.fz);
@@ -758,7 +765,7 @@ export function spectateFrame(g: Game, frameDt: number): void {
     document.body.classList.add('spectating');
     document.body.classList.toggle('sp-cast', st.overlay);
   }
-  const showRun = inRun(g) && (g.role !== 'solo' || watching);
+  const showRun = inRun(g) && (g.role !== 'solo' || watching || st.watchers.n > 0);
   const n = g.role === 'host' ? st.specs.length : st.watchers.n;
   st.ui.update({
     watching,
@@ -821,4 +828,31 @@ function statusText(g: Game): string {
 // ---------------------------------------------------------------- dev / tests
 
 /** Test links: a local preview of the spectator view over a solo run (no connection). */
-export const spectateDebug = { states: (g: Game) => spectateState(g) };
+export function spectatePreview(g: Game, cam: CamMode, follow: number, overlay: boolean): void {
+  const st = spectateState(g);
+  st.on = st.preview = true;
+  st.cam = cam;
+  st.follow = follow;
+  st.director.target = follow;
+  st.overlay = overlay;
+  st.fx = g.player.x + 6;
+  st.fz = g.player.z - 4;
+}
+
+/** Test links: fake watchers (names) for the players' badge, and a spectator emote in the feed. */
+export function spectateFakeWatchers(g: Game, names: string[]): void {
+  const st = spectateState(g);
+  st.watchers.n = names.length;
+  st.watchers.w = names;
+}
+
+export function spectateFakeLobby(g: Game, names: string[]): void {
+  spectateState(g).lobbyNames = names;
+  const el = document.querySelector<HTMLElement>('#scr-online');
+  if (el) renderLobbyWatchers(g, el, false);
+}
+
+export function spectateFakeEmote(g: Game, name: string, id: string): void {
+  const e = emoteOf(id);
+  if (e) showEmote(spectateState(g), name, EMOTES.indexOf(e));
+}

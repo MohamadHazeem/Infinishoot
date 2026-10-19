@@ -21,7 +21,7 @@ import type { PortraitLook } from './portraitArt';
  */
 const CSS = `
 #sp-root { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
-#sp-root .spf, #sp-root .sp-card, #sp-root .sp-chip, #sp-root .sp-feed > div, #sp-root .sp-badge, #sp-root .sp-over {
+#sp-root .spf, #sp-root .sp-help, #sp-root .sp-card, #sp-root .sp-chip, #sp-root .sp-feed > div, #sp-root .sp-badge, #sp-root .sp-over {
   --bg: var(--night);
   --hi: var(--slate);
   --lo: var(--ink);
@@ -47,14 +47,20 @@ const CSS = `
 /* The players' side: who's watching and their emotes. */
 #sp-root .sp-watch { position: absolute; left: 18px; top: 44%; zoom: var(--ui, 1); display: flex; flex-direction: column; gap: calc(3 * var(--p)); align-items: flex-start; }
 #sp-root .sp-badge { font: 10px var(--label); letter-spacing: 1px; padding: calc(1.5 * var(--p)) calc(3 * var(--p)); display: flex; align-items: center; gap: calc(2 * var(--p)); --bg: var(--plum); --hi: #8a3f8a; }
-#sp-root .eye { width: calc(5 * var(--p)); height: calc(3 * var(--p)); background: var(--white); box-shadow: inset 0 0 0 var(--p) var(--ink); position: relative; }
-#sp-root .eye::after { content: ''; position: absolute; left: calc(2 * var(--p)); top: var(--p); width: var(--p); height: var(--p); background: var(--ink); }
+#sp-root .eye, .sp-lobby .eye { width: calc(5 * var(--p)); height: calc(3 * var(--p)); background: var(--white); box-shadow: inset 0 0 0 var(--p) var(--ink); position: relative; }
+#sp-root .eye::after, .sp-lobby .eye::after { content: ''; position: absolute; left: calc(2 * var(--p)); top: var(--p); width: var(--p); height: var(--p); background: var(--ink); }
 #sp-root .sp-feed { display: flex; flex-direction: column; gap: calc(3 * var(--p)); }
 #sp-root .sp-feed > div { font: 15px var(--font); padding: var(--p) calc(3 * var(--p)) var(--p) calc(2 * var(--p)); display: flex; align-items: center; gap: calc(2 * var(--p)); animation: sp-pop 0.24s steps(3) both; --ring: var(--ec); }
 #sp-root .sp-feed b { font: 10px var(--label); color: var(--mist); letter-spacing: 1px; font-weight: normal; }
 #sp-root .sp-feed span { color: var(--ec); }
 #sp-root .sp-feed svg { width: calc(8 * var(--p)); height: calc(8 * var(--p)); }
 @keyframes sp-pop { from { transform: translateX(calc(-10 * var(--p))); opacity: 0; } to { transform: none; opacity: 1; } }
+/* Lobby: spectators under the players. */
+.sp-lobby { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(3 * var(--p)); margin: calc(3 * var(--p)) 0; }
+.sp-lobby .sp-watcher { --bg: #3c2135; --hi: var(--plum); color: var(--mist); display: flex; align-items: center; gap: calc(2 * var(--p)); font-size: 17px; padding: 2px 12px; }
+.sp-lobby .sp-watcher small { font: 10px var(--label); letter-spacing: 1px; color: var(--yellow); }
+.sp-lobby .eye { flex: none; display: inline-block; position: relative; }
+body.sp-lobbywatch #scr-online .lob-readybtn { display: none !important; }
 /* The spectator's own view. */
 #sp-root .sp-live { position: absolute; top: calc(8 * var(--p)); left: 50%; transform: translateX(calc(-50% - 90px)); display: none; }
 #sp-root .sp-follow { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); zoom: var(--ui, 1); display: flex; flex-direction: column; align-items: center; gap: calc(3 * var(--p)); }
@@ -80,7 +86,7 @@ const CSS = `
 #sp-root .ws .px-icon { width: 24px; height: 24px; }
 #sp-root .tag { font: 10px var(--label); letter-spacing: 1px; color: var(--red); }
 #sp-root .tag.ult { color: var(--yellow); }
-#sp-root .sp-help { position: absolute; left: 20px; bottom: 20px; zoom: var(--ui, 1); font: 14px var(--font); color: var(--white); text-shadow: var(--outline); display: flex; flex-direction: column; gap: calc(1.5 * var(--p)); max-width: 46vw; }
+#sp-root .sp-help { position: absolute; left: 20px; bottom: 20px; zoom: var(--ui, 1); font: 14px var(--font); color: var(--white); display: flex; flex-direction: column; gap: calc(1.5 * var(--p)); max-width: min(30vw, 400px); padding: calc(2 * var(--p)) calc(3 * var(--p)); }
 #sp-root .sp-help .row { display: flex; flex-wrap: wrap; gap: calc(1.5 * var(--p)) calc(4 * var(--p)); align-items: center; }
 #sp-root .sp-help .join { color: var(--lime); }
 #sp-root .sp-help .emo { color: var(--mist); }
@@ -103,8 +109,10 @@ const CSS = `
 #sp-root .sp-head { font: 10px var(--label); letter-spacing: 1px; color: var(--white); text-shadow: var(--outline); display: flex; gap: calc(3 * var(--p)); align-items: center; }
 /* Spectating: nothing personal on screen (we have no hero). */
 body.spectating #hp, body.spectating #runinfo, body.spectating #meters, body.spectating #mods, body.spectating #loadout,
-body.spectating #downed, body.spectating #co2-buy, body.spectating #reticle, body.spectating #touch, body.spectating #navhint { display: none !important; }
-body.spectating.sp-cast #goals, body.spectating.sp-cast #team, body.spectating.sp-cast .sp-help .ctl { display: none !important; }
+body.spectating #downed, body.spectating #co2-buy, body.spectating #reticle, body.spectating #touch, body.spectating #navhint,
+body.spectating #hudface, body.spectating #xpbar .lv, body.spectating #petpanel, body.spectating #teammeter, body.spectating #gp-cash,
+body.spectating #ha-candy, body.spectating #ping-wheel, body.spectating #ob-tip { display: none !important; }
+body.spectating.sp-cast #goals, body.spectating.sp-cast #team, body.spectating.sp-cast #stylemeter, body.spectating.sp-cast .sp-help .ctl { display: none !important; }
 `;
 
 let injected = false;

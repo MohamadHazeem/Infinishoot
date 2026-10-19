@@ -126,6 +126,7 @@ connect(B, 'peerB');
 q.push([A, hello('Guest', 'pidguest0001', { hero: 'ace' }), 'peerB']);
 flush();
 ok(A.lobby.length === 2, 'a player joins the lobby');
+ok(!!document.querySelector('#scr-online .join-row [data-act=sp-join]'), 'PLAY ONLINE has a JOIN AS SPECTATOR button');
 const S = mk();
 connect(S, 'peerS');
 q.push([A, hello('Watcher', 'pidwatch0001', { spec: 1 }), 'peerS']);

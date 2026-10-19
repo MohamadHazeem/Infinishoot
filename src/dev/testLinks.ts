@@ -14,6 +14,7 @@ import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
 import { coop2Links } from './coop2Links';
+import { spectateLinks } from './spectateLinks';
 import { netcodeLinks } from './netcodeLinks';
 import { cinematicsLinks } from './cinematicsLinks';
 import { sound2Links } from './sound2Links';
@@ -258,6 +259,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   }
   const numbers = q.get('numbers');
   if (numbers && ['auto', 'all', 'mine', 'off'].includes(numbers)) settings.damageNumbers = numbers as typeof settings.damageNumbers;
+  spectateLinks(game, q); // spectest, spcam=, spfollow=, spoverlay=0, spwatchers=, spemote=, splobby (src/dev/spectateLinks.ts)
   coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
   netcodeLinks(game, q); // netdemo, netdemo=rc, netdemo=lost (src/dev/netcodeLinks.ts)
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
