@@ -369,13 +369,25 @@ function hole(h: Hero, s: Running, dt: number, api: SpecialApi): boolean {
       if (!e.alive || e.hp <= 0 || (e.x - s.x) ** 2 + (e.z - s.z) ** 2 > (R + e.radius) ** 2) continue;
       api.damage(e, p.dps * HOLE_TICK, { source: 'blackhole', tags: HOLE_TAGS, loud: n++ < 3 }, h);
     }
-    // The swirl: a closing ring and sparks spiralling in from the rim.
-    v.ring(s.x, s.z, R * 2, 0.35, '#b48cff', 0.3);
-    for (let k = 0; k < 4; k++) {
+    // The swirl: a closing ring and sparks spiralling in from the rim. Supermassive is a darker,
+    // heavier swirl of ink-black debris; White Hole a blinding white-gold core with sparks.
+    const evo = h.specialEvo;
+    const dark = evo === 'supermassive';
+    const white = evo === 'whitehole';
+    v.ring(s.x, s.z, R * 2, 0.35, dark ? '#7a4dff' : white ? '#fff35c' : '#b48cff', 0.3);
+    for (let k = 0; k < (dark ? 6 : 4); k++) {
       const a = api.rng.next() * Math.PI * 2;
-      v.burst(s.x + Math.cos(a) * R, 0.6, s.z + Math.sin(a) * R, { count: 2, color: '#b48cff', color2: '#5d275d', speed: [R * 1.5, R * 2.5], size: [0.15, 0.3], life: [0.3, 0.45], drag: 3, dir: { x: -Math.cos(a), z: -Math.sin(a), spread: 0.4 } });
+      const c = dark ? '#1a1c2c' : white ? '#ffffff' : '#b48cff';
+      const c2 = dark ? '#5d275d' : white ? '#fff35c' : '#5d275d';
+      // Curved in-fall: aimed a little off-centre so the stream spirals.
+      const sw = a + Math.PI + (dark ? 0.7 : 0.35);
+      v.burst(s.x + Math.cos(a) * R, 0.6, s.z + Math.sin(a) * R, { count: dark ? 3 : 2, color: c, color2: c2, speed: [R * 1.5, R * 2.5], size: dark ? [0.22, 0.42] : [0.15, 0.3], life: [0.3, 0.45], drag: 3, dir: { x: Math.cos(sw), z: Math.sin(sw), spread: 0.3 } });
     }
-    v.star(s.x, 1, s.z, 1.6, '#5d275d', 0.25);
+    if (dark) {
+      v.burst(s.x, 0.15, s.z, { count: 1, color: '#29213a', color2: '#1a1c2c', speed: [0.2, 0.5], size: [0.2, 0.3], life: [0.3, 0.4], dust: 5 });
+      v.star(s.x, 1, s.z, 2.6, '#7a4dff', 0.25);
+    } else v.star(s.x, 1, s.z, white ? 2.2 : 1.6, white ? '#ffffff' : '#5d275d', 0.25);
+    if (white) v.burst(s.x, 1, s.z, { count: 3, color: '#fff35c', color2: '#ffffff', speed: [2, 5], size: [0.12, 0.24], life: [0.2, 0.4], up: 2 });
   }
   if (s.t < p.dur) return true;
   // Collapse.

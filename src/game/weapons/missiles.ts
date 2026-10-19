@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createRetroMaterial, type RetroMaterial } from '../../render/retroMaterial';
 import type { WeaponDef } from '../../data/weapons';
 import type { Enemy } from '../enemies';
@@ -38,6 +39,14 @@ export class Missiles extends Weapon {
   constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
     const body = new THREE.CylinderGeometry(0.1, 0.13, 0.6, 6).rotateX(Math.PI / 2);
+    // Hellfire Pod: a fatter warhead with a pointed nose and four tail fins.
+    const hell = mergeGeometries([
+      new THREE.CylinderGeometry(0.13, 0.16, 0.6, 6).rotateX(Math.PI / 2).toNonIndexed(),
+      new THREE.ConeGeometry(0.13, 0.3, 6).rotateX(Math.PI / 2).translate(0, 0, 0.45).toNonIndexed(),
+      new THREE.BoxGeometry(0.5, 0.04, 0.2).translate(0, 0, -0.25).toNonIndexed(),
+      new THREE.BoxGeometry(0.04, 0.5, 0.2).translate(0, 0, -0.25).toNonIndexed(),
+    ])!;
+    this.geos = [body, hell];
     this.mesh = new THREE.InstancedMesh(body, createRetroMaterial({ color: '#ff5e5e', unlit: 0.5 }), MAX);
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
@@ -116,8 +125,11 @@ export class Missiles extends Weapon {
     }
   }
 
+  private geos: THREE.BufferGeometry[];
+
   protected applyLook(c: string | null): void {
     (this.mesh.material as RetroMaterial).uniforms.uColor.value.set(c ?? '#ff5e5e');
+    this.mesh.geometry = this.geos[c ? 1 : 0];
   }
 
   render(alpha: number): void {
@@ -138,7 +150,7 @@ export class Missiles extends Weapon {
 
   dispose(): void {
     this.scene.remove(this.mesh);
-    this.mesh.geometry.dispose();
+    for (const g of this.geos) g.dispose();
     (this.mesh.material as THREE.Material).dispose();
   }
 }

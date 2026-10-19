@@ -33,6 +33,7 @@ export class GravityWell extends Weapon {
   private rimMat: THREE.MeshBasicMaterial;
   private holeMat: RetroMaterial;
   private diskMat: THREE.MeshBasicMaterial;
+  private iceMat: RetroMaterial;
   private geos: THREE.BufferGeometry[];
 
   constructor(def: WeaponDef, private scene: THREE.Scene) {
@@ -47,7 +48,10 @@ export class GravityWell extends Weapon {
     const rim = new THREE.RingGeometry(0.95, 1, 32).rotateX(-Math.PI / 2);
     const hole = new THREE.IcosahedronGeometry(0.7, 1);
     const disk = new THREE.TorusGeometry(1.3, 0.18, 4, 24).rotateX(Math.PI / 2);
-    this.geos = [swirl, rim, hole, disk];
+    // Cryo Well: a crown of ice spikes round the rim, leaning in.
+    const spike = new THREE.ConeGeometry(0.09, 0.5, 4).translate(0, 0.25, 0);
+    this.iceMat = createRetroMaterial({ color: '#e8fbff', unlit: 0.7 });
+    this.geos = [swirl, rim, hole, disk, spike];
     for (let i = 0; i < MAX; i++) {
       const g = new THREE.Group();
       const s1 = new THREE.Mesh(swirl, this.swirlMat);
@@ -56,7 +60,16 @@ export class GravityWell extends Weapon {
       const holeM = new THREE.Mesh(hole, this.holeMat);
       const diskM = new THREE.Mesh(disk, this.diskMat);
       holeM.position.y = diskM.position.y = 1;
-      g.add(s1, s2, new THREE.Mesh(rim, this.rimMat), holeM, diskM);
+      const ice = new THREE.Group();
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2;
+        const m = new THREE.Mesh(spike, this.iceMat);
+        m.position.set(Math.cos(a), 0, Math.sin(a));
+        m.rotation.set(Math.sin(a) * 0.45, 0, -Math.cos(a) * 0.45);
+        m.scale.setScalar(k % 2 ? 0.7 : 1);
+        ice.add(m);
+      }
+      g.add(s1, s2, new THREE.Mesh(rim, this.rimMat), holeM, diskM, ice);
       g.renderOrder = 2;
       g.visible = false;
       scene.add(g);
@@ -179,6 +192,11 @@ export class GravityWell extends Weapon {
       g.children[3].scale.setScalar(Math.max(0.01, k * (1 + Math.sin(ctx.time * 12) * 0.08)));
       g.children[4].scale.setScalar(Math.max(0.01, k * (r / 4)));
       g.children[4].rotation.set(0.5, 0, Math.sin(ctx.time * 2) * 0.2);
+      const ice = g.children[5];
+      ice.visible = this.evoId === 'cryo' && !flying;
+      // Spikes stay put while the swirl spins under them (counter the group's spin).
+      ice.rotation.y = ctx.time * (evo ? 9 : 6);
+      ice.scale.set(ground, Math.max(0.01, k) * (1 + 0.6 * Math.min(1, ground / 3)), ground);
     });
   }
 
@@ -189,5 +207,6 @@ export class GravityWell extends Weapon {
     this.rimMat.dispose();
     this.diskMat.dispose();
     this.holeMat.dispose();
+    this.iceMat.dispose();
   }
 }

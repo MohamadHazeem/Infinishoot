@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
 import { streaks } from './streaks';
+import { KIND_SHAPE, SHAPE_COUNT, shapeGeometry, shapeSpin, BulletShape } from './bulletShapes';
 
 /**
  * Pooled projectiles stored as struct-of-arrays, drawn with one InstancedMesh
@@ -39,7 +40,12 @@ export interface BulletSpawn {
   kind?: number;
   /** Explodes with this radius when it dies (0 = no blast). */
   blast?: number;
+  /** Silhouette (src/game/bulletShapes.ts); defaults from the player bullet's kind. */
+  shape?: number;
 }
+
+/** Instances per non-gem shape mesh. */
+const SHAPE_MAX = 256;
 
 export class Bullets {
   readonly mesh: THREE.InstancedMesh;
@@ -68,12 +74,17 @@ export class Bullets {
   readonly owner = new Uint8Array(MAX);
   readonly kind = new Uint8Array(MAX);
   readonly blast = new Float32Array(MAX);
+  /** Silhouette per bullet (0 = gem). */
+  readonly shape = new Uint8Array(MAX);
+  /** Core + halo meshes for the other silhouettes (index = shape - 1). */
+  private shapeMeshes: { core: THREE.InstancedMesh; halo: THREE.InstancedMesh }[] = [];
   private colors: THREE.Color[] = [];
   private m4 = new THREE.Matrix4();
   private q = new THREE.Quaternion();
   private p = new THREE.Vector3();
   private s = new THREE.Vector3();
   private up = new THREE.Vector3(0, 1, 0);
+  private q2 = new THREE.Quaternion();
 
   constructor(scene: THREE.Scene) {
     // Elongated gem along +Z; reads well from the top-down camera.
@@ -100,6 +111,20 @@ export class Bullets {
     this.halo.renderOrder = 2;
     this.halo.count = 0;
     scene.add(this.halo);
+
+    // Evolved shots: stars, flames, bolts and lances, each its own core + halo pair.
+    for (let k = 1; k < SHAPE_COUNT; k++) {
+      const core = new THREE.InstancedMesh(shapeGeometry(k as BulletShape), createRetroMaterial({ unlit: 1, side: THREE.DoubleSide }), SHAPE_MAX);
+      const halo = new THREE.InstancedMesh(shapeGeometry(k as BulletShape, true), haloMat, SHAPE_MAX);
+      core.setColorAt(0, new THREE.Color());
+      halo.instanceMatrix = core.instanceMatrix;
+      halo.instanceColor = core.instanceColor;
+      core.frustumCulled = halo.frustumCulled = false;
+      halo.renderOrder = 2;
+      core.count = halo.count = 0;
+      scene.add(core, halo);
+      this.shapeMeshes.push({ core, halo });
+    }
   }
 
   spawn(b: BulletSpawn): void {
@@ -124,6 +149,7 @@ export class Bullets {
     this.owner[i] = b.owner ?? 0;
     this.kind[i] = b.kind ?? 0;
     this.blast[i] = b.blast ?? 0;
+    this.shape[i] = b.shape ?? (b.team === Team.Player ? (KIND_SHAPE[b.kind ?? 0] ?? 0) : 0);
     this.colors[i].set(b.color);
   }
 
@@ -169,6 +195,7 @@ export class Bullets {
     this.owner[i] = this.owner[j];
     this.kind[i] = this.kind[j];
     this.blast[i] = this.blast[j];
+    this.shape[i] = this.shape[j];
     this.colors[i].copy(this.colors[j]);
   }
 
@@ -210,6 +237,8 @@ export class Bullets {
   }
 
   render(alpha: number): void {
+    let n0 = 0;
+    for (const sm of this.shapeMeshes) sm.core.count = 0;
     for (let i = 0; i < this.count; i++) {
       const x = this.px[i] + (this.x[i] - this.px[i]) * alpha;
       const z = this.pz[i] + (this.z[i] - this.pz[i]) * alpha;
@@ -221,12 +250,33 @@ export class Bullets {
       const w = this.width[i] * grow * fade;
       // Charge shots leave a glowing streak.
       if (this.blast[i] > 0 && this.team[i] === Team.Player) streaks.add(this.px[i], this.pz[i], x, z, BULLET_Y, w * 0.7, this.colors[i], 0.14);
+      const sh = this.shape[i];
+      const sm = sh ? this.shapeMeshes[sh - 1] : null;
+      if (sm && sm.core.count < SHAPE_MAX) {
+        // Stars spin and stay round; flames flicker; bolts jitter.
+        const spin = shapeSpin(sh, this.age[i], i);
+        if (spin) this.q.multiply(this.q2.setFromAxisAngle(this.up, spin));
+        const len = this.length[i] * grow * fade;
+        const flick = sh === BulletShape.Flame ? 1 + 0.18 * Math.sin(this.age[i] * 40 + i) : 1;
+        if (sh === BulletShape.Star) this.s.set(Math.max(w, len) * 1.25, w, Math.max(w, len) * 1.25);
+        else this.s.set(w * (sh === BulletShape.Flame ? 1.15 : sh === BulletShape.Bolt ? 2.4 : 1.4) * flick, w, len * (sh === BulletShape.Flame ? 1.1 * (2 - flick) : 1));
+        this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s);
+        const k = sm.core.count++;
+        sm.core.setMatrixAt(k, this.m4);
+        sm.core.setColorAt(k, this.colors[i]);
+        continue;
+      }
       this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(w, w, this.length[i] * grow * fade));
-      this.mesh.setMatrixAt(i, this.m4);
-      this.mesh.setColorAt(i, this.colors[i]);
+      this.mesh.setMatrixAt(n0, this.m4);
+      this.mesh.setColorAt(n0++, this.colors[i]);
     }
-    this.mesh.count = this.halo.count = this.count;
+    this.mesh.count = this.halo.count = n0;
     commit(this.mesh.instanceMatrix, this.mesh.count);
     if (this.mesh.instanceColor) commit(this.mesh.instanceColor, this.mesh.count);
+    for (const sm of this.shapeMeshes) {
+      sm.halo.count = sm.core.count;
+      commit(sm.core.instanceMatrix, sm.core.count);
+      if (sm.core.instanceColor) commit(sm.core.instanceColor, sm.core.count);
+    }
   }
 }
