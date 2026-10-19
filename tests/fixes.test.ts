@@ -79,6 +79,38 @@ const NF = await import('../src/game/netFeel');
   ok(!NF.tickOnlineStop({ online: false } as never, 0.016), 'no online hit-stop in solo');
 }
 
+// ---- TURN relay config ----
+{
+  const ICE = await import('../src/net/ice');
+  const { noRouteError } = await import('../src/net/peer');
+  ok(JSON.stringify(ICE.parseRelay('')) === '[]', 'relay: empty text is no relay');
+  const r = ICE.parseRelay('turn:relay.example.com:3478 alice s3cret');
+  ok(!!r && r[0].urls === 'turn:relay.example.com:3478' && r[0].username === 'alice' && r[0].credential === 's3cret', 'relay: url user password');
+  const r2 = ICE.parseRelay('turn:a.example:3478,turns:a.example:5349 u p');
+  ok(!!r2 && Array.isArray(r2[0].urls) && r2[0].urls.length === 2, 'relay: several URLs');
+  ok(ICE.parseRelay('turn:relay.example.com:3478') === null, 'relay: TURN without a login is rejected');
+  ok(ICE.parseRelay('http://x.com u p') === null, 'relay: an http URL is rejected');
+  ok(!!ICE.parseRelay('stun:stun.example.com:3478'), 'relay: a STUN server needs no login');
+  ok(ICE.parseRelay('turn:a:1 u p extra') === null, 'relay: extra words are rejected');
+  const j = ICE.parseRelay('{"urls":"turns:x.example:5349","username":"u","credential":"c"}');
+  ok(!!j && j[0].urls === 'turns:x.example:5349', 'relay: JSON form');
+  const cf = ICE.serversFromJson({ iceServers: { urls: ['stun:stun.cloudflare.com:3478', 'turn:turn.cloudflare.com:3478?transport=udp'], username: 'x', credential: 'y' } });
+  ok(cf.length === 1 && (cf[0].urls as string[]).length === 2 && cf[0].username === 'x', 'credentials API: Cloudflare shape { iceServers: {...} }');
+  const mt = ICE.serversFromJson([{ urls: 'stun:stun.relay.metered.ca:80' }, { urls: 'turn:global.relay.metered.ca:80', username: 'a', credential: 'b' }, { urls: 'ftp://nope' }]);
+  ok(mt.length === 2, 'credentials API: metered list shape, junk dropped');
+  ok(ICE.serversFromJson(null).length === 0 && ICE.serversFromJson('x').length === 0, 'credentials API: junk response gives nothing');
+  const bt = ICE.buildTimeServers({ VITE_TURN_URLS: 'turn:t.example:3478, turns:t.example:5349 ,junk', VITE_TURN_USERNAME: 'u', VITE_TURN_CREDENTIAL: 'c' });
+  ok(bt.length === 1 && (bt[0].urls as string[]).length === 2 && bt[0].credential === 'c', 'build-time TURN variables');
+  ok(ICE.buildTimeServers({}).length === 0, 'no build-time TURN without VITE_TURN_URLS');
+  ok(!ICE.hasRelay() && !ICE.setCustomRelay('turn:nope'), 'no relay by default; a bad custom relay is refused');
+  ok(ICE.setCustomRelay('turn:relay.example.com:3478 alice s3cret') && ICE.hasRelay(), 'a custom relay is saved');
+  const cfg = ICE.iceConfig();
+  ok(cfg.iceServers[0].urls === ICE.DEFAULT_ICE[0].urls && cfg.iceServers.some((s) => s.username === 'alice'), 'ICE config keeps the PeerJS defaults first and adds the relay');
+  ok(noRouteError(false).includes('CUSTOM RELAY') && !noRouteError(true).includes('CUSTOM RELAY'), 'no-route error points at the relay setting when there is none');
+  ICE.setCustomRelay('');
+  ok(!ICE.hasRelay(), 'clearing the custom relay');
+}
+
 // ---- The real game ----
 const { Input } = await import('../src/core/input');
 const { Game, cheats } = await import('../src/game/game');

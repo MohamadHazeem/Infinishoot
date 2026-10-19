@@ -32,6 +32,12 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1 # web build only
       - run: npm run build
+        env:
+          # Optional TURN relay for online play (docs/TURN.md).
+          VITE_TURN_URLS: ${{ vars.VITE_TURN_URLS }}
+          VITE_TURN_USERNAME: ${{ vars.VITE_TURN_USERNAME }}
+          VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
+          VITE_TURN_CREDENTIAL_URL: ${{ vars.VITE_TURN_CREDENTIAL_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

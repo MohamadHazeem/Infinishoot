@@ -24,6 +24,7 @@ import { HEROES } from '../data/heroes';
 import { ACTIONS, binds, keyLabel, rebind, resetBinds, type Action } from '../core/keybinds';
 import { ENEMIES } from '../data/enemies';
 import { ENEMY_TIPS } from '../data/bestiary';
+import { mountRelayField, showRelayField } from './relayField';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary';
@@ -803,6 +804,7 @@ export class Screens {
 
   showOnline(name: string): void {
     this.nameField.value = name;
+    mountRelayField(this.els.online); // CUSTOM RELAY (TURN), src/ui/relayField.ts
     this.setLobby({ code: '', players: [], isHost: false, status: '' });
     this.show('online');
   }
@@ -815,6 +817,7 @@ export class Screens {
     el.querySelector<HTMLElement>('.mp-choice')!.hidden = inLobby;
     el.querySelector<HTMLElement>('.join-row')!.hidden = inLobby;
     el.querySelector<HTMLElement>('.field')!.hidden = inLobby;
+    showRelayField(el, !inLobby);
     el.querySelector('.code-big')!.textContent = v.code;
     el.querySelector('.players')!.innerHTML = v.players
       .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span>${p.name}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
