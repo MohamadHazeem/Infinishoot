@@ -26,9 +26,10 @@ import { HEROES } from '../data/heroes';
 import { ACTIONS, binds, keyLabel, rebind, resetBinds, type Action } from '../core/keybinds';
 import { ENEMIES } from '../data/enemies';
 import { ENEMY_TIPS } from '../data/bestiary';
+import { RouteMapView, type RouteView } from './routeMap';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | MetaScreen;
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | MetaScreen | 'route';
 
 export interface ScreenActions {
   start(): void;
@@ -482,11 +483,12 @@ export class Screens {
   </div>
   <div class="hiscores"></div>
   <div class="hiscores global" hidden></div>
-</div>`,
+</div>
+<div id="scr-route" class="screen dim" hidden></div>`,
     );
     root.insertAdjacentHTML('beforeend', metaScreenHtml);
     applyMetaTheme();
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', ...META_SCREENS];
+    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', ...META_SCREENS, 'route'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
@@ -511,7 +513,9 @@ export class Screens {
       codex: new MenuNav(this.els.codex, { columns: 3, onBack: () => this.show('bestiary') }),
       rewards: new MenuNav(this.els.rewards, { columns: 3, onBack: () => this.show('extras') }),
       bestiary: new MenuNav(this.els.bestiary, { onBack: () => this.show('extras') }),
+      route: new MenuNav(this.els.route, { horizontal: true }),
     };
+    this.route = new RouteMapView(this.els.route, (i) => this.onRoutePick?.(i));
 
     // Keep buttons from taking DOM focus on click, so Enter/Space don't fire twice.
     root.addEventListener('mousedown', (e) => {
@@ -754,6 +758,16 @@ export class Screens {
       this.els.savedata.querySelector<HTMLElement>('[data-act=wipe]')!.textContent = 'RESET SAVE';
     }
     if (name !== 'none') this.navs[name].refresh(focus ?? (name === 'levelup' ? 1 : 0));
+  }
+
+  /** Route map between stages (src/ui/routeMap.ts); `statusOnly` just refreshes the countdown. */
+  route!: RouteMapView;
+  onRoutePick: ((i: number) => void) | null = null;
+  showRoute(v: RouteView, statusOnly = false): void {
+    if (statusOnly && this.current === 'route') return this.route.setStatus(v);
+    const focus = this.current === 'route' ? this.navs.route.focus : 0;
+    this.route.render(v);
+    this.show('route', focus);
   }
 
   update(input: Input, dt: number): void {

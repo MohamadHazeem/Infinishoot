@@ -71,6 +71,8 @@ export function installBot(game: Game, input: Input): void {
       b.click();
     }
     document.querySelector<HTMLElement>('#scr-shop [data-act=shop-done]')?.click();
+    // Route map (and its encounters): take the first road.
+    if (game.screens.current === 'route' && game.route.decided < 0) document.querySelector<HTMLElement>('#scr-route [data-ri]')?.click();
   };
 
   const poll = input.poll.bind(input);
@@ -153,7 +155,7 @@ export function installBot(game: Game, input: Input): void {
       // Clients answer the host's menus through UI messages; throttled so they don't flood it.
       uiT -= 1 / 60;
       if (uiT <= 0 && g.screens.current === 'levelup') (ui('pick', 0), (uiT = 0.3));
-      else if (uiT <= 0 && g.screens.current === 'shop') (shop(), (uiT = 0.5));
+      else if (uiT <= 0 && (g.screens.current === 'shop' || g.screens.current === 'route')) (shop(), (uiT = 0.5));
     } else {
       if (g.mode === 'levelup' && g.hero.needsPick) ui('pick', 0);
       if (g.mode === 'shop') shop();

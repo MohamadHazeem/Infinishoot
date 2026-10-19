@@ -184,6 +184,14 @@ const ART = {
   heal: 'health-potion',
   // HUD
   world_chest: 'locked-chest',
+  // route map nodes (src/data/routeNodes.ts)
+  route_start: 'flag-objective',
+  route_elite: 'brutal-helm',
+  route_shop: 'shop',
+  route_treasure: 'chest',
+  route_event: 'perspective-dice-six-faces-random',
+  route_rest: 'fire-bowl',
+  route_hard: 'dread-skull',
 };
 
 const set = JSON.parse(readFileSync(new URL('../node_modules/@iconify-json/game-icons/icons.json', import.meta.url), 'utf8'));

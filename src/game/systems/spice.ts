@@ -22,7 +22,7 @@ import { STAGE_EVENTS, type EventId } from '../../data/stageEvents';
 export function curseSum(this: Game, k: 'enemyHp' | 'enemySpeed' | 'enemyCount' | 'enemyDmg' | 'dmgTaken' | 'dashCd' | 'score'): number {
   let n = 0;
   for (const id of this.curses) n += (CURSE_BY_ID[id]?.[k as keyof CurseDef] as number | undefined) ?? 0;
-  return n;
+  return n + this.routeMod(k); // the route node this stage came through (systems/route.ts)
 }
 
 /** Pause screen: evolution recipes for owned weapons and the live damage chart. */
@@ -185,7 +185,7 @@ export function stageClear(this: Game): void {
 export function openShop(this: Game): void {
   this.mode = 'shop';
   // Now and then (from stage 2) the secret merchant turns up instead.
-  this.secretShop = this.stage >= 2 && this.rng.chance(0.22);
+  this.secretShop = (this.stage >= 2 && this.rng.chance(0.22)) || this.routeSecretShop();
   if (this.secretShop) this.vfx.banner('SECRET SHOP!', 'A STRANGE MERCHANT APPEARS', 1.8);
   for (const h of this.heroes) {
     if (h.left) continue;
@@ -215,7 +215,7 @@ export function closeShop(this: Game): void {
   }
   if (this.pvp?.phase === 'stage') this.pvpStageDone();
   else if (this.runMode === 'endless') this.endlessNextWave();
-  else this.openPortal();
+  else if (!this.openRoute()) this.openPortal();
 }
 
 /** Endless: no portal; the next, harder wave starts right here. */

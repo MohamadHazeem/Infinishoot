@@ -59,6 +59,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   const h = this.heroByPeer(from);
   if (!h) return;
   h.lastSeen = performance.now();
+  if (m.t === 'rvote') return this.routeVote(h, Number(m.i)); // route map vote (systems/route.ts)
   if (m.t === 'i') {
     h.remote = {
       x: Number(m.x),
