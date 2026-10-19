@@ -48,6 +48,8 @@ let statsTimer = 0;
 let profUpdate = 0;
 let profSteps = 0;
 
+let titleMeasured = false;
+let stageMeasured = false;
 const loop = new GameLoop({
   // Co-op hosts keep simulating in a background tab so clients don't freeze.
   runHidden: () => game.role === 'host',
@@ -72,6 +74,15 @@ const loop = new GameLoop({
     renderer.gl.setClearColor(retroGlobals.uFogColor.value); // follows the biome
     renderer.render(game.scene, game.cam.camera);
     photo.afterRender();
+    // Startup milestones: a submitted WebGL frame, not just constructed DOM.
+    if (!titleMeasured && game.mode === 'title') {
+      titleMeasured = true;
+      performance.mark('infinishoot:title-frame');
+    }
+    if (!stageMeasured && game.stage === 1 && game.isCombatMode) {
+      stageMeasured = true;
+      performance.mark('infinishoot:stage1-frame');
+    }
     if (prof.on) {
       const t2 = performance.now();
       const info = renderer.gl.info.render;
