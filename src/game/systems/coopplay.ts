@@ -157,7 +157,18 @@ function resetObjective(s: CoopPlayState, stage: number): void {
 }
 
 /** Install a co-op objective on this machine: replaces the stage's solo objective, places its pieces. */
+/**
+ * The layout at the precision it travels at (`coopPlayNet` sends 0.1 m). The host installs this rounded
+ * layout too, so the door/bomb vault collider is the same box on every machine (an unrounded host box
+ * differed from the client's by up to 5 cm: different walls, and a host-vs-client arena mismatch).
+ */
+function wireLayout(lay: CoopLayout): CoopLayout {
+  const p = (q: { x: number; z: number }) => ({ x: r1(q.x), z: r1(q.z) });
+  return { a: p(lay.a), b: p(lay.b), v: p(lay.v) };
+}
+
 function install(g: Game, s: CoopPlayState, kind: CoopObjKind, lay: CoopLayout): void {
+  lay = wireLayout(lay);
   const before = g.arena.colliders.length;
   g.toys.clearObjectivePieces(g.arena.colliders);
   g.toys.objective = new Objective(kind, g.arenaStage);
