@@ -8,6 +8,7 @@ import { ENEMIES } from '../src/data/enemies';
 import { ELITE_MOD_IDS } from '../src/data/eliteMods';
 import { BOSS_ACTIONS, type Enemy } from '../src/game/enemies';
 import { packEnemies, unpackEnemies, type EnemyRecord } from '../src/net/codec';
+import { pack, unpack } from 'peerjs-js-binarypack';
 
 const ids = Object.keys(ENEMIES);
 ok(ids.length <= 256, `enemy kinds fit a byte (${ids.length})`);
@@ -65,3 +66,12 @@ got.forEach((r, i) => {
   }
 });
 ok(bad === 0, 'every enemy record round-trips');
+
+// Big snapshots: PeerJS chunks them and its reassembly unpacks binary fields as
+// Uint8Array views (not ArrayBuffers). Decoding must work either way.
+const packed = pack({ en: packEnemies(list) }) as ArrayBuffer;
+const viaChunks = unpack(new Uint8Array(packed)) as { en: unknown };
+ok(ArrayBuffer.isView(viaChunks.en), 'chunked PeerJS messages carry Uint8Array views');
+const got2: EnemyRecord[] = [];
+unpackEnemies(viaChunks.en as Uint8Array, (r) => got2.push({ ...r }));
+ok(got2.length === list.length && got2.every((r, i) => r.uid === got[i].uid && r.x === got[i].x), 'records decode from a Uint8Array view too');
