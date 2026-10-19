@@ -821,7 +821,7 @@ function showEmote(g: Game, s: CoopState, h: Hero, e: EmoteDef): void {
   const me = g.hero.player;
   const dx = h.player.x - me.x;
   const d = Math.hypot(dx, h.player.z - me.z);
-  if (h === g.hero || d < 40) playEmoteVoice(e, { heroId: h.heroDef.id, index: h.index, name: h.name, color: h.color }, h === g.hero, h === g.hero ? 0 : dx / 14, h === g.hero ? 1 : Math.max(0.35, 1 - d / 40));
+  if (h === g.hero || d < 40) playEmoteVoice(e, { heroId: h.heroDef.id, index: h.index, name: h.name, color: h.color, x: h.player.x, z: h.player.z }, h === g.hero, h === g.hero ? 0 : dx / 14, h === g.hero ? 1 : Math.max(0.35, 1 - d / 40));
 }
 
 // ---------------------------------------------------------------- help ghosts

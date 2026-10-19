@@ -1,3 +1,5 @@
+import { encounterTrack, updateAudio3 } from './audio3';
+import { PING_BANTER } from '../../audio/teammateVoice';
 import { gauntletScore } from '../../data/ascension';
 import { renderGauntlet, challengeState } from './gauntlet';
 import { beginReadability, renderReadability } from './readability2';
@@ -91,7 +93,8 @@ export function ping(this: Game, h: Hero, x: number, z: number, kind?: string): 
     this.vfx.ring(x, z, 0.5, 2.5, h.color, 0.45);
     this.vfx.star(x, 2, z, 1.6, k.color, 0.5);
     this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${k.label}`, 'score');
-    this.vfx.sound('telegraph', x, z);
+    this.vfx.sound('teammatePing', h.player.x, h.player.z);
+    if (PING_BANTER[k.id]) this.vfx.sound(`banter:${h.heroDef.id}:${PING_BANTER[k.id]}`, h.player.x, h.player.z);
     return;
   }
   let label = 'HERE!';
@@ -106,7 +109,7 @@ export function ping(this: Game, h: Hero, x: number, z: number, kind?: string): 
   this.vfx.ring(x, z, 0.5, 2.5, '#ffffff', 0.45);
   this.vfx.star(x, 2, z, 1.6, h.color, 0.5);
   this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${label}`, 'score');
-  this.vfx.sound('telegraph', x, z);
+  this.vfx.sound('teammatePing', h.player.x, h.player.z);
   this.pingPortrait(h, label);
 }
 
@@ -157,10 +160,12 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
     intensity = m === 'fight' ? Math.min(1, 0.12 + this.enemies.activeCount / 140 + this.director.time / this.director.duration / 3) : 0.3;
   }
   if (m === 'shop' || m === 'cleared' || m === 'portal') track = 'shop';
+  track = encounterTrack(track, this.runMode, !!boss, biomeForStage(this.arenaStage).variant === 'haunted', this.pvp?.phase === 'duel');
+  updateAudio3(this);
   const omega = bossTrack(this.stage) === 'omega';
   music.setBossPhase(!boss ? 1 : omega && boss.hp01 < omegaTuning.phase3At ? 3 : boss.hp01 < (omega ? omegaTuning.phase2At : bossTuning.enrageAt) ? 2 : 1);
   const duck = this.paused || m === 'levelup' || (track !== 'shop' && this.screens.current !== 'none' && inRun);
-  music.update(frameDt, { track, seed: track === 'title' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, stage: this.stage, cue: m === 'cleared' ? 'victory' : m === 'dead' ? 'gameover' : undefined });
+  music.update(frameDt, { track, seed: track === 'title' || track === 'titleRemix' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, stage: track === 'titleRemix' ? 1 : this.stage, cue: m === 'cleared' ? 'victory' : m === 'dead' ? 'gameover' : undefined });
   document.documentElement.style.setProperty('--beat', music.pulse.toFixed(2));
 }
 

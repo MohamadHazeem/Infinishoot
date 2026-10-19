@@ -113,7 +113,7 @@ export function pvpStartDuel(this: Game): void {
   pvp.zoneR = pvpTuning.zoneStart;
   pvp.zoneT = pvp.zoneTick = 0;
   this.vfx.banner('DUEL!', 'LAST ONE STANDING WINS<br>THE RED RING CLOSES IN', 2.8);
-  this.vfx.sound('boss', NaN, NaN);
+  this.vfx.sound('roundBell', NaN, NaN);
 }
 
 /** A hit on a hero's stand-in: the attacker's stats, Mods and crits apply, then it's scaled down to hero damage. */
@@ -192,7 +192,7 @@ export function pvpOver(this: Game, winner: string): void {
   pvp.phase = 'over';
   this.vfx.banner(winner ? `${winner.toUpperCase()} WINS!` : 'DRAW!', 'LAST ONE STANDING', 4);
   this.vfx.flash(0.8);
-  this.vfx.sound('legendaryPick', NaN, NaN);
+  this.vfx.sound('victoryFanfare', NaN, NaN);
   window.setTimeout(() => {
     if (this.pvp !== pvp) return;
     this.leaveToTitle();
