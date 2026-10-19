@@ -96,6 +96,10 @@ export interface Settings {
   helpGhosts: boolean;
   /** CINEMATICS: sky-fall transitions, the ending, legendary reveals, jackpot reels (full, short or off). */
   cinematics: 'full' | 'short' | 'off';
+  /** Weekly co-op team name this machine hosts under (MP lane; '' = "<name>'s Team"). */
+  teamName: string;
+  /** Host lobbies as PUBLIC (listed in PLAY ONLINE > BROWSE GAMES when the online service is on). */
+  lobbyPublic: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -152,6 +156,8 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   coopJoinable: true,
   helpGhosts: true,
   cinematics: 'full',
+  teamName: '',
+  lobbyPublic: false,
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -166,6 +172,8 @@ settings.coopPool ??= false;
 settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
 settings.cinematics ??= 'full';
+settings.teamName ??= '';
+settings.lobbyPublic ??= false;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

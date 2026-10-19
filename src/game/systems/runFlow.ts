@@ -100,6 +100,7 @@ export function goTitle(this: Game): void {
 export function leaveToTitle(this: Game): void {
   if (this.role === 'client' && this.mode !== 'title') this.client?.send({ t: 'bye' }); // leaving on purpose: no autopilot wait (systems/coop2.ts)
   this.pvp = null;
+  this.mpReset(); // no Versus match, local co-op pads or public listing (systems/mp.ts)
   this.host?.close();
   this.client?.close();
   this.host = null;
@@ -132,7 +133,7 @@ export function pickDifficulty(this: Game): DifficultyDef {
 /** Start a run (solo or online host). */
 export function startRun(this: Game, fixed?: { seed: number; difficulty: string }): void {
   this.paused = false;
-  if (this.role !== 'solo') this.runMode = 'standard';
+  if (this.role !== 'solo' && this.lobbyKind !== 'weekly') this.runMode = 'standard'; // online weekly co-op keeps 'weekly'
   this.difficulty = fixed ? DIFF_BY_ID[fixed.difficulty as DifficultyId] ?? DIFF_BY_ID.normal : this.pickDifficulty();
   this.runDate = today();
   this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
@@ -282,6 +283,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   this.modesRunEnd(); // keep this week's ghost (systems/modes.ts)
   const bolts = bankMeta(this, sum);
   sum.bolts = bolts;
+  this.mpRunBanked(sum); // weekly co-op team best and board (systems/mp.ts)
   const L = save.lifetime;
   L.runs++;
   L.kills += sum.kills;

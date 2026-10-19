@@ -16,6 +16,7 @@ import { DIFF_BY_ID, type DifficultyDef, type DifficultyId } from '../../data/mo
 import { prefetchIce } from '../../net/ice';
 import { cleanLook } from '../../data/customise';
 import { coopPlayerId } from '../coop2';
+import { versusOverlordIndex } from './mp';
 
 export async function hostGame(this: Game, name: string): Promise<void> {
   this.saveName(name);
@@ -45,8 +46,9 @@ export function refreshLobby(this: Game): void {
   const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout) }));
   const difficulty = this.lobbyDifficulty().id;
   const kind = this.lobbyKind;
-  this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind });
-  this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind, co: this.coopLobby() }); // co: roles, revive pool, join anytime (systems/coop2.ts)
+  const extra = this.mpLobbyExtra(); // Versus Overlord, weekly team, PUBLIC (systems/mp.ts)
+  this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind, extra: extra.mp });
+  this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind, ...extra, co: this.coopLobby() }); // co: roles, revive pool, join anytime (systems/coop2.ts)
 }
 
 /** Co-op difficulty: the host's pick, if their save has it unlocked. */
@@ -68,6 +70,13 @@ export function hostStart(this: Game): void {
     this.pvpBegin('host', seed, difficulty);
     return;
   }
+  // Versus Swarm: a player Overlord needs at least one hero to play against (or pick the AI Overlord).
+  const overlord = this.lobbyKind === 'versus' ? versusOverlordIndex(this) : -1;
+  if (overlord >= 0 && this.lobby.length < 2) {
+    this.hud.toast('VERSUS NEEDS A HERO: WAIT FOR A FRIEND OR PICK THE AI OVERLORD', 3);
+    return;
+  }
+  this.runMode = this.lobbyKind === 'weekly' ? 'weekly' : 'standard'; // weekly co-op: this week's seed and rules for the whole team
   const heroes = this.lobby.map((p, i) => {
     if (i === 0) return this.hero;
     const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
@@ -79,6 +88,7 @@ export function hostStart(this: Game): void {
   this.setHeroes(heroes);
   this.local = 0;
   this.startRun();
+  if (this.lobbyKind === 'versus') this.versusBegin(overlord);
 }
 
 export async function joinGame(this: Game, name: string, code: string): Promise<void> {

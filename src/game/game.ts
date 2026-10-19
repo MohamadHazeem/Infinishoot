@@ -88,6 +88,10 @@ import * as TimeSys from './systems/time';
 import * as Coop2Sys from './systems/coop2';
 import * as ModesSys from './systems/modes';
 import * as CineSys from './systems/cinematics';
+import * as VersusSys from './systems/versus';
+import * as LocalCoopSys from './systems/localCoop';
+import * as MpSys from './systems/mp';
+import type { LobbyKind } from '../ui/screens';
 import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
@@ -620,6 +624,27 @@ export class Game implements HeroWorld {
   cineNet = CineSys.cineNet;
   applyCineNet = CineSys.applyCineNet;
   renderCinematics = CineSys.renderCinematics;
+  // MP lane: Versus Swarm, local co-op, lobby browser, weekly team board (systems/versus.ts, localCoop.ts, mp.ts).
+  versusBegin = VersusSys.versusBegin;
+  versusSolo = VersusSys.versusSolo;
+  versusWorld = VersusSys.versusWorld;
+  versusReqs = VersusSys.versusReqs;
+  versusStep = VersusSys.versusStep;
+  versusCommand = VersusSys.versusCommand;
+  versusHostMessage = VersusSys.versusHostMessage;
+  versusNet = VersusSys.versusNet;
+  applyVersusNet = VersusSys.applyVersusNet;
+  localCoopStart = LocalCoopSys.localCoopStart;
+  localHeroUpdate = LocalCoopSys.localHeroUpdate;
+  mpTick = MpSys.mpTick;
+  mpFrame = MpSys.mpFrame;
+  mpReset = MpSys.mpReset;
+  mpLobbyExtra = MpSys.mpLobbyExtra;
+  mpClientMessage = MpSys.mpClientMessage;
+  mpRunBanked = MpSys.mpRunBanked;
+  /** Versus Swarm match (null outside one) and shared-screen local co-op run (null outside one). */
+  versus: VersusSys.VersusRun | null = null;
+  localCoop: LocalCoopSys.LocalCoopRun | null = null;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -757,7 +782,7 @@ export class Game implements HeroWorld {
   /** PvP match in progress (null outside PvP). */
   pvp: PvpState | null = null;
   /** The online lobby's game type, picked by the host. */
-  lobbyKind: 'coop' | 'pvp' = 'coop';
+  lobbyKind: LobbyKind = 'coop';
   /** The name this machine hosted or joined with (the saved name is shared by every tab on a PC). */
   netName = '';
   /** Last EXPOSED popup (run time), so a crowd doesn't spam it. */
@@ -874,6 +899,7 @@ export class Game implements HeroWorld {
     this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
+    MpSys.installMp(this, hudRoot);
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     this.goTitle();
   }
@@ -1172,6 +1198,7 @@ export class Game implements HeroWorld {
     if (this.pvp) this.pvpTick();
     this.coopInput();
     this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
+    this.mpTick(dt); // MP lane: Versus command view, local co-op menu turns, lobby heartbeat (systems/mp.ts)
     // Time holds (rewind playback, death replay) stop the world on this machine (systems/time.ts).
     if (this.timeStep(dt)) {
       this.input.endStep();
@@ -1295,6 +1322,7 @@ export class Game implements HeroWorld {
     this.enemies.update(dt, this.enemyCtx);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
+    if (this.versus) this.versusStep(dt);
     this.updateHazards(dt);
     this.updateBiomeFoes(dt);
     this.updateArena(dt);
@@ -1347,7 +1375,7 @@ export class Game implements HeroWorld {
     }
     if (this.mode === 'fight' && anyAlive && this.pvp?.phase !== 'duel' && this.pvp?.phase !== 'over') {
       this.director.teamLevel = this.level; // the Reaper comes for high-level teams
-      const reqs = this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng);
+      const reqs = this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
       for (const r of reqs) {
         if (r.kind === 'boss') this.spawnBoss(r.def);
@@ -1386,6 +1414,7 @@ export class Game implements HeroWorld {
 
   /** Movement, aim and per-hero timers. Local hero reads Input; remote heroes follow their client. */
   updateHero(h: Hero, dt: number, localControl: boolean): void {
+    if (this.localCoop && this.localHeroUpdate(h, dt, localControl)) return; // local co-op: pad heroes read their own pad
     const p = h.player;
     if (h.left) return;
     if (!p.dead && h.stats.regen > 0) p.heal(h.stats.regen * dt);

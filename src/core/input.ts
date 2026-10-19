@@ -23,7 +23,7 @@ export interface Vec2 {
 const STICK_DEADZONE = 0.2;
 const AIM_DEADZONE = 0.35;
 
-function applyDeadzone(x: number, y: number, dz: number, out: Vec2): Vec2 {
+export function applyDeadzone(x: number, y: number, dz: number, out: Vec2): Vec2 {
   const len = Math.hypot(x, y);
   if (len < dz) {
     out.x = 0;
@@ -56,6 +56,8 @@ export class Input {
   readonly virtual: VirtualPad = { active: false, move: { x: 0, y: 0 }, aim: { x: 0, y: 0 }, buttons: [] };
   /** Controller vibration on/off (settings). */
   rumbleOn = true;
+  /** Which gamepad this Input reads: -1 = the first connected, -2 = none, n = Gamepad.index n (local co-op, src/core/padInput.ts). */
+  padIndex = -1;
 
   constructor(private canvas: HTMLCanvasElement) {
     window.addEventListener('keydown', (e) => {
@@ -118,8 +120,22 @@ export class Input {
   rumble(strong: number, weak: number, ms: number): void {
     if (!this.rumbleOn || this.device !== 'pad') return;
     const pads = navigator.getGamepads?.() ?? [];
-    const pad = Array.from(pads).find((p) => p && p.connected) as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, o: object) => Promise<unknown> } }) | undefined;
+    const pad = this.pickPad(pads) as (Gamepad & { vibrationActuator?: { playEffect?: (t: string, o: object) => Promise<unknown> } }) | undefined;
     void pad?.vibrationActuator?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: Math.min(1, strong), weakMagnitude: Math.min(1, weak) })?.catch?.(() => {});
+  }
+
+  /** Switch which pad this Input reads (see padIndex). Buttons already held on it don't count as new presses. */
+  usePad(index: number): void {
+    if (index === this.padIndex) return;
+    this.padIndex = index;
+    const pad = this.pickPad(navigator.getGamepads?.() ?? []);
+    this.padButtons = pad ? Array.from(pad.buttons, (b) => b.pressed) : [];
+  }
+
+  private pickPad(pads: ArrayLike<Gamepad | null>): Gamepad | null | undefined {
+    if (this.padIndex === -2) return null;
+    if (this.padIndex >= 0) return Array.from(pads).find((p) => p && p.connected && p.index === this.padIndex);
+    return Array.from(pads).find((p) => p && p.connected);
   }
 
   mouseDown(button = 0): boolean {
@@ -165,9 +181,9 @@ export class Input {
     this.padAim.y = 0;
     this.padPressed.clear();
 
-    // Gamepad (first connected, standard mapping)
+    // Gamepad (first connected, or the one padIndex names; standard mapping)
     const pads = navigator.getGamepads?.() ?? [];
-    const pad = Array.from(pads).find((p) => p && p.connected);
+    const pad = this.pickPad(pads);
     if (pad) {
       const m = applyDeadzone(pad.axes[0] ?? 0, pad.axes[1] ?? 0, STICK_DEADZONE, this.tmp);
       if (m.x !== 0 || m.y !== 0) {

@@ -39,7 +39,9 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace';
+export type ExtraScreen = 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard';
+/** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
+export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly';
 
 export interface ScreenActions {
   start(): void;
@@ -65,7 +67,7 @@ export interface ScreenActions {
   /** Host: set the co-op difficulty. */
   mpDifficulty(id: string): void;
   /** Host: co-op or PvP. */
-  mpKind(kind: 'coop' | 'pvp'): void;
+  mpKind(kind: LobbyKind): void;
   /** The loadout changed (online: tell the host). */
   loadoutChanged(): void;
   /** The local skin setting changed. */
@@ -84,7 +86,9 @@ export interface LobbyView {
   /** Difficulty the host picked (shown to everyone in the lobby). */
   difficulty?: string;
   /** Co-op or PvP, picked by the host. */
-  kind?: 'coop' | 'pvp';
+  kind?: LobbyKind;
+  /** Extra lobby fields for other modules' rows (src/game/systems/mp.ts, via `onLobby`). */
+  extra?: unknown;
 }
 
 export type ShopFx = 'open' | 'buy' | 'sell' | 'reroll' | 'heal' | 'deny' | 'upgrade';
@@ -276,6 +280,8 @@ export class Screens {
   private extra: Partial<Record<ExtraScreen, { el: HTMLElement; nav: MenuNav }>> = {};
   /** Called on every show(), before the menu's focus is set (other modules fill or extend screens here). */
   onShow: ((name: ScreenName) => void) | null = null;
+  /** After the lobby view is drawn (MP lane rows: Overlord pick, weekly team, PUBLIC). */
+  onLobby: ((el: HTMLElement, v: LobbyView) => void) | null = null;
 
   // Shop lane: banish, card numbers and the Mod order preview.
   /** The next level-up pick banishes the card instead (BANISH button; numbers keys too). */
@@ -726,7 +732,7 @@ export class Screens {
           return this.renderModes();
         }
         case 'mp-kind':
-          return actions.mpKind(btn.dataset.kind === 'pvp' ? 'pvp' : 'coop');
+          return actions.mpKind((['pvp', 'versus', 'weekly'] as const).find((k) => k === btn.dataset.kind) ?? 'coop');
         case 'mp-diff': {
           const d = DIFFICULTIES.find((x) => x.id === btn.dataset.diff);
           if (!d || (d.unlock && !save.achievements.includes(d.unlock))) return;
@@ -961,7 +967,7 @@ export class Screens {
     el.querySelector('.players')!.innerHTML = v.players
       .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span>${p.name}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
       .join('');
-    el.querySelector<HTMLElement>('.mp-heat')!.hidden = !(v.isHost && v.code && v.kind !== 'pvp');
+    el.querySelector<HTMLElement>('.mp-heat')!.hidden = !(v.isHost && v.code && (v.kind ?? 'coop') === 'coop');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
     // Difficulty: the host picks it; everyone else sees the choice.
     const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFFICULTIES[1];
@@ -973,14 +979,20 @@ export class Screens {
     el.querySelector('.mp-diff-note')!.textContent = `${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`;
     // Game type: co-op, or PvP (everyone plays the same stage alone, then a last-one-standing duel).
     const kind = v.kind ?? 'coop';
-    el.querySelector('.mp-kind-row')!.innerHTML = (['coop', 'pvp'] as const)
-      .map((k) => `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-kind" data-kind="${k}" class="diff ${k === kind ? 'on' : ''}" ${v.isHost ? '' : 'disabled'}>${k === 'coop' ? 'CO-OP' : 'PVP'}</button>`)
+    const kindName = { coop: 'CO-OP', pvp: 'PVP', versus: 'VERSUS', weekly: 'WEEKLY' };
+    el.querySelector('.mp-kind-row')!.innerHTML = (['coop', 'pvp', 'versus', 'weekly'] as const)
+      .map((k) => `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-kind" data-kind="${k}" class="diff ${k === kind ? 'on' : ''}" ${v.isHost ? '' : 'disabled'}>${kindName[k]}</button>`)
       .join('');
     el.querySelector('.mp-kind-note')!.textContent =
       kind === 'pvp'
         ? 'Everyone plays the same stage alone and builds up, then all of you fight in one arena. Last one standing wins.'
-        : 'Play the run together. Team XP, your own gold, shop and Mods.';
+        : kind === 'versus'
+          ? 'Versus Swarm: one player is the Overlord and sends the waves from above; the rest survive the timer and beat the boss.'
+          : kind === 'weekly'
+            ? "Weekly co-op: this week's seed and rules for every team, a Rookie kit each, and a team board."
+            : 'Play the run together. Team XP, your own gold, shop and Mods.';
     el.querySelector('.mp-status')!.textContent = v.status;
+    this.onLobby?.(el, v);
     if (this.current !== 'online') this.show('online');
     else this.navs.online.refresh(this.navs.online.focus);
   }

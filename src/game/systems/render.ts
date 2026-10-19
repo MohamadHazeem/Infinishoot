@@ -254,6 +254,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.juice.shakeOffset(this.shake);
   this.cameraDirector();
   bossCamera.call(this); // the Titan and the duel ring pull the camera back (systems/bossLane.ts)
+  this.mpFrame(frameDt); // Versus command view and local co-op team camera, their HUDs (systems/mp.ts)
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
   this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 
