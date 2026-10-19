@@ -22,7 +22,7 @@ export function gainXp(this: Game, v: number): void {
       h.pendingLevels++;
       h.synergy.levelUp();
       // Every level-up tops you up a little (downed heroes stay down).
-      if (!h.player.dead && !this.runMods.noLevelHeal) {
+      if (!h.player.dead) {
         const healed = h.player.heal(scoreTuning.levelUpHeal);
         if (healed > 0) this.vfx.num(h.player.x, 2.4, h.player.z, `+${Math.round(healed)}`, 'heal');
       }
@@ -98,7 +98,6 @@ export function ui(this: Game, a: string, i = 0, d: -1 | 1 = 1): void {
 
 /** Level-up and shop actions for any hero (host authority). */
 export function heroAction(this: Game, h: Hero, a: string, i: number, d: -1 | 1): void {
-  if (a === 'route') return this.routeVote(h, i); // route vote after the shop (systems/runMods.ts)
   if (this.mode === 'levelup' && h.needsPick) {
     if (a === 'pick') {
       const o = h.offers[i];

@@ -68,9 +68,6 @@ import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
 import * as SkillSys from './systems/skill';
 import { Onboarding } from './onboarding';
-import * as RunModsSys from './systems/runMods';
-import { RunMods } from './runMods';
-import { RunUi } from '../ui/runUi';
 import { weaponCue, windupCue } from './systems/sound';
 import { rightClickHeld } from './chargeMode';
 import * as BiomeFoesSys from './systems/biomeFoes';
@@ -484,22 +481,6 @@ export class Game implements HeroWorld {
   renderHeroMechs = HeroMechsSys.renderHeroMechs;
   heroMechAchievements = HeroMechsSys.heroMechAchievements;
   bestStyle = SkillSys.bestStyle;
-  // Routes, heat and Weekly mutators (src/game/systems/runMods.ts).
-  runModsStart = RunModsSys.runModsStart;
-  runModsClientStart = RunModsSys.runModsClientStart;
-  runModsStage = RunModsSys.runModsStage;
-  runModsStep = RunModsSys.runModsStep;
-  runModsKill = RunModsSys.runModsKill;
-  runModsBank = RunModsSys.runModsBank;
-  offerRoutes = RunModsSys.offerRoutes;
-  presentRoutes = RunModsSys.presentRoutes;
-  routeView = RunModsSys.routeView;
-  routeVote = RunModsSys.routeVote;
-  routeTick = RunModsSys.routeTick;
-  applyRoute = RunModsSys.applyRoute;
-  routeLine = RunModsSys.routeLine;
-  clientRoute = RunModsSys.clientRoute;
-  heatWants = RunModsSys.heatWants;
   // Title attract mode (src/game/systems/attract.ts).
   attractTick = AttractSys.attractTick;
 
@@ -555,9 +536,6 @@ export class Game implements HeroWorld {
   /** Co-op: index of the teammate the camera follows while you're downed (-1 = auto). */
   spectate = -1;
   readonly runEvents: RunEvents;
-  /** The stage's route, the run's heat and Weekly mutators (src/game/runMods.ts), and their screens. */
-  readonly runMods = new RunMods();
-  readonly runUi: RunUi;
   /** Mode and difficulty of the current run. */
   runMode: ModeId = 'standard';
   difficulty: DifficultyDef = DIFF_BY_ID.normal;
@@ -726,7 +704,6 @@ export class Game implements HeroWorld {
       lockOffer: (i) => this.ui('slock', i),
       buyRelic: () => this.ui('relic'),
     });
-    this.runUi = new RunUi(this.screens, hudRoot, { vote: (i) => this.ui('route', i) });
     window.addEventListener('keydown', (e) => {
       if (binds.autofire.includes(e.code) && this.isCombatMode && !this.paused && this.screens.current === 'none') {
         settings.autoFire = !settings.autoFire;
@@ -937,7 +914,6 @@ export class Game implements HeroWorld {
     out.hpMul *= (1 + this.curseSum('enemyHp')) * this.difficulty.enemyHp;
     out.speedMul *= 1 + this.curseSum('enemySpeed');
     out.dmgMul *= (1 + this.curseSum('enemyDmg')) * this.difficulty.enemyDmg;
-    if (this.runMods.enemyScale !== 1) out.scale = (out.scale ?? 1) * this.runMods.enemyScale; // Giants mutator
     return out;
   }
 
@@ -955,7 +931,6 @@ export class Game implements HeroWorld {
     const parts: string[] = [];
     if (this.runMode !== 'standard') parts.push(MODE_BY_ID[this.runMode].name.toUpperCase());
     if (this.difficulty.id !== 'normal') parts.push(this.difficulty.name.toUpperCase());
-    if (this.runMods.heatTotal > 0) parts.push(`HEAT ${this.runMods.heatTotal}`);
     return parts.join(' · ');
   }
 
@@ -987,10 +962,7 @@ export class Game implements HeroWorld {
     return this.runEvents.fireRateMul;
   }
   get damageBuff(): number {
-    return this.runEvents.damageMul * this.runMods.damageMul;
-  }
-  get priceMul(): number {
-    return this.runMods.priceMul;
+    return this.runEvents.damageMul;
   }
   get dashCurse(): number {
     return 1 + this.curseSum('dashCd');
@@ -1061,7 +1033,6 @@ export class Game implements HeroWorld {
     const switched = this.screens.current !== before;
     if (this.paused && this.screens.current === 'none') this.paused = false;
     if (this.paused && input.padButtonPressed(9)) this.resume();
-    if (this.mode === 'shop') this.routeTick(dt); // co-op route vote timer (systems/runMods.ts)
     // Solo pauses the world; online the game keeps running behind the menu.
     const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop' || this.mode === 'title';
     if (this.mode === 'levelup' && !switched) {
@@ -1106,7 +1077,6 @@ export class Game implements HeroWorld {
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
     this.updateSkill(dt);
-    this.runModsStep(dt);
     lap('sim.heroes+skill');
 
     // Spatial hash first: weapons and enemies query it.

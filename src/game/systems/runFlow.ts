@@ -28,7 +28,7 @@ import { streaks } from '../streaks';
 import { CURSE_BY_ID } from '../../data/curses';
 import { RELIC_BY_ID } from '../../data/relics';
 import { WEAPON_COMBOS } from '../../data/weaponCombos';
-import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, isChallenge, isoWeek, today, weeklySeed, type DifficultyDef, type DifficultyId, type ModeId } from '../../data/modes';
+import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, type DifficultyId, type ModeId } from '../../data/modes';
 import { submitDaily } from '../highscores';
 import { boardId, leaderboardEnabled, submitGlobal } from '../../net/leaderboard';
 
@@ -119,7 +119,7 @@ export function startSolo(this: Game): void {
 /** Difficulty from settings, if unlocked (daily runs are always Normal). */
 export function pickDifficulty(this: Game): DifficultyDef {
   const d = DIFF_BY_ID[settings.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
-  if (isChallenge(this.runMode) || (d.unlock && !save.achievements.includes(d.unlock))) return DIFF_BY_ID.normal;
+  if (this.runMode === 'daily' || (d.unlock && !save.achievements.includes(d.unlock))) return DIFF_BY_ID.normal;
   return d;
 }
 
@@ -129,7 +129,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.role !== 'solo') this.runMode = 'standard';
   this.difficulty = fixed ? DIFF_BY_ID[fixed.difficulty as DifficultyId] ?? DIFF_BY_ID.normal : this.pickDifficulty();
   this.runDate = today();
-  this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : this.runMode === 'weekly' ? weeklySeed(isoWeek(this.runDate)) : randomSeed();
+  this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
   this.rng = new Rng(this.seed);
   this.stage = 1;
   this.score = this.kills = this.combo = this.maxCombo = 0;
@@ -141,7 +141,6 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.newAchievements = [];
   this.curses = [];
   this.runEvents.reset();
-  this.runModsStart(); // heat, Weekly mutators, routes (systems/runMods.ts)
   this.director.players = this.heroes.length;
   // Everyone keeps the loadout they picked; this machine's comes from its settings.
   if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, cheats.unlockAll ? undefined : unlockedLoadout());
@@ -158,7 +157,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.role === 'host') {
     for (const h of this.heroes) {
       if (!h.peerId) continue;
-      this.host!.send(h.peerId, { t: 'start', seed: this.seed, difficulty: this.difficulty.id, heat: this.runMods.heat, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
+      this.host!.send(h.peerId, { t: 'start', seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
     }
   }
   this.loadStage(1);
@@ -188,8 +187,7 @@ export function retry(this: Game): void {
 export function stageSub(this: Game, stage: number): string {
   const loop = Math.ceil(stage / LOOP_STAGES);
   const final = stage % LOOP_STAGES === 0 ? '<br>FINAL BOSS STAGE' : '';
-  const route = stage > 1 ? this.routeLine() : '';
-  return `${biomeForStage(stage).name.toUpperCase()}${loop > 1 ? ` · LOOP ${loop}` : ''}<br>SURVIVE ${Math.round(this.director.duration / 60)} MINUTES${final}${route ? `<br>${route}` : ''}`;
+  return `${biomeForStage(stage).name.toUpperCase()}${loop > 1 ? ` · LOOP ${loop}` : ''}<br>SURVIVE ${Math.round(this.director.duration / 60)} MINUTES${final}`;
 }
 
 export function loadStage(this: Game, stage: number): void {
@@ -201,7 +199,6 @@ export function loadStage(this: Game, stage: number): void {
     h.player.teleport(s.x, s.z);
     if (h.player.dead && !h.left) this.reviveHero(h, 0.5, false);
   });
-  this.runModsStage();
   this.director.start(stage);
   this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
   this.runEvents.startStage(this.director.duration);
@@ -303,7 +300,6 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   }
   const rank = submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
   if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
-  this.runModsBank(sum);
   this.screens.showGameOver(sum, rank, loadHighScores(), this.role === 'client');
 }
 
@@ -342,7 +338,6 @@ export function checkAchievements(this: Game): void {
     ['boss_rush', L.bosses + this.bossesRun >= 5],
     ['elite_slayer', L.elites + this.elitesRun >= 25],
     ['victory', this.victories > 0 || this.stage > LOOP_STAGES],
-    ...this.heatWants(), // heat milestones: skins only
     ...this.heroMechAchievements(),
   ];
   for (const [id, ok] of want) {

@@ -38,9 +38,6 @@ import { banishTuning } from '../game/banish';
 import { cardNumTuning } from '../game/cardNumbers';
 import { previewTuning } from '../game/shopPreview';
 import { trainingTuning } from '../game/training';
-import { routeTuning } from '../data/routes';
-import { heatTuning } from '../data/heat';
-import { mutatorTuning } from '../data/mutators';
 import { addHudFolder } from './debugHud';
 import { addFixesFolder } from './fixesPanel';
 
@@ -179,12 +176,6 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   dir.add(directorTuning, 'coopEase', 0.5, 1.2, 0.05).name('Co-op ease');
   dir.add(scoreTuning, 'comboWindow', 0.5, 6, 0.1);
   dir.add(specialTuning, 'cooldown', 3, 30, 0.5).name('Special cooldown (s)');
-
-  // Routes, heat and Weekly mutators (src/data/routes.ts, heat.ts, mutators.ts).
-  const rh = gui.addFolder('Routes, heat & mutators').close();
-  for (const k of Object.keys(routeTuning) as (keyof typeof routeTuning)[]) rh.add(routeTuning, k).name(`route ${k}`);
-  for (const k of Object.keys(heatTuning) as (keyof typeof heatTuning)[]) rh.add(heatTuning, k).name(`heat ${k}`);
-  for (const k of Object.keys(mutatorTuning) as (keyof typeof mutatorTuning)[]) rh.add(mutatorTuning, k).name(`mut ${k}`);
 
   // Arena toys, hazards and objectives (src/game/interactives.ts, hazards.ts, objectives.ts).
   const ar = gui.addFolder('Arena').close();

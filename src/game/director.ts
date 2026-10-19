@@ -64,8 +64,6 @@ export class Director {
   countMul = 1;
   /** Team level, set by the game every step; summons Reapers at directorTuning.reaperLevel. */
   teamLevel = 1;
-  /** Route, heat and mutator knobs (src/game/systems/runMods.ts), set before start(): seconds between elites x `elite`, boss life x `bossHp`. */
-  mods = { elite: 1, bossHp: 1 };
   /** Current arena's biome id (set by the game): biome-native enemies only spawn at home. */
   biome = '';
   time = 0;
@@ -83,7 +81,7 @@ export class Director {
     this.time = 0;
     this.bossSpawned = false;
     this.spawnBudget = 0;
-    this.nextElite = directorTuning.eliteEvery * this.mods.elite;
+    this.nextElite = directorTuning.eliteEvery;
     this.nextRing = directorTuning.ringEvery * 0.6;
     this.nextReaper = directorTuning.reaperDelay;
     this.goldenAt = -1;
@@ -124,7 +122,7 @@ export class Director {
   /** Bosses scale per stage only (not by minute), so they stay beatable. */
   get bossHpMul(): number {
     const loop = Math.ceil(this.stage / 4);
-    return bossTuning.hp * this.mods.bossHp * this.curve(directorTuning.bossPerStage, directorTuning.bossPerStage2) * Math.pow(directorTuning.bossLoopHp, loop - 1) * (1 + 0.6 * (this.players - 1)) * this.coop;
+    return bossTuning.hp * this.curve(directorTuning.bossPerStage, directorTuning.bossPerStage2) * Math.pow(directorTuning.bossLoopHp, loop - 1) * (1 + 0.6 * (this.players - 1)) * this.coop;
   }
 
   get dmgMul(): number {
@@ -182,7 +180,7 @@ export class Director {
     }
 
     if (this.time >= this.nextElite && !this.bossSpawned) {
-      this.nextElite += t.eliteEvery * this.mods.elite;
+      this.nextElite += t.eliteEvery;
       const choices = this.pool().filter((d) => d.behavior !== 'spawner' && d.id !== 'swarmer');
       this.queue.push({ kind: 'enemy', def: this.vet(rng.pick(choices.length ? choices : this.pool()), rng), elite: true });
     }

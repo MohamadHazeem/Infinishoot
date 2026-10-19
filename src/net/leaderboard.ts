@@ -3,8 +3,6 @@
  * was made with VITE_LEADERBOARD_URL set; otherwise every call is a no-op and
  * the game stays fully offline.
  */
-import { isoWeek } from '../data/modes';
-
 export interface GlobalScore {
   name: string;
   score: number;
@@ -18,9 +16,8 @@ const BASE = (import.meta.env?.VITE_LEADERBOARD_URL as string | undefined)?.repl
 
 export const leaderboardEnabled = BASE !== '';
 
-/** Board id for a run: "<mode>-<difficulty>", "daily-<date>" or "weekly-<iso week>". */
+/** Board id for a run: "<mode>-<difficulty>" or "daily-<date>". */
 export function boardId(mode: string, difficulty: string, date: string): string {
-  if (mode === 'weekly') return `weekly-${isoWeek(date)}`;
   return mode === 'daily' ? `daily-${date}` : `${mode}-${difficulty}`;
 }
 

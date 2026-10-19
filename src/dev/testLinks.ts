@@ -13,10 +13,6 @@ import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
 import { shopLinks } from './shopLinks';
 import { onboardingLinks } from './onboardingLinks';
-import { runModsTest, saveHeatPick } from '../game/runMods';
-import { cleanHeat } from '../data/heat';
-import { isMutatorId } from '../data/mutators';
-import { isRouteId, type RouteId } from '../data/routes';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
@@ -65,13 +61,6 @@ import { allBiomeKeys, biomeForce } from '../data/biomes';
  *     &dmgnums=mine|off, &charge=toggle, &noweather (settings for this session)
  *
  * Onboarding (src/dev/onboardingLinks.ts): &training=4, &trainingdone, &tip=boss, &discover=all, &recap, &offer, &screen=codex
- * Routes, heat and Weekly mutators (src/game/systems/runMods.ts):
- *   ?test&routes                       the route vote opens now (after-shop flow)
- *   ?test&route=treasure&stage=2        play a stage on a route (treasure, elite, event, shop, cursed)
- *   ?test&heat=hp:3,volatile:2         run with these heat ranks (ids in src/data/heat.ts)
- *   ?test&heatpick=hp:3&screen=heat    store a heat pick (as if chosen on the HEAT screen) and show it
- *   ?test&mode=weekly&mutators=giants,mitosis   force mutators (src/data/mutators.ts)
- *   ?test&screen=modes / &screen=heat   the MODE screen (heat button, Weekly) / the HEAT screen
  *
  * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
  *
@@ -117,11 +106,6 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const obj = q.get('objective');
   game.toys.force = OBJECTIVE_KINDS.includes(obj as ObjectiveKind) ? (obj as ObjectiveKind) : null;
   weatherForce.mode = q.has('rain') ? 'rain' : q.has('dry') ? 'clear' : null;
-  // Routes, heat and mutators (src/game/systems/runMods.ts): `heat=hp:2,elites:1`, `mutators=giants,glass`, `route=treasure`.
-  runModsTest.heat = q.get('heat') ? cleanHeat(Object.fromEntries(list('heat').map(pair))) : null;
-  runModsTest.mutators = q.get('mutators') ? list('mutators').filter(isMutatorId) : null;
-  runModsTest.route = isRouteId(q.get('route')) ? (q.get('route') as RouteId) : null;
-  if (q.get('heatpick')) saveHeatPick(cleanHeat(Object.fromEntries(list('heatpick').map(pair)))); // stored like a MODE-screen pick
   // &biome=factory or &biome=meadow:autumn: pin the stage's biome (or remix); see BIOME_ORDER.
   const bk = q.get('biome');
   biomeForce.key = bk && allBiomeKeys().includes(bk) ? bk : null;
@@ -167,22 +151,6 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
   animLinks(game, q);
-  // &routes: the post-shop route vote opens now (as if the boss fell and the shop closed).
-  if (q.has('routes')) {
-    game.mode = 'shop';
-    for (const x of game.heroes) x.shopDone = true;
-    game.closeShop();
-  }
-  // &routevote: how a co-op route vote looks mid-vote (screenshots only; nobody can vote on it).
-  if (q.has('routevote')) {
-    game.runUi.showRoutes({
-      stage: 4, biome: 'Magma Isle', final: true, mine: 0, left: 11, coop: true,
-      cards: [
-        { id: 'treasure', voters: [{ name: 'You', color: '#41a6f6' }, { name: 'Bo', color: '#ef7d57' }] },
-        { id: 'event', voters: [{ name: 'Kai', color: '#a7f070' }] },
-      ],
-    });
-  }
   hudLinks(game, q);
   contentLinks(game, q);
   // &screen=settings: open a menu screen on top (for screenshots of menus).

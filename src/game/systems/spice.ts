@@ -22,7 +22,7 @@ import { STAGE_EVENTS, type EventId } from '../../data/stageEvents';
 export function curseSum(this: Game, k: 'enemyHp' | 'enemySpeed' | 'enemyCount' | 'enemyDmg' | 'dmgTaken' | 'dashCd' | 'score'): number {
   let n = 0;
   for (const id of this.curses) n += (CURSE_BY_ID[id]?.[k as keyof CurseDef] as number | undefined) ?? 0;
-  return n + this.runMods.sum(k); // heat and Weekly mutators add to the same sums
+  return n;
 }
 
 /** Pause screen: evolution recipes for owned weapons and the live damage chart. */
@@ -64,7 +64,7 @@ export function takeCurse(this: Game, h: Hero): string {
 export function grantRelics(this: Game): void {
   for (const h of this.heroes) {
     if (h.left) continue;
-    const r = rollRelic(h.relics, h.stats.luck + this.runMods.relicLuck, () => this.rng.next());
+    const r = rollRelic(h.relics, h.stats.luck, () => this.rng.next());
     if (!r) continue;
     h.relics.push(r.id);
     h.recomputeStats();
@@ -156,7 +156,7 @@ export function stageClear(this: Game): void {
   for (const h of this.heroes) {
     if (h.left) continue;
     // Gold: flat reward plus interest on what you're holding (capped).
-    h.gold += economyTuning.clearGold + h.interest + this.runMods.clearGold;
+    h.gold += economyTuning.clearGold + h.interest;
     h.synergy.stageClear();
     if (h.player.dead) this.reviveHero(h, 0.3, false);
     h.player.heal(h.player.maxHp * 0.3);
@@ -213,7 +213,6 @@ export function closeShop(this: Game): void {
     return;
   }
   if (this.pvp?.phase === 'stage') this.pvpStageDone();
-  else if (this.offerRoutes()) return; // route vote first; it calls closeShop() again once decided (systems/runMods.ts)
   else if (this.runMode === 'endless') this.endlessNextWave();
   else this.openPortal();
 }
@@ -221,7 +220,6 @@ export function closeShop(this: Game): void {
 /** Endless: no portal; the next, harder wave starts right here. */
 export function endlessNextWave(this: Game): void {
   this.stage++;
-  this.runModsStage();
   this.director.start(this.stage);
   this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
   this.runEvents.startStage(this.director.duration);
@@ -252,8 +250,7 @@ export function openPortal(this: Game): void {
   const spot = this.portalSpot(p.x, p.z);
   this.portal.open(spot.x, spot.z);
   this.vfx.ring(this.portal.x, this.portal.z, 1, 6, '#ff3df0', 0.5);
-  const route = this.routeLine();
-  this.vfx.banner('ENTER THE PORTAL', `STAGE ${this.stage + 1} AWAITS${route ? `<br>${route}` : ''}`, 1.6);
+  this.vfx.banner('ENTER THE PORTAL', `STAGE ${this.stage + 1} AWAITS`, 1.6);
   this.mode = 'portal';
   this.modeT = 0;
 }

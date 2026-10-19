@@ -417,8 +417,6 @@ export interface SpawnOpts {
   /** Elite modifier (only used with `elite`). */
   eliteMod?: EliteModId;
   instant?: boolean;
-  /** Size x this (Giants mutator); bosses ignore it. */
-  scale?: number;
 }
 
 /** Simulation state for one enemy. Pure data; drawn by `Enemies` via instancing. */
@@ -541,7 +539,7 @@ export class Enemy {
     this.z = this.pz = z;
     this.vx = this.vz = this.kx = this.kz = 0;
     this.elite = !!o.elite;
-    this.scale = (this.elite ? 1.6 : 1) * (this.def.boss ? 1 : (o.scale ?? 1));
+    this.scale = this.elite ? 1.6 : 1;
     this.radius = this.def.radius * this.scale;
     this.hp = this.maxHp = Math.round(this.def.hp * (o.hpMul ?? 1) * (this.elite ? 10 : 1));
     this.speedMul = (o.speedMul ?? 1) * (this.elite ? eliteTuning.speed : 1);

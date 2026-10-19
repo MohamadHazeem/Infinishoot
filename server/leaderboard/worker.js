@@ -11,7 +11,7 @@
 
 const KEEP = 100;
 const SHOW = 20;
-const BOARD_RE = /^(standard|endless|bossrush)-(easy|normal|hard|nightmare)$|^daily-\d{4}-\d{2}-\d{2}$|^weekly-\d{4}-W\d{2}$/;
+const BOARD_RE = /^(standard|endless|bossrush)-(easy|normal|hard|nightmare)$|^daily-\d{4}-\d{2}-\d{2}$/;
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
