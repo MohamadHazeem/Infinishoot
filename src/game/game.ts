@@ -1,4 +1,5 @@
 import * as Mods2Sys from './systems/mods2';
+import { accessibilityInput, assistAim } from './systems/aimAssist';
 import { metaSkin } from '../data/codex';
 import { MetaRun } from './systems/meta';
 import * as THREE from 'three';
@@ -1199,6 +1200,7 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    accessibilityInput(this.input, this.isCombatMode && !this.paused && this.screens.current === 'none' && !this.photo?.active, dt, this.stage, this.hero.player.dead);
     if (this.photo?.active) {
       this.photo.update(dt);
       this.input.endStep();
@@ -1438,6 +1440,7 @@ export class Game implements HeroWorld {
           else if (input.move.x !== 0 || input.move.y !== 0) p.setAimDir(input.move.x, input.move.y);
         } else if (this.mouseAimPoint()) p.setAimPoint(this.aimHit.x, this.aimHit.z);
       }
+      if (control) assistAim.call(this, h, input);
       const wantDash =
         control &&
         (input.actionPressed('dash') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));

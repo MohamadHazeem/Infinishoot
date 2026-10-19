@@ -1,3 +1,4 @@
+import type { Action } from './keybinds';
 import { applyDeadzone, type Device, type Input, type Vec2, type VirtualPad } from './input';
 
 /**
@@ -15,6 +16,8 @@ export type PadSource = () => ArrayLike<Gamepad | null>;
 export const browserPads: PadSource = () => (typeof navigator !== 'undefined' && navigator.getGamepads ? navigator.getGamepads() : []);
 
 export class PadInput {
+  private accessiblePresses = new Set<Action>();
+  pressAction(a: Action): void { this.accessiblePresses.add(a); }
   readonly device: Device = 'pad';
   readonly mouse = { x: 0, y: 0, ndcX: 0, ndcY: 0, inside: false };
   readonly move: Vec2 = { x: 0, y: 0 };
@@ -35,6 +38,7 @@ export class PadInput {
 
   /** Read the pad (once per simulation step). Presses are edges since the last poll. */
   poll(): void {
+    this.accessiblePresses.clear();
     this.pressed.clear();
     const pad = this.source()[this.index];
     this.connected = !!pad && pad.connected !== false;
@@ -73,9 +77,11 @@ export class PadInput {
   keyPressed(): boolean {
     return false;
   }
-  actionPressed(): boolean {
-    return false;
+  actionPressed(a: Action): boolean {
+    return this.accessiblePresses.has(a);
   }
+  consumeAction(a: Action): void { this.accessiblePresses.delete(a); }
+  consumePad(i: number): void { this.pressed.delete(i); }
   actionDown(): boolean {
     return false;
   }
@@ -99,6 +105,7 @@ export class PadInput {
   }
 
   endStep(): void {
+    this.accessiblePresses.clear();
     this.pressed.clear();
   }
 

@@ -1,3 +1,5 @@
+import { applyColorblind, type ColorblindMode } from '../render/colorblind';
+import { applyTextScale } from '../ui/settingsScreen';
 import { spatialSettings } from '../audio/spatial';
 import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
@@ -106,11 +108,20 @@ export interface Settings {
   crowd: boolean;
   /** RADIO DJ: the radio host between stages (src/audio/radio.ts). */
   radioDj: boolean;
+  /** Local display correction, independent of the legacy bullet palette. */
+  colorblindMode: ColorblindMode;
+  textScale: number;
+  reduceScreenEffects: boolean;
+  dashRunMode: 'hold' | 'toggle';
+  rewindMode: 'hold' | 'toggle';
+  teamMoveMode: 'hold' | 'toggle';
+  aimAssist: boolean;
+  mouseAimAssist: boolean;
 }
 
 const KEY = 'settings.v1';
 
-export const settings: Settings = loadJson<Settings>(KEY, {
+export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   volume: 0.6,
   sfxVolume: 1,
   musicVolume: 0.7,
@@ -166,7 +177,16 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   lobbyPublic: false,
   crowd: true,
   radioDj: true,
-});
+  colorblindMode: 'off',
+  textScale: 100,
+  reduceScreenEffects: false,
+  dashRunMode: 'hold',
+  rewindMode: 'toggle',
+  teamMoveMode: 'toggle',
+  aimAssist: true,
+  mouseAimAssist: false,
+};
+export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS, loadout: { ...DEFAULT_LOADOUT } });
 settings.damageNumbers ??= 'auto';
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -201,7 +221,7 @@ export function applyQualityLevel(level: number, auto: boolean): void {
     window.dispatchEvent(new Event('resize'));
   }
   fxQuality.ambience = q.ambience;
-  streaks.enabled = q.streaks;
+  streaks.enabled = q.streaks && !settings.reduceScreenEffects;
 }
 
 /** Auto quality: feed every rendered frame's time while playing; steps quality to hold 60 fps. */
@@ -238,13 +258,15 @@ export function applySettings(): void {
   crowdSettings.enabled = settings.crowd !== false;
   radioSettings.enabled = settings.radioDj !== false;
   applyRetroStrength(settings.retro);
-  juiceTuning.shakeScale = settings.shake;
+  juiceTuning.shakeScale = settings.reduceScreenEffects ? 0 : settings.shake;
   postSettings.glow = settings.glow;
   postSettings.crt = settings.crt ? 1 : 0;
   access.colorblind = settings.colorblind;
-  access.reduceFlash = settings.reduceFlash;
+  access.reduceFlash = settings.reduceFlash || settings.reduceScreenEffects;
   weatherSettings.enabled = settings.weather;
-  document.body.classList.toggle('reduce-flash', settings.reduceFlash);
+  document.body.classList.toggle('reduce-flash', access.reduceFlash);
+  applyColorblind(settings.colorblindMode);
+  applyTextScale(settings.textScale);
   applyUiScale(settings.uiScale);
   const g = Number.isInteger(settings.graphics) && settings.graphics >= 0 && settings.graphics <= POTATO ? settings.graphics : AUTO;
   settings.graphics = g;

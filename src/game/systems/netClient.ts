@@ -1,3 +1,4 @@
+import { assistAim } from './aimAssist';
 import { applyMetaSnapshot, MetaRun } from './meta';
 /**
  * Online, client side: messages from the host and applying snapshots.
@@ -207,6 +208,7 @@ export function clientUpdate(this: Game, dt: number): void {
       else if (input.move.x !== 0 || input.move.y !== 0) p.setAimDir(input.move.x, input.move.y);
     } else if (this.mouseAimPoint()) p.setAimPoint(this.aimHit.x, this.aimHit.z);
   }
+  if (control) assistAim.call(this, h, input);
   const wantDash =
     control &&
     (input.actionPressed('dash') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));

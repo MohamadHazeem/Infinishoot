@@ -71,6 +71,8 @@ async function openPage(name) {
   if (process.env.COOP_LOW) await ctx.addInitScript(() => localStorage.setItem('infinishoot.settings.v1', JSON.stringify({ graphics: 0 })));
   const page = await ctx.newPage();
   page.setDefaultTimeout(PAGE_TIMEOUT);
+  // Large parallel builds can saturate the dev server before the game has loaded.
+  page.setDefaultNavigationTimeout(Number(process.env.COOP_LOAD_TIMEOUT) || 30000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(`${e.message}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}`));
   page.on('console', (m) => {

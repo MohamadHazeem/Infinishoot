@@ -1,3 +1,4 @@
+import { SettingsScreen } from './settingsScreen';
 import { META_SCREENS, metaScreenHtml, renderMeta, metaAction, applyMetaTheme, type MetaScreen } from './metaScreens';
 import { weeklyChallenge } from '../data/weekly';
 import type { Input } from '../core/input';
@@ -39,7 +40,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard';
+export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly';
 
@@ -170,19 +171,6 @@ export interface RunSummary {
   style?: string;
 }
 
-/** Settings switched by ON/OFF buttons. */
-/** Sliders with `data-labels` show their value's name (e.g. QUALITY: AUTO) in the label's `.set-val`. */
-function rangeLabel(inp: HTMLInputElement): void {
-  const names = inp.dataset.labels?.split(',');
-  const out = inp.closest('label')?.querySelector('.set-val');
-  if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
-  else if (inp.dataset.unit && out) out.textContent = `${inp.value}${inp.dataset.unit}`;
-}
-
-type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'captions' | 'soundArrows' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops' | 'deathReplay' | 'crowd' | 'radioDj';
-/** Settings switched by buttons that cycle through `data-opts` (DAMAGE NUMBERS: ALL / MINE / OFF). */
-type CycleKey = 'damageNumbers' | 'chargeMode' | 'cinematics';
-
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
   const s = SKINS.find((x) => x.id === id);
@@ -264,6 +252,7 @@ export class Screens {
   private els = {} as Record<Named, HTMLElement>;
   private navs = {} as Record<Named, MenuNav>;
   private settingsReturn: ScreenName = 'title';
+  readonly settingsScreen: SettingsScreen;
   private wipeArmed = false;
   /** Gold last shown in the shop, for the +/- popups. */
   private shopGold = -1;
@@ -328,53 +317,6 @@ export class Screens {
     <button data-nav data-act="quit">QUIT RUN</button>
   </div>
   <div class="build"></div>
-</div>
-<div id="scr-settings" class="screen dim" hidden>
-  <h1>SETTINGS</h1>
-  <div class="menu settings">
-    <label>VOLUME <input data-nav type="range" min="0" max="1" step="0.1" data-set="volume"></label>
-    <label>MUSIC <input data-nav type="range" min="0" max="1" step="0.1" data-set="musicVolume"></label>
-    <label>EFFECTS <input data-nav type="range" min="0" max="1" step="0.1" data-set="sfxVolume"></label>
-    <label>AMBIENCE <input data-nav type="range" min="0" max="1" step="0.1" data-set="ambienceVolume"></label>
-    <button data-nav data-toggle="interactiveMusic">WEAPON MUSIC LAYERS <b></b></button>
-    <button data-nav data-toggle="adaptiveSilence">DRAMATIC MUSIC DIPS <b></b></button>
-    <button data-nav data-toggle="lowHealthAudio">LOW HEALTH AUDIO <b></b></button>
-    <button data-nav data-toggle="headphones3d">HEADPHONES 3D AUDIO <b></b></button>
-    <button data-nav data-toggle="announcer">ANNOUNCER <b></b></button>
-    <button data-nav data-toggle="heroVoices">HERO VOICES <b></b></button>
-    <label>VOICE <input data-nav type="range" min="0" max="1" step="0.1" data-set="voiceVolume"></label>
-    <button data-nav data-toggle="captions">CAPTIONS <b></b></button>
-    <button data-nav data-toggle="soundArrows">SOUND ARROWS <b></b></button>
-    <button data-nav data-toggle="crowd">CROWD <b></b></button>
-    <button data-nav data-toggle="radioDj">RADIO DJ <b></b></button>
-    <label>MENU SOUNDS <input data-nav type="range" min="0" max="1" step="0.1" data-set="uiVolume"></label>
-    <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
-    <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>
-    <label>GLOW <input data-nav type="range" min="0" max="1" step="0.1" data-set="glow"></label>
-    <label><span>QUALITY <b class="set-val"></b></span><input data-nav type="range" min="0" max="4" step="1" data-set="graphics" data-labels="POTATO,LOW,MEDIUM,HIGH,AUTO" data-values="4,0,1,2,3"></label>
-    <button data-nav data-toggle="crt">CRT FILTER <b></b></button>
-    <button data-nav data-toggle="distortion">SHOCKWAVES <b></b></button>
-    <button data-nav data-toggle="nightStages">NIGHT STAGES <b></b></button>
-    <button data-nav data-toggle="weather">WEATHER <b></b></button>
-    <button data-nav data-toggle="rumble">CONTROLLER RUMBLE <b></b></button>
-    <button data-nav data-toggle="colorblind">COLOUR-BLIND BULLETS <b></b></button>
-    <button data-nav data-toggle="reduceFlash">REDUCE FLASHING <b></b></button>
-    <button data-nav data-toggle="dynamicCamera">DYNAMIC CAMERA <b></b></button>
-    <button data-nav data-toggle="bossIntros">BOSS INTROS <b></b></button>
-    <button data-nav data-toggle="slowMo">SKILL SLOW-MO <b></b></button>
-    <button data-nav data-toggle="deathReplay">DEATH REPLAY <b></b></button>
-    <button data-nav data-cycle="cinematics" data-opts="full,short,off">CINEMATICS <b></b></button>
-    <label><span>UI SCALE <b class="set-val"></b></span><input data-nav type="range" min="75" max="150" step="25" data-set="uiScale" data-unit="%"></label>
-    <button data-nav data-cycle="damageNumbers" data-opts="auto,all,mine,off">DAMAGE NUMBERS <b></b></button>
-    <button data-nav data-cycle="chargeMode" data-opts="hold,toggle">CHARGE MODE <b></b></button>
-    <button data-nav data-toggle="petSounds">PET SOUNDS <b></b></button>
-    <button data-nav data-toggle="finishers">BOSS FINISHERS <b></b></button>
-    <button data-nav data-toggle="portraitPops">CHARACTER POP-INS <b></b></button>
-    <button data-nav data-act="controls">CONTROLS...</button>
-    <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
-    <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>
-    <button data-nav data-act="back">BACK</button>
-  </div>
 </div>
 <div id="scr-controls" class="screen dim" hidden>
   <h1>CONTROLS</h1>
@@ -557,12 +499,11 @@ export class Screens {
     );
     root.insertAdjacentHTML('beforeend', metaScreenHtml);
     applyMetaTheme();
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'relic', ...META_SCREENS, 'route'];
+    const names: Named[] = ['title', 'pause', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'relic', ...META_SCREENS, 'route'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
       pause: new MenuNav(this.els.pause, { onBack: () => actions.resume() }),
-      settings: new MenuNav(this.els.settings, { onBack: () => this.show(this.settingsReturn) }),
       levelup: new MenuNav(this.els.levelup, { horizontal: true }),
       shop: new MenuNav(this.els.shop, { columns: 4 }),
       relic: new MenuNav(this.els.relic, { horizontal: true }),
@@ -795,39 +736,14 @@ export class Screens {
       true,
     );
 
-    // Settings controls
-    const setEl = this.els.settings;
-    setEl.querySelectorAll<HTMLInputElement>('input[data-set]').forEach((inp) => {
-      inp.addEventListener('input', () => {
-        (settings as unknown as Record<string, number>)[inp.dataset.set!] = Number(inp.dataset.values?.split(',')[Number(inp.value)] ?? inp.value);
-        saveSettings();
-        rangeLabel(inp);
-      });
-    });
-    setEl.querySelectorAll<HTMLElement>('[data-toggle]').forEach((b) => {
-      b.addEventListener('click', () => {
-        const key = b.dataset.toggle as ToggleKey;
-        settings[key] = !settings[key];
-        saveSettings();
-        this.syncSettings();
-      });
-    });
-    setEl.querySelectorAll<HTMLElement>('[data-cycle]').forEach((b) => {
-      b.addEventListener('click', () => {
-        const opts = b.dataset.opts!.split(',');
-        const key = b.dataset.cycle as CycleKey;
-        (settings as unknown as Record<string, string>)[key] = opts[(opts.indexOf(settings[key]) + 1) % opts.length];
-        saveSettings();
-        this.syncSettings();
-      });
-    });
+    this.settingsScreen = new SettingsScreen(this, () => this.show(this.settingsReturn), () => this.show('controls'));
   }
 
   /** Register a screen built elsewhere (its element is added to the menu root). */
-  addScreen(name: ExtraScreen, el: HTMLElement, opts: ConstructorParameters<typeof MenuNav>[1] = {}): void {
+  addScreen(name: ExtraScreen, el: HTMLElement, opts: ConstructorParameters<typeof MenuNav>[1] | MenuNav = {}): void {
     el.hidden = true;
     this.root.appendChild(el);
-    this.extra[name] = { el, nav: new MenuNav(el, opts) };
+    this.extra[name] = { el, nav: opts instanceof MenuNav ? opts : new MenuNav(el, opts) };
   }
 
   private nav(name: Exclude<ScreenName, 'none'>): MenuNav {
@@ -843,7 +759,7 @@ export class Screens {
     // Hide in-game banners and toasts behind menus.
     this.root.classList.toggle('menu-open', name !== 'none');
     if (META_SCREENS.includes(name as MetaScreen)) renderMeta(this.els[name as MetaScreen], name as MetaScreen);
-    if (name === 'settings') this.syncSettings();
+    if (name === 'settings') this.settingsScreen.open();
     if (name === 'title') this.renderProgress();
     if (name === 'unlocks') this.renderUnlocks();
     if (name === 'jukebox') this.renderJukebox();
@@ -858,8 +774,13 @@ export class Screens {
       this.msg('');
       this.els.savedata.querySelector<HTMLElement>('[data-act=wipe]')!.textContent = 'RESET SAVE';
     }
+    if (name !== 'none') {
+      const el = this.extra[name as ExtraScreen]?.el ?? this.els[name as Named];
+      el.setAttribute('role', 'region');
+      el.setAttribute('aria-label', el.querySelector('h1')?.textContent?.trim() || name);
+    }
     this.onShow?.(name);
-    if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'levelup' ? 1 : 0));
+    if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'settings' ? this.settingsScreen.selectedTab : name === 'levelup' ? 1 : 0));
   }
 
   /** Route map between stages (src/ui/routeMap.ts); `statusOnly` just refreshes the countdown. */
@@ -873,7 +794,8 @@ export class Screens {
   }
 
   update(input: Input, dt: number): void {
-    if (this.current !== 'none') this.nav(this.current).update(input, dt);
+    if (this.current === 'settings') this.settingsScreen.update(input, dt);
+    else if (this.current !== 'none') this.nav(this.current).update(input, dt);
     this.tickReels(dt);
     this.tickLock();
     if (this.current === 'shop' && this.shopKey() !== this.pvKey) {
@@ -1012,24 +934,6 @@ export class Screens {
     this.els.wait.querySelector('.note')!.textContent = note;
     this.els.wait.querySelector('.who')!.innerHTML = who.map((n) => `<div class="lobby-player"><span class="dot"></span>${n}</div>`).join('');
     this.show('wait');
-  }
-
-  // ---------------------------------------------------------------- settings
-
-  private syncSettings(): void {
-    const el = this.els.settings;
-    el.querySelectorAll<HTMLInputElement>('input[data-set]').forEach((inp) => {
-      inp.value = String((settings as unknown as Record<string, number>)[inp.dataset.set!]);
-      if (inp.dataset.values) inp.value = String(Math.max(0, inp.dataset.values.split(',').indexOf(inp.value)));
-      rangeLabel(inp);
-    });
-    el.querySelectorAll<HTMLElement>('[data-toggle]').forEach((b) => {
-      const on = settings[b.dataset.toggle as ToggleKey];
-      b.querySelector('b')!.textContent = on ? 'ON' : 'OFF';
-    });
-    el.querySelectorAll<HTMLElement>('[data-cycle]').forEach((b) => {
-      b.querySelector('b')!.textContent = String(settings[b.dataset.cycle as CycleKey]).toUpperCase();
-    });
   }
 
   // ---------------------------------------------------------------- title / scores

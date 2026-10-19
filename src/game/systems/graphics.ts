@@ -353,7 +353,7 @@ function updateAnime(g: Game, st: GfxState, frameDt: number, frozen: boolean): v
       st.speedZ = p.vel.z / l;
     }
   }
-  if (!on || st.speedK <= 0) sp.x = 0;
+  if (!on || st.speedK <= 0 || settings.reduceScreenEffects) sp.x = 0;
   else {
     // World +z points down the screen: uv y is up.
     sp.set(st.speedK * A.speed * (access.reduceFlash ? 0.5 : 1), st.speedX, -st.speedZ, Math.floor(st.frame / 3) % 97);

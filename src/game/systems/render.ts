@@ -23,7 +23,7 @@ import { BULLET_Y } from '../bullets';
 import { cameraTuning } from '../cameraRig';
 import { Hero } from '../hero';
 import { type Player } from '../player';
-import { settings } from '../settings';
+import { access, settings } from '../settings';
 import { ChargeShot } from '../weapons';
 import { bossTuning, omegaTuning } from '../enemies';
 import { streaks } from '../streaks';
@@ -215,7 +215,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   }
   this.enemies.renderWalls = this.arena.colliders;
   this.enemies.renderBounds = this.arena.halfSize;
-  this.enemies.familyReduceFlash = settings.reduceFlash || !!this.juice.noise?.calm;
+  this.enemies.familyReduceFlash = access.reduceFlash || !!this.juice.noise?.calm;
   this.enemies.familyColorblind = settings.colorblind;
   if (!held) this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
