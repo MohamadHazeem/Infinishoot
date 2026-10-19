@@ -1,5 +1,14 @@
 /** Enemy guide tips, by enemy id (shown once you've met the enemy). */
 export const ENEMY_TIPS: Record<string, string> = {
+  burrower: 'Follow the moving dirt mound. Only explosions reach it underground. Step out of the red ring, then punish it above ground.',
+  v_burrower: 'An armoured Dirt Digger. Explosions still reach it underground; wait outside the ring for its punish window.',
+  v_mirror: 'An armoured Mirror Bot with the same readable scan. Break its copy attack to claim the bonus coins.',
+  burrower_big: 'A big digger with a wider eruption. Its longer ring warning gives you time to move; explosives hit through the dirt.',
+  mirror: 'Scans your left-click weapon, then copies a weaker purple version. Kill it while it copies for bonus coins.',
+  mirror_prism: 'Copies for longer and keeps farther away. The scan line locks before its attack; move sideways.',
+  swarmqueen: 'Screeches before a wall of swarmers splits the arena. Cut a gap, break the green eggs before they hatch, and chase her one retreat.',
+  swarm_egg: 'A fragile cluster that hatches four swarmers after six seconds. Destroy it first!',
+  swarm_wall: 'Holds the Queen’s wall for twelve seconds, then joins the chase. Shoot a gap through the line.',
   swarmer: 'Comes in clouds and rings. Keep moving and let area weapons do the work.',
   bopper: 'Flashes red, then lunges. Sidestep the lunge and it is open.',
   zippy: 'Fast and fragile. Pierce and chain weapons clean up packs.',
@@ -30,7 +39,7 @@ export const ENEMY_TIPS: Record<string, string> = {
 };
 
 /** Fallback names for biomes this build might not define yet. */
-const BIOME_NAMES: Record<string, string> = { meadow: 'Bright Meadow', dunes: 'Sunset Dunes', peaks: 'Frosty Peaks', magma: 'Magma Isle', factory: 'Toy Factory', skyruins: 'Sky Ruins' };
+const BIOME_NAMES: Record<string, string> = { meadow: 'Bright Meadow', dunes: 'Sunset Dunes', peaks: 'Frosty Peaks', magma: 'Magma Isle', neon: 'Neon City', factory: 'Toy Factory', sky: 'Sky Fortress' };
 
 /** Where a biome-native enemy lives, for the Enemy Guide ('' for everyone else). */
 export function enemyHome(biomes: string[] | undefined, name: (id: string) => string | undefined = () => undefined): string {

@@ -3,6 +3,7 @@
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `nearestEnemy = Combat.nearestEnemy;`.
  */
+import { familyCanHit } from './enemyFamilies';
 import type { Game } from '../game';
 import { CONVEYOR_SPEED, statusTuning } from '../game';
 import type { Tag } from '../../data/tags';
@@ -14,12 +15,13 @@ import { type DamageOpts } from '../weapons';
 import { SCAR_COLORS } from '../scars';
 import { damageNumberLabel } from '../../ui/damageNumbers';
 import { updateWorldHazards } from './worldHazards';
+import { impactCue } from '../../audio/voices';
 
 export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null {
   let best: Enemy | null = null;
   let bd = r * r;
   this.hash.query(x, z, r, (e) => {
-    if (!e.alive || e.hp <= 0 || (skip && skip(e))) return;
+    if (!e.targetable || e.hp <= 0 || (skip && skip(e))) return;
     const d = (e.x - x) ** 2 + (e.z - z) ** 2;
     if (d < bd) {
       bd = d;
@@ -45,6 +47,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
   if (e.roarT > 0) return 0; // bosses are invulnerable while they roar or make their entrance
   const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
+  if (!familyCanHit(e, tags.includes('explosive') || o.source === 'nuke')) return 0;
   const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
   const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
   // Stats first, then Mods left to right, then statuses and crit.
@@ -76,13 +79,13 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   const hz = o.hz ?? e.z;
   if (crit) {
     this.vfx.num(e.x, 1.9 * e.scale, e.z, `${amount}!`, 'crit', by.index);
-    this.vfx.sound('crit', e.x, e.z);
+    this.vfx.sound(impactCue(e.def.material, true, shielded), e.x, e.z); // crit + material (src/audio/voices.ts)
     this.vfx.star(hx, BULLET_Y, hz, 1.5, '#fff35c', 0.12);
   } else if (o.loud) {
     // Cosmetic labels travel through the existing number event on hosts and clients.
     const accent = shielded ? 'shield' : tags.includes('fire') ? 'fire' : tags.includes('shock') ? 'shock' : tags.includes('frost') ? 'frost' : undefined;
     this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, accent), 'hit', by.index);
-    this.vfx.sound(shielded ? 'hitMetal' : 'hit', e.x, e.z, this.pitch);
+    this.vfx.sound(impactCue(e.def.material, false, shielded), e.x, e.z, this.pitch);
     this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
   }
   // Heavy hits get a low thump under the hit sound.
@@ -105,22 +108,6 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (e.def.phases) this.bossHpGate(e); // boss phases: can't skip one or die early
   if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);
   return amount;
-}
-
-/** Sparky zaps the nearest enemy every 1.5 s. */
-export function updatePets(this: Game, dt: number): void {
-  for (const h of this.heroes) {
-    if (h.pet !== 'sparky' || h.left || h.player.dead || (h.sparkyT -= dt) > 0) continue;
-    h.sparkyT = 1.5;
-    const p = h.player;
-    const e = this.nearestEnemy(p.x, p.z, 9);
-    if (!e) continue;
-    this.damage(e, 10 + 3 * this.level, { source: 'pet', tags: ['shock'], canCrit: true, loud: true }, h);
-    this.vfx.star(e.x, 1, e.z, 1.3, '#fff35c', 0.12);
-    this.vfx.ring(e.x, e.z, 0.5, 2, '#fff35c', 0.2);
-    this.vfx.sound('w:zap', e.x, e.z);
-    h.petView?.zap();
-  }
 }
 
 /** Elite modifiers that act over time: vampiric regen and blinking teleports. */
@@ -227,6 +214,7 @@ export function updateBossBoom(this: Game, dt: number): void {
   const b = this.bossBoom;
   if (!b || (b.t -= dt) > 0) return;
   if (b.n > 0) {
+    if (b.n === 3) this.vfx.sound('bossFinisher', b.x, b.z);
     b.n--;
     b.t = 0.17;
     const a = this.rng.next() * Math.PI * 2;

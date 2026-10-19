@@ -13,7 +13,7 @@ const DEF_INDEX = new Map(DEF_IDS.map((id, i) => [id, i]));
 const STATES: EnemyState[] = ['spawning', 'move', 'windup', 'attack', 'recover'];
 const STATE_INDEX = new Map(STATES.map((s, i) => [s, i]));
 
-const ENEMY_BYTES = 22;
+const ENEMY_BYTES = 28; // six independent family bytes; boss-action bits remain unchanged
 const BULLET_BYTES = 14;
 const PICKUP_BYTES = 8;
 
@@ -57,6 +57,12 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setUint8(o + 20, Math.round(Math.max(0, Math.min(1, e.hp / (e.maxHp || 1))) * 255));
     // Elite modifier (bits 0-3: index + 1, 0 = none), AI bits (4-6: squad, rallied, guarded) and shield-up flag (bit 7).
     v.setUint8(o + 21, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | ((e.aiBits & 7) << 4) | (e.shield > 0 ? 0x80 : 0));
+    v.setUint8(o + 22, e.familyState ?? 0);
+    v.setUint8(o + 23, (e.copyKind ?? 0) | (e.copyFlash > 0 ? 0x80 : 0));
+    v.setUint8(o + 24, e.copyShots ?? 1);
+    v.setUint8(o + 25, Math.min(255, Math.round((e.copyRange ?? 14) * 10)));
+    v.setUint8(o + 26, Math.min(255, Math.round((e.copyArc ?? 0) * 80)));
+    v.setUint8(o + 27, Math.min(255, Math.round((e.copyWidth ?? 0.28) * 100)));
     o += ENEMY_BYTES;
   }
   return buf;
@@ -92,6 +98,13 @@ export interface EnemyRecord {
   hp01: number;
   /** Enemy AI bits (Enemy.aiBits): squad escort, rallied, sheltered by a Shield Bot. */
   ai: number;
+  familyState: number;
+  copyKind: number;
+  copyFlash: boolean;
+  copyShots: number;
+  copyRange: number;
+  copyArc: number;
+  copyWidth: number;
 }
 
 export function unpackEnemies(buf: NetBytes, each: (r: EnemyRecord) => void): void {
@@ -125,6 +138,13 @@ export function unpackEnemies(buf: NetBytes, each: (r: EnemyRecord) => void): vo
     r.targetX = v.getInt16(o + 16, true) / 100;
     r.targetZ = v.getInt16(o + 18, true) / 100;
     r.hp01 = v.getUint8(o + 20) / 255;
+    r.familyState = v.getUint8(o + 22);
+    r.copyKind = v.getUint8(o + 23) & 0x7f;
+    r.copyFlash = !!(v.getUint8(o + 23) & 0x80);
+    r.copyShots = v.getUint8(o + 24);
+    r.copyRange = v.getUint8(o + 25) / 10;
+    r.copyArc = v.getUint8(o + 26) / 80;
+    r.copyWidth = v.getUint8(o + 27) / 100;
     each(r);
   }
 }
@@ -132,7 +152,7 @@ export function unpackEnemies(buf: NetBytes, each: (r: EnemyRecord) => void): vo
 // ---------------------------------------------------------------- bullets
 
 // Unknown colours fall back to the first; keep in sync with weapon bullet colours.
-const BULLET_COLORS = ['#fff36b', '#ff7a2f', '#ff3df0', '#7df9ff', '#3dffb0', '#ffe9a8', '#ff5e3a', '#ffd23f', '#ffb627'];
+const BULLET_COLORS = ['#fff36b', '#ff7a2f', '#ff3df0', '#7df9ff', '#3dffb0', '#ffe9a8', '#ff5e3a', '#ffd23f', '#ffb627', '#b13eec', '#ffffff'];
 
 export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
   const buf = new ArrayBuffer(idx.length * BULLET_BYTES);

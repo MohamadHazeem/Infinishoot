@@ -59,10 +59,10 @@ const VOICE = process.env.ANNOUNCER_VOICE || 'pNInz6obpgDQGcFmaJgB'; // "Adam", 
 for (const v of VOICE_LINES) {
   if (!want(v.id) || (!force && existsSync(out + v.id + '.mp3'))) continue;
   process.stdout.write(`voice ${v.id} ... `);
-  const raw = await post(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE}?output_format=mp3_44100_128`, {
+  const raw = await post(`https://api.elevenlabs.io/v1/text-to-speech/${v.voice ?? VOICE}?output_format=mp3_44100_128`, {
     text: v.text,
     model_id: 'eleven_multilingual_v2',
-    voice_settings: { stability: 0.3, similarity_boost: 0.8, style: 0.8, use_speaker_boost: true },
+    voice_settings: { stability: v.stability ?? 0.3, similarity_boost: 0.8, style: 0.8, use_speaker_boost: true },
   });
   encode(raw, v.id, 64, false);
   made++;

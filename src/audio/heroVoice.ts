@@ -6,6 +6,8 @@
  */
 import { sfx } from './sfx';
 import { caption } from './captions';
+import { voiceGate } from './announcer';
+import { RECORDED_VOICES, speechBusy } from './voices';
 import { BARKS, compose, voiceProfile, voiceTuning, type BarkKind, type Utterance } from './voice';
 
 /** VOICE setting (the volume is audioSettings.voice). */
@@ -40,8 +42,12 @@ export class HeroVoice {
 
   /** Try to bark; returns the utterance if the moment passed every gate. */
   bark(kind: BarkKind, sp: Speaker, o: BarkOptions = {}): Utterance | null {
-    if (!voiceSettings.enabled) return null;
+    // Heroes with recorded barks speak through src/audio/voices.ts; this voice is for the rest.
+    if (!voiceSettings.enabled || RECORDED_VOICES.has(sp.heroId)) return null;
     const b = BARKS[kind];
+    // One voice channel for everyone: barks wait for boss lines and the announcer (src/audio/voices.ts).
+    if (speechBusy()) return null;
+    const channel = Math.min(5, 2 + b.priority);
     const now = this.clock();
     const key = sp.index + ':' + kind;
     if (now - (this.last.get(key) ?? -Infinity) < b.cooldown) return null;
@@ -53,6 +59,7 @@ export class HeroVoice {
     this.last.set(key, now);
     this.busy.set(sp.index, { until: now + u.length + voiceTuning.gap, priority: b.priority });
     this.any = now;
+    voiceGate.claim(channel, u.length, () => {});
     sfx.at(o.pan ?? 0, o.gain ?? 1);
     sfx.speak(u);
     sfx.at(0, 1);

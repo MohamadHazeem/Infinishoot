@@ -58,8 +58,6 @@ for (const k of allBiomeKeys()) {
 }
 const fac = createFieldArena(4242, biomeByKey('factory'), { conveyors: 3 });
 ok(fac.hazards.filter((h) => h.kind === 'crusher').length >= 3 && fac.conveyors.length >= 4 && fac.anim.length === 1, `factory: crushers (${fac.hazards.filter((h) => h.kind === 'crusher').length}), extra belts (${fac.conveyors.length}) and gears`);
-const sky = createFieldArena(4242, biomeByKey('skyruins'), { conveyors: 3 });
-ok(sky.conveyors.length >= 2 && sky.conveyors.every((c) => c.kind === 'wind' && c.speed! > 0) && sky.anim.length === 1, `sky ruins: wind lanes only (${sky.conveyors.length}) and floating islets`);
 // A remix keeps its biome's gameplay: same hazard kinds as the base at the same seed.
 const kinds = (k: string) => [...new Set(createFieldArena(99, biomeByKey(k), {}).hazards.map((h) => h.kind))].sort().join();
 ok(kinds('meadow:autumn') === kinds('meadow') && kinds('dunes:night') === kinds('dunes') && kinds('magma:ashen') === kinds('magma'), 'remixes keep the hazards');
@@ -78,12 +76,12 @@ A.setHeroes([A.makeHero(0, 'Host', unlockedWeapons()), A.makeHero(1, 'Guest', []
 A.startRun();
 flush();
 if (A.mode === 'shop') A.closeShop();
-A.loadStage(5);
+A.loadStage(6);
 flush();
 // Keep the team under its next level: a level-up waits for the fake guest's pick and would freeze the run.
 const step = (n: number) => { for (let i = 0; i < n; i++) { A.xp = 0; A.xpNext = 1e9; A.update(1 / 60); flush(); B.update(1 / 60); B.render(1, 1 / 60); flush(); } };
 step(10);
-ok(A.arenaStage === 5 && B.arenaStage === 5 && sig(A.arena) === sig(B.arena), 'host and client build the same Toy Factory arena on stage 5');
+ok(A.arenaStage === 6 && B.arenaStage === 6 && sig(A.arena) === sig(B.arena), 'host and client build the same Toy Factory arena on stage 6');
 // Crusher: an enemy parked on a pad is flattened at the slam; it counts as an environmental kill.
 const pad = A.arena.hazards.find((h) => h.kind === 'crusher')!;
 const def = (await import('../src/data/enemies')).ENEMIES.chonk;
@@ -110,21 +108,14 @@ A.render(1, 1 / 60);
 const before = [dressingOf(A), dressingOf(B)];
 ok(A.boss != null, 'boss spawned');
 if (A.boss) A.killEnemy(A.boss, 'buster', A.hero);
-for (let i = 0; i < 300; i++) {
+// The comic finisher (2.1 s), then the dressing lingers (1.5 s) and sinks (1.6 s).
+for (let i = 0; i < 420; i++) {
   step(1);
   A.render(1, 1 / 60);
 }
 const after = [dressingOf(A), dressingOf(B)];
 console.log('dressing', before, after);
 ok(!!before[0] && before[0] === before[1] && !after[0] && !after[1], 'boss dressing is built on host and client and cleaned up after the fight');
-// Sky Ruins: a hero standing in a wind lane gets pushed along.
-A.loadStage(6);
-flush();
-step(5);
-const lane = A.arena.conveyors[0];
-const g0 = { slip: 0, pushX: 0, pushZ: 0 };
-A.groundAt(lane.x, lane.z, g0);
-ok(Math.hypot(g0.pushX, g0.pushZ) > 0 && Math.abs(Math.hypot(g0.pushX, g0.pushZ) - lane.speed!) < 1e-6, 'wind lanes push at their own speed');
 cheats.god = false;
 A.leaveToTitle();
 B.leaveToTitle();

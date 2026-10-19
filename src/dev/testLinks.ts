@@ -1,3 +1,7 @@
+import { cleanHeat } from '../data/heat';
+import { save } from '../game/save';
+import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
+import { companionLinks } from './companionLinks';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
@@ -9,6 +13,7 @@ import { OBJECTIVE_KINDS, type ObjectiveKind } from '../game/objectives';
 import { weatherForce } from '../game/ambience';
 import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
+import { PickupType } from '../game/pickups';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
 import { shopLinks } from './shopLinks';
@@ -17,6 +22,12 @@ import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
+import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
+import type { PhotoMode } from '../ui/photoMode';
+import { charDebug } from '../game/systems/characters';
+import { portraits, type Expression } from '../ui/portraits';
+import { skyOverrides, skyTuning } from '../render/sky';
+import { SCAR_COLORS } from '../game/scars';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -47,13 +58,27 @@ import { allBiomeKeys, biomeForce } from '../data/biomes';
  *   ?test&stage=4&topple                topple the pillar nearest the hero
  *   ?test&stage=2&smash=2              stand by the nearest ruin wall/rock/tree and smash it after 2 s (Rex's cover break)
  *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
- *   ?test&biome=factory&day            pin the biome: meadow, dunes, peaks, magma, factory, skyruins,
+ *   ?test&biome=neon&day               pin the biome: meadow, dunes, peaks, magma, neon, factory, sky,
  *     or a remix: meadow:autumn, dunes:night, peaks:aurora, magma:ashen (src/data/biomes.ts)
  *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
+ *     Neon City / Sky Fortress: at=holo, at=vent, at=sign, at=flag, at=gap (a chasm)
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
  *   ?test&captions&arrows&spawn=sniper:2&spawnr=26&hurt=1   caption strip and sound arrows on (off-screen snipers)
+ *   ?test&stage=3&route                the route map opens now (choice for stage 4); &path=1,0 picks those roads first
+ *   ?test&stage=2&node=treasure        this stage plays as a route node (elite, shop, treasure, event, rest, hard)
+ *   ?test&encounter=altar              a route encounter right away (altar, gambler, idol, spring, dojo, shrine)
+ *   ?test&weapons=drones:6,lightning:6&fuse   a level-up with the FUSION card (`fuse=go` picks it: the fusion moment)
+ *   ?test&weapons=storm_drones&god&swarm=80     start with a fused weapon (any id in src/data/fusions.ts)
+ *   ?test&photo=2                     photo mode after 2 s (pauses first); with &photofilter=neon (normal, crt, sepia,
+ *     comic, neon, bw), &photoframe=film (none, snapshot, film, arcade, comic), &stickers=star@0.3,0.4;pow@0.7,0.3
+ *     (star, heart, bolt, crown, skull, pow, gg, wow, oneup), &nologo, &photocam=yaw,pitch,dist (0.6,40,18),
+ *     &photohide (hide the photo UI), &photosnap (save a PNG)
+ *   ?test&stage=2&bossnow&nointro&killboss=2&finat=0.7   boss finisher, pinned 0.7 s in (screenshots); `nofinish` turns finishers off, `calm` = reduce flashing
+ *   ?test&face=shocked&pops            force the HUD face's expression; pop in the announcer, the boss and a ping
+ *   ?test&tod=0.9&scars=30             sky lane: time of day (0 midday .. 1 sunset), 30 craters/scorch/frost
+ *     around the hero after 0.5 s (`scars=30:crater` for one kind), `clouds=0.6` cloud shadow strength
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
@@ -106,6 +131,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const obj = q.get('objective');
   game.toys.force = OBJECTIVE_KINDS.includes(obj as ObjectiveKind) ? (obj as ObjectiveKind) : null;
   weatherForce.mode = q.has('rain') ? 'rain' : q.has('dry') ? 'clear' : null;
+  if (q.has('heat')) save.meta.heat = cleanHeat(list('heat'));
   // &biome=factory or &biome=meadow:autumn: pin the stage's biome (or remix); see BIOME_ORDER.
   const bk = q.get('biome');
   biomeForce.key = bk && allBiomeKeys().includes(bk) ? bk : null;
@@ -126,7 +152,22 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   }
   h.recomputeStats();
   h.loadoutDirty = true;
-  if (q.has('bench')) game.xpNext = 1e12; // no level-up menus: the load stays steady
+  // Weapon fusion: open a level-up (its first card is the fusion) and, with fuse=go, take it.
+  // Deferred like `ultgo`: the stage intro would close a menu opened right away.
+  if (q.has('fuse')) {
+    setTimeout(() => {
+      h.pendingLevels = Math.max(1, h.pendingLevels);
+      game.openLevelUp();
+      const i = h.offers.findIndex((o) => o.kind === 'fusion');
+      if (q.get('fuse') === 'go' && i >= 0) game.heroAction(h, 'pick', i, 1);
+    }, Number(q.get('fusein') ?? 1) * 1000);
+  }
+  if (q.has('bench')) {
+    game.xpNext = 1e12; // no level-up menus: the load stays steady
+    // Special/elite stress scenes drop chests too; those must not pause the benchmark for cards.
+    const collect = game.collect;
+    game.collect = (hero, type, value) => { if (type !== PickupType.Chest) collect.call(game, hero, type, value); };
+  }
   if (q.get('gold')) h.gold = Number(q.get('gold'));
   for (const e of list('elite')) {
     const [id, mod] = e.split(':');
@@ -150,9 +191,11 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
+  routeLinks(game, q);
   animLinks(game, q);
   hudLinks(game, q);
   contentLinks(game, q);
+  companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
@@ -170,6 +213,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       game.vfx.burst(x, 0.6, z, { count: 18, color: '#ffb627', color2: '#ff5e3a', speed: [3, 9], size: [0.2, 0.45], life: [0.3, 0.7], up: 4, gravity: 12 });
     }, 700);
   }
+  skyLinks(game, q);
   // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
   if (q.has('nointro')) settings.bossIntros = false;
   game.debugBoss({ now: q.has('bossnow'), mini: q.has('miniboss'), phase: Number(q.get('phase')) || 0 });
@@ -186,7 +230,13 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     let x = NaN;
     let z = NaN;
     if (/^-?[\d.]+,-?[\d.]+$/.test(at)) [x, z] = at.split(',').map(Number);
-    else {
+    else if (game.arena.deco && ['holo', 'vent', 'flag', 'sign', 'gap'].includes(at)) {
+      // Neon City / Sky Fortress dressing: stand just south of (in front of) it.
+      const d = game.arena.deco;
+      const g = d.gaps.find((b) => b.maxX - b.minX < 10 && b.maxZ - b.minZ < 10) ?? d.gaps[0];
+      const t = at === 'holo' ? d.holos[0] : at === 'vent' ? d.vents[0] : at === 'flag' ? d.flags[0] : at === 'sign' ? d.lights[0] : g ? { x: (g.minX + g.maxX) / 2, z: g.maxZ } : undefined;
+      if (t) [x, z] = [t.x, t.z + 3];
+    } else {
       game.worldFx(0); // builds the stage's surfaces now
       const p = game.ambience.surfaces.patches.find((s) => s.kind === at);
       if (p) [x, z] = [p.x, p.z + p.r + 1.5];
@@ -196,6 +246,23 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       pl.pos.x = pl.prev.x = x;
       pl.pos.z = pl.prev.z = z;
     }
+  }
+  // Finisher lane (src/game/systems/characters.ts).
+  if (q.get('finat')) charDebug.holdAt = Number(q.get('finat')) || 0.7;
+  if (q.has('nofinish')) settings.finishers = false;
+  if (q.has('calm')) {
+    settings.reduceFlash = true; // also the game's reduce-motion switch
+    applySettings();
+  }
+  const face = q.get('face');
+  if (face) charDebug.face = face as Expression;
+  if (q.has('pops')) {
+    setTimeout(() => {
+      portraits.popIn('announcer', 'grinning', 'S RANK! STYLISH!', 30);
+      const b = game.enemies.list.find((e) => e.active && e.def.boss);
+      portraits.popIn(`boss:${b?.def.id ?? 'king'}`, 'determined', 'OFF WITH YOUR HEAD!', 30);
+    }, 600);
+    setTimeout(() => portraits.popIn('hero:0', 'determined', 'CHEST!', 30), 900);
   }
   // Skill layer (src/game/systems/skill.ts).
   const rank = STYLE_RANKS.indexOf((q.get('style') ?? '').toUpperCase() as (typeof STYLE_RANKS)[number]);
@@ -221,6 +288,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
+  const metaScreen = q.get('metascreen') as MetaScreen;
+  if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   return true;
 }
 
@@ -345,6 +414,28 @@ function animLinks(game: Game, q: URLSearchParams): void {
       later('smash', () => smashCover(game, c.x, c.z, 1));
     }
   }
+  later('photo', () => {
+    const ph = game.photo as PhotoMode | null;
+    if (!ph) return;
+    game.pause();
+    if (!ph.open()) return;
+    const cam = (q.get('photocam') ?? '').split(',').filter(Boolean).map(Number);
+    ph.configure({
+      filter: q.get('photofilter') ?? undefined,
+      frame: q.get('photoframe') ?? undefined,
+      stickers: (q.get('stickers') ?? '').split(';').filter(Boolean).map((s) => {
+        const [id, at = '0.5,0.5'] = s.split('@');
+        const [u, v] = at.split(',').map(Number);
+        return { id, u: u || 0.5, v: v || 0.5 };
+      }),
+      logo: !q.has('nologo'),
+      yaw: Number.isFinite(cam[0]) ? cam[0] : undefined,
+      pitch: Number.isFinite(cam[1]) ? cam[1] : undefined,
+      dist: Number.isFinite(cam[2]) ? cam[2] : undefined,
+      hideUi: q.has('photohide'),
+    });
+    if (q.has('photosnap')) setTimeout(() => ph.snap(), 600);
+  });
   later('die', () => {
     cheats.god = false;
     const p = game.hero.player;
@@ -360,4 +451,43 @@ function animLinks(game: Game, q: URLSearchParams): void {
       p.hurt(1, -p.aim.x, -p.aim.z);
     }, every);
   }
+}
+
+/** Route map links: &route (open the map now, &path=1,0 for the roads taken so far), &node=<kind>, &encounter=<id>. */
+function routeLinks(game: Game, q: URLSearchParams): void {
+  const node = q.get('node');
+  if (node && node in ROUTE_NODES) {
+    game.route.force = node as NodeKind;
+    game.routeStageStart();
+  }
+  const path = (q.get('path') ?? '').split(',').filter(Boolean).map(Number);
+  path.forEach((p, i) => (game.route.path[i + 2] = p));
+  if (q.has('route')) {
+    game.route.on = true;
+    game.mode = 'shop';
+    game.openRoute();
+  }
+  const enc = q.get('encounter');
+  if (enc) game.routeTestEvent(enc);
+}
+
+/** Sky lane options: `tod=<0..1>` pins the time of day, `scars=<n>[:kind]` leaves battle damage around the hero, `clouds=<0..1>`. */
+function skyLinks(game: Game, q: URLSearchParams): void {
+  const tod = q.get('tod');
+  if (tod !== null) skyOverrides.tod = Math.max(0, Math.min(1, Number(tod) || 0));
+  const cl = q.get('clouds');
+  if (cl !== null) skyTuning.cloudStrength = Math.max(0, Math.min(1, Number(cl) || 0));
+  const sc = q.get('scars');
+  if (!sc) return;
+  const [n, kind] = sc.split(':');
+  const colors = kind === 'crater' ? [SCAR_COLORS.crater] : kind === 'frost' ? [SCAR_COLORS.frost] : kind === 'scorch' ? [SCAR_COLORS.scorch] : [SCAR_COLORS.crater, SCAR_COLORS.scorch, SCAR_COLORS.scorch, SCAR_COLORS.frost];
+  setTimeout(() => {
+    const p = game.hero.player;
+    const count = Math.min(300, Number(n) || 20);
+    for (let i = 0; i < count; i++) {
+      const a = i * 2.39996;
+      const r = 2.5 + Math.sqrt(i / count) * 13;
+      game.vfx.scar(p.x + Math.cos(a) * r, p.z + Math.sin(a) * r * 0.75, 1 + ((i * 7) % 5) * 0.45, colors[i % colors.length], 8 + (i % 4) * 6);
+    }
+  }, 500);
 }

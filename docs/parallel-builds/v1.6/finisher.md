@@ -1,0 +1,7 @@
+LANE: finisher
+
+Goal: big character moments.
+1. Boss finishers: on the killing blow of a stage boss (and Omega), a stylised 1.5-2.5 s finisher: freeze-frame, the screen splits into a comic-panel / ink-burst background with impact lines, a close-up of the hero striking and the boss reacting, a big "K.O.!"-style title, then the explosion and the existing kill-cam/victory. Samples 'finisher_whoosh' and 'finisher_hit' exist. Skippable, short, safe in co-op (host-triggered vfx event; every client plays it locally), respects reduce-motion/flash settings. Coordinate with the existing kill-cam in systems/anim.ts (finisher plays first, then hands over).
+2. Character portraits and expressions: painted pixel portraits (generated procedurally on canvas in the game's palette, like the icon art — no external images needed) for each hero (and skin colours), each boss and the announcer, with expressions: neutral, determined, hurt, grinning (S rank / big combo), shocked (low HP), victorious. The HUD shows the local hero's portrait near the HP bar, changing with what's happening.
+3. Portrait pop-ins: when the announcer speaks, when a boss enters/changes phase/talks (the voices lane adds boss lines; expose `portraits.popIn(who, expression, text?, seconds)`), and on co-op pings (ping shows the pinging player's portrait).
+Owns: new src/ui/portraits.ts, src/ui/portraitArt.ts, src/game/finisher.ts, a new system file, small hooks in hud.ts / systems/anim.ts / announcer calls / ping code, style.css additions, tests/finisher.test.ts.

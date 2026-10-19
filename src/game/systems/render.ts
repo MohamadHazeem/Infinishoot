@@ -1,3 +1,4 @@
+import { weeklyChallenge } from '../../data/weekly';
 /**
  * Rendering: per-frame presentation, HUD, music and sky.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -5,6 +6,8 @@
  */
 import type { Game } from '../game';
 import { updateSound } from './sound';
+import { updateAudioMix } from './audiomix';
+import { updateVoiceLines } from './voiceLines';
 import { scoreTuning, AIM_HEIGHT, REVIVE_TIME } from '../game';
 import * as THREE from 'three';
 import { MOD_BY_ID } from '../../data/mods';
@@ -98,13 +101,14 @@ export function ping(this: Game, h: Hero, x: number, z: number, kind?: string): 
   this.vfx.star(x, 2, z, 1.6, h.color, 0.5);
   this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${label}`, 'score');
   this.vfx.sound('telegraph', x, z);
+  this.pingPortrait(h, label);
 }
 
 /** Load the online top scores for the selected mode (no-op when offline). */
 export function refreshGlobal(this: Game, board?: string, highlight = -1): void {
   if (!leaderboardEnabled) return;
   const mode = (MODE_BY_ID[settings.mode as ModeId] ?? MODES[0]).id;
-  const b = board ?? boardId(mode, mode === 'daily' ? 'normal' : this.pickDifficulty().id, today());
+  const b = board ?? (mode === 'weekly' ? weeklyChallenge().board : boardId(mode, mode === 'daily' ? 'normal' : this.pickDifficulty().id, today()));
   const title = b.startsWith('daily') ? 'TODAY' : b.replace('-', ' · ').toUpperCase();
   void fetchTop(b).then((list) => this.screens.setGlobalScores(title, list, highlight));
 }
@@ -158,15 +162,8 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
 export function localAudio(this: Game, frameDt: number, frozen: boolean): void {
   const fighting = this.isCombatMode && !frozen && !this.paused;
   sfx.setHum(fighting ? Math.min(1, this.combo / 150) : 0);
-  const p = this.hero.player;
-  if (!fighting || p.dead || p.hp > p.maxHp * 0.3) {
-    this.heartT = 0;
-    return;
-  }
-  if ((this.heartT -= frameDt) <= 0) {
-    this.heartT = 0.55 + 0.6 * (p.hp / (p.maxHp * 0.3));
-    sfx.heartbeat();
-  }
+  // Damage hit-stop must not hide the HP drop from the local audio state.
+  updateAudioMix.call(this, frameDt, this.isCombatMode && !this.paused);
 }
 
 export function render(this: Game, alpha: number, frameDt: number): void {
@@ -185,6 +182,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const rdt = frozen || held ? 0 : frameDt * (this.slowMoT > 0 ? 0.35 : 1);
   this.localAudio(frameDt, frozen);
   updateSound.call(this, frameDt, frozen);
+  updateVoiceLines.call(this, frozen); // voice channel + local hero barks
   this.input.rumbleOn = settings.rumble;
   // Boss-kill slow motion (host/solo sim runs at 35%): cosmetic animation slows with it.
   const slow = this.slowMoT > 0 ? 0.35 : 1;
@@ -211,10 +209,14 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   if (!this.paused && this.mode !== 'levelup' && this.mode !== 'shop') {
     for (let i = zones.length - 1; i >= 0; i--) if ((zones[i].t -= frameDt) <= 0) zones.splice(i, 1);
   }
+  this.enemies.renderWalls = this.arena.colliders;
+  this.enemies.renderBounds = this.arena.halfSize;
+  this.enemies.familyReduceFlash = settings.reduceFlash;
+  this.enemies.familyColorblind = settings.colorblind;
   if (!held) this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
   this.eliteTrails(frameDt);
-  if (!held) this.bullets.render(a);
+  if (!held) this.bullets.render(a, rdt);
   lap('ren.bullets');
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
@@ -297,6 +299,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.hud.setMods(mods.map((m) => ({ id: m.def.id, icon: m.def.icon, color: m.def.color, name: m.def.name, readout: m.ro, cursed: !!m.def.cursed })));
   lap('ren.camera+reticle');
   this.renderTeam();
+  this.renderCompanion(rdt);
   this.renderEliteBars(alpha);
   this.renderMinimap();
   this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);
@@ -310,6 +313,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.music+sky');
   this.updateLook(frameDt);
   lap('ren.look');
+  this.updateSkyFx(frameDt);
+  lap('ren.sky');
   this.worldFx(frameDt);
   lap('ren.worldfx');
   this.hud.update(
@@ -323,7 +328,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
       dashLabel: p.noDash ? 'PARRY' : undefined,
       bomb01: local.bombCharge,
       special: local.specialDef.short,
-      score: this.score,
+      score: this.score * this.meta.multiplier,
+      metaLabel: this.meta.label,
       combo: this.combo,
       multiplier: this.multiplier,
       combo01: client ? this.netCombo01 : this.combo > 0 ? Math.max(0, this.comboT / scoreTuning.comboWindow) : 0,
@@ -342,6 +348,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   );
   lap('ren.hud');
   this.renderSkill(frameDt, frozen);
+  this.renderCharacters(frameDt);
   lap('ren.skill');
 }
 
@@ -430,7 +437,7 @@ export function renderEliteBars(this: Game, alpha: number): void {
   const bars: { x: number; y: number; hp01: number; onScreen: boolean }[] = [];
   if (this.isCombatMode && this.screens.current === 'none') {
     for (const e of this.enemies.list) {
-      if (!e.active || !(e.elite || e.def.id === 'reaper') || e.def.boss || e.hp <= 0) continue;
+      if (!e.active || !(e.elite || e.def.special || e.def.id === 'reaper') || e.def.boss || e.hp <= 0) continue;
       const x = e.px + (e.x - e.px) * alpha;
       const z = e.pz + (e.z - e.pz) * alpha;
       this.tmp.set(x, e.hopY + e.radius * 2.6, z).project(this.cam.camera);

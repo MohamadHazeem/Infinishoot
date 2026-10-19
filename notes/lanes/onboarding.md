@@ -1,5 +1,7 @@
 # Onboarding lane
 
+> **Merge note (v1.6.0 merge):** main shipped its own lore Codex, so this lane's item codex is EXTRAS > ARSENAL now (src/data/arsenal.ts, screen `arsenal`; test link `&screen=arsenal`).
+
 Training field, first-time tips, the Codex, unlock progress and the end-of-run recap / build card.
 
 ## Built

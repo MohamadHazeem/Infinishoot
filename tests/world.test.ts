@@ -8,15 +8,15 @@ import { BIOME_GRADES, isNightStage } from '../src/render/biomeLook';
 // --- Biome order ---
 const order = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => biomeKeyForStage(from + i)).join(',');
 ok(order(1, 4) === 'meadow,dunes,peaks,magma', 'loop 1 is the classic tour, as before');
-ok(order(5, 8) === 'factory,skyruins,peaks:aurora,magma:ashen', 'loop 2 brings the Toy Factory, Sky Ruins and two remixes');
-ok(order(9, 12) === 'meadow:autumn,dunes:night,factory,skyruins', 'loop 3 remixes the other classics and revisits the new biomes');
+ok(order(5, 8) === 'neon,factory,sky,magma:ashen', 'loop 2 brings Neon City, the Toy Factory, Sky Fortress and Ashen Magma');
+ok(order(9, 12) === 'meadow:autumn,dunes:night,peaks:aurora,magma', 'loop 3 tours remixes of the classics');
 ok(order(13, 16) === order(5, 8) && order(17, 20) === order(9, 12), 'later loops alternate rows 2 and 3');
 ok(biomeKeyForStage(0) === 'meadow' && biomeKeyForStage(-3) === 'meadow' && biomeKeyForStage(2.7) === 'dunes', 'odd stage numbers are safe');
 ok(BIOME_ORDER.every((row) => row.length === BIOME_LOOP), 'every row fills a loop');
 ok(BIOME_ORDER.flat().every((k) => allBiomeKeys().includes(k)), 'every key in the order resolves');
 const seen = new Set<string>();
 for (let s = 1; s <= 12; s++) seen.add(biomeForStage(s).id);
-ok(seen.size === 6, 'all six biomes show up by loop 3');
+ok(seen.size === 7, 'all seven biomes show up by loop 3');
 
 // --- Remixes ---
 const autumn = biomeByKey('meadow:autumn');
@@ -27,7 +27,7 @@ ok(biomeByKey('meadow').variant === '' && biomeByKey('nope').id === 'meadow' && 
 for (const k of allBiomeKeys()) {
   const b = biomeByKey(k);
   ok(!!b.music && !!TRACK_BY_ID[b.music], `${k}: music track exists`);
-  ok(['grass', 'sand', 'snow', 'metal'].includes(b.footstep) && ['meadow', 'dunes', 'peaks', 'magma'].includes(b.ambience), `${k}: footsteps and ambience reuse existing samples`);
+  ok(['grass', 'sand', 'snow', 'metal'].includes(b.footstep) && ['meadow', 'dunes', 'peaks', 'magma', 'neon', 'sky'].includes(b.ambience), `${k}: footsteps and ambience reuse existing samples`);
   ok(!!(b.grade ?? BIOME_GRADES[b.id]), `${k}: has a colour grade`);
   // Enemy bullets are magenta (#ff3df0): keep floors, fog and the backdrop well away from it.
   for (const c of [b.fog, ...(b.tileColors ?? []), ...(b.edge.colors ?? [])]) {
@@ -37,14 +37,14 @@ for (const k of allBiomeKeys()) {
     ok(dist > 90, `${k}: ${c} is far from the enemy-bullet magenta (${dist.toFixed(0)})`);
   }
 }
-ok(trackUnlocked('factory', 5, 0) && !trackUnlocked('factory', 4, 9) && trackUnlocked('skyruins', 6, 0), 'new biome tracks unlock in the jukebox when their stage is reached');
+ok(trackUnlocked('factory', 6, 0) && !trackUnlocked('factory', 5, 9) && trackUnlocked('neon', 5, 0) && trackUnlocked('sky', 7, 0), 'new biome tracks unlock in the jukebox when their stage is reached');
 
 // --- Night ---
 ok(!isNightStage(1) && isNightStage(3) && isNightStage(6) && !isNightStage(7), 'night every third stage still holds');
 ok(isNightStage(10) && biomeForStage(10).variant === 'night', 'Night Dunes is always a night stage');
 
 // --- Hazards ---
-ok(biomeHazard('factory') === 'crusher' && biomeHazard('skyruins') === null && biomeHazard('peaks') === null, 'factory adds crushers, sky ruins uses wind lanes');
+ok(biomeHazard('factory') === 'crusher' && biomeHazard('sky') === null && biomeHazard('peaks') === null, 'factory adds crushers; Sky Fortress brings wind instead');
 let slams = 0;
 for (let t = 0; t < crusherTuning.period * 10; t += 1 / 60) if (crusherSlammed(t, t + 1 / 60, 0)) slams++;
 ok(slams === 10, `one slam per cycle (${slams} in 10 periods)`);
@@ -62,5 +62,5 @@ ok(pressHeight(1 - 0.5 / crusherTuning.period) < pressHeight(0.5), 'the press wi
 
 // --- Attract mode picks reached biomes ---
 ok(attractStages(0).join() === '1' && attractStages(1).join() === '1', 'a fresh save demos the meadow');
-ok(attractStages(4).length === 4 && attractStages(12).length === biomeKeysUpTo(12).length && attractStages(12).length === 10, 'reached biomes and remixes are all candidates');
+ok(attractStages(4).length === 4 && attractStages(12).length === biomeKeysUpTo(12).length && attractStages(12).length === 11, 'reached biomes and remixes are all candidates');
 ok(attractStages(12).every((s) => s >= 1 && s <= 12), 'each candidate is the first stage that shows it');

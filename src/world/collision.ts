@@ -4,6 +4,8 @@ export interface AABB {
   maxX: number;
   minZ: number;
   maxZ: number;
+  /** A gap in the ground (Sky Fortress): blocks walking but bullets fly over it. */
+  gap?: boolean;
 }
 
 export function aabbFromCenter(x: number, z: number, w: number, d: number): AABB {

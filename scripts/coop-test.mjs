@@ -85,6 +85,19 @@ const B = await openPage('client');
 log('pages loaded');
 
 // ---------------------------------------------------------------- lobby
+// Pets: Sparky for the host, Bit for the client (companion lane checks pet levels and team moves).
+await Promise.all(
+  [
+    [A, 'sparky'],
+    [B, 'bit'],
+  ].map(([p, pet]) =>
+    p.page.evaluate(async (pet) => {
+      const { settings } = await import('/src/game/settings.ts');
+      settings.pet = pet;
+      window.game.applyLocalSkin(); // what the wardrobe does: the title hero gets the pet
+    }, pet),
+  ),
+);
 await A.page.evaluate(() => {
   window.cheats.god = true; // keep the run going; the client hero is protected by the host's god cheat too
   void window.game.hostGame('HOSTBOT');
@@ -141,17 +154,23 @@ await Promise.all(
         const vapply = g.vfx.apply.bind(g.vfx);
         g.vfx.apply = (e) => (bump(counts.vfx, Array.isArray(e) ? e[0] : (e?.k ?? e?.t ?? '?')), vapply(e));
       } else {
-        // Snapshot sizes (rough: JSON of the fields plus the binary records).
+        // Snapshot sizes: the real wire bytes (PeerJS binarypack), split by field.
+        let bp = null;
+        try {
+          bp = await import('/src/dev/netSize.ts');
+        } catch {}
+        const size = (v) => (bp ? bp.wireBytes(v) : JSON.stringify(v, (k, x) => (x instanceof ArrayBuffer ? x.byteLength : x)).length);
         const build = g.buildSnapshot;
-        counts.snap = { n: 0, total: 0, max: 0, over16k: 0 };
+        counts.snap = { n: 0, total: 0, max: 0, over16k: 0, wire: !!bp, parts: {} };
         g.buildSnapshot = function (h, ev) {
           const r = build.call(this, h, ev);
-          const bytes = JSON.stringify(r, (k, v) => (v instanceof ArrayBuffer ? v.byteLength : v)).length + r.en.byteLength + r.bu.byteLength + r.pk.byteLength;
+          const bytes = size(r);
           const c = counts.snap;
           c.n++;
           c.total += bytes;
           c.max = Math.max(c.max, bytes);
           if (bytes > 16000) c.over16k++;
+          if (c.n % 4 === 0) for (const k of ['ev', 'b', 'fx', 'en', 'bu', 'pk', 'heroes', 'sk', 'ar', 'bx', 'you']) if (r[k] !== undefined) c.parts[k] = (c.parts[k] ?? 0) + size(r[k]) * 4;
           return r;
         };
         const net = g.skillNet;
@@ -202,6 +221,9 @@ const hostProbe = () =>
       arenaStage: g.arenaStage,
       heroes: g.heroes.map((h) => ({ x: h.player.x, z: h.player.z, hp: Math.ceil(h.player.hp), dead: h.player.dead, style: Math.round(h.skill.style.points), ult: +h.skill.ult.toFixed(2), ultT: +h.skill.ultT.toFixed(2), weapons: h.weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' ') })),
       sample: act.filter(near).slice(0, 6).map((e) => ({ uid: e.uid, id: e.def.id, x: e.x, z: e.z })),
+      pets: g.heroes.map((h) => [h.pet, h.petState.level, h.petState.shieldReady, h.petState.reviveUsed]),
+      team: +g.companionState().meter.charge.toFixed(2),
+      move: g.companionState().move?.id ?? null,
     };
   });
 /** Client: its mirror. */
@@ -232,6 +254,9 @@ const clientProbe = () =>
       heroes: g.heroes.map((h) => ({ x: h.player.x, z: h.player.z, hp: Math.ceil(h.player.hp), dead: h.player.dead, style: Math.round(h.skill.style.points), ult: +h.skill.ult.toFixed(2), ultT: +h.skill.ultT.toFixed(2), weapons: h.weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' ') })),
       byUid,
       screen: g.screens.current,
+      pets: g.heroes.map((h) => [h.pet, h.petState.level, h.petState.shieldReady, h.petState.reviveUsed]),
+      team: +g.companionState().meter.charge.toFixed(2),
+      move: g.companionState().move?.id ?? null,
     };
   });
 
@@ -296,6 +321,9 @@ async function compare(tag) {
     check(`ult${i}`, Math.abs(a.ult - b.ult) <= 0.15 && !(a.ultT > 0.3 && b.ultT <= 0), `hero ${i} ult host ${a.ult}/${a.ultT} vs client ${b.ult}/${b.ultT}`);
     check(`weap${i}`, a.weapons === b.weapons, `hero ${i} weapons host [${a.weapons}] vs client [${b.weapons}]`);
   }
+  // Companion lane: pets (id, level, shield, revive) and the TEAM meter mirror the host.
+  check('pets', JSON.stringify(h.pets) === JSON.stringify(c.pets), `pets host ${JSON.stringify(h.pets)} vs client ${JSON.stringify(c.pets)}`);
+  check('team', Math.abs(h.team - c.team) <= 0.15, `team meter host ${h.team} vs client ${c.team}`);
   return { h, c };
 }
 
@@ -418,6 +446,8 @@ const SCENARIO = [
       window.cheats.god = false;
       h.revivesLeft = 0;
       h.phoenixUsed = true; // a boss relic (Frost Totem) would save it
+      h.petState.reviveUsed = true; // and so would the pet (companion lane)
+      h.petState.shieldReady = false;
       for (let k = 0; k < 4 && !h.player.dead; k++) {
         h.player.invuln = 0;
         h.player.hp = 1;
@@ -442,7 +472,123 @@ const SCENARIO = [
     if (!h1 || !c1 || h2 || c2[0] || !c2[1]) fail(`down/revive: down host ${h1} client ${c1}; revived host ${!h2} client ${!c2[0]} visible ${c2[1]}`);
     return { down: [h1, c1], up: [!h2, !c2[0], c2[1]] };
   }],
+  [28, 'client hero fuses Orbit Drones + Chain Zap (weapon fusion)', async () => {
+    const id = await host(async () => {
+      const g = window.game;
+      const { createWeapon } = await import('/src/game/weapons/index.ts');
+      const { fuseWeapons } = await import('/src/game/fusion.ts');
+      const h = g.heroes[1];
+      for (const wid of ['drones', 'lightning']) {
+        let w = h.weapons.find((x) => x.def.id === wid);
+        if (!w) h.weapons.push((w = createWeapon(wid, g.scene)));
+        while (!w.maxed) w.levelUp();
+      }
+      const f = fuseWeapons(h.weapons, 'storm_drones', g.scene);
+      h.loadoutDirty = true;
+      if (f) g.fusionFx(h, f.def.id);
+      return f?.def.id ?? null;
+    });
+    if (id !== 'storm_drones') fail(`fusion: host could not fuse (${id})`);
+    await pause(1200);
+    const c = await client(() => {
+      const w = window.game.hero.weapons.find((x) => x.def.id === 'storm_drones');
+      return w ? { parts: w.parts.map((p) => p.def.id), drones: w.parts[0].net().length, merge: !!document.querySelector('.fusion-merge') } : null;
+    });
+    if (!c || c.parts.join() !== 'drones,lightning' || !c.drones) fail(`fusion: client sees ${JSON.stringify(c)}`);
+    return c;
+  }],
   [50, 'ultimates again', () => host(() => window.game.heroes.forEach((h) => (h.skill.ult = 1)))],
+  [62, 'route map vote (notes/lanes/route.md)', async () => {
+    const opened = await host(() => {
+      const g = window.game;
+      if (g.mode !== 'fight' || g.route.open) return false;
+      g.route.on = true;
+      g.mode = 'shop';
+      return g.openRoute() && g.stage;
+    });
+    if (!opened) return 'skipped (not fighting)';
+    // The bots vote within about half a second, so poll quickly for the client's map.
+    let seen = ['none', 0];
+    for (let k = 0; k < 30 && seen[0] !== 'route'; k++) {
+      await pause(100);
+      seen = await client(() => [window.game.screens.current, document.querySelectorAll('#scr-route button[data-ri]').length]);
+    }
+    if (seen[0] !== 'route' || seen[1] < 2) fail(`route map: client screen ${seen[0]} with ${seen[1]} options`);
+    else await shot('route');
+    // Both bots vote for the first road; give the vote (10 s) plus an encounter time to finish.
+    let st;
+    for (let k = 0; k < 50; k++) {
+      await pause(500);
+      st = await host((s) => ({ open: window.game.route.open, mode: window.game.mode, picked: window.game.route.path[s + 1] }), opened);
+      if (!st.open) break;
+    }
+    const cs = await client(() => window.game.screens.current);
+    if (st.open || st.picked === undefined || cs === 'route') fail(`route map: host ${JSON.stringify(st)}, client screen ${cs}`);
+    return { client: seen, host: st, clientAfter: cs };
+  }],
+  [16, 'pets grow to level 4 (as after three stage clears)', async () => {
+    await host(() => {
+      for (const h of window.game.heroes) for (let i = 0; i < 3; i++) h.petState.levelUp();
+    });
+    await pause(600);
+    const [h, c] = await Promise.all([
+      host(() => window.game.heroes.map((h) => [h.pet, h.petState.level, h.petState.reviveUsed])),
+      client(() => window.game.heroes.map((h) => [h.pet, h.petState.level, h.petState.reviveUsed])),
+    ]);
+    if (JSON.stringify(h) !== JSON.stringify(c) || h.some((p) => p[1] !== 4)) fail(`pet levels: host ${JSON.stringify(h)} vs client ${JSON.stringify(c)}`);
+    return { host: h, client: c };
+  }],
+  [30, 'the client fires a team move next to the host', async () => {
+    // The host's hero steps next to the client's (each machine moves its own hero), the meter is full.
+    await host(() => {
+      const g = window.game;
+      const c = g.heroes[1].player;
+      g.hero.player.teleport(c.x + 1.5, c.z);
+      g.companionState().meter.charge = 1;
+    });
+    let r = null;
+    for (let k = 0; k < 12 && !r?.host; k++) {
+      await pause(150);
+      await client(() => window.game.client.send({ t: 'team' }));
+      await pause(150);
+      r = { host: await host(() => window.game.companionState().move?.id ?? null) };
+    }
+    await pause(200);
+    r.client = await client(() => window.game.companionState().move?.id ?? null);
+    r.hostMeter = await host(() => window.game.companionState().meter.charge);
+    if (!r.host || r.client !== r.host || r.hostMeter !== 0) fail(`team move: host ${r.host} (meter ${r.hostMeter}), client ${r.client}`);
+    await shot('teammove');
+    return r;
+  }],
+  // Finisher lane: a client ping pops the client's portrait in on both screens; the boss finisher plays on both.
+  [46, 'client pings: its portrait pops in on both machines', async () => {
+    await client(() => {
+      const p = window.game.hero.player;
+      window.game.client.send({ t: 'ping', x: p.x + 3, z: p.z });
+    });
+    await pause(700);
+    const showing = () => import('/src/ui/portraits.ts').then((m) => m.portraits.showing('hero:1'));
+    const [h, c] = await Promise.all([host(showing), client(showing)]);
+    if (!h || !c) fail(`ping portrait: host ${h}, client ${c}`);
+    return { host: h, client: c };
+  }],
+  [43, 'boss finisher on both machines', async () => {
+    const id = await host(() => {
+      const g = window.game;
+      const b = g.boss && g.boss.active ? g.boss : null;
+      if (!b) return null;
+      g.killEnemy(b, 'buster', g.heroes[1]);
+      return b.def.id;
+    });
+    if (!id) return 'no boss up';
+    await pause(700);
+    const on = () => !!document.getElementById('finisher') && !document.getElementById('finisher').hidden;
+    const [h1, c1, held] = await Promise.all([host(on), client(on), host(() => !!window.game.boss?.active)]);
+    await pause(2600);
+    const [h2, c2, gone] = await Promise.all([host(on), client(on), host(() => !window.game.boss || !window.game.boss.active)]);
+    if (!h1 || !c1 || !held || h2 || c2 || !gone) fail(`finisher: playing host ${h1} client ${c1}, boss held ${held}; after: host ${h2} client ${c2}, boss gone ${gone}`);
+    return { boss: id, playing: [h1, c1], held, after: [h2, c2], gone };
+  }],
 ];
 
 SCENARIO.sort((a, b) => a[0] - b[0]);
@@ -482,7 +628,10 @@ async function done() {
     log(`skill events sent to the client: ${JSON.stringify(ha?.skill)}; received: ${JSON.stringify(cb?.skill)}`);
     log(`effects received by the client: ${JSON.stringify(cb?.vfx)}`);
     const sn = ha?.snap;
-    if (sn?.n) log(`snapshots: ${sn.n}, avg ${Math.round(sn.total / sn.n)} B, max ${sn.max} B, ${sn.over16k} over 16 KB (PeerJS chunks those)`);
+    if (sn?.n) {
+      log(`snapshots${sn.wire ? ' (wire bytes)' : ' (JSON estimate)'}: ${sn.n}, avg ${Math.round(sn.total / sn.n)} B, max ${sn.max} B, ${sn.over16k} over 16 KB (PeerJS chunks those)`);
+      log(`avg bytes per snapshot by field: ${Object.entries(sn.parts).map(([k, v]) => `${k} ${Math.round(v / sn.n)}`).join(', ')}`);
+    }
   } catch {}
   for (const p of [A, B].filter(Boolean)) for (const e of p.errors) fail(`${p.name} page error: ${e}`);
   await browser.close().catch(() => {});

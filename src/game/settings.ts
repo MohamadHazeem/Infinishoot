@@ -1,13 +1,15 @@
+import { spatialSettings } from '../audio/spatial';
 import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
 import { ambienceSettings } from '../audio/ambienceAudio';
 import { announcerSettings, announcer } from '../audio/announcer';
-import { voiceSettings } from '../audio/heroVoice';
+import { voiceSettings as synthVoiceSettings } from '../audio/heroVoice';
 import { a11yAudio } from '../audio/captions';
+import { voiceSettings } from '../audio/voices';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
-import { fxQuality } from './ambience';
+import { fxQuality, weatherSettings } from './ambience';
 import { streaks } from './streaks';
 import { DEFAULT_LOADOUT, validLoadout, type Loadout } from '../data/loadout';
 import { applyUiScale } from '../ui/hudLayout';
@@ -21,8 +23,13 @@ export interface Settings {
   uiVolume: number;
   ambienceVolume: number;
   announcer: boolean;
-  /** Hero voice barks (VOICE) and their volume. */
-  voice: boolean;
+  interactiveMusic: boolean;
+  adaptiveSilence: boolean;
+  lowHealthAudio: boolean;
+  headphones3d: boolean;
+  /** HERO VOICES: hero barks (recorded for the original heroes, synthesized for the rest; src/audio/voices.ts, heroVoice.ts). */
+  heroVoices: boolean;
+  /** VOICE volume for hero barks. */
   voiceVolume: number;
   /** Caption strip for the announcer and voice lines. */
   captions: boolean;
@@ -65,10 +72,16 @@ export interface Settings {
   uiScale: number;
   /** DAMAGE NUMBERS: all, only your hero's hits (co-op), or none. */
   damageNumbers: 'all' | 'mine' | 'off';
-  /** WEATHER: rain streaks, snow, pollen, sand and embers (visual only). */
+  /** Weather: rain, snow and other motes, lightning (off = always clear skies). */
   weather: boolean;
   /** Right click: hold to charge, or press once to start and again to release. */
   chargeMode: 'hold' | 'toggle';
+  /** Pet zap sounds (pets zap often at high level). */
+  petSounds: boolean;
+  /** Comic finisher on a stage boss's killing blow. */
+  finishers: boolean;
+  /** Character portraits popping in (announcer, bosses, pings). */
+  portraitPops: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -80,7 +93,11 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   uiVolume: 0.8,
   ambienceVolume: 0.45,
   announcer: true,
-  voice: true,
+  interactiveMusic: true,
+  adaptiveSilence: true,
+  lowHealthAudio: true,
+  headphones3d: false,
+  heroVoices: true,
   voiceVolume: 0.8,
   captions: false,
   soundArrows: false,
@@ -111,9 +128,16 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   damageNumbers: 'all',
   weather: true,
   chargeMode: 'hold',
+  petSounds: true,
+  finishers: true,
+  portraitPops: true,
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
+settings.weather ??= true;
+settings.petSounds ??= true;
+settings.finishers ??= true;
+settings.portraitPops ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */
@@ -151,23 +175,28 @@ export function applySettings(): void {
   audioSettings.sfx = settings.sfxVolume;
   audioSettings.music = settings.musicVolume;
   audioSettings.ui = settings.uiVolume;
+  audioSettings.interactiveMusic = settings.interactiveMusic;
+  audioSettings.adaptiveSilence = settings.adaptiveSilence;
+  audioSettings.lowHealth = settings.lowHealthAudio;
+  spatialSettings.headphones = settings.headphones3d;
   sfx.applyVolumes();
   ambienceSettings.volume = settings.ambienceVolume;
   announcerSettings.enabled = settings.announcer;
   audioSettings.voice = settings.voiceVolume;
-  voiceSettings.enabled = settings.voice;
+  synthVoiceSettings.enabled = settings.heroVoices !== false;
   a11yAudio.captions = settings.captions;
   a11yAudio.arrows = settings.soundArrows;
   announcer.update();
+  voiceSettings.heroVoices = settings.heroVoices !== false;
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
   postSettings.glow = settings.glow;
   postSettings.crt = settings.crt ? 1 : 0;
   access.colorblind = settings.colorblind;
   access.reduceFlash = settings.reduceFlash;
+  weatherSettings.enabled = settings.weather;
   document.body.classList.toggle('reduce-flash', settings.reduceFlash);
   applyUiScale(settings.uiScale);
-  fxQuality.weather = settings.weather ? 1 : 0;
   const g = Math.max(0, Math.min(AUTO, Math.round(settings.graphics)));
   if (g === AUTO) {
     // Keep the governor (and its rung) across unrelated settings changes.

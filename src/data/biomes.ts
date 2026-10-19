@@ -1,11 +1,10 @@
-import type { textures } from '../render/textures';
-import type { biomeTextures } from '../render/biomeTextures';
+import type { BiomeTexKey } from '../render/biomeTextures';
 import type { TrackId } from '../audio/music/composition';
 
-type TexKey = keyof typeof textures | keyof typeof biomeTextures;
+type TexKey = BiomeTexKey;
 
 /** Weather motes that drift around the camera (src/game/ambience.ts). Rain replaces them on rainy stages. */
-export type Weather = 'pollen' | 'sand' | 'snow' | 'embers' | 'confetti' | 'wind' | 'leaves' | 'fireflies' | 'aurora' | 'ash';
+export type Weather = 'pollen' | 'sand' | 'snow' | 'embers' | 'confetti' | 'wind' | 'leaves' | 'fireflies' | 'aurora' | 'ash' | 'neon';
 
 /** Colour grade for an area (same shape as src/render/postfx.ts `Grade`). */
 export interface BiomeGrade {
@@ -44,10 +43,10 @@ export interface BiomeDef {
   blockColors?: string[];
   capColor: string;
   pillarTint: string;
-  /** Edge ring around the field (bushes, rocks, drifts, gumballs, cloud puffs). */
-  edge: { tex: TexKey; colors: string[]; shape?: 'bush' | 'ball' | 'cloud' };
-  /** Tree-like cover style. */
-  tree: 'round' | 'cactus' | 'pine' | 'dead' | 'toy' | 'blossom';
+  /** Edge ring around the field (bushes, rocks, drifts, gumballs); `block` = a parapet / battlement of boxes. */
+  edge: { tex: TexKey; colors: string[]; shape?: 'bush' | 'ball' | 'block' };
+  /** Tree-like cover style (`lamp`: neon street lamps). */
+  tree: 'round' | 'cactus' | 'pine' | 'dead' | 'toy' | 'lamp';
   leaves: TexKey;
   /** Multiplies the leaves texture. */
   leafTint?: string;
@@ -82,31 +81,37 @@ export interface BiomeDef {
   /** Dash/landing dust tint and footprint tint (no prints on grass, tiles or ash). */
   dust: string;
   prints?: string;
-  /** Extra animated scenery: spinning gears (factory), floating islets (sky ruins). */
-  decor?: 'gears' | 'islets';
+  /** Extra animated scenery: spinning gears (factory). */
+  decor?: 'gears';
   // --- Sound (data only; the audio code plays it) ---
   footstep: 'grass' | 'sand' | 'snow' | 'metal';
   /** Ambience bed and room: the amb_<id> sample and reverb to reuse. */
-  ambience: 'meadow' | 'dunes' | 'peaks' | 'magma';
+  ambience: 'meadow' | 'dunes' | 'peaks' | 'magma' | 'neon' | 'sky';
   music: TrackId;
   // --- Gameplay (identical on every machine: built from the arena seed) ---
   /** Extra ground hazard (lava and ice come from `pools`). */
   hazard?: 'quicksand' | 'thorns' | 'crusher' | null;
-  /** Wind lanes that push everything along (sky ruins). */
-  windLanes?: number;
   /** Conveyor belts regardless of stage (undefined = the usual 3 from stage 2). */
   belts?: number;
-  // --- Time of day ---
-  /** true: always a night stage; false: never; undefined: every nightTuning.every stages. */
-  night?: boolean;
-  /** Time of day starts here (0 midday .. 1 sunset): twilight remixes. */
+  // --- Time of day and palette ---
+  /** Special arena features: neon rooftops (signs, holos, vents) or sky islands (gaps, bridges, flags, wind). */
+  kind?: 'neon' | 'sky';
+  /** Always this dark (0..1 of the night look), whatever the stage number says. */
+  night?: number;
+  /** How far the stage's day-to-dusk shift goes (default 1). */
   dusk?: number;
+  /** Time of day starts here (0 midday .. 1 sunset): twilight remixes. */
+  duskFrom?: number;
+  /** Multiplies every enemy's colours (a biome palette). */
+  enemyTint?: string;
+  /** Glowing enemy eyes at night. */
+  eyeColor?: string;
   /** Loop-2+ remixes of this biome (see BIOME_ORDER). */
   remixes?: BiomeRemix[];
 }
 
 /** A remix overrides any look fields of its biome (nested objects are replaced whole). Gameplay stays the biome's. */
-export type BiomeRemix = { id: string; name: string } & Partial<Omit<BiomeDef, 'id' | 'name' | 'variant' | 'remixes' | 'hazard' | 'windLanes' | 'belts' | 'pools'>>;
+export type BiomeRemix = { id: string; name: string } & Partial<Omit<BiomeDef, 'id' | 'name' | 'variant' | 'remixes' | 'hazard' | 'belts' | 'pools' | 'kind'>>;
 
 export const BIOMES: BiomeDef[] = [
   {
@@ -206,7 +211,7 @@ export const BIOMES: BiomeDef[] = [
         fog: '#7a7ad8',
         grade: { lift: [0.0, 0.01, 0.05], gamma: [1, 1, 1.02], gain: [0.98, 1.0, 1.05], saturation: 1.06 },
         weather: 'fireflies',
-        night: true,
+        night: 1,
         dust: '#c8c0f0',
         prints: '#4a4a8a',
       },
@@ -305,7 +310,7 @@ export const BIOMES: BiomeDef[] = [
         grade: { lift: [0.03, 0.01, 0.01], gamma: [1, 0.99, 1], gain: [1.06, 1.0, 0.95], saturation: 1.02 },
         weather: 'ash',
         dust: '#9a949e',
-        dusk: 0.5,
+        duskFrom: 0.5,
       },
     ],
   },
@@ -343,36 +348,65 @@ export const BIOMES: BiomeDef[] = [
     belts: 5,
   },
   {
-    id: 'skyruins',
-    name: 'Sky Ruins',
-    ground: 'skyGrass',
-    path: 'marble',
-    rim: 'skyRock',
-    wall: 'marbleBrick',
+    id: 'neon',
+    name: 'Neon City',
+    ground: 'roof',
+    path: 'wetTile',
+    rim: 'concrete',
+    wall: 'concrete',
     wallTint: '#ffffff',
-    capColor: '#fff2d0',
-    pillarTint: '#ffffff',
-    edge: { tex: 'cloud', colors: ['#ffffff', '#f4f8ff', '#e8f0ff'], shape: 'cloud' },
-    tree: 'blossom',
-    leaves: 'blossom',
-    trunk: '#f4ecd8',
-    clusters: [0.45, 0.1, 0.25, 0.2],
-    rock: 'column',
-    rockColors: ['#fff8ec', '#f4ead8'],
-    sea: { tex: 'cloudSea', unlit: 0.7, scroll: [0.012, 0.005], y: -9 },
-    depth: 9,
-    light: { sun: [0.8, 0.74, 0.6], sky: [0.56, 0.64, 0.86], ground: [0.4, 0.4, 0.5] },
-    fog: '#b8e2ff',
-    weather: 'wind',
-    tufts: ['#8fe8b8', '#7ad8a8', '#b8f0c8', '#a0e8c0'],
+    capColor: '#2c2c58',
+    pillarTint: '#9aa8e0',
+    edge: { tex: 'concrete', colors: ['#5a6aa0', '#4e5e94', '#6676ac'], shape: 'block' },
+    tree: 'lamp',
+    leaves: 'neonSign',
+    trunk: '#3a3a62',
+    clusters: [0.42, 0.28, 0.18, 0.12],
+    rockColors: ['#6a7ab0', '#56669a'],
+    pools: { tex: 'puddle', count: 12, unlit: 0.6, scroll: [0.004, 0] },
+    sea: { tex: 'cityLights', unlit: 1, scroll: [0, 0], y: -18 },
+    light: { sun: [0.52, 0.46, 0.66], sky: [0.4, 0.38, 0.62], ground: [0.42, 0.24, 0.44] },
+    fog: '#33205e',
+    weather: 'neon',
+    rain: 0.6,
     shore: 'none',
-    dust: '#ffffff',
-    decor: 'islets',
+    dust: '#8a7ab8',
+    footstep: 'metal',
+    ambience: 'neon',
+    music: 'neon',
+    kind: 'neon',
+    night: 0.62,
+    dusk: 0,
+    enemyTint: '#f0d4ff',
+    eyeColor: '#5ef2ff',
+  },
+  {
+    id: 'sky',
+    name: 'Sky Fortress',
+    ground: 'flagstone',
+    path: 'planks',
+    rim: 'cliff',
+    wall: 'skyBrick',
+    wallTint: '#ffffff',
+    capColor: '#ffcd75',
+    pillarTint: '#eef0fc',
+    edge: { tex: 'skyBrick', colors: ['#ffffff', '#eef0fc', '#dce2f6'], shape: 'block' },
+    tree: 'round',
+    leaves: 'leaves',
+    trunk: '#a86a3c',
+    clusters: [0.45, 0.25, 0.25, 0.05],
+    rockColors: ['#c4b8ff', '#a8dcff'],
+    sea: { tex: 'clouds', unlit: 0.75, scroll: [0.012, 0.006], y: -14 },
+    light: { sun: [0.74, 0.68, 0.54], sky: [0.5, 0.6, 0.86], ground: [0.4, 0.4, 0.56] },
+    fog: '#b4e2ff',
+    weather: 'wind',
+    shore: 'none',
+    dust: '#e8ecf8',
     footstep: 'grass',
-    ambience: 'peaks',
-    music: 'skyruins',
-    windLanes: 3,
-    belts: 0,
+    ambience: 'sky',
+    music: 'sky',
+    kind: 'sky',
+    dusk: 0.6,
   },
 ];
 
@@ -383,19 +417,19 @@ export const BIOME_LOOP = 4;
 
 /**
  * Which biome each stage of a loop uses ('id' or 'id:remix'). Loop 1 is the
- * classic tour; loop 2 brings the Toy Factory and Sky Ruins, then remixes of
- * two classics; loop 3 remixes the other two and revisits the new biomes.
+ * classic tour; loop 2 brings the new areas (Neon City, Toy Factory, Sky
+ * Fortress) and ends on Ashen Magma; loop 3 tours remixes of the classics.
  * Loops after that alternate rows 2 and 3.
  */
 export const BIOME_ORDER: string[][] = [
   ['meadow', 'dunes', 'peaks', 'magma'],
-  ['factory', 'skyruins', 'peaks:aurora', 'magma:ashen'],
-  ['meadow:autumn', 'dunes:night', 'factory', 'skyruins'],
+  ['neon', 'factory', 'sky', 'magma:ashen'],
+  ['meadow:autumn', 'dunes:night', 'peaks:aurora', 'magma'],
 ];
 
 /** The biome key ('id' or 'id:remix') for a stage. Pure: every co-op machine agrees. */
 export function biomeKeyForStage(stage: number): string {
-  const s = Math.max(1, Math.floor(stage)) - 1;
+  const s = Math.max(1, Math.floor(stage) || 1) - 1;
   const loop = Math.floor(s / BIOME_LOOP);
   const rows = BIOME_ORDER.length;
   const row = loop < rows ? BIOME_ORDER[loop] : BIOME_ORDER[1 + ((loop - 1) % (rows - 1))];

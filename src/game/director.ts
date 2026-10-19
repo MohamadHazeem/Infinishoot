@@ -1,5 +1,5 @@
 import type { Rng } from '../core/rng';
-import { ENEMIES, VETERAN_OF, biomeAllows, bossForStage, type EnemyDef } from '../data/enemies';
+import { ENEMIES, familyTuning, VETERAN_OF, biomeAllows, bossForStage, type EnemyDef } from '../data/enemies';
 import { bossTuning } from './enemies';
 
 /**
@@ -74,6 +74,7 @@ export class Director {
   private nextReaper = 0;
   /** Goldbug arrival time this stage (-1 = not rolled yet, Infinity = none). */
   goldenAt = -1;
+  private swarmQueenSent = false;
   private queue: SpawnRequest[] = [];
 
   start(stage: number): void {
@@ -85,6 +86,7 @@ export class Director {
     this.nextRing = directorTuning.ringEvery * 0.6;
     this.nextReaper = directorTuning.reaperDelay;
     this.goldenAt = -1;
+    this.swarmQueenSent = false;
     this.queue = [];
   }
 
@@ -189,6 +191,11 @@ export class Director {
       this.nextRing += t.ringEvery * rng.range(0.8, 1.2);
       const minute = this.paceMinute;
       this.queue.push({ kind: 'ring', def: this.vet(minute > 2.5 && rng.chance(0.4) ? ENEMIES.zippy : ENEMIES.swarmer, rng), count: Math.round(18 + minute * 6 + this.stage * 6) });
+    }
+
+    if (!this.swarmQueenSent && !this.bossSpawned && this.stage >= familyTuning.queenFromStage && this.time >= this.duration * familyTuning.queenAt) {
+      this.swarmQueenSent = true;
+      this.queue.push({ kind: 'enemy', def: ENEMIES.swarmqueen });
     }
 
     if (this.goldenAt < 0) this.goldenAt = rng.chance(t.goldenChance) ? goldenTime(this.stage, this.duration, rng.next()) : Infinity;

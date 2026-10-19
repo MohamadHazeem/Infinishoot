@@ -1,4 +1,4 @@
-import { isCodexKey } from '../data/codex';
+import { isCodexKey } from '../data/arsenal';
 import { closestUnlocks } from '../data/unlockProgress';
 import { RELIC_BY_ID } from '../data/relics';
 import { MOD_BY_ID } from '../data/mods';
@@ -115,7 +115,7 @@ export class Onboarding {
       if (offer) this.markOffered();
     }
     if (name === 'settings') this.ui.syncSettings(settings.tips !== false);
-    if (name === 'codex') this.ui.renderCodex(save.discovered);
+    if (name === 'arsenal') this.ui.renderCodex(save.discovered);
     if (name === 'gameover') this.gameOver();
     if (name === 'levelup' || name === 'shop') {
       this.discoverOffers();

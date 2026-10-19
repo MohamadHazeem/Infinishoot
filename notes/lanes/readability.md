@@ -1,5 +1,7 @@
 # Lane: readability (graphics readability fixes)
 
+> **Merge note (v1.6.0 merge):** the shorter-scorch change was dropped: main's persistent scar map (src/render/groundScars.ts) handles scorch, craters and frost now.
+
 ## What players get
 - **You can always find your hero.** When enemies, a boss or cover stand in front of a hero, the hidden part shows through as a dark-rimmed two-tone pixel checker in the player colour (solo: cyan). A bright unlit ground ring in the player colour, with a dark border and a notch pointing where you aim, sits under every hero and reads on every biome and at night. Every co-op hero gets both in their own colour on every machine.
 - **Crowds read as many bodies, not one blob.** Enemies push apart harder, deep overlaps are corrected outright, enemies stuck in a jam stop shoving inward, and nothing stands on top of a hero any more (enemies still reach contact range, so contact damage is unchanged).

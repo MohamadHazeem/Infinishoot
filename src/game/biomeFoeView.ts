@@ -169,8 +169,8 @@ export class BiomeFoeView {
         P.y += Math.sin(time * 9 + e.uid) * 0.08;
         break;
       }
-      case 'burrower': {
-        const B = d.burrow!;
+      case 'shark': {
+        const B = d.shark!;
         if (e.under) {
           // Only the fin shows: the body is scaled away and a fin drawn in its place.
           P.sx = P.sy = P.sz = 0.001;

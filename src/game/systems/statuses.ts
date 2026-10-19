@@ -1,3 +1,4 @@
+import { markSeen } from '../save';
 /**
  * Statuses and combos, hazards, strikes, specials, pickups and other per-step systems.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -5,6 +6,7 @@
  */
 import { ARENA_SOURCE_NAMES } from './arena';
 import { MECH_SOURCE_NAMES } from './heroMechs';
+import { copyOrbPulse } from './enemyAi';
 import type { Game } from '../game';
 import { scoreTuning, bombTuning, dropTuning, chestTuning, nukeTuning, statusTuning, cheats, BULLET_KINDS, IMPACT_BLAST } from '../game';
 import { StaticBoxGrid } from '../../core/spatialHash';
@@ -27,6 +29,7 @@ import { bossLike } from '../bossRules';
 import { noteBulletHit } from '../netFeel';
 import { vampHeal } from '../lifesteal';
 import { noteShock, overloadPartner, teamCombo, teamGame, teamTuning } from '../teamPlay';
+import { bossVoiceCue } from '../../audio/voices';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
@@ -95,10 +98,8 @@ export function zap(this: Game, from: Enemy, hops: number, dmg: number, by: Hero
     const next = this.nearestEnemy(cur.x, cur.z, 5, (o) => hit.has(o.uid));
     if (!next) break;
     hit.add(next.uid);
-    for (let k = 1; k < 5; k++) {
-      const t = k / 5;
-      this.vfx.burst(cur.x + (next.x - cur.x) * t, 1, cur.z + (next.z - cur.z) * t, { count: 1, color: '#fff35c', color2: '#ffffff', speed: [0, 0.5], size: [0.12, 0.2], life: [0.08, 0.14] });
-    }
+    // One event per hop: a spark at the start plus the arc to the next enemy (systems/sky.ts draws it).
+    this.vfx.burst(cur.x, 1, cur.z, { count: 2, color: '#fff35c', color2: '#ffffff', speed: [0, 0.5], size: [0.12, 0.2], life: [0.08, 0.14], arc: [Math.round(next.x * 100) / 100, Math.round(next.z * 100) / 100] });
     this.vfx.star(next.x, 1, next.z, 1, '#fff35c', 0.1);
     this.damage(next, dmg, { source: 'zap', tags: ['chain', 'shock'] }, by);
     cur = next;
@@ -135,12 +136,15 @@ export function sourceName(this: Game, id: string): string {
   if (PASSIVES[id]) return PASSIVES[id].name;
   if (id === 'parry' || id === 'ult') return id === 'parry' ? 'Parry' : 'Ultimate'; // skill layer
   if (MECH_SOURCE_NAMES[id]) return MECH_SOURCE_NAMES[id]; // hero mechanics, biome foes
+  if (id === 'pet' || id === 'team') return id === 'pet' ? 'Pet' : 'Team Moves'; // companion lane
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
 }
 
 export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null): void {
+  if (this.finisherCatch(e, source, by)) return; // a stage boss's killing blow plays the finisher first
   const def = e.def;
+  markSeen(def.id);
   const wasFrozen = e.frozen > 0;
   this.kills++;
   this.combo++;
@@ -167,7 +171,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive));
     const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 4 : 1);
     if (this.rng.chance(dropTuning.goldChance * thin * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
-    if (!this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
+    if (!this.meta.has('hearts') && !this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
     if (this.rng.chance(dropTuning.magnetChance * thin)) this.pickups.spawn(PickupType.Magnet, e.x, e.z);
     if (this.rng.chance(dropTuning.gearChance * thin * (1 + 0.25 * (by?.stats.luck ?? 0)))) this.pickups.spawn(PickupType.Gear, e.x, e.z);
     if (this.rng.chance(dropTuning.nukeChance * thin)) this.pickups.spawn(PickupType.Nuke, e.x, e.z);
@@ -194,6 +198,8 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     this.vfx.corpse(def.id, e.x, e.hopY, e.z, e.scale, e.facing, fl > 0.01 ? fx / fl : 0, fl > 0.01 ? fz / fl : 0);
   }
   if (isBoss) {
+    const voice = bossVoiceCue(def, 'defeat'); // the boss's last words (src/audio/voices.ts)
+    if (voice) this.vfx.sound(voice, NaN, NaN);
     this.slowMoT = 1.4;
     this.bossBoom = { x: e.x, z: e.z, r: r * 2.2, n: 7, t: 0, color: def.bodyColor };
   }
@@ -379,7 +385,7 @@ export function contactDamage(this: Game, h: Hero): void {
   let worst: Enemy | null = null;
   let dmg = 0;
   this.hash.query(p.x, p.z, 2.5, (e) => {
-    if (!e.alive || e.frozen > 0 || e.hopY > 0.5 || e.pvpOwner >= 0) return;
+    if (!e.targetable || e.frozen > 0 || e.hopY > 0.5 || e.pvpOwner >= 0) return;
     const rr = e.radius + p.radius;
     if ((e.x - p.x) ** 2 + (e.z - p.z) ** 2 > rr * rr) return;
     const d = e.contactDamage * (e.state === 'attack' ? 1.5 : 1);
@@ -396,10 +402,12 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   const p = h.player;
   if (cheats.god || p.dead || p.invuln > 0) return;
   h.lastHitBy = cause || src?.def.name || 'Enemy fire';
+  if (this.petShield(h, raw, fromX, fromZ)) return; // pet shield: blocks one big hit per stage
   // One hit never takes more than maxHitFrac of max life (curses scale it before the cap).
   let dmg = Math.max(1, Math.round(Math.min((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken')), p.maxHp * playerTuning.maxHitFrac)));
+  if (this.meta.rule('glass')) dmg = Math.ceil(p.hp);
   // Frost Totem relic: once per stage a lethal hit leaves you at 1 life and freezes everything nearby.
-  if (dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
+  if (!this.meta.rule('glass') && dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
     h.phoenixUsed = true;
     dmg = Math.max(0, Math.ceil(p.hp) - 1);
     for (const e of this.enemiesInRadius(p.x, p.z, 7, this.scratch)) e.frozen = Math.max(e.frozen, bossLike(e) ? 0.4 : 2.5);
@@ -451,6 +459,7 @@ export function onHeroDown(this: Game, h: Hero): void {
     this.vfx.banner('SECOND WIND!', `${h.name} is back on their feet`, 1.6);
     return;
   }
+  if (this.petRevive(h)) return; // pet revive: once per run
   if (this.pvp?.phase === 'duel') {
     this.vfx.sound('playerDie', p.x, p.z);
     this.vfx.shake(p.x, p.z, 1);
@@ -490,6 +499,7 @@ export function collect(this: Game, h: Hero, type: PickupType, value: number): v
       break;
     }
     case PickupType.Heart: {
+      if (this.meta.has('hearts')) break;
       const healed = p.heal(30);
       this.vfx.sound('heal', p.x, p.z);
       if (healed > 0) this.vfx.num(p.x, 2.4, p.z, `+${Math.round(healed)}`, 'heal');
@@ -539,7 +549,7 @@ export function updateBullets(this: Game, dt: number): void {
         continue;
       }
     }
-    if (this.walls.hitCircle(x, z, b.radius[i])) {
+    if (this.walls.hitSolid(x, z, b.radius[i])) {
       if (b.team[i] === Team.Player) this.hitToys(x, z, b.radius[i], b.damage[i], b.owner[i], b.vx[i], b.vz[i]);
       this.vfx.burst(b.px[i], BULLET_Y, b.pz[i], { count: 3, color: '#ffffff', color2: b.team[i] === Team.Enemy ? '#ff3df0' : '#fff36b', speed: [2, 6], size: [0.08, 0.15], life: [0.1, 0.25], up: 2, gravity: 10 });
       this.bulletBlast(i);
@@ -547,6 +557,7 @@ export function updateBullets(this: Game, dt: number): void {
       continue;
     }
     if (b.team[i] === Team.Enemy) {
+      if (copyOrbPulse(this, i, dt)) continue;
       for (const h of this.heroes) {
         const p = h.player;
         if (p.dead || h.left || p.invuln > 0) continue;
@@ -564,7 +575,7 @@ export function updateBullets(this: Game, dt: number): void {
     let hit = null as Enemy | null;
     const r = b.radius[i];
     this.hash.query(x, z, r, (e) => {
-      if (hit || !e.alive || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
+      if (hit || !e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
       const rr = e.radius + r;
       if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr) hit = e;
     });
@@ -604,7 +615,7 @@ export function updateChests(this: Game): void {
 
 /** Host/solo: a new chest every chestTuning.every seconds at a random clear spot. */
 export function updateChestSpawns(this: Game, dt: number): void {
-  this.chestT += dt;
+  this.chestT += dt * (this.meta.has('chests') ? 0.5 : 1);
   if (this.chestT < chestTuning.every) return;
   this.chestT -= chestTuning.every;
   if (this.chests.closedCount >= chestTuning.maxClosed) return;

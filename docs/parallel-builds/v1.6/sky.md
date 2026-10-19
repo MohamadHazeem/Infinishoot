@@ -1,0 +1,8 @@
+LANE: sky
+
+Goal: the world looks richer.
+1. Sky and time of day: a proper sky dome per biome (gradient + sun/moon), moving clouds and their soft shadows drifting across the ground (cheap: a scrolling shadow texture in the retro material or a projected decal), sun shafts/god rays at low sun (a cheap screen-space or billboard approach), sunsets that progress over a stage (stages already go midday → sunset: make it beautiful), visible stars and a moon on night stages. Respect quality presets.
+2. Destructible ground: big explosions leave persistent craters, lava cracks (magma) and frozen patches (frost), recorded into a ground "scar" texture/decal map per stage so the battlefield carries visible battle history for the whole stage, with a budget and graceful fading of the oldest. Replace/merge with the existing short-lived scars (src/game/scars.ts) so the ground doesn't get crowded with dark blobs (heavy explosive builds currently look messy: keep it readable).
+3. Weapon trails and projectile identity: ribbon trails on discs, missiles, rail and big projectiles; heat haze behind fire projectiles (use the existing distortion pass if available in src/render/postfx.ts); branching electric arcs for lightning/shock; every weapon's projectiles visually distinct. Pooled, cheap, quality-scaled.
+All cosmetic and local (no netcode).
+Owns: new src/render/sky.ts, src/render/groundScars.ts, src/game/trails.ts, src/game/scars.ts, bullet rendering bits (src/game/bullets.ts render parts), lightning visuals in weapons (visual parts only), small hooks in systems/render.ts and systems/look.ts, tests/sky.test.ts.

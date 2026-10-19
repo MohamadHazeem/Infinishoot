@@ -1,14 +1,13 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Rng } from '../core/rng';
-import { paint } from '../render/geometry';
 import { commit } from '../render/instancing';
 import { createRetroMaterial } from '../render/retroMaterial';
 
 /**
  * Props for the loop-2 biomes and the remixes, built for createFieldArena
  * (src/world/fieldArena.ts). Static props are plain meshes that the arena
- * merges per material; animated scenery (gears, floating islets) comes back
+ * merges per material; animated scenery (gears) comes back
  * as `ArenaAnim` instanced meshes that src/world/worldRender.ts moves each
  * frame. Everything takes the arena's rng so the same seed rebuilds the same
  * stage on every machine.
@@ -32,10 +31,9 @@ export function tileTint(colors: readonly string[], tx: number, tz: number, v: n
   return new THREE.Color(colors[(h >>> 3) % colors.length]).lerp(CREAM, 0.15).multiplyScalar(v * 0.9);
 }
 
-/** The edge-ring piece: a leafy bush, a glossy ball (gumballs) or a round cloud puff. */
-export function edgeGeometry(shape: 'bush' | 'ball' | 'cloud' = 'bush'): THREE.BufferGeometry {
+/** The edge-ring piece: a leafy bush or a glossy ball (gumballs). */
+export function edgeGeometry(shape: 'bush' | 'ball' = 'bush'): THREE.BufferGeometry {
   if (shape === 'ball') return new THREE.SphereGeometry(0.9, 10, 7);
-  if (shape === 'cloud') return new THREE.IcosahedronGeometry(0.9, 1);
   return new THREE.IcosahedronGeometry(0.9, 0);
 }
 
@@ -134,21 +132,6 @@ export function buildToyTree(g: THREE.Group, rng: Rng, s: number, mats: THREE.Ma
   }
 }
 
-/** Sky Ruins blossom tree: a pale bent trunk, a cloud of blossom and a gold ring. */
-export function buildBlossom(g: THREE.Group, rng: Rng, s: number, leaf: THREE.Material, trunk: THREE.Material, gold: THREE.Material): void {
-  const lean = rng.range(-0.25, 0.25);
-  g.add(mesh(new THREE.CylinderGeometry(0.18, 0.3, 1.6, 7), trunk, 0, 0.8, 0, 0, 0, lean));
-  g.add(mesh(new THREE.CylinderGeometry(0.12, 0.18, 1.1, 7), trunk, -Math.sin(lean) * 1.2, 1.9, 0, 0, 0, -lean * 1.4));
-  g.add(mesh(new THREE.TorusGeometry(0.24, 0.06, 4, 10), gold, 0, 0.5, 0, Math.PI / 2));
-  const cx = -Math.sin(lean) * 1.5;
-  for (let k = 0; k < 3; k++) {
-    const a = k * 2.1 + rng.range(0, 0.6);
-    const r = (0.8 + rng.range(0, 0.35)) * s;
-    g.add(mesh(new THREE.IcosahedronGeometry(r, 1), leaf, cx + Math.cos(a) * 0.6 * s, 2.6 + 0.4 * s + rng.range(-0.1, 0.3), Math.sin(a) * 0.6 * s));
-  }
-  g.add(mesh(new THREE.IcosahedronGeometry(0.75 * s, 1), leaf, cx, 3.2 + 0.6 * s, 0));
-}
-
 /** Rock-like cover for the new biomes and remixes, centred on (x, z). */
 export function buildRock(
   style: 'block' | 'column' | 'basalt' | 'pumpkin' | 'crystal',
@@ -215,26 +198,6 @@ export function buildRock(
   return g;
 }
 
-/** Rocky roots hanging under a floating island's cliffs (static, merged with the arena). */
-export function buildUnderside(group: THREE.Group, rng: Rng, edge: number, depth: number, tex: THREE.Texture): void {
-  const mat = createRetroMaterial({ map: tex, color: '#d8c0a8' });
-  const geos: THREE.BufferGeometry[] = [];
-  for (let side = 0; side < 4; side++) {
-    for (let t = -edge + 6; t < edge - 4; t += rng.range(7, 13)) {
-      const r = rng.range(3, 6.5);
-      const h = rng.range(6, 15);
-      const c = new THREE.ConeGeometry(r, h, 6);
-      c.rotateX(Math.PI);
-      const inset = edge - r * 0.8;
-      const [x, z] = side === 0 ? [t, -inset] : side === 1 ? [t, inset] : side === 2 ? [-inset, t] : [inset, t];
-      c.translate(x, -depth - h / 2 + 0.5, z);
-      geos.push(c);
-    }
-  }
-  const merged = mergeGeometries(geos);
-  if (merged) group.add(new THREE.Mesh(merged, mat));
-}
-
 /** A cog wheel lying in the XY plane, `teeth` teeth, extruded `thick` deep (centred). */
 function gearGeometry(r: number, teeth: number, thick: number): THREE.BufferGeometry {
   const shape = new THREE.Shape();
@@ -253,33 +216,13 @@ function gearGeometry(r: number, teeth: number, thick: number): THREE.BufferGeom
   return g;
 }
 
-/** A small floating islet: an upside-down rock cone with a grassy top and a stump of ruin. Vertex-coloured. */
-function isletGeometry(): THREE.BufferGeometry {
-  const rock = new THREE.ConeGeometry(1, 2.2, 7);
-  rock.rotateX(Math.PI);
-  rock.translate(0, -1.1, 0);
-  paint(rock, '#c89a72');
-  const top = new THREE.CylinderGeometry(1.05, 1.0, 0.25, 7);
-  top.translate(0, 0.1, 0);
-  paint(top, '#8ee0b0');
-  const col = new THREE.CylinderGeometry(0.16, 0.18, 0.9, 8);
-  col.translate(0.35, 0.65, -0.2);
-  paint(col, '#fbf6ea');
-  const parts = [rock, top, col].map((g) => {
-    const ng = g.index ? g.toNonIndexed() : g;
-    ng.deleteAttribute('uv');
-    return ng;
-  });
-  return mergeGeometries(parts)!;
-}
-
 /**
  * Animated scenery outside the play area: big gears half-sunk in the factory's
- * ball pit, or small islets floating round the sky island. Local and cosmetic.
+ * ball pit. Local and cosmetic.
  */
-export function buildDecor(kind: 'gears' | 'islets', group: THREE.Group, rng: Rng, half: number): ArenaAnim[] {
+export function buildDecor(_kind: 'gears', group: THREE.Group, rng: Rng, half: number): ArenaAnim[] {
   const items: ArenaAnim['items'] = [];
-  if (kind === 'gears') {
+  {
     const n = 10;
     const mesh = new THREE.InstancedMesh(gearGeometry(1, 12, 0.5), createRetroMaterial({}), n);
     const cols = ['#ffcd3a', '#ff5a4a', '#3b8cff', '#38c868', '#94b0c2'];
@@ -296,17 +239,6 @@ export function buildDecor(kind: 'gears' | 'islets', group: THREE.Group, rng: Rn
     }
     return [finish(group, mesh, 'spin', items)];
   }
-  const n = 12;
-  const mesh = new THREE.InstancedMesh(isletGeometry(), createRetroMaterial({ vertexColors: true }), n);
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + rng.range(-0.2, 0.2);
-    const d = half + rng.range(10, 26);
-    // Square-ish ring round the square island.
-    const k = Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)));
-    items.push({ x: (Math.cos(a) / k) * d, y: rng.range(-4, 1.5), z: (Math.sin(a) / k) * d, yaw: rng.range(0, 6), scale: rng.range(1.5, 3.5), speed: rng.range(0.4, 0.8), phase: rng.range(0, 6) });
-    mesh.setColorAt(i, new THREE.Color(1, 1, 1));
-  }
-  return [finish(group, mesh, 'bob', items)];
 }
 
 function finish(group: THREE.Group, mesh: THREE.InstancedMesh, kind: ArenaAnim['kind'], items: ArenaAnim['items']): ArenaAnim {

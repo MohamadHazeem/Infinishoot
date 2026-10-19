@@ -107,6 +107,7 @@ export function heroAction(this: Game, h: Hero, a: string, i: number, d: -1 | 1)
       if (h === this.hero && (o.kind === 'evo' || o.kind === 'track')) this.checkAchievements();
       this.vfx.sound('powerUp', h.player.x, h.player.z);
       if (o.kind === 'evolve') this.evolveFx(h, o.name, color);
+      else if (o.kind === 'fusion') this.fusionFx(h, o.id);
       else if (o.rarity === 'legendary') this.legendaryFx(h, o.name);
       this.afterPick(h, color);
     } else if (a === 'skip') {

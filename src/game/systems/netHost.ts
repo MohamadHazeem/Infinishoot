@@ -1,3 +1,4 @@
+import { metaSkin } from '../../data/codex';
 /**
  * Online, host side: messages from clients and snapshots.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -12,10 +13,16 @@ import { Hero } from '../hero';
 import { playerTuning } from '../player';
 import { unlockedWeapons } from '../save';
 import { Vfx, type VfxEvent } from '../vfx';
+import { FxEncoder, fxRelevant } from '../../net/fxCodec';
+import { SnapEncoder } from '../../net/snapCodec';
 import { skinOf } from '../../data/skins';
 import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
+
+/** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
+const snapEncoders = new WeakMap<Hero, SnapEncoder>();
+const fxEncoder = new FxEncoder();
 
 export function heroByPeer(this: Game, id: string): Hero | undefined {
   return this.heroes.find((h) => h.peerId === id);
@@ -41,7 +48,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       name: String(m.name ?? 'Player').slice(0, 12),
       unlocked: Array.isArray(m.unlocked) ? (m.unlocked as string[]) : unlockedWeapons(),
       loadout: validLoadout(m.loadout as Partial<Loadout>),
-      skin: skinOf(String(m.skin ?? '')).id,
+      skin: (metaSkin(String(m.skin ?? '')) ?? skinOf(String(m.skin ?? ''))).id,
       pet: String(m.pet ?? 'none'),
       hero: heroOf(String(m.hero ?? '')).id,
     });
@@ -59,6 +66,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   const h = this.heroByPeer(from);
   if (!h) return;
   h.lastSeen = performance.now();
+  if (m.t === 'rvote') return this.routeVote(h, Number(m.i)); // route map vote (systems/route.ts)
   if (m.t === 'i') {
     h.remote = {
       x: Number(m.x),
@@ -88,6 +96,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   } else if (m.t === 'parry' || m.t === 'ult') {
     if (m.t === 'parry') noteParryLag(this, h, Number(m.rtt) || 0);
     this.skillMessage(h, m.t);
+  } else if (m.t === 'team') {
+    this.tryTeamMove(h);
   } else if (m.t === 'ui') {
     const d = m.d === -1 ? -1 : 1;
     this.heroAction(h, String(m.a), Number(m.i) || 0, d);
@@ -145,14 +155,17 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
   for (let i = 0; i < this.bullets.count; i++) if (near(this.bullets.x[i], this.bullets.z[i])) bi.push(i);
   const pi: number[] = [];
   for (let i = 0; i < this.pickups.count && pi.length < 600; i++) if (near(this.pickups.x[i], this.pickups.z[i])) pi.push(i);
-  const ev = events.filter((e) => {
+  const keepFx = (e: VfxEvent) => {
     const [x, z] = Vfx.position(e);
-    return Number.isNaN(x) || near(x, z);
-  });
+    return (Number.isNaN(x) || near(x, z)) && fxRelevant(e, cx, cz);
+  };
   const r2 = (v: number) => Math.round(v * 100) / 100;
   const boss = this.boss && this.boss.active ? { name: this.boss.def.name, hp01: r2(Math.max(0, this.boss.hp / this.boss.maxHp)) } : null;
-  return {
-    t: 's',
+  let enc = snapEncoders.get(forHero);
+  if (!enc) snapEncoders.set(forHero, (enc = new SnapEncoder()));
+  // The body goes through the compact snapshot codec (src/net/snapCodec.ts); records and effects are binary.
+  const body: Record<string, unknown> = {
+    meta: { heat: this.meta.heat, week: this.meta.week, clears: this.victories },
     mode: this.mode,
     stage: this.stage,
     tl: !this.director.bossSpawned ? r2(this.director.remaining) : this.boss ? -1 : -2,
@@ -200,9 +213,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     bx: this.bossNet(),
     ar: this.arenaNet(),
     sk: this.skillNet(forHero),
-    en: packEnemies(en),
-    bu: packBullets(this.bullets, bi),
-    pk: packPickups(this.pickups, pi),
-    ev,
+    cp: this.companionNet(),
   };
+  return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

@@ -19,12 +19,14 @@ import { juiceTuning } from '../game/juice';
 import { WEAPONS } from '../data/weapons';
 import { MODS } from '../data/mods';
 import { ELITE_MOD_IDS } from '../data/eliteMods';
-import { ENEMIES } from '../data/enemies';
+import { ENEMIES, familyTuning } from '../data/enemies';
 import { audioSettings } from '../audio/sfx';
 import { addLookFolder } from './debugLook';
 import { addReadabilityFolder } from './debugReadability';
 import { addAudioFolder } from './debugAudio';
 import { addContentFolder } from './debugContent';
+import { addSoundFolder } from './debugSound';
+import { addSkyFolder } from './debugSky';
 import { rainTuning, weatherForce } from '../game/ambience';
 import { worldFxTuning } from '../game/particles';
 import { debrisTuning } from '../game/debris';
@@ -32,8 +34,12 @@ import { decalTuning } from '../game/decals';
 import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
 import { worldDebugFolder } from '../world/worldDebug';
+import { finisherTuning } from '../game/finisher';
+import { portraitTuning } from './portraits';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
+import { petTuning } from '../data/pets';
+import { teamTuning } from '../game/teamMoves';
 import { banishTuning } from '../game/banish';
 import { cardNumTuning } from '../game/cardNumbers';
 import { previewTuning } from '../game/shopPreview';
@@ -95,6 +101,8 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addReadabilityFolder(gui);
   addAudioFolder(gui, game);
   addContentFolder(gui);
+  addSoundFolder(gui); // Sound designer: samples, cues, live tuning, export
+  addSkyFolder(gui);
 
   const cam = gui.addFolder('Camera').close();
   cam.add(cameraTuning, 'pitchDeg', 30, 89, 1);
@@ -119,6 +127,16 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   anim.add(enemyAnimTuning, 'hitWobble', 0, 2, 0.05);
   anim.add(enemyAnimTuning, 'flingSpeed', 0, 20, 0.5);
   anim.add(enemyAnimTuning, 'corpseLife', 0.1, 2, 0.05);
+  // Boss finishers and portraits (finisher lane).
+  const fin = cam.addFolder('Finisher & portraits').close();
+  fin.add(finisherTuning, 'length', 1, 4, 0.05);
+  fin.add(finisherTuning, 'calmLength', 0.8, 3, 0.05);
+  fin.add(finisherTuning, 'strike', 0.15, 1, 0.01);
+  fin.add(finisherTuning, 'title', 0.2, 1.5, 0.01);
+  fin.add(finisherTuning, 'shake', 0, 8, 1);
+  fin.add(portraitTuning, 'popSeconds', 1, 6, 0.1);
+  fin.add(portraitTuning, 'typeRate', 10, 120, 1);
+  fin.add(portraitTuning, 'hurtHold', 0.1, 2, 0.05);
 
   const pl = gui.addFolder('Player').close();
   pl.add(playerTuning, 'maxSpeed', 1, 20, 0.5);
@@ -203,6 +221,13 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   ai.add(squadTuning, 'rallySpeed', 1, 2, 0.05).name('Rally speed');
   ai.add(goldenTuning, 'panicSpeed', 1, 2, 0.05).name('Goldbug panic');
   ai.add(directorTuning, 'goldenChance', 0, 1, 0.05).name('Goldbug chance');
+  const families = ai.addFolder('Burrow / Mirror / Swarm').close();
+  families.add(familyTuning, 'mirrorDamage', 0.1, 0.7, 0.05);
+  families.add(familyTuning, 'mirrorMaxDamage', 2, 20, 1);
+  families.add(familyTuning, 'queenAt', 0.6, 0.85, 0.01);
+  families.add(familyTuning, 'queenCooldown', 4, 15, 0.5);
+  families.add(familyTuning, 'eggHatch', 3, 12, 0.5);
+  families.add(ENEMIES.burrower.burrow!, 'warn', 0.6, 2, 0.05).name('Digger warning');
 
   const fx = gui.addFolder('Juice & audio').close();
   fx.add(juiceTuning, 'hitStopScale', 0, 3, 0.1).name('Hit-stop x');
@@ -259,6 +284,22 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   ob.add(trainingTuning, 'skipAfter', 0, 60, 1).name('SKIP shows after (s)');
   addFixesFolder(gui);
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
+
+  // Companion lane: pets and co-op team moves.
+  const comp = gui.addFolder('Pets & team moves').close();
+  comp.add(petTuning, 'fetchMagnet', 0, 2, 0.05).name('Fetch range +');
+  comp.add(petTuning, 'zapDmg', 0, 100, 1).name('Zap damage');
+  comp.add(petTuning, 'zapPerLevel', 0, 20, 0.5).name('Zap per team lv');
+  comp.add(petTuning, 'tauntMinEnemies', 1, 10, 1).name('Taunt min crowd');
+  comp.add(petTuning, 'shieldMinFrac', 0, 1, 0.01).name('Shield min hit');
+  comp.add(petTuning, 'reviveHp', 0.1, 1, 0.05).name('Revive life');
+  comp.add(teamTuning, 'linkRange', 2, 15, 0.5).name('Team link range');
+  comp.add(teamTuning, 'linkTime', 0, 5, 0.1).name('Team link time');
+  comp.add(teamTuning, 'chargeTime', 2, 60, 1).name('Team charge (s)');
+  comp.add(teamTuning, 'highFiveBonus', 0, 1, 0.05).name('High-five bonus');
+  comp.add(teamTuning, 'dmg', 10, 400, 5).name('Team move damage');
+  comp.add({ fill: () => (game.companionState().meter.charge = 1) }, 'fill').name('Fill TEAM meter');
+  comp.add({ lv: () => game.heroes.forEach((h) => h.petState.levelUp() && h.recomputeStats()) }, 'lv').name('Pet level up');
 
   return gui;
 }

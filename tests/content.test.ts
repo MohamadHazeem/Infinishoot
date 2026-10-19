@@ -28,7 +28,7 @@ const NATIVE: Record<string, string> = {
   roller: 'peaks',
   slug: 'magma',
   soldier: 'factory',
-  kite: 'skyruins',
+  kite: 'sky',
 };
 
 // ---------------------------------------------------------------- data
@@ -68,7 +68,7 @@ ok(
 ok(poolAt(3, 'peaks', 60).includes('roller'), 'snowballs on the peaks');
 ok(poolAt(4, 'magma', 60).includes('slug'), 'slugs on magma');
 ok(
-  poolAt(5, 'factory', 60).includes('soldier') && poolAt(5, 'skyruins', 60).includes('kite'),
+  poolAt(5, 'factory', 60).includes('soldier') && poolAt(5, 'sky', 60).includes('kite'),
   'loop-2 biomes get theirs',
 );
 ok(

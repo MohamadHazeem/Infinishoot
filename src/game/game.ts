@@ -1,3 +1,5 @@
+import { metaSkin } from '../data/codex';
+import { MetaRun } from './systems/meta';
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { Rng, randomSeed } from '../core/rng';
@@ -46,6 +48,7 @@ import * as RunFlowSys from './systems/runFlow';
 import * as DebugSys from './systems/debug';
 import * as SpiceSys from './systems/spice';
 import * as LevelUpsSys from './systems/levelUps';
+import * as FusionSys from './systems/fusion';
 import * as CoopSys from './systems/coop';
 import * as SpawningSys from './systems/spawning';
 import * as CombatSys from './systems/combat';
@@ -66,6 +69,7 @@ import * as ArenaSys from './systems/arena';
 import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
+import * as SkySys from './systems/sky';
 import * as SkillSys from './systems/skill';
 import { Onboarding } from './onboarding';
 import { weaponCue, windupCue } from './systems/sound';
@@ -73,6 +77,11 @@ import { rightClickHeld } from './chargeMode';
 import * as BiomeFoesSys from './systems/biomeFoes';
 import * as HeroMechsSys from './systems/heroMechs';
 import * as AttractSys from './systems/attract';
+import * as RouteSys from './systems/route';
+import * as WindSys from './wind';
+import * as CompanionSys from './systems/companion';
+import * as CharSys from './systems/characters';
+import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
 
@@ -176,6 +185,7 @@ export const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'turret', tags: ['projectile'] }, // 12 arena turrets (src/game/systems/arena.ts)
   { source: 'parry', tags: ['projectile'] }, // 13 bullets reflected by a parry
   { source: 'ult', tags: [] }, // 14 Mega Barrage shots
+  { source: 'dragon_cannon', tags: ['projectile', 'fire', 'trail'] }, // 15 Dragon Cannon (fusion, src/data/fusions.ts)
 ];
 /** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
 export const IMPACT_BLAST = [1, 5, 8];
@@ -267,6 +277,7 @@ export function playerName(): string {
  */
 export class Game implements HeroWorld {
   // Methods that live in src/game/systems/ (see the header of each file).
+  updateWind = WindSys.updateWind;
   clearWorld = RunFlowSys.clearWorld;
   loadArena = RunFlowSys.loadArena;
   spawnSpot = RunFlowSys.spawnSpot;
@@ -320,6 +331,7 @@ export class Game implements HeroWorld {
   ui = LevelUpsSys.ui;
   heroAction = LevelUpsSys.heroAction;
   evolveFx = LevelUpsSys.evolveFx;
+  fusionFx = FusionSys.fusionFx;
   legendaryFx = LevelUpsSys.legendaryFx;
   legendaryBurst = LevelUpsSys.legendaryBurst;
   afterPick = LevelUpsSys.afterPick;
@@ -334,7 +346,7 @@ export class Game implements HeroWorld {
   nearestEnemy = CombatSys.nearestEnemy;
   enemiesInRadius = CombatSys.enemiesInRadius;
   damage = CombatSys.damage;
-  updatePets = CombatSys.updatePets;
+  updatePets = CompanionSys.updatePets;
   updateEliteMods = CombatSys.updateEliteMods;
   groundAt = CombatSys.groundAt;
   updateHazards = CombatSys.updateHazards;
@@ -415,6 +427,13 @@ export class Game implements HeroWorld {
   renderTeam = RenderSys.renderTeam;
   cameraDirector = AnimSys.cameraDirector;
   onCorpse = AnimSys.onCorpse;
+  // Boss finishers and character portraits (src/game/systems/characters.ts).
+  finisherCatch = CharSys.finisherCatch;
+  finisherHold = CharSys.finisherHold;
+  onFinisher = CharSys.onFinisher;
+  renderCharacters = CharSys.renderCharacters;
+  resolveSpeaker = CharSys.resolveSpeaker;
+  pingPortrait = CharSys.pingPortrait;
   updateLook = LookSys.updateLook;
   makeBossApi = BossFightSys.makeBossApi;
   bossHpGate = BossFightSys.bossHpGate;
@@ -426,6 +445,33 @@ export class Game implements HeroWorld {
   applyBossNet = BossFightSys.applyBossNet;
   renderBossFight = BossFightSys.renderBossFight;
   bossHud = BossFightSys.bossHud;
+  routeReset = RouteSys.routeReset;
+  routeKind = RouteSys.routeKind;
+  routeMod = RouteSys.routeMod;
+  routeSecretShop = RouteSys.routeSecretShop;
+  routeStageStart = RouteSys.routeStageStart;
+  routeChest = RouteSys.routeChest;
+  routeGears = RouteSys.routeGears;
+  updateRoute = RouteSys.updateRoute;
+  routeClearRewards = RouteSys.routeClearRewards;
+  openRoute = RouteSys.openRoute;
+  routeBeginVote = RouteSys.routeBeginVote;
+  routePick = RouteSys.routePick;
+  routeVote = RouteSys.routeVote;
+  routeOptionCount = RouteSys.routeOptionCount;
+  routeDecide = RouteSys.routeDecide;
+  routeAdvance = RouteSys.routeAdvance;
+  closeRoute = RouteSys.closeRoute;
+  routeRest = RouteSys.routeRest;
+  routeEventEffect = RouteSys.routeEventEffect;
+  routeShow = RouteSys.routeShow;
+  routeViewFrom = RouteSys.routeViewFrom;
+  routeFromNet = RouteSys.routeFromNet;
+  routeTestEvent = RouteSys.routeTestEvent;
+  /** Route map between stages (systems/route.ts); clients keep their own pending vote and the last phase seen. */
+  route: RouteSys.RouteRun = RouteSys.newRouteRun();
+  routeLocalVote = -1;
+  routeNetPhase = '';
   debugBoss = BossFightSys.debugBoss;
   // Arena toys, hazards and objectives (src/game/systems/arena.ts).
   loadToys = ArenaSys.loadToys;
@@ -452,6 +498,7 @@ export class Game implements HeroWorld {
   renderArena = ArenaSys.renderArena;
   objectiveTarget = ArenaSys.objectiveTarget;
   worldFx = WorldFxSys.worldFx;
+  updateSkyFx = SkySys.updateSkyFx;
   skillInput = SkillSys.skillInput;
   skillClientInput = SkillSys.skillClientInput;
   skillMessage = SkillSys.skillMessage;
@@ -483,6 +530,20 @@ export class Game implements HeroWorld {
   bestStyle = SkillSys.bestStyle;
   // Title attract mode (src/game/systems/attract.ts).
   attractTick = AttractSys.attractTick;
+  // Companion: growing pets, TEAM meter and team moves, high-five revives (src/game/systems/companion.ts).
+  companionState = CompanionSys.companionState;
+  companionTargets = CompanionSys.companionTargets;
+  companionStageClear = CompanionSys.companionStageClear;
+  petGrowth = CompanionSys.petGrowth;
+  petShield = CompanionSys.petShield;
+  petRevive = CompanionSys.petRevive;
+  highFive = CompanionSys.highFive;
+  updateCompanion = CompanionSys.updateCompanion;
+  companionClientInput = CompanionSys.companionClientInput;
+  tryTeamMove = CompanionSys.tryTeamMove;
+  companionNet = CompanionSys.companionNet;
+  applyCompanionNet = CompanionSys.applyCompanionNet;
+  renderCompanion = CompanionSys.renderCompanion;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -512,6 +573,8 @@ export class Game implements HeroWorld {
 
   mode: Mode = 'title';
   paused = false;
+  /** Photo mode (src/ui/photoMode.ts, set by main.ts): while active it gets the input instead of the game. */
+  photo: { active: boolean; update(dt: number): void } | null = null;
 
   // --- Team run state ---
   seed = 0;
@@ -537,6 +600,8 @@ export class Game implements HeroWorld {
   spectate = -1;
   readonly runEvents: RunEvents;
   /** Mode and difficulty of the current run. */
+  meta = new MetaRun();
+  get shopPriceMul(): number { return this.meta.has('shop') ? 1.5 : 1; }
   runMode: ModeId = 'standard';
   difficulty: DifficultyDef = DIFF_BY_ID.normal;
   runDate = '';
@@ -666,6 +731,8 @@ export class Game implements HeroWorld {
       zones: this.enemies.zones,
       scars: this.scars,
       corpse: (id, x, y, z, s, f, dx, dz) => this.onCorpse(id, x, y, z, s, f, dx, dz),
+      finisher: (id, hi, x, z) => this.onFinisher(id, hi, x, z),
+      portrait: (who, ex, text, sec) => portraits.popIn(who, ex as Parameters<typeof portraits.popIn>[1], text, sec),
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {
@@ -721,6 +788,7 @@ export class Game implements HeroWorld {
     );
     this.hud.onPause = () => this.pause();
     this.onboarding = new Onboarding(this, hudRoot);
+    this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
@@ -780,7 +848,7 @@ export class Game implements HeroWorld {
   // ------------------------------------------------------------------ heroes and contexts
 
   makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet, heroId = localHero()): Hero {
-    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, skinOf(skin), pet, heroId);
+    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, (metaSkin(skin) ?? skinOf(skin)), pet, heroId);
     h.player.setSkin(h.skin.armor, h.skin);
     return h;
   }
@@ -795,7 +863,7 @@ export class Game implements HeroWorld {
   /** Wardrobe: re-dress this machine's hero. */
   applyLocalSkin(): void {
     const h = this.hero;
-    h.skin = skinOf(settings.skin);
+    h.skin = (save.meta.rewards.includes(settings.skin) ? metaSkin(settings.skin) : undefined) ?? skinOf(settings.skin);
     h.player.setSkin(this.heroes.length > 1 ? h.color : h.skin.armor, h.skin);
     h.setPet(settings.pet);
     h.setHeroDef(localHero());
@@ -877,7 +945,7 @@ export class Game implements HeroWorld {
           z: e.z + dz * (e.radius + 0.2),
           dirX: dx,
           dirZ: dz,
-          speed,
+          speed: speed * (this.meta.has('bullets') ? 1.35 : 1) * (this.meta.rule('barrage') ? 2 : 1),
           life: 4,
           radius: 0.26,
           damage: damage * e.dmgMul,
@@ -914,6 +982,9 @@ export class Game implements HeroWorld {
     out.hpMul *= (1 + this.curseSum('enemyHp')) * this.difficulty.enemyHp;
     out.speedMul *= 1 + this.curseSum('enemySpeed');
     out.dmgMul *= (1 + this.curseSum('enemyDmg')) * this.difficulty.enemyDmg;
+    out.hpMul *= this.meta.has('armor') ? 1.35 : 1;
+    out.speedMul *= (this.meta.has('haste') ? 1.25 : 1) * (this.meta.rule('speed') ? 2 : 1);
+    out.dmgMul *= this.meta.has('damage') ? 1.25 : 1;
     return out;
   }
 
@@ -931,6 +1002,7 @@ export class Game implements HeroWorld {
     const parts: string[] = [];
     if (this.runMode !== 'standard') parts.push(MODE_BY_ID[this.runMode].name.toUpperCase());
     if (this.difficulty.id !== 'normal') parts.push(this.difficulty.name.toUpperCase());
+    if (this.meta.label) parts.push(this.meta.label);
     return parts.join(' · ');
   }
 
@@ -965,7 +1037,7 @@ export class Game implements HeroWorld {
     return this.runEvents.damageMul;
   }
   get dashCurse(): number {
-    return 1 + this.curseSum('dashCd');
+    return (1 + this.curseSum('dashCd')) * (this.meta.has('dash') ? 1.5 : 1);
   }
 
 
@@ -1008,6 +1080,11 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    if (this.photo?.active) {
+      this.photo.update(dt);
+      this.input.endStep();
+      return;
+    }
     this.onboarding.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
@@ -1035,6 +1112,7 @@ export class Game implements HeroWorld {
     if (this.paused && input.padButtonPressed(9)) this.resume();
     // Solo pauses the world; online the game keeps running behind the menu.
     const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop' || this.mode === 'title';
+    this.updateRoute(dt);
     if (this.mode === 'levelup' && !switched) {
       for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
       if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
@@ -1047,6 +1125,12 @@ export class Game implements HeroWorld {
     }
     if (this.juice.hitStop > 0) {
       this.juice.hitStop -= dt;
+      this.hostTick(false);
+      return;
+    }
+    // Boss finisher: the world holds still until it ends, then the boss dies (systems/characters.ts).
+    if (this.finisherHold(dt)) {
+      input.endStep();
       this.hostTick(false);
       return;
     }
@@ -1087,6 +1171,7 @@ export class Game implements HeroWorld {
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
       for (const w of h.weapons) {
+        if (this.meta.rule('right') && w.def.slot === 'primary') continue;
         h.ctx.soundSource = w; // evolved weapons layer their sound (systems/sound.ts weaponCue)
         w.update(dt, h.ctx);
       }
@@ -1106,12 +1191,14 @@ export class Game implements HeroWorld {
     // Enemies chase the nearest living hero.
     this.targets.length = 0;
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
+    this.companionTargets();
     this.enemies.update(dt, this.enemyCtx);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
     this.updateBiomeFoes(dt);
     this.updateArena(dt);
+    this.updateWind(dt);
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
@@ -1139,6 +1226,7 @@ export class Game implements HeroWorld {
     this.fx.update(dt);
     lap('sim.particles+fx');
     if (this.heroes.length > 1 && !this.pvp) this.updateRevives(dt);
+    this.updateCompanion(dt);
 
     if (this.mode === 'fight' && this.combo > 0) {
       this.comboT -= dt;

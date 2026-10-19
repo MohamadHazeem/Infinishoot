@@ -1,4 +1,4 @@
-import { CODEX_TABS, codexCount, codexTab, type CodexTab } from '../data/codex';
+import { CODEX_TABS, codexCount, codexTab, type CodexTab } from '../data/arsenal';
 import { RARITY } from '../data/rarity';
 import { tagChips } from '../data/tags';
 import type { UnlockProgress } from '../data/unlockProgress';
@@ -62,14 +62,14 @@ export class OnboardingUi {
     this.tip = root.querySelector<HTMLElement>('#ob-tip')!;
     this.train = root.querySelector<HTMLElement>('#ob-train')!;
 
-    this.codex = el(`<div id="scr-codex" class="screen dim">
-      <h1>CODEX</h1>
+    this.codex = el(`<div id="scr-arsenal" class="screen dim">
+      <h1>ARSENAL</h1>
       <div class="ob-tabs"></div>
       <p class="note ob-count"></p>
       <div class="scroll"><div class="ob-codex"></div></div>
       <div class="menu row"><button data-nav data-act="ob-codex-back">BACK</button></div>
     </div>`);
-    screens.addScreen('codex', this.codex, { columns: 4, onBack: () => screens.show('extras') });
+    screens.addScreen('arsenal', this.codex, { columns: 4, onBack: () => screens.show('extras') });
 
     this.ready = el(`<div id="scr-training" class="screen dim">
       <h1>YOU'RE READY!</h1>
@@ -81,7 +81,7 @@ export class OnboardingUi {
           <li><b>STYLE</b> Fast kills, perfect dodges and parries raise your style (D to SS) for more score and XP.</li>
           <li><b>EVOLUTIONS</b> Upgrade a loadout item enough and it evolves: you pick one of two forms.</li>
         </ul>
-        <p class="ob-dim">Tips pop up the first time things happen (SETTINGS > TIPS). Everything you find goes in EXTRAS > CODEX.</p>
+        <p class="ob-dim">Tips pop up the first time things happen (SETTINGS > TIPS). Everything you find goes in EXTRAS > ARSENAL.</p>
       </div>
       <div class="menu row">
         <button data-nav data-act="ob-run" class="continue">START A RUN &#9654;</button>
@@ -93,7 +93,7 @@ export class OnboardingUi {
     // Buttons on the built-in screens.
     const after = (sel: string, html: string) => root.querySelector(sel)?.insertAdjacentHTML('afterend', html);
     after('#scr-title [data-act=online]', '<button data-nav data-act="ob-training">TRAINING</button>');
-    after('#scr-extras [data-act=bestiary]', '<button data-nav data-act="ob-codex">CODEX</button>');
+    after('#scr-extras [data-act=bestiary]', '<button data-nav data-act="ob-codex">ARSENAL</button>');
     root.querySelector('#scr-settings [data-act=controls]')?.insertAdjacentHTML('beforebegin', '<button data-nav data-act="ob-tips">TIPS <b></b></button><button data-nav data-act="ob-tips-reset">RESET TIPS</button>');
     root.querySelector('#scr-title .menu')?.insertAdjacentHTML(
       'beforebegin',
@@ -114,13 +114,13 @@ export class OnboardingUi {
           this.setOffer(false);
           return screens.show('title');
         case 'ob-codex':
-          return screens.show('codex');
+          return screens.show('arsenal');
         case 'ob-codex-back':
           return screens.show('extras');
         case 'ob-tab':
           this.tab = b.dataset.tab as CodexTab;
           this.renderCodex();
-          return screens.show('codex', [...this.codex.querySelectorAll('[data-nav]')].indexOf(this.codex.querySelector('.ob-tab.on')!));
+          return screens.show('arsenal', [...this.codex.querySelectorAll('[data-nav]')].indexOf(this.codex.querySelector('.ob-tab.on')!));
         case 'ob-skip':
           return actions.skipStep();
         case 'ob-run':
@@ -524,36 +524,36 @@ const CSS = `
 }
 
 /* ---------------------------------------------------------------- codex */
-#scr-codex {
+#scr-arsenal {
   gap: 12px;
 }
-#scr-codex .ob-tabs {
+#scr-arsenal .ob-tabs {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
   max-width: 1000px;
 }
-#scr-codex button.ob-tab {
+#scr-arsenal button.ob-tab {
   font-size: 20px;
   padding: 6px 12px 8px;
   display: grid;
   justify-items: center;
 }
-#scr-codex button.ob-tab small {
+#scr-arsenal button.ob-tab small {
   font: 10px var(--label);
   color: var(--mist);
 }
-#scr-codex button.ob-tab.on {
+#scr-arsenal button.ob-tab.on {
   --bg: var(--teal);
   --hi: var(--green);
 }
-#scr-codex button.ob-tab.on.focused,
-#scr-codex button.ob-tab.focused {
+#scr-arsenal button.ob-tab.on.focused,
+#scr-arsenal button.ob-tab.focused {
   --bg: var(--orange);
   --hi: var(--yellow);
 }
-#scr-codex .scroll {
+#scr-arsenal .scroll {
   width: min(1040px, 96vw);
   max-height: 58vh;
   overflow-y: auto;

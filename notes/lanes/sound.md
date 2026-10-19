@@ -1,5 +1,7 @@
 # Sound lane — 2026-10-19
 
+> **Merge note (v1.6.0 merge):** main added recorded barks for Rookie, Bulwark, Dash and Ace; the synthesized voice now speaks only for heroes without recordings and waits on main's voice channel. CAPTIONS also show recorded boss lines and barks (src/audio/voiceText.ts).
+
 Built recorded sample layers over the existing arcade synth, with distinct reports for previously shared weapon cues, heavier elite deaths and boss slams/phases, biome footsteps, nearby projectile whooshes, biome ambience/reverb, and a restrained announcer. Added AMBIENCE volume and ANNOUNCER ON/OFF settings (default on). No dependencies or audio assets added; `src/audio/music.ts` is untouched.
 
 ## Decisions and tuning

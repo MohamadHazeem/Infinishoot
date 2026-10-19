@@ -159,3 +159,17 @@ const { touchHud } = await import('../src/ui/touch');
 sk.update({ ...skState, ult01: 1 }, 1 / 60);
 ok(touchHud.ultReady && touchHud.ult01 === 1 && document.querySelector('#ultpip > span')!.textContent === 'ULT', 'ULT meter feeds the touch ULT button');
 dom.window.close();
+
+// ---------------------------------------------------------------- DAMAGE NUMBERS: MINE over the binary effects bus
+{
+  const { FxEncoder, decodeFx } = await import('../src/net/fxCodec');
+  const events = [
+    ['n', 1, 1.7, 2, 42, 'hit', 1],
+    ['n', 3, 1.9, 4, '12!', 'crit'],
+    ['n', 5, 1.7, 6, 7, 'hit', 0],
+  ] as never[];
+  const got: unknown[][] = [];
+  decodeFx(new FxEncoder().encode(events), (e) => got.push([...(e as unknown[])]));
+  ok(got.length === 3 && got[0][6] === 1 && got[2][6] === 0, 'number events keep the hitting hero through the codec');
+  ok(got[1].length === 6 && got[1][4] === '12!', 'numbers without a hero stay six fields (no leftover index from the reused template)');
+}

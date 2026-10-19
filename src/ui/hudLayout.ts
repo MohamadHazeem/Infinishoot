@@ -58,6 +58,10 @@ const CSS = `
   100% { transform: none; }
 }
 #hp, #runinfo { left: calc(18px + 18 * var(--p) + 14px); }
+/* With the HUD face (src/ui/portraits.ts) in the corner, the badge sits right of it and life moves along. */
+#hud #ingame.has-face #xpbar .lv { left: calc(18px + 64px + 4 * var(--p)); top: calc(6 * var(--p)); }
+#hud #ingame.has-face > #hp,
+#hud #ingame.has-face > #runinfo { left: calc(18px + 64px + 4 * var(--p) + 18 * var(--p) + 14px); }
 
 /* ---------------- Goals stack (left): teammates, objective, event, challenge, power-ups. */
 #goals {

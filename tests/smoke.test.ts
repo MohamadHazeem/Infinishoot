@@ -73,7 +73,9 @@ for (const [mode, diff, hero, secs] of runs) {
     game.startSolo();
     const t0 = Date.now();
     const r = botRun(secs, true);
-    console.log(mode, diff, hero, JSON.stringify({ stage: r.stage, mode: r.mode, level: r.level, kills: r.kills, weapons: r.weapons, avgMs: r.avgMs, worstMs: r.worstMs, curses: game.curses, relics: game.hero.relics, wall: Date.now() - t0 }));
+    console.log(mode, diff, hero, JSON.stringify({ stage: r.stage, mode: r.mode, level: r.level, kills: r.kills, weapons: r.weapons, avgMs: r.avgMs, worstMs: r.worstMs, curses: game.curses, relics: game.hero.relics, route: game.route.on ? game.route.path.slice(2).map((_, k) => game.routeKind(k + 2)).join(',') : '-', wall: Date.now() - t0 }));
+    // Route map: every stage after the first was reached through a picked node.
+    if (mode === 'standard' && r.stage >= 2 && game.route.path[r.stage] === undefined) errors.push(`route: no node picked for stage ${r.stage}`);
     // Pause screen + extras screens render without throwing.
     game.pause();
     game.resume();

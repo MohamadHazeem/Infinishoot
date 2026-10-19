@@ -27,7 +27,7 @@ export const weatherForce: { mode: 'rain' | 'clear' | null } = { mode: null };
 
 export const rainTuning = {
   /** Chance that a stage of this biome is a rainy one. */
-  chance: { meadow: 0.35, peaks: 0.3 } as Record<string, number>,
+  chance: { meadow: 0.35, peaks: 0.3, neon: 0.6 } as Record<string, number>,
   /** Seconds to fade the rain in at the start of a stage. */
   fadeIn: 4,
   /** Sky darkening at full rain (0..1). */
@@ -81,9 +81,12 @@ const STYLES: Record<Weather, WeatherStyle> = {
   sand: { count: 170, colors: ['#ffd0a0', '#ffb36b', '#ffe9c4'], w: 26, d: 18, y: [0.15, 2.6], vel: [9, 0, 1.5], wobble: 0.4, size: [0.55, 0.035, 0.035] },
   snow: { count: 240, colors: ['#ffffff', '#d8f0ff', '#f4f4f4'], w: 24, d: 18, y: [0, 12], vel: [0.5, -1.3, 0.2], wobble: 0.5, size: [0.09, 0.09, 0.09] },
   embers: { count: 150, colors: ['#ff7a2f', '#ffd23f', '#ff4d5e', '#566c86'], w: 24, d: 18, y: [0, 9], vel: [0.2, 1.4, 0.1], wobble: 0.7, size: [0.08, 0.08, 0.08] },
+  // Neon City (dry nights): glowing dust drifting up through the sign light.
+  neon: { count: 110, colors: ['#ff4fd8', '#4ff2ff', '#ffe95e', '#9a7aff'], w: 24, d: 18, y: [0.2, 7], vel: [0.1, 0.5, 0.1], wobble: 0.5, size: [0.06, 0.06, 0.06] },
+  // Sky Fortress: long white streaks riding the wind (velocity comes from `Ambience.wind`).
+  wind: { count: 120, colors: ['#ffffff', '#e8f6ff', '#d4ecff'], w: 26, d: 18, y: [0.3, 6], vel: [1, 0, 0], wobble: 0.3, size: [1.1, 0.03, 0.03] },
   rain: { count: 330, colors: ['#a9cdee', '#c8e2f6', '#8fb8e0'], w: 22, d: 17, y: [0, 13], vel: [-3, -26, 2], wobble: 0, size: [0.045, 0.9, 0.045] },
   confetti: { count: 140, colors: ['#ff5a4a', '#ffcd3a', '#3b8cff', '#38c868', '#ffffff', '#ff9a3a'], w: 24, d: 18, y: [0, 10], vel: [0.4, -1.1, 0.2], wobble: 0.9, size: [0.14, 0.02, 0.1] },
-  wind: { count: 120, colors: ['#ffffff', '#f4f8ff', '#e2f0ff'], w: 26, d: 18, y: [0.3, 5], vel: [12, 0, -2], wobble: 0.3, size: [1.1, 0.03, 0.03] },
   leaves: { count: 110, colors: ['#ef7d57', '#ffb627', '#e2563c', '#ffcd75'], w: 24, d: 18, y: [0, 9], vel: [1.2, -1.0, 0.4], wobble: 1.1, size: [0.16, 0.02, 0.12] },
   fireflies: { count: 70, colors: ['#e8ff8a', '#a7f070', '#fff4a0'], w: 22, d: 16, y: [0.3, 3.2], vel: [0.15, 0, 0.1], wobble: 0.9, size: [0.09, 0.09, 0.09] },
   aurora: { count: 160, colors: ['#73eff7', '#a7f070', '#b8a8ff', '#ffffff'], w: 24, d: 18, y: [1, 13], vel: [0.25, 0.45, 0.1], wobble: 0.6, size: [0.07, 0.6, 0.07] },
@@ -91,14 +94,16 @@ const STYLES: Record<Weather, WeatherStyle> = {
 };
 
 /** Weathers whose motes blow in gusts and point along the wind. */
-const GUSTY: ReadonlySet<Weather> = new Set<Weather>(['sand', 'wind']);
+const GUSTY: ReadonlySet<Weather> = new Set<Weather>(['sand']);
 /** Flat motes that tumble as they fall. */
 const TUMBLE: ReadonlySet<Weather> = new Set<Weather>(['confetti', 'leaves', 'ash']);
 
 const MAX_MOTES = 340;
 
-/** Quality preset scale for weather (set by settings). `weather` 0 hides the weather motes and rain splashes (SETTINGS > WEATHER; visual only). */
-export const fxQuality = { ambience: 1, weather: 1 };
+/** Quality preset scale for weather (set by settings). */
+export const fxQuality = { ambience: 1 };
+/** SETTINGS > WEATHER: off hides rain, snow and other motes, the rain darkening and lightning (cosmetic, local). */
+export const weatherSettings = { enabled: true };
 const MAX_TUFTS = 1100;
 
 export class Ambience {
@@ -137,6 +142,8 @@ export class Ambience {
   strikes = 0;
   /** How far the last strike was, 0 = overhead .. 1 = far (thunder delay and volume). */
   strikeDist = 0;
+  /** Sky Fortress wind (direction and acceleration), set every frame by the look system. */
+  readonly wind = { x: 1, z: 0, s: 0 };
   /** REDUCE FLASHING: lightning becomes a faint, smooth glow (set from settings each frame). */
   reduceFlash = false;
   private biomeId = '';
@@ -255,7 +262,7 @@ export class Ambience {
 
   /** Rain fades in over the stage's first seconds and swells and eases; heavy rain brings lightning. */
   private updateRain(dt: number, cx: number, cz: number): void {
-    if (!this.rainy) {
+    if (!this.rainy || !weatherSettings.enabled) {
       this.rain = Math.max(0, this.rain - dt * 0.5);
       this.flash = 0;
       return;
@@ -324,10 +331,12 @@ export class Ambience {
     const f = this.flash;
     if (k <= 0 && f <= 0) return;
     const g = retroGlobals;
-    g.uSunColor.value.multiplyScalar(1 - k);
-    g.uSkyColor.value.lerp(RAIN_SKY, k);
-    g.uGroundColor.value.multiplyScalar(1 - k * 0.6);
-    g.uFogColor.value.lerp(RAIN_FOG, Math.min(1, k * 1.4));
+    // A rainy night city only gets a little darker (no grey daytime rain sky over the neon).
+    const city = this.biomeId === 'neon' ? 0.3 : 1;
+    g.uSunColor.value.multiplyScalar(1 - k * city);
+    g.uSkyColor.value.lerp(RAIN_SKY, k * city * city);
+    g.uGroundColor.value.multiplyScalar(1 - k * 0.6 * city);
+    g.uFogColor.value.lerp(RAIN_FOG, Math.min(1, k * 1.4) * city * city);
     if (f > 0) {
       g.uSunColor.value.r += f * 0.9;
       g.uSunColor.value.g += f * 0.95;
@@ -347,19 +356,22 @@ export class Ambience {
     this.updateRain(dt, cx, cz);
     const st = this.style;
     const rainK = this.weather === 'rain' ? this.rain : 1;
-    const n = st ? Math.floor(st.count * this.density * fxQuality.ambience * fxQuality.weather * rainK) : 0;
+    const n = st && weatherSettings.enabled ? Math.floor(st.count * this.density * fxQuality.ambience * rainK) : 0;
     if (st && this.weather === 'rain') this.renderRain(dt, cx, cz, n, st);
     else if (st) {
-      // Sand and wind blow in gusts; everything else drifts steadily.
+      // Sand blows in gusts; wind streaks follow the Sky Fortress wind; everything else drifts steadily.
+      const windy = this.weather === 'wind';
       const gusty = GUSTY.has(this.weather!);
       const tumble = TUMBLE.has(this.weather!);
       const glow = this.weather === 'fireflies' || this.weather === 'aurora';
-      const gust = gusty ? 0.35 + 0.65 * Math.max(0, Math.sin(this.t * 0.6) * Math.sin(this.t * 0.23 + 1)) : 1;
+      const gust = gusty ? 0.35 + 0.65 * Math.max(0, Math.sin(this.t * 0.6) * Math.sin(this.t * 0.23 + 1)) : windy ? Math.min(1, 0.25 + this.wind.s / 6) : 1;
+      const vx = windy ? this.wind.x * (4 + this.wind.s * 3) : st.vel[0] * gust;
+      const vz = windy ? this.wind.z * (4 + this.wind.s * 3) : st.vel[2];
       for (let i = 0; i < n; i++) {
         const w = Math.sin(this.t * 1.3 + this.ph[i]) * st.wobble;
-        this.x[i] += (st.vel[0] * gust + w * 0.5) * dt;
+        this.x[i] += (vx + w * 0.5) * dt;
         this.y[i] += (st.vel[1] + Math.cos(this.t * 0.9 + this.ph[i]) * st.wobble * 0.3) * dt;
-        this.z[i] += (st.vel[2] + w * 0.3) * dt;
+        this.z[i] += (vz + w * 0.3) * dt;
         // Wrap inside the box around the camera.
         if (this.x[i] - cx > st.w) this.x[i] -= st.w * 2;
         else if (this.x[i] - cx < -st.w) this.x[i] += st.w * 2;
@@ -368,10 +380,11 @@ export class Ambience {
         if (this.y[i] > st.y[1]) this.y[i] = st.y[0];
         else if (this.y[i] < st.y[0]) this.y[i] = st.y[1];
         // Embers and pollen twinkle by size; sand and wind streaks thin out between gusts; fireflies blink.
-        const tw = gusty ? gust : glow ? Math.max(0, Math.sin(this.t * 2.2 + this.ph[i] * 3)) : 0.7 + 0.3 * Math.sin(this.t * 5 + this.ph[i]);
+        const tw = gusty || windy ? gust : glow ? Math.max(0, Math.sin(this.t * 2.2 + this.ph[i] * 3)) : 0.7 + 0.3 * Math.sin(this.t * 5 + this.ph[i]);
         if (tumble) this.e.set(this.ph[i] + this.t * 2.6, this.ph[i] * 2 + this.t * 1.3, Math.sin(this.t * 3 + this.ph[i]));
         else this.e.set(this.ph[i] + this.t, this.ph[i] * 2 + this.t * 0.7, 0);
         if (gusty) this.e.set(0, -Math.atan2(st.vel[2], st.vel[0]), 0);
+        else if (windy) this.e.set(0, -Math.atan2(vz, vx), 0);
         this.q.setFromEuler(this.e);
         this.m4.compose(this.v.set(this.x[i], this.y[i], this.z[i]), this.q, this.s.set(st.size[0] * tw, st.size[1] * tw, st.size[2] * tw));
         this.motes.setMatrixAt(i, this.m4);
@@ -379,7 +392,7 @@ export class Ambience {
     }
     this.motes.count = n;
     commit(this.motes.instanceMatrix, n);
-    this.surfaces.render(dt, cx, cz, this.rain * fxQuality.weather, walkers, Math.max(0.4, fxQuality.ambience));
+    this.surfaces.render(dt, cx, cz, weatherSettings.enabled ? this.rain : 0, walkers, Math.max(0.4, fxQuality.ambience));
 
     // Grass: sway with the wind; bend away from nearby walkers and spring back.
     // Only tufts in view are written (packed to the front with their colours), so off-screen grass costs no vertex work.

@@ -1,8 +1,8 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
-export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
-export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel;
+export type Behavior = 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
+export type Model = 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel;
 /** Biome-native enemies (src/game/biomeFoes.ts): one per biome. */
-export type BiomeBehavior = 'diver' | 'burrower' | 'roller' | 'slug' | 'marcher' | 'kite';
+export type BiomeBehavior = 'diver' | 'shark' | 'roller' | 'slug' | 'marcher' | 'kite';
 export type BiomeModel = 'bee' | 'shark' | 'snowball' | 'slug' | 'soldier' | 'kite';
 
 export interface EnemyDef {
@@ -34,6 +34,10 @@ export interface EnemyDef {
   pack?: [number, number];
   /** Max alive at once (spawners). */
   maxAlive?: number;
+  burrow?: { underground: number; warn: number; exposed: number; radius: number; damage: number };
+  mirror?: { scan: number; copy: number; cooldown: number; keepDistance: number };
+  /** Special encounter: compact overhead health bar, without stage-boss rules. */
+  special?: boolean;
   lunge?: { range: number; windup: number; speed: number; duration: number; recover: number };
   /**
    * Shooters. `pattern`: spread (one fan), spiral (spins out a stream of bullets),
@@ -78,7 +82,7 @@ export interface EnemyDef {
   /** Bumble Bee: circles at `hover` m, then dives straight through you; bees nearby follow it in a column. */
   dive?: { hover: number; range: number; windup: number; speed: number; duration: number; recover: number; interval: number; follow: number };
   /** Sand Shark: swims under the sand (can't be hit), marks a ring under you, bursts out, then lies exposed for `exposed` s. */
-  burrow?: { swim: number; under: number; range: number; windup: number; air: number; radius: number; damage: number; exposed: number };
+  shark?: { swim: number; under: number; range: number; windup: number; air: number; radius: number; damage: number; exposed: number };
   /** Snowball Roller: rolls in wide arcs (turn rad/s), growing a step every `growEvery` m; a big one shatters on walls and heroes. */
   roll?: { turn: number; growEvery: number; growth: number; maxSteps: number; crashAt: number; radius: number; damage: number };
   /** Lava Slug: drops a burning puddle every `every` s; now and then swells up and spills a big one. */
@@ -87,9 +91,67 @@ export interface EnemyDef {
   march?: { walk: number; rest: number; windup: number; speed: number; rank: number; restMul: number };
   /** Gust Kite: keeps its distance and blows a cone of wind that shoves heroes (and its friends). */
   gust?: { keepDistance: number; interval: number; windup: number; range: number; arcDeg: number; push: number; damage: number };
+  /** What hits sound like (src/audio/voices.ts); set for every enemy from ENEMY_MATERIALS below. */
+  material?: Material;
 }
 
+/** Hit-sound materials: each maps to a recorded impact (hit_metal, hit_flesh, hit_slime, hit_stone, hit_shield). */
+export type Material = 'metal' | 'flesh' | 'slime' | 'stone' | 'shield';
+/** Family tuning: bounded summons and copy strength keep crowded co-op readable. */
+export const familyTuning = {
+  mirrorDamage: 0.35, mirrorMaxDamage: 12, mirrorMaxShots: 9, mirrorMaxRate: 4,
+  mirrorBonus: 8,
+  queenFromStage: 2, queenAt: 0.72, queenWindup: 1.4, queenCooldown: 7,
+  queenFleeAt: 0.5, queenFleeTime: 3, queenReturnTime: 1.2,
+  wallSpacing: 1.5, wallLife: 12, wallCap: 80, summonCap: 560,
+  eggHatch: 6, eggCount: 3, hatchCount: 4, eggCap: 9,
+};
+
 export const ENEMIES: Record<string, EnemyDef> = {
+  burrower: {
+    id: 'burrower', name: 'Dirt Digger', behavior: 'burrower', model: 'burrower', death: 'robot',
+    hp: 32, speed: 4.8, radius: 0.48, bodyColor: '#ef7d57', accentColor: '#ffcd75',
+    contactDamage: 8, knockbackResist: 0.3, xp: 4, score: 160,
+    minMinute: 2.5, minStage: 2, weight: 1.5, maxAlive: 6,
+    burrow: { underground: 3.2, warn: 0.95, exposed: 2.8, radius: 1.6, damage: 12 },
+  },
+  burrower_big: {
+    id: 'burrower_big', name: 'Tunnel Bruiser', behavior: 'burrower', model: 'burrower', death: 'robot',
+    hp: 140, speed: 4, radius: 0.85, bodyColor: '#b86f50', accentColor: '#a7f070',
+    contactDamage: 13, knockbackResist: 0.75, xp: 9, score: 360,
+    minMinute: 4.6, minStage: 3, weight: 0.55, maxAlive: 2,
+    burrow: { underground: 3.5, warn: 1.15, exposed: 3.2, radius: 2.3, damage: 18 },
+  },
+  mirror: {
+    id: 'mirror', name: 'Mirror Bot', behavior: 'mirror', model: 'mirror', death: 'shards',
+    hp: 65, speed: 2.6, radius: 0.62, bodyColor: '#73eff7', accentColor: '#b13eec',
+    contactDamage: 6, knockbackResist: 0.3, xp: 6, score: 260,
+    minMinute: 3.5, minStage: 3, weight: 1, maxAlive: 4,
+    mirror: { scan: 1.25, copy: 2.2, cooldown: 3.2, keepDistance: 9 },
+  },
+  mirror_prism: {
+    id: 'mirror_prism', name: 'Prism Bot', behavior: 'mirror', model: 'mirror', death: 'shards',
+    hp: 95, speed: 3.2, radius: 0.7, bodyColor: '#ffcd75', accentColor: '#b13eec',
+    contactDamage: 8, knockbackResist: 0.4, xp: 8, score: 360,
+    minMinute: 5.2, minStage: 3, weight: 0.45, maxAlive: 2,
+    mirror: { scan: 1.1, copy: 3, cooldown: 2.8, keepDistance: 11 },
+  },
+  swarmqueen: {
+    id: 'swarmqueen', name: 'Swarm Queen', behavior: 'swarmqueen', model: 'swarmqueen', death: 'goo', special: true,
+    hp: 600, speed: 3.5, radius: 1.25, bodyColor: '#b13eec', accentColor: '#a7f070',
+    contactDamage: 14, knockbackResist: 0.9, xp: 45, score: 4500,
+    minMinute: -1, minStage: 2, weight: 0,
+  },
+  swarm_egg: {
+    id: 'swarm_egg', name: 'Swarm Eggs', behavior: 'egg', model: 'egg', death: 'goo',
+    hp: 24, speed: 0, radius: 0.65, bodyColor: '#a7f070', accentColor: '#b13eec',
+    contactDamage: 0, knockbackResist: 1, xp: 3, score: 100, minMinute: -1, weight: 0,
+  },
+  swarm_wall: {
+    id: 'swarm_wall', name: 'Wall Swarmer', behavior: 'swarmwall', model: 'swarmer', death: 'goo',
+    hp: 12, speed: 3.6, radius: 0.62, bodyColor: '#b13eec', accentColor: '#a7f070',
+    contactDamage: 7, knockbackResist: 0.7, xp: 1, score: 30, minMinute: -1, weight: 0,
+  },
   swarmer: {
     id: 'swarmer',
     death: 'goo',
@@ -669,7 +731,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     id: 'shark',
     death: 'goo',
     name: 'Sand Shark',
-    behavior: 'burrower',
+    behavior: 'shark',
     model: 'shark',
     hp: 60,
     speed: 3.0,
@@ -684,7 +746,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     weight: 1.6,
     maxAlive: 6,
     biomes: ['dunes'],
-    burrow: { swim: 1.7, under: 2.2, range: 3.2, windup: 0.8, air: 0.45, radius: 2.0, damage: 16, exposed: 2.2 },
+    shark: { swim: 1.7, under: 2.2, range: 3.2, windup: 0.8, air: 0.45, radius: 2.0, damage: 16, exposed: 2.2 },
   },
   roller: {
     id: 'roller',
@@ -767,7 +829,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     minMinute: 1.5,
     weight: 2,
     maxAlive: 6,
-    biomes: ['skyruins'],
+    biomes: ['sky'],
     gust: { keepDistance: 7, interval: 3.8, windup: 0.9, range: 9, arcDeg: 32, push: 20, damage: 0 },
   },
 };
@@ -781,6 +843,8 @@ export const veteranTuning = { hp: 2.6, dmg: 1.6, speed: 1.08, size: 1.12, rewar
 
 /** Base id -> [body, accent] for its veteran. */
 const VETERAN_LOOK: Record<string, [string, string]> = {
+  burrower: ['#b86f50', '#73eff7'],
+  mirror: ['#29366f', '#b13eec'],
   swarmer: ['#29366f', '#ff3d5a'],
   bopper: ['#5d275d', '#ffcd75'],
   zippy: ['#257179', '#ef7d57'],
@@ -829,9 +893,10 @@ for (const [id, [bodyColor, accentColor]] of Object.entries(VETERAN_LOOK)) {
     fuse: b.fuse && { ...b.fuse, damage: Math.round(b.fuse.damage * t.dmg) },
     split: b.split && { ...b.split, into: 'v_' + b.split.into },
     spawn: b.spawn && { ...b.spawn, into: 'v_' + b.spawn.into },
+    burrow: b.burrow && { ...b.burrow, damage: Math.round(b.burrow.damage * t.dmg) },
     leap: b.leap && { ...b.leap, damage: Math.round(b.leap.damage * t.dmg) },
     mortar: b.mortar && { ...b.mortar, damage: Math.round(b.mortar.damage * t.dmg) },
-    burrow: b.burrow && { ...b.burrow, damage: Math.round(b.burrow.damage * t.dmg) },
+    shark: b.shark && { ...b.shark, damage: Math.round(b.shark.damage * t.dmg) },
     roll: b.roll && { ...b.roll, damage: Math.round(b.roll.damage * t.dmg) },
     ooze: b.ooze && { ...b.ooze, dps: Math.round(b.ooze.dps * t.dmg) },
     gust: b.gust && { ...b.gust, push: b.gust.push * 1.2 },
@@ -897,4 +962,45 @@ export function miniBossForStage(stage: number): EnemyDef {
   const boss = bossForStage(stage).id;
   const pool = MINI_BOSSES.filter((m) => m.of !== boss);
   return ENEMIES[pool[Math.max(0, stage) % pool.length].id];
+}
+
+/** Every enemy's hit material (veterans use their base enemy's). Unlisted enemies sound like flesh. */
+export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {
+  swarmer: 'flesh',
+  bopper: 'metal',
+  zippy: 'metal',
+  shooter: 'metal',
+  spinner: 'metal',
+  burster: 'metal',
+  sniper: 'metal',
+  charger: 'stone',
+  chonk: 'stone',
+  exploder: 'metal',
+  splitter: 'slime',
+  jellet: 'slime',
+  spawner: 'stone',
+  shielder: 'shield',
+  medic: 'metal',
+  leaper: 'flesh',
+  mortar: 'flesh',
+  golden: 'metal',
+  king: 'metal',
+  rex: 'stone',
+  queen: 'flesh',
+  omega: 'metal',
+  prince: 'metal',
+  rexling: 'stone',
+  princess: 'flesh',
+  hive: 'slime',
+  reaper: 'stone',
+  burrower: 'stone',
+  burrower_big: 'stone',
+  mirror: 'metal',
+  mirror_prism: 'shield',
+  swarmqueen: 'flesh',
+  swarm_egg: 'slime',
+  swarm_wall: 'flesh',
+};
+for (const def of Object.values(ENEMIES)) {
+  def.material ??= ENEMY_MATERIALS[def.id] ?? ENEMY_MATERIALS[def.id.replace(/^v_/, '')] ?? 'flesh';
 }

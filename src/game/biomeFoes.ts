@@ -91,7 +91,7 @@ export function baseScale(e: Enemy): number {
 /** Apply `e.sub` to what clients draw: the shark underground, the snowball's size. */
 export function syncSub(e: Enemy): void {
   const d = e.def;
-  if (d.burrow) e.under = e.sub === 1;
+  if (d.shark) e.under = e.sub === 1;
   else if (d.roll) {
     e.scale = baseScale(e) * (1 + d.roll.growth * e.sub);
     e.radius = d.radius * e.scale;
@@ -125,7 +125,7 @@ export function behaveBiome(
     case 'diver':
       diver(e, dt, ctx, dx, dz, nx, nz, dist, speed, out);
       break;
-    case 'burrower':
+    case 'shark':
       burrower(e, dt, ctx, nx, nz, dist, speed, out);
       break;
     case 'roller':
@@ -239,7 +239,7 @@ function burrower(
   speed: number,
   out: BiomeOut,
 ): void {
-  const B = e.def.burrow!;
+  const B = e.def.shark!;
   const tgt = ctx.target;
   if (e.state === 'move') {
     if (!e.under) {

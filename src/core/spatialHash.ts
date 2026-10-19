@@ -162,6 +162,24 @@ export class StaticBoxGrid {
     return false;
   }
 
+  /** Like hitCircle, but ignores gaps in the ground (`AABB.gap`): what bullets collide with. */
+  hitSolid(x: number, z: number, r: number): boolean {
+    for (let gx = Math.floor((x - r) * this.inv); gx <= Math.floor((x + r) * this.inv); gx++) {
+      for (let gz = Math.floor((z - r) * this.inv); gz <= Math.floor((z + r) * this.inv); gz++) {
+        const list = this.cells.get(cellKey(gx, gz));
+        if (!list) continue;
+        for (let i = 0; i < list.length; i++) {
+          const b = list[i];
+          if (b.gap) continue;
+          const cx = Math.max(b.minX, Math.min(x, b.maxX));
+          const cz = Math.max(b.minZ, Math.min(z, b.maxZ));
+          if ((x - cx) ** 2 + (z - cz) ** 2 < r * r) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   private near: AABB[] = [];
   private losStamp = new WeakMap<AABB, number>();
   private losN = 0;

@@ -1,3 +1,4 @@
+import { BIOME_BY_ID, biomeForStage } from '../data/biomes';
 /** Pure mix policy shared by samples and synth voices. */
 export const soundTuning = {
   voices: 32,
@@ -52,6 +53,7 @@ export const cueSamples: Readonly<Record<string, string>> = {
   chest: 'chest_open',
   lvl: 'level_up',
   evolve: 'evolve',
+  fusion: 'fusion',
   dash: 'dash',
   cwind: 'charger_windup',
   boss: 'boss_roar',
@@ -65,6 +67,12 @@ export const cueSamples: Readonly<Record<string, string>> = {
   jumpPad: 'jump_pad',
   coverBreak: 'cover_break',
   goldenLaugh: 'golden_laugh',
+  burrow: 'burrow',
+  mirrorCopy: 'mirror_copy',
+  swarmScreech: 'swarm_screech',
+  petLevel: 'pet_level',
+  teamCharge: 'team_charge',
+  highFive: 'high_five',
 };
 /**
  * 0 swarm noise .. 4 big moments, then the sound lane's bands: 6 = off-screen
@@ -87,6 +95,14 @@ export function swarmGap(enemies: number): number {
 }
 export function distanceCutoff(gain: number): number {
   return 2800 + 17200 * Math.max(0, Math.min(1, gain)) ** 2;
+}
+/** The area id for a stage (ambience 'amb_<id>', room reverb): the stage's biome's ambience bed. */
+export function biomeAudio(stage: number): string {
+  return biomeForStage(stage).ambience;
+}
+/** Footstep surface for a biome id (from its data). */
+export function groundAudio(biome: string): string {
+  return BIOME_BY_ID[biome]?.footstep ?? 'grass';
 }
 export function comboLine(combo: number): string | null {
   return combo >= 150 ? 'unstoppable' : combo >= 100 ? 'awesome' : combo >= 50 ? 'great' : null;
@@ -126,4 +142,14 @@ export class VoiceBudget {
       if (i >= 0) this.voices.splice(i, 1);
     };
   }
+}
+
+/** Snap a requested bed re-entry to a nearby beat, never delaying it by more than 80 ms. */
+export function silenceDuration(seconds: number, now: number, lastBeat: number, period: number): number {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 0;
+  const duration = Math.min(0.6, seconds);
+  if (!(period > 0) || !Number.isFinite(period) || lastBeat < 0 || !Number.isFinite(now)) return duration;
+  const beat = lastBeat + Math.round((now + duration - lastBeat) / period) * period;
+  const candidate = beat - now;
+  return candidate >= 0.3 && candidate <= 0.6 && Math.abs(candidate - duration) <= 0.08 ? candidate : duration;
 }

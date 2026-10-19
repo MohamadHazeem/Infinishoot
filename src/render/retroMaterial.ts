@@ -35,6 +35,10 @@ export const retroGlobals = {
   uNightRim: { value: 0.55 },
   uNightRimColor: { value: new THREE.Color('#94b0c2') },
   uNightLift: { value: 0.5 },
+  /** Drifting cloud shadows (src/render/sky.ts): tileable noise map, (offset x, offset z, scale, strength), (cut, softness, height). */
+  uCloudMap: { value: null as THREE.Texture | null },
+  uCloud: { value: new THREE.Vector4(0, 0, 0.012, 0) },
+  uCloudCut: { value: new THREE.Vector3(0.5, 0.25, 30) },
   ...lightUniforms,
 };
 
@@ -121,6 +125,10 @@ uniform vec3 uEyeColor;
 uniform float uNightRim;
 uniform vec3 uNightRimColor;
 uniform float uNightLift;
+uniform sampler2D uCloudMap;
+uniform vec4 uCloud;
+uniform vec3 uCloudCut;
+uniform vec3 uSunDir;
 #ifdef RETRO_MAP
   uniform sampler2D uMap;
 #endif
@@ -150,6 +158,12 @@ void main() {
     // Soft-edged cel bands: chunky anime shading that still reads as lit.
     float s = d * uToonSteps;
     d = (floor(s) + smoothstep(0.35, 0.65, fract(s))) / uToonSteps;
+  }
+  if (uCloud.w > 0.0 && uUnlit < 0.99) {
+    // Cloud shadows: the sun's light through a drifting noise layer projected from uCloudCut.z metres up.
+    vec2 cp = vWorld.xz + (uCloudCut.z - vWorld.y) * uSunDir.xz / max(uSunDir.y, 0.25);
+    float cn = texture(uCloudMap, cp * uCloud.z + uCloud.xy).r;
+    d *= 1.0 - uCloud.w * smoothstep(uCloudCut.x, uCloudCut.x + uCloudCut.y, cn);
   }
   vec3 lit = base.rgb * (vAmbient + uSunColor * d);
   // Dynamic point lights: smooth falloff, half-wrapped Lambert, banded with the cel steps.

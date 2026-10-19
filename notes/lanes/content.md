@@ -1,5 +1,7 @@
 # Lane: content (biome foes, mechanic heroes, evolution shapes)
 
+> **Merge note (v1.6.0 merge):** main added its own burrower, so the Sand Shark's behaviour is `shark` and its data field `shark` (was `burrower` / `burrow`). The Gust Kite lives on main's Sky Fortress (`biomes: ['sky']`).
+
 ## What players get
 
 ### Biome-native enemies (one per biome)

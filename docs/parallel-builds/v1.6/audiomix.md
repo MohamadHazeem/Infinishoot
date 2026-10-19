@@ -1,0 +1,8 @@
+LANE: audiomix
+
+Goal: the music and the mix react to the player.
+1. Interactive music stems: each weapon the local hero owns adds its own instrument layer to the current song (e.g. drones = arpeggio, lightning = glitchy stabs, fire = distorted bass, missiles = brass hits, discs = plucks, laser = pad sweep; cover every weapon in src/data/weapons.ts with a sensible mapping, levels raise the layer's intensity, evolutions add an extra flourish). Layers join on bar boundaries and follow the song's key/scale; voice budget stays bounded.
+2. Adaptive silence: a short music + ambience dip (~0.3-0.6 s, quantized where sensible) right before big moments: boss slam/phase change, ultimate activation, bomb, boss finisher; then a hard re-entry. Expose `music.silence(seconds)` for other lanes.
+3. Low-health audio state: below ~25% HP the mix gets muffled (low-pass on music + sfx), a heartbeat at a rate following HP, and a faint tinnitus ring right after a big hit; clears smoothly when healed. Toggle in settings (on by default), respects volume buses, local hero only.
+4. Proper 3D audio for headphones: optional HRTF spatialisation (PannerNode 'HRTF') for positional sounds around the listener with a "Headphones 3D audio" setting (off by default = current stereo pan); front/back cues (enemies behind you slightly muffled). Must stay cheap with the voice budget.
+Owns: src/audio/music.ts, src/audio/music/*, src/audio/sfx.ts (mix parts), src/audio/mix.ts, new src/audio/stems.ts, src/audio/lowHealth.ts, src/audio/spatial.ts, settings toggles (small), tests/audiomix.test.ts. Another lane (biomes) may add two biome entries to the music composition data; another (voices) adds boss/hero voice cues — keep your edits structured so these merge.

@@ -6,7 +6,7 @@ import { hasRelay, iceConfig } from './ice';
  * short invite code; clients connect to it directly (browser to browser).
  * PeerJS's free public broker is only used to find each other.
  */
-const PREFIX = 'infinishoot-v2-';
+const PREFIX = 'infinishoot-v3-'; // v3: compact snapshots (src/net/snapCodec.ts, fxCodec.ts)
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
 
 export function makeCode(): string {

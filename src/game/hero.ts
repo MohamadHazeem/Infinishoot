@@ -20,12 +20,13 @@ import { SKINS, type SkinDef } from '../data/skins';
 import { CURSE_BY_ID, CURSES } from '../data/curses';
 import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { PET_BY_ID } from '../data/pets';
-import { PetView } from './pet';
+import { PetState, PetView } from './pet';
 import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { HEROES, heroOf, type HeroDef } from '../data/heroes';
 import { HeroSkill } from './style';
 import { banishTuning, canBanish, offerKey } from './banish';
 import { HeroMech, attachHeroGear, detachHeroGear } from './heroMechs';
+import { fuseWeapons, fusionOfferFor, placeFusion } from './fusion';
 
 /** Auto-weapon slots (the loadout's clicks don't use them). */
 export const MAX_WEAPONS = 4;
@@ -96,6 +97,7 @@ export interface HeroWorld {
   readonly fireRateBuff: number;
   readonly damageBuff: number;
   readonly dashCurse: number;
+  readonly shopPriceMul?: number;
   /** Curse ids already in effect (not offered again). */
   readonly activeCurses: readonly string[];
 }
@@ -296,10 +298,10 @@ export class Hero implements SynergyHost {
     this.banishLeft = banishTuning.start;
     this.skill.reset();
     this.mech.reset();
+    this.petState.reset();
     this.recomputeStats();
     this.rerollsLeft = Math.min(MAX_GEARS, this.stats.rerolls);
-    this.revivesLeft = this.stats.revives + (this.pet === 'guardian' ? 1 : 0);
-    this.sparkyT = 1.5;
+    this.revivesLeft = this.stats.revives;
     this.player.reset(this.stats);
     this.mech.twin?.snap();
     this.loadoutDirty = true;
@@ -343,7 +345,8 @@ export class Hero implements SynergyHost {
   /** Companion (src/data/pets.ts); its body is drawn by PetView. */
   pet = 'none';
   petView: PetView | null = null;
-  sparkyT = 0;
+  /** The pet's level, skills and timers this run (src/game/systems/companion.ts). */
+  readonly petState = new PetState();
   /** Last ping time (ms), for rate limiting. */
   pingAt = 0;
   /** What last hurt this hero (run history: cause of death). */
@@ -355,8 +358,9 @@ export class Hero implements SynergyHost {
     const def = PET_BY_ID[id] ?? PET_BY_ID.none;
     if (def.id === this.pet && (this.petView || def.id === 'none')) return;
     this.pet = def.id;
+    this.petState.setDef(def);
     this.petView?.dispose();
-    this.petView = def.id === 'none' ? null : new PetView(this.world.scene, def);
+    this.petView = def.id === 'none' ? null : new PetView(this.world.scene, def, this.petState);
   }
 
   /** Rebuild static stats (passives + Mods) and the live copy. */
@@ -374,7 +378,7 @@ export class Hero implements SynergyHost {
       this.heroDef.add,
       this.relics.map((id) => RELIC_BY_ID[id]?.add ?? {}),
     );
-    if (this.pet === 'bit') s.magnet += 0.6;
+    s.magnet += this.petState.magnetBonus;
     syn.applyStatic(s);
     return s;
   }
@@ -573,7 +577,7 @@ export class Hero implements SynergyHost {
     const autoCount = this.weapons.filter((w) => !w.def.slot).length;
     for (const id of this.unlocked) {
       const d = WEAPONS[id];
-      if (!d || d.slot || autoCount >= MAX_WEAPONS || this.weapons.some((w) => w.def.id === id)) continue;
+      if (!d || d.slot || d.fusion || autoCount >= MAX_WEAPONS || this.weapons.some((w) => w.def.id === id)) continue;
       // Say which weapon combo it completes (src/data/weaponCombos.ts), and weigh it up a little.
       const owned = this.weapons.map((w) => w.def.id);
       const made = WEAPON_COMBOS.filter((c) => c.weapons.includes(id) && owned.includes(c.weapons[0] === id ? c.weapons[1] : c.weapons[0]));
@@ -630,7 +634,8 @@ export class Hero implements SynergyHost {
       const { w: _w, ...offer } = cands.splice(i, 1)[0];
       out.push(offer);
     }
-    return out;
+    // Two maxed auto weapons that fuse: a FUSION card (src/game/fusion.ts).
+    return placeFusion(out, fusionOfferFor(this.weapons, () => this.rng.next()));
   }
 
   /** Apply a level-up card. Returns its color (for the pickup burst). */
@@ -657,6 +662,8 @@ export class Hero implements SynergyHost {
       const w = this.weapons.find((x) => x.def.id === id);
       if (w) w.levelUp();
       else this.weapons.push(createWeapon(id, this.world.scene));
+    } else if (o.kind === 'fusion') {
+      fuseWeapons(this.weapons, o.id, this.world.scene);
     } else if (o.kind === 'evolve') {
       this.weapons.find((x) => x.def.id === o.id)?.evolve();
     } else if (o.kind === 'special') {
@@ -791,7 +798,7 @@ export class Hero implements SynergyHost {
   }
 
   price(m: ModDef): number {
-    return Math.max(1, Math.round(m.price * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1)));
+    return Math.max(1, Math.round(m.price * (this.world.shopPriceMul ?? 1) * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1)));
   }
 
   /** Half of what you actually paid (purchase + upgrades), or all of it with Pawn Shop. */

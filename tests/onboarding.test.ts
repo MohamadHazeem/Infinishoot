@@ -26,7 +26,7 @@ for (const k of ['window', 'document', 'navigator', 'localStorage', 'HTMLElement
 (dom.window.HTMLElement.prototype as any).scrollIntoView = () => {};
 (globalThis as any).matchMedia = (dom.window as any).matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
 
-const { CODEX_TABS, codexEntries, codexCount, isCodexKey } = await import('../src/data/codex');
+const { CODEX_TABS, codexEntries, codexCount, isCodexKey } = await import('../src/data/arsenal');
 const { closestUnlocks, unlockProgress } = await import('../src/data/unlockProgress');
 const { TIPS, tipWanted, tipTime } = await import('../src/game/tips');
 const { RunRecorder, stageDps } = await import('../src/game/runRecap');
@@ -251,9 +251,9 @@ ok(!!$('#scr-gameover [data-act=ob-card]'), 'BUILD CARD button on game over');
 ok(game.screens.current === 'gameover' && (game.screens as any).nav('gameover').focus === 0, 'RETRY keeps the first focus');
 
 // ---------------------------------------------------------------- codex screen
-game.screens.show('codex');
-ok($('#scr-codex .ob-count')!.textContent!.includes('DISCOVERED') && document.querySelectorAll('#scr-codex .ob-cx').length > 0, 'the codex screen renders');
-ok(document.querySelectorAll('#scr-codex .ob-cx:not(.unseen)').length > 0 && document.querySelectorAll('#scr-codex .ob-cx.unseen').length > 0, 'discovered and ??? entries');
-(document.querySelector('#scr-codex [data-tab=statuses]') as HTMLElement).click();
-ok($('#scr-codex .ob-count')!.textContent!.endsWith('/ 7 DISCOVERED'), 'codex tabs switch');
+game.screens.show('arsenal');
+ok($('#scr-arsenal .ob-count')!.textContent!.includes('DISCOVERED') && document.querySelectorAll('#scr-arsenal .ob-cx').length > 0, 'the codex screen renders');
+ok(document.querySelectorAll('#scr-arsenal .ob-cx:not(.unseen)').length > 0 && document.querySelectorAll('#scr-arsenal .ob-cx.unseen').length > 0, 'discovered and ??? entries');
+(document.querySelector('#scr-arsenal [data-tab=statuses]') as HTMLElement).click();
+ok($('#scr-arsenal .ob-count')!.textContent!.endsWith('/ 7 DISCOVERED'), 'codex tabs switch');
 process.exit(process.exitCode ?? 0);

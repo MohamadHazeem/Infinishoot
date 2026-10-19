@@ -1,10 +1,12 @@
 import { ok } from './check';
 import { readFileSync } from 'node:fs';
 import {
+  biomeAudio,
   comboLine,
   cueSamples,
   cuePriority,
   distanceCutoff,
+  groundAudio,
   soundTuning,
   swarmGap,
   VoiceBudget,
@@ -13,7 +15,14 @@ import {
 import { manifestIds, SampleEngine, samples } from '../src/audio/samples';
 import { announcementCooldown, announcer, announcerSettings } from '../src/audio/announcer';
 
-// Biome ambience, footsteps and music now come from biome data (src/data/biomes.ts); tests/world.test.ts covers them.
+ok(
+  [1, 2, 3, 4, 5, 6, 7].map(biomeAudio).join() === 'meadow,dunes,peaks,magma,neon,magma,sky',
+  'biome audio follows the stage\'s actual biome (the Toy Factory reuses the magma bed)',
+);
+ok(
+  groundAudio('peaks') === 'snow' && groundAudio('magma') === 'metal' && groundAudio('factory') === 'metal',
+  'biome footsteps match ground',
+);
 ok(
   distanceCutoff(0.3) < distanceCutoff(1) && distanceCutoff(-1) === 2800,
   'far sound low-pass is bounded',

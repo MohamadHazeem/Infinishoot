@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
-import { ENEMIES, type EnemyDef } from '../data/enemies';
-import { createRetroMaterial } from '../render/retroMaterial';
+import { ENEMIES, familyTuning, type EnemyDef } from '../data/enemies';
+import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
 import { paint } from '../render/geometry';
 import { textures } from '../render/textures';
 import type { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
@@ -10,6 +10,7 @@ import { commit } from '../render/instancing';
 import { viewCull } from '../render/viewCull';
 import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
 import { Corpses, EnemyAnim, poseEnemy, type EnemyPose } from './enemyAnim';
+import { updateFamily, copyFan, beamReach, type FamilyApi } from './systems/enemyFamilies';
 import { bossTuning, updateBoss, type BossApi } from './bosses';
 import { crowdTuning, keepOffHeroes } from './crowd';
 import { behaveBiome, buildBiomeModel, ignoresWalls, type BiomeFoeApi, type BiomeOut } from './biomeFoes';
@@ -142,6 +143,37 @@ function buildModel(def: EnemyDef, add: Part): void {
     add(new THREE.SphereGeometry(r * 0.2 * s, 6, 5), DARK, 0, y + r * 0.02, z + r * 0.34 * s);
   };
   switch (def.model) {
+    case 'burrower':
+      // Squat drill mole: hard hat, goggles and two oversized spade claws.
+      add(new THREE.SphereGeometry(r, 8, 6).scale(1, 0.8, 1.1), B, 0, r * 0.85, 0);
+      add(new THREE.CylinderGeometry(r * 0.9, r * 1.05, r * 0.35, 8), A, 0, r * 1.6, 0);
+      add(new THREE.ConeGeometry(r * 0.38, r * 0.8, 6).rotateX(Math.PI / 2), '#f4f4f4', 0, r * 0.85, r * 1.2);
+      for (const side of [-1, 1]) {
+        add(new THREE.BoxGeometry(r * 0.65, r * 0.25, r * 0.9), A, side * r, r * 0.25, r * 0.4);
+        add(new THREE.BoxGeometry(r * 0.44, r * 0.3, r * 0.18), DARK, side * r * 0.4, r * 1.15, r * 0.85);
+        add(new THREE.BoxGeometry(r * 0.27, r * 0.15, r * 0.2), '#73eff7', side * r * 0.4, r * 1.16, r * 0.88);
+      }
+      break;
+    case 'mirror':
+      // Floating CRT robot with a lilac glass face and a chunky chrome rim.
+      add(new THREE.BoxGeometry(r * 1.8, r * 1.7, r), B, 0, r * 1.4, 0);
+      add(new THREE.BoxGeometry(r * 1.45, r * 1.3, r * 0.16), DARK, 0, r * 1.4, r * 0.55);
+      add(new THREE.BoxGeometry(r * 1.18, r * 1.03, r * 0.18), A, 0, r * 1.4, r * 0.58);
+      add(new THREE.BoxGeometry(r * 0.7, r * 0.12, r * 0.2), '#ffffff', -r * 0.15, r * 1.68, r * 0.6);
+      for (const side of [-1, 1]) {
+        add(new THREE.BoxGeometry(r * 0.3, r * 0.75, r * 0.4), B, side * r * 1.1, r * 1.1, 0);
+        add(new THREE.ConeGeometry(r * 0.25, r * 0.45, 4), A, side * r * 0.55, r * 0.3, 0);
+      }
+      add(new THREE.OctahedronGeometry(r * 0.3), A, 0, r * 2.5, 0);
+      break;
+    case 'egg':
+      for (let i = 0; i < 3; i++) {
+        const a = i * Math.PI * 2 / 3;
+        const x = Math.cos(a) * r * 0.5, z = Math.sin(a) * r * 0.5;
+        add(new THREE.SphereGeometry(r * 0.5, 7, 5).scale(1, 1.4, 1), B, x, r * 0.6, z);
+        add(new THREE.BoxGeometry(r * 0.25, r * 0.18, r * 0.25), A, x, r * 1.2, z);
+      }
+      break;
     case 'bopper':
       add(new THREE.SphereGeometry(r, 10, 8), B, 0, r + 0.08, 0);
       add(new THREE.CylinderGeometry(r * 1.03, r * 1.03, 0.14, 12), A, 0, r * 0.85, 0);
@@ -325,6 +357,7 @@ function buildModel(def: EnemyDef, add: Part): void {
       }
       break;
     }
+    case 'swarmqueen':
     case 'queen': {
       // Flying hive queen: striped body, crown, big wings, stinger.
       add(new THREE.SphereGeometry(r * 0.75, 12, 8), B, 0, r * 1.3, r * 0.35);
@@ -524,12 +557,41 @@ export class Enemy {
   sub = 0;
   /** Burrowed under the sand: can't be hit or touched (see `alive`). */
   under = false;
+  /** Separate family state; never packed into the full boss-action bits. */
+  familyState = 0;
+  familyFled = false;
+  copyKind = 0;
+  copyShots = 1;
+  copyRange = 14;
+  copyArc = 0;
+  copyWidth = 0.28;
+  copyDamage = 3.5;
+  copyRadius = 2.2;
+  copyZaps = 3;
+  copyInterval = 0.25;
+  copySpeed = 12;
+  copyFlash = 0;
   /** Cosmetic animation state (src/game/enemyAnim.ts). */
   readonly anim = new EnemyAnim();
 
   constructor(public def: EnemyDef) {}
 
   reset(x: number, z: number, o: SpawnOpts): void {
+    this.familyState = this.copyKind = this.copyFlash = 0;
+    this.familyFled = false;
+    this.copyShots = 1;
+    this.copyRange = 14;
+    this.copyArc = 0;
+    this.copyWidth = 0.28;
+    this.copyDamage = 3.5;
+    this.copyRadius = 2.2;
+    this.copyZaps = 3;
+    this.copyInterval = 0.25;
+    this.copySpeed = 12;
+    this.targetX = this.fromX = x;
+    this.targetZ = this.fromZ = z;
+    this.lungeX = 0;
+    this.lungeZ = 1;
     this.uid = nextUid++;
     this.active = true;
     this.pvpOwner = -1;
@@ -574,6 +636,8 @@ export class Enemy {
     this.sub = 0;
     this.under = false;
     this.rallyCd = squadTuning.rallyEvery * (0.5 + Math.random() * 0.5);
+    if (this.def.behavior === 'egg') this.timerA = familyTuning.eggHatch;
+    if (this.def.behavior === 'swarmwall') this.timerA = familyTuning.wallLife;
     if (this.def.treasure) this.timerA = this.def.treasure.life;
     if (this.def.leap) this.timerA = 0.5 + Math.random();
   }
@@ -582,7 +646,11 @@ export class Enemy {
     return this.active && this.state !== 'spawning' && !this.under;
   }
 
+  get underground(): boolean { return !!this.def.burrow && (this.familyState === 1 || this.familyState === 2); }
+  get targetable(): boolean { return this.alive && !this.underground; }
+
   get contactDamage(): number {
+    if (this.underground) return 0;
     return this.def.contactDamage * this.dmgMul;
   }
 
@@ -622,6 +690,7 @@ export interface EnemyCtx {
   escape(e: Enemy): void;
   /** Arena half size (fleeing enemies steer away from the edge). */
   bounds(): number;
+  family?: FamilyApi;
   /** Boss moves and arena twists (src/game/bosses.ts). */
   boss?: BossApi;
   /** Biome foes: shark dust, snowball crashes, kite gusts (src/game/biomeFoes.ts). */
@@ -649,6 +718,12 @@ class EnemyBatch {
   }
 }
 
+/** Set a batch's colour multiplier (other passes may swap or wrap the material: only retro ones are tinted). */
+function tintBatch(mesh: THREE.InstancedMesh, c: THREE.Color): void {
+  const m = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as RetroMaterial;
+  m?.uniforms?.uColor?.value.copy(c);
+}
+
 /** Instanced ground decals: blob shadows, spawn rings, charge lines, blast-radius rings. */
 const AURA_CAP = 128;
 
@@ -664,6 +739,8 @@ class GroundDecals {
   readonly bubbles: THREE.InstancedMesh;
   /** Medic heal-pulse telegraph rings (green). */
   readonly heals: THREE.InstancedMesh;
+  readonly mounds: THREE.InstancedMesh;
+  readonly copyBeams: THREE.InstancedMesh;
   private healMat: THREE.MeshBasicMaterial;
   private bubbleMat: THREE.MeshBasicMaterial;
   private discMat: THREE.MeshBasicMaterial;
@@ -671,6 +748,8 @@ class GroundDecals {
   private dangerMat: THREE.MeshBasicMaterial;
 
   constructor(scene: THREE.Scene, cap: number) {
+    this.mounds = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), createRetroMaterial({ color: '#b86f50' }), 64);
+    this.copyBeams = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.12, 1).translate(0, 0, 0.5), createRetroMaterial({ color: '#b13eec', unlit: 1 }), 512);
     const blobMat = new THREE.MeshBasicMaterial({ map: textures.blob(), transparent: true, depthWrite: false });
     this.shadows = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), blobMat, cap);
     this.markerMat = new THREE.MeshBasicMaterial({ color: '#ff3d5a', transparent: true, depthWrite: false });
@@ -695,7 +774,7 @@ class GroundDecals {
     this.bubbles = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), this.bubbleMat, AURA_CAP);
     this.healMat = new THREE.MeshBasicMaterial({ color: '#a7f070', transparent: true, opacity: 0.5, depthWrite: false });
     this.heals = new THREE.InstancedMesh(new THREE.RingGeometry(0.88, 1, 32).rotateX(-Math.PI / 2), this.healMat, 32);
-    for (const m of [this.shadows, this.markers, this.lines, this.zones, this.discs, this.auras, this.bubbles, this.heals]) {
+    for (const m of [this.shadows, this.markers, this.lines, this.zones, this.discs, this.auras, this.bubbles, this.heals, this.mounds, this.copyBeams]) {
       m.frustumCulled = false;
       m.count = 0;
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -730,6 +809,10 @@ export class Enemies {
   private alive = 0;
   private counts = new Map<string, number>();
   /** Danger zones to draw this frame (owned by the game's effects bus). */
+  renderWalls: AABB[] = [];
+  renderBounds = 55;
+  familyReduceFlash = false;
+  familyColorblind = false;
   zones: { x: number; z: number; r: number; t: number; life: number }[] = [];
   /** Flung corpses (cosmetic, src/game/enemyAnim.ts). */
   readonly corpses = new Corpses();
@@ -759,8 +842,18 @@ export class Enemies {
 
   private batch(def: EnemyDef): EnemyBatch {
     let b = this.batches.get(def.id);
-    if (!b) this.batches.set(def.id, (b = new EnemyBatch(def, this.scene)));
+    if (!b) {
+      this.batches.set(def.id, (b = new EnemyBatch(def, this.scene)));
+      tintBatch(b.mesh, this.tint);
+    }
     return b;
+  }
+
+  /** Biome palette: multiplies every enemy's colours (Neon City's neon tint; white = none). */
+  private tint = new THREE.Color(1, 1, 1);
+  setTint(c: THREE.ColorRepresentation): void {
+    this.tint.set(c);
+    for (const b of this.batches.values()) tintBatch(b.mesh, this.tint);
   }
 
   /** Cosmetic death: the body is flung along (dirX, dirZ), tumbling (bosses shake apart in place). */
@@ -814,7 +907,7 @@ export class Enemies {
       e.sqV += (-220 * e.sq - 14 * e.sqV) * dt;
       e.sq += e.sqV * dt;
       if (e.slowT > 0) e.slowT -= dt;
-      if (e.def.behavior === 'reaper') e.frozen = e.slowT = 0; // nothing slows the Reaper
+      if (e.underground || e.def.behavior === 'reaper') e.frozen = e.slowT = 0; // nothing slows the Reaper
       if (e.guardT > 0) e.guardT -= dt;
       if (e.blockT > 0) e.blockT -= dt;
       if (e.rallyT > 0) e.rallyT -= dt;
@@ -923,7 +1016,7 @@ export class Enemies {
         const n = ctx.hash.queryInto(e.x, e.z, r * 2, near);
         for (let i = 0; i < n; i++) {
           const o = near[i];
-          if (o === e || !o.alive) continue;
+          if (o === e || !o.targetable || e.underground || e.def.behavior === 'swarmwall' && e.timerA > 0 || e.def.behavior === 'egg') continue;
           const ox = e.x - o.x;
           const oz = e.z - o.z;
           const d2 = ox * ox + oz * oz;
@@ -991,6 +1084,17 @@ export class Enemies {
     let wantZ = 0;
     let rigid = false;
     switch (e.def.behavior) {
+      case 'burrower':
+      case 'mirror':
+      case 'swarmqueen':
+      case 'egg':
+      case 'swarmwall':
+        updateFamily(e, dt, ctx, nx, nz, dist, speed);
+        if (!e.active) return false;
+        wantX = e.vx;
+        wantZ = e.vz;
+        rigid = true;
+        break;
       case 'chase':
         this.bend(e, nx, nz, dist);
         wantX = this.ax * speed;
@@ -1475,8 +1579,9 @@ export class Enemies {
   render(alpha: number, time: number): void {
     for (const b of this.batches.values()) b.mesh.count = 0;
     const d = this.decals;
-    d.shadows.count = d.markers.count = d.lines.count = d.zones.count = d.discs.count = d.auras.count = d.bubbles.count = d.heals.count = 0;
-    d.setPulse(time);
+    d.shadows.count = d.markers.count = d.lines.count = d.zones.count = d.discs.count = d.auras.count = d.bubbles.count = d.heals.count = d.mounds.count = d.copyBeams.count = 0;
+    d.setPulse(this.familyReduceFlash ? 0 : time);
+    (d.copyBeams.material as RetroMaterial).uniforms.uColor.value.set(this.familyColorblind ? '#ffffff' : '#b13eec');
     this.biomeView.begin();
     const fdt = this.lastTime < 0 ? 0 : Math.max(0, Math.min(0.05, time - this.lastTime));
     this.lastTime = time;
@@ -1499,6 +1604,38 @@ export class Enemies {
         if (pop <= 0) continue;
         sx *= pop;
         sy *= pop * 1.3;
+      }
+      // Family telegraphs derive entirely from snapshot state, with no render-time gameplay.
+      if (e.underground) {
+        if (d.mounds.count < 64) {
+          const rumble = 1 + (this.familyReduceFlash ? 0 : 0.045) * Math.sin(time * 16 + e.uid);
+          this.m4.makeScale(e.radius * 1.6, e.radius * 0.42 * rumble, e.radius * 1.3).setPosition(x, 0.13, z);
+          d.mounds.setMatrixAt(d.mounds.count++, this.m4);
+        }
+        if (e.familyState === 2 && d.zones.count < 62) {
+          this.m4.makeScale(e.def.burrow!.radius * e.scale, 1, e.def.burrow!.radius * e.scale).setPosition(e.targetX, 0.055, e.targetZ);
+          d.zones.setMatrixAt(d.zones.count++, this.m4);
+        }
+        continue;
+      }
+      if (e.def.mirror && e.frozen <= 0 && (e.state === 'windup' || e.copyFlash > 0 && (e.copyKind === 2 || e.copyKind === 4))) {
+        const n = e.state === 'windup' ? 1 : e.copyShots;
+        for (let j = 0; j < n && d.copyBeams.count < 512; j++) {
+          const angle = Math.atan2(e.lungeX, e.lungeZ) + copyFan(j, n, e.copyArc);
+          const reach = beamReach(x, z, Math.sin(angle), Math.cos(angle), e.copyRange, this.renderWalls);
+          this.q.setFromAxisAngle(this.up, angle);
+          this.m4.compose(this.v.set(x, e.state === 'windup' ? 0.08 : 0.85, z), this.q, this.s.set(e.state === 'windup' ? 0.07 : e.copyWidth * 2, 1, reach));
+          d.copyBeams.setMatrixAt(d.copyBeams.count++, this.m4);
+        }
+      }
+      if (e.def.special && e.state === 'windup' && e.familyState === 1 && d.lines.count < 64) {
+        this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
+        this.m4.compose(this.v.set(Math.abs(e.lungeX) > 0.5 ? -this.renderBounds : e.targetX, 0.055, Math.abs(e.lungeZ) > 0.5 ? -this.renderBounds : e.targetZ), this.q, this.s.set(1.2, 1, this.renderBounds * 2));
+        d.lines.setMatrixAt(d.lines.count++, this.m4);
+      }
+      if (e.def.behavior === 'egg' && d.heals.count < 32) {
+        this.m4.makeScale(e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch), 1, e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch)).setPosition(x, 0.06, z);
+        d.heals.setMatrixAt(d.heals.count++, this.m4);
       }
       // Body language: gait, lean, wind-up pose, hit wobble (cosmetic, src/game/enemyAnim.ts).
       poseEnemy(e, e.anim, x, z, fdt, time, P);
@@ -1561,8 +1698,9 @@ export class Enemies {
       if (e.flash > 0) b.flash.setXYZW(i, 1, 1, 1, 0.9);
       else if (e.frozen > 0) b.flash.setXYZW(i, 0.6, 0.95, 1, 0.6);
       else if (e.state === 'windup') {
-        const fast = e.def.behavior === 'exploder' ? 70 : 40;
-        b.flash.setXYZW(i, 1, 0.25, 0.3, 0.35 + 0.35 * Math.sin(time * fast));
+        const family = !!(e.def.burrow || e.def.mirror || e.def.special);
+        const fast = family ? 6 : e.def.behavior === 'exploder' ? 70 : 40;
+        b.flash.setXYZW(i, 1, 0.25, 0.3, family && this.familyReduceFlash ? 0.3 : 0.35 + 0.35 * Math.sin(time * fast));
       } else if (e.burnT > 0 && e.shockT > 0) b.flash.setXYZW(i, 1, 0.9, 0.3, 0.5);
       else if (e.burnT > 0) b.flash.setXYZW(i, 1, 0.45, 0.1, 0.3 + 0.2 * Math.sin(time * 18 + e.uid));
       else if (e.shockT > 0) b.flash.setXYZW(i, 1, 1, 0.4, Math.sin(time * 50 + e.uid) > 0.3 ? 0.55 : 0.1);
@@ -1623,7 +1761,7 @@ export class Enemies {
       commit(b.mesh.instanceMatrix, b.mesh.count);
       commit(b.flash, b.mesh.count);
     }
-    for (const m of [d.shadows, d.markers, d.lines, d.zones, d.discs, d.auras, d.bubbles, d.heals]) commit(m.instanceMatrix, m.count);
+    for (const m of [d.shadows, d.markers, d.lines, d.zones, d.discs, d.auras, d.bubbles, d.heals, d.mounds, d.copyBeams]) commit(m.instanceMatrix, m.count);
     if (d.auras.instanceColor) commit(d.auras.instanceColor, d.auras.count);
   }
 }

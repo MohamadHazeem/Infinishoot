@@ -1,3 +1,4 @@
+import { applyMetaSnapshot, MetaRun } from './meta';
 /**
  * Online, client side: messages from the host and applying snapshots.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -14,9 +15,12 @@ import { type Offer, type RunSummary, type ShopFx, type ShopView } from '../../u
 import { Hero } from '../hero';
 import { markSeen, unlockedWeapons } from '../save';
 import { settings } from '../settings';
-import { type VfxEvent } from '../vfx';
+import { decodeFx } from '../../net/fxCodec';
+import { SnapDecoder } from '../../net/snapCodec';
 import { createWeapon } from '../weapons';
 import { syncSub } from '../biomeFoes';
+import { FUSION_BY_ID } from '../../data/fusions';
+import { showFusionMerge } from '../../ui/fusionUi';
 import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
 import { rightClickHeld } from '../chargeMode';
 import { onHeartbeat } from '../netFeel';
@@ -50,6 +54,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       }
       this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
       this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
+      applyMetaSnapshot(this, m.meta);
       break;
     case 'wchest':
       this.chests.open(Number(m.i));
@@ -86,12 +91,20 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
     case 'wait':
       this.screens.showWait((m.who as string[]) ?? []);
       break;
+    case 'route':
+      this.routeFromNet(m);
+      break;
     case 'go':
       if (['levelup', 'shop', 'wait'].includes(this.screens.current)) this.screens.show('none');
       break;
     case 'toast':
       this.hud.toast(String(m.msg));
       break;
+    case 'fusefx': {
+      const f = FUSION_BY_ID[String(m.id)];
+      if (f) showFusionMerge(f.parts, f.id);
+      break;
+    }
     case 'hurt':
       this.player.knock(Number(m.dx), Number(m.dz));
       this.hud.hurt();
@@ -129,6 +142,7 @@ export function shopFromNet(this: Game, v: NetShop): ShopView {
 }
 
 export function clientStart(this: Game, seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string }[]): void {
+  this.meta = new MetaRun();
   this.seed = seed;
   const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie'));
   this.setHeroes(heroes);
@@ -197,6 +211,7 @@ export function clientUpdate(this: Game, dt: number): void {
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
   this.skillClientInput(control);
+  this.companionClientInput(control);
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
   const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
   const charging = rightClickHeld(input, control);
@@ -214,10 +229,17 @@ export function clientUpdate(this: Game, dt: number): void {
   input.endStep();
 }
 
-export function applySnapshot(this: Game, s: Record<string, unknown>): void {
+/** Snapshot decoders (they keep the baselines the host's deltas refer to), one per game. */
+const snapDecoders = new WeakMap<Game, SnapDecoder>();
+
+export function applySnapshot(this: Game, m: Record<string, unknown>): void {
+  let dec = snapDecoders.get(this);
+  if (!dec) snapDecoders.set(this, (dec = new SnapDecoder()));
+  const s = dec.decode(m);
   const now = performance.now();
   if (this.snapTime) this.snapInterval += (Math.min(200, now - this.snapTime) - this.snapInterval) * 0.2;
   this.snapTime = now;
+  applyMetaSnapshot(this, s.meta);
   const prevMode = this.mode;
   this.mode = s.mode as Mode;
   if (this.mode === 'transition' && prevMode !== 'transition') this.fadeT = 0;
@@ -314,6 +336,13 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
     if (e.def.boss && this.netBoss) e.phase = this.netBoss.hp01 < 0.33 ? 3 : this.netBoss.hp01 < 0.66 ? 2 : 1;
     e.shield = r.shield ? 1 : 0;
     e.aiBits = r.ai;
+    e.familyState = r.familyState;
+    e.copyKind = r.copyKind;
+    e.copyFlash = r.copyFlash ? 1 : 0;
+    e.copyShots = r.copyShots;
+    e.copyRange = r.copyRange;
+    e.copyArc = r.copyArc;
+    e.copyWidth = r.copyWidth;
     e.burnT = r.burn ? 1 : 0;
     e.shockT = r.shock ? 1 : 0;
     e.flash = r.flash ? 0.07 : 0;
@@ -336,8 +365,9 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
 
   unpackBullets(s.bu as NetBytes, this.bullets);
   unpackPickups(s.pk as NetBytes, this.pickups);
-  for (const e of (s.ev as VfxEvent[]) ?? []) this.vfx.apply(e);
+  if (s.fx) decodeFx(s.fx as NetBytes, (e) => this.vfx.apply(e));
   this.applySkillNet(s.sk);
+  this.applyCompanionNet(s.cp);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   const portal = s.portal as [number, number] | null;

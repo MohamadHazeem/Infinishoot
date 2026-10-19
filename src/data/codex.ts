@@ -1,127 +1,181 @@
-import { MODS } from './mods';
-import { PASSIVES } from './passives';
-import type { Rarity } from './rarity';
-import { RELICS } from './relics';
-import { SPECIALS } from './specials';
-import type { Tag } from './tags';
-import { WEAPON_COMBOS } from './weaponCombos';
-import { WEAPONS } from './weapons';
-import { modDesc } from '../game/modTypes';
+import { ENEMIES } from './enemies';
+import { ENEMY_TIPS } from './bestiary';
+import { BIOMES } from './biomes';
+import { HEROES } from './heroes';
+import type { Loadout } from './loadout';
 
-/**
- * The Codex (EXTRAS > CODEX): every weapon, special, item, Mod, relic, weapon
- * combo, evolution and status, with what it does. Entries unlock ("discovered")
- * when you own, pick or are offered them; the keys below are what the save's
- * `discovered` list holds, so keep them stable.
- *   w:<weapon>  sp:<special>  p:<passive>  m:<mod>  r:<relic>  c:<combo>
- *   e:<item>:<evo index>  (loadout/special evolutions)  e:<weapon>:auto  (auto-weapon partner evolutions)
- *   s:<status>
- */
-export type CodexTab = 'weapons' | 'specials' | 'items' | 'mods' | 'relics' | 'combos' | 'evolutions' | 'statuses';
+const ENEMY_LORE: Record<string, string> = {
+  swarmer: 'Once tiny garden helpers, these machines now mistake every boot for a weed.',
+  bopper: "The islands' oldest delivery bot still insists that every parcel arrive personally.",
+  zippy: 'A courier with no address left to deliver to. Its route ends wherever you are standing.',
+  shooter: 'A retired fireworks launcher, still rehearsing for a festival that never came.',
+  spinner: 'Its compass broke years ago. It has been checking every direction ever since.',
+  burster: "Three short knocks were once the repair crew's secret greeting. This bot remembers.",
+  sniper: 'The watchtower sentry can count the scratches on your helmet from across the island.',
+  charger: 'A quarry hauler with excellent acceleration and absolutely no brakes.',
+  chonk: 'Under that heavy shell is a remarkably small battery and an enormous sense of duty.',
+  exploder: 'The warning sticker fell off. The warning noise, fortunately, still works.',
+  splitter: 'The recycling plant called this self-repair. The field crew calls it extra paperwork.',
+  jellet: 'A little piece of a much bigger problem, determined to make its own way.',
+  spawner: 'The factory foreman never received the shutdown order. Production continues.',
+  shielder: 'Built to shelter workers from falling rock; it still puts everyone else first.',
+  medic:
+    'Its medical license expired with the old network. Its bedside manner remains enthusiastic.',
+  leaper:
+    'The island drains needed a maintenance robot that could jump. Nobody specified a landing spot.',
+  mortar: 'An irrigation system that found the wrong kind of canister in the supply shed.',
+  golden: "Every loose Bolt on the islands eventually ends up in this collector's pockets.",
+  king: 'The first Bopper promoted itself when the human supervisors left. Its crown is an antenna.',
+  rex: 'The excavation project stopped at bedrock. Rex took that personally.',
+  queen: 'From her aerial command post, she conducts the factory swarm like a brass band.',
+  omega:
+    'The central relay has waited through a thousand quiet sunsets. Now every island is calling at once.',
+  prince: 'A junior supervisor practising a royal entrance before the real promotion.',
+  rexling: 'A prototype digger that already dreams of moving mountains.',
+  princess: 'Her first command assignment is this island. She intends to make a good impression.',
+  hive: 'A portable workshop. Unfortunately, its only repair plan is to build more trouble.',
+  reaper: 'The network sends this collector when an overdue work order becomes a legend.',
+};
+const HERO_LORE: Record<string, string> = {
+  rookie:
+    'The newest member of the recovery crew brought a borrowed helmet and a map drawn in crayon. Both have proved surprisingly reliable.',
+  bulwark:
+    "A rescue worker who once held a collapsing bridge together until the last courier crossed. The heavy armour is mostly for everyone else's peace of mind.",
+  dash: 'The old island racing champion traded prize money for a pair of experimental boots. The scorch marks are now a registered signature.',
+  ace: 'A radio operator who can hear the rhythm hiding in machine chatter. Every shot is timed to the next beat.',
+};
 
-export const CODEX_TABS: { id: CodexTab; label: string }[] = [
-  { id: 'weapons', label: 'WEAPONS' },
-  { id: 'specials', label: 'SPECIALS' },
-  { id: 'items', label: 'ITEMS' },
-  { id: 'mods', label: 'MODS' },
-  { id: 'relics', label: 'RELICS' },
-  { id: 'combos', label: 'COMBOS' },
-  { id: 'evolutions', label: 'EVOLUTIONS' },
-  { id: 'statuses', label: 'STATUSES' },
+export const CODEX = [
+  ...Object.values(ENEMIES)
+    .filter((e) => !e.hidden)
+    .map((e) => ({
+      id: `enemy:${e.id}`,
+      kind: e.boss || e.miniboss ? 'BOSS' : 'ENEMY',
+      name: e.name,
+      text: `${ENEMY_LORE[e.id] ?? 'A veteran of the old island network, patched up and sent back out on patrol.'} ${ENEMY_TIPS[e.id] ?? 'Keep moving and watch its wind-up.'}`,
+    })),
+  ...BIOMES.map((b) => ({
+    id: `biome:${b.id}`,
+    kind: 'BIOME',
+    name: b.name,
+    text:
+      (
+        {
+          meadow:
+            'The repair crews left flowers growing between the circuit boards. Every adventure begins somewhere bright.',
+          dunes:
+            'Buried relay towers still hum beneath the sunset sand. The wind remembers their song.',
+          peaks:
+            'The mountain antennae catch signals from stars nobody has named. Ice preserves the old machines.',
+          magma:
+            'Deep under the islands, the planet keeps its own furnace running. The machines here learned to love the heat.',
+        } as Record<string, string>
+      )[b.id] ?? 'Another island on the old relay route, waiting to be rediscovered.',
+  })),
+  ...HEROES.map((h) => ({
+    id: `hero:${h.id}`,
+    kind: 'HERO',
+    name: h.name,
+    text: `${HERO_LORE[h.id]} ${h.desc}`,
+  })),
 ];
-
-export interface CodexEntry {
-  key: string;
-  tab: CodexTab;
-  name: string;
-  /** Pixel icon id (iconHtml) and its fallback glyph. */
-  icon: string;
-  glyph: string;
-  color: string;
-  rarity?: Rarity;
-  tags?: readonly Tag[];
-  desc: string;
-  /** Small label: slot, kind or recipe ("LEFT CLICK", "AUTO WEAPON", "BURN + SHOCK"). */
-  kind: string;
+export const META_REWARDS = [
+  {
+    id: 'heat_skin',
+    name: 'Relay Gold Armour',
+    kind: 'skin',
+    cost: 80,
+    color: '#ffcd75',
+    condition: 'Clear a loop with 4+ heat.',
+  },
+  {
+    id: 'weekly_skin',
+    name: 'Signal Runner Armour',
+    kind: 'skin',
+    cost: 80,
+    color: '#73eff7',
+    condition: 'Score 5,000 in a weekly run.',
+  },
+  {
+    id: 'mint',
+    name: 'Mint Monitor',
+    kind: 'theme',
+    cost: 30,
+    color: '#a7f070',
+    condition: 'Earn any achievement.',
+  },
+  {
+    id: 'sunset',
+    name: 'Sunset Monitor',
+    kind: 'theme',
+    cost: 60,
+    color: '#ef7d57',
+    condition: 'Clear a loop with 4+ heat.',
+  },
+  {
+    id: 'weekly',
+    name: 'Weekly Monitor',
+    kind: 'theme',
+    cost: 60,
+    color: '#73eff7',
+    condition: 'Score 5,000 in a weekly run.',
+  },
+  {
+    id: 'heat_kit',
+    name: 'Heat Runner Kit',
+    kind: 'loadout',
+    cost: 0,
+    color: '#ffcd75',
+    condition: 'Clear a loop with 4+ heat.',
+  },
+  {
+    id: 'weekly_kit',
+    name: 'Weekly Explorer Kit',
+    kind: 'loadout',
+    cost: 0,
+    color: '#73eff7',
+    condition: 'Score 5,000 in a weekly run.',
+  },
+] as const;
+export const META_KITS: Record<string, Loadout> = {
+  heat_kit: { primary: 'scatter', secondary: 'grenade', special: 'storm' },
+  weekly_kit: { primary: 'laser', secondary: 'well', special: 'meteor' },
+};
+export interface MetaProgress {
+  achievements: readonly string[];
+  bestHeat: Record<string, number>;
+  weekly: { score: number }[];
+}
+export function rewardAvailable(id: string, p: MetaProgress): boolean {
+  if (id === 'mint') return p.achievements.length > 0;
+  if (id === 'sunset' || id === 'heat_skin' || id === 'heat_kit')
+    return Object.values(p.bestHeat).some((n) => n >= 4);
+  if (id === 'weekly' || id === 'weekly_skin' || id === 'weekly_kit')
+    return p.weekly.some((r) => r.score >= 5000);
+  return false;
 }
 
-/** Statuses and their combos (numbers from statusTuning in game.ts). */
-export const STATUSES: { id: string; name: string; glyph: string; color: string; kind: string; desc: string }[] = [
-  { id: 'burn', name: 'Burn', glyph: '♨', color: '#ff7a2f', kind: 'STATUS', desc: 'Fire hits set enemies alight: damage over 3 seconds.' },
-  { id: 'shock', name: 'Shock', glyph: 'ϟ', color: '#ffe14d', kind: 'STATUS', desc: 'Shock hits make an enemy take +20% damage for 2 seconds.' },
-  { id: 'freeze', name: 'Freeze', glyph: '❄', color: '#9fe8ff', kind: 'STATUS', desc: 'Frost can freeze enemies in place. Frozen enemies stop moving and attacking.' },
-  { id: 'expose', name: 'Exposed', glyph: '◎', color: '#c4b8ff', kind: 'RIGHT-CLICK STATUS', desc: 'Every right-click hit Exposes the enemy: +30% damage from everyone for 4 seconds.' },
-  { id: 'overload', name: 'Overload', glyph: '✹', color: '#ffe14d', kind: 'COMBO: BURN + SHOCK', desc: 'Burn and Shock on the same enemy explode in an Overload blast that grows with your level.' },
-  { id: 'shatter', name: 'Shatter', glyph: '✦', color: '#9fe8ff', kind: 'COMBO: KILL A FROZEN ENEMY', desc: 'A frozen enemy that dies bursts into ice shards that hit everything nearby.' },
-  { id: 'napalm', name: 'Napalm', glyph: '♨', color: '#ff5e3a', kind: 'COMBO: BLAST A BURNING ENEMY', desc: 'An explosion that catches a burning enemy spreads fire to everything in the blast.' },
+/** These colour sets travel through the existing skin id in co-op start messages. */
+export const META_SKINS = [
+  {
+    id: 'heat_skin',
+    name: 'Relay Gold',
+    armor: '#ffcd75',
+    accent: '#ef7d57',
+    suit: '#5d275d',
+    hair: '#f4f4f4',
+    gem: '#a7f070',
+    iris: '#b13e53',
+  },
+  {
+    id: 'weekly_skin',
+    name: 'Signal Runner',
+    armor: '#73eff7',
+    accent: '#a7f070',
+    suit: '#29366f',
+    hair: '#f4f4f4',
+    gem: '#ef7d57',
+    iris: '#3b5dc9',
+  },
 ];
-
-const SLOT_KIND: Record<string, string> = { primary: 'LEFT CLICK', secondary: 'RIGHT CLICK' };
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** Icon id of an evolved loadout item or special (matches Weapon.iconId / Hero.specialView). */
-export function evoIcon(base: string, k: number): string {
-  return k === 0 ? `${base}_evo` : `${base}_evo${k + 1}`;
-}
-
-let cache: CodexEntry[] | null = null;
-
-/** Every codex entry, in tab order. */
-export function codexEntries(): CodexEntry[] {
-  if (cache) return cache;
-  const out: CodexEntry[] = [];
-  const weapons = Object.values(WEAPONS);
-  // Loadout weapons first (left, then right click), then auto weapons.
-  const order = (w: (typeof weapons)[number]) => (w.slot === 'primary' ? 0 : w.slot === 'secondary' ? 1 : 2);
-  for (const w of [...weapons].sort((a, b) => order(a) - order(b))) {
-    out.push({ key: `w:${w.id}`, tab: 'weapons', name: w.name, icon: w.id, glyph: w.icon, color: w.color, rarity: w.slot ? undefined : w.rarity, tags: w.tags, desc: cap(w.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')), kind: w.slot ? SLOT_KIND[w.slot] : 'AUTO WEAPON' });
-  }
-  for (const s of Object.values(SPECIALS)) {
-    out.push({ key: `sp:${s.id}`, tab: 'specials', name: s.name, icon: 'sp_' + s.id, glyph: s.icon, color: s.color, desc: s.desc, kind: 'SPECIAL Q/E' });
-  }
-  for (const p of Object.values(PASSIVES)) {
-    out.push({ key: `p:${p.id}`, tab: 'items', name: p.name, icon: p.id, glyph: p.icon, color: p.color, rarity: p.rarity, desc: p.desc, kind: p.coop ? 'CO-OP ITEM' : `ITEM · MAX LV ${p.maxLevel}` });
-  }
-  for (const m of MODS) {
-    out.push({ key: `m:${m.id}`, tab: 'mods', name: m.name, icon: m.id, glyph: m.icon, color: m.color, rarity: m.rarity, tags: m.synergy, desc: modDesc(m, 1), kind: m.cursed ? 'CURSED MOD' : m.echo ? 'MOD · COPIES THE NEXT SLOT' : 'MOD' });
-  }
-  for (const r of RELICS) {
-    out.push({ key: `r:${r.id}`, tab: 'relics', name: r.name, icon: r.id, glyph: r.icon, color: r.color, rarity: r.rarity, desc: r.desc, kind: 'RELIC' });
-  }
-  for (const c of WEAPON_COMBOS) {
-    const [a, b] = c.weapons.map((id) => WEAPONS[id]?.name ?? id);
-    out.push({ key: `c:${c.id}`, tab: 'combos', name: c.name, icon: c.weapons[0], glyph: '+', color: c.color, desc: c.desc, kind: `${a} + ${b}`.toUpperCase() });
-  }
-  for (const w of weapons) {
-    (w.evos ?? []).forEach((e, k) => out.push({ key: `e:${w.id}:${k}`, tab: 'evolutions', name: e.name, icon: evoIcon(w.id, k), glyph: w.icon, color: e.color, tags: e.tags, desc: e.text, kind: `${w.name} EVOLUTION`.toUpperCase() }));
-    if (w.evolution) {
-      const partner = PASSIVES[w.evolution.passive]?.name ?? w.evolution.passive;
-      out.push({ key: `e:${w.id}:auto`, tab: 'evolutions', name: w.evolution.name, icon: w.id, glyph: w.icon, color: w.evolution.color, desc: w.evolution.text, kind: `MAX ${w.name} + ${partner}`.toUpperCase() });
-    }
-  }
-  for (const s of Object.values(SPECIALS)) {
-    (s.evos ?? []).forEach((e, k) => out.push({ key: `e:${s.id}:${k}`, tab: 'evolutions', name: e.name, icon: evoIcon('sp_' + s.id, k), glyph: s.icon, color: e.color, tags: e.tags, desc: e.text, kind: `${s.name} EVOLUTION`.toUpperCase() }));
-  }
-  for (const s of STATUSES) out.push({ key: `s:${s.id}`, tab: 'statuses', name: s.name, icon: 's_' + s.id, glyph: s.glyph, color: s.color, desc: s.desc, kind: s.kind });
-  cache = out;
-  return out;
-}
-
-/** Entries on one tab. */
-export function codexTab(tab: CodexTab): CodexEntry[] {
-  return codexEntries().filter((e) => e.tab === tab);
-}
-
-/** "x / y" discovered on a tab. */
-export function codexCount(tab: CodexTab, discovered: readonly string[]): { have: number; total: number } {
-  const list = codexTab(tab);
-  const set = new Set(discovered);
-  return { have: list.filter((e) => set.has(e.key)).length, total: list.length };
-}
-
-/** Is this key a real codex entry (filters typos and removed content out of saves)? */
-export function isCodexKey(key: string): boolean {
-  keys ??= new Set(codexEntries().map((e) => e.key));
-  return keys.has(key);
-}
-let keys: Set<string> | null = null;
+export const metaSkin = (id: string) => META_SKINS.find((s) => s.id === id);

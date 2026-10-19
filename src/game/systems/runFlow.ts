@@ -1,3 +1,5 @@
+import { startMeta, visitMeta, bankMeta } from './meta';
+import { weeklyChallenge } from '../../data/weekly';
 /**
  * Run flow: starting runs and stages, stage clears, the shop and portal, game over and achievements.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -112,6 +114,7 @@ export function leaveToTitle(this: Game): void {
 export function startSolo(this: Game): void {
   this.leaveToTitle();
   this.hero.name = playerName();
+  this.applyLocalSkin();
   this.runMode = (MODE_BY_ID[settings.mode as ModeId] ?? MODES[0]).id;
   this.startRun();
 }
@@ -119,7 +122,7 @@ export function startSolo(this: Game): void {
 /** Difficulty from settings, if unlocked (daily runs are always Normal). */
 export function pickDifficulty(this: Game): DifficultyDef {
   const d = DIFF_BY_ID[settings.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
-  if (this.runMode === 'daily' || (d.unlock && !save.achievements.includes(d.unlock))) return DIFF_BY_ID.normal;
+  if (this.runMode === 'daily' || this.runMode === 'weekly' || (d.unlock && !save.achievements.includes(d.unlock))) return DIFF_BY_ID.normal;
   return d;
 }
 
@@ -141,9 +144,12 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.newAchievements = [];
   this.curses = [];
   this.runEvents.reset();
+  this.routeReset();
   this.director.players = this.heroes.length;
   // Everyone keeps the loadout they picked; this machine's comes from its settings.
   if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, cheats.unlockAll ? undefined : unlockedLoadout());
+  startMeta(this);
+  this.rng = new Rng(this.seed);
   for (const h of this.heroes) {
     h.left = false;
     h.startRun();
@@ -157,7 +163,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.role === 'host') {
     for (const h of this.heroes) {
       if (!h.peerId) continue;
-      this.host!.send(h.peerId, { t: 'start', seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
+      this.host!.send(h.peerId, { t: 'start', meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
     }
   }
   this.loadStage(1);
@@ -200,7 +206,7 @@ export function loadStage(this: Game, stage: number): void {
     if (h.player.dead && !h.left) this.reviveHero(h, 0.5, false);
   });
   this.director.start(stage);
-  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
+  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount * (this.meta.has('crowds') ? 1.25 : 1);
   this.runEvents.startStage(this.director.duration);
   if (this.runMode === 'bossrush') this.bossRushStage();
   for (const h of this.heroes) {
@@ -211,10 +217,12 @@ export function loadStage(this: Game, stage: number): void {
   this.chestT = 0;
   this.damagedThisStage = false;
   this.mode = 'fight';
+  visitMeta(this);
   this.modeT = 0;
   if (this.role === 'host') this.host!.broadcast({ t: 'stage', stage, seed: this.seed });
   this.vfx.banner(`STAGE ${stage}`, this.stageSub(stage), 2.2);
   this.vfx.sound('wave', NaN, NaN);
+  this.routeStageStart();
   this.checkAchievements();
 }
 
@@ -245,7 +253,10 @@ export function quitRun(this: Game): void {
 
 export function summary(this: Game, h: Hero): RunSummary {
   return {
-    score: this.score,
+    score: Math.floor(this.score * this.meta.multiplier),
+    heat: this.meta.points,
+    clears: this.victories,
+    bosses: this.bossesRun,
     stage: this.stage,
     kills: this.kills,
     time: this.runTime,
@@ -263,6 +274,9 @@ export function summary(this: Game, h: Hero): RunSummary {
 
 /** Bank lifetime stats into this machine's save, then show game over. */
 export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
+  if (this.meta.banked) return;
+  const bolts = bankMeta(this, sum);
+  sum.bolts = bolts;
   const L = save.lifetime;
   L.runs++;
   L.kills += sum.kills;
@@ -273,12 +287,11 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   L.playTime += sum.time;
   persist();
   this.paused = false;
-  if (quit) {
-    this.goTitle();
-    return;
-  }
   const h = this.hero;
   addRunRecord({
+    heat: this.meta.points,
+    weekly: this.meta.week || undefined,
+    bolts,
     date: new Date().toISOString().slice(0, 10),
     label: this.runLabel || 'STANDARD',
     hero: h.heroDef.name,
@@ -291,14 +304,16 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
     weapons: h.weapons.map((w) => ({ id: w.def.id, level: w.level, evo: w.evolved })),
   });
   persist();
+  if (quit) { this.goTitle(); return; }
+  this.hud.toast(`+${bolts} BOLTS · COSMETICS ONLY`, 4);
   if (leaderboardEnabled && this.role !== 'client') {
-    const board = boardId(this.runMode, this.difficulty.id, this.runDate);
+    const board = this.meta.week ? weeklyChallenge(this.meta.week).board : boardId(this.runMode, this.difficulty.id, this.runDate);
     void submitGlobal(board, { name: this.hero.name, score: Math.floor(sum.score), stage: sum.stage, kills: sum.kills, time: sum.time }).then((r) => {
       if (r) this.hud.toast(`GLOBAL RANK #${r}!`, 4);
       this.refreshGlobal(board, r ? r - 1 : -1);
     });
   }
-  const rank = submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
+  const rank = this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
   if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
   this.screens.showGameOver(sum, rank, loadHighScores(), this.role === 'client');
 }

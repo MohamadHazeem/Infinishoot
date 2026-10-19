@@ -1,5 +1,7 @@
 # Lane: world (new biomes, loop remixes, boss arenas, title attract mode)
 
+> **Merge note (v1.6.0 merge):** Sky Ruins was dropped in favour of main's Sky Fortress (near-identical idea); its wind lanes, islets, blossom trees and textures are gone. Loop 2 is now Neon City, Toy Factory, Sky Fortress, Ashen Magma (PLAN.md decision log). The arena builder is main's, with the factory pieces ported in.
+
 ## What players get
 - **Toy Factory** (stage 5, 11, ...): foam play-mat floors in soft pastels, riveted walkways, building-block ruins with studs, ring-stacker / wind-up robot / spinning-top "trees", alphabet blocks, a gumball edge, a ball-pit sea that drifts like a conveyor, big gears half-sunk in it, confetti in the air and five conveyor belts. Hazard: **crusher stamps**, a toy press over a hazard-striped pad that winds down (red danger zone with a closing ring) and slams every 5.5 s: enemies on the pad are flattened (environmental kill, counts for the env-kill objective), heroes on it take a hit (dash or jump to dodge).
 - **Sky Ruins** (stage 6, 12, ...): a floating island over a sea of clouds far below, with rocky roots under its cliffs, cloud puffs round the edge, small islets bobbing in the distance, mint sky-grass with clover, white-and-gold marble ruins, broken columns and blossom trees, wind streaks blowing past. Hazard: **wind lanes**, wide strips of scrolling wind streaks that push heroes and enemies along (3 m/s).

@@ -1,5 +1,7 @@
 # HUD lane
 
+> **Merge note (v1.6.0 merge):** main's WEATHER setting replaced this lane's (it also covers lightning and rain sounds); the level badge sits right of main's HUD face. DAMAGE NUMBERS: MINE travels through main's binary effects bus (src/net/fxCodec.ts, type byte bit 7).
+
 ## Player-facing changes
 
 - Combo numbers pop on every visible increment, ramp from white through lime/cyan/gold/orange, shake on crossed ten-kill milestones, and retain the lost combo during a stepped break animation.

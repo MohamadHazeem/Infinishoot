@@ -1,4 +1,4 @@
-/** Readability lane: crowd spacing around the hero, scar lifetimes, rig outline merging. */
+/** Readability lane: crowd spacing around the hero, rig outline merging. (Scorch lifetimes now follow main's persistent scar map.) */
 import * as THREE from 'three';
 import { ok } from './check';
 import { ENEMIES } from '../src/data/enemies';
@@ -6,7 +6,6 @@ import { Enemies, Enemy, type EnemyCtx } from '../src/game/enemies';
 import { crowdTuning, keepOffHeroes } from '../src/game/crowd';
 import { mergeRigParts, RigOverlay, MAX_RIG_PARTS } from '../src/render/rigOverlay';
 import { createHero } from '../src/game/heroModel';
-import { SCAR_COLORS, scarFade, scarLook, scarTuning } from '../src/game/scars';
 import { SpatialHash, StaticBoxGrid } from '../src/core/spatialHash';
 
 // Minimal canvas stub: the ground decals paint a blob texture on creation.
@@ -104,18 +103,6 @@ function crowd(n: number, seconds: number) {
   ok(Math.hypot(e.x, e.z) < 0.86, 'still inside contact distance');
   const f = { x: 0.1, z: 0, radius: 0.36 };
   ok(!keepOffHeroes(f, [{ ...targets[0], alive: false }]) && f.x === 0.1, 'downed heroes are not avoided');
-}
-
-// ---------------------------------------------------------------- scars
-{
-  const [scorchLife, scorchAlpha] = scarLook(SCAR_COLORS.scorch);
-  const [craterLife, craterAlpha] = scarLook(SCAR_COLORS.crater);
-  ok(scorchLife <= 0.6 && scorchAlpha <= 0.6, 'scorch lives about half as long, fainter (x' + scorchLife + ', ' + scorchAlpha + ')');
-  ok(craterLife > scorchLife && craterAlpha > scorchAlpha, 'craters outlast and outshine scorch');
-  ok(scarFade(0, 10) === 0 && scarFade(1, 10) === 1, 'scars pop in, then hold');
-  const late = 10 * (1 - scarTuning.fade / 2);
-  ok(scarFade(late, 10) > 0.4 && scarFade(late, 10) < 0.6, 'scars fade over the end of life');
-  ok(scarFade(10, 10) === 0 && scarFade(12, 10) === 0, 'gone at the end');
 }
 
 // ---------------------------------------------------------------- merged hero outline

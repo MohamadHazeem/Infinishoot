@@ -1,6 +1,7 @@
 import type { Rarity } from './rarity';
 import type { Tag } from './tags';
 import type { Upgradable } from './tracks';
+import { FUSION_FEEL, fusionWeaponDefs } from './fusions';
 
 /**
  * Weapon definitions. Each level lists its full parameter set (not deltas)
@@ -50,6 +51,8 @@ export interface WeaponDef extends Upgradable {
   levels: WeaponLevel[];
   /** Auto weapons: partner-item evolution (see WeaponEvolution). */
   evolution?: WeaponEvolution;
+  /** Fusion weapons (src/data/fusions.ts): the two auto weapons it was fused from. Never offered as a NEW weapon. */
+  fusion?: [string, string];
   /** Game feel: recoil, camera kick, muzzle flash, hit-stop, knockback and crits (filled from WEAPON_FEEL below). */
   feel?: WeaponFeel;
 }
@@ -824,6 +827,10 @@ export const WEAPON_FEEL: Record<string, Partial<WeaponFeel>> = {
   bouncer: { knock: 1, critPitch: 1.9 },
   starfall: { knock: 1.5, critFlash: 1.6, critPitch: 1.1, critStop: 0.02 },
 };
+
+// Fusion weapons (src/data/fusions.ts) join the table so names, tags, feel and icons resolve by id.
+Object.assign(WEAPONS, fusionWeaponDefs(WEAPONS));
+Object.assign(WEAPON_FEEL, FUSION_FEEL);
 
 for (const [id, f] of Object.entries(WEAPON_FEEL)) if (WEAPONS[id]) WEAPONS[id].feel = { ...DEFAULT_FEEL, ...f };
 

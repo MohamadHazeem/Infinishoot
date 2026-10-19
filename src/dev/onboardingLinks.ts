@@ -1,4 +1,4 @@
-import { codexEntries } from '../data/codex';
+import { codexEntries } from '../data/arsenal';
 import { cheats, type Game } from '../game/game';
 import { save } from '../game/save';
 import { TIPS, type TipId } from '../game/tips';
@@ -14,7 +14,7 @@ import { drawBuildCard } from '../ui/buildCard';
  *   &recap             a sample 4-stage run timeline, then game over (unlock progress + recap + BUILD CARD)
  *   &offer             the title screen with the first-time training offer
  *   &recap&card        ...and the BUILD CARD drawn on top (what the PNG looks like)
- *   ?test&screen=codex opens the Codex (any screen name works with &screen)
+ *   ?test&screen=arsenal opens the Arsenal (any screen name works with &screen)
  */
 export function onboardingLinks(game: Game, q: URLSearchParams): void {
   const ob = game.onboarding;
@@ -22,7 +22,7 @@ export function onboardingLinks(game: Game, q: URLSearchParams): void {
   if (disc) {
     const all = codexEntries().map((e) => e.key);
     save.discovered = disc === 'all' ? all : all.filter((_, i) => i % 2 === 0).slice(0, Number(disc) || 40);
-    if (game.screens.current === 'codex') ob.ui.renderCodex(save.discovered);
+    if (game.screens.current === 'arsenal') ob.ui.renderCodex(save.discovered);
   }
   if (q.has('training')) ob.startTraining(Math.max(0, (Number(q.get('training')) || 1) - 1));
   if (q.has('trainingdone')) {

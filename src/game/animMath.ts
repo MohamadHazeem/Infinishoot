@@ -131,6 +131,13 @@ export type Gait = 'hop' | 'flutter' | 'trundle' | 'stomp' | 'waddle' | 'jiggle'
 
 export function gaitOf(model: Model): Gait {
   switch (model) {
+    case 'burrower':
+      return 'waddle';
+    case 'mirror':
+    case 'swarmqueen':
+      return 'hover';
+    case 'egg':
+      return 'pulse';
     case 'bopper':
     case 'king':
       return 'hop';

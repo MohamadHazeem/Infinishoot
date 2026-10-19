@@ -33,6 +33,7 @@ export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x:
 
 export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId) {
   if (def.treasure) return this.spawnGolden(def);
+  if (this.meta.rule('elites') && !def.boss && !def.miniboss) elite = true;
   let pos: { x: number; z: number } | null = null;
   if (near) {
     const x = near.x + this.rng.range(-1.6, 1.6);
@@ -43,6 +44,10 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
   if (!pos) return null;
   const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
   const spawned = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
+  if (def.special) {
+    this.vfx.toast('SWARM QUEEN! CUT THE WALL, BREAK THE EGGS!', 3);
+    this.vfx.sound('swarmScreech', pos.x, pos.z);
+  }
   if (elite) this.spawnSquad(spawned); // escort in formation
   spawnCue(this, def, pos.x, pos.z, elite); // family call, elite arrival telegraph (systems/sound.ts)
   if (def.id === 'reaper') {
@@ -103,7 +108,7 @@ export function recycleFarEnemies(this: Game, dt: number): void {
   const alive = this.aliveHeroes;
   if (!alive.length) return;
   for (const e of this.enemies.list) {
-    if (!e.alive || e.elite || bossLike(e) || e.def.behavior === 'spawner') continue;
+    if (!e.alive || e.elite || bossLike(e) || e.def.special || e.def.behavior === 'egg' || e.def.behavior === 'swarmwall' || e.def.behavior === 'spawner') continue;
     if (alive.some((h) => Math.hypot(e.x - h.player.x, e.z - h.player.z) < RECYCLE_DIST)) continue;
     const pos = this.ringPoint(18, 24, e.radius + 0.2);
     if (!pos) continue;

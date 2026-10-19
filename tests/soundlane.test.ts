@@ -194,7 +194,8 @@ function countingKit() {
   setCaptionSink((cap) => caps.push(cap.who + ': ' + cap.text));
   a11yAudio.captions = true;
   const v = new HeroVoice(() => now, () => roll);
-  const sp = { heroId: 'ace', index: 1, name: 'Mia', color: '#fff' };
+  // A hero without recorded barks (the recorded ones speak through src/audio/voices.ts).
+  const sp = { heroId: 'duelist', index: 1, name: 'Mia', color: '#fff' };
   ok(!!v.bark('hurt', sp), 'a bark plays');
   ok(caps.length === 1 && caps[0].startsWith('MIA: '), 'voice lines are captioned with the speaker');
   ok(!v.bark('hurt', sp), 'same bark is on cooldown');
@@ -315,10 +316,12 @@ function countingKit() {
   const play = samples.play;
   (samples as any).play = () => ({ duration: 1.4, stop() {} });
   announcer.reset();
+  (await import('../src/audio/voices')).resetVoices(); // the barks above still hold the shared voice channel
   ok(announcer.say('boss') && caps[0] === 'Warning! Boss approaching!', 'announcer lines are captioned');
   (samples as any).play = () => null;
   audioSettings.muted = true;
   announcer.reset();
+  (await import('../src/audio/voices')).resetVoices(); // the first line still holds the shared voice channel
   ok(announcer.say('boss') && caps.length === 2, 'muted audio still captions the announcer');
   audioSettings.muted = false;
   (samples as any).play = play;

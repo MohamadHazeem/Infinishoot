@@ -1,7 +1,7 @@
 import type GUI from 'lil-gui';
 import type { Game } from '../game/game';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
-import { crusherTuning, windTuning } from '../game/hazards';
+import { crusherTuning } from '../game/hazards';
 import { attractTuning } from '../game/systems/attract';
 import { bossDressingTuning } from './bossDressing';
 
@@ -17,7 +17,6 @@ export function worldDebugFolder(gui: GUI, game: Game): void {
   f.add(crusherTuning, 'warn', 0.4, 3, 0.05).name('Crusher warning (s)');
   f.add(crusherTuning, 'heroDmg', 0, 60, 1).name('Crusher hero damage');
   f.add(crusherTuning, 'eliteFrac', 0, 1, 0.05).name('Crusher elite share');
-  f.add(windTuning, 'speed', 0, 8, 0.1).name('Wind push (new lanes)');
   f.add(bossDressingTuning, 'radius', 6, 16, 0.5).name('Boss dressing radius');
   f.add(bossDressingTuning, 'rise', 0.2, 4, 0.1).name('Dressing rise (s)');
   f.add(bossDressingTuning, 'sink', 0.2, 4, 0.1).name('Dressing sink (s)');

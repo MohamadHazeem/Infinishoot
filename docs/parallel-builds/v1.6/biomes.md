@@ -1,0 +1,8 @@
+LANE: biomes
+
+Goal: two new biomes.
+1. Neon City: night-time city rooftops/streets, rain-slick reflective ground (fake reflections: mirrored emissive props / glossy shader bits, cheap), neon signs, holo billboards, steam vents; enemies get a neon-tinted palette. Ambience sample 'amb_neon'.
+2. Sky Fortress: floating islands/platforms with clouds below, wind that pushes bullets and light enemies (a visible wind direction with streaks, sample 'wind_gust' and ambience 'amb_sky'), flags, gaps you can't walk into (edges are walls), airships drifting in the background.
+3. Integrate into the stage rotation: keep stages 1-4 as now; from the second loop (after the first Omega), neon city and sky fortress join the rotation (decide a clean order; bosses still rotate). Each biome needs: biome look/colour grade (src/render/biomeLook.ts, systems/look.ts per-biome grade), arena generation props/cover/hazards (src/world/fieldArena.ts; arena hazards from systems/arena.ts per biome if fitting), weather (ambience.ts motes), footstep ground type and ambience id (src/audio/mix.ts biomeAudio/groundAudio currently assume 4 biomes by stage number — change them to use the actual biome id), and a music style/scale entry (src/audio/music/composition.ts — keep that edit small and additive; another lane edits music.ts).
+4. Test links `&biome=neon` / `&biome=sky`; screenshots must look great.
+Owns: src/data/biomes.ts, src/world/fieldArena.ts (new biome generation), src/render/biomeLook.ts, new src/render/neon.ts / src/game/wind.ts as needed, small edits in ambience.ts, mix.ts, music/composition.ts, look.ts, tests/biomes.test.ts.

@@ -3,7 +3,6 @@ import { heroMarkerTuning } from '../render/rigOverlay';
 import { outlineTuning } from '../render/outlines';
 import { retroGlobals } from '../render/retroMaterial';
 import { crowdTuning } from '../game/crowd';
-import { scarTuning } from '../game/scars';
 
 /** Debug panel folder for the readability lane: hero marker, crowd spacing, night rim, scars. */
 export function addReadabilityFolder(gui: GUI): void {
@@ -28,12 +27,4 @@ export function addReadabilityFolder(gui: GUI): void {
   n.add(retroGlobals.uNightRim, 'value', 0, 2, 0.05).name('Enemy rim');
   n.add(retroGlobals.uNightLift, 'value', 0, 1, 0.05).name('Enemy colour floor');
   n.add(outlineTuning, 'night', 0, 1, 0.05).name('Outline lift');
-  const s = f.addFolder('Scars');
-  s.add(scarTuning, 'scorchLife', 0.1, 2, 0.05).name('Scorch life x');
-  s.add(scarTuning, 'scorchAlpha', 0, 1, 0.05).name('Scorch opacity');
-  s.add(scarTuning, 'craterLife', 0.1, 2, 0.05).name('Crater life x');
-  s.add(scarTuning, 'craterAlpha', 0, 1, 0.05).name('Crater opacity');
-  s.add(scarTuning, 'otherLife', 0.1, 2, 0.05).name('Frost/goo life x');
-  s.add(scarTuning, 'otherAlpha', 0, 1, 0.05).name('Frost/goo opacity');
-  s.add(scarTuning, 'fade', 0.05, 1, 0.05).name('Fade share');
 }

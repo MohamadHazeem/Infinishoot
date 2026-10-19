@@ -1,3 +1,4 @@
+import { recordHeatClear } from './meta';
 /**
  * Run spice: curses, relics, stage events, side challenges, pets, co-op pings and spectating.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -22,7 +23,7 @@ import { STAGE_EVENTS, type EventId } from '../../data/stageEvents';
 export function curseSum(this: Game, k: 'enemyHp' | 'enemySpeed' | 'enemyCount' | 'enemyDmg' | 'dmgTaken' | 'dashCd' | 'score'): number {
   let n = 0;
   for (const id of this.curses) n += (CURSE_BY_ID[id]?.[k as keyof CurseDef] as number | undefined) ?? 0;
-  return n;
+  return n + this.routeMod(k); // the route node this stage came through (systems/route.ts)
 }
 
 /** Pause screen: evolution recipes for owned weapons and the live damage chart. */
@@ -51,7 +52,7 @@ export function takeCurse(this: Game, h: Hero): string {
   this.curses.push(c.id);
   h.curseOffer = null;
   h.gold += c.gold;
-  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
+  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount * (this.meta.has('crowds') ? 1.25 : 1);
   for (const x of this.heroes) x.recomputeStats();
   this.vfx.sound('ominous', NaN, NaN);
   this.vfx.toast(`${h.name.toUpperCase()} TOOK A CURSE: ${c.name.toUpperCase()}`, 3);
@@ -161,6 +162,7 @@ export function stageClear(this: Game): void {
     if (h.player.dead) this.reviveHero(h, 0.3, false);
     h.player.heal(h.player.maxHp * 0.3);
   }
+  this.companionStageClear(); // pets level up
   let sub = `+${economyTuning.clearGold} GOLD + INTEREST`;
   if (noHit) sub += `<br>NO-HIT BONUS +${noHit.toLocaleString('en-US')}`;
   if (this.stage % LOOP_STAGES === 0) {
@@ -169,6 +171,7 @@ export function stageClear(this: Game): void {
     const bonus = scoreTuning.victoryBonus * loop;
     this.score += bonus;
     this.victories++;
+    recordHeatClear(this);
     this.vfx.banner(loop === 1 ? 'VICTORY!' : `LOOP ${loop} CLEARED!`, `THE FINAL BOSS FALLS · +${bonus.toLocaleString('en-US')}<br>LOOP ${loop + 1} AWAITS: EVERYTHING HITS HARDER`, 4.5);
     this.vfx.sound('legendaryPick', NaN, NaN);
     this.vfx.flash(1);
@@ -184,7 +187,7 @@ export function stageClear(this: Game): void {
 export function openShop(this: Game): void {
   this.mode = 'shop';
   // Now and then (from stage 2) the secret merchant turns up instead.
-  this.secretShop = this.stage >= 2 && this.rng.chance(0.22);
+  this.secretShop = (this.stage >= 2 && this.rng.chance(0.22)) || this.routeSecretShop();
   if (this.secretShop) this.vfx.banner('SECRET SHOP!', 'A STRANGE MERCHANT APPEARS', 1.8);
   for (const h of this.heroes) {
     if (h.left) continue;
@@ -214,14 +217,14 @@ export function closeShop(this: Game): void {
   }
   if (this.pvp?.phase === 'stage') this.pvpStageDone();
   else if (this.runMode === 'endless') this.endlessNextWave();
-  else this.openPortal();
+  else if (!this.openRoute()) this.openPortal();
 }
 
 /** Endless: no portal; the next, harder wave starts right here. */
 export function endlessNextWave(this: Game): void {
   this.stage++;
   this.director.start(this.stage);
-  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
+  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount * (this.meta.has('crowds') ? 1.25 : 1);
   this.runEvents.startStage(this.director.duration);
   for (const h of this.heroes) {
     h.phoenixUsed = false;
