@@ -300,6 +300,18 @@ class Sfx {
     this.noise(ctx, 0.5, 0.15, 3000, 8000, 2, 0.35);
   }
 
+  /** Weapon fusion (src/data/fusions.ts): two rising arpeggios that meet in one chord, under the 'fusion' sample. */
+  fusion(): void {
+    const ctx = this.begin('fusion', 0.6);
+    if (!ctx) return;
+    [196, 262, 330, 392].forEach((f, i) => this.tone(ctx, 'square', f, f * 1.01, 0.09, 0.07, i * 0.06));
+    [1568, 1319, 1047, 784].forEach((f, i) => this.tone(ctx, 'square', f, f * 0.99, 0.09, 0.05, i * 0.06));
+    this.tone(ctx, 'triangle', 523, 523, 0.7, 0.12, 0.3);
+    this.tone(ctx, 'triangle', 659, 659, 0.7, 0.09, 0.3);
+    this.tone(ctx, 'triangle', 784, 784, 0.7, 0.08, 0.3);
+    this.noise(ctx, 0.45, 0.16, 2000, 9000, 2, 0.28);
+  }
+
   /** Every 50 combo. */
   comboUp(): void {
     const ctx = this.begin('combo', 0.3);

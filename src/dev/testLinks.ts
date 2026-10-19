@@ -44,6 +44,8 @@ import { renderQuality } from '../render/quality';
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
+ *   ?test&weapons=drones:6,lightning:6&fuse   a level-up with the FUSION card (`fuse=go` picks it: the fusion moment)
+ *   ?test&weapons=storm_drones&god&swarm=80     start with a fused weapon (any id in src/data/fusions.ts)
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
@@ -101,6 +103,16 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   }
   h.recomputeStats();
   h.loadoutDirty = true;
+  // Weapon fusion: open a level-up (its first card is the fusion) and, with fuse=go, take it.
+  // Deferred like `ultgo`: the stage intro would close a menu opened right away.
+  if (q.has('fuse')) {
+    setTimeout(() => {
+      h.pendingLevels = Math.max(1, h.pendingLevels);
+      game.openLevelUp();
+      const i = h.offers.findIndex((o) => o.kind === 'fusion');
+      if (q.get('fuse') === 'go' && i >= 0) game.heroAction(h, 'pick', i, 1);
+    }, Number(q.get('fusein') ?? 1) * 1000);
+  }
   if (q.has('bench')) game.xpNext = 1e12; // no level-up menus: the load stays steady
   if (q.get('gold')) h.gold = Number(q.get('gold'));
   for (const e of list('elite')) {

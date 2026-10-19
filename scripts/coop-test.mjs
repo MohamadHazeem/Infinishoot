@@ -442,6 +442,31 @@ const SCENARIO = [
     if (!h1 || !c1 || h2 || c2[0] || !c2[1]) fail(`down/revive: down host ${h1} client ${c1}; revived host ${!h2} client ${!c2[0]} visible ${c2[1]}`);
     return { down: [h1, c1], up: [!h2, !c2[0], c2[1]] };
   }],
+  [28, 'client hero fuses Orbit Drones + Chain Zap (weapon fusion)', async () => {
+    const id = await host(async () => {
+      const g = window.game;
+      const { createWeapon } = await import('/src/game/weapons/index.ts');
+      const { fuseWeapons } = await import('/src/game/fusion.ts');
+      const h = g.heroes[1];
+      for (const wid of ['drones', 'lightning']) {
+        let w = h.weapons.find((x) => x.def.id === wid);
+        if (!w) h.weapons.push((w = createWeapon(wid, g.scene)));
+        while (!w.maxed) w.levelUp();
+      }
+      const f = fuseWeapons(h.weapons, 'storm_drones', g.scene);
+      h.loadoutDirty = true;
+      if (f) g.fusionFx(h, f.def.id);
+      return f?.def.id ?? null;
+    });
+    if (id !== 'storm_drones') fail(`fusion: host could not fuse (${id})`);
+    await pause(1200);
+    const c = await client(() => {
+      const w = window.game.hero.weapons.find((x) => x.def.id === 'storm_drones');
+      return w ? { parts: w.parts.map((p) => p.def.id), drones: w.parts[0].net().length, merge: !!document.querySelector('.fusion-merge') } : null;
+    });
+    if (!c || c.parts.join() !== 'drones,lightning' || !c.drones) fail(`fusion: client sees ${JSON.stringify(c)}`);
+    return c;
+  }],
   [50, 'ultimates again', () => host(() => window.game.heroes.forEach((h) => (h.skill.ult = 1)))],
 ];
 

@@ -179,6 +179,17 @@ const ART = {
   flash_freeze: 'ice-bomb',
   trailblazer: 'trail',
   wide_load: 'sonic-boom',
+  // weapon fusions (src/data/fusions.ts)
+  storm_drones: 'delivery-drone',
+  napalm_rockets: 'missile-swarm',
+  ice_saws: 'circular-sawblade',
+  supernova_field: 'sun-radiations',
+  tesla_traps: 'tesla-turret',
+  prism_satellites: 'star-satellites',
+  dragon_cannon: 'dragon-head',
+  comet_swarm: 'fireball',
+  meteor_barrage: 'burning-meteor',
+  volt_ricochet: 'spark-spirit',
   // level-up bonuses
   gold: 'swap-bag',
   heal: 'health-potion',

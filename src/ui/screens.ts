@@ -16,6 +16,7 @@ import { RARITY, type Rarity } from '../data/rarity';
 import { SLOT_LABEL, decoys, fmtScore, reduceMotion, reelAt, reelSteps, slotPicto, type LoadoutItem, type Slot } from './hud';
 import { MenuNav } from './menu';
 import { iconHtml } from './pixelIcons';
+import { fuseStrip, fusionGuide } from './fusionUi';
 import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
 import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
@@ -99,7 +100,7 @@ export interface ShopView {
 }
 
 export interface Offer {
-  kind: 'weapon' | 'passive' | 'special' | 'gold' | 'heal' | 'track' | 'evo' | 'overdrive' | 'evolve';
+  kind: 'weapon' | 'passive' | 'special' | 'gold' | 'heal' | 'track' | 'evo' | 'overdrive' | 'evolve' | 'fusion';
   /** Icon id. */
   id: string;
   /** Loadout upgrades: what the pick does, "<item>|t|<track>", "<item>|e|<evo>" or "<item>|od". */
@@ -122,6 +123,8 @@ export interface Offer {
   replaces?: string;
   /** Auto-weapon partner evolution this card leads to: weapon id, partner item id, and what you already have. */
   partner?: { weapon: string; passive: string; haveWeapon: boolean; haveItem: boolean };
+  /** Fusion cards: the two weapon ids that fuse (src/data/fusions.ts), shown as A + B. */
+  fuses?: [string, string];
 }
 
 export interface RunSummary {
@@ -164,7 +167,7 @@ function logoWord(word: string, start: number): string {
 
 /** A level-up card is a new item, an upgrade of one you own, an evolution or a bonus. */
 function cardMode(o: Offer): 'new' | 'upgrade' | 'evo' | 'bonus' {
-  return o.tag === 'NEW!' ? 'new' : o.tag === 'EVOLVE!' ? 'evo' : o.kind === 'gold' || o.kind === 'heal' ? 'bonus' : 'upgrade';
+  return o.tag === 'NEW!' ? 'new' : o.tag === 'EVOLVE!' || o.kind === 'fusion' ? 'evo' : o.kind === 'gold' || o.kind === 'heal' ? 'bonus' : 'upgrade';
 }
 
 /** Upgrades show owned levels as filled pips and this pick as a flashing one. */
@@ -924,6 +927,7 @@ export class Screens {
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
           ${o.replaces ? replaceStrip(o.replaces) : ''}
           ${o.partner ? partnerStrip(o.partner) : ''}
+          ${o.fuses ? fuseStrip(o.fuses) : ''}
           <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? ` · ${o.label}` : ''}</div>
           ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
           <div class="key">${i + 1}</div>
@@ -1250,7 +1254,7 @@ export class Screens {
           <span class="st">LIFE ${d.hp} · SPEED ${d.speed} · HIT ${d.contactDamage} · ${kind}</span>
           <small>${ENEMY_TIPS[d.id] ?? ''}</small></div>`;
       })
-      .join('');
+      .join('') + fusionGuide();
   }
 
   /** Waiting for a key to bind. */

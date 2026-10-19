@@ -52,6 +52,7 @@ export const cueSamples: Readonly<Record<string, string>> = {
   chest: 'chest_open',
   lvl: 'level_up',
   evolve: 'evolve',
+  fusion: 'fusion',
   dash: 'dash',
   cwind: 'charger_windup',
   boss: 'boss_roar',

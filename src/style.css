@@ -4260,3 +4260,99 @@ table.history .cause {
 
 /* Toasts drop below the boss bar while a boss is up, so they never cover its name and phase. */
 #bossbar:not([hidden]) ~ #toast { top: calc(66 * var(--p)); }
+
+/* ---------------------------------------------------------------- weapon fusion (src/ui/fusionUi.ts) */
+.screen button.card.fusion {
+  --kc: var(--plum);
+  --ring: var(--c, var(--cyan));
+}
+.card .partner.fuse b {
+  color: var(--cyan);
+}
+.fusion-merge {
+  position: fixed;
+  left: 50%;
+  top: 58%;
+  width: 72px;
+  height: 72px;
+  margin-left: -36px;
+  pointer-events: none;
+  z-index: 60;
+}
+.fusion-merge > div,
+.fusion-merge .fm-flash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 72px;
+  height: 72px;
+}
+.fusion-merge .px-icon {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+}
+.fusion-merge .fm-a {
+  animation: fm-a 0.6s steps(6) both;
+}
+.fusion-merge .fm-b {
+  animation: fm-b 0.6s steps(6) both;
+}
+.fusion-merge .fm-flash {
+  background: var(--white);
+  box-shadow: 0 0 0 calc(4 * var(--p)) var(--c), 0 0 0 calc(7 * var(--p)) var(--white);
+  opacity: 0;
+  animation: fm-flash 0.5s 0.55s steps(4) both;
+}
+.fusion-merge .fm-c {
+  opacity: 0;
+  animation: fm-c 1.3s 0.6s steps(10) both;
+}
+@keyframes fm-a {
+  0% { transform: translateX(-180px) rotate(-20deg); opacity: 0; }
+  20% { opacity: 1; }
+  90% { transform: translateX(0) rotate(0); opacity: 1; }
+  100% { transform: translateX(0) scale(0.6); opacity: 0; }
+}
+@keyframes fm-b {
+  0% { transform: translateX(180px) rotate(20deg); opacity: 0; }
+  20% { opacity: 1; }
+  90% { transform: translateX(0) rotate(0); opacity: 1; }
+  100% { transform: translateX(0) scale(0.6); opacity: 0; }
+}
+@keyframes fm-flash {
+  0% { opacity: 1; transform: scale(0.4); }
+  50% { opacity: 1; transform: scale(1.4); }
+  100% { opacity: 0; transform: scale(2); }
+}
+@keyframes fm-c {
+  0% { opacity: 1; transform: scale(0.3); }
+  20% { transform: scale(1.6); }
+  35% { transform: scale(1.2); }
+  80% { opacity: 1; transform: scale(1.2) translateY(0); }
+  100% { opacity: 0; transform: scale(1.2) translateY(-30px); }
+}
+.reduce-flash .fusion-merge .fm-a,
+.reduce-flash .fusion-merge .fm-b,
+.reduce-flash .fusion-merge .fm-flash {
+  display: none;
+}
+.reduce-flash .fusion-merge .fm-c {
+  opacity: 1;
+}
+.bestiary .bst-head {
+  grid-column: 1 / -1;
+  margin: 12px 0 0;
+  font: 28px var(--display);
+  color: var(--yellow);
+  text-shadow: var(--outline);
+}
+.bst.fusion-row {
+  grid-template-columns: 48px 1fr;
+}
+.bst.fusion-row .px-icon {
+  grid-row: span 3;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
