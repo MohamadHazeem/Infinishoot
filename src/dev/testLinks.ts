@@ -11,6 +11,7 @@ import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
+import { smashCover } from '../game/coverBreak';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -299,6 +300,22 @@ function animLinks(game: Game, q: URLSearchParams): void {
     if (b) game.killEnemy(b, 'buster', game.hero);
   });
   later('clear', () => game.stageClear());
+  // `smash=<s>`: stand next to the nearest smashable cover and break it after s seconds (fixes lane).
+  if (q.get('smash')) {
+    const map = game.arena.group.userData.coverRanges as Map<unknown, unknown> | undefined;
+    const p = game.hero.player;
+    let best = null as null | { x: number; z: number };
+    for (const b of game.arena.colliders) {
+      if (!map?.has(b)) continue;
+      const c = { x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2 };
+      if (!best || Math.hypot(c.x - p.x, c.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z)) best = c;
+    }
+    if (best) {
+      const c = best;
+      p.teleport(c.x + 1, c.z + 3.5);
+      later('smash', () => smashCover(game, c.x, c.z, 1));
+    }
+  }
   later('die', () => {
     cheats.god = false;
     const p = game.hero.player;

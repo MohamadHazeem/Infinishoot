@@ -180,7 +180,9 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   };
   const solid = (mesh: THREE.Object3D, x: number, z: number, w: number, d: number) => {
     group.add(mesh);
-    colliders.push(aabbFromCenter(x, z, w, d));
+    const box = aabbFromCenter(x, z, w, d);
+    mesh.userData.cover = box; // Rex can smash it (src/game/coverBreak.ts)
+    colliders.push(box);
   };
 
   const brickMat = createRetroMaterial({ map: tex.brick, color: biome.wallTint });

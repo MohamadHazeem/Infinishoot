@@ -208,3 +208,42 @@ const enemyBullet = (x: number, z: number, dx: number, dz: number, speed = 20) =
   ok(p.hp === hp1, 'an old hit is not refunded');
   h.remote = null;
 }
+
+// ---- Rex smashes static cover for real ----
+{
+  const CB = await import('../src/game/coverBreak');
+  fresh();
+  game.loadStage(2);
+  if (game.mode === 'shop') game.closeShop();
+  const st = CB.coverStats(game);
+  ok(st.total > 5 && st.broken === 0, `the arena has breakable cover (${st.total})`);
+  const map = game.arena.group.userData.coverRanges as Map<unknown, { mesh: any; start: number; count: number }[]>;
+  const box = game.arena.colliders.find((b) => map.has(b))!;
+  const cx = (box.minX + box.maxX) / 2;
+  const cz = (box.minZ + box.maxZ) / 2;
+  ok(game.walls.hitCircle(cx, cz, 0.1), 'cover blocks before it breaks');
+  const n = CB.smashCover(game, cx, cz, 1);
+  ok(n >= 1 && !game.arena.colliders.includes(box) && !game.walls.hitCircle(cx, cz, 0.05), 'a charge smashes the cover: collider gone, wall grid rebuilt');
+  const r = map.get(box)![0];
+  const pos = r.mesh.geometry.getAttribute('position');
+  let hidden = true;
+  for (let i = r.start; i < r.start + r.count; i++) if (pos.getY(i) > -10) hidden = false;
+  ok(hidden && r.count > 0, 'its triangles in the merged mesh collapse out of sight');
+  ok(CB.smashCover(game, cx, cz, 1) === 0, 'broken cover stays broken');
+  // A client applies the host's message for another prop.
+  const before = CB.coverStats(game).broken;
+  CB.onCoverMsg(game, { t: 'cover', i: before + 3, s: game.arenaStage });
+  ok(CB.coverStats(game).broken === before + 1, 'the client hides the cover the host broke');
+  CB.onCoverMsg(game, { t: 'cover', i: before + 4, s: game.arenaStage + 1 });
+  ok(CB.coverStats(game).broken === before + 1, 'a cover message for another arena is ignored');
+  // Rex charging through the field breaks what it runs into.
+  fresh();
+  game.loadStage(2);
+  if (game.mode === 'shop') game.closeShop();
+  const rex = game.enemies.spawn(ENEMIES.rex, 0, 0, game.spawnOpts({ instant: true }));
+  const target = game.arena.colliders.find((b) => (game.arena.group.userData.coverRanges as Map<unknown, unknown>).has(b))!;
+  rex.x = (target.minX + target.maxX) / 2;
+  rex.z = (target.minZ + target.maxZ) / 2;
+  game.bossApi.rampage(rex, false);
+  ok(!game.arena.colliders.includes(target), 'Rex mid-charge smashes the cover it is in');
+}
