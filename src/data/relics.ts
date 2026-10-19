@@ -19,6 +19,18 @@ export interface RelicDef {
 }
 
 export const RELICS: RelicDef[] = [
+  { id: 'r_backbeat', name: 'Backbeat Battery', desc: 'Every third dash restores 12% special charge.', icon: 'ϟ', color: '#73eff7', rarity: 'common' },
+  { id: 'r_relay', name: 'Rescue Relay', desc: 'Dashing heals nearby teammates for 8 life (yourself for 4 in solo). Once every 6 s.', icon: '✚', color: '#38b764', rarity: 'rare' },
+  { id: 'r_capacitor', name: 'Pain Capacitor', desc: 'Taking a hit restores 15% special charge.', icon: '↯', color: '#ef7d57', rarity: 'uncommon' },
+  { id: 'r_mercy', name: 'Mercy Coin', desc: 'Every 12 kills: heal 8 below half life, otherwise gain 2 gold. 6 s cooldown.', icon: '◐', color: '#ffcd75', rarity: 'uncommon' },
+  { id: 'r_anchor', name: 'Anchor Badge', desc: 'Stand still for 1 s: gain 4 armor and fire 15% faster until you move.', icon: '⚓', color: '#94b0c2', rarity: 'rare' },
+  { id: 'r_glassclock', name: 'Glass Clock', desc: 'At full life fire 20% faster. While hurt deal 10% less damage.', icon: '◇', color: '#73eff7', rarity: 'rare' },
+  { id: 'r_salvage', name: 'Salvage Permit', desc: 'Your elite kills drop a reroll gear.', icon: '⚙', color: '#a7f070', rarity: 'common' },
+  { id: 'r_coldsnap', name: 'Cold Snap Soles', desc: 'Dashing freezes regular enemies within 3 m for 1 s. Once every 4 s.', icon: '❄', color: '#41a6f6', rarity: 'rare' },
+  { id: 'r_reserve', name: 'Reserve Dynamo', desc: 'Hold a full special meter: double pickup range and +15% damage.', icon: '◎', color: '#ffcd75', rarity: 'legendary' },
+  { id: 'r_jackpot', name: 'Forty Winks', desc: 'Every 40 kills completely refills your special meter.', icon: '★', color: '#a7f070', rarity: 'legendary' },
+  { id: 'r_cinder', name: 'Cinder Receipt', desc: 'Every second dash leaves a blast that hits enemies after 0.8 s.', icon: '✹', color: '#ef7d57', rarity: 'uncommon' },
+  { id: 'r_pacemaker', name: 'Pacemaker', desc: 'After 10 s without a hit, the next hit clears enemy bullets within 4 m.', icon: '♥', color: '#b13e53', rarity: 'rare' },
   { id: 'r_dashbomb', name: 'Blast Boots', desc: 'Dashing sets off an explosion.', icon: '✷', color: '#ffb627', rarity: 'uncommon' },
   { id: 'r_static', name: 'Static Charm', desc: 'Critical hits zap 2 nearby enemies.', icon: 'ϟ', color: '#fff35c', rarity: 'rare' },
   { id: 'r_fang', name: 'Blood Charm', desc: 'Every 20 kills heal 5 life.', icon: '▼', color: '#b13e53', rarity: 'common' },

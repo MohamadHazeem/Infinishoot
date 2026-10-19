@@ -133,6 +133,11 @@ const DARK = '#2b2f4a';
 // ------------------------------------------------------------------ models
 
 type Part = (g: THREE.BufferGeometry, color: string, x: number, y: number, z: number) => void;
+/** Optional lane hooks keep enemy math importable without browser/audio systems. */
+export const director2Hooks: {
+  model?: (def: EnemyDef, add: Part) => void;
+  lure?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
+} = {};
 
 /**
  * Builds a vertex-coloured, merged geometry for an enemy model. Each model is
@@ -140,6 +145,7 @@ type Part = (g: THREE.BufferGeometry, color: string, x: number, y: number, z: nu
  */
 function buildModel(def: EnemyDef, add: Part): void {
   if (halloweenModel(def, add)) return;
+  director2Hooks.model?.(def, add);
   const r = def.radius;
   const B = def.bodyColor;
   const A = def.accentColor;
@@ -981,7 +987,7 @@ export class Enemies {
           best = t;
         }
       }
-      const lure = ctx.lure?.(e) ?? ctx.hear?.(e) ?? null;
+      const lure = ctx.lure?.(e) ?? director2Hooks.lure?.(e) ?? ctx.hear?.(e) ?? null;
       ctx.target = lure ?? best ?? away;
       ctx.targetAlive = !lure && !!best;
       const tgt = ctx.target;

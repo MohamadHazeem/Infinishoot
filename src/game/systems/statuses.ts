@@ -252,6 +252,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     }
   }
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
+  this.director2Kill(e, by);
   this.gpOnKill(e, source, by); // mutant rewards, mech drops, finale spots, Nova Heart, Powder Keg (systems/gameplay.ts)
   this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
   gauntletKill(this, e);
@@ -364,11 +365,11 @@ export function updateStrikes(this: Game, dt: number): void {
     this.vfx.sound('explode', s.x, s.z);
     this.vfx.shake(s.x, s.z, 0.2);
     for (const h of this.aliveHeroes) {
-      if (Math.hypot(h.player.x - s.x, h.player.z - s.z) < s.r + h.player.radius * 0.6) this.hurtHero(h, s.dmg, s.x, s.z, null, s.cause ?? 'Ground strike');
+      if (s.dmg > 0 && Math.hypot(h.player.x - s.x, h.player.z - s.z) < s.r + h.player.radius * 0.6) this.hurtHero(h, s.dmg, s.x, s.z, null, s.cause ?? 'Ground strike');
     }
     if (s.foe) {
       this.vfx.scar(s.x, s.z, s.r * 0.8, SCAR_COLORS.crater, 12);
-      for (const e of this.enemiesInRadius(s.x, s.z, s.r, this.scratch).slice()) this.damage(e, s.foe, { source: 'meteor', tags: ['explosive'], knockback: 8 }, this.hero);
+      for (const e of this.enemiesInRadius(s.x, s.z, s.r, this.scratch).slice()) this.damage(e, s.foe, { source: 'meteor', tags: ['explosive'], knockback: 8 }, this.heroes[s.by ?? 0] ?? this.hero);
     }
   }
 }
@@ -442,6 +443,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   const dz = p.z - fromZ;
   const d = Math.hypot(dx, dz) || 1;
   if (!p.hurt(dmg, dx / d, dz / d)) return;
+  this.director2Hurt(h, dmg);
   this.damagedThisStage = true;
   this.skillHurt(h);
   h.synergy.hurt();
@@ -513,7 +515,7 @@ export function collect(this: Game, h: Hero, type: PickupType, value: number): v
     }
     case PickupType.Heart: {
       if (this.meta.has('hearts')) break;
-      const healed = p.heal(30);
+      const healed = p.heal(value > 1 ? value : 30); // event hearts can carry a smaller heal; ordinary hearts remain 30
       this.vfx.sound('heal', p.x, p.z);
       if (healed > 0) this.vfx.num(p.x, 2.4, p.z, `+${Math.round(healed)}`, 'heal');
       break;

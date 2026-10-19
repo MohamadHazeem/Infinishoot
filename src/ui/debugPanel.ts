@@ -1,4 +1,5 @@
 import { gauntletTuning } from '../game/systems/gauntlet';
+import { addDirector2Debug } from '../game/systems/director2';
 import { noiseTuning } from '../render/noiseGovernor';
 import { halloweenTuning } from '../data/seasons';
 import GUI from 'lil-gui';
@@ -210,6 +211,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   mods2.add(mods2Tuning, 'wallRadius', 0.5, 4, 0.5);
 
   const dir = gui.addFolder('Director').close();
+  addDirector2Debug(dir, game);
   dir.add(directorTuning, 'stageSeconds', 30, 900, 10);
   dir.add(directorTuning, 'aliveStart', 0, 200, 1);
   dir.add(directorTuning, 'aliveEnd', 0, 450, 5);

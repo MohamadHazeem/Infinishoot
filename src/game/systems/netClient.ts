@@ -400,6 +400,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyVersusNet(s.vs);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
+  this.applyDirector2Net(s.d2);
   this.applyWorldEventNet(s.we, s.wt);
   applyGauntletNet(this, s.gl);
   this.applyModesNet(s.md);

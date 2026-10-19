@@ -101,6 +101,7 @@ export interface HeroWorld {
   readonly shopPriceMul?: number;
   /** Curse ids already in effect (not offered again). */
   readonly activeCurses: readonly string[];
+  director2Live?(hero: Hero): void;
 }
 
 /** Latest input from a remote player (host side). */
@@ -402,6 +403,7 @@ export class Hero implements SynergyHost {
     this.stats.damageMul *= this.skill.damageMul;
     this.stats.damageMul *= this.mech.damageMul;
     this.play.applyLive(this.stats);
+    this.world.director2Live?.(this);
   }
 
   get specialDef(): SpecialDef {
