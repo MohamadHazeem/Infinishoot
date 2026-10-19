@@ -4,7 +4,6 @@ import type { Rng } from '../core/rng';
 import { paint } from '../render/geometry';
 import { commit } from '../render/instancing';
 import { createRetroMaterial } from '../render/retroMaterial';
-import type { AABB } from './collision';
 
 /**
  * Props for the loop-2 biomes and the remixes, built for createFieldArena
@@ -277,8 +276,7 @@ function isletGeometry(): THREE.BufferGeometry {
  * Animated scenery outside the play area: big gears half-sunk in the factory's
  * ball pit, or small islets floating round the sky island. Local and cosmetic.
  */
-export function buildDecor(kind: 'gears' | 'islets', group: THREE.Group, rng: Rng, half: number, colliders: AABB[]): ArenaAnim[] {
-  void colliders;
+export function buildDecor(kind: 'gears' | 'islets', group: THREE.Group, rng: Rng, half: number): ArenaAnim[] {
   const items: ArenaAnim['items'] = [];
   if (kind === 'gears') {
     const n = 10;

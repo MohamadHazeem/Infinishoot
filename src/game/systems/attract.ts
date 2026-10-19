@@ -262,7 +262,6 @@ function stepDemo(g: Game, s: AttractState, dt: number): void {
     s.input.endStep();
     // No screen shake, hit-stop or camera kicks behind the menu.
     g.juice.reset();
-    g.paused = false;
   }
   s.steps++;
   s.stepMs += performance.now() - t0;

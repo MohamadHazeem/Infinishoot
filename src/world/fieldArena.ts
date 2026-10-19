@@ -569,7 +569,7 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   // Hundreds of props -> one draw call per material.
   mergeStatic(group);
   // Animated scenery stays out of the merge (and off the layout rng).
-  const anim = biome.decor ? buildDecor(biome.decor, group, new Rng(seed ^ 0xdec0), HALF, colliders) : [];
+  const anim = biome.decor ? buildDecor(biome.decor, group, new Rng(seed ^ 0xdec0), HALF) : [];
   return { group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors, seed, props, pads, turrets, spots, anim };
 }
 
