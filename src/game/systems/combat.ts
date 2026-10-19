@@ -3,6 +3,7 @@
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `nearestEnemy = Combat.nearestEnemy;`.
  */
+import { familyCanHit } from './enemyFamilies';
 import type { Game } from '../game';
 import { CONVEYOR_SPEED, statusTuning } from '../game';
 import type { Tag } from '../../data/tags';
@@ -18,7 +19,7 @@ export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?:
   let best: Enemy | null = null;
   let bd = r * r;
   this.hash.query(x, z, r, (e) => {
-    if (!e.alive || e.hp <= 0 || (skip && skip(e))) return;
+    if (!e.targetable || e.hp <= 0 || (skip && skip(e))) return;
     const d = (e.x - x) ** 2 + (e.z - z) ** 2;
     if (d < bd) {
       bd = d;
@@ -44,6 +45,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
   if (e.roarT > 0) return 0; // bosses are invulnerable while they roar or make their entrance
   const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
+  if (!familyCanHit(e, tags.includes('explosive') || o.source === 'nuke')) return 0;
   const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
   const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
   // Stats first, then Mods left to right, then statuses and crit.

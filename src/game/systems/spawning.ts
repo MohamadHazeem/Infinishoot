@@ -41,6 +41,10 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
   if (!pos) return null;
   const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
   const spawned = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
+  if (def.special) {
+    this.vfx.toast('SWARM QUEEN! CUT THE WALL, BREAK THE EGGS!', 3);
+    this.vfx.sound('swarmScreech', pos.x, pos.z);
+  }
   if (elite) this.spawnSquad(spawned); // escort in formation
   if (def.id === 'reaper') {
     this.vfx.banner('THE REAPER COMES', 'RUN. OR TRY YOUR LUCK.', 2.4);
@@ -100,7 +104,7 @@ export function recycleFarEnemies(this: Game, dt: number): void {
   const alive = this.aliveHeroes;
   if (!alive.length) return;
   for (const e of this.enemies.list) {
-    if (!e.alive || e.elite || e.def.boss || e.def.behavior === 'spawner') continue;
+    if (!e.alive || e.elite || e.def.boss || e.def.special || e.def.behavior === 'egg' || e.def.behavior === 'swarmwall' || e.def.behavior === 'spawner') continue;
     if (alive.some((h) => Math.hypot(e.x - h.player.x, e.z - h.player.z) < RECYCLE_DIST)) continue;
     const pos = this.ringPoint(18, 24, e.radius + 0.2);
     if (!pos) continue;

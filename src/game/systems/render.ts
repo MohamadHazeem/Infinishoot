@@ -200,6 +200,10 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   if (!this.paused && this.mode !== 'levelup' && this.mode !== 'shop') {
     for (let i = zones.length - 1; i >= 0; i--) if ((zones[i].t -= frameDt) <= 0) zones.splice(i, 1);
   }
+  this.enemies.renderWalls = this.arena.colliders;
+  this.enemies.renderBounds = this.arena.halfSize;
+  this.enemies.familyReduceFlash = settings.reduceFlash;
+  this.enemies.familyColorblind = settings.colorblind;
   this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
   this.eliteTrails(frameDt);
@@ -416,7 +420,7 @@ export function renderEliteBars(this: Game, alpha: number): void {
   const bars: { x: number; y: number; hp01: number; onScreen: boolean }[] = [];
   if (this.isCombatMode && this.screens.current === 'none') {
     for (const e of this.enemies.list) {
-      if (!e.active || !(e.elite || e.def.id === 'reaper') || e.def.boss || e.hp <= 0) continue;
+      if (!e.active || !(e.elite || e.def.special || e.def.id === 'reaper') || e.def.boss || e.hp <= 0) continue;
       const x = e.px + (e.x - e.px) * alpha;
       const z = e.pz + (e.z - e.pz) * alpha;
       this.tmp.set(x, e.hopY + e.radius * 2.6, z).project(this.cam.camera);

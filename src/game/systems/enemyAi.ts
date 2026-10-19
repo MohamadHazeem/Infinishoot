@@ -4,9 +4,12 @@
  * squad / Goldbug spawning. Game methods (`this` is the Game), installed on
  * the class as fields like the other systems.
  */
+import { MIRROR_ORB_KIND, COPY_IDS, copyKind, copyDamage, copyFan, beamReach, type FamilyApi } from './enemyFamilies';
+import { Team } from '../bullets';
+import { access } from '../settings';
 import type { Game } from '../game';
 import { dropTuning } from '../game';
-import { ENEMIES, squadOf, squadSize, type EnemyDef } from '../../data/enemies';
+import { ENEMIES, familyTuning, squadOf, squadSize, type EnemyDef } from '../../data/enemies';
 import { guardFactor, squadTuning, type Enemy, type EnemyCtx } from '../enemies';
 import type { Hero } from '../hero';
 import { PickupType } from '../pickups';
@@ -24,8 +27,9 @@ export const treasureTuning = {
 };
 
 /** EnemyCtx members for the enemy lane (spread into Game.makeEnemyCtx). */
-export function enemyCtxExtras(this: Game): Pick<EnemyCtx, 'land' | 'heal' | 'rally' | 'sparkle' | 'escape' | 'bounds'> {
+export function enemyCtxExtras(this: Game): Pick<EnemyCtx, 'land' | 'heal' | 'rally' | 'sparkle' | 'escape' | 'bounds' | 'family'> {
   return {
+    family: familyCtx(this),
     land: (e, r, damage) => {
       this.vfx.ring(e.x, e.z, 1, r * 2, e.def.accentColor, 0.3);
       this.vfx.burst(e.x, 0.3, e.z, { count: 10, color: '#f2e2b8', color2: e.def.bodyColor, speed: [3, 7], size: [0.15, 0.3], life: [0.3, 0.5], up: 3, gravity: 10 });
@@ -135,6 +139,7 @@ export function spawnGolden(this: Game, def: EnemyDef): { x: number; z: number }
 
 /** Extra kill handling for this lane: Goldbug jackpot, squads scattering. Called from killEnemy. */
 export function onEnemyKilled(this: Game, e: Enemy, by: Hero | null): void {
+  familyReward(this, e);
   if (e.def.treasure) {
     const t = treasureTuning;
     const gold = t.goldBase + t.goldPerStage * this.stage;
@@ -167,4 +172,112 @@ export function onEnemyKilled(this: Game, e: Enemy, by: Hero | null): void {
     n++;
   }
   if (n) this.vfx.num(e.x, 3, e.z, 'SCATTER!', 'score');
+}
+
+/** Game bridge: all audio/labels use the co-op effects bus; projectiles use the existing snapshot. */
+export function familyCtx(game: Game): FamilyApi {
+  const spawn = (id: string, x: number, z: number): void => {
+    const def = ENEMIES[id];
+    const lim = game.arena.halfSize - def.radius;
+    if (game.enemies.activeCount >= familyTuning.summonCap || Math.abs(x) > lim || Math.abs(z) > lim || game.walls.hitCircle(x, z, def.radius)) return;
+    game.enemies.spawn(def, x, z, game.spawnOpts());
+  };
+  return {
+    cue: (e, name) => {
+      if (name === 'return') { game.vfx.num(e.x, 3, e.z, 'RETREAT!', 'score'); return; }
+      game.vfx.sound(name, e.x, e.z);
+      if (name === 'mirrorCopy') game.vfx.num(e.x, 2.5, e.z, 'COPY: ' + COPY_IDS[e.copyKind].toUpperCase(), 'score');
+      if (name === 'swarmScreech') game.vfx.num(e.x, 3.5, e.z, e.familyState === 1 ? 'SWARM WALL!' : e.familyState === 4 ? 'SHE RETURNS!' : 'EGGS!', 'score');
+    },
+    scan: (e) => {
+      let target = game.aliveHeroes[0];
+      let best = Infinity;
+      for (const h of game.aliveHeroes) { const d = (h.player.x - e.x) ** 2 + (h.player.z - e.z) ** 2; if (d < best) { target = h; best = d; } }
+      const w = target?.weapons.find((w) => w.def.slot === 'primary');
+      const p = w?.p ?? {};
+      e.copyRadius = Math.min(3, p.radius ?? 2.2);
+      e.copyZaps = Math.min(4, Math.round(p.zaps ?? 3));
+      e.copyKind = copyKind(w?.def.id ?? 'buster');
+      e.copyDamage = copyDamage(p.dmg ?? (p.dps ?? 25) * 0.2);
+      e.copyShots = Math.max(1, Math.min(familyTuning.mirrorMaxShots, Math.round(p.pellets ?? p.shots ?? p.beams ?? 1)));
+      e.copyArc = (p.spread ?? p.arc ?? (e.copyKind === 2 ? (e.copyShots - 1) * 14 : 0)) * Math.PI / 180;
+      e.copyInterval = e.copyKind === 2 ? 0.25 : 1 / Math.min(familyTuning.mirrorMaxRate, Math.max(0.5, p.rate ?? 2));
+      e.copySpeed = Math.min(18, (p.speed ?? 12) * 0.65);
+      e.copyRange = Math.min(20, p.range ?? (e.copyKind === 1 ? 8 : 14));
+      e.copyWidth = Math.min(1, p.width ?? (e.copyKind === 3 ? 0.8 : 0.28));
+      const dx = (target?.player.x ?? e.x) - e.x, dz = (target?.player.z ?? e.z + 1) - e.z;
+      const len = Math.hypot(dx, dz) || 1;
+      e.lungeX = dx / len; e.lungeZ = dz / len;
+    },
+    fire: (e) => {
+      const base = Math.atan2(e.lungeX, e.lungeZ);
+      for (let i = 0; i < e.copyShots; i++) {
+        const a = base + copyFan(i, e.copyShots, e.copyArc);
+        const dx = Math.sin(a), dz = Math.cos(a);
+        if (e.copyKind === 2 || e.copyKind === 4) {
+          const reach = beamReach(e.x, e.z, dx, dz, e.copyRange, game.arena.colliders);
+          for (const h of game.aliveHeroes) {
+            const ox = h.player.x - e.x, oz = h.player.z - e.z;
+            const along = ox * dx + oz * dz, side = Math.abs(ox * dz - oz * dx);
+            if (along > 0 && along < reach && side < e.copyWidth + h.player.radius) game.hurtHero(h, e.copyDamage * e.dmgMul, e.x, e.z, e, e.def.name);
+          }
+        } else game.bullets.spawn({ x: e.x + dx * e.radius, z: e.z + dz * e.radius, dirX: dx, dirZ: dz,
+          speed: e.copySpeed, life: e.copyRange / e.copySpeed, radius: e.copyWidth, damage: e.copyDamage * e.dmgMul,
+          knockback: 3, team: Team.Enemy, color: access.colorblind ? '#ffffff' : '#b13eec', width: e.copyWidth * 2,
+          length: e.copyKind === 3 ? 1.2 : 0.65, kind: e.copyKind === 3 ? MIRROR_ORB_KIND : 0,
+          blast: e.copyKind === 3 ? e.copyRadius : 0, pierce: e.copyZaps });
+      }
+      game.vfx.sound('enemyShoot', e.x, e.z);
+    },
+    wall: (e) => {
+      const limit = game.arena.halfSize - 1;
+      const count = Math.min(familyTuning.wallCap, Math.ceil(2 * limit / familyTuning.wallSpacing));
+      for (let i = 0; i <= count; i++) {
+        const offset = -limit + 2 * limit * i / count;
+        spawn('swarm_wall', e.lungeX ? offset : e.targetX, e.lungeZ ? offset : e.targetZ);
+      }
+    },
+    eggs: (e) => {
+      for (let i = 0; i < familyTuning.eggCount && game.enemies.countOf('swarm_egg') < familyTuning.eggCap; i++) {
+        const a = i * Math.PI * 2 / familyTuning.eggCount + e.facing;
+        spawn('swarm_egg', e.x + Math.cos(a) * 2.8, e.z + Math.sin(a) * 2.8);
+      }
+    },
+    retire: (e) => { game.vfx.ring(e.x, e.z, 0.5, 3, e.def.accentColor, 0.3); game.enemies.kill(e); },
+  };
+}
+
+export function familyReward(game: Game, e: Enemy): void {
+  if (e.def.mirror && e.state === 'attack') {
+    game.pickups.spawn(PickupType.Bolt, e.x, e.z, familyTuning.mirrorBonus);
+    game.vfx.num(e.x, 2.5, e.z, 'COPY BROKEN! +' + familyTuning.mirrorBonus, 'score');
+    game.vfx.sound('coin', e.x, e.z);
+  }
+  if (e.def.special) game.pickups.spawn(PickupType.Chest, e.x, e.z);
+}
+
+/** Copied Plasma Orbs drift and zap nearby heroes; called from the existing enemy-bullet loop. */
+export function copyOrbPulse(game: Game, i: number, dt: number): boolean {
+  const b = game.bullets;
+  if (b.kind[i] !== MIRROR_ORB_KIND) return false;
+  if (Math.floor(b.age[i] * 2) === Math.floor((b.age[i] - dt) * 2)) return true;
+  const x = b.x[i], z = b.z[i], radius = b.blast[i];
+  game.vfx.ring(x, z, 0.5, radius * 2, '#b13eec', 0.25);
+  let seen = 0;
+  for (let n = 0; n < b.pierce[i]; n++) {
+    let best = null;
+    let distance = radius;
+    for (const h of game.aliveHeroes) {
+      if (seen & (1 << h.index)) continue;
+      const d = Math.hypot(h.player.x - x, h.player.z - z);
+      if (d < distance) { best = h; distance = d; }
+    }
+    if (!best) break;
+    seen |= 1 << best.index;
+    const dx = (best.player.x - x) / (distance || 1), dz = (best.player.z - z) / (distance || 1);
+    if (beamReach(x, z, dx, dz, distance, game.arena.colliders) < distance - 0.01) continue;
+    game.hurtHero(best, b.damage[i], x, z, null, 'Mirror plasma');
+    game.vfx.star(best.player.x, 1, best.player.z, 0.7, '#b13eec', 0.1);
+  }
+  return true;
 }

@@ -4,6 +4,7 @@
  * installed on the class as fields, e.g. `ignite = Statuses.ignite;`.
  */
 import { ARENA_SOURCE_NAMES } from './arena';
+import { copyOrbPulse } from './enemyAi';
 import type { Game } from '../game';
 import { scoreTuning, bombTuning, dropTuning, chestTuning, nukeTuning, statusTuning, cheats, BULLET_KINDS, IMPACT_BLAST } from '../game';
 import { StaticBoxGrid } from '../../core/spatialHash';
@@ -354,7 +355,7 @@ export function contactDamage(this: Game, h: Hero): void {
   let worst: Enemy | null = null;
   let dmg = 0;
   this.hash.query(p.x, p.z, 2.5, (e) => {
-    if (!e.alive || e.frozen > 0 || e.hopY > 0.5 || e.pvpOwner >= 0) return;
+    if (!e.targetable || e.frozen > 0 || e.hopY > 0.5 || e.pvpOwner >= 0) return;
     const rr = e.radius + p.radius;
     if ((e.x - p.x) ** 2 + (e.z - p.z) ** 2 > rr * rr) return;
     const d = e.contactDamage * (e.state === 'attack' ? 1.5 : 1);
@@ -522,6 +523,7 @@ export function updateBullets(this: Game, dt: number): void {
       continue;
     }
     if (b.team[i] === Team.Enemy) {
+      if (copyOrbPulse(this, i, dt)) continue;
       for (const h of this.heroes) {
         const p = h.player;
         if (p.dead || h.left || p.invuln > 0) continue;
@@ -537,7 +539,7 @@ export function updateBullets(this: Game, dt: number): void {
     let hit = null as Enemy | null;
     const r = b.radius[i];
     this.hash.query(x, z, r, (e) => {
-      if (hit || !e.alive || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
+      if (hit || !e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
       const rr = e.radius + r;
       if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr) hit = e;
     });
