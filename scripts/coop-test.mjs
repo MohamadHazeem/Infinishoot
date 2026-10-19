@@ -577,6 +577,15 @@ const SCENARIO = [
       const c = g.heroes[1].player;
       g.hero.player.teleport(c.x + 1.5, c.z);
       g.companionState().meter.charge = 1;
+      // Check spending at activation: standing together legitimately recharges during the network wait.
+      const tryMove = g.tryTeamMove;
+      window.__teamSpent = null;
+      window.__restoreTeamMove = () => { g.tryTeamMove = tryMove; };
+      g.tryTeamMove = function (h) {
+        const started = tryMove.call(this, h);
+        if (started) { window.__teamSpent = this.companionState().meter.charge; g.tryTeamMove = tryMove; }
+        return started;
+      };
     });
     let r = null;
     for (let k = 0; k < 12 && !r?.host; k++) {
@@ -587,7 +596,7 @@ const SCENARIO = [
     }
     await pause(200);
     r.client = await client(() => window.game.companionState().move?.id ?? null);
-    r.hostMeter = await host(() => window.game.companionState().meter.charge);
+    r.hostMeter = await host(() => { window.__restoreTeamMove(); return window.__teamSpent; });
     if (!r.host || r.client !== r.host || r.hostMeter !== 0) fail(`team move: host ${r.host} (meter ${r.hostMeter}), client ${r.client}`);
     await shot('teammove');
     return r;
