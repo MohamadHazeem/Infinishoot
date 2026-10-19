@@ -32,4 +32,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'hard_stage3', name: 'Hard Boiled', desc: 'Reach stage 3 on Hard or Nightmare' },
   { id: 'endless_5', name: 'Marathon', desc: 'Reach wave 5 in Endless' },
   { id: 'rush_3', name: 'Boss Buster', desc: 'Beat 3 bosses in the Boss Rush mode' },
+  // Heat milestones (src/data/heat.ts HEAT_GOALS): cosmetic rewards only (skins in src/data/skins.ts).
+  { id: 'heat_4', name: 'Warming Up', desc: 'Beat the final boss at Heat 4 or more' },
+  { id: 'heat_10', name: 'Hot Seat', desc: 'Beat the final boss at Heat 10 or more' },
+  { id: 'heat_20', name: 'Meltdown', desc: 'Beat the final boss at Heat 20 or more' },
 ];

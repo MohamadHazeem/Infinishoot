@@ -55,6 +55,10 @@ export class RunEvents {
   private challengeAt = 20;
   private lastBuffCombo = 0;
   private noHitT = 0;
+  /** A second, early event this stage (EVENTFUL route), seconds; -1 = none. */
+  private extraAt = -1;
+  /** Route knobs for the next stage (src/game/systems/runMods.ts), set before startStage(). */
+  mods = { events: 1, rewardMul: 1, challengeAt: 18 };
 
   constructor(private host: EventHost) {}
 
@@ -64,8 +68,9 @@ export class RunEvents {
     this.event = null;
     this.eventDone = false;
     this.eventAt = r.range(duration * 0.3, duration * 0.72);
+    this.extraAt = this.mods.events > 1 ? r.range(duration * 0.08, duration * 0.18) : -1;
     this.challenge = null;
-    this.challengeAt = 18;
+    this.challengeAt = this.mods.challengeAt;
     this.noHitT = 0;
   }
 
@@ -96,7 +101,14 @@ export class RunEvents {
   update(dt: number, time: number, bossUp: boolean): void {
     this.frenzyT = Math.max(0, this.frenzyT - dt);
     this.overdriveT = Math.max(0, this.overdriveT - dt);
-    if (!bossUp && !this.eventDone && time >= this.eventAt) this.startEvent();
+    if (!bossUp && !this.eventDone && time >= this.eventAt && !this.event) this.startEvent();
+    if (!bossUp && this.extraAt >= 0 && time >= this.extraAt && !this.event) {
+      // The extra event leaves the main one scheduled.
+      const done = this.eventDone;
+      this.extraAt = -1;
+      this.startEvent();
+      this.eventDone = done;
+    }
     if (this.event) this.tickEvent(dt);
     if (!bossUp && !this.challenge && time >= this.challengeAt) this.pickChallenge();
     const c = this.challenge;
@@ -202,8 +214,8 @@ export class RunEvents {
     c.cur = Math.min(c.max, v);
     if (c.cur < c.max) return;
     c.done = true;
-    const gold = 5 + 2 * this.host.stage;
-    this.host.reward(gold, 1500 * this.host.stage);
+    const gold = Math.round((5 + 2 * this.host.stage) * this.mods.rewardMul);
+    this.host.reward(gold, Math.round(1500 * this.host.stage * this.mods.rewardMul));
     this.host.banner('CHALLENGE COMPLETE!', `+${gold} GOLD EACH`, 2);
     this.host.sound('jingle');
   }

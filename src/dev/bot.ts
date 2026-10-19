@@ -154,9 +154,12 @@ export function installBot(game: Game, input: Input): void {
       uiT -= 1 / 60;
       if (uiT <= 0 && g.screens.current === 'levelup') (ui('pick', 0), (uiT = 0.3));
       else if (uiT <= 0 && g.screens.current === 'shop') (shop(), (uiT = 0.5));
+      else if (uiT <= 0 && g.screens.current === 'route') (ui('route', 0), (uiT = 0.5));
     } else {
       if (g.mode === 'levelup' && g.hero.needsPick) ui('pick', 0);
       if (g.mode === 'shop') shop();
+      // Route vote after the shop: the first card (its own pick lock doesn't apply).
+      if (g.mode === 'shop' && g.runMods.vote) ui('route', 0);
     }
     poll();
     inp.device = 'kbm';

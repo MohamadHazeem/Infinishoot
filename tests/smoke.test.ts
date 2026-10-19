@@ -56,7 +56,12 @@ const runs: [string, string, string, number][] = [
   ['endless', 'hard', 'bulwark', 600],
   ['bossrush', 'nightmare', 'dash', 400],
   ['daily', 'easy', 'ace', 300],
+  ['weekly', 'normal', 'rookie', 300],
 ];
+// Heat for the non-challenge runs (src/data/heat.ts): every modifier at rank 1.
+const { saveHeatPick } = await import('../src/game/runMods');
+const { HEAT_MODS } = await import('../src/data/heat');
+saveHeatPick(Object.fromEntries(HEAT_MODS.map((d) => [d.id, 1])));
 for (const [mode, diff, hero, secs] of runs) {
   settings.mode = mode;
   settings.difficulty = diff;
@@ -67,7 +72,7 @@ for (const [mode, diff, hero, secs] of runs) {
     game.startSolo();
     const t0 = Date.now();
     const r = botRun(secs, true);
-    console.log(mode, diff, hero, JSON.stringify({ stage: r.stage, mode: r.mode, level: r.level, kills: r.kills, weapons: r.weapons, avgMs: r.avgMs, worstMs: r.worstMs, curses: game.curses, relics: game.hero.relics, wall: Date.now() - t0 }));
+    console.log(mode, diff, hero, JSON.stringify({ stage: r.stage, mode: r.mode, level: r.level, kills: r.kills, weapons: r.weapons, avgMs: r.avgMs, worstMs: r.worstMs, curses: game.curses, relics: game.hero.relics, route: game.runMods.route, heat: game.runMods.heatTotal, mutators: game.runMods.mutators, wall: Date.now() - t0 }));
     // Pause screen + extras screens render without throwing.
     game.pause();
     game.resume();
@@ -100,7 +105,7 @@ if (game.mode !== 'dead') {
 for (let i = 0; i < 400; i++) game.update(1 / 60);
 const goScreen = (game.screens as any).current;
 console.log('after death: screen', goScreen, 'last cause', save.history[0]?.cause, 'label', save.history[0]?.label);
-for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'settings', 'codex']) {
+for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'heat', 'controls', 'history', 'bestiary', 'settings', 'codex']) {
   try { (game.screens as any).show(s); } catch (e) { errors.push('screen ' + s + ': ' + (e as Error).stack); }
 }
 console.log('history', save.history.length, 'seen', save.seen.length);

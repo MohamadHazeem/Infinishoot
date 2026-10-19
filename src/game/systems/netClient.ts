@@ -22,7 +22,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   switch (m.t) {
     case 'lobby': {
       const players = (m.players as { name: string; color: string }[]) ?? [];
-      this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind: m.kind === 'pvp' ? 'pvp' : 'coop' });
+      this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind: m.kind === 'pvp' ? 'pvp' : 'coop', heat: String(m.heat ?? '') });
       break;
     }
     case 'pvpgo':
@@ -46,6 +46,10 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       }
       this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
       this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
+      this.runModsClientStart(m.heat);
+      break;
+    case 'route':
+      this.clientRoute(m);
       break;
     case 'wchest':
       this.chests.open(Number(m.i));

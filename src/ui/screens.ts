@@ -18,7 +18,7 @@ import { MenuNav } from './menu';
 import { iconHtml } from './pixelIcons';
 import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
-import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
+import { DIFFICULTIES, MODE_BY_ID, MODES, isChallenge, today, type ModeId } from '../data/modes';
 import { dailyBest } from '../game/highscores';
 import { HEROES } from '../data/heroes';
 import { ACTIONS, binds, keyLabel, rebind, resetBinds, type Action } from '../core/keybinds';
@@ -32,7 +32,7 @@ import { buyDamageNums, ensureShopCss, numsHtml, previewPanelHtml, type PreviewF
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'codex' | 'training';
+export type ExtraScreen = 'codex' | 'training' | 'route' | 'heat';
 
 export interface ScreenActions {
   start(): void;
@@ -78,6 +78,8 @@ export interface LobbyView {
   difficulty?: string;
   /** Co-op or PvP, picked by the host. */
   kind?: 'coop' | 'pvp';
+  /** The host's heat ("HEAT 7 · SCORE x1.35"), shown under the difficulty. */
+  heat?: string;
 }
 
 export type ShopFx = 'open' | 'buy' | 'sell' | 'reroll' | 'heal' | 'deny' | 'upgrade';
@@ -257,7 +259,7 @@ export class Screens {
 
   private root: HTMLElement;
   /** Screens other modules add (addScreen): shown and navigated like the built-in ones. */
-  private extra: Partial<Record<ExtraScreen, { el: HTMLElement; nav: MenuNav }>> = {};
+  private extra: Partial<Record<ExtraScreen, { el: HTMLElement; nav: MenuNav; onShow?: () => void }>> = {};
   /** Called on every show(), before the menu's focus is set (other modules fill or extend screens here). */
   onShow: ((name: ScreenName) => void) | null = null;
 
@@ -436,6 +438,7 @@ export class Screens {
   <div class="menu row diff-row"></div>
   <div class="note mode-note"></div>
   <div class="menu row">
+    <div class="modes-extra"></div>
     <button data-nav data-act="play" class="continue">NEXT: LOADOUT &#9654;</button>
     <button data-nav data-act="md-back">BACK</button>
   </div>
@@ -519,7 +522,7 @@ export class Screens {
       controls: new MenuNav(this.els.controls, { columns: 2, onBack: () => this.show('settings') }),
       history: new MenuNav(this.els.history, { onBack: () => this.show('extras') }),
       bestiary: new MenuNav(this.els.bestiary, { onBack: () => this.show('extras') }),
-    };
+    } as Record<Named, MenuNav>; // 'route' and 'heat' join through addScreen() (src/ui/runUi.ts)
 
     // Keep buttons from taking DOM focus on click, so Enter/Space don't fire twice.
     root.addEventListener('mousedown', (e) => {
@@ -737,10 +740,16 @@ export class Screens {
   }
 
   /** Register a screen built elsewhere (its element is added to the menu root). */
-  addScreen(name: ExtraScreen, el: HTMLElement, opts: ConstructorParameters<typeof MenuNav>[1] = {}): void {
+  addScreen(name: ExtraScreen, el: HTMLElement, opts: ConstructorParameters<typeof MenuNav>[1] | MenuNav = {}, onShow?: () => void): void {
     el.hidden = true;
     this.root.appendChild(el);
-    this.extra[name] = { el, nav: new MenuNav(el, opts) };
+    this.extra[name] = { el, nav: opts instanceof MenuNav ? opts : new MenuNav(el, opts), onShow };
+  }
+
+  /** Re-scan a screen's navigable items after its content changed, keeping the focus. */
+  refresh(name: Exclude<ScreenName, 'none'>): void {
+    const nav = this.nav(name);
+    nav?.refresh(nav.focus);
   }
 
   private nav(name: Exclude<ScreenName, 'none'>): MenuNav {
@@ -763,6 +772,7 @@ export class Screens {
     if (name === 'history') this.renderHistory();
     if (name === 'bestiary') this.renderBestiary();
     else if (music.jukebox) music.jukebox = null;
+    if (name !== 'none') this.extra[name as ExtraScreen]?.onShow?.();
     if (name === 'savedata') {
       this.wipeArmed = false;
       this.msg('');
@@ -771,6 +781,9 @@ export class Screens {
     this.onShow?.(name);
     if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'levelup' ? 1 : 0));
   }
+
+  /** Extra content on the MODE screen, drawn by another module after each render (src/ui/runUi.ts). */
+  modesHook: ((el: HTMLElement, mode: ModeId) => void) | null = null;
 
   update(input: Input, dt: number): void {
     if (this.current !== 'none') this.nav(this.current).update(input, dt);
@@ -884,7 +897,7 @@ export class Screens {
       const lock = v.isHost && !open;
       return `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-diff" data-diff="${d.id}" class="diff ${d.id === pick.id ? 'on' : ''} ${lock ? 'locked' : ''}" ${v.isHost ? '' : 'disabled'}>${lock ? '🔒 ' : ''}${d.name.toUpperCase()}</button>`;
     }).join('');
-    el.querySelector('.mp-diff-note')!.textContent = `${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`;
+    el.querySelector('.mp-diff-note')!.textContent = `${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}${v.heat && v.kind !== 'pvp' ? ` ${v.heat} (the host's, set on PLAY SOLO).` : ''}`;
     // Game type: co-op, or PvP (everyone plays the same stage alone, then a last-one-standing duel).
     const kind = v.kind ?? 'coop';
     el.querySelector('.mp-kind-row')!.innerHTML = (['coop', 'pvp'] as const)
@@ -1435,17 +1448,19 @@ export class Screens {
       (m) => `<button data-nav data-act="mode" data-mode="${m.id}" class="mode ${m.id === mode.id ? 'on' : ''}"><b>${m.name.toUpperCase()}</b><small>${m.desc}</small></button>`,
     ).join('');
     const daily = mode.id === 'daily';
+    const fixed = isChallenge(mode.id); // Daily and Weekly play on Medium
     el.querySelector('.diff-row')!.innerHTML = DIFFICULTIES.map((d) => {
       const open = !d.unlock || save.achievements.includes(d.unlock);
       const ach = d.unlock ? ACHIEVEMENTS.find((a) => a.id === d.unlock) : null;
-      const on = daily ? d.id === 'normal' : settings.difficulty === d.id;
-      return `<button data-nav data-act="diff" data-diff="${d.id}" class="diff ${on ? 'on' : ''} ${open ? '' : 'locked'}" ${daily ? 'disabled' : ''} title="${open ? d.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? d.name.toUpperCase() : '🔒 ' + d.name.toUpperCase()}</button>`;
+      const on = fixed ? d.id === 'normal' : settings.difficulty === d.id;
+      return `<button data-nav data-act="diff" data-diff="${d.id}" class="diff ${on ? 'on' : ''} ${open ? '' : 'locked'}" ${fixed ? 'disabled' : ''} title="${open ? d.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? d.name.toUpperCase() : '🔒 ' + d.name.toUpperCase()}</button>`;
     }).join('');
     const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty) ?? DIFFICULTIES[1];
     const best = dailyBest(today());
     el.querySelector('.mode-note')!.textContent = daily
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`
       : diff.desc.toUpperCase();
+    this.modesHook?.(el, mode.id); // heat button and Weekly note (src/ui/runUi.ts)
     this.navs.modes.refresh(this.navs.modes.focus);
   }
 
