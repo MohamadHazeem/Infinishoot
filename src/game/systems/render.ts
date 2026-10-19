@@ -8,7 +8,7 @@ import { scoreTuning, AIM_HEIGHT, REVIVE_TIME } from '../game';
 import * as THREE from 'three';
 import { MOD_BY_ID } from '../../data/mods';
 import { sfx } from '../../audio/sfx';
-import { biomeTrack, music, type TrackId } from '../../audio/music';
+import { biomeTrack, bossTrack, music, type TrackId } from '../../audio/music';
 import { applyTimeOfDay } from '../../render/biomeLook';
 import { retroGlobals } from '../../render/retroMaterial';
 import { BULLET_Y } from '../bullets';
@@ -17,6 +17,7 @@ import { Hero } from '../hero';
 import { type Player } from '../player';
 import { settings } from '../settings';
 import { ChargeShot } from '../weapons';
+import { bossTuning, omegaTuning } from '../enemies';
 import { streaks } from '../streaks';
 import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
@@ -127,14 +128,17 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
   let intensity = 0.6;
   if (!inRun) track = m === 'title' ? 'title' : null;
   else if (boss) {
-    track = 'boss';
+    track = bossTrack(this.stage);
     intensity = 1;
   } else {
     track = biomeTrack(this.arenaStage);
     intensity = m === 'fight' ? Math.min(1, 0.12 + this.enemies.activeCount / 140 + this.director.time / this.director.duration / 3) : 0.3;
   }
-  const duck = this.paused || m === 'levelup' || m === 'shop' || (this.screens.current !== 'none' && inRun);
-  music.update(frameDt, { track, seed: track === 'title' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, keyUp: !!boss && boss.hp01 < 0.4 });
+  if (m === 'shop' || m === 'cleared' || m === 'portal') track = 'shop';
+  const omega = bossTrack(this.stage) === 'omega';
+  music.setBossPhase(!boss ? 1 : omega && boss.hp01 < omegaTuning.phase3At ? 3 : boss.hp01 < (omega ? omegaTuning.phase2At : bossTuning.enrageAt) ? 2 : 1);
+  const duck = this.paused || m === 'levelup' || (track !== 'shop' && this.screens.current !== 'none' && inRun);
+  music.update(frameDt, { track, seed: track === 'title' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, stage: this.stage, cue: m === 'cleared' ? 'victory' : m === 'dead' ? 'gameover' : undefined });
   document.documentElement.style.setProperty('--beat', music.pulse.toFixed(2));
 }
 

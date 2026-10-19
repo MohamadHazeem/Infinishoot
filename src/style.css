@@ -2670,6 +2670,14 @@ table.history .cause {
 }
 
 /* ---------------------------------------------------------------- jukebox */
+#scr-jukebox .tracks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  width: min(820px, 100%);
+  min-width: 0;
+  gap: calc(4 * var(--p));
+}
+
 .now-playing {
   font: 14px var(--label);
   letter-spacing: 2px;
