@@ -52,7 +52,7 @@ const CSS = `
 #scr-profile .pf-road { display: flex; gap: calc(2 * var(--p)); flex-wrap: wrap; padding: 0 calc(2 * var(--p)); }
 #scr-profile .pf-road span { --bg: var(--night); --hi: var(--slate); --lo: var(--ink); font: 14px var(--font); color: var(--mist); padding: var(--p) calc(2 * var(--p)); }
 #scr-profile .pf-road span em { font-style: normal; color: var(--yellow); }
-#m2-title { position: absolute; left: calc(5 * var(--p)); top: 34%; width: 300px; --bg: var(--ink); --hi: var(--slate); --lo: var(--ink); padding: 0; text-align: left; cursor: pointer; z-index: 2; }
+#m2-title { position: absolute; inset-inline-start: calc(5 * var(--p)); top: 34%; width: 300px; --bg: var(--ink); --hi: var(--slate); --lo: var(--ink); padding: 0; text-align: left; cursor: pointer; z-index: 2; }
 #m2-title .hd { background: var(--pf-banner); padding: calc(2 * var(--p)) calc(3 * var(--p)); display: flex; gap: calc(2 * var(--p)); align-items: baseline; }
 #m2-title .hd b { font: 28px var(--display); color: var(--yellow); text-shadow: var(--outline); }
 #m2-title .hd span { font: 11px var(--label); letter-spacing: 1px; color: var(--white); flex: 1; }
@@ -71,10 +71,13 @@ const CSS = `
 
 const KINDS: RewardKind[] = ['title', 'banner', 'hud', 'hat', 'trail'];
 const n = (v: number | undefined) => Math.floor(v ?? 0).toLocaleString('en-US');
+/** Hours and minutes, kept left-to-right in Arabic. */
 const hm = (s: number) => {
   const m = Math.floor((s ?? 0) / 60);
-  return `${Math.floor(m / 60)}H ${String(m % 60).padStart(2, '0')}M`;
+  return `<span dir="ltr">${Math.floor(m / 60)}H ${String(m % 60).padStart(2, '0')}M</span>`;
 };
+/** Separately localized pieces of a "A · B · C" line. */
+const dots = (...parts: string[]) => parts.filter(Boolean).map((x) => `<span>${x}</span>`).join(' · ');
 
 function ensureCss(): void {
   if (document.getElementById('pf-css')) return;
@@ -156,7 +159,7 @@ export class ProfileScreen {
       const have = owned(k);
       const next = all.find((x) => !rewardOpen(x, lv.level, q));
       const sw = r?.color && k !== 'title' ? `<i class="sw" style="--c:${r.color}"></i>` : '';
-      return `<button data-nav data-pf="cos" data-kind="${k}"><small>${REWARD_KIND_NAME[k]} · ${have.length}/${all.length}</small><b>${sw}${escapeHtml(r?.name ?? 'None')}</b><small>${next ? (next.quests ? `NEXT: ${escapeHtml(next.name)} · ${next.quests} QUESTS` : `NEXT: ${escapeHtml(next.name)} · LV ${next.level}`) : 'ALL UNLOCKED'}</small></button>`;
+      return `<button data-nav data-pf="cos" data-kind="${k}"><small>${dots(REWARD_KIND_NAME[k], `${have.length}/${all.length}`)}</small><b>${sw}<span>${escapeHtml(r?.name ?? 'None')}</span></b><small>${next ? dots('NEXT', escapeHtml(next.name), next.quests ? `${next.quests} QUESTS` : `LV ${next.level}`) : 'ALL UNLOCKED'}</small></button>`;
     }).join('');
     const stat = (v: string, label: string) => `<div class="pf-stat px"><b>${v}</b><small>${label}</small></div>`;
     const stats = [
@@ -188,14 +191,14 @@ export class ProfileScreen {
     }
     const foes = top(enemyKills, 10);
     const maxFoe = foes[0]?.[1] ?? 1;
-    const row = (name: string, v: string, frac = -1) => `<div class="pf-row"><span>${escapeHtml(name)}</span><em>${v}</em>${frac >= 0 ? `<div class="bar"><i style="width:${Math.round(frac * 100)}%"></i></div>` : ''}</div>`;
+    const row = (name: string, v: string, frac = -1) => `<div class="pf-row"><span>${escapeHtml(name)}</span><em dir="auto">${v}</em>${frac >= 0 ? `<div class="bar"><i style="width:${Math.round(frac * 100)}%"></i></div>` : ''}</div>`;
     const favs = [
       row('Favourite hero', favHero ? `${(HERO_BY_ID[favHero[0]]?.name ?? favHero[0]).toUpperCase()} · ${favHero[1]} RUNS` : '-'),
       row('Favourite kit', favKit ? `${kitName(favKit[0]).toUpperCase()}` : '-'),
       row('Most defeated', foes[0] ? `${(ENEMIES[foes[0][0]]?.name ?? foes[0][0]).toUpperCase()}` : '-'),
       row('Heroes played', `${P.sets.heroes.length}`),
       row('Islands visited', `${P.sets.biomes.length}`),
-      row('Quests done', `${n(q)} · STREAK ${save.quests.streak}`),
+      row('Quests done', dots(n(q), `STREAK ${save.quests.streak}`)),
     ].join('');
     const foeRows = foes.length ? foes.map(([id, v]) => row(ENEMIES[id]?.name ?? id, n(v), v / maxFoe)).join('') : row('No kills yet', '-');
     const bosses = [
@@ -235,7 +238,7 @@ export class ProfileScreen {
           <div class="pf-lv"><small>LEVEL</small>${lv.level}</div>
           <div class="pf-id"><b>${escapeHtml(titleName().toUpperCase())}</b>
             <div class="m2-xpbar"><i style="width:${Math.round(lv.frac * 100)}%"></i></div>
-            <small>${lv.need ? `${n(lv.into)} / ${n(lv.need)} XP TO LEVEL ${lv.level + 1}` : 'MAX LEVEL'} · ${n(P.xp)} XP IN ALL · ${localize('Cosmetic only: every run starts equal.')}</small></div>
+            <small>${dots(lv.need ? `${n(lv.into)} / ${n(lv.need)} XP TO LEVEL ${lv.level + 1}` : 'MAX LEVEL', `${n(P.xp)} XP IN ALL`, localize('Cosmetic only: every run starts equal.'))}</small></div>
         </div>
         <div class="pf-sec">COSMETICS · CLICK TO CHANGE</div>
         <div class="pf-cos">${cos}</div>
@@ -278,6 +281,6 @@ export class ProfileScreen {
     this.panel.innerHTML = localizeHtml(`<div class="hd"><b>LV ${lv.level}</b><span>${escapeHtml(titleName().toUpperCase())}</span><div class="m2-xpbar"><i style="width:${Math.round(lv.frac * 100)}%"></i></div></div>
       <div class="qs"><div class="qh"><span>DAILY QUESTS</span><span>${allDone ? 'ALL DONE!' : `ALL 3: +${QUEST_ALL_BONUS} XP`}</span></div>
       ${qs.map((q) => `<div class="q ${q.done ? 'done' : ''}"><em>${q.done ? '✓' : `+${q.xp}`}</em>${escapeHtml(q.text)}<div class="m2-bar"><i style="width:${Math.round((q.cur / q.def.goal) * 100)}%"></i></div></div>`).join('')}
-      <div class="qf">NEW QUESTS IN ${Math.floor(left / 60)}H ${String(left % 60).padStart(2, '0')}M${save.quests.streak > 1 ? ` · STREAK ${save.quests.streak}` : ''}</div></div>`);
+      <div class="qf">${dots(`NEW QUESTS IN ${hm(left * 60)}`, save.quests.streak > 1 ? `STREAK ${save.quests.streak}` : '')}</div></div>`);
   }
 }

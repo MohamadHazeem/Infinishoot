@@ -182,7 +182,7 @@ export interface ProfileReward {
   color?: string;
 }
 
-export const REWARD_KIND_NAME: Record<RewardKind, string> = { title: 'TITLE', banner: 'BANNER', hud: 'HUD THEME', hat: 'PET HAT', trail: 'TRAIL' };
+export const REWARD_KIND_NAME: Record<RewardKind, string> = { title: 'YOUR TITLE', banner: 'BANNER', hud: 'HUD THEME', hat: 'PET HAT', trail: 'TRAIL' };
 
 /** Level 1 owns the defaults (Rookie title, Navy banner, no hat or trail). */
 export const PROFILE_REWARDS: ProfileReward[] = [

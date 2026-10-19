@@ -31,7 +31,7 @@ export interface AchievementDef {
 export type AchievementTier = 'bronze' | 'silver' | 'gold';
 export type AchievementCat = 'combat' | 'bosses' | 'modes' | 'ascension' | 'coop' | 'skill' | 'builds' | 'world' | 'secrets' | 'profile' | 'classic';
 export const ACH_CATS: { id: AchievementCat; name: string }[] = [
-  { id: 'classic', name: 'UNLOCKS' },
+  { id: 'classic', name: 'ITEM UNLOCKS' },
   { id: 'combat', name: 'COMBAT' },
   { id: 'bosses', name: 'BOSSES' },
   { id: 'skill', name: 'SKILL' },

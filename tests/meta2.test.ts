@@ -178,15 +178,19 @@ let t = currentTally(g);
 ok(t.kills === 8 && t.k_fire === 5 && t.k_trail === 5 && t.k_elite === 1 && t.k_goldbug === 1 && t['e:swarmer'] === 5, `host counts kills by tag and enemy (${JSON.stringify(t)})`);
 ok(t.parries === 1 && t.cashIns === 1 && t.bosses === 1 && t.b_king === 1 && t['s:bossKinds:king'] === 1, 'hero events and bosses count');
 // Polling: a flawless stage clear and the run's facts.
-g.render(1, 1 / 60);
+const tick = () => {
+  meta2State(g).pollT = 0;
+  g.render(1, 1 / 60);
+};
+tick();
 g.stage = 2;
-g.render(1, 1 / 60);
+tick();
 t = currentTally(g);
 ok(t.stages === 1 && t.flawless === 1 && t['s:heroes:rookie'] === 1 && t['s:biomes:meadow'] === 1 && t['s:modes:standard'] === 1, `polling sees a flawless stage clear, hero, island and mode (${JSON.stringify(t)})`);
 h.player.hp -= 10;
-g.render(1, 1 / 60);
+tick();
 g.stage = 3;
-g.render(1, 1 / 60);
+tick();
 ok(currentTally(g).stages === 2 && currentTally(g).flawless === 1, 'a hit stage is not flawless');
 // The attract demo and training never count.
 const before = currentTally(g).kills;

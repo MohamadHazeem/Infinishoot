@@ -56,6 +56,8 @@ const EXTRA_PAGES = new Set(['jukebox', 'wardrobe', 'history', 'bestiary', 'rewa
 export const meta2Tuning = {
   /** Seconds between in-run achievement/quest checks. */
   checkEvery: 1,
+  /** Seconds between polls of this machine's hero (edges, peaks, sets). */
+  pollEvery: 0.1,
   /** Trail dust: seconds between puffs while moving, and minimum speed (m/s). */
   trailEvery: 0.07,
   trailSpeed: 2.5,
@@ -86,6 +88,7 @@ export interface Meta2Run {
   deadWas: boolean[];
   ev0: { standWins: number; closeCalls: number };
   checkT: number;
+  pollT: number;
   /** Quests already toasted this run. */
   questToasted: Set<string>;
   trailT: number;
@@ -118,7 +121,7 @@ export function meta2State(g: Game): Meta2Run {
     s = {
       active: false, banked: false, tallies: new Map(), local: {}, lastStage: 1, stageHit: false, lastHp: -1,
       superWas: false, comebackWas: false, mgWas: false, photoWas: false, shopWas: false, jackWas: false, goldenWas: false,
-      rhythmStage: false, pacifistStage: false, eventKind: '', deadWas: [], ev0: { standWins: 0, closeCalls: 0 }, checkT: 0,
+      rhythmStage: false, pacifistStage: false, eventKind: '', deadWas: [], ev0: { standWins: 0, closeCalls: 0 }, checkT: 0, pollT: 0,
       questToasted: new Set(), trailT: 0, trailI: 0, hatId: '', hat: null, hatPet: null, lastScreen: '', last: null, ui: null,
     };
     runs.set(g, s);
@@ -324,7 +327,8 @@ function finish(g: Game, t: RunTally, sum: RunSummary): RunTally {
 /** This machine's view of the running tally (authority counters merged in). */
 export function currentTally(g: Game): RunTally {
   const s = meta2State(g);
-  return g.role === 'client' ? { ...s.local } : mergeTally(s.local, s.tallies.get(g.hero));
+  // Kept even on a client: a PvP duel's clients counted their own stage as solo runs.
+  return mergeTally(s.local, s.tallies.get(g.hero));
 }
 
 // ---------------------------------------------------------------- achievements and quests
@@ -365,8 +369,7 @@ export function checkMeta2Achievements(g: Game | null, run: RunTally = {}): Achi
 
 /** The unlock toast (shared with the classic achievements in runFlow.checkAchievements). */
 export function achievementToast(g: Game, def: AchievementDef, unlock = ''): void {
-  const medal = def.tier === 'gold' ? '🥇' : def.tier === 'silver' ? '🥈' : '🥉';
-  g.hud.toast(`${medal} ${localize('ACHIEVEMENT')}: ${localize(def.name)}${unlock}`, 4);
+  g.hud.toast(`★ ${localize((def.tier ?? 'bronze').toUpperCase())} · ${localize(def.name)}${unlock}`, 4);
   if (!samples.play('achievement', { bus: 'ui', priority: 12 })) sfx.powerUp();
 }
 
@@ -518,12 +521,12 @@ function renderStrip(res: BankResult): void {
   const lv = levelOf(P.xp);
   const total = res.xp.total + res.questXp;
   const title = REWARD_BY_ID[P.equip.title]?.name ?? 'Rookie';
+  const why = [`TIME +${res.xp.time}`, `KILLS +${res.xp.kills}`, `BOSSES +${res.xp.bosses}`, `STAGES +${res.xp.stages}`, res.xp.coop ? `CO-OP +${res.xp.coop}` : '', res.questXp ? `QUESTS +${res.questXp}` : ''].filter(Boolean).join(' · ');
+  el.title = localize(why);
   const parts = [
-    `<div class="m2-row"><b class="m2-lv">LV ${lv.level}</b><span class="m2-title">${escapeHtml(localize(title).toUpperCase())}</span><span class="m2-xp">+${total} XP</span></div>`,
-    `<div class="m2-bar"><i style="width:${Math.round(lv.frac * 100)}%"></i></div>`,
-    `<small>${[`TIME +${res.xp.time}`, `KILLS +${res.xp.kills}`, `BOSSES +${res.xp.bosses}`, `STAGES +${res.xp.stages}`, res.xp.coop ? `CO-OP +${res.xp.coop}` : '', res.questXp ? `QUESTS +${res.questXp}` : ''].filter(Boolean).join(' · ')}</small>`,
+    `<div class="m2-row"><b class="m2-lv">LV ${lv.level}</b><span class="m2-title">${escapeHtml(localize(title).toUpperCase())}</span><div class="m2-bar"><i style="width:${Math.round(lv.frac * 100)}%"></i></div><span class="m2-xp">+${total} XP</span></div>`,
   ];
-  if (res.to > res.from) parts.push(`<div class="m2-up">PROFILE LEVEL UP! ${res.from} &#9654; ${res.to}${res.rewards.length ? ` · NEW: ${res.rewards.map((id) => escapeHtml(REWARD_BY_ID[id]?.name ?? id)).join(', ')}` : ''}</div>`);
+  if (res.to > res.from) parts.push(`<div class="m2-up"><span>PROFILE LEVEL UP!</span> ${res.from} &#9654; ${res.to}${res.rewards.length ? ` · <span>NEW</span>: ${res.rewards.map((id) => `<span>${escapeHtml(REWARD_BY_ID[id]?.name ?? id)}</span>`).join(', ')}` : ''}</div>`);
   el.innerHTML = localizeHtml(parts.join(''));
   el.hidden = false;
 }
@@ -536,7 +539,11 @@ export function meta2Frame(this: Game, dt: number): void {
   trackScreens(this, s);
   applyCosmetics(this, s, dt);
   if (!s.active || s.banked || blocked(this) || !this.isCombatMode) return;
-  poll(this, s, dt);
+  s.pollT -= dt;
+  if (s.pollT <= 0) {
+    s.pollT = meta2Tuning.pollEvery;
+    poll(this, s, dt);
+  }
   s.checkT -= dt;
   if (s.checkT > 0) return;
   s.checkT = meta2Tuning.checkEvery;
@@ -686,13 +693,13 @@ export function profileSummary(): ProfileSummary {
 
 const CSS = `
 html.m2-hud #timer .clock, html.m2-hud #xpbar .lv b, html.m2-hud #combo .mult { color: var(--m2-hud); }
-#scr-gameover .m2-strip { --bg: var(--night); --hi: var(--slate); --lo: var(--ink); margin: calc(2 * var(--p)) auto; padding: calc(3 * var(--p)) calc(4 * var(--p)); max-width: 560px; text-align: left; }
-#scr-gameover .m2-strip .m2-row { display: flex; gap: calc(3 * var(--p)); align-items: baseline; }
-#scr-gameover .m2-strip .m2-lv { font: 26px var(--display); color: var(--yellow); }
-#scr-gameover .m2-strip .m2-title { font: 12px var(--label); color: var(--cyan); letter-spacing: 1px; flex: 1; }
-#scr-gameover .m2-strip .m2-xp { font: 22px var(--display); color: var(--lime); }
-#scr-gameover .m2-strip small { font: 10px var(--label); color: var(--mist); letter-spacing: 1px; }
-#scr-gameover .m2-strip .m2-up { font: 18px var(--font); color: var(--yellow); margin-top: var(--p); animation: m2-blink 0.6s steps(2) 4; }
+#scr-gameover .m2-strip { --bg: var(--night); --hi: var(--slate); --lo: var(--ink); margin: var(--p) auto; padding: var(--p) calc(3 * var(--p)); width: min(560px, 90vw); box-sizing: border-box; text-align: start; }
+#scr-gameover .m2-strip .m2-row { display: flex; gap: calc(3 * var(--p)); align-items: center; }
+#scr-gameover .m2-strip .m2-lv { font: 22px var(--display); color: var(--yellow); white-space: nowrap; }
+#scr-gameover .m2-strip .m2-title { font: 11px var(--label); color: var(--cyan); letter-spacing: 1px; white-space: nowrap; }
+#scr-gameover .m2-strip .m2-bar { flex: 1; margin: 0; }
+#scr-gameover .m2-strip .m2-xp { font: 20px var(--display); color: var(--lime); white-space: nowrap; }
+#scr-gameover .m2-strip .m2-up { font: 16px var(--font); color: var(--yellow); animation: m2-blink 0.6s steps(2) 4; }
 .m2-bar { height: calc(2 * var(--p)); background: var(--ink); box-shadow: 0 0 0 calc(0.5 * var(--p)) var(--slate); margin: var(--p) 0; }
 .m2-bar i { display: block; height: 100%; background: var(--lime); }
 @keyframes m2-blink { 50% { color: var(--white); } }

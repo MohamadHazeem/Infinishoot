@@ -102,7 +102,7 @@ export class AchievementsScreen {
       .map((c) => `<button data-nav data-ac="cat" data-cat="${c.id}" class="${this.cat === c.id ? 'on' : ''}">${c.name}</button>`)
       .join('');
     this.el.innerHTML = localizeHtml(`<h1>ACHIEVEMENTS</h1>
-      <p class="ac-sum"><em>★ ${done.length} / ${ACHIEVEMENTS.length}</em> · GOLD ${by('gold')}/${total('gold')} · SILVER ${by('silver')}/${total('silver')} · BRONZE ${by('bronze')}/${total('bronze')} · ${localize('Cosmetic only: every run starts equal.')}</p>
+      <p class="ac-sum"><em>★ ${done.length} / ${ACHIEVEMENTS.length}</em> · <span>GOLD</span> ${by('gold')}/${total('gold')} · <span>SILVER</span> ${by('silver')}/${total('silver')} · <span>BRONZE</span> ${by('bronze')}/${total('bronze')} · <span>${localize('Cosmetic only: every run starts equal.')}</span></p>
       <div class="ac-tabs">${tabs}</div>
       <div class="scroll ac-wrap"><div class="ac-grid">${sorted.map((a) => this.card(a)).join('')}</div></div>
       <div class="menu row"><button data-nav data-ac="back">BACK</button></div>`);
