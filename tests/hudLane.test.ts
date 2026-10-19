@@ -21,7 +21,7 @@ const noop: any = new Proxy(function () {}, {
 // An old saved settings object without the new keys must load with their defaults.
 localStorage.setItem('infinishoot.settings.v1', JSON.stringify({ volume: 0.3, shake: 0.5 }));
 const { settings } = await import('../src/game/settings');
-ok(settings.volume === 0.3 && settings.uiScale === 100 && settings.damageNumbers === 'all' && settings.weather === true && settings.chargeMode === 'hold', 'old settings keep loading; new HUD settings get defaults');
+ok(settings.volume === 0.3 && settings.uiScale === 100 && settings.damageNumbers === 'auto' && settings.weather === true && settings.chargeMode === 'hold', 'old settings keep loading; new HUD settings get defaults');
 
 // ---------------------------------------------------------------- prompts
 const { padFamily, promptModeFor, promptText, promptHtml, prompt, refreshPrompts, promptState } = await import('../src/ui/prompts');

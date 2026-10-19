@@ -1,3 +1,4 @@
+import type { NoiseGovernor } from '../render/noiseGovernor';
 /**
  * In-game arcade HUD: XP bar and level, life, stage timer, score and combo,
  * kills and gold, boss bar, weapon/item loadout, dash and bomb meters,
@@ -201,6 +202,7 @@ export const fmtScore = (n: number) => Math.floor(n).toLocaleString('en-US');
 const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 export class Hud {
+  noise?: NoiseGovernor;
   private root: HTMLElement;
   private q: <T extends HTMLElement>(s: string) => T;
   private els: Record<string, HTMLElement> = {};
@@ -361,6 +363,7 @@ export class Hud {
   }
 
   flash(amount = 1): void {
+    amount = this.noise ? this.noise.flash(amount) : Math.min(0.2, amount);
     this.flashV = Math.max(this.flashV, amount * (access.reduceFlash ? 0.15 : 1));
   }
 

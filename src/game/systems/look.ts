@@ -1,3 +1,4 @@
+import { noiseFor } from '../../render/noiseGovernor';
 /**
  * The look pass: dynamic lights, night stages, outlines, shockwave and heat
  * distortion, and per-area grading, fed from game state every rendered frame.
@@ -101,6 +102,7 @@ function addWave(st: LookState, x: number, z: number, r: number, life: number, s
 /** Wrap Fx.ring / Fx.star (which every machine plays, host and client) so explosions also light and ripple. */
 function hookFx(game: Game, st: LookState): void {
   const fx = game.fx;
+  const noise = noiseFor(game.scene);
   st.fx = fx;
   const ring0 = fx.ring.bind(fx);
   const star0 = fx.star.bind(fx);
@@ -109,16 +111,17 @@ function hookFx(game: Game, st: LookState): void {
     if (grow < 1.2) return; // telegraphs and implosions shrink: no flash
     const R = 0.5 * size * grow;
     const T = lookTuning;
-    if (R < T.ringMin) return;
+    if (R < T.ringMin || !noise.take('lights')) return;
+    const clarity = noise.alpha(x, z);
     const col = color(st, c);
-    st.picker.flash(x, 1, z, R * 1.4 + 1.5, col.r, col.g, col.b, Math.min(1.6, 0.45 + R * 0.12), Math.max(0.18, life * 1.3));
-    if (R >= T.waveMin && life >= 0.15) addWave(st, x, z, R * 1.1, Math.min(0.7, Math.max(0.3, life * 1.2)), Math.min(1, 0.3 + R / 10));
+    st.picker.flash(x, 1, z, R * 1.4 + 1.5, col.r, col.g, col.b, Math.min(1.6, 0.45 + R * 0.12) * clarity, Math.max(0.18, life * 1.3));
+    if (R >= T.waveMin && life >= 0.15) addWave(st, x, z, R * 1.1, Math.min(0.7, Math.max(0.3, life * 1.2)), Math.min(1, 0.3 + R / 10) * clarity);
   };
   fx.star = (x, y, z, size, c = '#ffffff', life = 0.12) => {
     star0(x, y, z, size, c, life);
-    if (size < 1) return;
+    if (size < 1 || !noise.take('lights')) return;
     const col = color(st, c);
-    st.picker.flash(x, Math.max(0.6, y * 0.6), z, size * 1.6 + 1, col.r, col.g, col.b, Math.min(1.2, 0.35 + size * 0.15), Math.max(0.12, life * 1.5));
+    st.picker.flash(x, Math.max(0.6, y * 0.6), z, size * 1.6 + 1, col.r, col.g, col.b, Math.min(1.2, 0.35 + size * 0.15) * noise.alpha(x, z), Math.max(0.12, life * 1.5));
   };
 }
 

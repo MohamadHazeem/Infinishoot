@@ -1,3 +1,4 @@
+import { dangerLayer } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import type { EnemyDef } from '../data/enemies';
 import { commit } from '../render/instancing';
@@ -96,7 +97,7 @@ export class BossField {
   constructor(scene: THREE.Scene) {
     const add = <T extends THREE.Mesh>(m: T): T => {
       m.frustumCulled = false;
-      m.renderOrder = 1;
+      dangerLayer(m);
       scene.add(m);
       return m;
     };

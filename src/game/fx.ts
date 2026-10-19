@@ -1,3 +1,4 @@
+import { dangerLayer, fadeFriendlyMaterial, noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { commit } from '../render/instancing';
 import { retroGlobals } from '../render/retroMaterial';
@@ -36,16 +37,18 @@ function starGeometry(points: number, inner: number): THREE.BufferGeometry {
   return new THREE.ShapeGeometry(shape);
 }
 
-function makePool(scene: THREE.Scene, geo: THREE.BufferGeometry): FxPool {
+function makePool(scene: THREE.Scene, geo: THREE.BufferGeometry, warning = false): FxPool {
   const mat = new THREE.MeshBasicMaterial({
     transparent: true,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
+  if (!warning) fadeFriendlyMaterial(mat, noiseFor(scene));
   const mesh = new THREE.InstancedMesh(geo, mat, MAX);
   mesh.frustumCulled = false;
   mesh.renderOrder = 2;
+  if (warning) { mat.blending = THREE.NormalBlending; dangerLayer(mesh); }
   const colors: THREE.Color[] = [];
   for (let i = 0; i < MAX; i++) {
     colors.push(new THREE.Color());
@@ -60,6 +63,9 @@ function makePool(scene: THREE.Scene, geo: THREE.BufferGeometry): FxPool {
 export class Fx {
   private stars: FxPool;
   private rings: FxPool;
+  private warnings: FxPool;
+  private pools: FxPool[];
+  private groundPools: FxPool[];
   private m4 = new THREE.Matrix4();
   private q = new THREE.Quaternion();
   private qz = new THREE.Quaternion();
@@ -68,13 +74,20 @@ export class Fx {
   private zAxis = new THREE.Vector3(0, 0, 1);
   private c = new THREE.Color();
 
+  private noise: NoiseGovernor;
+
   constructor(scene: THREE.Scene) {
+    this.noise = noiseFor(scene);
     this.stars = makePool(scene, starGeometry(5, 0.42));
     this.rings = makePool(scene, new THREE.RingGeometry(0.42, 0.5, 24).rotateX(-Math.PI / 2));
+    this.warnings = makePool(scene, new THREE.RingGeometry(0.42, 0.5, 24).rotateX(-Math.PI / 2), true);
+    this.pools = [this.stars, this.rings, this.warnings];
+    this.groundPools = [this.rings, this.warnings];
   }
 
   private add(p: FxPool, x: number, y: number, z: number, size: number, life: number, color: THREE.ColorRepresentation, grow = 1) {
-    if (p.count >= MAX) return;
+    // Shrinking rings are telegraph cues: never spend the friendly-impact budget.
+    if (p.count >= MAX || (grow >= 1 && !this.noise.take('impacts'))) return;
     const i = p.count++;
     p.x[i] = x;
     p.y[i] = y;
@@ -94,15 +107,15 @@ export class Fx {
 
   /** Expanding ground shockwave from `size` to `size * grow`. */
   ring(x: number, z: number, size: number, grow: number, color: THREE.ColorRepresentation, life = 0.3) {
-    this.add(this.rings, x, 0.06, z, size, life, color, grow);
+    this.add(grow < 1 ? this.warnings : this.rings, x, 0.06, z, size, life, color, grow);
   }
 
   clear(): void {
-    this.stars.count = this.rings.count = 0;
+    this.stars.count = this.rings.count = this.warnings.count = 0;
   }
 
   update(dt: number): void {
-    for (const p of [this.stars, this.rings]) {
+    for (const p of this.pools) {
       for (let i = 0; i < p.count; i++) {
         p.t[i] += dt;
         if (p.t[i] < p.life[i]) continue;
@@ -134,16 +147,17 @@ export class Fx {
       st.mesh.setColorAt(i, this.c.copy(st.colors[i]).multiplyScalar(1 - k * k));
     }
     // Rings: ease-out expansion.
-    const rg = this.rings;
-    for (let i = 0; i < rg.count; i++) {
-      const k = rg.t[i] / rg.life[i];
-      const e = 1 - (1 - k) * (1 - k);
-      const sc = rg.size[i] * (1 + (rg.grow[i] - 1) * e);
-      this.m4.makeScale(sc, 1, sc).setPosition(rg.x[i], rg.y[i], rg.z[i]);
-      rg.mesh.setMatrixAt(i, this.m4);
-      rg.mesh.setColorAt(i, this.c.copy(rg.colors[i]).multiplyScalar(1 - k));
+    for (const rg of this.groundPools) {
+      for (let i = 0; i < rg.count; i++) {
+        const k = rg.t[i] / rg.life[i];
+        const e = 1 - (1 - k) * (1 - k);
+        const sc = rg.size[i] * (1 + (rg.grow[i] - 1) * e);
+        this.m4.makeScale(sc, 1, sc).setPosition(rg.x[i], rg.y[i], rg.z[i]);
+        rg.mesh.setMatrixAt(i, this.m4);
+        rg.mesh.setColorAt(i, this.c.copy(rg.colors[i]).multiplyScalar(1 - k));
+      }
     }
-    for (const p of [st, rg]) {
+    for (const p of this.pools) {
       p.mesh.count = p.count;
       commit(p.mesh.instanceMatrix, p.mesh.count);
       if (p.mesh.instanceColor) commit(p.mesh.instanceColor, p.mesh.count);

@@ -1,3 +1,4 @@
+import { beginReadability, renderReadability } from './readability2';
 import { weeklyChallenge } from '../../data/weekly';
 /**
  * Rendering: per-frame presentation, HUD, music and sky.
@@ -170,6 +171,7 @@ export function localAudio(this: Game, frameDt: number, frozen: boolean): void {
 
 export function render(this: Game, alpha: number, frameDt: number): void {
   lapStart();
+  beginReadability.call(this, frameDt);
   viewCull.update(this.cam.camera); // last frame's view, for the instanced pools' culling
   const client = this.role === 'client';
   const local = this.hero;
@@ -213,7 +215,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   }
   this.enemies.renderWalls = this.arena.colliders;
   this.enemies.renderBounds = this.arena.halfSize;
-  this.enemies.familyReduceFlash = settings.reduceFlash;
+  this.enemies.familyReduceFlash = settings.reduceFlash || !!this.juice.noise?.calm;
   this.enemies.familyColorblind = settings.colorblind;
   if (!held) this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
@@ -328,6 +330,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.worldFx(frameDt);
   lap('ren.worldfx');
   updateGraphics(this, frameDt); // graphics lane: destruction, anime look, water, fog, framing, customisation
+  renderReadability.call(this);
   lap('ren.graphics');
   this.hud.update(
     {

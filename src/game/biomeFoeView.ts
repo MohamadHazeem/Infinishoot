@@ -1,3 +1,4 @@
+import { dangerLayer } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { commit } from '../render/instancing';
 import { createRetroMaterial } from '../render/retroMaterial';
@@ -43,7 +44,7 @@ function decal(
   m.setColorAt(0, new THREE.Color('#ffffff'));
   m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   m.frustumCulled = false;
-  m.renderOrder = 1;
+  dangerLayer(m);
   m.count = 0;
   scene.add(m);
   return m;

@@ -1,3 +1,4 @@
+import { dangerLayer } from '../render/noiseGovernor';
 /**
  * The Titan (bosses lane, wave 1): an arena-sized colossus that climbs out of
  * the ground and fights from where it stands. Its torso and head are terrain
@@ -445,7 +446,7 @@ export class TitanView {
     for (let i = 0; i < 2; i++) {
       const m = new THREE.Mesh(secGeo, this.sectorMat);
       m.visible = false;
-      m.renderOrder = 1;
+      dangerLayer(m);
       m.frustumCulled = false;
       scene.add(m);
       this.sectors.push(m);
@@ -459,7 +460,7 @@ export class TitanView {
     for (const m of [this.beam, this.beamCore, this.aim]) {
       m.visible = false;
       m.frustumCulled = false;
-      m.renderOrder = 1;
+      dangerLayer(m);
       scene.add(m);
     }
     this.group.visible = false;

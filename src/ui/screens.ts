@@ -365,7 +365,7 @@ export class Screens {
     <button data-nav data-toggle="deathReplay">DEATH REPLAY <b></b></button>
     <button data-nav data-cycle="cinematics" data-opts="full,short,off">CINEMATICS <b></b></button>
     <label><span>UI SCALE <b class="set-val"></b></span><input data-nav type="range" min="75" max="150" step="25" data-set="uiScale" data-unit="%"></label>
-    <button data-nav data-cycle="damageNumbers" data-opts="all,mine,off">DAMAGE NUMBERS <b></b></button>
+    <button data-nav data-cycle="damageNumbers" data-opts="auto,all,mine,off">DAMAGE NUMBERS <b></b></button>
     <button data-nav data-cycle="chargeMode" data-opts="hold,toggle">CHARGE MODE <b></b></button>
     <button data-nav data-toggle="petSounds">PET SOUNDS <b></b></button>
     <button data-nav data-toggle="finishers">BOSS FINISHERS <b></b></button>

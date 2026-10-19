@@ -1,3 +1,4 @@
+import { noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
@@ -88,7 +89,10 @@ export class SoftFx {
   private sCol = new Float32Array(SPARKS * 3);
   private c = new THREE.Color();
 
+  private noise: NoiseGovernor;
+
   constructor(scene: THREE.Scene) {
+    this.noise = noiseFor(scene);
     const art = spriteTextures();
     this.puffs = new SpritePool(scene, { max: PUFFS, map: art.puff, mode: 'billboard', renderOrder: 3 });
     this.glow = new SpritePool(scene, { max: SPARKS, map: art.puff, mode: 'billboard', additive: true, renderOrder: 4 });
@@ -119,7 +123,7 @@ export class SoftFx {
   /** Billowing smoke: puffs drift out, rise, swell and fade. `size` ~ explosion radius. */
   smoke(x: number, y: number, z: number, count: number, size = 1, rand = Math.random, color: THREE.ColorRepresentation = '#dcd8ec'): void {
     const t = worldFxTuning;
-    const n = Math.max(1, Math.round(count * t.amount));
+    const n = this.noise.take('smoke', Math.round(count * t.amount));
     for (let k = 0; k < n; k++) {
       const a = rand() * Math.PI * 2;
       const sp = (0.4 + rand() * 1.0) * size;
@@ -145,7 +149,7 @@ export class SoftFx {
   /** Low dust kicked along the ground. `dir` biases it (e.g. behind a dash); omit for a ring. */
   dust(x: number, z: number, count: number, size: number, color: THREE.ColorRepresentation, rand = Math.random, dirX = 0, dirZ = 0, speed = 2.2): void {
     const t = worldFxTuning;
-    const n = Math.max(1, Math.round(count * t.amount));
+    const n = this.noise.take('smoke', Math.round(count * t.amount));
     const biased = dirX !== 0 || dirZ !== 0;
     const base = Math.atan2(dirZ, dirX);
     for (let k = 0; k < n; k++) {
@@ -171,7 +175,7 @@ export class SoftFx {
 
   /** Glowing sparks that arc, bounce and burn out. */
   sparks(x: number, y: number, z: number, count: number, color: THREE.ColorRepresentation, speed = 7, rand = Math.random): void {
-    const n = Math.round(count * worldFxTuning.amount);
+    const n = this.noise.take('particles', Math.round(count * worldFxTuning.amount));
     this.c.set(color);
     for (let k = 0; k < n; k++) {
       const i = this.sn < SPARKS ? this.sn++ : Math.floor(rand() * SPARKS);
@@ -282,7 +286,7 @@ export class SoftFx {
       const e = 1 - (1 - k) * (1 - k);
       const s = this.s0[i] + (this.s1[i] - this.s0[i]) * e;
       const a = this.a0[i] * (k < 0.08 ? k / 0.08 : k < 0.45 ? 1 : 1 - (k - 0.45) / 0.55);
-      p.push(this.x[i], this.y[i], this.z[i], s, this.col[i * 3], this.col[i * 3 + 1], this.col[i * 3 + 2], a, this.rot[i]);
+      p.push(this.x[i], this.y[i], this.z[i], s, this.col[i * 3], this.col[i * 3 + 1], this.col[i * 3 + 2], a * this.noise.alpha(this.x[i], this.z[i]), this.rot[i]);
     }
     p.end();
     const g = this.glow;
@@ -290,7 +294,7 @@ export class SoftFx {
     for (let i = 0; i < this.sn; i++) {
       const k = this.sAge[i] / this.sLife[i];
       const s = this.sSize[i] * (1 - k * 0.6);
-      g.push(this.sx[i], this.sy[i], this.sz[i], s, this.sCol[i * 3], this.sCol[i * 3 + 1], this.sCol[i * 3 + 2], 1 - k * k);
+      g.push(this.sx[i], this.sy[i], this.sz[i], s, this.sCol[i * 3], this.sCol[i * 3 + 1], this.sCol[i * 3 + 2], (1 - k * k) * this.noise.alpha(this.sx[i], this.sz[i]));
     }
     g.end();
   }
@@ -326,7 +330,10 @@ export class Particles {
   /** Short-lived ground marks (scorch, footprints). */
   readonly decals: Decals;
 
+  private noise: NoiseGovernor;
+
   constructor(scene: THREE.Scene) {
+    this.noise = noiseFor(scene);
     this.soft = new SoftFx(scene);
     this.debris = new Debris(scene);
     this.decals = new Decals(scene);
@@ -344,7 +351,7 @@ export class Particles {
     if (o.smoke || o.debris || o.sparks || o.dust) this.extras(x, y, z, o, rand);
     this.c1.set(o.color);
     this.c2.set(o.color2 ?? o.color);
-    const count = o.count <= 2 ? o.count : Math.ceil(o.count * renderQuality.particles);
+    const count = this.noise.take('particles', o.count <= 2 ? o.count : Math.ceil(o.count * renderQuality.particles));
     for (let n = 0; n < count && this.alive < MAX; n++) {
       const i = this.alive++;
       let a = rand() * Math.PI * 2;
@@ -436,7 +443,7 @@ export class Particles {
     this.decals.render();
     for (let i = 0; i < this.alive; i++) {
       const k = this.life[i] / this.maxLife[i];
-      const sc = this.size[i] * Math.min(1, k * 2.5);
+      const sc = this.size[i] * Math.min(1, k * 2.5) * Math.sqrt(this.noise.alpha(this.px[i], this.pz[i]));
       this.q.setFromEuler(this.e.set(this.spin[i], this.spin[i] * 0.7, 0));
       this.m4.compose(this.v.set(this.px[i], this.py[i], this.pz[i]), this.q, this.s.set(sc, sc, sc));
       this.mesh.setMatrixAt(i, this.m4);

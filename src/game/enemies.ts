@@ -1,3 +1,4 @@
+import { dangerLayer, dangerLineMaterial } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ENEMIES, familyTuning, type EnemyDef } from '../data/enemies';
@@ -775,12 +776,12 @@ class GroundDecals {
     // Line decal: unit length along +Z starting at the origin.
     this.lines = new THREE.InstancedMesh(
       new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0, 0, 0.5),
-      this.dangerMat,
-      64,
+      dangerLineMaterial(),
+      cap * 2,
     );
-    this.zones = new THREE.InstancedMesh(new THREE.RingGeometry(0.86, 1, 32).rotateX(-Math.PI / 2), this.dangerMat, 64);
+    this.zones = new THREE.InstancedMesh(new THREE.RingGeometry(0.86, 1, 32).rotateX(-Math.PI / 2), this.dangerMat, cap * 2);
     this.discMat = new THREE.MeshBasicMaterial({ color: '#ff2d4a', transparent: true, opacity: 0.3, depthWrite: false });
-    this.discs = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), this.discMat, 32);
+    this.discs = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), this.discMat, cap);
     this.auras = new THREE.InstancedMesh(
       new THREE.RingGeometry(0.78, 1, 6).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.85, depthWrite: false }),
@@ -798,14 +799,16 @@ class GroundDecals {
       m.renderOrder = 1;
       scene.add(m);
     }
+    dangerLayer(this.discs, 99);
+    for (const m of [this.lines, this.zones, this.markers]) dangerLayer(m);
   }
 
-  setPulse(time: number): void {
-    this.markerMat.opacity = 0.5 + 0.5 * Math.sin(time * 25);
-    this.dangerMat.opacity = 0.35 + 0.25 * Math.sin(time * 30);
-    this.discMat.opacity = 0.28 + 0.1 * Math.sin(time * 30);
-    this.bubbleMat.opacity = 0.26 + 0.08 * Math.sin(time * 9);
-    this.healMat.opacity = 0.45 + 0.3 * Math.sin(time * 22);
+  setPulse(time: number, calm = false): void {
+    this.markerMat.opacity = calm ? 0.7 : 0.7 + 0.1 * Math.sin(time * Math.PI * 4);
+    this.dangerMat.opacity = calm ? 0.8 : 0.8 + 0.08 * Math.sin(time * Math.PI * 4);
+    this.discMat.opacity = 0.18;
+    this.bubbleMat.opacity = calm ? 0.26 : 0.26 + 0.08 * Math.sin(time * 9);
+    this.healMat.opacity = calm ? 0.45 : 0.45 + 0.3 * Math.sin(time * 22);
   }
 }
 
@@ -1602,7 +1605,7 @@ export class Enemies {
     for (const b of this.batches.values()) b.mesh.count = 0;
     const d = this.decals;
     d.shadows.count = d.markers.count = d.lines.count = d.zones.count = d.discs.count = d.auras.count = d.bubbles.count = d.heals.count = d.mounds.count = d.copyBeams.count = 0;
-    d.setPulse(this.familyReduceFlash ? 0 : time);
+    d.setPulse(time, this.familyReduceFlash);
     (d.copyBeams.material as RetroMaterial).uniforms.uColor.value.set(this.familyColorblind ? '#ffffff' : '#b13eec');
     this.biomeView.begin();
     const fdt = this.lastTime < 0 ? 0 : Math.max(0, Math.min(0.05, time - this.lastTime));
@@ -1634,9 +1637,9 @@ export class Enemies {
           this.m4.makeScale(e.radius * 1.6, e.radius * 0.42 * rumble, e.radius * 1.3).setPosition(x, 0.13, z);
           d.mounds.setMatrixAt(d.mounds.count++, this.m4);
         }
-        if (e.familyState === 2 && d.zones.count < 62) {
+        if (e.familyState === 2 && d.zones.count < d.zones.instanceMatrix.count - 2) {
           this.m4.makeScale(e.def.burrow!.radius * e.scale, 1, e.def.burrow!.radius * e.scale).setPosition(e.targetX, 0.055, e.targetZ);
-          d.zones.setMatrixAt(d.zones.count++, this.m4);
+          if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
         }
         continue;
       }
@@ -1650,7 +1653,7 @@ export class Enemies {
           d.copyBeams.setMatrixAt(d.copyBeams.count++, this.m4);
         }
       }
-      if (e.def.special && e.state === 'windup' && e.familyState === 1 && d.lines.count < 64) {
+      if (e.def.special && e.state === 'windup' && e.familyState === 1 && d.lines.count < d.lines.instanceMatrix.count) {
         this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
         this.m4.compose(this.v.set(Math.abs(e.lungeX) > 0.5 ? -this.renderBounds : e.targetX, 0.055, Math.abs(e.lungeZ) > 0.5 ? -this.renderBounds : e.targetZ), this.q, this.s.set(1.2, 1, this.renderBounds * 2));
         d.lines.setMatrixAt(d.lines.count++, this.m4);
@@ -1671,27 +1674,27 @@ export class Enemies {
           this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
           const w = e.t < 0.3 ? 0.3 : 0.12;
           this.m4.compose(this.v.set(x, 0.05, z), this.q, this.s.set(w, 1, 20));
-          d.lines.setMatrixAt(d.lines.count++, this.m4);
+          if (d.lines.count < d.lines.instanceMatrix.count) d.lines.setMatrixAt(d.lines.count++, this.m4);
         } else if (e.def.behavior === 'charger' || ((e.def.behavior === 'rex' || e.def.behavior === 'omega') && e.action === 'charge')) {
           const C = e.def.charge ?? { speed: 24, duration: 0.5 };
           const len = C.speed * C.duration + 1;
           this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
           this.m4.compose(this.v.set(x, 0.04, z), this.q, this.s.set(e.radius * 1.6, 1, len));
-          d.lines.setMatrixAt(d.lines.count++, this.m4);
+          if (d.lines.count < d.lines.instanceMatrix.count) d.lines.setMatrixAt(d.lines.count++, this.m4);
         } else if (e.def.behavior === 'exploder') {
           const F = e.def.fuse!;
           const k = 1 - e.t / aggro(e, F.time, true);
           sx *= 1 + k * 0.35;
           sy *= 1 + k * 0.35;
           this.m4.makeScale(F.radius, 1, F.radius).setPosition(x, 0.05, z);
-          d.zones.setMatrixAt(d.zones.count++, this.m4);
+          if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
         }
       }
       // Leaper landing ring (filled while it's in the air) and the medic's heal pulse.
-      if (e.def.leap && (e.state === 'windup' || e.state === 'attack') && d.discs.count < 32 && d.zones.count < 62) {
+      if (e.def.leap && (e.state === 'windup' || e.state === 'attack') && d.discs.count < d.discs.instanceMatrix.count && d.zones.count < d.zones.instanceMatrix.count - 2) {
         const lr = e.def.leap.radius * e.scale;
         this.m4.makeScale(lr, 1, lr).setPosition(e.targetX, 0.05, e.targetZ);
-        d.zones.setMatrixAt(d.zones.count++, this.m4);
+        if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
         if (e.state === 'attack') {
           this.m4.setPosition(e.targetX, 0.045, e.targetZ);
           d.discs.setMatrixAt(d.discs.count++, this.m4);
@@ -1704,7 +1707,7 @@ export class Enemies {
       }
       if ((e.def.behavior === 'boss' || e.def.behavior === 'omega') && e.action === 'slam' && (e.state === 'windup' || e.state === 'attack')) {
         this.m4.makeScale(3.8, 1, 3.8).setPosition(e.targetX, 0.05, e.targetZ);
-        d.zones.setMatrixAt(d.zones.count++, this.m4);
+        if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
       }
 
       // Off screen: no body, shadow or aura (telegraphs above still draw; they can be long).
@@ -1771,7 +1774,7 @@ export class Enemies {
     this.biomeView.end(time);
 
     for (const zn of this.zones) {
-      if (d.zones.count >= 62 || d.discs.count >= 32) break;
+      if (d.zones.count >= d.zones.instanceMatrix.count - 2 || d.discs.count >= d.discs.instanceMatrix.count) break;
       this.m4.makeScale(zn.r, 1, zn.r).setPosition(zn.x, 0.045, zn.z);
       d.discs.setMatrixAt(d.discs.count++, this.m4);
       this.m4.makeScale(zn.r, 1, zn.r).setPosition(zn.x, 0.05, zn.z);
