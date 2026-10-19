@@ -1,11 +1,12 @@
+import { biome3Defs } from './biome3';
 import { secretBossDefs } from './secrets';
 import { raidDefs } from '../game/raid/defs';
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
 import { bossLaneDefs, type RemixFlags } from './bossRemix';
 import { BIOME_BOSSES, BIOME_MINIS, bosses3Defs } from './bosses3';
 import { biomeForStage } from './biomes';
-export type Behavior = 'pumpking' | 'ghost' | 'titan' | 'titanpart' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior | 'glitch' | 'boxer' | 'gale';
-export type Model = 'pumpkin' | 'pumpking' | 'ghost' | 'bat' | 'witch' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel | 'dj' | 'jack' | 'airship';
+export type Behavior = 'cake' | 'kraken' | 'jellyfish' | 'pumpking' | 'ghost' | 'titan' | 'titanpart' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior | 'glitch' | 'boxer' | 'gale';
+export type Model = 'cake' | 'kraken' | 'gummy' | 'jellyfish' | 'pumpkin' | 'pumpking' | 'ghost' | 'bat' | 'witch' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel | 'dj' | 'jack' | 'airship';
 /** Biome-native enemies (src/game/biomeFoes.ts): one per biome. */
 export type BiomeBehavior = 'diver' | 'shark' | 'roller' | 'slug' | 'marcher' | 'kite';
 export type BiomeModel = 'bee' | 'shark' | 'snowball' | 'slug' | 'soldier' | 'kite';
@@ -1023,6 +1024,7 @@ Object.assign(ENEMIES, raidDefs());
 Object.assign(ENEMIES, bossLaneDefs(ENEMIES));
 // Biome bosses, their mini-bosses and minions (src/data/bosses3.ts).
 Object.assign(ENEMIES, bosses3Defs());
+Object.assign(ENEMIES, biome3Defs());
 Object.assign(ENEMIES, secretBossDefs(ENEMIES));
 
 /** Every enemy's hit material (veterans use their base enemy's). Unlisted enemies sound like flesh. */

@@ -1,3 +1,4 @@
+import type { Biome3Net } from './systems/biome3';
 import { dangerLayer } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import type { EnemyDef } from '../data/enemies';
@@ -10,6 +11,7 @@ import type { Bosses3Net } from './bosses3Field';
 
 /** A slam shockwave: a ring wall expanding from (x, z). `hit` = bitmask of heroes it already hit. */
 export interface Shockwave {
+  color?: string;
   x: number;
   z: number;
   r: number;
@@ -31,12 +33,13 @@ export interface FirePatch {
 
 /** What clients get each snapshot (see BossField.pack / unpack). */
 export interface BossNet {
+  bi3?: Biome3Net;
   /** Bosses and mini-bosses: uid, phase, move index, roaring (0/1), intro seconds left. */
   b: [number, number, number, number, number][];
   /** Mini-boss bar: name, hp01, phase, def id. */
   m: [string, number, number, string] | null;
   /** Shockwaves: x, z, radius, delay. */
-  w: [number, number, number, number][];
+  w: [number, number, number, number, string?][];
   /** Fire: x, z, radius, seconds left. */
   f: [number, number, number, number][];
   /** The Titan and the boss duel (src/game/systems/bossLane.ts). */
@@ -156,7 +159,7 @@ export class BossField {
     return {
       b: bosses.map((e) => [e.uid, e.phase, Math.max(0, BOSS_MOVES.indexOf(e.move as never)), e.roarT > 0 ? 1 : 0, r2(introLeft(e))]),
       m: mini ? [mini.def.name, r2(Math.max(0, mini.hp / mini.maxHp)), mini.phase, mini.def.id] : null,
-      w: this.waves.map((w) => [r2(w.x), r2(w.z), r2(w.r), r2(w.delay)]),
+      w: this.waves.map((w) => w.color ? [r2(w.x), r2(w.z), r2(w.r), r2(w.delay), w.color] : [r2(w.x), r2(w.z), r2(w.r), r2(w.delay)]),
       f: this.fires.map((f) => [r2(f.x), r2(f.z), r2(f.r), r2(f.t)]),
     };
   }
@@ -173,7 +176,7 @@ export class BossField {
     }
     this.netMini = n.m;
     this.waves.length = 0;
-    for (const [x, z, r, delay] of n.w) this.waves.push({ x, z, r, delay, dmg: 0, hit: 0, cause: '' });
+    for (const [x, z, r, delay, color] of n.w) this.waves.push({ x, z, r, delay, dmg: 0, hit: 0, cause: '', color });
     this.fires.length = 0;
     for (const [x, z, r, t] of n.f) this.fires.push({ x, z, r, t, dmg: 0, tick: 0 });
   }
@@ -202,7 +205,7 @@ export class BossField {
         const h = fade * (0.8 + 0.35 * Math.sin(time * 18 + i * 0.9));
         this.m4.compose(this.v.set(w.x + Math.cos(a) * w.r, 0, w.z + Math.sin(a) * w.r), this.q, this.s.set(width, h, 1));
         this.segs.setMatrixAt(n, this.m4);
-        this.segs.setColorAt(n++, this.c.set(i % 2 ? '#ffcd75' : '#ef7d57'));
+        this.segs.setColorAt(n++, this.c.set(w.color ? (i % 2 ? '#fff1df' : w.color) : (i % 2 ? '#ffcd75' : '#ef7d57')));
       }
     }
     this.segs.count = n;

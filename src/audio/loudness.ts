@@ -710,6 +710,11 @@ export const SYNTH_GAINS: Readonly<Record<string, number>> = {
   "whoosh": 1.99526
 };
 export const MUSIC_GAINS: Readonly<Record<string, number>> = {
+  "candy": 1,
+  "ruins": 1.10917,
+  "cake": 0.78524,
+  "kraken": 0.89125,
+
   "boss": 0.66834,
   "boxer": 0.63096,
   "dunes": 1.09648,

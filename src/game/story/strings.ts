@@ -1,5 +1,7 @@
+import { biome3StoryEn, biome3StoryAr } from '../../i18n/biome3';
 /** Story copy is kept together for translation and content review. */
 export const storyEn = {
+  ...biome3StoryEn,
   'story.menu': 'STORY',
   'story.intro': 'THE ISLANDS NEED YOU',
   'story.replay': 'PLAY INTRO',
@@ -184,6 +186,7 @@ export const storyEn = {
 } as const;
 
 export const storyAr = {
+  ...biome3StoryAr,
   'story.menu': 'القصة',
   'story.intro': 'الجزر بحاجة إليك',
   'story.replay': 'شاهد المقدمة',

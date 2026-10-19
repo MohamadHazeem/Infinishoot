@@ -1,3 +1,5 @@
+import { biome3Model } from './biome3Models';
+import { jellyfishBrain } from './biome3Brain';
 import { addBiomeParts, biomePaint, biomeSkinKey, bossDamageMaterial, hasBiomeSkin, hasBossDamage, modelDetail, type BiomeSkinKey } from '../render/biomeSkins';
 import { dangerLayer, dangerLineMaterial } from '../render/noiseGovernor';
 import { halloweenModel, pumpkinBrain, ghostMaterial, halloweenMotion } from './systems/halloween';
@@ -145,6 +147,7 @@ export const director2Hooks: {
  * authored around its def's radius so variants (e.g. Zippy vs Bopper) scale.
  */
 function buildModel(def: EnemyDef, add: Part): void {
+  if (biome3Model(def, add)) return;
   if (halloweenModel(def, add)) return;
   director2Hooks.model?.(def, add);
   const r = def.radius;
@@ -524,10 +527,10 @@ export function enemyGeometry(def: EnemyDef, biome: BiomeSkinKey = 'meadow'): TH
   };
   buildModel(def, (g, color, x, y, z) => add(g, skinned ? biomePaint(color, def, biome) : color, x, y, z));
   if (skinned) addBiomeParts(def, biome, add);
-  if (damage) addBossDetails(def, add);
+  if (damage && def.model !== 'cake') addBossDetails(def, add);
   // Keep damage-only shards out of the inverted hull (the body retains its own outline).
-  if (damage) parts.sort((a, b) => Number(a.getAttribute('modelDetail').getX(0) > 0) - Number(b.getAttribute('modelDetail').getX(0) > 0));
-  const outlineCount = damage ? parts.reduce((n, g) => n + (g.getAttribute('modelDetail').getX(0) > 0 ? 0 : g.getAttribute('position').count), 0) : undefined;
+  if (damage) parts.sort((a, b) => Number(a.getAttribute('modelDetail').getX(0) !== 0) - Number(b.getAttribute('modelDetail').getX(0) !== 0));
+  const outlineCount = damage ? parts.reduce((n, g) => n + (g.getAttribute('modelDetail').getX(0) !== 0 ? 0 : g.getAttribute('position').count), 0) : undefined;
   const merged = mergeGeometries(parts)!;
   geo = mergeVertices(merged);
   if (outlineCount !== undefined) geo.userData.modelOutlineCount = outlineCount;
@@ -1234,6 +1237,10 @@ export class Enemies {
     let wantZ = 0;
     let rigid = false;
     switch (e.def.behavior) {
+      case 'jellyfish':
+        jellyfishBrain(e, dt, ctx, nx, nz, dist, speed);
+        wantX = e.vx; wantZ = e.vz;
+        break;
       case 'pumpking':
         pumpkinBrain(e, dt, ctx, nx, nz, dist, speed);
         wantX = e.vx; wantZ = e.vz; rigid = true;
@@ -1583,6 +1590,8 @@ export class Enemies {
       case 'omega':
       case 'titan': // the Titan and its weak points (src/game/titan.ts)
       case 'titanpart':
+      case 'cake':
+      case 'kraken':
       case 'glitch': // biome bosses (src/game/bosses3.ts)
       case 'boxer':
       case 'gale':

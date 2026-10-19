@@ -1,6 +1,8 @@
+import { biome3En } from './biome3';
 import { storyEn } from '../game/story/strings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  ...biome3En,
   "clips.title": "HIGHLIGHT CLIPS",
   "clips.hint": "Silent gameplay · Save the last 15 seconds:",
   "clips.empty": "Highlights appear here after big moments. Enable HIGHLIGHT CLIPS and use MEDIUM quality or higher.",

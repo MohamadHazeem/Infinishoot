@@ -153,6 +153,8 @@ export function gaitOf(model: Model): Gait {
       return 'stomp';
     case 'exploder':
       return 'waddle';
+    case 'gummy':
+    case 'cake':
     case 'splitter':
       return 'jiggle';
     case 'spawner':
@@ -185,6 +187,8 @@ export function gaitOf(model: Model): Gait {
     case 'kite':
       return 'hover';
     case 'dj':
+    case 'jellyfish':
+    case 'kraken':
     case 'airship':
       return 'hover';
     case 'jack':

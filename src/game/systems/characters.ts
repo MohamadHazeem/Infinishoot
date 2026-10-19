@@ -37,6 +37,8 @@ export const charDebug = { holdAt: -1, face: '' as Expression | '' };
 
 /** What bosses say when they pop in. */
 export const BOSS_LINES: Record<string, { intro: string; phase: string[]; gloat: string }> = {
+  cake: { intro: 'TIME FOR DESSERT!', phase: ['LESS CAKE, MORE FURY!', 'BLOW OUT THE CANDLES!'], gloat: 'A PIECE OF CAKE!' },
+  kraken: { intro: 'THE DEEP REMEMBERS!', phase: ['LIGHTS OUT!', 'ALL TIDES LEAD TO ME!'], gloat: 'BACK TO THE SHALLOWS!' },
   king: { intro: 'BOW BEFORE THE BOUNCE!', phase: ['ROYAL GUARD, SLAM!', 'OFF WITH YOUR HEAD!'], gloat: 'LONG LIVE THE KING!' },
   rex: { intro: 'NO WALL CAN STOP ME!', phase: ['RAMPAGE TIME!', 'FEEL THE FIRE!'], gloat: 'FLATTENED!' },
   queen: { intro: 'MY SWARM HUNGERS...', phase: ['HATCH, MY DARLINGS!', 'THERE IS NO GAP!'], gloat: 'BACK TO THE HIVE!' },

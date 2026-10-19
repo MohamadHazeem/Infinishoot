@@ -6,6 +6,8 @@ export type ModelPart = (g: THREE.BufferGeometry, color: string, x: number, y: n
 
 /** Vertex paint is baked only at arena changes; white eyes and telegraph colours stay untouched. */
 export const BIOME_SKINS = {
+  candy: { body: '#ff7eb6', trim: '#a7f070', mix: 0.48 },
+  ruins: { body: '#38b7a1', trim: '#73eff7', mix: 0.42 },
   meadow: { body: '#a7f070', trim: '#ffcd75', mix: 0.18 },
   'meadow:haunted': { body: '#b13eec', trim: '#a7f070', mix: 0.32 },
   'meadow:autumn': { body: '#ef7d57', trim: '#ffcd75', mix: 0.36 },
@@ -83,7 +85,7 @@ export function addBiomeParts(def: EnemyDef, key: BiomeSkinKey, add: ModelPart):
 
 /** The four original bosses (and their rematches/minis) share this cheap material extension. */
 export function hasBossDamage(def: EnemyDef): boolean {
-  return ['king', 'rex', 'queen', 'omega'].includes(def.model);
+  return ['king', 'rex', 'queen', 'omega', 'cake'].includes(def.model);
 }
 
 /** Detail.x: HP fraction below which the part appears; detail.y: steady emissive strength. */
@@ -109,6 +111,7 @@ export function bossDamageMaterial(mat: RetroMaterial): void {
     in vec2 vModelDetail;
     in float vModelHealth;
     void main() {
+      if (vModelDetail.x < 0.0 && vModelHealth <= -vModelDetail.x + 0.5 / 255.0) discard;
       if (vModelDetail.x > 0.0 && vModelHealth > vModelDetail.x + 0.5 / 255.0) discard;
   `).replace('col = mix(col, uFlash.rgb, uFlash.a);', `
     col = mix(col, base.rgb, vModelDetail.y);

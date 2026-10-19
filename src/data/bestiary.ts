@@ -1,5 +1,13 @@
 /** Enemy guide tips, by enemy id (shown once you've met the enemy). */
 export const ENEMY_TIPS: Record<string, string> = {
+  cake: "Dash through frosting waves. Sidestep candle fireballs; each broken layer speeds up the next attack.",
+  kraken: "Leave the marked tentacle circles. Keep moving through ink, and dash against the whirlpool.",
+  cupcake: "Two sweet layers, two angry phases. Dash through the frosting rings.",
+  princeling: "Watch for tentacle rings and keep moving when the ink arrives.",
+  gummy: "A slow brute that splits into three little gummies. Save some area damage for the pieces.",
+  gumlet: "Fast little leftovers. Keep your distance and sweep them up together.",
+  jellyfish: "Drifts sideways, then glows before sending a ring of zaps. Walk between the shots.",
+
   bastion: 'Its tall green gate shields a wider crowd than a Shield Bot. It turns slowly; circle behind the gate.',
   blinksniper: 'A cyan ring marks its next perch. It blinks, then aims a fresh red line. Strafe after it lands.',
   bombcourier: 'The orange courier carries twin bomb canisters. Its long fuse gives you time to dash clear or shoot the fragile pack.',
@@ -50,7 +58,7 @@ export const ENEMY_TIPS: Record<string, string> = {
 };
 
 /** Fallback names for biomes this build might not define yet. */
-const BIOME_NAMES: Record<string, string> = { meadow: 'Bright Meadow', dunes: 'Sunset Dunes', peaks: 'Frosty Peaks', magma: 'Magma Isle', neon: 'Neon City', factory: 'Toy Factory', sky: 'Sky Fortress' };
+const BIOME_NAMES: Record<string, string> = { candy: 'Candy Kingdom', ruins: 'Sunken Ruins', meadow: 'Bright Meadow', dunes: 'Sunset Dunes', peaks: 'Frosty Peaks', magma: 'Magma Isle', neon: 'Neon City', factory: 'Toy Factory', sky: 'Sky Fortress' };
 
 /** Where a biome-native enemy lives, for the Enemy Guide ('' for everyone else). */
 export function enemyHome(biomes: string[] | undefined, name: (id: string) => string | undefined = () => undefined): string {

@@ -1,3 +1,4 @@
+import { addBiome3Arena, biome3Tree, biome3Kelp } from './biome3Arena';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Rng } from '../core/rng';
@@ -421,6 +422,7 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
       m.rotation.set(0, ry, rz);
       g.add(m);
     };
+    if (biome3Tree(biome.id, g, s)) return g;
     if (biome.tree === 'round') {
       add(new THREE.CylinderGeometry(0.25, 0.35, 1.6, 6), trunkMat, 0, 0.8, 0);
       add(new THREE.IcosahedronGeometry(1.3 * s, 0), leafMat, 0, 2.2 + 0.4 * s, 0, 0, rng.range(0, Math.PI));
@@ -909,10 +911,13 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
     });
   }
 
+  if (!L) addBiome3Arena(biome.id, seed, group, hazards, conveyors);
+
   // Hundreds of props -> one draw call per material.
   mergeStatic(group);
   // Animated scenery stays out of the merge (and off the layout rng).
   const anim = biome.decor ? buildDecor(biome.decor, group, new Rng(seed ^ 0xdec0), HALF) : [];
+  anim.push(...biome3Kelp(biome.id, seed, group));
   return { group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors, seed, props, pads, turrets, spots, deco, anim };
 }
 

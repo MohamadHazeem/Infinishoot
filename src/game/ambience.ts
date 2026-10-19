@@ -78,6 +78,8 @@ interface WeatherStyle {
 }
 
 const STYLES: Record<Weather, WeatherStyle> = {
+  sprinkles: { count: 110, colors: ['#ff7eb6', '#ffcd75', '#73eff7', '#a7f070'], w: 24, d: 18, y: [0, 10], vel: [0.25, -0.9, 0.1], wobble: 0.6, size: [0.055, 0.055, 0.18] },
+  bubbles: { count: 85, colors: ['#73eff7', '#c8f8f0', '#41a6f6'], w: 24, d: 18, y: [0, 9], vel: [0.2, 0.85, 0.1], wobble: 0.5, size: [0.1, 0.1, 0.1] },
   pollen: { count: 90, colors: ['#fff4a0', '#ffffff', '#ffd6f0'], w: 24, d: 18, y: [0.4, 4], vel: [0.35, 0.05, 0.15], wobble: 0.6, size: [0.07, 0.07, 0.07] },
   sand: { count: 170, colors: ['#ffd0a0', '#ffb36b', '#ffe9c4'], w: 26, d: 18, y: [0.15, 2.6], vel: [9, 0, 1.5], wobble: 0.4, size: [0.55, 0.035, 0.035] },
   snow: { count: 240, colors: ['#ffffff', '#d8f0ff', '#f4f4f4'], w: 24, d: 18, y: [0, 12], vel: [0.5, -1.3, 0.2], wobble: 0.5, size: [0.09, 0.09, 0.09] },
