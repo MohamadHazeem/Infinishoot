@@ -1,3 +1,4 @@
+import { ELITES2_HISTORY_SIZE, recordElites2, restoreElites2 } from './systems/elites2';
 /**
  * Time lane: a compact ring buffer of the world, recorded a few times a
  * second (timeTuning.recordHz) on solo and host machines. It feeds the
@@ -44,9 +45,10 @@ const E = {
   lungeX: 26, lungeZ: 27, facing: 28, phase: 29, timerA: 30, timerB: 31, hopY: 32, fromX: 33, fromZ: 34, targetX: 35, targetZ: 36,
   burst: 37, spin: 38, step: 39, roarT: 40, twistT: 41, modT: 42, leaderUid: 43, speedMul: 44, dmgMul: 45, scale: 46, radius: 47,
   strafe: 48, flank: 49, familyState: 50, sub: 51, tickT: 52, slot: 53, aiBits: 54, coverX: 55, coverZ: 56, coverT: 57, reroute: 58,
+  mod2: 65, phaseOut: 66, eliteAge: 67, eliteSummonT: 68, eliteFrostT: 69, elitePulseT: 70, eliteHits: 71, eliteRageSpeed: 72, eliteRageDamage: 73,
   rallyT: 59, rallyCd: 60, scatterT: 61, guardT: 62, guardAng: 63, blockT: 64,
 } as const;
-const EN = 65;
+const EN = 74;
 const B_ELITE = 1, B_ENRAGED = 2, B_UNDER = 4, B_COVER = 8, B_FLED = 16;
 
 /** Per bullet. */
@@ -88,6 +90,7 @@ function growU32(a: Uint32Array, need: number): Uint32Array {
 
 /** One recorded moment. */
 export class TimeFrame {
+  readonly el2 = new Float32Array(ELITES2_HISTORY_SIZE);
   /** Run time it was taken (Game.runTime). */
   t = 0;
   readonly team = new Float64Array(TEAM_N);
@@ -230,6 +233,7 @@ export class Timeline {
     }
     this.stamp++;
     f.t = g.runTime;
+    recordElites2(g, f.el2);
     const T = f.team;
     T[T_SCORE] = g.score;
     T[T_KILLS] = g.kills;
@@ -347,6 +351,15 @@ export class Timeline {
   private putEnemy(a: Float32Array, o: number, e: Enemy): void {
     a[o + E.def] = this.def(e.def);
     a[o + E.mod] = this.mod(e.mod);
+    a[o + E.mod2] = this.mod(e.mod2);
+    a[o + E.eliteAge] = e.eliteAge;
+    a[o + E.eliteSummonT] = e.eliteSummonT;
+    a[o + E.eliteFrostT] = e.eliteFrostT;
+    a[o + E.elitePulseT] = e.elitePulseT;
+    a[o + E.eliteHits] = e.eliteHits;
+    a[o + E.eliteRageSpeed] = e.eliteRageSpeed;
+    a[o + E.eliteRageDamage] = e.eliteRageDamage;
+    a[o + E.phaseOut] = e.phaseOut ? 1 : 0;
     a[o + E.state] = this.str(e.state);
     a[o + E.action] = this.str(e.action);
     a[o + E.move] = this.str(e.move);
@@ -413,6 +426,15 @@ export class Timeline {
   }
 
   private takeEnemy(a: Float32Array, o: number, e: Enemy): void {
+    e.mod2 = this.mods[a[o + E.mod2]] ?? null;
+    e.phaseOut = !!a[o + E.phaseOut];
+    e.eliteAge = a[o + E.eliteAge];
+    e.eliteSummonT = a[o + E.eliteSummonT];
+    e.eliteFrostT = a[o + E.eliteFrostT];
+    e.elitePulseT = a[o + E.elitePulseT];
+    e.eliteHits = a[o + E.eliteHits];
+    e.eliteRageSpeed = a[o + E.eliteRageSpeed];
+    e.eliteRageDamage = a[o + E.eliteRageDamage];
     e.state = this.strs[a[o + E.state]] as EnemyState;
     e.action = this.strs[a[o + E.action]] as BossAction;
     e.move = this.strs[a[o + E.move]] ?? '';
@@ -493,6 +515,7 @@ export class Timeline {
    */
   restore(g: Game, f: TimeFrame, mode: RestoreMode, next: TimeFrame | null = null, k = 0): void {
     const full = mode === 'full';
+    restoreElites2(g, f.el2);
     // ---- heroes
     for (let i = 0; i < f.heroN && i < g.heroes.length; i++) {
       const h = g.heroes[i];

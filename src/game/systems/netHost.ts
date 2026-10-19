@@ -1,3 +1,4 @@
+import { elites2Net } from './elites2';
 import { trialsNet } from './trials';
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
@@ -237,6 +238,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[], vie
     boss,
     team: { level: this.level, xp01: r2(this.xp / this.xpNext), score: this.score, combo: this.combo, combo01: r2(this.combo > 0 ? Math.max(0, this.comboT / scoreTuning.comboWindow) : 0), kills: this.kills, time: r2(this.runTime) },
     cu: this.curses,
+    el2: elites2Net(this),
     sev: this.runEvents.event ? [this.runEvents.event.id, r2(this.runEvents.event.t)] : null,
     sch: this.runEvents.challenge ? [this.runEvents.challenge.text, this.runEvents.challenge.cur, this.runEvents.challenge.max, this.runEvents.challenge.done] : null,
     bf: [r2(this.runEvents.frenzyT), r2(this.runEvents.overdriveT)],

@@ -13,7 +13,7 @@ import type { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
 import type { AABB } from '../world/collision';
 import { commit, instanceMatrix } from '../render/instancing';
 import { viewCull } from '../render/viewCull';
-import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
+import { ELITE_MODS, elites2Tuning, type EliteModDef, type EliteModId } from '../data/eliteMods';
 import { Corpses, EnemyAnim, poseEnemy, type EnemyPose } from './enemyAnim';
 import { updateFamily, copyFan, beamReach, type FamilyApi } from './systems/enemyFamilies';
 import { bossTuning, updateBoss, type BossApi } from './bosses';
@@ -577,6 +577,15 @@ export class Enemy {
   elite = false;
   /** Elite modifier, if any (src/data/eliteMods.ts). */
   mod: EliteModDef | null = null;
+  mod2: EliteModDef | null = null;
+  phaseOut = false;
+  eliteAge = 0;
+  eliteSummonT = elites2Tuning.summonEvery;
+  eliteFrostT = 0;
+  elitePulseT = 0;
+  eliteHits = 0;
+  eliteRageSpeed = 1;
+  eliteRageDamage = 1;
   /** Shielded elites: hit points the shield still absorbs (clients only use > 0). */
   shield = 0;
   /** Id of the last bomb wave that hit this enemy (each bomb hits once). */
@@ -717,6 +726,11 @@ export class Enemy {
       this.hp = this.maxHp = Math.round(this.maxHp * (this.mod.hpMul ?? 1));
       this.speedMul *= this.mod.speedMul ?? 1;
     }
+    this.mod2 = null;
+    this.phaseOut = false;
+    this.eliteAge = this.eliteFrostT = this.elitePulseT = this.eliteHits = 0;
+    this.eliteSummonT = elites2Tuning.summonEvery;
+    this.eliteRageSpeed = this.eliteRageDamage = 1;
     this.shield = Math.round(this.maxHp * (this.mod?.shield ?? 0));
     this.modT = this.mod?.teleport ?? 0;
     this.bombStamp = 0;
@@ -755,10 +769,10 @@ export class Enemy {
   }
 
   get underground(): boolean { return !!this.def.burrow && (this.familyState === 1 || this.familyState === 2); }
-  get targetable(): boolean { return this.alive && !this.underground; }
+  get targetable(): boolean { return this.alive && !this.underground && !this.phaseOut; }
 
   get contactDamage(): number {
-    if (this.underground) return 0;
+    if (this.underground || this.phaseOut) return 0;
     return this.def.contactDamage * this.dmgMul;
   }
 
@@ -1053,6 +1067,7 @@ export class Enemies {
       if (!e.active) continue;
       e.px = e.x;
       e.pz = e.z;
+      if (e.phaseOut) { e.vx = e.vz = 0; continue; }
       e.flash = Math.max(0, e.flash - dt);
       e.sqV += (-220 * e.sq - 14 * e.sqV) * dt;
       e.sq += e.sqV * dt;
@@ -1861,6 +1876,7 @@ export class Enemies {
       const b = this.batches.get(e.def.id)!;
       if (b.mesh.count >= BATCH_CAP) continue;
       if (e.def.id === 'ghost') b.material.uniforms.haCalm.value = (this.familyReduceFlash || halloweenMotion.calm) ? 1 : 0;
+      if (e.phaseOut) continue; // phase ring remains visible; body is outside reality
       const i = b.mesh.count++;
       this.q.setFromEuler(this.euler.set(P.pitch, e.facing + P.yaw, P.roll));
       this.m4.compose(this.v.set(x + P.ox, y, z + P.oz), this.q, this.s.set(sx * P.sx, sy * P.sy, sx * P.sz));
@@ -1884,7 +1900,7 @@ export class Enemies {
       } else if (e.def.boss && e.enraged) b.flash.setXYZW(i, 1, 0.15, 0.2, (e.phase >= 3 ? 0.35 : 0.2) + 0.15 * Math.sin(time * (e.phase >= 3 ? 14 : 8)));
       else if (e.exposeT > 0) b.flash.setXYZW(i, 0.8, 0.6, 1, 0.3 + 0.15 * Math.sin(time * 12 + e.uid));
       else if (e.mutated) b.flash.setXYZW(i, 0.55, 1, 0.3, 0.28 + 0.14 * Math.sin(time * 7 + e.uid)); // mutated (gameplay lane)
-      else if (e.mod) b.flash.setXYZW(i, e.mod.glow[0], e.mod.glow[1], e.mod.glow[2], 0.3 + 0.15 * Math.sin(time * 6));
+      else if (e.mod) b.flash.setXYZW(i, e.mod.glow[0], e.mod.glow[1], e.mod.glow[2], this.familyReduceFlash ? 0.3 : 0.3 + 0.15 * Math.sin(time * 6));
       else if (e.elite) b.flash.setXYZW(i, 1, 0.85, 0.2, 0.25 + 0.15 * Math.sin(time * 6));
       else if (e.aiBits & 2) b.flash.setXYZW(i, 1, 0.8, 0.3, 0.25 + 0.15 * Math.sin(time * 14 + e.uid));
       else if (e.aiBits & 4) b.flash.setXYZW(i, 0.45, 0.85, 1, 0.22);

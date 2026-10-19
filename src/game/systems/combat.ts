@@ -1,3 +1,4 @@
+import { eliteGround } from './elites2';
 /**
  * Combat: damage, kills, drops, blasts and death effects.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -48,6 +49,7 @@ export function enemiesInRadius(this: Game, x: number, z: number, r: number, out
 export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: Hero): number {
   if (!e.active || e.hp <= 0) return 0;
   if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
+  if (e.phaseOut) return 0;
   if (e.roarT > 0) return 0; // bosses are invulnerable while they roar or make their entrance
   if (this.modes.holster) return 0; // Pacifist road / mini-games: heroes deal no damage (systems/modes.ts)
   const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
@@ -125,10 +127,11 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
 /** Elite modifiers that act over time: vampiric regen and blinking teleports. */
 export function updateEliteMods(this: Game, dt: number): void {
   for (const e of this.enemies.list) {
-    const m = e.mod;
-    if (!e.alive || !m || e.frozen > 0) continue;
-    if (m.vampire) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * m.vampire.regen * dt);
-    if (m.teleport && (e.modT -= dt) <= 0) {
+    const m = e.mod?.teleport ? e.mod : e.mod2;
+    if (!e.alive || !e.mod || e.frozen > 0 || e.phaseOut) continue;
+    const vampire = e.mod.vampire ?? e.mod2?.vampire;
+    if (vampire) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * vampire.regen * dt);
+    if (m?.teleport && (e.modT -= dt) <= 0) {
       e.modT = m.teleport * this.rng.range(0.8, 1.2);
       const alive = this.aliveHeroes;
       if (!alive.length) continue;
@@ -153,11 +156,12 @@ export function updateEliteMods(this: Game, dt: number): void {
 /** What's underfoot at (x, z): ice makes you slide, conveyors carry you. */
 export function groundAt(this: Game, x: number, z: number, out: { slip: number; pushX: number; pushZ: number }): void {
   out.slip = out.pushX = out.pushZ = 0;
+  eliteGround(this, x, z, out);
   for (const h of this.arena.hazards) if (h.kind === 'ice' && (x - h.x) ** 2 + (z - h.z) ** 2 < h.r * h.r) out.slip = 1;
   for (const c of this.arena.conveyors) {
     if (Math.abs(x - c.x) < c.w / 2 && Math.abs(z - c.z) < c.d / 2) {
-      out.pushX = c.dx * (c.speed ?? CONVEYOR_SPEED);
-      out.pushZ = c.dz * (c.speed ?? CONVEYOR_SPEED);
+      out.pushX += c.dx * (c.speed ?? CONVEYOR_SPEED);
+      out.pushZ += c.dz * (c.speed ?? CONVEYOR_SPEED);
     }
   }
 }

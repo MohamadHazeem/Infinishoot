@@ -63,7 +63,8 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setUint8(o + 20, Math.round(Math.max(0, Math.min(1, e.hp / (e.maxHp || 1))) * 255));
     // Elite modifier (bits 0-3: index + 1, 0 = none), AI bits (4-6: squad, rallied, guarded) and shield-up flag (bit 7).
     v.setUint8(o + 21, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | ((e.aiBits & 7) << 4) | (e.shield > 0 ? 0x80 : 0));
-    v.setUint8(o + 22, e.familyState ?? 0);
+    // Family state uses 0..4: low 3 bits. Secondary modifier uses bits 3..6; bit 7 is phase immunity.
+    v.setUint8(o + 22, ((e.familyState ?? 0) & 7) | ((e.mod2 ? ELITE_MOD_IDS.indexOf(e.mod2.id) + 1 : 0) << 3) | (e.phaseOut ? 0x80 : 0));
     v.setUint8(o + 23, (e.copyKind ?? 0) | (e.copyFlash > 0 ? 0x80 : 0));
     v.setUint8(o + 24, e.copyShots ?? 1);
     v.setUint8(o + 25, Math.min(255, Math.round((e.copyRange ?? 14) * 10)));
@@ -82,6 +83,8 @@ export interface EnemyRecord {
   /** Elite modifier, if any. */
   eliteMod: EliteModId | null;
   /** Shielded elite with its shield still up. */
+  eliteMod2: EliteModId | null;
+  phaseOut: boolean;
   shield: boolean;
   frozen: boolean;
   burn: boolean;
@@ -144,7 +147,10 @@ export function unpackEnemies(buf: NetBytes, each: (r: EnemyRecord) => void): vo
     r.targetX = v.getInt16(o + 16, true) / 100;
     r.targetZ = v.getInt16(o + 18, true) / 100;
     r.hp01 = v.getUint8(o + 20) / 255;
-    r.familyState = v.getUint8(o + 22);
+    const e2 = v.getUint8(o + 22);
+    r.familyState = e2 & 7;
+    r.eliteMod2 = r.elite ? (ELITE_MOD_IDS[((e2 >> 3) & 15) - 1] ?? null) : null;
+    r.phaseOut = r.elite && !!(e2 & 0x80);
     r.copyKind = v.getUint8(o + 23) & 0x7f;
     r.copyFlash = !!(v.getUint8(o + 23) & 0x80);
     r.copyShots = v.getUint8(o + 24);

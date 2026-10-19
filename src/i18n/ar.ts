@@ -1,3 +1,4 @@
+import { elites2Ar } from './elites2';
 import { trialsAr } from './trials';
 import { pets2Ar } from './pets2';
 import { followupsAr } from './followups';
@@ -8,6 +9,7 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...elites2Ar,
   ...trialsAr,
   ...pets2Ar,
   ...biome3Ar,

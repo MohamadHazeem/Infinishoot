@@ -1,3 +1,4 @@
+import { eliteGuide } from '../game/systems/elites2';
 import { ModsScreen } from './modsScreen';
 import { gauntletOption, renderGauntletOptions } from '../game/systems/gauntlet';
 import { SettingsScreen } from './settingsScreen';
@@ -1472,7 +1473,7 @@ export class Screens {
           <span class="st">LIFE ${d.hp} · SPEED ${d.speed} · HIT ${d.contactDamage} · ${kind}</span>
           <small>${ENEMY_TIPS[d.id] ?? ''}</small></div>`;
       })
-      .join('') + fusionGuide());
+      .join('') + fusionGuide() + eliteGuide());
   }
 
   /** Waiting for a key to bind. */

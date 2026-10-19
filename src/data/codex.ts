@@ -1,3 +1,4 @@
+import { ELITE_MODS, CHAMPION_DESC } from './eliteMods';
 import { SECRET_BOSSES, SECRET_LORE } from './secrets';
 import { ENEMIES } from './enemies';
 import { ENEMY_TIPS } from './bestiary';
@@ -91,6 +92,8 @@ function enemyText(id: string): string {
 }
 
 export const CODEX = [
+  ...Object.values(ELITE_MODS).slice(6).map(m => ({ id: `elite:${m.id}`, kind: 'ELITE', name: m.name, text: m.desc })),
+  { id: 'elite:champion', kind: 'ELITE', name: 'Champions', text: CHAMPION_DESC },
   ...SECRET_LORE,
   ...Object.values(ENEMIES)
     .filter((e) => !e.hidden)

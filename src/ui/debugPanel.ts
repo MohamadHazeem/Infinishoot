@@ -1,3 +1,4 @@
+import { elites2Tuning } from '../data/eliteMods';
 import { pvpTuning } from '../game/pvp';
 import { addBiome3Folder } from './debugBiome3';
 import { secretsTuning } from '../data/secrets';
@@ -281,6 +282,8 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   boss.add(eliteTuning, 'speed', 0.5, 2, 0.05).name('Elite speed');
   boss.add(eliteTuning, 'pace', 0.3, 1.5, 0.05).name('Elite pace');
 
+  const elite2 = gui.addFolder('Elites / Champions').close();
+  for (const key of Object.keys(elites2Tuning) as (keyof typeof elites2Tuning)[]) elite2.add(elites2Tuning, key);
   const ai = gui.addFolder('Enemy AI').close();
   ai.add(aiTuning, 'flankMax', 0, 1.5, 0.05);
   ai.add(aiTuning, 'wideShare', 0, 1, 0.05);

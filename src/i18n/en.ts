@@ -1,3 +1,4 @@
+import { elites2En } from './elites2';
 import { trialsEn } from './trials';
 import { pets2En } from './pets2';
 import { followupsEn } from './followups';
@@ -7,6 +8,7 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  ...elites2En,
   ...trialsEn,
   ...pets2En,
   ...biome3En,

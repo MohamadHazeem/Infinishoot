@@ -239,10 +239,24 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     game.collect = (hero, type, value) => { if (type !== PickupType.Chest) collect.call(game, hero, type, value); };
   }
   if (q.get('gold')) h.gold = Number(q.get('gold'));
+  // Deterministic champion: ?champion=bopper:gravity+frostbite (optional &elitenear).
+  for (const spec of list('champion')) {
+    const [id, mods = 'gravity+frostbite'] = spec.split(':');
+    const [first, second] = mods.split(/[+ ]/) as EliteModId[];
+    if (ENEMIES[id] && ELITE_MOD_IDS.includes(first) && ELITE_MOD_IDS.includes(second)) game.spawnEnemy(ENEMIES[id], true, null, first, second);
+  }
   for (const e of list('elite')) {
     const [id, mod] = e.split(':');
     game.debugSpawnElite(id, (ELITE_MOD_IDS.includes(mod as EliteModId) ? mod : ELITE_MOD_IDS[0]) as EliteModId);
   }
+  if (q.has('elitenear')) {
+    let n = 0;
+    for (const e of game.enemies.list) if (e.active && e.elite) {
+      e.x = e.px = game.player.x + (n++ - 1) * 4;
+      e.z = e.pz = game.player.z - 5;
+    }
+  }
+
   // Enemies in a ring 9 m out (spawnr=<m>), the Goldbug, and the stage clock (seconds).
   if (q.get('zoom')) game.cam.zoom = Math.max(1, Number(q.get('zoom')));
   if (q.get('time')) game.director.time = Number(q.get('time'));
