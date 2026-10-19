@@ -49,6 +49,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (!o.fixed && e.frozen > 0 && e.shatter > 0) amount *= 1 + e.shatter;
   if (!o.fixed && e.shockT > 0) amount *= 1 + statusTuning.shockMult + by.synergy.flags.shockMult;
   if (!o.fixed && e.exposeT > 0) amount *= 1 + statusTuning.exposeMult;
+  if (!o.fixed) amount *= this.guardMul(e, o, by); // Shield Bots
   if (crit) amount *= by.stats.critMult;
   amount = Math.max(1, Math.round(amount));
   const dealt = Math.min(amount, Math.max(0, e.hp + e.shield));

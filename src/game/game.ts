@@ -53,6 +53,7 @@ import * as PvpFlowSys from './systems/pvpFlow';
 import * as NetHostSys from './systems/netHost';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
+import * as EnemyAiSys from './systems/enemyAi';
 
 export { economyTuning } from './hero';
 
@@ -263,6 +264,10 @@ export class Game implements HeroWorld {
   endRun = RunFlowSys.endRun;
   checkAchievements = RunFlowSys.checkAchievements;
   debugLevelUp = DebugSys.debugLevelUp;
+  guardMul = EnemyAiSys.guardMul;
+  spawnSquad = EnemyAiSys.spawnSquad;
+  spawnGolden = EnemyAiSys.spawnGolden;
+  onEnemyKilled = EnemyAiSys.onEnemyKilled;
   debugGiveWeapon = DebugSys.debugGiveWeapon;
   debugSpawnElite = DebugSys.debugSpawnElite;
   debugSkipToBoss = DebugSys.debugSkipToBoss;
@@ -779,6 +784,7 @@ export class Game implements HeroWorld {
         this.strikes.push({ x, z, r, t: delay, dmg: damage * this.director.dmgMul });
         this.vfx.zone(x, z, r, delay);
       },
+      ...EnemyAiSys.enemyCtxExtras.call(this),
     };
   }
 

@@ -30,6 +30,7 @@ export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x:
 }
 
 export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId) {
+  if (def.treasure) return this.spawnGolden(def);
   let pos: { x: number; z: number } | null = null;
   if (near) {
     const x = near.x + this.rng.range(-1.6, 1.6);
@@ -39,7 +40,8 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
   pos ??= this.ringPoint(18, 24, def.radius * (elite ? 1.6 : 1) + 0.2);
   if (!pos) return null;
   const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
-  this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
+  const spawned = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
+  if (elite) this.spawnSquad(spawned); // escort in formation
   if (def.id === 'reaper') {
     this.vfx.banner('THE REAPER COMES', 'RUN. OR TRY YOUR LUCK.', 2.4);
     this.vfx.sound('boss', NaN, NaN);
