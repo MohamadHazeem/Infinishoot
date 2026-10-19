@@ -64,6 +64,11 @@ export function installBot(game: Game, input: Input): void {
   };
   /** Shop policy: buy affordable Mods left to right while slots remain, then continue. */
   const shop = () => {
+    // The secret merchant's free relic comes first, on its own screen.
+    if (game.screens.current === 'relic') {
+      document.querySelector<HTMLElement>('#scr-relic [data-act=buy-relic]')?.click();
+      return;
+    }
     // Buying re-renders the offers, so look the buttons up again after each buy. Skips cursed Mods (Pacifist Core stalls a Buster-only bot).
     for (let k = 0; k < 5; k++) {
       const b = document.querySelector<HTMLElement>('#scr-shop [data-act=buy]:not(.cant):not(.cursed)');
@@ -107,7 +112,7 @@ export function installBot(game: Game, input: Input): void {
       // Clients answer the host's menus through UI messages; throttled so they don't flood it.
       uiT -= 1 / 60;
       if (uiT <= 0 && g.screens.current === 'levelup') (ui('pick', 0), (uiT = 0.3));
-      else if (uiT <= 0 && (g.screens.current === 'shop' || g.screens.current === 'route')) (shop(), (uiT = 0.5));
+      else if (uiT <= 0 && (g.screens.current === 'shop' || g.screens.current === 'relic' || g.screens.current === 'route')) (shop(), (uiT = 0.5));
     } else {
       if (g.mode === 'levelup' && g.hero.needsPick) ui('pick', 0);
       if (g.mode === 'shop') shop();

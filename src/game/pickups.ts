@@ -43,6 +43,8 @@ export class Pickups {
   readonly age = new Float32Array(MAX);
   /** When true every gem flies to the player (magnet pickup, stage clear). */
   vacuum = false;
+  /** Stage clear: chests fly to whoever may open them too (boss chests to their owner), so a teammate taking the portal early can't strand them. */
+  vacuumChests = false;
 
   private meshes: THREE.InstancedMesh[] = [];
   /** Gold trim of chest pickups: drawn with the same matrices as the wood (meshes[Chest]). */
@@ -151,7 +153,7 @@ export class Pickups {
 
   clear(): void {
     this.count = 0;
-    this.vacuum = false;
+    this.vacuum = this.vacuumChests = false;
   }
 
   private remove(i: number): void {
@@ -176,25 +178,23 @@ export class Pickups {
   update(dt: number, collectors: Collector[], collect: (type: PickupType, value: number, who: number) => void, canTake: (type: PickupType, who: number, value: number) => boolean = () => true): void {
     for (let i = 0; i < this.count; i++) {
       this.age[i] += dt;
-      // Nearest living collector.
+      // Nearest living collector that may take it: one that can't (gears at its cap, a teammate's
+      // boss chest) leaves it to the others, or lying there. Checking only the nearest one let a
+      // teammate standing closer block an owned chest from its owner (4-player co-op).
+      const t = this.type[i];
       let ci = -1;
       let d = Infinity;
       for (let c = 0; c < collectors.length; c++) {
         const k = collectors[c];
         if (!k.alive) continue;
         const dd = Math.hypot(k.x - this.x[i], k.z - this.z[i]);
-        if (dd < d) {
+        if (dd < d && canTake(t as PickupType, c, this.value[i])) {
           d = dd;
           ci = c;
         }
       }
-      const t = this.type[i];
-      // A collector that can't take it (gears at the cap) leaves it lying there.
-      if (ci >= 0 && !canTake(t as PickupType, ci, this.value[i])) {
-        ci = -1;
-        this.pulled[i] = 0;
-      }
       if (ci < 0) {
+        this.pulled[i] = 0;
         const f = Math.exp(-5 * dt);
         this.vx[i] *= f;
         this.vz[i] *= f;
@@ -208,7 +208,7 @@ export class Pickups {
       // Chests and hearts need you to walk over them (no magnet), except during vacuum.
       const magnetic = t === PickupType.Gem || t === PickupType.Bolt || t === PickupType.Gear;
       const range = BASE_MAGNET * col.magnet;
-      if (!this.pulled[i] && this.age[i] > 0.25 && ((magnetic && d < range) || (this.vacuum && t === PickupType.Gem))) {
+      if (!this.pulled[i] && this.age[i] > 0.25 && ((magnetic && d < range) || (this.vacuum && t === PickupType.Gem) || (this.vacuumChests && t === PickupType.Chest))) {
         this.pulled[i] = 1;
         this.pullT[i] = 0;
         // Small hop away first, like it's been yanked.

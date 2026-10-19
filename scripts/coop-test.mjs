@@ -556,7 +556,8 @@ const SCENARIO = [
     await pause(200);
     r.client = await client(() => window.game.companionState().move?.id ?? null);
     r.hostMeter = await host(() => window.game.companionState().meter.charge);
-    if (!r.host || r.client !== r.host || r.hostMeter !== 0) fail(`team move: host ${r.host} (meter ${r.hostMeter}), client ${r.client}`);
+    // The meter is spent (it starts charging again at once while the heroes stand together).
+    if (!r.host || r.client !== r.host || r.hostMeter > 0.5) fail(`team move: host ${r.host} (meter ${r.hostMeter}), client ${r.client}`);
     await shot('teammove');
     return r;
   }],

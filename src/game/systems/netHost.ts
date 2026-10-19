@@ -47,7 +47,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   }
   if (m.t === 'hello') {
     if (this.coopHello(from, m)) return; // a run in progress: drop-in join (systems/coop2.ts)
-    if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from)) {
+    if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from) || this.lobby.length >= 4) {
       this.host?.send(from, { t: 'full', reason: 'Game already started.' });
       return;
     }
@@ -60,6 +60,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       pet: String(m.pet ?? 'none'),
       hero: heroOf(String(m.hero ?? '')).id,
       look: cleanLook(m.look),
+      pid: typeof m.pid === 'string' ? m.pid.slice(0, 16) : '',
     });
     this.refreshLobby();
     return;

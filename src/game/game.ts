@@ -252,6 +252,8 @@ export interface LobbyEntry {
   loadout: Loadout;
   /** CUSTOMISE code (src/data/customise.ts), checked with cleanLook. */
   look?: string;
+  /** Stable player id from the client's `hello` (coop2: reclaiming a hero after a drop). */
+  pid?: string;
 }
 
 /** "Scattergun / Grenade Lobber / Bomb" for the lobby list. */
