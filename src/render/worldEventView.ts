@@ -1,3 +1,4 @@
+import { dangerLayer } from './noiseGovernor';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Rng } from '../core/rng';
@@ -335,7 +336,7 @@ export class WorldEventView {
       const a = new THREE.Mesh(mergeGeometries(dark[w]), darkMat);
       const b = new THREE.Mesh(mergeGeometries(glow[w]), glowMat);
       const f = new THREE.Mesh(mergeGeometries(fill[w] ?? [flat(0.01, 0.01, 0, -999, 0)]), fillMat);
-      f.renderOrder = 1;
+      dangerLayer(f, 99);
       dark[w].forEach((x) => x.dispose());
       glow[w].forEach((x) => x.dispose());
       fill[w]?.forEach((x) => x.dispose());

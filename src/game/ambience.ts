@@ -1,3 +1,4 @@
+import { noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { Rng } from '../core/rng';
 import { commit } from '../render/instancing';
@@ -157,7 +158,10 @@ export class Ambience {
   private down = new THREE.Vector3();
   private yAxis = new THREE.Vector3(0, 1, 0);
 
+  private noise: NoiseGovernor;
+
   constructor(scene: THREE.Scene) {
+    this.noise = noiseFor(scene);
     this.surfaces = new Surfaces(scene);
     this.motes = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), createRetroMaterial({ unlit: 1 }), MAX_MOTES);
     this.motes.setColorAt(0, this.c.set('#ffffff'));
@@ -328,7 +332,7 @@ export class Ambience {
    */
   tintSky(): void {
     const k = this.rain * rainTuning.dark;
-    const f = this.flash;
+    const f = Math.min(this.flash, this.noise.flashCap);
     if (k <= 0 && f <= 0) return;
     const g = retroGlobals;
     // A rainy night city only gets a little darker (no grey daytime rain sky over the neon).

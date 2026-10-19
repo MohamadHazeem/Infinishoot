@@ -1,3 +1,4 @@
+import { dangerLayer } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { chestParts } from './chests';
@@ -112,6 +113,7 @@ export class Pickups {
   }
 
   private add(scene: THREE.Scene, m: THREE.InstancedMesh): THREE.InstancedMesh {
+    dangerLayer(m, 80);
     m.frustumCulled = false;
     m.count = 0;
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

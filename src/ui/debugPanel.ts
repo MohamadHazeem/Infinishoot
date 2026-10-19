@@ -1,3 +1,4 @@
+import { noiseTuning } from '../render/noiseGovernor';
 import GUI from 'lil-gui';
 import * as THREE from 'three';
 import { retroGlobals } from '../render/retroMaterial';
@@ -65,6 +66,9 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Backquote') gui._hidden ? gui.show() : gui.hide();
   });
+
+  const noise = gui.addFolder('Readable chaos').close();
+  for (const key of Object.keys(noiseTuning) as (keyof typeof noiseTuning)[]) noise.add(noiseTuning, key);
 
   const look = gui.addFolder('Retro look');
   look

@@ -220,6 +220,21 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   hudLinks(game, q);
   contentLinks(game, q);
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
+  // Readability stress: &heroes=4 (up to 8), with real rigs, weapons and local effect replay.
+  const heroCount = Math.min(8, Math.max(1, Number(q.get('heroes')) || 1));
+  if (heroCount > game.heroes.length) {
+    const team = [...game.heroes];
+    for (let i = team.length; i < heroCount; i++) {
+      const mate = game.makeHero(i, `P${i + 1}`, h.unlocked, '', 'classic', 'none');
+      mate.startRun();
+      mate.player.teleport(h.player.x + (i % 3 - 1) * 2.5, h.player.z + 2 + Math.floor(i / 3) * 2.5);
+      mate.player.invuln = 1e6;
+      team.push(mate);
+    }
+    game.setHeroes(team);
+  }
+  const numbers = q.get('numbers');
+  if (numbers && ['auto', 'all', 'mine', 'off'].includes(numbers)) settings.damageNumbers = numbers as typeof settings.damageNumbers;
   coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)

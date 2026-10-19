@@ -72,8 +72,8 @@ export interface Settings {
   tips: boolean;
   /** UI SCALE in percent (75-150): zooms the HUD panels and menus. */
   uiScale: number;
-  /** DAMAGE NUMBERS: all, only your hero's hits (co-op), or none. */
-  damageNumbers: 'all' | 'mine' | 'off';
+  /** DAMAGE NUMBERS: automatic thinning, all, only your hits (co-op), or none. */
+  damageNumbers: 'auto' | 'all' | 'mine' | 'off';
   /** Weather: rain, snow and other motes, lightning (off = always clear skies). */
   weather: boolean;
   /** Right click: hold to charge, or press once to start and again to release. */
@@ -149,7 +149,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   slowMo: true,
   tips: true,
   uiScale: 100,
-  damageNumbers: 'all',
+  damageNumbers: 'auto',
   weather: true,
   chargeMode: 'hold',
   petSounds: true,
@@ -167,6 +167,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   crowd: true,
   radioDj: true,
 });
+settings.damageNumbers ??= 'auto';
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
 settings.weather ??= true;

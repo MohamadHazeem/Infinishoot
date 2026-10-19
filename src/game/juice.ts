@@ -1,3 +1,4 @@
+import { noiseTuning, type NoiseGovernor } from '../render/noiseGovernor';
 import { sfx } from '../audio/sfx';
 
 /**
@@ -15,6 +16,7 @@ export const juiceTuning = {
 };
 
 export class Juice {
+  noise?: NoiseGovernor;
   hitStop = 0;
   trauma = 0;
   private t = 0;
@@ -39,6 +41,8 @@ export class Juice {
     const a = amount * juiceTuning.shakeScale;
     this.kvx += dirX * a;
     this.kvz += dirZ * a;
+    const speed = Math.hypot(this.kvx, this.kvz);
+    if (speed > 12) { this.kvx *= 12 / speed; this.kvz *= 12 / speed; }
   }
 
   reset(): void {
@@ -60,9 +64,13 @@ export class Juice {
 
   /** Current camera offset (x, z): smooth pseudo-noise shake plus kick spring. */
   shakeOffset(out: { x: number; z: number }): void {
+    if (juiceTuning.shakeScale <= 0 || this.noise?.calm) { out.x = out.z = 0; return; }
     const s = this.trauma * this.trauma * juiceTuning.shakeMax;
     const t = this.t * 40;
     out.x = this.kx + s * (Math.sin(t * 1.1) * 0.6 + Math.sin(t * 2.3 + 1.7) * 0.4);
     out.z = this.kz + s * (Math.sin(t * 1.3 + 4.1) * 0.6 + Math.sin(t * 2.9 + 0.3) * 0.4);
+    const cap = (this.noise?.shakeCap ?? noiseTuning.shakeMax) * Math.min(1, juiceTuning.shakeScale);
+    const length = Math.hypot(out.x, out.z);
+    if (length > cap) { out.x *= cap / length; out.z *= cap / length; }
   }
 }

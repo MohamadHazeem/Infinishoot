@@ -1,3 +1,4 @@
+import { readableMaterial, noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { shotColor } from './heroLooks';
 import { createRetroMaterial } from '../render/retroMaterial';
@@ -92,6 +93,9 @@ const SHAPE_MAX = 256;
 export class Bullets {
   readonly mesh: THREE.InstancedMesh;
   private halo: THREE.InstancedMesh;
+  private enemyCore: THREE.InstancedMesh;
+  private enemyRim: THREE.InstancedMesh;
+  private noise: NoiseGovernor;
   count = 0;
   readonly x = new Float32Array(MAX);
   readonly z = new Float32Array(MAX);
@@ -137,6 +141,15 @@ export class Bullets {
   private q2 = new THREE.Quaternion();
 
   constructor(scene: THREE.Scene) {
+    this.noise = noiseFor(scene);
+    this.enemyCore = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.5, 0), readableMaterial('#ff3df0'), MAX);
+    this.enemyRim = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.72, 0), readableMaterial('#1a1c2c'), MAX);
+    this.enemyRim.instanceMatrix = this.enemyCore.instanceMatrix;
+    this.enemyRim.renderOrder = 110;
+    this.enemyCore.renderOrder = 111;
+    this.enemyCore.frustumCulled = this.enemyRim.frustumCulled = false;
+    this.enemyCore.count = this.enemyRim.count = 0;
+    scene.add(this.enemyRim, this.enemyCore);
     // Elongated gem along +Z; reads well from the top-down camera.
     this.mesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.5, 0), createRetroMaterial({ unlit: 1 }), MAX);
     this.mesh.frustumCulled = false;
@@ -354,7 +367,8 @@ export class Bullets {
     let shock = 0;
     let ribbon = 0;
     const F = bulletFxTuning;
-    const pulse = 1 + F.enemyPulse * Math.sin(this.time * 18);
+    const pulse = this.noise.calm ? 1 : 1 + Math.min(0.06, F.enemyPulse) * Math.sin(this.time * Math.PI * 4);
+    let enemyCount = 0;
     for (const sm of this.shapeMeshes) sm.core.count = 0;
     for (let i = 0; i < this.count; i++) {
       const x = this.px[i] + (this.x[i] - this.px[i]) * alpha;
@@ -374,7 +388,12 @@ export class Bullets {
       const len = this.length[i] * grow * fade;
       const sh = this.shape[i];
       const sm = sh ? this.shapeMeshes[sh - 1] : null;
-      if (sm && sm.core.count < SHAPE_MAX) {
+      if (this.team[i] === Team.Enemy) {
+        // Danger never shrinks to an unreadable point at spawn/expiry and has no white additive halo.
+        this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(this.width[i] * pulse, this.width[i] * pulse, this.length[i] * pulse));
+        this.enemyCore.setMatrixAt(enemyCount++, this.m4);
+        this.mesh.setMatrixAt(i, this.m4.makeScale(0, 0, 0));
+      } else if (sm && sm.core.count < SHAPE_MAX) {
         // Evolved shots (stars, flames, bolts, lances) draw in their own mesh; the gem slot hides.
         // Stars spin and stay round; flames flicker; bolts jitter.
         this.q3.copy(this.q);
@@ -403,14 +422,14 @@ export class Bullets {
       const back = len * 0.35 + tl * 0.5;
       this.m4.compose(this.p.set(x - dx * back, BULLET_Y - 0.02, z - dz * back), this.q, this.s.set(Math.max(0.06, w * T.width * 1.6), 1, Math.max(0.01, tl)));
       this.tail.setMatrixAt(i, this.m4);
-      ta[i] = tl > 0.05 ? T.alpha : 0;
+      ta[i] = tl > 0.05 && this.team[i] === Team.Player ? T.alpha * this.noise.alpha(x, z) : 0;
 
       // Extra trail pieces from where it was drawn last frame (cosmetic, capped per frame).
       const lx = this.rx[i];
       const lz = this.rz[i];
       this.rx[i] = x;
       this.rz[i] = z;
-      if (lx !== lx || dt <= 0) continue; // NaN: first frame
+      if (lx !== lx || dt <= 0 || (look !== BulletLook.Plain && look !== BulletLook.Enemy && !this.noise.take('particles'))) continue; // NaN: first frame
       if (look === BulletLook.Fire && fire < F.fire) {
         fire++;
         trails.seg(lx, BULLET_Y, lz, x, BULLET_Y, z, w * 1.3, w * 1.7, col, 0.2, TrailStyle.Fire);
@@ -424,6 +443,8 @@ export class Bullets {
         trails.seg(lx, BULLET_Y, lz, x, BULLET_Y, z, w * 0.8, w * 0.9, col, 0.26, TrailStyle.Glow);
       }
     }
+    this.enemyCore.count = this.enemyRim.count = enemyCount;
+    commit(this.enemyCore.instanceMatrix, enemyCount);
     this.mesh.count = this.halo.count = this.tail.count = this.count;
     commit(this.mesh.instanceMatrix, this.mesh.count);
     commit(this.tail.instanceMatrix, this.count);

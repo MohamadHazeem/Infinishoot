@@ -1,3 +1,4 @@
+import { noiseTuning, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { reduceMotion } from './hud';
 import { settings } from '../game/settings';
@@ -33,7 +34,7 @@ export function damageNumberScale(value: number): number {
   return Number.isFinite(value) ? Math.min(damageNumberTuning.maxScale, 1 + Math.log2(1 + Math.max(0, value) / 25) * 0.16) : 1;
 }
 
-export type DamageNumberMode = 'all' | 'mine' | 'off';
+export type DamageNumberMode = 'auto' | 'all' | 'mine' | 'off';
 
 /**
  * SETTINGS > DAMAGE NUMBERS. `by` is the hero index that dealt the hit
@@ -62,6 +63,7 @@ interface Num {
 
 /** Fixed DOM pool. Merge only matching kinds near the original hit, never extend a number's lifetime. */
 export class DamageNumbers {
+  noise?: NoiseGovernor;
   private pool: Num[] = [];
   private next = 0;
   private v = new THREE.Vector3();
@@ -83,11 +85,19 @@ export class DamageNumbers {
     if (!showDamageNumber(settings.damageNumbers, by, this.localHero())) return;
     kind = damageNumberKind(value, kind);
     const amount = damageNumberValue(value);
+    const automatic = settings.damageNumbers === 'auto' && !!this.noise?.active;
+    const pressure = automatic ? this.noise!.pressure : 0;
+    const numeric = Number.isFinite(amount);
+    const combat = kind !== 'score' && kind !== 'player' && kind !== 'heal';
+    // Keep noncombat messages/heals/player damage; combat status labels share the hit budget.
+    const big = combat && automatic && numeric ? this.noise!.bigHit(amount, kind === 'crit') : true;
+    if (combat && automatic && numeric && pressure >= noiseTuning.numberDensity && !big) return;
     let n: Num | undefined;
-    let distance = damageNumberTuning.mergeRadius ** 2;
+    let distance = (damageNumberTuning.mergeRadius + (noiseTuning.clusterRadius - damageNumberTuning.mergeRadius) * pressure) ** 2;
+    const window = damageNumberTuning.mergeWindow + (noiseTuning.clusterWindow - damageNumberTuning.mergeWindow) * pressure;
     if (Number.isFinite(amount) && kind !== 'score' && kind !== 'player') {
       for (const candidate of this.pool) {
-        if (!candidate.active || candidate.kind !== kind || candidate.t > damageNumberTuning.mergeWindow || !Number.isFinite(candidate.value)) continue;
+        if (!candidate.active || candidate.kind !== kind || candidate.t > window || !Number.isFinite(candidate.value)) continue;
         const d = (candidate.x - x) ** 2 + (candidate.z - z) ** 2;
         if (d <= distance && Math.abs(candidate.y - y) < 0.25) {
           n = candidate;
@@ -99,6 +109,7 @@ export class DamageNumbers {
       n.value += amount;
       n.pop = 0;
     } else {
+      if (combat && automatic && !this.noise!.take('numbers')) return;
       // Prefer a free slot before evicting the next (oldest) slot at capacity.
       for (let i = 0; i < this.pool.length; i++) {
         const index = (this.next + i) % this.pool.length;

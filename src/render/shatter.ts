@@ -1,3 +1,4 @@
+import { noiseFor, type NoiseGovernor } from './noiseGovernor';
 import * as THREE from 'three';
 import { commit } from './instancing';
 import { createRetroMaterial } from './retroMaterial';
@@ -249,7 +250,10 @@ export class Shatter {
   private c = new THREE.Color();
   private st: ChunkState = { y: 0, vx: 0, vy: 0, vz: 0, spin: 0, floor: 0 };
 
+  private noise: NoiseGovernor;
+
   constructor(scene: THREE.Scene) {
+    this.noise = noiseFor(scene);
     const max = shatterTuning.max;
     this.plain = new Pool(scene, max, createRetroMaterial({ instanceFlash: true }));
     this.crate = new Pool(scene, Math.round(max / 2), createRetroMaterial({ map: textures.crate(), instanceFlash: true }));
@@ -289,7 +293,10 @@ export class Shatter {
     this.c1.set(o.color);
     this.c2.set(o.color2 ?? o.color);
     const max = pool.state.length;
+    const allowed = this.noise.take('debris', pieces.length);
+    let emitted = 0;
     for (const p of pieces) {
+      if (emitted++ >= allowed) break;
       const i = pool.next;
       pool.next = (pool.next + 1) % max;
       pool.n = Math.min(max, pool.n + 1);

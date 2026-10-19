@@ -1,3 +1,4 @@
+import { noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { commit } from '../render/instancing';
 import { createRetroMaterial } from '../render/retroMaterial';
@@ -74,7 +75,10 @@ export class Debris {
   private c = new THREE.Color();
   private st = { y: 0, vx: 0, vy: 0, vz: 0, h: 0, spin: 0 };
 
+  private noise: NoiseGovernor;
+
   constructor(scene: THREE.Scene) {
+    this.noise = noiseFor(scene);
     const max = debrisTuning.max;
     const f = () => new Float32Array(max);
     this.x = f();
@@ -105,6 +109,7 @@ export class Debris {
   }
 
   spawn(x: number, y: number, z: number, count: number, color: THREE.ColorRepresentation, color2: THREE.ColorRepresentation, size: number, speed: number, rand = Math.random): void {
+    count = this.noise.take('debris', count);
     const max = debrisTuning.max;
     this.c1.set(color);
     this.c2.set(color2);

@@ -1,3 +1,4 @@
+import { dangerLayer } from '../render/noiseGovernor';
 /**
  * Boss duel (bosses lane, wave 1): when a stage boss reaches its last phase,
  * the horde clears out (enemies vanish in a puff, no drops; pickups stay), the
@@ -127,7 +128,7 @@ export class DuelView {
     this.outside = new THREE.Mesh(new THREE.RingGeometry(1, 3.2, 72).rotateX(-Math.PI / 2), this.outMat);
     for (const m of [this.flames, this.band, this.outside]) {
       m.frustumCulled = false;
-      m.renderOrder = 1;
+      dangerLayer(m);
       m.visible = false;
       scene.add(m);
     }
