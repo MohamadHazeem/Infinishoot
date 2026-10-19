@@ -103,15 +103,15 @@ export const WEAPONS: Record<string, WeaponDef> = {
     color: '#ffd23f',
     desc: 'LEFT CLICK: your trusty arm cannon. Rapid shots where you aim.',
     starter: true,
-    levels: [{ text: 'Rapid shots where you aim.', p: { dmg: 10, rate: 7, shots: 1, arc: 0, pierce: 0, size: 1, speed: 28 } }],
+    levels: [{ text: 'Rapid shots where you aim.', p: { dmg: 11, rate: 7, shots: 1, arc: 0, pierce: 0, size: 1, speed: 28 } }],
     tracks: [
       {
         id: 'heavy',
         name: 'Heavy Rounds',
         ranks: [
-          { text: '+2 damage, bigger shots.', p: { dmg: 2, size: 0.1 } },
-          { text: '+2 damage, bigger shots.', p: { dmg: 2, size: 0.1 } },
-          { text: '+2 damage, bigger shots.', p: { dmg: 2, size: 0.1 } },
+          { text: '+3 damage, bigger shots.', p: { dmg: 3, size: 0.1 } },
+          { text: '+3 damage, bigger shots.', p: { dmg: 3, size: 0.1 } },
+          { text: '+3 damage, bigger shots.', p: { dmg: 3, size: 0.1 } },
           { text: '+3 damage, bigger shots.', p: { dmg: 3, size: 0.1 } },
         ],
       },
@@ -119,10 +119,10 @@ export const WEAPONS: Record<string, WeaponDef> = {
         id: 'rapid',
         name: 'Rapid Fire',
         ranks: [
-          { text: 'Fires faster.', p: { rate: 1 } },
-          { text: 'Fires faster.', p: { rate: 1 } },
           { text: 'Fires faster.', p: { rate: 1.2 } },
-          { text: 'Fires much faster.', p: { rate: 1.3, speed: 4 } },
+          { text: 'Fires faster.', p: { rate: 1.2 } },
+          { text: 'Fires faster.', p: { rate: 1.4 } },
+          { text: 'Fires much faster.', p: { rate: 1.6, speed: 4 } },
         ],
       },
       {
@@ -138,7 +138,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
     ],
     evoAt: 8,
     evos: [
-      { id: 'flare', name: "Flare Buster", color: '#ff7a2f', text: 'Blazing orange bolts that set enemies on fire (Fire). x1.15 damage.', tags: ['fire'], p: { size: 0.2 }, mul: { dmg: 1.15 } },
+      { id: 'flare', name: "Flare Buster", color: '#ff7a2f', text: 'Blazing orange bolts that set enemies on fire (Fire). x1.25 damage.', tags: ['fire'], p: { size: 0.2 }, mul: { dmg: 1.25 } },
       { id: 'volt', name: "Volt Buster", color: '#7df9ff', text: 'Crackling bolts that Shock what they hit (Shock) and pierce 2 more enemies.', tags: ['shock'], p: { pierce: 2, speed: 6 } },
     ],
   },
@@ -497,10 +497,10 @@ export const WEAPONS: Record<string, WeaponDef> = {
         id: 'focus',
         name: 'Focus',
         ranks: [
+          { text: '+60 beam damage per second.', p: { dps: 60 } },
           { text: '+70 beam damage per second.', p: { dps: 70 } },
           { text: '+80 beam damage per second.', p: { dps: 80 } },
-          { text: '+90 beam damage per second.', p: { dps: 90 } },
-          { text: '+110 beam damage per second.', p: { dps: 110 } },
+          { text: '+100 beam damage per second.', p: { dps: 100 } },
         ],
       },
       {
@@ -526,8 +526,8 @@ export const WEAPONS: Record<string, WeaponDef> = {
     ],
     evoAt: 8,
     evos: [
-      { id: 'prism', name: "Prism Lance", color: '#fff35c', text: 'Splits into a 5-way rainbow lance. x1.15 damage.', p: { beams: 2, range: 1 }, mul: { dps: 1.15 } },
-      { id: 'scorch', name: "Scorch Ray", color: '#ff7a2f', text: 'Fuses into one thick, blazing beam that sets enemies on fire (Fire).', tags: ['fire'], p: { focus: 1 }, mul: { width: 1.8, dps: 1.35 } },
+      { id: 'prism', name: "Prism Lance", color: '#fff35c', text: 'Splits into a 5-way rainbow lance.', p: { beams: 2, range: 1 } },
+      { id: 'scorch', name: "Scorch Ray", color: '#ff7a2f', text: 'Fuses into one thick, blazing beam that sets enemies on fire (Fire). x1.5 damage.', tags: ['fire'], p: { focus: 1 }, mul: { width: 1.8, dps: 1.5 } },
     ],
   },
   orb: {
@@ -685,18 +685,18 @@ export const WEAPONS: Record<string, WeaponDef> = {
     name: 'Aegis Shield',
     icon: '◗',
     color: '#5ce1ff',
-    desc: 'RIGHT CLICK: deploy a shield toward your aim that blocks bullets and slams enemies away until it breaks or times out.',
+    desc: 'RIGHT CLICK: deploy a shield toward your aim that blocks bullets (bouncing them back) and slams enemies away until it breaks or times out.',
     starter: false, // unlocked by an achievement (src/data/meta.ts)
-    levels: [{ text: 'Press to deploy a shield that follows your aim.', p: { dmg: 30, arc: 100, radius: 1.6, knock: 22, dur: 3, cd: 5, hp: 60, reflect: 0 } }],
+    levels: [{ text: 'Press to deploy a shield that follows your aim and bounces bullets back.', p: { dmg: 40, arc: 100, radius: 1.6, knock: 22, dur: 3, cd: 4.5, hp: 60, reflect: 1 } }],
     tracks: [
       {
         id: 'bash',
         name: 'Shield Bash',
         ranks: [
-          { text: '+12 damage, harder shoves.', p: { dmg: 12, knock: 2 } },
           { text: '+15 damage, harder shoves.', p: { dmg: 15, knock: 2 } },
           { text: '+18 damage, harder shoves.', p: { dmg: 18, knock: 2 } },
           { text: '+22 damage, harder shoves.', p: { dmg: 22, knock: 2 } },
+          { text: '+26 damage, harder shoves.', p: { dmg: 26, knock: 2 } },
         ],
       },
       {
@@ -736,16 +736,16 @@ export const WEAPONS: Record<string, WeaponDef> = {
     color: '#a0c4ff',
     desc: 'LEFT CLICK: a hyper-velocity rail that pierces everything in a long line.',
     starter: false, // unlocked by an achievement (src/data/meta.ts)
-    levels: [{ text: 'Fires a rail through every enemy in line.', p: { dmg: 90, rate: 1.6, range: 18, width: 0.5, ion: 0, arcs: 0 } }],
+    levels: [{ text: 'Fires a rail through every enemy in line.', p: { dmg: 90, rate: 1.8, range: 18, width: 0.5, ion: 0, arcs: 0 } }],
     tracks: [
       {
         id: 'coil',
         name: 'Coil Power',
         ranks: [
-          { text: '+30 damage.', p: { dmg: 30 } },
           { text: '+35 damage.', p: { dmg: 35 } },
           { text: '+40 damage.', p: { dmg: 40 } },
           { text: '+45 damage.', p: { dmg: 45 } },
+          { text: '+50 damage.', p: { dmg: 50 } },
         ],
       },
       {
@@ -772,7 +772,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
     evoAt: 8,
     evos: [
       { id: 'ion', name: "Ion Rail", color: '#9b6bff', text: 'The rail leaves an ion trail that detonates along its length (Explosive).', tags: ['explosive'], p: { ion: 1 }, mul: { dmg: 1.1 } },
-      { id: 'storm', name: "Storm Rail", color: '#fff35c', text: 'Rails Shock everything they pierce (Shock) and the first 3 enemies hit arc lightning onward (Chain).', tags: ['shock', 'chain'], p: { arcs: 3 }, mul: { dmg: 1.1 } },
+      { id: 'storm', name: "Storm Rail", color: '#fff35c', text: 'Rails Shock everything they pierce (Shock) and the first 3 enemies hit arc lightning onward (Chain). x1.25 damage.', tags: ['shock', 'chain'], p: { arcs: 3 }, mul: { dmg: 1.25 } },
     ],
   },
   orbital: {

@@ -99,12 +99,16 @@ ok(liveMods(h2.synergy.slots, build).join() === 'Turret Mode', 'Turret Mode is l
 // ---------------------------------------------------------------- card numbers
 const s = baseStats();
 const b0 = itemMetrics('weapon', 'buster', WEAPONS.buster.levels[0].p, s);
-ok(b0[0].l === 'DPS' && near(b0[0].v, 70), `Buster base DPS 70 (${b0[0].v})`);
+// Expected numbers follow the data (balance passes retune the Buster): base DPS = damage x rate.
+const bp = WEAPONS.buster.levels[0].p;
+const dps0 = bp.dmg * bp.rate;
+const dps1 = (bp.dmg + WEAPONS.buster.tracks![0].ranks[0].p.dmg) * bp.rate;
+ok(b0[0].l === 'DPS' && near(b0[0].v, dps0), `Buster base DPS ${dps0} (${b0[0].v})`);
 const h3 = mk();
 h3.loadoutPick = { primary: 'buster', secondary: 'charge', special: 'bomb' };
 h3.startRun();
 const heavy = offerNumbers(h3, { kind: 'track', id: 'buster', pick: 'buster|t|0', name: 'Heavy Rounds', icon: '', color: '', tag: '', text: '' });
-ok(heavy[0]?.l === 'DPS' && heavy[0].a === '70' && heavy[0].b === '84' && heavy[0].d === 1, 'Heavy Rounds card: DPS 70 > 84 ' + JSON.stringify(heavy));
+ok(heavy[0]?.l === 'DPS' && heavy[0].a === String(dps0) && heavy[0].b === String(dps1) && heavy[0].d === 1, `Heavy Rounds card: DPS ${dps0} > ${dps1} ` + JSON.stringify(heavy));
 const pc = offerNumbers(h3, { kind: 'passive', id: 'power_cell', name: '', icon: '', color: '', tag: '', text: '' });
 ok(pc[0]?.l === 'DAMAGE' && pc[0].a === '+0%' && pc[0].b === '+10%', 'Power Cell card: DAMAGE +0% > +10% ' + JSON.stringify(pc));
 const evo = offerNumbers(h3, { kind: 'evo', id: 'buster_evo', pick: 'buster|e|0', name: '', icon: '', color: '', tag: '', text: '' });
