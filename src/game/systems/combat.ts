@@ -12,6 +12,7 @@ import { type Enemy } from '../enemies';
 import { Hero } from '../hero';
 import { type DamageOpts } from '../weapons';
 import { SCAR_COLORS } from '../scars';
+import { damageNumberLabel } from '../../ui/damageNumbers';
 
 export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null {
   let best: Enemy | null = null;
@@ -75,7 +76,9 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
     this.vfx.sound('crit', e.x, e.z);
     this.vfx.star(hx, BULLET_Y, hz, 1.5, '#fff35c', 0.12);
   } else if (o.loud) {
-    this.vfx.num(e.x, 1.7 * e.scale, e.z, amount);
+    // Cosmetic labels travel through the existing number event on hosts and clients.
+    const accent = shielded ? 'shield' : tags.includes('fire') ? 'fire' : tags.includes('shock') ? 'shock' : tags.includes('frost') ? 'frost' : undefined;
+    this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, accent));
     this.vfx.sound('hit', e.x, e.z, this.pitch);
     this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
   }

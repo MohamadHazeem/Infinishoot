@@ -229,6 +229,7 @@ export class Screens {
   private reelT = 0;
   /** Level-up pick lock: no pick or skip before this time (ms), so a held click or key can't choose by accident. */
   private lockUntil = 0;
+  private pickGhost: HTMLElement | null = null;
   /** Cards still showing the locked look. */
   private lockCards: HTMLElement[] = [];
 
@@ -296,6 +297,7 @@ export class Screens {
   </div>
 </div>
 <div id="scr-levelup" class="screen dim" hidden>
+  <i class="level-burst" aria-hidden="true"></i>
   <h1></h1>
   <div class="cards"></div>
   <div class="reroll-row"></div>
@@ -731,7 +733,6 @@ export class Screens {
     if (!loadoutOptions(slot).includes(id) || !unlockedLoadout().includes(id)) return;
     settings.loadout = { ...settings.loadout, [slot]: id };
     saveSettings();
-    sfx.menuSelect();
     const focus = this.navs.loadout.focus;
     this.renderLoadout();
     this.navs.loadout.refresh(focus);
@@ -893,7 +894,7 @@ export class Screens {
     el.querySelector('.cards')!.innerHTML = offers
       .map(
         (o, i) => `<button class="card rolling ${o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)}" data-nav data-act="pick" data-index="${i}">
-          <i class="fx"></i>
+          <i class="fx"></i><i class="card-shine" aria-hidden="true"></i>
           <div class="tag ${cardMode(o)}">${cardMode(o) === 'upgrade' ? '▲ UPGRADE' : o.tag}</div>
           ${cardMode(o) === 'new' ? '<div class="ribbon">NEW</div>' : ''}
           <div class="icon" style="--c:${o.color}"><div class="reel"><div class="strip">${iconHtml(o.id, o.color, o.icon)}${decoys(steps[i].length, o.id)
@@ -917,6 +918,9 @@ export class Screens {
       (skipGold > 0 ? `<button data-nav data-act="skip" class="skip">SKIP +${skipGold}<span class="gold-dot"></span></button>` : '');
     el.querySelector('.build')!.innerHTML = loadout.map(badge).join('');
     this.show('levelup');
+    el.classList.remove('hud-level-enter');
+    void el.offsetWidth;
+    el.classList.add('hud-level-enter');
     const cards = el.querySelectorAll<HTMLElement>('.card');
     // Each card's lock bar fills until it can be picked: the shared lock or its own reel landing, whichever is later.
     this.lockUntil = performance.now() + pickTuning.lock * 1000;
@@ -929,6 +933,33 @@ export class Screens {
     this.reels = offers.map((o, i) => ({ card: cards[i], strip: cards[i].querySelector<HTMLElement>('.strip')!, steps: steps[i], passed: 0, rarity: o.rarity }));
     this.reelT = 0;
     this.tickReels(0);
+  }
+
+  /** A detached visual keeps the pick satisfying without delaying gameplay or network messages. */
+  pickFx(i: number): void {
+    if (!this.canPick(i) || reduceMotion()) return;
+    const card = this.els.levelup.querySelectorAll<HTMLElement>('.card')[i];
+    if (!card) return;
+    this.pickGhost?.remove();
+    const rect = card.getBoundingClientRect();
+    const layer = document.createElement('div');
+    layer.className = 'screen hud-pick-layer';
+    layer.setAttribute('aria-hidden', 'true');
+    const ghost = card.cloneNode(true) as HTMLElement;
+    ghost.removeAttribute('data-nav');
+    ghost.removeAttribute('data-act');
+    ghost.setAttribute('tabindex', '-1');
+    ghost.classList.add('hud-picked-card');
+    ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;margin:0`;
+    layer.appendChild(ghost);
+    document.body.appendChild(layer);
+    this.pickGhost = layer;
+    burstAt(card, ['var(--yellow)', 'var(--white)', 'var(--cyan)'], 12);
+    // Timer cleanup also works if a motion preference changes mid-animation.
+    window.setTimeout(() => {
+      layer.remove();
+      if (this.pickGhost === layer) this.pickGhost = null;
+    }, 420);
   }
 
   private pickOpen(): boolean {

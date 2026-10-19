@@ -15,7 +15,15 @@ import { sfx } from '../audio/sfx';
 // is a strip [real item, decoy 1..n]; it starts showing decoy n and scrolls
 // down one item per step until the real item lands at the top.
 
-export const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+let motionQuery: MediaQueryList | undefined;
+/** Reduced flashes also opts out of UI motion; reuse the media query instead of allocating every frame. */
+export const reduceMotion = () => access.reduceFlash || (motionQuery ??= matchMedia('(prefers-reduced-motion: reduce)')).matches;
+
+export const hudTuning = { goldSpeed: 14, xpSpeed: 14, damageHold: 0.22, damageCatchup: 1.4, comboBreak: 0.65 };
+export const comboTier = (combo: number): number => combo >= 100 ? 4 : combo >= 50 ? 3 : combo >= 25 ? 2 : combo >= 10 ? 1 : 0;
+export const comboMilestone = (before: number, after: number): boolean => after >= 10 && Math.floor(after / 10) > Math.floor(before / 10);
+/** Exponential approach remains consistent at different refresh rates. */
+export const approachHud = (from: number, to: number, speed: number, dt: number): number => to + (from - to) * Math.exp(-speed * Math.max(0, dt));
 
 /** Step durations (s): fast 45 ms ticks for about `spin` seconds, ending with the slower `tail`. */
 export function reelSteps(spin: number, tail: number[]): number[] {
@@ -51,7 +59,7 @@ export interface ChestItem {
   text: string;
   rarity?: Rarity;
 }
-import { access } from '../game/settings';
+import { access, settings } from '../game/settings';
 
 export interface HudState {
   hp: number;
@@ -175,6 +183,15 @@ export class Hud {
   private els: Record<string, HTMLElement> = {};
   private lastHp = -1;
   private lastLevel = -1;
+  private lastMaxHp = -1;
+  private trailHp = 1;
+  private trailHold = 0;
+  private shownGold = 0;
+  private shownXp = 0;
+  private xpSparkT = 0;
+  private comboPop = 1;
+  private comboShake = 0;
+  private comboBreakT = 0;
   private shownScore = 0;
   private lastCombo = 0;
   private lastMult = 1;
@@ -188,8 +205,8 @@ export class Hud {
     root.insertAdjacentHTML(
       'beforeend',
       `<div id="ingame">
-         <div id="xpbar"><div class="fill"></div><div class="lv"></div></div>
-         <div id="hp"><div class="bar"><div class="fill"></div></div><div class="num"></div></div>
+         <div id="xpbar"><div class="fill"></div><i class="spark" aria-hidden="true"></i><div class="lv"></div></div>
+         <div id="hp"><div class="bar"><div class="chunk"></div><div class="fill"></div></div><div class="num"></div></div>
          <div id="runinfo"><span class="kills"></span><span class="gold"></span><span class="gears"></span></div>
          <div id="timer"><div class="clock"></div><div class="stage"></div></div>
          <div id="spice"></div>
@@ -335,6 +352,15 @@ export class Hud {
     this.shownScore = 0;
     this.lastHp = -1;
     this.lastLevel = -1;
+    this.lastMaxHp = -1;
+    this.lastGold = -1;
+    this.lastCombo = 0;
+    this.lastMult = 1;
+    this.comboBreakT = this.comboShake = this.xpSparkT = 0;
+    this.comboPop = 1;
+    this.text('#combo .mult', 'x1');
+    this.el('#combo .mult').dataset.tier = '1';
+    this.el('#combo').classList.remove('broken');
   }
 
   setLoadout(items: LoadoutItem[]): void {
@@ -532,8 +558,15 @@ export class Hud {
   }
 
   update(s: HudState, dt: number): void {
-    // XP
-    this.el('#xpbar .fill').style.transform = `scaleX(${Math.min(1, s.xp01)})`;
+    const still = reduceMotion();
+    // XP: snap on level changes, otherwise ease the fill and its pixel sparkle together.
+    const xp = Math.max(0, Math.min(1, s.xp01));
+    if (xp > this.shownXp + 0.001) this.xpSparkT = 0.25;
+    else this.xpSparkT = Math.max(0, this.xpSparkT - dt);
+    this.shownXp = still || s.level !== this.lastLevel ? xp : approachHud(this.shownXp, xp, hudTuning.xpSpeed, dt);
+    this.el('#xpbar .fill').style.transform = `scaleX(${this.shownXp})`;
+    this.el('#xpbar .spark').style.left = `${this.shownXp * 100}%`;
+    this.el('#xpbar .spark').hidden = still || this.xpSparkT <= 0 || this.shownXp <= 0;
     if (s.level !== this.lastLevel) {
       this.text('#xpbar .lv', `LV ${s.level}`);
       if (this.lastLevel > 0) {
@@ -546,8 +579,11 @@ export class Hud {
     }
 
     // Life
-    if (s.hp !== this.lastHp) {
-      const k = Math.max(0, s.hp / s.maxHp);
+    const hp01 = Math.max(0, Math.min(1, s.hp / Math.max(1, s.maxHp)));
+    if (s.hp !== this.lastHp || s.maxHp !== this.lastMaxHp) {
+      const k = hp01;
+      if (this.lastHp < 0 || s.maxHp !== this.lastMaxHp || s.hp >= this.lastHp || still) this.trailHp = k;
+      else this.trailHold = hudTuning.damageHold;
       const fill = this.el('#hp .fill');
       fill.style.width = `${k * 100}%`;
       fill.classList.toggle('low', k <= 0.3);
@@ -559,9 +595,17 @@ export class Hud {
         bar.classList.add('hurt');
       }
       this.lastHp = s.hp;
+      this.lastMaxHp = s.maxHp;
     }
+    this.trailHold = Math.max(0, this.trailHold - dt);
+    if (still) this.trailHp = hp01;
+    else if (this.trailHold <= 0) this.trailHp = Math.max(hp01, this.trailHp - dt * hudTuning.damageCatchup);
+    this.el('#hp .chunk').style.transform = `scaleX(${this.trailHp})`;
+    this.el('#hp').classList.toggle('low', s.lowHp);
     this.text('#runinfo .kills', `☠ ${s.kills}`);
-    this.text('#runinfo .gold', `● ${s.gold}`);
+    this.shownGold = still || this.lastGold < 0 || s.gold < this.shownGold ? s.gold : approachHud(this.shownGold, s.gold, hudTuning.goldSpeed, dt);
+    if (Math.abs(s.gold - this.shownGold) < 0.5) this.shownGold = s.gold;
+    this.text('#runinfo .gold', `● ${Math.floor(this.shownGold)}`);
     this.text('#runinfo .gears', `⚙ ${s.gears}/${MAX_GEARS}`);
     if (s.gold !== this.lastGold) {
       if (s.gold > this.lastGold && this.lastGold >= 0) {
@@ -575,7 +619,7 @@ export class Hud {
 
     // Timer / boss
     this.text('#timer .clock', s.timeLeft >= 0 ? fmtClock(s.timeLeft) : s.timeLeft === -1 ? 'BOSS!' : 'CLEAR!');
-    this.el('#timer').classList.toggle('urgent', s.timeLeft >= 0 && s.timeLeft < 10);
+    this.el('#timer').classList.toggle('urgent', s.timeLeft >= 0 && s.timeLeft <= 10);
     this.text('#timer .stage', `STAGE ${s.stage}`);
     const bb = this.el('#bossbar');
     bb.hidden = !s.boss;
@@ -595,23 +639,37 @@ export class Hud {
     if (Math.abs(s.score - this.shownScore) < 1) this.shownScore = s.score;
     this.text('#score', fmtScore(this.shownScore));
 
-    // Combo
+    // Combo: increment pops use local ages, with no forced layout reads in the kill hot path.
     const combo = this.el('#combo');
-    combo.classList.toggle('on', s.combo > 1);
+    this.comboPop += dt;
+    this.comboShake = Math.max(0, this.comboShake - dt);
+    this.comboBreakT = Math.max(0, this.comboBreakT - dt);
     if (s.combo !== this.lastCombo) {
-      this.text('#combo .num', `${s.combo} COMBO`);
-      if (s.combo > this.lastCombo && s.combo % 5 === 0) {
-        combo.classList.remove('bump');
-        void combo.offsetWidth;
-        combo.classList.add('bump');
+      if (s.combo < this.lastCombo && this.lastCombo > 1) {
+        this.comboBreakT = hudTuning.comboBreak;
+        this.text('#combo .num', `${this.lastCombo} COMBO LOST`);
+      }
+      if (s.combo > 1) {
+        this.comboBreakT = 0;
+        this.text('#combo .num', `${s.combo} COMBO`);
+        if (s.combo > this.lastCombo) {
+          this.comboPop = 0;
+          if (comboMilestone(this.lastCombo, s.combo)) this.comboShake = 0.3;
+        }
+        combo.dataset.heat = String(comboTier(s.combo));
       }
       this.lastCombo = s.combo;
     }
-    if (s.multiplier !== this.lastMult) {
+    combo.classList.toggle('on', s.combo > 1 || this.comboBreakT > 0);
+    combo.classList.toggle('broken', this.comboBreakT > 0);
+    if (this.comboBreakT <= 0 && s.multiplier !== this.lastMult) {
       this.text('#combo .mult', `x${s.multiplier}`);
       this.el('#combo .mult').dataset.tier = String(Math.min(s.multiplier, 8));
       this.lastMult = s.multiplier;
     }
+    const pop = still ? 1 : 1 + Math.max(0, 1 - this.comboPop / 0.18) * 0.22;
+    const shake = still ? 0 : this.comboShake > 0 ? Math.round(Math.sin(this.comboShake * 90) * this.comboShake * 14 * settings.shake) : 0;
+    combo.style.transform = `translateX(${shake}px) scale(${pop})`;
     this.el('#combo .cbar div').style.transform = `scaleX(${s.combo01})`;
 
     // Meters
@@ -636,7 +694,7 @@ export class Hud {
 
     // Vignette: hurt pulse plus a heartbeat when low on life.
     this.hurtV = Math.max(0, this.hurtV - dt * 2.5);
-    const beat = s.lowHp ? 0.25 + 0.2 * Math.max(0, Math.sin(performance.now() / 180)) : 0;
+    const beat = s.lowHp ? still ? 0.16 : 0.25 + 0.2 * Math.max(0, Math.sin(performance.now() / 180)) : 0;
     this.el('#vignette').style.opacity = String(Math.max(this.hurtV, beat));
     this.flashV = Math.max(0, this.flashV - dt * 4);
     this.el('#flash').style.opacity = String(this.flashV);
