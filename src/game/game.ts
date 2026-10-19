@@ -89,6 +89,7 @@ import * as GameplaySys from './systems/gameplay';
 import * as WorldEventsSys from './systems/worldEvents';
 import * as TimeSys from './systems/time';
 import * as Coop2Sys from './systems/coop2';
+import * as TradingSys from './systems/trading';
 import * as ModesSys from './systems/modes';
 import * as CineSys from './systems/cinematics';
 import * as VersusSys from './systems/versus';
@@ -612,6 +613,16 @@ export class Game implements HeroWorld {
   coopClientMsg = Coop2Sys.coopClientMsg;
   coopLobby = Coop2Sys.coopLobby;
   renderCoop2 = Coop2Sys.renderCoop2;
+  // Trading lane: gold/gear/relic gifts, shop pools, co-op titles, LEGEND (src/game/systems/trading.ts).
+  tradingStep = TradingSys.tradingStep;
+  tradeAct = TradingSys.tradeAct;
+  tradeMessage = TradingSys.tradeMessage;
+  tradingNet = TradingSys.tradingNet;
+  applyTradingNet = TradingSys.applyTradingNet;
+  tradingHello = TradingSys.tradingHello;
+  lobbyTitle = TradingSys.lobbyTitle;
+  tradeView = TradingSys.tradeView;
+  openTrade = TradingSys.openTrade;
   // Modes lane: rhythm stages, the Pacifist road, bonus mini-games, weekly ghost races (src/game/systems/modes.ts).
   modes: ModesSys.ModesRun = ModesSys.newModesRun();
   modesStageStart = ModesSys.modesStageStart;
@@ -1211,6 +1222,7 @@ export class Game implements HeroWorld {
     if (this.pvp) this.pvpTick();
     this.coopInput();
     this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
+    this.tradingStep(dt); // co-op trading, shop pools, titles, LEGEND scaling (systems/trading.ts)
     this.mpTick(dt); // MP lane: Versus command view, local co-op menu turns, lobby heartbeat (systems/mp.ts)
     // Time holds (rewind playback, death replay) stop the world on this machine (systems/time.ts).
     if (this.timeStep(dt)) {

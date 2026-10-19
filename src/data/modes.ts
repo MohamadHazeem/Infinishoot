@@ -16,7 +16,7 @@ export const MODES: ModeDef[] = [
 ];
 
 // 'normal' is shown as Medium; the id stays so saves, settings and leaderboards keep working.
-export type DifficultyId = 'easy' | 'normal' | 'hard' | 'nightmare';
+export type DifficultyId = 'easy' | 'normal' | 'hard' | 'nightmare' | 'legend';
 
 export interface DifficultyDef {
   id: DifficultyId;
@@ -28,6 +28,8 @@ export interface DifficultyDef {
   score: number;
   /** Achievement that unlocks it. */
   unlock?: string;
+  /** Co-op only (2+ players in an online co-op run; trading lane: LEGEND). Hidden on the solo MODE screen. */
+  coopOnly?: boolean;
 }
 
 export const DIFFICULTIES: DifficultyDef[] = [
@@ -35,6 +37,8 @@ export const DIFFICULTIES: DifficultyDef[] = [
   { id: 'normal', name: 'Medium', desc: 'The game as designed.', enemyHp: 1, enemyDmg: 1, enemyCount: 1, score: 1 },
   { id: 'hard', name: 'Hard', desc: 'Tougher, angrier, more of them. Score x1.5.', enemyHp: 1.4, enemyDmg: 1.3, enemyCount: 1.15, score: 1.5 },
   { id: 'nightmare', name: 'Nightmare', desc: 'Good luck. Score x2.2.', enemyHp: 2, enemyDmg: 1.6, enemyCount: 1.3, score: 2.2, unlock: 'hard_stage3' },
+  // Trading lane (src/game/trading.ts `legendTuning`): co-op only; these base numbers are rescaled for 2/3/4+ players at run start.
+  { id: 'legend', name: 'Legend', desc: 'Co-op only, above Nightmare. Bonus relic per boss, a gear per clear. Score x3.', enemyHp: 2.3, enemyDmg: 1.75, enemyCount: 1.35, score: 3, unlock: 'hard_stage3', coopOnly: true },
 ];
 
 export const DIFF_BY_ID = Object.fromEntries(DIFFICULTIES.map((d) => [d.id, d])) as Record<DifficultyId, DifficultyDef>;

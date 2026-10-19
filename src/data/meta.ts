@@ -1,3 +1,4 @@
+import { COOP_ACHIEVEMENTS } from './coopAchievements';
 /**
  * Achievements: lifetime goals that unlock auto weapons for the level-up pool
  * and loadout items (clicks and specials) for the LOADOUT screen. This is the
@@ -39,3 +40,6 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'immovable', name: 'Immovable', desc: 'Stand still for 20 seconds straight during a stage' },
   { id: 'double_trouble', name: 'Double Trouble', desc: 'Evolve both your left and right click in one run' },
 ];
+
+// Co-op achievements and their titles (trading lane, src/data/coopAchievements.ts).
+ACHIEVEMENTS.push(...COOP_ACHIEVEMENTS);

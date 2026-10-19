@@ -387,6 +387,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyCompanionNet(s.cp);
   this.applyTimeNet(s.tm);
   this.applyCoopNet(s.co);
+  this.applyTradingNet(s.tr);
   this.applyCineNet(s.cn);
   this.applyVersusNet(s.vs);
 

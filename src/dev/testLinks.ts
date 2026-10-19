@@ -21,6 +21,7 @@ import { PickupType } from '../game/pickups';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
 import { shopLinks } from './shopLinks';
+import { tradingLinks } from './tradingLinks';
 import { mods2Links } from './mods2Links';
 import { onboardingLinks } from './onboardingLinks';
 import { hudLinks } from '../ui/hudLinks';
@@ -113,6 +114,8 @@ import { SCAR_COLORS } from '../game/scars';
  *   &mate&autopilot, &joincode=K7P2Q, &mate&teamult=2, &ghostgo=2.
  * MP lane (src/dev/mpLinks.ts): &versus (vs the AI Overlord), &versus=ol&god (you are the Overlord), &vstime=, &vspts=, &vsgo=,
  *   &localcoop[=run]&lcpads=2, &browse=fake, &teamboard=fake, &lobby=versus|weekly.
+ *
+ * Trading lane (src/dev/tradingLinks.ts): &mate&tradedemo&trade=1, &traderelic, &mate&shop&gold=40&tradepool, &tradelobby.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -344,6 +347,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
   shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
+  tradingLinks(game, q); // trading lane: &tradedemo, &trade=<s>, &traderelic, &tradepool, &tradelobby (src/dev/tradingLinks.ts)
   mods2Links(game, q);
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);

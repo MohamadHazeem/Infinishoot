@@ -621,6 +621,36 @@ const SCENARIO = [
     if (!h1 || !c1 || !held || h2 || c2 || !gone) fail(`finisher: playing host ${h1} client ${c1}, boss held ${held}; after: host ${h2} client ${c2}, boss gone ${gone}`);
     return { boss: id, playing: [h1, c1], held, after: [h2, c2], gone };
   }],
+  // Trading lane: gifts go through the host and land on both screens; the TRADE quick menu opens on the client.
+  [22, 'trading: the client gives the host gold, the host gives a gear back', async () => {
+    await host(() => {
+      const g = window.game;
+      g.heroes[1].gold = 20;
+      g.heroes[0].rerollsLeft = 2;
+      g.heroes[1].rerollsLeft = 0;
+    });
+    await pause(500);
+    const before = await host(() => window.game.heroes[0].gold);
+    await client(() => window.game.tradeAct({ a: 'give', k: 'gold', to: 0, n: 7 }));
+    await pause(400);
+    await host(() => window.game.tradeAct({ a: 'give', k: 'gear', to: 1 }));
+    await pause(700);
+    const [h, c] = await Promise.all([
+      host(() => ({ gold: window.game.heroes.map((x) => x.gold), gears: window.game.heroes.map((x) => x.rerollsLeft) })),
+      client(() => ({ gold: window.game.hero.gold, gears: window.game.hero.rerollsLeft, mateGold: window.game.tradeView().heroes[0].gold })),
+    ]);
+    if (h.gold[0] < before + 7 || h.gold[1] > 13 || h.gears[1] !== 1 || c.gears !== 1 || c.gold !== h.gold[1]) fail(`trading: host ${JSON.stringify(h)}, client ${JSON.stringify(c)}`);
+    return { host: h, client: c };
+  }],
+  [25, 'trading: the TRADE quick menu on the client', async () => {
+    await client(() => window.game.openTrade());
+    await pause(500);
+    const open = await client(() => window.game.screens.current === 'trade' && document.querySelectorAll('#scr-trade [data-tr=gold]').length > 0);
+    await shot('trade');
+    await client(() => window.game.resume());
+    if (!open) fail('trading: the TRADE menu did not open on the client');
+    return open;
+  }],
 ];
 
 SCENARIO.sort((a, b) => a[0] - b[0]);
