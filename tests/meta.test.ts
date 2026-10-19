@@ -17,6 +17,7 @@ import {
 } from '../src/game/save';
 import { rewardAvailable, META_KITS, META_REWARDS, CODEX } from '../src/data/codex';
 import { validLoadout } from '../src/data/loadout';
+import { jackpotTuning } from '../src/game/cinematics';
 
 ok(HEAT.length === 9 && heatPoints(HEAT.map((h) => h.id)) === 14, 'nine heat toggles total 14');
 ok(
@@ -255,10 +256,12 @@ ok(
 host.hero.player.hp = 50;
 host.collect(host.hero, PickupType.Heart, 1);
 ok(host.hero.player.hp === 50, 'no-snacks ignores hearts from any source');
+// A spawn can roll into a golden jackpot chest (seeded per run); keep these plain so the count is exact.
+jackpotTuning.chance = 0;
 host.updateChestSpawns(30);
 ok(host.chests.closedCount === 0, 'lost cargo does not spawn a chest at normal cadence');
 host.updateChestSpawns(30);
-ok(host.chests.closedCount === 1, 'lost cargo spawns a chest at twice normal cadence');
+ok(host.chests.closedCount === 1, `lost cargo spawns a chest at twice normal cadence (${host.chests.closedCount} closed, chestT ${host.chestT}, seed ${host.seed})`);
 host.score = 1000;
 ok(host.summary(host.hero).score === 2400, 'all accumulated score is multiplied once at summary');
 client.role = 'client';
