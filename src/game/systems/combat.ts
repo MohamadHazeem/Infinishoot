@@ -223,7 +223,7 @@ export function updateBossBoom(this: Game, dt: number): void {
     const d = this.rng.range(0.3, 1) * b.r;
     const x = b.x + Math.cos(a) * d;
     const z = b.z + Math.sin(a) * d;
-    this.vfx.burst(x, 1, z, { count: 14, color: b.color, color2: '#ffcd75', speed: [4, 9], size: [0.2, 0.4], life: [0.3, 0.6], up: 6, gravity: 14 });
+    this.vfx.burst(x, 1, z, { count: 14, color: b.color, color2: '#ffcd75', speed: [4, 9], size: [0.2, 0.4], life: [0.3, 0.6], up: 6, gravity: 14, smoke: 3, sparks: 4 });
     this.vfx.ring(x, z, 1, 4, '#ffcd75', 0.25);
     this.vfx.star(x, 1.2, z, 2.2, '#ffffff', 0.12);
     this.vfx.sound('explode', x, z);
@@ -233,7 +233,7 @@ export function updateBossBoom(this: Game, dt: number): void {
   this.bossBoom = null;
   this.vfx.ring(b.x, b.z, 1, b.r * 5, '#ffffff', 0.45);
   this.vfx.ring(b.x, b.z, 1, b.r * 3.5, b.color, 0.4);
-  this.vfx.burst(b.x, 1.2, b.z, { count: 50, color: b.color, color2: '#ffffff', speed: [6, 14], size: [0.25, 0.5], life: [0.5, 1], up: 8, gravity: 12 });
+  this.vfx.burst(b.x, 1.2, b.z, { count: 50, color: b.color, color2: '#ffffff', speed: [6, 14], size: [0.25, 0.5], life: [0.5, 1], up: 8, gravity: 12, smoke: 12, debris: 14, scorch: 0 });
   this.vfx.scar(b.x, b.z, b.r * 1.4, SCAR_COLORS.crater, 30);
   this.vfx.sound('bomb', b.x, b.z);
   this.vfx.shake(b.x, b.z, 1);
