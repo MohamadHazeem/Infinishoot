@@ -1,3 +1,5 @@
+import { WEATHER_EVENTS } from './weather2';
+
 /**
  * Mid-stage events (one per stage, at a random moment) and side challenges
  * (one per stage). Behaviour lives in src/game/runEvents.ts.
@@ -14,6 +16,7 @@ export interface StageEventDef {
 }
 
 export const STAGE_EVENTS: Record<EventId, StageEventDef> = {
+  ...WEATHER_EVENTS,
   garden: { id: 'garden', name: 'METEOR GARDEN!', sub: 'DODGE THE BLOOMS • HARVEST THE HEARTS', seconds: 24, good: false },
   rebellion: { id: 'rebellion', name: 'ROBOT REBELLION!', sub: 'ROBOTS TURN ON THEIR NEIGHBOURS', seconds: 20, good: true },
   gravity: { id: 'gravity', name: 'GRAVITY STORM!', sub: 'THE VORTEX GATHERS THE HORDE', seconds: 22, good: false },

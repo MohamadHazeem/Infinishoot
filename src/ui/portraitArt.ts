@@ -29,6 +29,7 @@ export function heroLook(heroId: string, skin: Pick<SkinDef, 'armor' | 'accent' 
 }
 
 export function bossLook(def: { id: string; model?: string; bodyColor: string; accentColor: string }): PortraitLook {
+  if (def.id === 'architect') return { kind: 'boss', model: 'architect', colors: { body: def.bodyColor, accent: def.accentColor } };
   if (def.id === 'shadow_hero') return heroLook('rookie', { armor: '#5d275d', accent: '#73eff7', suit: '#1a1c2c', hair: '#94b0c2', gem: '#a7f070', iris: '#73eff7' });
   return { kind: 'boss', model: def.model ?? def.id, colors: { body: def.bodyColor, accent: def.accentColor } };
 }
@@ -829,6 +830,13 @@ export function paintPortrait(look: PortraitLook, expr: Expression, blink = fals
     const body = hexInt(look.colors.body ?? '#ff5e8a');
     const accent = hexInt(look.colors.accent ?? '#ffd23f');
     if (paintBiome3Portrait(p, look.model, body, accent, expr)) { /* lane portrait */ }
+    else if (look.model === 'architect') {
+      p.poly([16, 2, 29, 15, 16, 30, 3, 15], body);
+      p.poly([16, 7, 24, 15, 16, 25, 8, 15], accent);
+      p.poly([16, 11, 21, 16, 16, 21, 11, 16], 0x1a1c2c);
+      p.rect(14, expr === 'hurt' ? 16 : 14, 18, 17, 0xffcd75);
+      for (const x of [3, 26]) { p.rect(x, 3, x + 3, 6, accent); p.rect(x, 25, x + 3, 28, accent); }
+    }
     else if (look.model === 'pumpking') {
       p.ellipse(16, 19, 13, 11, body);
       for (const x of [9, 16, 23]) p.ellipse(x, 19, 4, 10, body);

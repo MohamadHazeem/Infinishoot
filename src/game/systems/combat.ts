@@ -1,8 +1,10 @@
+import { architectCanDamage } from './architect';
 /**
  * Combat: damage, kills, drops, blasts and death effects.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `nearestEnemy = Combat.nearestEnemy;`.
  */
+import { weather2Hit } from './weather2';
 import { familyCanHit } from './enemyFamilies';
 import { materialHit } from '../particles';
 import type { Game } from '../game';
@@ -47,6 +49,7 @@ export function enemiesInRadius(this: Game, x: number, z: number, r: number, out
 /** All damage to enemies, credited to the hero who dealt it. */
 export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: Hero): number {
   if (!e.active || e.hp <= 0) return 0;
+  if (!architectCanDamage(this, e)) return 0;
   if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
   if (e.roarT > 0) return 0; // bosses are invulnerable while they roar or make their entrance
   if (this.modes.holster) return 0; // Pacifist road / mini-games: heroes deal no damage (systems/modes.ts)
@@ -117,6 +120,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
     if (crit) by.synergy.crit(ev);
     if (crit && by.hasRelic('r_static') && o.source !== 'zap' && e.active) this.zap(e, 2, Math.max(4, amount * 0.35), by);
   }
+  if (e.active && e.hp > 0 && !o.fixed && o.source !== 'shatter') weather2Hit(this, e, by);
   if (e.def.phases) this.bossHpGate(e); // boss phases: can't skip one or die early
   if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);
   return amount;

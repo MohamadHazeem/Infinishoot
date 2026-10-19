@@ -1,12 +1,39 @@
+import { architectAr } from '../game/architect/strings';
 import { trialsAr } from './trials';
+import { pets2Ar } from './pets2';
 import { followupsAr } from './followups';
 import { biome3Ar } from './biome3';
 import { storyAr } from '../game/story/strings';
 import { tips2Ar } from './tips2';
+import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...architectAr,
+  "weather2.sandstorm.name": "عاصفة رملية!",
+  "weather2.sandstorm.sub": "رؤية محدودة • الرياح تحرّف الرصاص",
+  "weather2.sandstorm.hint": "ابقَ قريبًا. الرياح تحرّف كل الرصاص.",
+  "weather2.blizzard.name": "عاصفة ثلجية!",
+  "weather2.blizzard.sub": "واصل الحركة • اجمع المواقد لتدفأ",
+  "weather2.blizzard.hint": "تحرّك أو اقترب من النار. المس موقدًا لتحمل الدفء.",
+  "weather2.lightning.name": "عاصفة رعدية!",
+  "weather2.lightning.sub": "تفادَ الدوائر • أطلق على قضبان البرق لتوجيه الضربات",
+  "weather2.lightning.hint": "أطلق على قضيب ذهبي لتوجيه ٣ ضربات نحو الأعداء القريبين. ابتعد عن الدوائر الحمراء!",
+  "weather2.heatwave.name": "موجة حرّ!",
+  "weather2.heatwave.sub": "البلاط الداكن يسخن • الماء والظل يبرّدانك",
+  "weather2.heatwave.hint": "ابتعد عن البلاط الداكن. البرك السماوية وظل العوائق يبرّدانك.",
+  "weather2.warm": "دافئ • البرد يزول",
+  "weather2.chill": "البرد ⟪value⟫٪ · تحرّك لتدفأ",
+  "weather2.cool": "تبريد • أرض آمنة",
+  "weather2.heat": "الحرارة ⟪value⟫٪ · ابحث عن الماء أو الظل",
+  "weather2.charges": "ضربات موجّهة جاهزة: ⟪value⟫",
+  "weather2.setting": "تأثيرات الطقس",
+  "weather2.settingDesc": "ظواهر طقس تؤثر في القتال. في اللعب التعاوني يقرّر المضيف للجميع.",
+  "weather2.lightning.cause": "عاصفة رعدية",
+  "weather2.heatwave.cause": "موجة حرّ",
+
   ...trialsAr,
+  ...pets2Ar,
   ...biome3Ar,
   "clips.title": "لقطات مميزة",
   "clips.hint": "لعب بلا صوت · احفظ آخر 15 ثانية:",
@@ -318,6 +345,7 @@ export const ar = {
   "menu.tip.build": "تعمل التعديلات بالترتيب من اليسار إلى اليمين. ترتيبها مهم.",
   ...storyAr,
   ...tips2Ar,
+  ...spectateAr,
   "desktop.paste": "لصق",
   "desktop.clipboardUnavailable": "الحافظة غير متاحة. أدخل النص أو حمّل ملفًا.",
 
@@ -377,6 +405,9 @@ export const ar = {
   "mobile.cashpick": "المكافأة",
   "mobile.battery": "توفير البطارية",
   "mobile.batteryDesc": "يحد العرض إلى ٣٠ إطاراً في الثانية. تبقى محاكاة اللعب واللعب عبر الإنترنت بمعدل ٦٠ هرتز.",
+  "voice.title": "الدردشة الصوتية",
+  "voice.players": "اللاعبون في هذه اللعبة",
+  "voice.empty": "لا أحد هنا بعد. استضف لعبة عبر الإنترنت أو انضم إليها: يظهر هنا زملاؤك الذين فعّلوا الدردشة الصوتية.",
   "mobile.opacity": "عتامة أزرار اللمس",
   "mobile.opacityDesc": "وضوح عناصر التحكم باللمس. تُحفظ تغييرات التخطيط على هذا الجهاز.",
   "mobile.autoHide": "إخفاء أزرار اللمس غير المستخدمة",

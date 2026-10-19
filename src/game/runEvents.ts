@@ -13,6 +13,7 @@ import { WEAPONS } from '../data/weapons';
  */
 export interface EventHost {
   readonly rng: Rng;
+  eventAllowed?(id: EventId): boolean;
   readonly stage: number;
   readonly dmgMul: number;
   /** Living hero positions. */
@@ -122,7 +123,7 @@ export class RunEvents {
 
   private startEvent(force?: EventId): void {
     this.eventDone = true;
-    const id = force ?? this.host.rng.pick(EVENT_IDS);
+    const id = force ?? this.host.rng.pick(this.host.eventAllowed ? EVENT_IDS.filter((id) => this.host.eventAllowed!(id)) : EVENT_IDS);
     const def = STAGE_EVENTS[id];
     this.event = { id, t: def.seconds };
     this.host.banner(def.name, def.sub, 2);

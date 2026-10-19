@@ -1,11 +1,38 @@
+import { architectEn } from '../game/architect/strings';
 import { trialsEn } from './trials';
+import { pets2En } from './pets2';
 import { followupsEn } from './followups';
 import { biome3En } from './biome3';
 import { storyEn } from '../game/story/strings';
 import { tips2En } from './tips2';
+import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  ...architectEn,
+  "weather2.sandstorm.name": "SANDSTORM!",
+  "weather2.sandstorm.sub": "SHORT SIGHT • GUSTS BEND BULLETS",
+  "weather2.sandstorm.hint": "Stay close. Gusts bend all bullets.",
+  "weather2.blizzard.name": "BLIZZARD!",
+  "weather2.blizzard.sub": "KEEP MOVING • COLLECT BRAZIERS FOR WARMTH",
+  "weather2.blizzard.hint": "Keep moving or find fire. Touch a brazier to carry warmth.",
+  "weather2.lightning.name": "LIGHTNING STORM!",
+  "weather2.lightning.sub": "DODGE THE RINGS • SHOOT RODS TO REDIRECT STRIKES",
+  "weather2.lightning.hint": "Shoot a gold rod: 3 strikes target nearby enemies. Leave the red rings!",
+  "weather2.heatwave.name": "HEAT WAVE!",
+  "weather2.heatwave.sub": "DARK TILES HEAT UP • WATER AND SHADE COOL DOWN",
+  "weather2.heatwave.hint": "Leave dark tiles. Cyan pools and cover shade cool you.",
+  "weather2.warm": "WARM • CHILL MELTING",
+  "weather2.chill": "CHILL ⟪value⟫% · MOVE TO THAW",
+  "weather2.cool": "COOLING • SAFE GROUND",
+  "weather2.heat": "HEAT ⟪value⟫% · FIND WATER OR SHADE",
+  "weather2.charges": "REDIRECTED STRIKES READY: ⟪value⟫",
+  "weather2.setting": "WEATHER EFFECTS",
+  "weather2.settingDesc": "Combat weather events. In co-op, the host decides for everyone.",
+  "weather2.lightning.cause": "Lightning Storm",
+  "weather2.heatwave.cause": "Heat Wave",
+
   ...trialsEn,
+  ...pets2En,
   ...biome3En,
   "clips.title": "HIGHLIGHT CLIPS",
   "clips.hint": "Silent gameplay · Save the last 15 seconds:",
@@ -317,6 +344,7 @@ export const en = {
   "menu.tip.build": "Mods trigger from left to right. Their order matters.",
   ...storyEn,
   ...tips2En,
+  ...spectateEn,
   "desktop.paste": "PASTE",
   "desktop.clipboardUnavailable": "Clipboard unavailable. Use text entry or load a file.",
 
@@ -376,6 +404,9 @@ export const en = {
   "mobile.cashpick": "REWARD",
   "mobile.battery": "BATTERY SAVER",
   "mobile.batteryDesc": "Caps rendering at 30 fps. Gameplay and online simulation stay at 60 Hz.",
+  "voice.title": "VOICE CHAT",
+  "voice.players": "PLAYERS IN THIS GAME",
+  "voice.empty": "Nobody else is here yet. Host or join an online game: teammates with VOICE CHAT on appear here.",
   "mobile.opacity": "TOUCH OPACITY",
   "mobile.opacityDesc": "Visibility of touch controls. Layout changes save on this device.",
   "mobile.autoHide": "HIDE UNUSED TOUCH BUTTONS",

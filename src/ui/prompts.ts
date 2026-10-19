@@ -126,6 +126,7 @@ const PAD_OF: Partial<Record<PromptId, PadBtn>> = {
   cash: 15,
   cashpick: 14,
   interact: 13, // coopplay lane: on a pad, the team button carries a downed teammate when one is in reach
+  talk: 10,
 };
 
 function keys(a: Action): string[] {
@@ -196,6 +197,7 @@ function padLegend(fam: PadFamily): string {
     [[5, 3], 'Special'],
     [[1], 'Parry'],
     [[11, 10], 'Ultimate'],
+    [[10], 'Push to talk (voice chat)'],
     [[12], 'Rewind time'],
     [[13], 'Team move (co-op)'],
     [[15], 'Cash in combo'],

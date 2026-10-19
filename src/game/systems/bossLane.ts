@@ -532,7 +532,7 @@ function syncTitanWalls(g: Game, L: LaneState): void {
 
 function updateDuelHost(g: Game, L: LaneState, dt: number): void {
   const b = g.boss;
-  if (!g.bossDuel && duelTuning.enabled && b && b.active && b.def.boss && b.def.behavior !== 'titan' && !g.pvp && g.mode === 'fight' && L.duelUid !== b.uid) {
+  if (!g.bossDuel && duelTuning.enabled && b && b.active && b.def.boss && b.def.behavior !== 'titan' && b.def.id !== 'architect' && !g.pvp && g.mode === 'fight' && L.duelUid !== b.uid) {
     const last = (b.def.phases?.length ?? 0) + 1;
     if (b.phase >= last) startDuel(g, L, b);
   }

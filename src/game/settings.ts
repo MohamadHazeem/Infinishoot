@@ -87,6 +87,8 @@ export interface Settings extends DisplayOptions {
   damageNumbers: 'auto' | 'all' | 'mine' | 'off';
   /** Weather: rain, snow and other motes, lightning (off = always clear skies). */
   weather: boolean;
+  /** Host/solo: stage weather that changes combat (independent of particles). */
+  weatherEffects: boolean;
   /** Right click: hold to charge, or press once to start and again to release. */
   chargeMode: 'hold' | 'toggle';
   /** Pet zap sounds (pets zap often at high level). */
@@ -111,6 +113,10 @@ export interface Settings extends DisplayOptions {
   coopCamera: 'team' | 'me';
   /** TEAMMATE WEAPONS (eightp lane): volume of other players' weapon sounds, 0-1 (yours always play in full). */
   mateWeapons: number;
+  /** Online (host): friends may watch as spectators (spectate lane, up to 8). */
+  spectators: boolean;
+  /** Watching: the broadcast overlay (every player's card, clean HUD) starts on. */
+  spectateOverlay: boolean;
   /** Online: the NETWORK panel with everyone's ping, packet loss and snapshot rate (netcode lane). */
   netOverlay: boolean;
   /** BUDDY TETHER: draw the energy link between nearby teammates (the bonus stays either way; coopplay lane). */
@@ -137,6 +143,16 @@ export interface Settings extends DisplayOptions {
   batterySaver: boolean;
   touchOpacity: number;
   touchAutoHide: boolean;
+  /** VOICE CHAT (voicechat lane, src/net/voice.ts): off by default; turning it on asks for the microphone. */
+  voiceChat: boolean;
+  /** Push to talk (the talk key / L3) or an open mic gated by MIC SENSITIVITY. */
+  voiceMode: 'ptt' | 'open';
+  /** Open-mic sensitivity 0..1 (higher picks up quieter speech). */
+  voiceSensitivity: number;
+  /** Volume of teammates' voices. */
+  voiceChatVolume: number;
+  /** TEAM RADIO: hear every teammate at full volume, wherever they are. */
+  teamRadio: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -186,6 +202,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   uiScale: 100,
   damageNumbers: 'auto',
   weather: true,
+  weatherEffects: true,
   chargeMode: 'hold',
   petSounds: true,
   finishers: true,
@@ -198,6 +215,8 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   helpGhosts: true,
   coopCamera: 'team',
   mateWeapons: 0.8,
+  spectators: true,
+  spectateOverlay: true,
   netOverlay: false,
   tetherVisual: true,
   cinematics: 'full',
@@ -216,6 +235,11 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   batterySaver: false,
   touchOpacity: 70,
   touchAutoHide: true,
+  voiceChat: false,
+  voiceMode: 'ptt',
+  voiceSensitivity: 0.5,
+  voiceChatVolume: 0.9,
+  teamRadio: false,
 };
 export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS, loadout: { ...DEFAULT_LOADOUT } });
 Object.assign(settings, displayOptions(settings));
@@ -233,6 +257,7 @@ if (typeof location !== 'undefined') {
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
 settings.weather ??= true;
+settings.weatherEffects ??= true;
 settings.petSounds ??= true;
 settings.finishers ??= true;
 settings.portraitPops ??= true;
@@ -244,6 +269,8 @@ settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
 settings.coopCamera = settings.coopCamera === 'me' ? 'me' : 'team';
 settings.mateWeapons = Number.isFinite(settings.mateWeapons) ? Math.max(0, Math.min(1, settings.mateWeapons)) : 0.8;
+settings.spectators ??= true;
+settings.spectateOverlay ??= true;
 settings.netOverlay ??= false;
 settings.tetherVisual ??= true;
 settings.cinematics ??= 'full';
@@ -251,6 +278,11 @@ settings.teamName ??= '';
 settings.lobbyPublic ??= false;
 settings.crowd ??= true;
 settings.radioDj ??= true;
+settings.voiceChat = settings.voiceChat === true;
+settings.voiceMode = settings.voiceMode === 'open' ? 'open' : 'ptt';
+settings.voiceSensitivity = Number.isFinite(settings.voiceSensitivity) ? Math.max(0, Math.min(1, settings.voiceSensitivity)) : 0.5;
+settings.voiceChatVolume = Number.isFinite(settings.voiceChatVolume) ? Math.max(0, Math.min(1, settings.voiceChatVolume)) : 0.9;
+settings.teamRadio = settings.teamRadio === true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

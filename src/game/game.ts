@@ -1,7 +1,9 @@
+import * as ArchitectSys from './systems/architect';
 import { installTrials } from './systems/trials';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
 import * as RaidSys from './systems/raid';
+import { installSpectate } from './systems/spectate';
 import * as GauntletSys from './systems/gauntlet';
 import * as Director2Sys from './systems/director2';
 import * as MvpSys from './systems/mvp';
@@ -52,6 +54,7 @@ import { Ambience } from './ambience';
 import { Scars } from './scars';
 import { streaks } from './streaks';
 import { skinOf } from '../data/skins';
+import { updateWeather2, weather2Local } from './systems/weather2';
 import { RunEvents } from './runEvents';
 import { DIFF_BY_ID, MODE_BY_ID, type DifficultyDef, type ModeId } from '../data/modes';
 import { heroOf } from '../data/heroes';
@@ -71,6 +74,7 @@ import * as PvpFlowSys from './systems/pvpFlow';
 import * as Pvp2Sys from './systems/pvp2';
 import * as RaceSys from './systems/race';
 import * as NetHostSys from './systems/netHost';
+import { voiceTick } from './systems/voicechat';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
 import * as EnemyAiSys from './systems/enemyAi';
@@ -396,7 +400,7 @@ export class Game implements HeroWorld {
   makeEventHost = SpiceSys.makeEventHost;
   spiceLines = SpiceSys.spiceLines;
   goldFx = SpiceSys.goldFx;
-  stageClear = GauntletSys.stageClear;
+  stageClear = ArchitectSys.stageClear;
   openShop = GauntletSys.openShop;
   shopFx = SpiceSys.shopFx;
   closeShop = GauntletSys.closeShop;
@@ -1014,6 +1018,7 @@ export class Game implements HeroWorld {
     PartySys.installParty(this, hudRoot);
     Pvp2Sys.installPvp2(this); // PvP formats, bots, arenas and rules rows (systems/pvp2.ts)
     RaceSys.installRace(this, hudRoot); // race lane: race, challenge codes, tournament, ranked (chains onto Game methods)
+    installSpectate(this, hudRoot); // JOIN AS SPECTATOR, lobby WATCHING rows, spectator overlay (systems/spectate.ts)
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     HalloweenSys.installHalloween.call(this, hudRoot);
     this.story = StorySys.installStory.call(this, hudRoot);
@@ -1313,12 +1318,14 @@ export class Game implements HeroWorld {
   update(dt: number): void {
     this.stepN++;
     this.mvpStep();
+    voiceTick(this, dt); // voice chat: roster, calls, push to talk, proximity (systems/voicechat.ts)
     accessibilityInput(this.input, this.isCombatMode && !this.paused && this.screens.current === 'none' && !this.photo?.active, dt, this.stage, this.hero.player.dead);
     if (this.photo?.active) {
       this.photo.update(dt);
       this.input.endStep();
       return;
     }
+    if (ArchitectSys.architectEndingStep(this, dt)) { this.input.endStep(); this.hostTick(false); return; }
     if (this.storyStep(dt)) { this.input.endStep(); this.hostTick(false); return; }
     this.onboarding.step(dt);
     this.firstten.step(dt);
@@ -1415,8 +1422,10 @@ export class Game implements HeroWorld {
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
     GauntletSys.gauntletTick(this, dt);
+    ArchitectSys.updateArchitect(this, dt);
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
+    weather2Local(this);
     this.updateSkill(dt);
     lap('sim.heroes+skill');
 
@@ -1463,6 +1472,7 @@ export class Game implements HeroWorld {
     this.updateArena(dt);
     coopPlayStep(this, dt); // carrying teammates, buddy tether, co-op banter (systems/coopplay.ts)
     this.updateWind(dt);
+    updateWeather2.call(this, dt);
     if (this.runMode !== 'raid') this.updateWorldEvent(dt);
     this.updateRaid(dt);
     this.updateModes(dt); // pacifist timer and rewards, mini-games, ghost recording (systems/modes.ts)

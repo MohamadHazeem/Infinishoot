@@ -31,6 +31,7 @@ row('VIDEO', 'crt', 'CRT FILTER', 'Adds scanlines and darkens the screen edges.'
 row('VIDEO', 'distortion', 'SHOCKWAVES', 'Heat shimmer and screen distortion. Reduce screen effects overrides this.');
 row('VIDEO', 'nightStages', 'NIGHT STAGES', 'Allows night lighting on eligible stages.');
 row('VIDEO', 'weather', 'WEATHER', 'Rain, snow and other weather particles.');
+row('GAMEPLAY', 'weatherEffects', 'WEATHER EFFECTS', 'Combat weather events. In co-op, the host decides for everyone.');
 row('VIDEO', 'animeLook', 'ANIME LOOK', 'Ink outlines, cel shading, speed lines and impact frames.');
 row('VIDEO', 'uiScale', 'UI SCALE', 'Scales entire HUD panels and menus; capped to fit your window.', [75, 150, 25]);
 row('VIDEO', 'showFps', 'SHOW FPS', 'Shows the frame-rate counter.');
@@ -78,10 +79,17 @@ row('ACCESSIBILITY', 'soundArrows', 'SOUND ARROWS', 'Screen-edge arrows point to
 row('CO-OP', 'coopPool', 'SHARED REVIVE POOL', 'Host rule for the next run: the team shares a limited pool of lives.');
 row('CO-OP', 'coopJoinable', 'JOIN IN PROGRESS', 'Host rule: friends may join or reconnect after a run starts.');
 row('CO-OP', 'lobbyPublic', 'PUBLIC LOBBY', 'Lists hosted games in Browse Games when the online service is enabled.');
+row('CO-OP', 'voiceChat', 'VOICE CHAT', 'Talk to teammates in online games. Turning it on asks for your microphone.');
+row('CO-OP', 'voiceMode', 'VOICE MODE', 'PTT: hold the talk key (N by default, L3 on a pad) to speak. OPEN: your mic sends whenever you speak louder than MIC SENSITIVITY.', undefined, ['ptt', 'open'], undefined);
+row('CO-OP', 'voiceSensitivity', 'MIC SENSITIVITY', 'Open mic: higher values pick up quieter speech (and more background noise). Try it with TEST MIC below.', [0, 1, 0.1]);
+row('CO-OP', 'voiceChatVolume', 'VOICE CHAT VOLUME', 'Volume of your teammates\' voices.', [0, 1, 0.1]);
+row('CO-OP', 'teamRadio', 'TEAM RADIO', 'ON: hear every teammate at full volume. OFF: voices fade with distance (quiet beyond 25 m) and pan to where the speaker stands.');
 row('CO-OP', 'helpGhosts', 'HELP GHOSTS', 'Allows friends’ recorded help ghosts to appear in your runs.');
 row('CO-OP', 'tetherVisual', 'BUDDY TETHER', 'Shows the energy link between nearby teammates. The link bonus stays when hidden.');
 row('CO-OP', 'coopCamera', 'CO-OP CAMERA', 'TEAM: the camera also frames nearby teammates. ME: it follows only your hero (handy in big, spread-out teams).', undefined, ['team', 'me']);
 row('AUDIO', 'mateWeapons', 'TEAMMATE WEAPONS', 'Volume of other players’ weapon sounds in co-op. Your own weapons always play in full.', [0, 1, 0.1]);
+row('CO-OP', 'spectators', 'SPECTATORS', 'Host rule: up to 8 friends may watch your games (they join as spectators when the game is full or by choice).');
+row('CO-OP', 'spectateOverlay', 'BROADCAST OVERLAY', 'When you watch a game: every player’s card down the side and a clean HUD for streaming.');
 export const SETTINGS_ROWS: readonly SettingRow[] = rows;
 
 /** Only the active tab's keys; never loadouts, identity, bindings or other tabs. */

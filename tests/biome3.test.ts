@@ -320,7 +320,7 @@ for (const [stage, id, move] of [
 // Native behaviours in the real simulation, with weapons removed for an isolated ring.
 A.loadStage(10);
 flush();
-A.hero.weapons.length = 0;
+for (const h of A.heroes) h.weapons.length = 0;
 const fish = A.enemies.spawn(
   ENEMIES.jellyfish,
   A.hero.player.x + 6,
@@ -328,9 +328,17 @@ const fish = A.enemies.spawn(
   A.spawnOpts({ instant: true }),
 );
 fish.timerA = 0;
-const beforeShots = A.bullets.count;
-step(65);
-ok(A.bullets.count > beforeShots, 'jellyfish completes its wind-up and fires a ring');
+// Observe emission: random arena geometry may consume the ring before a later
+// bullet-count sample, and the previous boss can leave a brief slow-motion tail.
+let ringShots = 0;
+const fireBullet = A.enemyCtx.fireBullet;
+A.enemyCtx.fireBullet = (e, ...args) => {
+  if (e === fish) ringShots++;
+  fireBullet(e, ...args);
+};
+step(180, () => ringShots > 0);
+A.enemyCtx.fireBullet = fireBullet;
+ok(ringShots === biome3Tuning.jellyBullets, 'jellyfish completes its wind-up and fires a ring');
 A.loadStage(9);
 flush();
 const gummy = A.enemies.spawn(ENEMIES.gummy, 4, 0, A.spawnOpts({ instant: true }));

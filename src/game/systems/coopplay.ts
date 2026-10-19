@@ -677,7 +677,7 @@ function slowCarriers(g: Game, s: CoopPlayState): void {
 function slowHero(s: CoopPlayState, h: Hero): void {
   const p = h.player;
   if (p.dead) return;
-  const mul = carryingOf(s, h.index) >= 0 ? carryTuning.speed : s.bomb.by === h.index ? coopObjTuning.bombSpeed : 1;
+  const mul = carryingOf(s, h.index) >= 0 ? carryTuning.speed : s.bomb.by === h.index && !h.petState.ranks.porter ? coopObjTuning.bombSpeed : 1;
   if (mul >= 1) return;
   p.pos.x = p.prev.x + (p.pos.x - p.prev.x) * mul;
   p.pos.z = p.prev.z + (p.pos.z - p.prev.z) * mul;
@@ -1188,6 +1188,10 @@ class CoopView {
         x = carrier.player.rig.root.position.x;
         z = carrier.player.rig.root.position.z;
         y = 1.9 + Math.abs(Math.sin(t * 7)) * 0.08;
+        if (carrier.petState.ranks.porter && carrier.petView) {
+          const pet = carrier.petView.root.position;
+          x = pet.x; z = pet.z; y = pet.y + 0.35;
+        }
         b.rx = x;
         b.rz = z;
       } else {
@@ -1201,7 +1205,7 @@ class CoopView {
       const fast = b.fuse >= 0;
       this.bombLight.uniforms.uColor.value.set(blink(fast ? 10 : 2) ? '#ff004d' : '#5d275d');
       const sc = (fast ? 1 + Math.abs(Math.sin(t * 12)) * 0.12 : 1) * 1.3;
-      this.bomb.scale.setScalar(sc);
+      this.bomb.scale.setScalar(carrier?.petState.ranks.porter ? sc * 0.55 : sc);
       if (live && b.by < 0 && !fast) beam(b.x, b.z);
     }
     this.beams.count = beams;

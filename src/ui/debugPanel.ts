@@ -1,3 +1,4 @@
+import { architectTuning } from '../game/architect/model';
 import { pvpTuning } from '../game/pvp';
 import { addBiome3Folder } from './debugBiome3';
 import { secretsTuning } from '../data/secrets';
@@ -50,13 +51,14 @@ import { decalTuning } from '../game/decals';
 import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
 import { worldDebugFolder } from '../world/worldDebug';
+import { weather2Tuning } from '../data/weather2';
 import { addWorldEventsFolder } from './debugWorldEvents';
 import { addModesFolder } from './debugModes';
 import { finisherTuning } from '../game/finisher';
 import { portraitTuning } from './portraits';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
-import { petTuning } from '../data/pets';
+import { petTuning, pets2Tuning } from '../data/pets';
 import { teamTuning } from '../game/teamMoves';
 import { banishTuning } from '../game/banish';
 import { cardNumTuning } from '../game/cardNumbers';
@@ -159,6 +161,8 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   gfx3.add(shadowTuning, 'normalBias', 0, 0.1, 0.005);
   gfx3.add(shadowTuning, 'hz', 10, 60, 1);
   for (const key of ['beamStrength', 'beamLife', 'evolutionLife', 'beamHeight', 'evolutionHeight'] as const) gfx3.add(gfx3Tuning, key, 0.05, key.endsWith('Height') ? 10 : 2, 0.05);
+  const architect = gui.addFolder('The Architect'); architect.close();
+  for (const key of ['hp', 'teamHp', 'warning', 'cycle', 'bulletSpeed', 'pulseEvery', 'hazardDamage', 'fallDamage', 'desperationWarn'] as const) architect.add(architectTuning, key);
   addBossLaneFolder(gui); // Titan, rematches, boss duel
   addBiome3Folder(gui);
   addBosses3Folder(gui); // biome bosses (src/ui/debugBosses3.ts)
@@ -363,6 +367,9 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addCinematicsFolder(gui, game); // cinematics lane: sky fall, ending, reveals, jackpot, flawless (src/ui/debugCinematics.ts)
   addMpFolder(gui, game); // MP lane: Versus Swarm, local co-op, lobby browser (src/ui/debugMp.ts)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
+  const weather2 = gui.addFolder('Combat weather');
+  for (const key of Object.keys(weather2Tuning) as (keyof typeof weather2Tuning)[]) weather2.add(weather2Tuning, key);
+  weather2.close();
   addWorldEventsFolder(gui, game); // world events: start any now, force one, knobs (src/ui/debugWorldEvents.ts)
   const rf = gui.addFolder('Hydra raid').close();
   for (const key of ['weaponDamage','headHp','enrage','wipe','ghostDps','parryDamage','fireWarn','stumpSeconds'] as const) rf.add(raidTuning, key);
@@ -381,6 +388,12 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
 
   // Companion lane: pets and co-op team moves.
   const comp = gui.addFolder('Pets & team moves').close();
+  const p2 = comp.addFolder('More companions').close();
+  p2.add(pets2Tuning, 'flameDamage', 0, 100, 1);
+  p2.add(pets2Tuning, 'turretDamage', 0, 100, 1);
+  p2.add(pets2Tuning, 'stealPerStage', 0, 50, 1);
+  p2.add(pets2Tuning, 'absorbRadius', 1, 5, 0.1);
+  p2.add(pets2Tuning, 'scoutRange', 10, 70, 1);
   comp.add(petTuning, 'fetchMagnet', 0, 2, 0.05).name('Fetch range +');
   comp.add(petTuning, 'zapDmg', 0, 100, 1).name('Zap damage');
   comp.add(petTuning, 'zapPerLevel', 0, 20, 0.5).name('Zap per team lv');

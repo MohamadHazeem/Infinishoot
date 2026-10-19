@@ -16,16 +16,20 @@
     "shot": "node scripts/shot.mjs",
     "coop": "node scripts/coop-test.mjs",
     "coop8": "node scripts/coop8.mjs",
+    "voicechat": "node scripts/voicechat-test.mjs",
     "bench": "node scripts/bench.mjs",
     "replay": "node scripts/replay.mjs",
     "visual": "node scripts/visual.mjs",
     "balance": "node scripts/replay.mjs --balance",
     "loadtime": "node scripts/loadtime.mjs",
+    "fuzz": "node scripts/fuzz.mjs",
+    "soak": "node scripts/soak.mjs",
     "icons": "node scripts/icons.mjs",
     "format": "prettier --write \"src/**/*.{ts,css}\"",
     "app": "npm run build && electron .",
     "dist": "npm run build && electron-builder --win portable --publish never -c.electronDist=node_modules/electron/dist",
-    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64 --publish never"
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64 --publish never",
+    "sweep": "node scripts/balance-sweep.mjs"
   },
   "allowScripts": {
     "electron@44.7.2": true,
@@ -51,7 +55,12 @@
       "target": "dmg",
       "category": "public.app-category.games",
       "hardenedRuntime": true,
-      "notarize": false
+      "notarize": false,
+      "entitlements": "electron/entitlements.mac.plist",
+      "entitlementsInherit": "electron/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "InfiniShoot uses the microphone for voice chat with your co-op teammates (only when VOICE CHAT is turned on)."
+      }
     },
     "dmg": {
       "artifactName": "InfiniShoot-mac-${arch}.dmg"

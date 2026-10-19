@@ -44,7 +44,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips';
+export type ExtraScreen = 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
@@ -1657,12 +1657,21 @@ export class Screens {
 
 // ---------------------------------------------------------------- shop particles
 
+/** Elements with a `replay` class whose animationend listener is still waiting. */
+const replaying = new WeakMap<HTMLElement, Set<string>>();
+
 /** Restart a CSS animation class on an element. */
 function replay(el: HTMLElement, cls: string): void {
   el.classList.remove(cls);
   void el.offsetWidth;
   el.classList.add(cls);
-  el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+  // One waiting listener per element and class: a screen hidden mid-animation (the shop closed at once)
+  // cancels it without an animationend, and a new listener per opening piled up (soak, crash-fuzz lane).
+  let pending = replaying.get(el);
+  if (!pending) replaying.set(el, (pending = new Set()));
+  if (pending.has(cls)) return;
+  pending.add(cls);
+  el.addEventListener('animationend', () => (pending.delete(cls), el.classList.remove(cls)), { once: true });
 }
 
 /** One pixel bit (or coin) flying from (x0, y0) to (x1, y1) with a little hop. */

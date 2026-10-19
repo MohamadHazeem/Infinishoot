@@ -224,9 +224,11 @@ E.onClientMessage = (m: any) => {
   if (m.t === 'full') refused = String(m.reason);
   origE(m);
 };
+settings.spectators = false; // with spectator seats on, a ninth would watch instead (tests/spectateCoop.test.ts)
 q.push([A, { t: 'hello', name: 'Ninth', unlocked: [] }, 'peerE']);
 step(1);
 ok(refused.includes('full') && A.heroes.length === 8, `a ninth is refused (${refused})`);
+settings.spectators = true;
 peers.delete('peerE');
 // Players 5-8 quit on purpose: the rest of this test plays with four.
 extras.forEach((X, k) => {

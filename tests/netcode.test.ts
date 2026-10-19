@@ -421,6 +421,10 @@ ok(NC.netcodeState(A).probes.get('peerB')?.rtt !== undefined && (NC.netcodeState
   ok(A.heroes.length === before && A.heroes[1].peerId === 'peerB2' && !A.heroes[1].left, `reconnect: the same hero is reclaimed, not a new one (${A.heroes.length} heroes, peer ${A.heroes[1].peerId})`);
   ok(B2.mode !== 'title' && B2.local === 1, `reconnect: the client is back in the run as hero 1 (${B2.mode}, local ${B2.local})`);
   // A silent client is dropped after dropMs: autopilot keeps its hero.
+  // Game construction above can trigger the host-load grace on a busy machine.
+  // This scenario isolates peer silence, after that local stall has ended.
+  NC.netcodeState(A).stallUntil = 0;
+  NC.netcodeState(A).lastStepAt = performance.now();
   lastHeard.set('peerB2', performance.now() - netQualityTuning.dropMs - 100);
   step(2);
   ok(dropped.includes('peerB2') && C2.coop2Debug(A).grace.some((g) => g.index === 1), 'reconnect: a silent client is dropped and its hero goes on autopilot');
@@ -443,7 +447,9 @@ ok(NC.netcodeState(A).probes.get('peerB')?.rtt !== undefined && (NC.netcodeState
     if (m.t === 'full') refused = String(m.reason);
     return orig(m);
   };
+  settings.spectators = false; // with spectator seats on, the stranger would watch instead (tests/spectateCoop.test.ts)
   A.onHostMessage('peerS', { t: 'hello', pid: 'pid-stranger', name: 'STRANGER' });
   flush();
+  settings.spectators = true;
   ok(/closed/i.test(refused), `reconnect: a new player is still refused from a closed run (${refused})`);
 }

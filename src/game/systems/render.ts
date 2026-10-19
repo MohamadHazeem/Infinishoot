@@ -1,3 +1,6 @@
+import { renderWeather2, prepareWeather2 } from './weather2';
+import { reduceMotion } from '../../ui/hud';
+import { renderArchitect, architectActive, architectState } from './architect';
 import { eventBehavior } from '../../data/stageEvents';
 import { renderSecrets } from './secrets';
 import { encounterTrack, updateAudio3 } from './audio3';
@@ -48,6 +51,7 @@ import { closePingWheel, pingInput, pingKind } from '../teamPlay';
 import { updateGraphics } from './graphics';
 import { bossCamera } from './bossLane';
 import { declutterTeamTags, eightpFrame, eightpPingOk } from './eightp';
+import { spectateFrame, spectating } from './spectate';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -173,8 +177,10 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
   updateAudio3(this);
   const omega = bossTrack(this.stage) === 'omega';
   music.setBossPhase(!boss ? 1 : omega && boss.hp01 < omegaTuning.phase3At ? 3 : boss.hp01 < (omega ? omegaTuning.phase2At : bossTuning.enrageAt) ? 2 : 1);
+  if (architectActive(this)) { track = 'architect'; music.setBossPhase(architectState(this).phase); }
+  if (architectState(this).done) track = 'victory';
   const duck = this.paused || m === 'levelup' || (track !== 'shop' && this.screens.current !== 'none' && inRun);
-  music.update(frameDt, { track, seed: track === 'title' || track === 'titleRemix' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, stage: track === 'titleRemix' ? 1 : this.stage, cue: m === 'cleared' ? 'victory' : m === 'dead' ? 'gameover' : undefined });
+  music.update(frameDt, { track, seed: track === 'title' || track === 'titleRemix' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, stage: track === 'titleRemix' ? 1 : this.stage, cue: m === 'cleared' ? 'victory' : m === 'dead' ? architectState(this).done ? 'victory' : 'gameover' : undefined });
   document.documentElement.style.setProperty('--beat', music.pulse.toFixed(2));
 }
 
@@ -215,12 +221,13 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   for (const h of this.heroes) {
     if (h.left) {
       h.player.rig.root.visible = false;
+      h.petView?.render(0, 0, 0, 0, false);
       continue;
     }
-    h.petView?.render(rdt, h.player.rig.root.position.x, h.player.rig.root.position.z, h.player.rig.root.rotation.y, !h.player.dead && this.mode !== 'transition');
+    h.petView?.render(rdt, h.player.rig.root.position.x, h.player.rig.root.position.z, h.player.rig.root.rotation.y, !h.player.dead && this.mode !== 'transition', reduceMotion());
     h.player.cheer = this.mode === 'cleared';
     h.player.focus = h === local && h.ctx.charging;
-    h.player.render(h === local || !client ? a : netA, rdt);
+    h.player.render((h === local && !spectating(this)) || !client ? a : netA, rdt);
   }
   lap('ren.heroes+audio');
   const watch = p.dead && this.heroes.length > 1 ? this.spectateTarget() : null;
@@ -234,6 +241,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.enemies.renderBounds = this.arena.halfSize;
   this.enemies.familyReduceFlash = access.reduceFlash || !!this.juice.noise?.calm;
   this.enemies.familyColorblind = settings.colorblind;
+  prepareWeather2(this);
   if (!held) this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
   this.eliteTrails(frameDt);
@@ -280,6 +288,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.mpFrame(frameDt); // Versus command view and local co-op team camera, their HUDs (systems/mp.ts)
   pvp2Frame(this, frameDt); // PvP ring, team rings, round HUD, scoreboard, spectator camera (systems/pvp2.ts)
   raidCamera(this);
+  spectateFrame(this, frameDt); // spectators: camera, follow card, broadcast overlay; WATCHING badge (systems/spectate.ts)
+  renderArchitect(this); // ultboss: floating arena and camera framing
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
   this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 
@@ -356,6 +366,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.updateSkyFx(frameDt);
   lap('ren.sky');
   this.worldFx(frameDt);
+  renderWeather2(this);
   lap('ren.worldfx');
   updateGraphics(this, frameDt); // graphics lane: destruction, anime look, water, fog, framing, customisation
   renderReadability.call(this);

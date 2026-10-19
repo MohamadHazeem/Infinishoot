@@ -1,4 +1,7 @@
+import { architectLinks } from '../game/systems/architect';
+import { weather2Links } from '../game/systems/weather2';
 import { trialsTest } from '../game/systems/trials';
+import { pets2Links } from './pets2Links';
 import { biome3Force } from '../game/biome3Brain';
 import { clipsFor, markClip } from '../game/systems/clips';
 import { secretsLinks } from '../game/systems/secrets';
@@ -19,6 +22,7 @@ import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
 import { coop2Links } from './coop2Links';
 import { eightpLinks } from './eightpLinks';
+import { spectateLinks } from './spectateLinks';
 import { netcodeLinks } from './netcodeLinks';
 import { coopplayLinks } from './coopplayLinks';
 import { cinematicsLinks } from './cinematicsLinks';
@@ -63,6 +67,8 @@ import { charDebug } from '../game/systems/characters';
 import { portraits, type Expression } from '../ui/portraits';
 import { skyOverrides, skyTuning } from '../render/sky';
 import { SCAR_COLORS } from '../game/scars';
+import { voiceLinks } from './voiceLinks';
+import { fuzzMonkey } from './fuzzLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -144,6 +150,7 @@ import { SCAR_COLORS } from '../game/scars';
  *   &localcoop[=run]&lcpads=2, &browse=fake, &teamboard=fake, &lobby=versus|weekly.
  *
  * Trading lane (src/dev/tradingLinks.ts): &mate&tradedemo&trade=1, &traderelic, &mate&shop&gold=40&tradepool, &tradelobby.
+ * Crash fuzzer (src/dev/fuzzLinks.ts, scripts/fuzz.mjs): &monkey=<seed> random keys, clicks, pauses, tab hides and resizes.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -201,7 +208,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   game.startSolo();
   // Skip the starting shop.
   if (game.mode === 'shop') game.closeShop();
-  const stage = Number(q.get('stage'));
+  const stage = Number(q.get('stage')) || (q.has('architect') ? 12 : 0);
   if (stage > 1) game.loadStage(stage);
   for (const w of list('weapons')) {
     const [id, n] = pair(w);
@@ -279,9 +286,11 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const numbers = q.get('numbers');
   if (numbers && ['auto', 'all', 'mine', 'off'].includes(numbers)) settings.damageNumbers = numbers as typeof settings.damageNumbers;
   eightpLinks(game, q); // matebots, spread=, matenames, matedown= (src/dev/eightpLinks.ts)
+  spectateLinks(game, q); // spectest, spcam=, spfollow=, spoverlay=0, spwatchers=, spemote=, splobby (src/dev/spectateLinks.ts)
   coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
   netcodeLinks(game, q); // netdemo, netdemo=rc, netdemo=lost (src/dev/netcodeLinks.ts)
   coopplayLinks(game, q); // coopobj=, cpme=, cpmate=, cpcore=, cpbomb, carry=, tether=, banter=, notether (src/dev/coopplayLinks.ts)
+  weather2Links(game, q); // weather=sandstorm|blizzard|lightning|heatwave; weatheroff
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
   halloweenLinks(game, q);
@@ -293,6 +302,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   pvp2Links(game, q); // pvp2 lane: pvp=ffa|teams, pvpn=, pvparena=, pvpout, pvpboard (src/dev/pvp2Links.ts)
   raceLinks(game, q); // race lane: racex[=wait|end], chal=, gochal, compete=, tourney=, lobbyrace, rating= (src/dev/raceLinks.ts)
   sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
+  voiceLinks(game, q); // voicedemo, voicedemo=screen (src/dev/voiceLinks.ts)
   meta2Links(game, q); // m2screen=profile|achievements, m2lv=, m2demo, m2quests=, m2equip= (src/dev/meta2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
@@ -419,8 +429,11 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     game.screens.showGameOver(game.summary(game.hero), -1, [], false);
     game.showMvp(report);
   }
+  if (q.has('monkey')) fuzzMonkey(game, Number(q.get('monkey')) || 1); // crash fuzzer: random keys, clicks, pauses on top of the bot
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
+  pets2Links(game, q); // petpose, petwardrobe: quiet model / picker QA
+  architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
   return true;
 }
 

@@ -48,16 +48,16 @@ export const SPECIALS: Record<string, SpecialDef> = {
     rarity: 'common',
     desc: 'A shockwave that blasts everything around you and clears enemy bullets.',
     starter: true,
-    levels: [{ text: 'Shockwave around you.', p: { dmg: 80, radius: 10, charge: 1, bomblets: 0, implode: 0 } }],
+    levels: [{ text: 'Shockwave around you.', p: { dmg: 100, radius: 10, charge: 1, bomblets: 0, implode: 0 } }],
     tracks: [
       {
         id: 'payload',
         name: 'Payload',
         ranks: [
-          { text: '+30 damage.', p: { dmg: 30 } },
-          { text: '+30 damage.', p: { dmg: 30 } },
-          { text: '+30 damage.', p: { dmg: 30 } },
           { text: '+40 damage.', p: { dmg: 40 } },
+          { text: '+40 damage.', p: { dmg: 40 } },
+          { text: '+45 damage.', p: { dmg: 45 } },
+          { text: '+55 damage.', p: { dmg: 55 } },
         ],
       },
       {

@@ -37,6 +37,7 @@ export const charDebug = { holdAt: -1, face: '' as Expression | '' };
 
 /** What bosses say when they pop in. */
 export const BOSS_LINES: Record<string, { intro: string; phase: string[]; gloat: string }> = {
+  architect: { intro: 'Omega was only my first draft.', phase: ['I remember every battle.', 'Break the pattern. Build your own future.'], gloat: 'Back to the drawing board.' },
   cake: { intro: 'TIME FOR DESSERT!', phase: ['LESS CAKE, MORE FURY!', 'BLOW OUT THE CANDLES!'], gloat: 'A PIECE OF CAKE!' },
   kraken: { intro: 'THE DEEP REMEMBERS!', phase: ['LIGHTS OUT!', 'ALL TIDES LEAD TO ME!'], gloat: 'BACK TO THE SHALLOWS!' },
   king: { intro: 'BOW BEFORE THE BOUNCE!', phase: ['ROYAL GUARD, SLAM!', 'OFF WITH YOUR HEAD!'], gloat: 'LONG LIVE THE KING!' },
@@ -282,7 +283,7 @@ export function renderCharacters(this: Game, frameDt: number): void {
     st.bossPhase = boss ? boss.phase : 1;
     st.entrance = id;
   }
-  const lines = boss ? BOSS_LINES[boss.def.model] : undefined;
+  const lines = boss ? (BOSS_LINES[boss.def.id] ?? BOSS_LINES[boss.def.model]) : undefined;
   if (boss && st.entrance && !this.bossIntro.active) {
     st.entrance = '';
     if (lines) portraits.popIn(`boss:${id}`, 'grinning', lines.intro, 3);

@@ -71,6 +71,7 @@ export function companionLinks(game: Game, q: URLSearchParams): void {
   if (down > 0 && game.heroes[1]) {
     setTimeout(() => {
       const m = game.heroes[1];
+      if (!m) return; // the dummy left (versus, local co-op or the title replaced the heroes)
       m.revivesLeft = 0;
       m.petState.reviveUsed = true;
       m.player.invuln = 0;

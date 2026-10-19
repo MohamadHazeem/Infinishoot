@@ -1,3 +1,4 @@
+import { pets2Light } from './pets2';
 import { noiseFor } from '../../render/noiseGovernor';
 /**
  * The look pass: dynamic lights, night stages, outlines, shockwave and heat
@@ -251,6 +252,7 @@ export function updateLook(this: Game, frameDt: number): void {
   st.gust = wind.gust;
   st.biomeFx.reduceFlash = access.reduceFlash;
   st.biomeFx.render(dt, p.x, p.z, wind);
+  pets2Light(this, pk, night);
   for (const f of lookHooks) f(pk, night);
   for (const ch of this.chests.list) if (ch.openT < 0) pk.add(ch.x, 1, ch.z, 3.5, 1, 0.8, 0.35, 0.35 + 0.35 * night, 0);
   if (this.portal.active) pk.add(this.portal.x, 1.5, this.portal.z, 8, 1, 0.35, 0.95, 0.8, 4);

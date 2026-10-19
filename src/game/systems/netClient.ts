@@ -1,3 +1,5 @@
+import { applyArchitectNet, architectLocalStep } from './architect';
+import { applyWeather2Net, weather2Local } from './weather2';
 import { acceptTrialStart, applyTrialsNet } from './trials';
 import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
@@ -44,6 +46,8 @@ import { applySoundLaneNet } from './sound2';
 import { applyNq, clientViewStep, netcodeBullets, netcodeClientMsg, netcodeSnapshot, netcodeStep, snapIfTeleported } from './netcode';
 import { applyHeroes3Net, heroes3ClientStep } from './heroes3';
 import { applyCoopPlayNet, coopPlayClientInput, coopPlayLocal } from './coopplay';
+import { voiceClientMsg } from './voicechat';
+import { applySpectateNet, spectateClientMsg, spectateClientUpdate, spectating } from './spectate';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (netcodeClientMsg(this, m)) return; // probes; flushes the playout buffer before world changes (systems/netcode.ts)
@@ -53,6 +57,8 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
     return;
   }
   if (this.raidClientMessage(m)) return;
+  if (voiceClientMsg(this, m)) return; // voice chat roster (systems/voicechat.ts)
+  if (spectateClientMsg(this, m)) return; // spectator seat, run start, lobby watchers (systems/spectate.ts)
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
   if (this.lobbyClientMessage(m)) return; // lobby lane: cards, chat, pings, kick, party (systems/party.ts)
   if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)
@@ -218,6 +224,7 @@ export function clientStage(this: Game, stage: number, seed: number): void {
 }
 
 export function clientUpdate(this: Game, dt: number): void {
+  if (spectateClientUpdate(this, dt)) return; // watching: no hero of our own (systems/spectate.ts)
   netcodeStep(this); // playout clock, quality reports, reconnects (systems/netcode.ts)
   const input = this.input;
   if (this.isCombatMode && this.screens.current === 'none' && (input.keyPressed('Escape') || input.actionPressed('pause') || input.padButtonPressed(9))) {
@@ -252,10 +259,12 @@ export function clientUpdate(this: Game, dt: number): void {
     this.client?.send({ t: 'dash' });
     this.juice.shake(0.05);
   }
+  if (moving) architectLocalStep(this); // predict the Architect arena bounds and walls
   if (moving) applyVineGrab(this, this.hero.index, dt);
   if (moving) this.arenaLocal(dt);
   if (moving) coopPlayLocal(this); // carrying slows you; carried, you ride along (systems/coopplay.ts)
   if (moving) this.worldEventLocal(dt);
+  if (moving) weather2Local(this);
   if (moving) this.modesLocal(dt); // the rhythm stage's beat keeps moving between snapshots (systems/modes.ts)
   this.biomeFoesClient(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
@@ -326,7 +335,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     h.stats.maxHp = Number(hs.mhp);
     h.reviveT = Number(hs.rv) * REVIVE_TIME;
     h.stats.areaMul = Number(hs.area);
-    if (h === this.hero) {
+    if (h === this.hero && !spectating(this)) {
       p.invuln = Math.max(p.invuln, Number(hs.inv));
       if (!p.dead && wasDead) p.rig.root.visible = true;
       p.recoil = Math.max(p.recoil, Number(hs.rec));
@@ -441,6 +450,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyDirector2Net(s.d2);
   applyFollowupsNet(this, s.fu);
   this.applyWorldEventNet(s.we, s.wt);
+  applyWeather2Net(this, s.w2);
   applyGauntletNet(this, s.gl);
   this.applyRaidNet(s.rd);
   this.applyModesNet(s.md);
@@ -451,6 +461,8 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   applyHeroes3Net(this, s.h3); // Tinker bots (systems/heroes3.ts)
   applyPvp2Net(this, s.p2); // PvP rounds, teams and ring (systems/pvp2.ts)
   applyCoopPlayNet(this, s.cy); // co-op objectives, carried heroes, tethers (systems/coopplay.ts)
+  applySpectateNet(this, s.sp); // watchers and their emotes (systems/spectate.ts)
+  applyArchitectNet(this, s.ac); // ultboss: field, ordered cores and ending
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

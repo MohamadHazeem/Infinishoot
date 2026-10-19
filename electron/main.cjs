@@ -1,5 +1,5 @@
 // Unsigned-friendly desktop wrapper: asynchronous release notice, isolated IPC, local diagnostics.
-const { app, BrowserWindow, Menu, shell, ipcMain, dialog, screen, net } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, dialog, screen, net, systemPreferences } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -104,6 +104,16 @@ function createWindow() {
   win.on('unresponsive', () => log('unresponsive', 'Renderer did not respond', true));
   win.webContents.on('console-message', (details) => { if (details.level === 'error') log('console', details.message); });
   win.webContents.on('did-fail-load', (_event, code, description) => log('load', `${code} ${description}`, true));
+  // Voice chat (src/net/voice.ts): the game asks for the microphone only when VOICE CHAT is turned on. Allow audio
+  // capture (never the camera or the screen); macOS also asks the player once through its own privacy prompt.
+  win.webContents.session.setPermissionCheckHandler((_wc, permission, _origin, details) => permission !== 'media' || details?.mediaType !== 'video');
+  win.webContents.session.setPermissionRequestHandler((_wc, permission, callback, details) => {
+    if (permission !== 'media') return callback(true);
+    const types = details?.mediaTypes ?? [];
+    if (types.includes('video')) return callback(false);
+    if (process.platform !== 'darwin' || !systemPreferences.askForMediaAccess) return callback(true);
+    systemPreferences.askForMediaAccess('microphone').then(callback, () => callback(false));
+  });
   win.webContents.session.on('will-download', (_event, item) => {
     const dir = process.env.INFINISHOOT_SAVE_DIR;
     const photo = item.getFilename().toLowerCase().endsWith('.png');
