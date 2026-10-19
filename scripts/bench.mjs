@@ -107,7 +107,8 @@ const trace = JSON.parse((await browser.stopTracing()).toString());
 const res = await page.evaluate(() => {
   clearInterval(window.__benchTimer);
   const p = window.__prof;
-  return { frames: p.frames, phase: p.phase, samples: window.__benchSamples, isolated: window.crossOriginIsolated };
+  const q = window.__quality;
+  return { frames: p.frames, phase: p.phase, samples: window.__benchSamples, isolated: window.crossOriginIsolated, quality: `${q.name}${q.auto ? ' (auto)' : ''} ${q.resolution}p, ${q.lights} lights, outlines ${q.outlines ? 'on' : 'off'}` };
 });
 await browser.close();
 await server.close?.();
@@ -134,6 +135,15 @@ const tris = stat(col(6));
 const gcEvents = trace.traceEvents.filter((e) => (e.name === 'MinorGC' || e.name === 'MajorGC') && e.ph === 'X');
 const gcMs = (n) => gcEvents.filter((e) => e.name === n).reduce((a, e) => a + e.dur / 1000, 0);
 const gcWorst = gcEvents.reduce((a, e) => Math.max(a, e.dur / 1000), 0);
+// Browser work outside our timers: style recalc + layout (DOM HUD), paint, on the renderer main thread.
+const mainTid = (() => {
+  const t = trace.traceEvents.find((e) => e.name === 'thread_name' && e.args?.name === 'CrRendererMain');
+  return t ? `${t.pid}:${t.tid}` : null;
+})();
+const onMain = (e) => !mainTid || `${e.pid}:${e.tid}` === mainTid;
+const sumDur = (names) => trace.traceEvents.filter((e) => e.ph === 'X' && names.includes(e.name) && onMain(e)).reduce((a, e) => a + e.dur / 1000, 0);
+const styleMs = sumDur(['UpdateLayoutTree', 'Layout']);
+const paintMs = sumDur(['Paint', 'PrePaint', 'Layerize', 'UpdateLayer']);
 const heap = res.samples.heap.filter((x) => x > 0);
 let alloc = 0;
 for (let i = 1; i < heap.length; i++) if (heap[i] > heap[i - 1]) alloc += heap[i] - heap[i - 1];
@@ -144,6 +154,7 @@ const fmt = (s) => `${s.avg.toFixed(2).padStart(6)} ${s.p95.toFixed(2).padStart(
 const out = [];
 out.push(`link     ${link}`);
 out.push(`build    ${dev ? 'dev server' : 'production'}  ${w}x${h}  ${seconds}s after ${warmup}s warm-up`);
+out.push(`quality  ${res.quality} (at the end)`);
 out.push(`isolated ${res.isolated ? 'yes (5 us timers)' : 'no (100 us timers)'}`);
 out.push(`frames   ${frames} rendered (${(frames / seconds).toFixed(1)} fps, SwiftShader), ${steps} sim steps (${(steps / seconds).toFixed(1)}/s)`);
 out.push('');
@@ -155,6 +166,7 @@ out.push(`renderer.render (GL)   ${fmt(stat(gl))}`);
 out.push(`total CPU              ${fmt(stat(cpu))}`);
 out.push(`CPU at 1 step/frame    ${(upd.reduce((a, b) => a + b, 0) / Math.max(1, steps) + stat(ren).avg + stat(gl).avg).toFixed(2).padStart(6)}   (sim per step + render + GL: a 60 fps frame)`);
 out.push(`frame interval         ${fmt(stat(interval))}`);
+out.push(`style+layout (DOM)     ${(styleMs / Math.max(1, frames)).toFixed(2).padStart(6)}   paint ${(paintMs / Math.max(1, frames)).toFixed(2)}   (browser main thread, from the trace)`);
 out.push('');
 out.push(`draw calls  ${Math.round(calls.avg)} avg / ${calls.worst} max    triangles ${Math.round(tris.avg)} avg / ${tris.worst} max`);
 out.push(`entities    enemies ${ent(res.samples.enemies)}   bullets ${ent(res.samples.bullets)}   particles ${ent(res.samples.particles)}`);
@@ -170,7 +182,7 @@ console.log(out.join('\n'));
 if (jsonOut) {
   writeFileSync(
     jsonOut,
-    JSON.stringify({ link, seconds, frames, steps, update: stat(upd), render: stat(ren), gl: stat(gl), cpu: stat(cpu), interval: stat(interval), calls, tris, phase: Object.fromEntries(phases), gc: { minorMs: gcMs('MinorGC'), majorMs: gcMs('MajorGC'), worst: gcWorst }, allocMBs: alloc / seconds / 1048576, errors }, null, 2),
+    JSON.stringify({ link, seconds, frames, steps, update: stat(upd), render: stat(ren), gl: stat(gl), cpu: stat(cpu), interval: stat(interval), calls, tris, phase: Object.fromEntries(phases), gc: { minorMs: gcMs('MinorGC'), majorMs: gcMs('MajorGC'), worst: gcWorst }, allocMBs: alloc / seconds / 1048576, styleLayoutMs: styleMs / frames, paintMs: paintMs / frames, errors }, null, 2),
   );
 }
 process.exit(errors.length ? 1 : 0);

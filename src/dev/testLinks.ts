@@ -10,6 +10,7 @@ import { weatherForce } from '../game/ambience';
 import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
 import { prof, profReset } from '../core/prof';
+import { renderQuality } from '../render/quality';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -68,7 +69,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('fps')) settings.showFps = true;
   if (q.has('bench')) {
     prof.on = true;
-    Object.assign(window, { __prof: prof, __profReset: profReset, __game: game });
+    Object.assign(window, { __prof: prof, __profReset: profReset, __game: game, __quality: renderQuality });
   }
   if (q.has('night')) lookOverrides.night = true;
   else if (q.has('day')) lookOverrides.night = false;

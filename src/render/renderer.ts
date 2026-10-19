@@ -48,6 +48,8 @@ export class RetroRenderer {
   private postMat: THREE.ShaderMaterial;
   private brightMat: THREE.ShaderMaterial;
   private blurMat: THREE.ShaderMaterial;
+  /** Empty instanced pools hidden for this frame (three.js still binds their program and uniforms). */
+  private idle: THREE.Object3D[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     THREE.ColorManagement.enabled = false;
@@ -160,7 +162,17 @@ export class RetroRenderer {
 
     this.gl.setRenderTarget(this.target);
     this.gl.setClearAlpha(0); // alpha is the bloom mask: the background doesn't glow
+    const kids = scene.children;
+    for (let i = 0; i < kids.length; i++) {
+      const o = kids[i] as THREE.InstancedMesh;
+      if (o.visible && o.isInstancedMesh && o.count === 0) {
+        o.visible = false;
+        this.idle.push(o);
+      }
+    }
     this.gl.render(scene, camera);
+    for (const o of this.idle) o.visible = true;
+    this.idle.length = 0;
     if (glowMode === 2) {
       this.brightMat.uniforms.uThreshold.value = postfxTuning.bloomThreshold;
       this.brightMat.uniforms.uKnee.value = postfxTuning.bloomKnee;

@@ -17,6 +17,17 @@ import { sfx } from '../audio/sfx';
 
 let motionQuery: MediaQueryList | undefined;
 /** Reduced flashes also opts out of UI motion; reuse the media query instead of allocating every frame. */
+/**
+ * Restart a CSS animation class: take it off now and put it back next frame.
+ * (The old `void el.offsetWidth` trick forced a synchronous layout of the whole
+ * HUD mid-frame, on every gold pickup, toast and banner.)
+ */
+export function restartClass(el: HTMLElement, cls: string): void {
+  el.classList.remove(cls);
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => el.classList.add(cls));
+  else el.classList.add(cls);
+}
+
 export const reduceMotion = () => access.reduceFlash || (motionQuery ??= matchMedia('(prefers-reduced-motion: reduce)')).matches;
 
 export const hudTuning = { goldSpeed: 14, xpSpeed: 14, damageHold: 0.22, damageCatchup: 1.4, comboBreak: 0.65 };
@@ -277,9 +288,7 @@ export class Hud {
     const b = this.el('#banner');
     b.querySelector('.t')!.textContent = title;
     b.querySelector('.s')!.innerHTML = sub;
-    b.classList.remove('show');
-    void b.offsetWidth; // restart CSS animation
-    b.classList.add('show');
+    restartClass(b, 'show');
     this.bannerT = seconds;
   }
 
@@ -287,9 +296,7 @@ export class Hud {
   toast(msg: string, seconds = 2.2): void {
     const t = this.el('#toast');
     t.textContent = msg;
-    t.classList.remove('show');
-    void t.offsetWidth;
-    t.classList.add('show');
+    restartClass(t, 'show');
     this.toastT = seconds;
   }
 
@@ -572,9 +579,7 @@ export class Hud {
       this.text('#xpbar .lv', `LV ${s.level}`);
       if (this.lastLevel > 0) {
         const bar = this.el('#xpbar');
-        bar.classList.remove('up');
-        void bar.offsetWidth;
-        bar.classList.add('up');
+        restartClass(bar, 'up');
       }
       this.lastLevel = s.level;
     }
@@ -591,9 +596,7 @@ export class Hud {
       this.text('#hp .num', `${Math.max(0, Math.ceil(s.hp))}/${Math.round(s.maxHp)}`);
       if (s.hp < this.lastHp - 0.5) {
         const bar = fill.parentElement!;
-        bar.classList.remove('hurt');
-        void bar.offsetWidth;
-        bar.classList.add('hurt');
+        restartClass(bar, 'hurt');
       }
       this.lastHp = s.hp;
       this.lastMaxHp = s.maxHp;
@@ -611,9 +614,7 @@ export class Hud {
     if (s.gold !== this.lastGold) {
       if (s.gold > this.lastGold && this.lastGold >= 0) {
         const g = this.el('#runinfo .gold');
-        g.classList.remove('bump');
-        void g.offsetWidth;
-        g.classList.add('bump');
+        restartClass(g, 'bump');
       }
       this.lastGold = s.gold;
     }

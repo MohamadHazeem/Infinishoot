@@ -1,6 +1,6 @@
 import { binds, keyLabel } from '../core/keybinds';
 import { STYLE_RANKS, styleTuning, type StyleNote } from '../game/style';
-import { reduceMotion } from './hud';
+import { reduceMotion, restartClass } from './hud';
 
 /**
  * Skill HUD: the style meter (a big bold rank letter with a progress bar,
@@ -155,8 +155,7 @@ export class SkillHud {
       this.rankEl.textContent = STYLE_RANKS[r];
       this.mulEl.textContent = `SCORE x${styleTuning.scoreMul[r]}`;
       if (!reduceMotion() && (up || down)) {
-        void this.el.offsetWidth; // restart the pop/drop animation
-        this.el.classList.add(up ? 'up' : 'down');
+        restartClass(this.el, up ? 'up' : 'down'); // restart the pop/drop animation (no forced layout)
         this.animT = 0.4;
       }
       this.shownRank = r;

@@ -21,6 +21,7 @@ import { ChargeShot } from '../weapons';
 import { bossTuning, omegaTuning } from '../enemies';
 import { streaks } from '../streaks';
 import { lap, lapStart } from '../../core/prof';
+import { viewCull } from '../../render/viewCull';
 import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
 
@@ -161,6 +162,7 @@ export function localAudio(this: Game, frameDt: number, frozen: boolean): void {
 
 export function render(this: Game, alpha: number, frameDt: number): void {
   lapStart();
+  viewCull.update(this.cam.camera); // last frame's view, for the instanced pools' culling
   const client = this.role === 'client';
   const local = this.hero;
   const p = local.player;

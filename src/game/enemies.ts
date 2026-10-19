@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ENEMIES, type EnemyDef } from '../data/enemies';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { paint } from '../render/geometry';
@@ -7,6 +7,7 @@ import { textures } from '../render/textures';
 import type { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
 import type { AABB } from '../world/collision';
 import { commit } from '../render/instancing';
+import { viewCull } from '../render/viewCull';
 import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
 import { Corpses, EnemyAnim, poseEnemy, type EnemyPose } from './enemyAnim';
 import { bossTuning, updateBoss, type BossApi } from './bosses';
@@ -390,7 +391,9 @@ function enemyGeometry(def: EnemyDef): THREE.BufferGeometry {
     const ng = (g.index ? g.toNonIndexed() : g).translate(x, y, z);
     parts.push(paint(ng, color));
   });
-  geo = mergeGeometries(parts)!;
+  // Re-index: corners shared by a face's two triangles become one vertex, so every
+  // enemy (and its outline pass, which reuses the geometry) runs about a third fewer vertex shaders.
+  geo = mergeVertices(mergeGeometries(parts)!);
   geoCache.set(def.id, geo);
   return geo;
 }
@@ -1483,6 +1486,8 @@ export class Enemies {
         d.zones.setMatrixAt(d.zones.count++, this.m4);
       }
 
+      // Off screen: no body, shadow or aura (telegraphs above still draw; they can be long).
+      if (!viewCull.sphere(x, y + e.radius, z, e.radius * 2)) continue;
       const b = this.batches.get(e.def.id)!;
       if (b.mesh.count >= BATCH_CAP) continue;
       const i = b.mesh.count++;

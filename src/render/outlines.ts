@@ -108,12 +108,18 @@ function hullMaterial(instanced: boolean): THREE.ShaderMaterial {
 }
 
 const instancedHull = hullMaterial(true);
+/**
+ * Same hull for instanced meshes that carry instance colours. three.js keys the
+ * program on instanceColor, so one shared material flip-flopped its program
+ * (a full getProgram() lookup) between the two kinds of mesh every frame.
+ */
+const instancedHullColor = hullMaterial(true);
 const meshHull = hullMaterial(false);
 const done = new WeakSet<object>();
 
 /** Turn outlines on or off and size them for the internal resolution. */
 export function setOutlines(on: boolean, internalHeight: number): void {
-  instancedHull.visible = meshHull.visible = on;
+  instancedHull.visible = instancedHullColor.visible = meshHull.visible = on;
   const k = Math.max(1, internalHeight / 270);
   uniforms.uOutlinePx.value = outlineTuning.px * k;
   uniforms.uElitePx.value = outlineTuning.elitePx * k;
@@ -129,7 +135,7 @@ export function outlineInstanced(mesh: THREE.InstancedMesh): boolean {
   if (Array.isArray(mat) || geo.groups.length > 0 || !geo.attributes.instanceFlash || !geo.attributes.normal) return false;
   geo.addGroup(0, Infinity, 0);
   geo.addGroup(0, Infinity, 1);
-  mesh.material = [mat, instancedHull];
+  mesh.material = [mat, mesh.instanceColor ? instancedHullColor : instancedHull];
   return true;
 }
 
