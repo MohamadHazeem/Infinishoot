@@ -161,6 +161,13 @@ ok(
   'brute splits into three gummies',
 );
 ok(bossTrack(9) === 'cake' && bossTrack(10) === 'kraken', 'boss music follows native stage bosses');
+const V = await import('../src/audio/voices');
+V.resetVoices();
+for (const id of ['cake', 'kraken', 'cupcake', 'princeling']) {
+  ok(V.playVoiceCue(V.bossVoiceCue(ENEMIES[id], 'phase'), 1, 0, 1), id + ': parent synth roar cue is recognized');
+}
+ok(V.voiceChannel.queued === 0, 'synth-only bosses never reserve the channel for absent recorded lines');
+V.resetVoices();
 ok(
   biome3Attack('cake', 1, 0) === 'frosting' &&
     biome3Attack('kraken', 3, 0) === 'whirlpool' &&
