@@ -141,6 +141,7 @@ export function startSolo(this: Game): void {
 export function pickDifficulty(this: Game): DifficultyDef {
   const d = DIFF_BY_ID[settings.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
   if (this.runMode === 'daily' || this.runMode === 'weekly' || (d.unlock && !save.achievements.includes(d.unlock))) return DIFF_BY_ID.normal;
+  if (d.coopOnly && (this.heroes.length < 2 || this.pvp || (this.role !== 'solo' && this.lobbyKind !== 'coop'))) return DIFF_BY_ID.nightmare; // LEGEND is co-op only (trading lane)
   return d;
 }
 

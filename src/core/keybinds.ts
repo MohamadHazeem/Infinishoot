@@ -5,7 +5,7 @@ import { loadJson, saveJson } from './storage';
  * and the gamepad keep their fixed layout. Escape always pauses and backs out
  * of menus, whatever is bound.
  */
-export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping' | 'parry' | 'ult' | 'team' | 'cash' | 'cashpick' | 'rewind' | 'interact';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping' | 'parry' | 'ult' | 'team' | 'cash' | 'cashpick' | 'rewind' | 'interact' | 'trade';
 
 export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'up', name: 'Move up' },
@@ -25,6 +25,7 @@ export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'interact', name: 'Carry teammate (co-op)' },
   { id: 'cash', name: 'Cash in combo' },
   { id: 'cashpick', name: 'Cash-in choice' },
+  { id: 'trade', name: 'Trade (co-op)' },
 ];
 
 const DEFAULTS: Record<Action, [string, string]> = {
@@ -45,6 +46,7 @@ const DEFAULTS: Record<Action, [string, string]> = {
   cash: ['KeyX', ''],
   cashpick: ['KeyZ', ''],
   interact: ['KeyH', ''], // coopplay lane: carry a downed teammate / put them or the bomb down
+  trade: ['KeyY', ''],
 };
 
 /** Gamepad buttons (standard mapping) for the skill actions: B parries; L3 or R3 fires the ultimate. */

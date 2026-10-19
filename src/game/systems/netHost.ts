@@ -66,6 +66,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   }
   if (m.t === 'hello') {
     netcodeHello(this, from, m); // remember the player id; a reconnect drops its stale old connection (systems/netcode.ts)
+    this.tradingHello(from, m); // the player's co-op title (systems/trading.ts)
     if (this.coopHello(from, m)) return; // a run in progress: drop-in join (systems/coop2.ts)
     if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from) || this.lobby.length >= 4) {
       this.host?.send(from, { t: 'full', reason: 'Game already started.' });
@@ -141,6 +142,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     coopPlayMessage(this, h, m); // pick up / put down a downed teammate (systems/coopplay.ts)
   } else if (m.t === 'emote' || m.t === 'cobuy' || m.t === 'bye') {
     this.coopMessage(h, m); // emotes, revive-pool buy-back, leaving on purpose (systems/coop2.ts)
+  } else if (m.t === 'tr') {
+    this.tradeMessage(h, m); // gifts and shop pools (systems/trading.ts)
   } else if (m.t === 'ui') {
     const d = m.d === -1 ? -1 : 1;
     this.heroAction(h, String(m.a), Number(m.i) || 0, d);
@@ -273,6 +276,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     co: this.coopNet(forHero),
     gl: gauntletNet(this),
     rd: this.raidNet(),
+    tr: this.tradingNet(forHero),
     md: this.modesNet(),
     cn: this.cineNet(),
     vs: this.versusNet(),

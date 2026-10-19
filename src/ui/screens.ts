@@ -26,6 +26,7 @@ import { fuseStrip, fusionGuide } from './fusionUi';
 import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
 import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
+import { titleChip } from './coopTitle';
 import { dailyBest } from '../game/highscores';
 import { HEROES } from '../data/heroes';
 import { ACTIONS, binds, keyLabel, rebind, resetBinds, type Action } from '../core/keybinds';
@@ -43,7 +44,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid';
+export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
@@ -84,7 +85,7 @@ export interface ScreenActions {
 
 export interface LobbyView {
   code: string;
-  players: { name: string; color: string; kit?: string; pf?: { lv: number; title: string; banner: string } | null }[];
+  players: { name: string; color: string; kit?: string; pf?: { lv: number; title: string; banner: string } | null; title?: string }[];
   isHost: boolean;
   status: string;
   /** Difficulty the host picked (shown to everyone in the lobby). */
@@ -760,6 +761,13 @@ export class Screens {
     this.extra[name] = { el, nav: opts instanceof MenuNav ? opts : new MenuNav(el, opts) };
   }
 
+  /** Re-scan the current menu's items, keeping its focus (after another module redraws part of it: the trading lane's shop pool panel). */
+  refreshNav(focus?: number): void {
+    if (this.current === 'none') return;
+    const n = this.nav(this.current);
+    n.refresh(focus ?? n.focus);
+  }
+
   nav(name: Exclude<ScreenName, 'none'>): MenuNav {
     return this.extra[name as ExtraScreen]?.nav ?? this.navs[name as Named];
   }
@@ -925,18 +933,19 @@ export class Screens {
     showRelayField(el, !inLobby);
     el.querySelector('.code-big')!.textContent = v.code;
     el.querySelector('.players')!.innerHTML = localizeHtml(v.players
-      .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span><bdi>${p.name}</bdi>${p.pf ? ` <small class="pf" style="--pf:${p.pf.banner}">LV ${p.pf.lv} ${p.pf.title.toUpperCase()}</small>` : ''}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
+      .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span><bdi>${p.name}</bdi>${p.pf ? ` <small class="pf" style="--pf:${p.pf.banner}">LV ${p.pf.lv} ${p.pf.title.toUpperCase()}</small>` : ''}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}${titleChip(p.title ?? '')}</div>`)
       .join(''));
     el.querySelector<HTMLElement>('.mp-heat')!.hidden = !(v.isHost && v.code && (v.kind ?? 'coop') === 'coop');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
     // Difficulty: the host picks it; everyone else sees the choice.
     const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFFICULTIES[1];
     el.querySelector('.mp-diff-row')!.innerHTML = localizeHtml(DIFFICULTIES.map((d) => {
-      const open = !d.unlock || save.achievements.includes(d.unlock);
+      const open = (!d.unlock || save.achievements.includes(d.unlock)) && (!d.coopOnly || (v.players.length >= 2 && (v.kind ?? 'coop') === 'coop')); // LEGEND: co-op with 2+ players (trading lane)
       const lock = v.isHost && !open;
       return `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-diff" data-diff="${d.id}" class="diff ${d.id === pick.id ? 'on' : ''} ${lock ? 'locked' : ''}" ${v.isHost ? '' : 'disabled'}>${lock ? '🔒 ' : ''}${d.name.toUpperCase()}</button>`;
     }).join(''));
     el.querySelector('.mp-diff-note')!.textContent = localize(`${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`);
+    if (v.isHost && pick.id !== 'legend' && v.players.length < 2 && save.achievements.includes('hard_stage3')) el.querySelector('.mp-diff-note')!.textContent = t('trading.legend_needs', { note: el.querySelector('.mp-diff-note')!.textContent ?? '' });
     // Game type: co-op, or PvP (everyone plays the same stage alone, then a last-one-standing duel).
     const kind = v.kind ?? 'coop';
     const kindName = { coop: 'CO-OP', pvp: 'PVP', versus: 'VERSUS', weekly: 'WEEKLY', race: 'RACE', raid: 'RAID' };
@@ -1495,13 +1504,13 @@ export class Screens {
       (m) => `<button data-nav data-act="mode" data-mode="${m.id}" class="mode ${m.id === mode.id ? 'on' : ''}"><b>${m.name.toUpperCase()}</b><small>${m.desc}</small></button>`,
     ).join(''));
     const daily = mode.id === 'daily' || mode.id === 'weekly';
-    el.querySelector('.diff-row')!.innerHTML = localizeHtml(DIFFICULTIES.map((d) => {
+    el.querySelector('.diff-row')!.innerHTML = localizeHtml(DIFFICULTIES.filter((d) => !d.coopOnly).map((d) => {
       const open = !d.unlock || save.achievements.includes(d.unlock);
       const ach = d.unlock ? ACHIEVEMENTS.find((a) => a.id === d.unlock) : null;
       const on = daily ? d.id === 'normal' : settings.difficulty === d.id;
       return `<button data-nav data-act="diff" data-diff="${d.id}" class="diff ${on ? 'on' : ''} ${open ? '' : 'locked'}" ${daily ? 'disabled' : ''} title="${open ? d.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? d.name.toUpperCase() : '🔒 ' + d.name.toUpperCase()}</button>`;
     }).join(''));
-    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty) ?? DIFFICULTIES[1];
+    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty && !d.coopOnly) ?? DIFFICULTIES[1];
     const best = dailyBest(today());
     el.querySelector('.mode-note')!.textContent = localize(daily
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`

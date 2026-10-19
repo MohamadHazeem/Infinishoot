@@ -19,6 +19,8 @@ import { DIFF_BY_ID, type DifficultyDef, type DifficultyId } from '../../data/mo
 import { prefetchIce } from '../../net/ice';
 import { cleanLook } from '../../data/customise';
 import { coopPlayerId } from '../coop2';
+import { legendAllowed } from '../trading';
+import { localTitle } from './trading';
 import { versusOverlordIndex } from './mp';
 import { hostCode, myProfile } from './party';
 import { parseInviteCode } from '../lobby';
@@ -64,7 +66,7 @@ export async function hostGame(this: Game, name: string, randomCode = false): Pr
 
 export function refreshLobby(this: Game): void {
   if (!this.host) return;
-  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i % HERO_COLORS.length], kit: kitText(p.loadout), pf: p.pf ?? null }));
+  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i % HERO_COLORS.length], kit: kitText(p.loadout), pf: p.pf ?? null, title: this.lobbyTitle(p.peerId) }));
   const difficulty = this.lobbyDifficulty().id;
   const kind = this.lobbyKind;
   const extra = this.mpLobbyExtra(); // Versus Overlord, weekly team, PUBLIC (systems/mp.ts)
@@ -75,6 +77,7 @@ export function refreshLobby(this: Game): void {
 /** Co-op difficulty: the host's pick, if their save has it unlocked. */
 export function lobbyDifficulty(this: Game): DifficultyDef {
   const d = DIFF_BY_ID[settings.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
+  if (d.coopOnly && !legendAllowed(this.lobby.length, this.lobbyKind, !!this.pvp)) return save.achievements.includes('hard_stage3') ? DIFF_BY_ID.nightmare : DIFF_BY_ID.normal; // LEGEND: co-op, 2+ players (trading lane)
   return d.unlock && !save.achievements.includes(d.unlock) ? DIFF_BY_ID.normal : d;
 }
 
@@ -146,7 +149,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     return;
   }
   netcodeJoined(this, client); // snapshot playout buffer, ICE watch (systems/netcode.ts)
-  client.send({ t: 'hello', mods: modSession.hash, pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile(), pf: profileSummary() }); // prof: lobby card (systems/party.ts), pf: meta2 profile summary
+  client.send({ t: 'hello', mods: modSession.hash, pid: coopPlayerId(), title: localTitle(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile(), pf: profileSummary() }); // prof: lobby card (systems/party.ts), pf: meta2 profile summary
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }
 

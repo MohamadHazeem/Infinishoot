@@ -961,6 +961,48 @@ const SCENARIO = [
     if (r[0][0] !== 1 || r[1][0] !== 1 || !(r[0][1] > 0) || !(r[1][1] > 0)) fail(`tether: host ${JSON.stringify(r[0])}, client ${JSON.stringify(r[1])}`);
     return { host: r[0], client: r[1] };
   }],
+  // Trading lane: gifts go through the host and land on both screens; the TRADE quick menu opens on the client.
+  [22, 'trading: the client gives the host gold, the host gives a gear back', async () => {
+    await host(() => {
+      const g = window.game;
+      g.heroes[1].gold = 20;
+      g.heroes[0].rerollsLeft = 2;
+      g.heroes[1].rerollsLeft = 0;
+    });
+    await pause(500);
+    const before = await host(() => window.game.heroes[0].gold);
+    await client(() => window.game.tradeAct({ a: 'give', k: 'gold', to: 0, n: 7 }));
+    await pause(400);
+    await host(() => window.game.tradeAct({ a: 'give', k: 'gear', to: 1 }));
+    // The client mirrors the host's snapshot: poll until it catches up (menus slow snapshots to 4 Hz).
+    let h, c;
+    for (let k = 0; k < 20; k++) {
+      await pause(400);
+      [h, c] = await Promise.all([
+        host(() => ({ gold: window.game.heroes.map((x) => x.gold), gears: window.game.heroes.map((x) => x.rerollsLeft) })),
+        client(() => ({ gold: window.game.hero.gold, gears: window.game.hero.rerollsLeft, mateGold: window.game.tradeView().heroes[0].gold })),
+      ]);
+      if (c.gears === h.gears[1] && c.gold === h.gold[1]) break;
+    }
+    if (h.gold[0] < before + 7 || h.gold[1] > 13 + 4 /* coins picked up meanwhile */ || h.gears[1] !== 1 || c.gears !== 1 || c.gold !== h.gold[1]) fail(`trading: host ${JSON.stringify(h)}, client ${JSON.stringify(c)}`);
+    return { host: h, client: c };
+  }],
+  [25, 'trading: the TRADE quick menu on the client', async () => {
+    // Wait for a fight moment on the client (no level-up or shop menu up), then open it.
+    let open = false;
+    for (let k = 0; k < 20 && !open; k++) {
+      await client(() => {
+        const g = window.game;
+        if (g.isCombatMode && g.screens.current === 'none') g.openTrade();
+      });
+      await pause(400);
+      open = await client(() => window.game.screens.current === 'trade' && document.querySelectorAll('#scr-trade [data-tr=gold]').length > 0);
+    }
+    await shot('trade');
+    await client(() => window.game.resume());
+    if (!open) fail('trading: the TRADE menu did not open on the client');
+    return open;
+  }],
 ];
 
 // Optional secrets lane: real data-channel receipts, relics and a client room screenshot.
