@@ -1,6 +1,7 @@
 import type { DamageEvent, ModApi, ModDef, ModState } from '../game/modTypes';
 import type { Enemy } from '../game/enemies';
 import { isRightClick } from './weapons';
+import { bossLike } from '../game/bossRules';
 
 /**
  * Mods: bought in the shop between stages, held in ordered slots. They key
@@ -223,7 +224,7 @@ export const MODS: ModDef[] = [
     synergy: ['explosive', 'frost'],
     onHit: (ev) => {
       // Survivors only, like Cryo Rounds: freezing the killing blow would make every explosive kill a Shatter.
-      if (ev.tags.includes('explosive') && !ev.e.def.boss && ev.e.hp > 0) ev.e.frozen = Math.max(ev.e.frozen, 0.4);
+      if (ev.tags.includes('explosive') && !bossLike(ev.e) && ev.e.hp > 0) ev.e.frozen = Math.max(ev.e.frozen, 0.4);
     },
   },
   {

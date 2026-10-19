@@ -53,13 +53,20 @@ export class Grenade extends Weapon {
     const ball = new THREE.IcosahedronGeometry(0.28, 1);
     const ring = new THREE.TorusGeometry(0.28, 0.06, 4, 10);
     const fin = new THREE.BoxGeometry(0.06, 0.32, 0.3).translate(0, 0, -0.3);
-    this.geos = [ball, ring, fin];
+    // Thunder Mortar: a crackling ring and two spark prongs spin round the shell.
+    const arc = new THREE.TorusGeometry(0.46, 0.04, 3, 12);
+    const prong = new THREE.OctahedronGeometry(0.12, 0).scale(1, 2.4, 1);
+    this.geos = [ball, ring, fin, arc, prong];
     for (let i = 0; i < MAX; i++) {
       const g = new THREE.Group();
       const finA = new THREE.Mesh(fin, band);
       const finB = new THREE.Mesh(fin, band);
       finB.rotation.z = Math.PI / 2;
-      g.add(new THREE.Mesh(ball, body), new THREE.Mesh(ring, band), finA, finB);
+      const spark = new THREE.Group();
+      spark.add(new THREE.Mesh(arc, thunder), new THREE.Mesh(prong, thunder), new THREE.Mesh(prong, thunder));
+      spark.children[1].position.set(0.46, 0, 0);
+      spark.children[2].position.set(-0.46, 0, 0);
+      g.add(new THREE.Mesh(ball, body), new THREE.Mesh(ring, band), finA, finB, spark);
       g.visible = false;
       scene.add(g);
       this.meshes.push(g);
@@ -156,6 +163,9 @@ export class Grenade extends Weapon {
       (g.children[0] as THREE.Mesh).material = this.mats[evo ? 2 : thunder ? 3 : 0];
       // Mortar rounds fly nose-first with fins; plain grenades tumble.
       g.children[2].visible = g.children[3].visible = evo && !s.small;
+      const spark = g.children[4];
+      spark.visible = thunder;
+      if (thunder) spark.rotation.set(ctx.time * 11 + i, ctx.time * 17, Math.sin(ctx.time * 30 + i) * 0.4);
       g.scale.setScalar(s.small ? 0.55 : evo ? 1.35 : 1);
       if (evo && !s.small) g.rotation.set(-Math.PI / 4, ctx.time * 12, 0);
       else g.rotation.set(ctx.time * 9 + i, ctx.time * 7, 0);

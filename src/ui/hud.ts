@@ -9,13 +9,34 @@ import { MAX_GEARS } from '../game/hero';
 import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
 import { sfx } from '../audio/sfx';
+import { injectHudCss } from './hudLayout';
+import { prompt, promptText } from './prompts';
 
 // ---------------------------------------------------------------- slot reels
 // Shared by the level-up cards (screens.ts) and the chest reveal below. A reel
 // is a strip [real item, decoy 1..n]; it starts showing decoy n and scrolls
 // down one item per step until the real item lands at the top.
 
-export const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+let motionQuery: MediaQueryList | undefined;
+/** Reduced flashes also opts out of UI motion; reuse the media query instead of allocating every frame. */
+/**
+ * Restart a CSS animation class: take it off now and put it back next frame.
+ * (The old `void el.offsetWidth` trick forced a synchronous layout of the whole
+ * HUD mid-frame, on every gold pickup, toast and banner.)
+ */
+export function restartClass(el: HTMLElement, cls: string): void {
+  el.classList.remove(cls);
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => el.classList.add(cls));
+  else el.classList.add(cls);
+}
+
+export const reduceMotion = () => access.reduceFlash || (motionQuery ??= matchMedia('(prefers-reduced-motion: reduce)')).matches;
+
+export const hudTuning = { goldSpeed: 14, xpSpeed: 14, damageHold: 0.22, damageCatchup: 1.4, comboBreak: 0.65 };
+export const comboTier = (combo: number): number => combo >= 100 ? 4 : combo >= 50 ? 3 : combo >= 25 ? 2 : combo >= 10 ? 1 : 0;
+export const comboMilestone = (before: number, after: number): boolean => after >= 10 && Math.floor(after / 10) > Math.floor(before / 10);
+/** Exponential approach remains consistent at different refresh rates. */
+export const approachHud = (from: number, to: number, speed: number, dt: number): number => to + (from - to) * Math.exp(-speed * Math.max(0, dt));
 
 /** Step durations (s): fast 45 ms ticks for about `spin` seconds, ending with the slower `tail`. */
 export function reelSteps(spin: number, tail: number[]): number[] {
@@ -51,15 +72,18 @@ export interface ChestItem {
   text: string;
   rarity?: Rarity;
 }
-import { access } from '../game/settings';
+import { access, settings } from '../game/settings';
 
 export interface HudState {
+  metaLabel?: string;
   hp: number;
   maxHp: number;
   dash01: number;
   /** Dashes ready / max (Dash Cells). */
   dashStock: number;
   dashMax: number;
+  /** Label for the dash meter ('DASH' unless the hero's dash key does something else, e.g. the Duelist's PARRY). */
+  dashLabel?: string;
   bomb01: number;
   /** Short name of the special on Q/E (BOMB, STORM...). */
   special: string;
@@ -75,7 +99,8 @@ export interface HudState {
   gold: number;
   /** Level-up rerolls held (max MAX_GEARS). */
   gears: number;
-  boss: { name: string; hp01: number } | null;
+  /** Boss (or mini-boss) bar; `ticks` = HP fractions where phases change, `phase` = current phase. */
+  boss: { name: string; hp01: number; ticks?: number[]; phase?: number; mini?: boolean } | null;
   /** Event, challenge and power-up lines under the timer. */
   spice: { text: string; kind: 'event' | 'challenge' | 'done' | 'buff' }[];
   lowHp: boolean;
@@ -87,7 +112,10 @@ export type Slot = 'left' | 'right' | 'special' | 'auto' | 'item' | 'bonus';
 export const SLOT_LABEL: Record<Slot, string> = {
   left: 'LEFT CLICK',
   right: 'RIGHT CLICK',
-  special: 'SPECIAL Q/E',
+  /** Follows the rebinds and the last used device (Q/E, RB, R1). */
+  get special() {
+    return `SPECIAL ${promptText('bomb')}`;
+  },
   auto: 'AUTO WEAPON',
   item: 'ITEM',
   bonus: 'BONUS',
@@ -166,6 +194,9 @@ const MM_SKULL = ['.###.', '#k#k#', '#####', '.#.#.'];
 const MM_RING = ['.###.', '#...#', '#...#', '#...#', '.###.'];
 const MM_DOT = ['##', '##'];
 
+/** Small heading over goal-stack lines (challenges carry their own star / tick). */
+const SPICE_LABEL: Record<HudState['spice'][number]['kind'], string> = { event: 'STAGE EVENT', challenge: '', done: '', buff: 'POWER-UP' };
+
 export const fmtScore = (n: number) => Math.floor(n).toLocaleString('en-US');
 const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -175,6 +206,15 @@ export class Hud {
   private els: Record<string, HTMLElement> = {};
   private lastHp = -1;
   private lastLevel = -1;
+  private lastMaxHp = -1;
+  private trailHp = 1;
+  private trailHold = 0;
+  private shownGold = 0;
+  private shownXp = 0;
+  private xpSparkT = 0;
+  private comboPop = 1;
+  private comboShake = 0;
+  private comboBreakT = 0;
   private shownScore = 0;
   private lastCombo = 0;
   private lastMult = 1;
@@ -188,35 +228,36 @@ export class Hud {
     root.insertAdjacentHTML(
       'beforeend',
       `<div id="ingame">
-         <div id="xpbar"><div class="fill"></div><div class="lv"></div></div>
-         <div id="hp"><div class="bar"><div class="fill"></div></div><div class="num"></div></div>
+         <div id="xpbar"><div class="fill"></div><i class="spark" aria-hidden="true"></i><div class="lv px"><span>LV</span><b></b></div></div>
+         <div id="hp"><div class="bar"><div class="chunk"></div><div class="fill"></div></div><div class="num"></div></div>
          <div id="runinfo"><span class="kills"></span><span class="gold"></span><span class="gears"></span></div>
          <div id="timer"><div class="clock"></div><div class="stage"></div></div>
-         <div id="spice"></div>
+         <div id="goals"><div id="team"></div><div id="spice"></div></div>
          <button id="pausebtn" title="Pause (Esc)" aria-label="Pause">II</button>
-         <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
+         <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div><div class="ticks"></div></div><div class="ph"></div></div>
          <div id="toast"></div>
          <div id="chestreveal" hidden></div>
          <div id="score">0</div>
          <div id="combo"><div class="mult">x1</div><div class="num"></div><div class="cbar"><div></div></div></div>
          <div id="loadout"><div class="row weapons"></div><div class="row passives"></div></div>
          <div id="mods"></div>
-         <div id="team"></div>
          <div id="ebars"></div>
          <div id="tags"></div>
          <canvas id="minimap" width="${MM}" height="${MM}" hidden></canvas>
          <div id="downed" hidden><div class="t">YOU'RE DOWN</div><div class="bar"></div><div class="s"></div><div class="h">A TEAMMATE MUST STAND NEXT TO YOU</div></div>
          <div id="meters">
-           <div id="dashpip" class="pip"><span>DASH</span></div>
-           <div id="bombpip" class="pip"><span>BOMB</span></div>
+           <div id="dashpip" class="pip">${prompt('dash')}<span>DASH</span></div>
+           <div id="bombpip" class="pip">${prompt('bomb')}<span>BOMB</span></div>
          </div>
          <div id="banner"><div class="t"></div><div class="s"></div></div>
          <div id="chestptr" hidden><i class="arrow"></i>${iconHtml('world_chest', '#ffcd75', '')}<span class="m"></span></div>
        </div>
        <div id="vignette"></div>
        <div id="flash"></div>
-       <div id="fade"></div>`,
+       <div id="fade"></div>
+       <div id="navhint" aria-hidden="true"><span>${prompt('confirm')} SELECT</span><span>${prompt('back')} BACK</span></div>`,
     );
+    injectHudCss();
     this.q = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
     this.root = this.q('#ingame');
     const pause = this.q('#pausebtn');
@@ -259,9 +300,7 @@ export class Hud {
     const b = this.el('#banner');
     b.querySelector('.t')!.textContent = title;
     b.querySelector('.s')!.innerHTML = sub;
-    b.classList.remove('show');
-    void b.offsetWidth; // restart CSS animation
-    b.classList.add('show');
+    restartClass(b, 'show');
     this.bannerT = seconds;
   }
 
@@ -269,9 +308,7 @@ export class Hud {
   toast(msg: string, seconds = 2.2): void {
     const t = this.el('#toast');
     t.textContent = msg;
-    t.classList.remove('show');
-    void t.offsetWidth;
-    t.classList.add('show');
+    restartClass(t, 'show');
     this.toastT = seconds;
   }
 
@@ -335,6 +372,15 @@ export class Hud {
     this.shownScore = 0;
     this.lastHp = -1;
     this.lastLevel = -1;
+    this.lastMaxHp = -1;
+    this.lastGold = -1;
+    this.lastCombo = 0;
+    this.lastMult = 1;
+    this.comboBreakT = this.comboShake = this.xpSparkT = 0;
+    this.comboPop = 1;
+    this.text('#combo .mult', 'x1');
+    this.el('#combo .mult').dataset.tier = '1';
+    this.el('#combo').classList.remove('broken');
   }
 
   setLoadout(items: LoadoutItem[]): void {
@@ -531,98 +577,154 @@ export class Hud {
     this.el('#mods').innerHTML = html;
   }
 
+  private spiceEls: { el: HTMLElement; txt: HTMLElement; kind: string; text: string }[] = [];
+
+  /**
+   * Goals-stack lines (event, challenge, power-ups). A line is only rebuilt
+   * (and slides in) when it is new or changes kind; countdowns just change text.
+   */
+  private updateSpice(lines: HudState['spice']): void {
+    const root = this.el('#spice');
+    lines.forEach((l, i) => {
+      let d = this.spiceEls[i];
+      if (!d || d.kind !== l.kind) {
+        const el = document.createElement('div');
+        el.className = `px ${l.kind}`;
+        el.innerHTML = `${SPICE_LABEL[l.kind] ? `<i>${SPICE_LABEL[l.kind]}</i>` : ''}<span></span>`;
+        if (d) d.el.replaceWith(el);
+        else root.appendChild(el);
+        d = this.spiceEls[i] = { el, txt: el.querySelector('span')!, kind: l.kind, text: '' };
+      }
+      if (d.text !== l.text) d.txt.textContent = d.text = l.text;
+    });
+    while (this.spiceEls.length > lines.length) this.spiceEls.pop()!.el.remove();
+  }
+
   update(s: HudState, dt: number): void {
-    // XP
-    this.el('#xpbar .fill').style.transform = `scaleX(${Math.min(1, s.xp01)})`;
+    const still = reduceMotion();
+    // XP: snap on level changes, otherwise ease the fill and its pixel sparkle together.
+    const xp = Math.max(0, Math.min(1, s.xp01));
+    if (xp > this.shownXp + 0.001) this.xpSparkT = 0.25;
+    else this.xpSparkT = Math.max(0, this.xpSparkT - dt);
+    this.shownXp = still || s.level !== this.lastLevel ? xp : approachHud(this.shownXp, xp, hudTuning.xpSpeed, dt);
+    this.el('#xpbar .fill').style.transform = `scaleX(${this.shownXp})`;
+    this.el('#xpbar .spark').style.left = `${this.shownXp * 100}%`;
+    this.el('#xpbar .spark').hidden = still || this.xpSparkT <= 0 || this.shownXp <= 0;
     if (s.level !== this.lastLevel) {
-      this.text('#xpbar .lv', `LV ${s.level}`);
+      this.text('#xpbar .lv b', String(s.level));
       if (this.lastLevel > 0) {
         const bar = this.el('#xpbar');
-        bar.classList.remove('up');
-        void bar.offsetWidth;
-        bar.classList.add('up');
+        restartClass(bar, 'up');
       }
       this.lastLevel = s.level;
     }
 
     // Life
-    if (s.hp !== this.lastHp) {
-      const k = Math.max(0, s.hp / s.maxHp);
+    const hp01 = Math.max(0, Math.min(1, s.hp / Math.max(1, s.maxHp)));
+    if (s.hp !== this.lastHp || s.maxHp !== this.lastMaxHp) {
+      const k = hp01;
+      if (this.lastHp < 0 || s.maxHp !== this.lastMaxHp || s.hp >= this.lastHp || still) this.trailHp = k;
+      else this.trailHold = hudTuning.damageHold;
       const fill = this.el('#hp .fill');
       fill.style.width = `${k * 100}%`;
       fill.classList.toggle('low', k <= 0.3);
       this.text('#hp .num', `${Math.max(0, Math.ceil(s.hp))}/${Math.round(s.maxHp)}`);
       if (s.hp < this.lastHp - 0.5) {
         const bar = fill.parentElement!;
-        bar.classList.remove('hurt');
-        void bar.offsetWidth;
-        bar.classList.add('hurt');
+        restartClass(bar, 'hurt');
       }
       this.lastHp = s.hp;
+      this.lastMaxHp = s.maxHp;
     }
+    this.trailHold = Math.max(0, this.trailHold - dt);
+    if (still) this.trailHp = hp01;
+    else if (this.trailHold <= 0) this.trailHp = Math.max(hp01, this.trailHp - dt * hudTuning.damageCatchup);
+    this.el('#hp .chunk').style.transform = `scaleX(${this.trailHp})`;
+    this.el('#hp').classList.toggle('low', s.lowHp);
     this.text('#runinfo .kills', `☠ ${s.kills}`);
-    this.text('#runinfo .gold', `● ${s.gold}`);
+    this.shownGold = still || this.lastGold < 0 || s.gold < this.shownGold ? s.gold : approachHud(this.shownGold, s.gold, hudTuning.goldSpeed, dt);
+    if (Math.abs(s.gold - this.shownGold) < 0.5) this.shownGold = s.gold;
+    this.text('#runinfo .gold', `● ${Math.floor(this.shownGold)}`);
     this.text('#runinfo .gears', `⚙ ${s.gears}/${MAX_GEARS}`);
     if (s.gold !== this.lastGold) {
       if (s.gold > this.lastGold && this.lastGold >= 0) {
         const g = this.el('#runinfo .gold');
-        g.classList.remove('bump');
-        void g.offsetWidth;
-        g.classList.add('bump');
+        restartClass(g, 'bump');
       }
       this.lastGold = s.gold;
     }
 
     // Timer / boss
     this.text('#timer .clock', s.timeLeft >= 0 ? fmtClock(s.timeLeft) : s.timeLeft === -1 ? 'BOSS!' : 'CLEAR!');
-    this.el('#timer').classList.toggle('urgent', s.timeLeft >= 0 && s.timeLeft < 10);
-    this.text('#timer .stage', `STAGE ${s.stage}`);
+    this.el('#timer').classList.toggle('urgent', s.timeLeft >= 0 && s.timeLeft <= 10);
+    this.text('#timer .stage', `STAGE ${s.stage}${s.metaLabel ? " · " + s.metaLabel : ""}`);
     const bb = this.el('#bossbar');
     bb.hidden = !s.boss;
     if (s.boss) {
-      this.text('#bossbar .name', s.boss.name.toUpperCase());
+      this.text('#bossbar .name', (s.boss.mini ? 'MINI-BOSS · ' : '') + s.boss.name.toUpperCase());
       this.el('#bossbar .fill').style.transform = `scaleX(${s.boss.hp01})`;
+      // Phase ticks on the bar and pips for the phases reached.
+      const ticks = (s.boss.ticks ?? []).map((t) => `<i style="left:${(t * 100).toFixed(1)}%"></i>`).join('');
+      if (this.lastText['#bossbar .ticks'] !== ticks) {
+        this.lastText['#bossbar .ticks'] = ticks;
+        this.el('#bossbar .ticks').innerHTML = ticks;
+      }
+      const n = (s.boss.ticks?.length ?? 0) + 1;
+      const ph = s.boss.phase ?? 1;
+      this.text('#bossbar .ph', n > 1 ? `PHASE ${ph} / ${n}` : '');
+      bb.classList.toggle('mini', !!s.boss.mini);
     }
 
-    const spice = s.spice.map((l) => `<div class="${l.kind}">${l.text}</div>`).join('');
-    if (this.lastText['#spice'] !== spice) {
-      this.lastText['#spice'] = spice;
-      this.el('#spice').innerHTML = spice;
-    }
+    this.updateSpice(s.spice);
 
     // Score counts up quickly toward the real value.
     this.shownScore += (s.score - this.shownScore) * Math.min(1, dt * 12);
     if (Math.abs(s.score - this.shownScore) < 1) this.shownScore = s.score;
     this.text('#score', fmtScore(this.shownScore));
 
-    // Combo
+    // Combo: increment pops use local ages, with no forced layout reads in the kill hot path.
     const combo = this.el('#combo');
-    combo.classList.toggle('on', s.combo > 1);
+    this.comboPop += dt;
+    this.comboShake = Math.max(0, this.comboShake - dt);
+    this.comboBreakT = Math.max(0, this.comboBreakT - dt);
     if (s.combo !== this.lastCombo) {
-      this.text('#combo .num', `${s.combo} COMBO`);
-      if (s.combo > this.lastCombo && s.combo % 5 === 0) {
-        combo.classList.remove('bump');
-        void combo.offsetWidth;
-        combo.classList.add('bump');
+      if (s.combo < this.lastCombo && this.lastCombo > 1) {
+        this.comboBreakT = hudTuning.comboBreak;
+        this.text('#combo .num', `${this.lastCombo} COMBO LOST`);
+      }
+      if (s.combo > 1) {
+        this.comboBreakT = 0;
+        this.text('#combo .num', `${s.combo} COMBO`);
+        if (s.combo > this.lastCombo) {
+          this.comboPop = 0;
+          if (comboMilestone(this.lastCombo, s.combo)) this.comboShake = 0.3;
+        }
+        combo.dataset.heat = String(comboTier(s.combo));
       }
       this.lastCombo = s.combo;
     }
-    if (s.multiplier !== this.lastMult) {
+    combo.classList.toggle('on', s.combo > 1 || this.comboBreakT > 0);
+    combo.classList.toggle('broken', this.comboBreakT > 0);
+    if (this.comboBreakT <= 0 && s.multiplier !== this.lastMult) {
       this.text('#combo .mult', `x${s.multiplier}`);
       this.el('#combo .mult').dataset.tier = String(Math.min(s.multiplier, 8));
       this.lastMult = s.multiplier;
     }
+    const pop = still ? 1 : 1 + Math.max(0, 1 - this.comboPop / 0.18) * 0.22;
+    const shake = still ? 0 : this.comboShake > 0 ? Math.round(Math.sin(this.comboShake * 90) * this.comboShake * 14 * settings.shake) : 0;
+    combo.style.transform = `translateX(${shake}px) scale(${pop})`;
     this.el('#combo .cbar div').style.transform = `scaleX(${s.combo01})`;
 
     // Meters
     const dash = this.el('#dashpip');
     dash.style.setProperty('--k', String(s.dash01));
     dash.classList.toggle('ready', s.dash01 >= 1);
-    this.text('#dashpip span', s.dashMax > 1 ? `DASH ${s.dashStock}` : 'DASH');
+    const dashLabel = s.dashLabel ?? 'DASH';
+    this.text('#dashpip > span', s.dashMax > 1 ? `${dashLabel} ${s.dashStock}` : dashLabel);
     const bomb = this.el('#bombpip');
     bomb.style.setProperty('--k', String(s.bomb01));
     bomb.classList.toggle('ready', s.bomb01 >= 1);
-    this.text('#bombpip span', s.special);
+    this.text('#bombpip > span', s.special);
 
     if (this.bannerT > 0) {
       this.bannerT -= dt;
@@ -636,7 +738,7 @@ export class Hud {
 
     // Vignette: hurt pulse plus a heartbeat when low on life.
     this.hurtV = Math.max(0, this.hurtV - dt * 2.5);
-    const beat = s.lowHp ? 0.25 + 0.2 * Math.max(0, Math.sin(performance.now() / 180)) : 0;
+    const beat = s.lowHp ? still ? 0.16 : 0.25 + 0.2 * Math.max(0, Math.sin(performance.now() / 180)) : 0;
     this.el('#vignette').style.opacity = String(Math.max(this.hurtV, beat));
     this.flashV = Math.max(0, this.flashV - dt * 4);
     this.el('#flash').style.opacity = String(this.flashV);

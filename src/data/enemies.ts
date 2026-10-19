@@ -1,6 +1,9 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
-export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper';
-export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper';
+export type Behavior = 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
+export type Model = 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel;
+/** Biome-native enemies (src/game/biomeFoes.ts): one per biome. */
+export type BiomeBehavior = 'diver' | 'shark' | 'roller' | 'slug' | 'marcher' | 'kite';
+export type BiomeModel = 'bee' | 'shark' | 'snowball' | 'slug' | 'soldier' | 'kite';
 
 export interface EnemyDef {
   id: string;
@@ -31,6 +34,10 @@ export interface EnemyDef {
   pack?: [number, number];
   /** Max alive at once (spawners). */
   maxAlive?: number;
+  burrow?: { underground: number; warn: number; exposed: number; radius: number; damage: number };
+  mirror?: { scan: number; copy: number; cooldown: number; keepDistance: number };
+  /** Special encounter: compact overhead health bar, without stage-boss rules. */
+  special?: boolean;
   lunge?: { range: number; windup: number; speed: number; duration: number; recover: number };
   /**
    * Shooters. `pattern`: spread (one fan), spiral (spins out a stream of bullets),
@@ -41,13 +48,110 @@ export interface EnemyDef {
   fuse?: { range: number; time: number; radius: number; damage: number };
   split?: { into: string; count: number };
   spawn?: { into: string; count: number; interval: number };
+  /**
+   * Shielders: hits from inside the front arc (`arcDeg` either side of facing) deal
+   * x`frontMul`; allies within `range` behind it take x`behindMul` from that side.
+   * `turn` is how fast it can swing round (rad/s), which is what makes flanking work.
+   */
+  guard?: { arcDeg: number; frontMul: number; behindMul: number; range: number; turn: number };
+  /** Leapers: telegraphed hop in an arc (over cover) onto a marked landing ring. */
+  leap?: { range: number; windup: number; air: number; height: number; radius: number; damage: number; recover: number; cooldown: number };
+  /** Medics: every `interval` s heal allies within `radius` by `frac` of their max life. */
+  heal?: { radius: number; frac: number; interval: number; windup: number; keepDistance: number };
+  /** Mortars: lob `shells` telegraphed shells around you every `interval` s. */
+  mortar?: { keepDistance: number; interval: number; shells: number; radius: number; delay: number; damage: number };
+  /** Treasure enemy: flees, escapes after `life` seconds, drops a jackpot when caught. */
+  treasure?: { life: number };
   /** Stage boss (boss bar, bounty, no crowd separation). */
   boss?: boolean;
+  /**
+   * Bosses and mini-bosses: HP fractions where the next phase starts (src/game/bosses.ts).
+   * Crossing one triggers an invulnerable roar and a new attack set; damage can't skip a phase.
+   */
+  phases?: number[];
+  /** Mid-stage mini-boss (own bar, drops a chest, not the stage boss). */
+  miniboss?: boolean;
+  /** Subtitle on the boss entrance title card. */
+  title?: string;
   /** How it dies: robots scatter bolts and springs, goo splashes, shards shatter. */
   death?: 'robot' | 'goo' | 'shards';
+  /** Family call on spawn / wind-up (src/audio/families.ts); defaults from model, behaviour and death type. */
+  voice?: 'robot' | 'slime' | 'frog' | 'bug' | 'boss' | 'ghost';
+  /** Biome-native: the director only sends it in these biomes (BiomeDef ids). */
+  biomes?: string[];
+  /** Bumble Bee: circles at `hover` m, then dives straight through you; bees nearby follow it in a column. */
+  dive?: { hover: number; range: number; windup: number; speed: number; duration: number; recover: number; interval: number; follow: number };
+  /** Sand Shark: swims under the sand (can't be hit), marks a ring under you, bursts out, then lies exposed for `exposed` s. */
+  shark?: { swim: number; under: number; range: number; windup: number; air: number; radius: number; damage: number; exposed: number };
+  /** Snowball Roller: rolls in wide arcs (turn rad/s), growing a step every `growEvery` m; a big one shatters on walls and heroes. */
+  roll?: { turn: number; growEvery: number; growth: number; maxSteps: number; crashAt: number; radius: number; damage: number };
+  /** Lava Slug: drops a burning puddle every `every` s; now and then swells up and spills a big one. */
+  ooze?: { every: number; life: number; r: number; dps: number; spill: number; spillR: number; windup: number };
+  /** Wind-up Soldier: rewinds (telegraph), marches straight for `walk` s, winds down for `rest` s. Ranks march together. */
+  march?: { walk: number; rest: number; windup: number; speed: number; rank: number; restMul: number };
+  /** Gust Kite: keeps its distance and blows a cone of wind that shoves heroes (and its friends). */
+  gust?: { keepDistance: number; interval: number; windup: number; range: number; arcDeg: number; push: number; damage: number };
+  /** What hits sound like (src/audio/voices.ts); set for every enemy from ENEMY_MATERIALS below. */
+  material?: Material;
 }
 
+/** Hit-sound materials: each maps to a recorded impact (hit_metal, hit_flesh, hit_slime, hit_stone, hit_shield). */
+export type Material = 'metal' | 'flesh' | 'slime' | 'stone' | 'shield';
+/** Family tuning: bounded summons and copy strength keep crowded co-op readable. */
+export const familyTuning = {
+  mirrorDamage: 0.35, mirrorMaxDamage: 12, mirrorMaxShots: 9, mirrorMaxRate: 4,
+  mirrorBonus: 8,
+  queenFromStage: 2, queenAt: 0.72, queenWindup: 1.4, queenCooldown: 7,
+  queenFleeAt: 0.5, queenFleeTime: 3, queenReturnTime: 1.2,
+  wallSpacing: 1.5, wallLife: 12, wallCap: 80, summonCap: 560,
+  eggHatch: 6, eggCount: 3, hatchCount: 4, eggCap: 9,
+};
+
 export const ENEMIES: Record<string, EnemyDef> = {
+  burrower: {
+    id: 'burrower', name: 'Dirt Digger', behavior: 'burrower', model: 'burrower', death: 'robot',
+    hp: 32, speed: 4.8, radius: 0.48, bodyColor: '#ef7d57', accentColor: '#ffcd75',
+    contactDamage: 8, knockbackResist: 0.3, xp: 4, score: 160,
+    minMinute: 2.5, minStage: 2, weight: 1.5, maxAlive: 6,
+    burrow: { underground: 3.2, warn: 0.95, exposed: 2.8, radius: 1.6, damage: 12 },
+  },
+  burrower_big: {
+    id: 'burrower_big', name: 'Tunnel Bruiser', behavior: 'burrower', model: 'burrower', death: 'robot',
+    hp: 140, speed: 4, radius: 0.85, bodyColor: '#b86f50', accentColor: '#a7f070',
+    contactDamage: 13, knockbackResist: 0.75, xp: 9, score: 360,
+    minMinute: 4.6, minStage: 3, weight: 0.55, maxAlive: 2,
+    burrow: { underground: 3.5, warn: 1.15, exposed: 3.2, radius: 2.3, damage: 18 },
+  },
+  mirror: {
+    id: 'mirror', name: 'Mirror Bot', behavior: 'mirror', model: 'mirror', death: 'shards',
+    hp: 65, speed: 2.6, radius: 0.62, bodyColor: '#73eff7', accentColor: '#b13eec',
+    contactDamage: 6, knockbackResist: 0.3, xp: 6, score: 260,
+    minMinute: 3.5, minStage: 3, weight: 1, maxAlive: 4,
+    mirror: { scan: 1.25, copy: 2.2, cooldown: 3.2, keepDistance: 9 },
+  },
+  mirror_prism: {
+    id: 'mirror_prism', name: 'Prism Bot', behavior: 'mirror', model: 'mirror', death: 'shards',
+    hp: 95, speed: 3.2, radius: 0.7, bodyColor: '#ffcd75', accentColor: '#b13eec',
+    contactDamage: 8, knockbackResist: 0.4, xp: 8, score: 360,
+    minMinute: 5.2, minStage: 3, weight: 0.45, maxAlive: 2,
+    mirror: { scan: 1.1, copy: 3, cooldown: 2.8, keepDistance: 11 },
+  },
+  swarmqueen: {
+    id: 'swarmqueen', name: 'Swarm Queen', behavior: 'swarmqueen', model: 'swarmqueen', death: 'goo', special: true,
+    hp: 600, speed: 3.5, radius: 1.25, bodyColor: '#b13eec', accentColor: '#a7f070',
+    contactDamage: 14, knockbackResist: 0.9, xp: 45, score: 4500,
+    minMinute: -1, minStage: 2, weight: 0,
+  },
+  swarm_egg: {
+    id: 'swarm_egg', name: 'Swarm Eggs', behavior: 'egg', model: 'egg', death: 'goo',
+    hp: 24, speed: 0, radius: 0.65, bodyColor: '#a7f070', accentColor: '#b13eec',
+    contactDamage: 0, knockbackResist: 1, xp: 3, score: 100, minMinute: -1, weight: 0,
+  },
+  swarm_wall: {
+    id: 'swarm_wall', name: 'Wall Swarmer', behavior: 'swarmwall', model: 'swarmer', death: 'goo',
+    hp: 12, speed: 3.6, radius: 0.62, bodyColor: '#b13eec', accentColor: '#a7f070',
+    contactDamage: 7, knockbackResist: 0.7, xp: 1, score: 30, minMinute: -1, weight: 0,
+  },
   swarmer: {
     id: 'swarmer',
     death: 'goo',
@@ -298,6 +402,111 @@ export const ENEMIES: Record<string, EnemyDef> = {
     maxAlive: 2,
     spawn: { into: 'swarmer', count: 5, interval: 5 },
   },
+  shielder: {
+    id: 'shielder',
+    death: 'robot',
+    name: 'Shield Bot',
+    behavior: 'shielder',
+    model: 'shielder',
+    hp: 70,
+    speed: 2.4,
+    radius: 0.62,
+    bodyColor: '#4fc3ff',
+    accentColor: '#ffcd75',
+    contactDamage: 12,
+    knockbackResist: 0.8,
+    xp: 4,
+    score: 160,
+    minMinute: 2.2,
+    weight: 1.6,
+    maxAlive: 8,
+    guard: { arcDeg: 70, frontMul: 0.15, behindMul: 0.5, range: 3.6, turn: 1.5 },
+    lunge: { range: 2.4, windup: 0.55, speed: 10, duration: 0.18, recover: 0.8 },
+  },
+  medic: {
+    id: 'medic',
+    death: 'robot',
+    name: 'Medi Bot',
+    behavior: 'medic',
+    model: 'medic',
+    hp: 34,
+    speed: 3.2,
+    radius: 0.5,
+    bodyColor: '#f4f4f4',
+    accentColor: '#38b764',
+    contactDamage: 5,
+    knockbackResist: 0.1,
+    xp: 6,
+    score: 300,
+    minMinute: 3,
+    weight: 1.0,
+    maxAlive: 3,
+    heal: { radius: 6, frac: 0.15, interval: 3.6, windup: 0.8, keepDistance: 10 },
+  },
+  leaper: {
+    id: 'leaper',
+    death: 'goo',
+    name: 'Hop Frog',
+    behavior: 'leaper',
+    model: 'leaper',
+    hp: 40,
+    speed: 3.0,
+    radius: 0.55,
+    bodyColor: '#a7f070',
+    accentColor: '#ff7a2f',
+    contactDamage: 8,
+    knockbackResist: 0.2,
+    xp: 4,
+    score: 140,
+    // Stage 2 from 1:12 (content minute 1.5 after stage 2's 1.5 head start).
+    minMinute: 3,
+    minStage: 2,
+    weight: 2,
+    pack: [2, 3],
+    leap: { range: 10, windup: 0.6, air: 0.75, height: 3.2, radius: 1.8, damage: 16, recover: 0.7, cooldown: 2.4 },
+  },
+  mortar: {
+    id: 'mortar',
+    death: 'robot',
+    name: 'Mortar Toad',
+    behavior: 'mortar',
+    model: 'mortar',
+    hp: 46,
+    speed: 2.0,
+    radius: 0.62,
+    bodyColor: '#ef7d57',
+    accentColor: '#333c57',
+    contactDamage: 8,
+    knockbackResist: 0.4,
+    xp: 5,
+    score: 180,
+    // Stage 2 from 2:00.
+    minMinute: 4,
+    minStage: 2,
+    weight: 1.2,
+    maxAlive: 5,
+    mortar: { keepDistance: 12, interval: 3.6, shells: 3, radius: 1.7, delay: 1.2, damage: 14 },
+  },
+  /** Rare treasure enemy: the director sends one per stage (see director.ts goldenTime). */
+  golden: {
+    id: 'golden',
+    death: 'shards',
+    name: 'Goldbug',
+    behavior: 'golden',
+    model: 'golden',
+    hp: 90,
+    speed: 6.4, // a hero's base speed is 7: catchable, but you have to chase
+    radius: 0.55,
+    bodyColor: '#ffd23f',
+    accentColor: '#fff6c8',
+    contactDamage: 0,
+    knockbackResist: 0.4,
+    xp: 40,
+    score: 5000,
+    minMinute: -1,
+    weight: 0,
+    treasure: { life: 12 },
+  },
   king: {
     id: 'king',
     death: 'robot',
@@ -305,6 +514,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     behavior: 'boss',
     model: 'king',
     boss: true,
+    phases: [0.66, 0.33],
+    title: 'RULER OF THE BOUNCE',
     hp: 2400,
     speed: 2.5,
     radius: 2.0,
@@ -324,6 +535,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     behavior: 'rex',
     model: 'rex',
     boss: true,
+    phases: [0.66, 0.33],
+    title: 'THE HORN THAT FEARS NO WALL',
     hp: 2700,
     speed: 3.2,
     radius: 2.1,
@@ -343,6 +556,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     behavior: 'queen',
     model: 'queen',
     boss: true,
+    phases: [0.66, 0.33],
+    title: 'MOTHER OF THE SWARM',
     hp: 2300,
     speed: 4.5,
     radius: 1.8,
@@ -362,6 +577,8 @@ export const ENEMIES: Record<string, EnemyDef> = {
     behavior: 'omega',
     model: 'omega',
     boss: true,
+    phases: [0.6, 0.25], // omegaTuning.phase2At / phase3At
+    title: 'THE FINAL PROGRAM',
     hp: 5000, // ~2x King, before bossTuning.hp and stage scaling
     speed: 2.8,
     radius: 2.4,
@@ -375,6 +592,96 @@ export const ENEMIES: Record<string, EnemyDef> = {
     weight: 0,
     // Its charge chain: range = distance that triggers a gap-closing charge or jump.
     charge: { range: 15, windup: 0.85, speed: 26, duration: 0.5, recover: 1.0 },
+  },
+  /**
+   * Mid-stage mini-bosses (from stage 2, see src/game/systems/bossFight.ts): smaller
+   * variants of the bosses with the same brains, two phases and their own bar.
+   */
+  prince: {
+    id: 'prince',
+    death: 'robot',
+    name: 'Prince Bopper',
+    behavior: 'boss',
+    model: 'king',
+    miniboss: true,
+    phases: [0.5],
+    title: 'HEIR TO THE BOUNCE',
+    hp: 720,
+    speed: 2.8,
+    radius: 1.3,
+    bodyColor: '#41a6f6',
+    accentColor: '#ffcd75',
+    contactDamage: 16,
+    knockbackResist: 0.9,
+    xp: 40,
+    score: 3000,
+    minMinute: -1,
+    minStage: 2,
+    weight: 0,
+  },
+  rexling: {
+    id: 'rexling',
+    death: 'robot',
+    name: 'Rex Jr.',
+    behavior: 'rex',
+    model: 'rex',
+    miniboss: true,
+    phases: [0.5],
+    title: 'LITTLE HORN, BIG TEMPER',
+    hp: 800,
+    speed: 3.4,
+    radius: 1.35,
+    bodyColor: '#a7f070',
+    accentColor: '#ef7d57',
+    contactDamage: 18,
+    knockbackResist: 0.9,
+    xp: 40,
+    score: 3000,
+    minMinute: -1,
+    minStage: 2,
+    weight: 0,
+  },
+  princess: {
+    id: 'princess',
+    death: 'goo',
+    name: 'Hive Princess',
+    behavior: 'queen',
+    model: 'queen',
+    miniboss: true,
+    phases: [0.5],
+    title: 'HEIR TO THE HIVE',
+    hp: 700,
+    speed: 4.8,
+    radius: 1.2,
+    bodyColor: '#f4f4f4',
+    accentColor: '#b13e53',
+    contactDamage: 15,
+    knockbackResist: 0.9,
+    xp: 40,
+    score: 3000,
+    minMinute: -1,
+    minStage: 2,
+    weight: 0,
+  },
+  /** Planted by the Hive Queen: hatches Swarmers until destroyed, and heals her while it stands. */
+  hive: {
+    id: 'hive',
+    death: 'goo',
+    name: 'Royal Hive',
+    behavior: 'spawner',
+    model: 'hive',
+    hp: 180,
+    speed: 0,
+    radius: 0.85,
+    bodyColor: '#ffcd75',
+    accentColor: '#ef7d57',
+    contactDamage: 8,
+    knockbackResist: 1,
+    xp: 4,
+    score: 400,
+    minMinute: -1,
+    weight: 0,
+    spawn: { into: 'swarmer', count: 3, interval: 5.5 },
   },
   /**
    * Late-run filter: the director sends Reapers once the team level reaches
@@ -398,6 +705,133 @@ export const ENEMIES: Record<string, EnemyDef> = {
     minMinute: -1,
     weight: 0,
   },
+  // ---------------------------------------------------------------- biome-native enemies (src/game/biomeFoes.ts)
+  bee: {
+    id: 'bee',
+    death: 'goo',
+    name: 'Bumble Bee',
+    behavior: 'diver',
+    model: 'bee',
+    hp: 10,
+    speed: 4.4,
+    radius: 0.4,
+    bodyColor: '#ffcd75',
+    accentColor: '#333c57',
+    contactDamage: 7,
+    knockbackResist: 0,
+    xp: 1,
+    score: 45,
+    minMinute: 0.8, // stage 1 from about 0:38
+    weight: 3.2,
+    pack: [3, 5],
+    biomes: ['meadow'],
+    dive: { hover: 6, range: 10, windup: 0.75, speed: 17, duration: 0.6, recover: 0.7, interval: 2.6, follow: 4 },
+  },
+  shark: {
+    id: 'shark',
+    death: 'goo',
+    name: 'Sand Shark',
+    behavior: 'shark',
+    model: 'shark',
+    hp: 60,
+    speed: 3.0,
+    radius: 0.7,
+    bodyColor: '#566c86',
+    accentColor: '#ffcd75',
+    contactDamage: 12,
+    knockbackResist: 0.4,
+    xp: 5,
+    score: 180,
+    minMinute: 2, // stage 2 from about 0:24
+    weight: 1.6,
+    maxAlive: 6,
+    biomes: ['dunes'],
+    shark: { swim: 1.7, under: 2.2, range: 3.2, windup: 0.8, air: 0.45, radius: 2.0, damage: 16, exposed: 2.2 },
+  },
+  roller: {
+    id: 'roller',
+    death: 'shards',
+    name: 'Snowball Roller',
+    behavior: 'roller',
+    model: 'snowball',
+    hp: 40,
+    speed: 3.6,
+    radius: 0.55,
+    bodyColor: '#f4f4f4',
+    accentColor: '#73eff7',
+    contactDamage: 10,
+    knockbackResist: 0.5,
+    xp: 4,
+    score: 150,
+    minMinute: 3.5, // stage 3 from about 0:24
+    weight: 1.5,
+    maxAlive: 8,
+    biomes: ['peaks'],
+    roll: { turn: 1.4, growEvery: 2.6, growth: 0.2, maxSteps: 7, crashAt: 3, radius: 2.4, damage: 18 },
+  },
+  slug: {
+    id: 'slug',
+    death: 'goo',
+    name: 'Lava Slug',
+    behavior: 'slug',
+    model: 'slug',
+    hp: 90,
+    speed: 1.9,
+    radius: 0.7,
+    bodyColor: '#ef7d57',
+    accentColor: '#ffcd75',
+    contactDamage: 12,
+    knockbackResist: 0.6,
+    xp: 5,
+    score: 170,
+    minMinute: 5, // stage 4 from about 0:24
+    weight: 1.6,
+    maxAlive: 10,
+    biomes: ['magma'],
+    ooze: { every: 0.45, life: 4, r: 0.85, dps: 12, spill: 6, spillR: 2.4, windup: 0.9 },
+  },
+  soldier: {
+    id: 'soldier',
+    death: 'robot',
+    name: 'Wind-up Soldier',
+    behavior: 'marcher',
+    model: 'soldier',
+    hp: 30,
+    speed: 2.4,
+    radius: 0.5,
+    bodyColor: '#3b5dc9',
+    accentColor: '#ffcd75',
+    contactDamage: 10,
+    knockbackResist: 0.3,
+    xp: 3,
+    score: 110,
+    minMinute: 1,
+    weight: 3,
+    pack: [4, 6],
+    biomes: ['factory'],
+    march: { walk: 4.2, rest: 2.2, windup: 0.9, speed: 4.6, rank: 4, restMul: 1.5 },
+  },
+  kite: {
+    id: 'kite',
+    death: 'shards',
+    name: 'Gust Kite',
+    behavior: 'kite',
+    model: 'kite',
+    hp: 26,
+    speed: 3.4,
+    radius: 0.6,
+    bodyColor: '#73eff7',
+    accentColor: '#ff7eb6',
+    contactDamage: 4,
+    knockbackResist: 0.1,
+    xp: 4,
+    score: 150,
+    minMinute: 1.5,
+    weight: 2,
+    maxAlive: 6,
+    biomes: ['sky'],
+    gust: { keepDistance: 7, interval: 3.8, windup: 0.9, range: 9, arcDeg: 32, push: 20, damage: 0 },
+  },
 };
 
 /**
@@ -409,6 +843,8 @@ export const veteranTuning = { hp: 2.6, dmg: 1.6, speed: 1.08, size: 1.12, rewar
 
 /** Base id -> [body, accent] for its veteran. */
 const VETERAN_LOOK: Record<string, [string, string]> = {
+  burrower: ['#b86f50', '#73eff7'],
+  mirror: ['#29366f', '#b13eec'],
   swarmer: ['#29366f', '#ff3d5a'],
   bopper: ['#5d275d', '#ffcd75'],
   zippy: ['#257179', '#ef7d57'],
@@ -419,6 +855,16 @@ const VETERAN_LOOK: Record<string, [string, string]> = {
   splitter: ['#257179', '#ffcd75'],
   jellet: ['#38b764', '#5d275d'],
   spawner: ['#29366f', '#ffcd75'],
+  shielder: ['#29366f', '#ff7a2f'],
+  medic: ['#566c86', '#a7f070'],
+  leaper: ['#257179', '#ff3d5a'],
+  mortar: ['#5d275d', '#ffcd75'],
+  bee: ['#ef7d57', '#1a1c2c'],
+  shark: ['#29366f', '#ff3d5a'],
+  roller: ['#73eff7', '#29366f'],
+  slug: ['#5d275d', '#ff7a2f'],
+  soldier: ['#b13e53', '#ffcd75'],
+  kite: ['#5d275d', '#a7f070'],
 };
 
 /** Regular enemy id -> its veteran's id. */
@@ -447,11 +893,114 @@ for (const [id, [bodyColor, accentColor]] of Object.entries(VETERAN_LOOK)) {
     fuse: b.fuse && { ...b.fuse, damage: Math.round(b.fuse.damage * t.dmg) },
     split: b.split && { ...b.split, into: 'v_' + b.split.into },
     spawn: b.spawn && { ...b.spawn, into: 'v_' + b.spawn.into },
+    burrow: b.burrow && { ...b.burrow, damage: Math.round(b.burrow.damage * t.dmg) },
+    leap: b.leap && { ...b.leap, damage: Math.round(b.leap.damage * t.dmg) },
+    mortar: b.mortar && { ...b.mortar, damage: Math.round(b.mortar.damage * t.dmg) },
+    shark: b.shark && { ...b.shark, damage: Math.round(b.shark.damage * t.dmg) },
+    roll: b.roll && { ...b.roll, damage: Math.round(b.roll.damage * t.dmg) },
+    ooze: b.ooze && { ...b.ooze, dps: Math.round(b.ooze.dps * t.dmg) },
+    gust: b.gust && { ...b.gust, push: b.gust.push * 1.2 },
   };
 }
 
+/**
+ * Elite squads: the escort an elite brings (src/game/systems/enemyAi.ts spawnSquad).
+ * Shooters and mortars bring melee bodyguards; brawlers bring fast flankers.
+ */
+export function squadOf(def: EnemyDef): string {
+  const base = def.id.startsWith('v_') ? def.id.slice(2) : def.id;
+  const pick: Record<string, string> = {
+    shooter: 'bopper',
+    burster: 'bopper',
+    sniper: 'shielder',
+    spinner: 'shielder',
+    mortar: 'shielder',
+    medic: 'bopper',
+    charger: 'zippy',
+    chonk: 'zippy',
+    exploder: 'exploder',
+    splitter: 'jellet',
+    shielder: 'shooter',
+    leaper: 'leaper',
+    zippy: 'zippy',
+    bee: 'bee',
+    soldier: 'soldier',
+    shark: 'zippy',
+    roller: 'zippy',
+    slug: 'chonk',
+    kite: 'zippy',
+  };
+  const id = pick[base] ?? 'bopper';
+  return def.id.startsWith('v_') && VETERAN_OF[id] ? VETERAN_OF[id] : id;
+}
+
+/** Squad size for an elite on `stage`: 3 on stage 1, one more every 2 stages, at most 6. */
+export function squadSize(stage: number): number {
+  return Math.min(6, 3 + Math.floor((Math.max(1, stage) - 1) / 2));
+}
+
 /** Bosses rotate by stage: King, Rex, Queen, then the final boss on every 4th stage; stage 5 starts the loop again. */
+/** Is this enemy allowed in the given biome? Biome-native enemies only spawn at home. */
+export function biomeAllows(def: EnemyDef, biome: string): boolean {
+  return !def.biomes || def.biomes.includes(biome);
+}
+
 export const BOSS_ORDER = ['king', 'rex', 'queen', 'omega'];
 export function bossForStage(stage: number): EnemyDef {
   return ENEMIES[BOSS_ORDER[(Math.max(1, stage) - 1) % BOSS_ORDER.length]];
+}
+
+/** Mini-bosses and the boss each one is a smaller copy of. */
+export const MINI_BOSSES: { id: string; of: string }[] = [
+  { id: 'prince', of: 'king' },
+  { id: 'rexling', of: 'rex' },
+  { id: 'princess', of: 'queen' },
+];
+
+/** The mid-stage mini-boss for a stage: never a copy of that stage's own boss, rotating by stage. */
+export function miniBossForStage(stage: number): EnemyDef {
+  const boss = bossForStage(stage).id;
+  const pool = MINI_BOSSES.filter((m) => m.of !== boss);
+  return ENEMIES[pool[Math.max(0, stage) % pool.length].id];
+}
+
+/** Every enemy's hit material (veterans use their base enemy's). Unlisted enemies sound like flesh. */
+export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {
+  swarmer: 'flesh',
+  bopper: 'metal',
+  zippy: 'metal',
+  shooter: 'metal',
+  spinner: 'metal',
+  burster: 'metal',
+  sniper: 'metal',
+  charger: 'stone',
+  chonk: 'stone',
+  exploder: 'metal',
+  splitter: 'slime',
+  jellet: 'slime',
+  spawner: 'stone',
+  shielder: 'shield',
+  medic: 'metal',
+  leaper: 'flesh',
+  mortar: 'flesh',
+  golden: 'metal',
+  king: 'metal',
+  rex: 'stone',
+  queen: 'flesh',
+  omega: 'metal',
+  prince: 'metal',
+  rexling: 'stone',
+  princess: 'flesh',
+  hive: 'slime',
+  reaper: 'stone',
+  burrower: 'stone',
+  burrower_big: 'stone',
+  mirror: 'metal',
+  mirror_prism: 'shield',
+  swarmqueen: 'flesh',
+  swarm_egg: 'slime',
+  swarm_wall: 'flesh',
+};
+for (const def of Object.values(ENEMIES)) {
+  def.material ??= ENEMY_MATERIALS[def.id] ?? ENEMY_MATERIALS[def.id.replace(/^v_/, '')] ?? 'flesh';
 }

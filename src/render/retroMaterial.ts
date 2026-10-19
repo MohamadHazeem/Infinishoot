@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { lightUniforms, MAX_LIGHTS } from './lights';
 
 /**
  * Retro (late-90s console) material.
@@ -7,6 +8,9 @@ import * as THREE from 'three';
  *  - Blend between perspective-correct and affine texture mapping (uv*w trick;
  *    WebGL2 has no `noperspective`)
  *  - Nearest-filtered textures, vertex colours, instancing, sky-tinted fog
+ *  - Up to MAX_LIGHTS dynamic point lights (src/render/lights.ts), evaluated per
+ *    pixel at the low internal resolution and banded like the cel shading
+ *  - Night eyes: on instance-flash meshes (enemies) pure-white vertex colours glow
  *
  * Global look settings live in `retroGlobals`; every retro material shares
  * those uniform objects, so changing a value updates the whole scene.
@@ -24,6 +28,18 @@ export const retroGlobals = {
   uFogNear: { value: 28 },
   uFogFar: { value: 70 },
   uTime: { value: 0 },
+  /** 0..1 night: enemy eyes (white vertex colours on instance-flash meshes) glow, faint self-glow dims. */
+  uNight: { value: 0 },
+  uEyeColor: { value: new THREE.Color('#fff2a8') },
+  /** Night readability (instance-flash meshes: enemies, barrels): moonlit rim strength, rim colour, and a floor on how dark lit colours get. */
+  uNightRim: { value: 0.55 },
+  uNightRimColor: { value: new THREE.Color('#94b0c2') },
+  uNightLift: { value: 0.5 },
+  /** Drifting cloud shadows (src/render/sky.ts): tileable noise map, (offset x, offset z, scale, strength), (cut, softness, height). */
+  uCloudMap: { value: null as THREE.Texture | null },
+  uCloud: { value: new THREE.Vector4(0, 0, 0.012, 0) },
+  uCloudCut: { value: new THREE.Vector3(0.5, 0.25, 30) },
+  ...lightUniforms,
 };
 
 const vertexShader = /* glsl */ `
@@ -43,6 +59,8 @@ out float vDiffuse;
 out float vFog;
 out vec2 vUvP;
 out vec3 vUvW; // uv * w, w  -> dividing per-fragment yields affine (screen-linear) UVs
+out vec3 vWorld;
+out vec3 vNormal;
 #ifdef RETRO_INSTANCE_FLASH
   in vec4 instanceFlash; // per-instance hit flash (rgb, amount)
   out vec4 vFlash;
@@ -59,6 +77,8 @@ void main() {
 
   vec4 wp = m * vec4(position, 1.0);
   vec3 n = normalize(mat3(m) * normal);
+  vWorld = wp.xyz;
+  vNormal = n;
 
   vAmbient = mix(uGroundColor, uSkyColor, n.y * 0.5 + 0.5);
   vDiffuse = max(dot(n, uSunDir), 0.0);
@@ -96,6 +116,19 @@ uniform float uUnlit;
 uniform vec3 uSunColor;
 uniform float uToonSteps;
 uniform vec3 uFogColor;
+uniform vec4 uLightPos[MAX_LIGHTS];
+uniform vec4 uLightCol[MAX_LIGHTS];
+uniform int uLightCount;
+uniform float uLightMax;
+uniform float uNight;
+uniform vec3 uEyeColor;
+uniform float uNightRim;
+uniform vec3 uNightRimColor;
+uniform float uNightLift;
+uniform sampler2D uCloudMap;
+uniform vec4 uCloud;
+uniform vec3 uCloudCut;
+uniform vec3 uSunDir;
 #ifdef RETRO_MAP
   uniform sampler2D uMap;
 #endif
@@ -106,6 +139,8 @@ in float vDiffuse;
 in float vFog;
 in vec2 vUvP;
 in vec3 vUvW;
+in vec3 vWorld;
+in vec3 vNormal;
 #ifdef RETRO_INSTANCE_FLASH
   in vec4 vFlash;
 #endif
@@ -124,14 +159,73 @@ void main() {
     float s = d * uToonSteps;
     d = (floor(s) + smoothstep(0.35, 0.65, fract(s))) / uToonSteps;
   }
+  if (uCloud.w > 0.0 && uUnlit < 0.99) {
+    // Cloud shadows: the sun's light through a drifting noise layer projected from uCloudCut.z metres up.
+    vec2 cp = vWorld.xz + (uCloudCut.z - vWorld.y) * uSunDir.xz / max(uSunDir.y, 0.25);
+    float cn = texture(uCloudMap, cp * uCloud.z + uCloud.xy).r;
+    d *= 1.0 - uCloud.w * smoothstep(uCloudCut.x, uCloudCut.x + uCloudCut.y, cn);
+  }
   vec3 lit = base.rgb * (vAmbient + uSunColor * d);
-  vec3 col = mix(lit, base.rgb, uUnlit);
+  // Dynamic point lights: smooth falloff, half-wrapped Lambert, banded with the cel steps.
+  if (uLightCount > 0 && uUnlit < 0.99) {
+    vec3 nrm = normalize(vNormal);
+    vec3 dyn = vec3(0.0);
+    for (int i = 0; i < MAX_LIGHTS; i++) {
+      if (i >= uLightCount) break;
+      vec4 lp = uLightPos[i];
+      vec3 dv = lp.xyz - vWorld;
+      float dd = dot(dv, dv);
+      float r2 = lp.w * lp.w;
+      if (dd >= r2) continue;
+      float a = 1.0 - dd / r2;
+      a *= a;
+      float ndl = dot(nrm, dv) * inversesqrt(max(dd, 1e-4));
+      a *= 0.4 + 0.6 * max(ndl, 0.0);
+      if (uToonSteps > 0.5) a = (floor(a * 4.0) + smoothstep(0.3, 0.7, fract(a * 4.0))) * 0.25;
+      dyn += uLightCol[i].rgb * a;
+    }
+    // Many overlapping lights saturate instead of blowing out to white (keeps the hue).
+    float peak = max(dyn.r, max(dyn.g, dyn.b));
+    dyn *= min(1.0, uLightMax / max(peak, 1e-4));
+    // Mostly albedo-tinted, plus a little straight light so dark ground (ash, obsidian) still shows the pool.
+    lit += dyn * (base.rgb * 0.85 + 0.12);
+  }
+  // At night faint self-glow (water, ice, belts) dims; real glow (>= 0.5: lava, bullets, sparks) stays.
+  float unlit = uUnlit < 0.5 ? uUnlit * (1.0 - 0.75 * uNight) : uUnlit;
+  vec3 col = mix(lit, base.rgb, unlit);
+  #ifdef RETRO_INSTANCE_FLASH
+    // Night: enemies keep a floor of their own colour and a hard moonlit rim, so dark
+    // (veteran) bodies still read against dark ground.
+    if (uNight > 0.0 && uUnlit < 0.5) {
+      col = max(col, base.rgb * (uNightLift * uNight));
+      float rim = 1.0 - max(dot(normalize(vNormal), normalize(cameraPosition - vWorld)), 0.0);
+      col += uNightRimColor * (step(0.6, rim) * uNightRim * uNight);
+    }
+  #endif
   col = mix(col, uFlash.rgb, uFlash.a);
   #ifdef RETRO_INSTANCE_FLASH
     col = mix(col, vFlash.rgb, vFlash.a);
   #endif
   col = mix(col, uFogColor, vFog);
-  outColor = vec4(col, base.a);
+  #ifdef RETRO_INSTANCE_FLASH
+    // Night: white eyes glow through the dark (and most of the fog).
+    if (uNight > 0.0) {
+      float eye = step(2.9, vColor.r + vColor.g + vColor.b);
+      col = mix(col, uEyeColor, eye * uNight * (1.0 - 0.4 * vFog) * (1.0 - vFlash.a * 0.5));
+    }
+  #endif
+  #ifdef RETRO_EMISSIVE_ALPHA
+    // Opaque materials write a glow mask into alpha for the bloom pass: self-lit
+    // things (bullets, lava, sparks), hit flashes and night eyes glow; lit surfaces don't.
+    float glow = clamp((uUnlit - 0.45) * 1.8, 0.0, 1.0);
+    #ifdef RETRO_INSTANCE_FLASH
+      glow = max(glow, vFlash.a * 0.6);
+      glow = max(glow, step(2.9, vColor.r + vColor.g + vColor.b) * uNight);
+    #endif
+    outColor = vec4(col, glow * (1.0 - vFog));
+  #else
+    outColor = vec4(col, base.a);
+  #endif
 }
 `;
 
@@ -163,6 +257,8 @@ export function createRetroMaterial(opts: RetroMaterialOptions = {}): RetroMater
     side: opts.side ?? THREE.FrontSide,
     transparent: opts.transparent ?? false,
     defines: {
+      MAX_LIGHTS,
+      ...(opts.transparent ? {} : { RETRO_EMISSIVE_ALPHA: '' }),
       ...(opts.map ? { RETRO_MAP: '' } : {}),
       ...(opts.instanceFlash ? { RETRO_INSTANCE_FLASH: '' } : {}),
     },

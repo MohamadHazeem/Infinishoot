@@ -74,6 +74,6 @@ export class Starfall extends Weapon {
       // Ring sizes are diameters: close from 1.5x the blast onto it.
       ctx.fx.ring(m.x, m.z, r * 3, 1 / 1.5, this.color, FALL);
     }
-    ctx.sound('lob');
+    ctx.sound('meteor');
   }
 }

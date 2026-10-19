@@ -108,9 +108,16 @@ export class RunEvents {
 
   // ---------------------------------------------------------------- events
 
-  private startEvent(): void {
+  /** Test links: start a specific event now. */
+  forceEvent(id: EventId): void {
+    this.eventAt = 0;
+    this.eventDone = false;
+    this.startEvent(id);
+  }
+
+  private startEvent(force?: EventId): void {
     this.eventDone = true;
-    const id = this.host.rng.pick(EVENT_IDS);
+    const id = force ?? this.host.rng.pick(EVENT_IDS);
     const def = STAGE_EVENTS[id];
     this.event = { id, t: def.seconds };
     this.host.banner(def.name, def.sub, 2);

@@ -13,13 +13,20 @@ const DEF_INDEX = new Map(DEF_IDS.map((id, i) => [id, i]));
 const STATES: EnemyState[] = ['spawning', 'move', 'windup', 'attack', 'recover'];
 const STATE_INDEX = new Map(STATES.map((s, i) => [s, i]));
 
-const ENEMY_BYTES = 22;
+const ENEMY_BYTES = 28; // six independent family bytes; boss-action bits remain unchanged
 const BULLET_BYTES = 14;
 const PICKUP_BYTES = 8;
 
 const q16 = (v: number) => Math.max(-32767, Math.min(32767, Math.round(v * 100)));
 const qAng = (a: number) => Math.round((Math.atan2(Math.sin(a), Math.cos(a)) / Math.PI) * 127);
 const dqAng = (v: number) => (v / 127) * Math.PI;
+
+/**
+ * Records arrive as an ArrayBuffer, except when PeerJS had to chunk a big
+ * snapshot: its reassembly unpacks binary fields as Uint8Array views instead.
+ */
+export type NetBytes = ArrayBuffer | ArrayBufferView;
+const viewOf = (b: NetBytes) => (ArrayBuffer.isView(b) ? new DataView(b.buffer, b.byteOffset, b.byteLength) : new DataView(b));
 
 export function defById(i: number): EnemyDef | undefined {
   return ENEMIES[DEF_IDS[i]];
@@ -35,8 +42,8 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setUint32(o, e.uid, true);
     v.setUint8(o + 4, DEF_INDEX.get(e.def.id) ?? 0);
     v.setUint8(o + 5, STATE_INDEX.get(e.state) ?? 1);
-    // Bits 5-7: the boss action.
-    const flags = (e.elite ? 1 : 0) | (e.frozen > 0 ? 2 : 0) | (e.burnT > 0 ? 4 : 0) | (e.shockT > 0 ? 8 : 0) | (e.flash > 0 ? 16 : 0) | (Math.max(0, BOSS_ACTIONS.indexOf(e.action)) << 5);
+    // Bits 5-7: the boss action, or a biome foe's sub-state (those never set an action, so it reads 0).
+    const flags = (e.elite ? 1 : 0) | (e.frozen > 0 ? 2 : 0) | (e.burnT > 0 ? 4 : 0) | (e.shockT > 0 ? 8 : 0) | (e.flash > 0 ? 16 : 0) | ((Math.max(0, BOSS_ACTIONS.indexOf(e.action)) | (e.sub & 7)) << 5);
     v.setUint8(o + 6, flags);
     v.setUint8(o + 7, Math.max(0, Math.min(255, Math.round(e.t * 50))));
     v.setInt16(o + 8, q16(e.x), true);
@@ -48,8 +55,14 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setInt16(o + 16, q16(e.targetX), true);
     v.setInt16(o + 18, q16(e.targetZ), true);
     v.setUint8(o + 20, Math.round(Math.max(0, Math.min(1, e.hp / (e.maxHp || 1))) * 255));
-    // Elite modifier (index + 1, 0 = none) and shield-up flag (bit 7).
-    v.setUint8(o + 21, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | (e.shield > 0 ? 0x80 : 0));
+    // Elite modifier (bits 0-3: index + 1, 0 = none), AI bits (4-6: squad, rallied, guarded) and shield-up flag (bit 7).
+    v.setUint8(o + 21, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | ((e.aiBits & 7) << 4) | (e.shield > 0 ? 0x80 : 0));
+    v.setUint8(o + 22, e.familyState ?? 0);
+    v.setUint8(o + 23, (e.copyKind ?? 0) | (e.copyFlash > 0 ? 0x80 : 0));
+    v.setUint8(o + 24, e.copyShots ?? 1);
+    v.setUint8(o + 25, Math.min(255, Math.round((e.copyRange ?? 14) * 10)));
+    v.setUint8(o + 26, Math.min(255, Math.round((e.copyArc ?? 0) * 80)));
+    v.setUint8(o + 27, Math.min(255, Math.round((e.copyWidth ?? 0.28) * 100)));
     o += ENEMY_BYTES;
   }
   return buf;
@@ -70,6 +83,8 @@ export interface EnemyRecord {
   flash: boolean;
   /** Boss attack (drives client-side telegraphs). */
   action: BossAction;
+  /** Biome foe sub-state (Enemy.sub): same bits as the boss action. */
+  sub: number;
   t: number;
   x: number;
   z: number;
@@ -81,10 +96,19 @@ export interface EnemyRecord {
   targetZ: number;
   /** Health fraction, 0..1 in 1/255 steps (elite bars on clients). */
   hp01: number;
+  /** Enemy AI bits (Enemy.aiBits): squad escort, rallied, sheltered by a Shield Bot. */
+  ai: number;
+  familyState: number;
+  copyKind: number;
+  copyFlash: boolean;
+  copyShots: number;
+  copyRange: number;
+  copyArc: number;
+  copyWidth: number;
 }
 
-export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void): void {
-  const v = new DataView(buf);
+export function unpackEnemies(buf: NetBytes, each: (r: EnemyRecord) => void): void {
+  const v = viewOf(buf);
   const r = {} as EnemyRecord;
   for (let o = 0; o + ENEMY_BYTES <= buf.byteLength; o += ENEMY_BYTES) {
     const def = defById(v.getUint8(o + 4));
@@ -99,9 +123,11 @@ export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void):
     r.shock = !!(flags & 8);
     r.flash = !!(flags & 16);
     const em = v.getUint8(o + 21);
-    r.eliteMod = r.elite ? (ELITE_MOD_IDS[(em & 0x7f) - 1] ?? null) : null;
+    r.eliteMod = r.elite ? (ELITE_MOD_IDS[(em & 0x0f) - 1] ?? null) : null;
+    r.ai = (em >> 4) & 7;
     r.shield = r.elite && !!(em & 0x80);
     r.action = BOSS_ACTIONS[flags >> 5] ?? 'ring';
+    r.sub = flags >> 5;
     r.t = v.getUint8(o + 7) / 50;
     r.x = v.getInt16(o + 8, true) / 100;
     r.z = v.getInt16(o + 10, true) / 100;
@@ -112,6 +138,13 @@ export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void):
     r.targetX = v.getInt16(o + 16, true) / 100;
     r.targetZ = v.getInt16(o + 18, true) / 100;
     r.hp01 = v.getUint8(o + 20) / 255;
+    r.familyState = v.getUint8(o + 22);
+    r.copyKind = v.getUint8(o + 23) & 0x7f;
+    r.copyFlash = !!(v.getUint8(o + 23) & 0x80);
+    r.copyShots = v.getUint8(o + 24);
+    r.copyRange = v.getUint8(o + 25) / 10;
+    r.copyArc = v.getUint8(o + 26) / 80;
+    r.copyWidth = v.getUint8(o + 27) / 100;
     each(r);
   }
 }
@@ -119,7 +152,7 @@ export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void):
 // ---------------------------------------------------------------- bullets
 
 // Unknown colours fall back to the first; keep in sync with weapon bullet colours.
-const BULLET_COLORS = ['#fff36b', '#ff7a2f', '#ff3df0', '#7df9ff', '#3dffb0', '#ffe9a8', '#ff5e3a', '#ffd23f', '#ffb627'];
+const BULLET_COLORS = ['#fff36b', '#ff7a2f', '#ff3df0', '#7df9ff', '#3dffb0', '#ffe9a8', '#ff5e3a', '#ffd23f', '#ffb627', '#b13eec', '#ffffff'];
 
 export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
   const buf = new ArrayBuffer(idx.length * BULLET_BYTES);
@@ -134,7 +167,8 @@ export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
     v.setUint8(o + 9, Math.min(255, Math.round(b.length[i] * 50)));
     const c = BULLET_COLORS.indexOf(b.colorOf(i));
     v.setUint8(o + 10, c < 0 ? 0 : c);
-    v.setUint8(o + 11, b.team[i]);
+    // Bit 0: team; bits 1-3: the silhouette (src/game/bulletShapes.ts).
+    v.setUint8(o + 11, (b.team[i] & 1) | ((b.shape[i] & 7) << 1));
     v.setUint16(o + 12, Math.min(65535, Math.round(Math.max(0, b.life[i]) * 1000)), true);
     o += BULLET_BYTES;
   }
@@ -142,8 +176,8 @@ export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
 }
 
 /** Client: replace all bullets with the snapshot (they then fly on locally until the next one). */
-export function unpackBullets(buf: ArrayBuffer, b: Bullets): void {
-  const v = new DataView(buf);
+export function unpackBullets(buf: NetBytes, b: Bullets): void {
+  const v = viewOf(buf);
   b.clear();
   for (let o = 0; o + BULLET_BYTES <= buf.byteLength; o += BULLET_BYTES) {
     const vx = v.getInt16(o + 4, true) / 10;
@@ -159,7 +193,8 @@ export function unpackBullets(buf: ArrayBuffer, b: Bullets): void {
       radius: 0.2,
       damage: 0,
       knockback: 0,
-      team: v.getUint8(o + 11) === 1 ? 1 : 0,
+      team: v.getUint8(o + 11) & 1 ? 1 : 0,
+      shape: (v.getUint8(o + 11) >> 1) & 7,
       color: BULLET_COLORS[v.getUint8(o + 10)] ?? BULLET_COLORS[0],
       width: v.getUint8(o + 8) / 100,
       length: v.getUint8(o + 9) / 50,
@@ -186,8 +221,8 @@ export function packPickups(p: Pickups, idx: number[]): ArrayBuffer {
   return buf;
 }
 
-export function unpackPickups(buf: ArrayBuffer, p: Pickups): void {
-  const v = new DataView(buf);
+export function unpackPickups(buf: NetBytes, p: Pickups): void {
+  const v = viewOf(buf);
   const n = Math.floor(buf.byteLength / PICKUP_BYTES);
   p.setFromNet(n, (i) => {
     const o = i * PICKUP_BYTES;

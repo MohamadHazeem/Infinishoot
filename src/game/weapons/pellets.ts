@@ -36,7 +36,7 @@ export class Pellets extends Weapon {
         kind: this.evolved ? 11 : 10,
       });
     }
-    ctx.sound('shoot');
+    ctx.sound('pellets');
     ctx.particles.burst(pl.x + Math.cos(base) * 0.8, 1.05, pl.z + Math.sin(base) * 0.8, {
       count: 5,
       color,

@@ -3,11 +3,26 @@ import type { Input } from '../core/input';
 /**
  * On-screen twin-stick controls for touch screens. They appear on the first
  * touch: the left half of the screen is a floating move stick, the right half
- * an aim stick that also fires, plus DASH, RIGHT CLICK and SPECIAL buttons. Everything
+ * an aim stick that also fires, plus DASH, RIGHT CLICK, SPECIAL, PARRY and ULT buttons. Everything
  * feeds Input.virtual, which behaves like a gamepad, so the game needs no
  * special cases. Menus are normal buttons and work with taps.
  */
 const RADIUS = 56;
+
+/** HUD state the touch buttons show (written by the skill HUD every frame): the ULT button fills and glows when ready. */
+export const touchHud = { ult01: 0, ultReady: false };
+
+const TOUCH_CSS = `
+#touch .parry { --bg: var(--teal); --hi: var(--green); }
+#touch .ult {
+  --c: var(--yellow);
+  --bg: var(--plum);
+  --hi: var(--red);
+  background: linear-gradient(to top, var(--orange) calc(var(--k, 0) * 100%), var(--bg) 0);
+}
+#touch .ult.ready { --ring: var(--yellow); color: var(--yellow); animation: hop 0.5s steps(2) infinite; }
+.reduce-flash #touch .ult.ready { animation: none; }
+`;
 
 export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolean): void {
   let built = false;
@@ -15,9 +30,19 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
   let layer: HTMLElement;
   const sticks: Record<'move' | 'aim', { id: number; ox: number; oy: number; base: HTMLElement; knob: HTMLElement }> = {} as never;
 
+  let ultBtn: HTMLElement | null = null;
+  let shownK = -1;
+  let shownReady = false;
+
   const build = () => {
     built = true;
     v.active = true;
+    if (!document.getElementById('touch-css')) {
+      const st = document.createElement('style');
+      st.id = 'touch-css';
+      st.textContent = TOUCH_CSS;
+      document.head.appendChild(st);
+    }
     root.insertAdjacentHTML(
       'beforeend',
       `<div id="touch">
@@ -26,9 +51,12 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
         <button class="tbtn dash" data-b="0">DASH</button>
         <button class="tbtn charge" data-b="2">R-CLICK</button>
         <button class="tbtn bomb" data-b="5">SPECIAL</button>
+        <button class="tbtn parry" data-b="1">PARRY</button>
+        <button class="tbtn ult" data-b="10">ULT</button>
       </div>`,
     );
     layer = root.querySelector('#touch')!;
+    ultBtn = layer.querySelector<HTMLElement>('.ult');
     for (const k of ['move', 'aim'] as const) {
       const base = layer.querySelector<HTMLElement>(`.tstick.${k}`)!;
       sticks[k] = { id: -1, ox: 0, oy: 0, base, knob: base.querySelector('i')! };
@@ -114,6 +142,10 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
   // Hide the controls behind menus.
   const tick = () => {
     if (built) layer.hidden = !inGame();
+    if (ultBtn && !layer.hidden) {
+      if (touchHud.ult01 !== shownK) ultBtn.style.setProperty('--k', String((shownK = touchHud.ult01)));
+      if (touchHud.ultReady !== shownReady) ultBtn.classList.toggle('ready', (shownReady = touchHud.ultReady));
+    }
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);

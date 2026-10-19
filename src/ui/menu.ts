@@ -14,23 +14,46 @@ export class MenuNav {
   constructor(
     private root: HTMLElement,
     private opts: { horizontal?: boolean; columns?: number; onBack?: () => void } = {},
-  ) {}
+  ) {
+    // One UI kit for mouse, keyboard and gamepad: all activate via click() (src/audio/uiKit.ts).
+    this.root.addEventListener('click', (event) => {
+      const el = (event.target as HTMLElement).closest<HTMLElement>('[data-nav]');
+      if (!el || el.matches('.rolling, input')) return;
+      if (el.matches(':disabled, .cant, .locked')) return sfx.deny();
+      // Toggles run their own handler first, so the label already shows the new state.
+      if (el.dataset.toggle !== undefined) return sfx.ui('toggle', el.querySelector('b')?.textContent === 'ON' ? 1 : 0);
+      sfx.menuSelect();
+    });
+    // Sliders tick up the scale with their value (mouse drags and keys alike).
+    this.root.addEventListener('input', (event) => {
+      const el = event.target as HTMLInputElement;
+      if (el.type !== 'range') return;
+      const min = Number(el.min || 0);
+      const max = Number(el.max || 1);
+      sfx.ui('tick', max > min ? (Number(el.value) - min) / (max - min) : 0);
+    });
+  }
 
   /** Re-scan items (call after the menu's content changes). */
   refresh(focus = 0): void {
     this.items = Array.from(this.root.querySelectorAll<HTMLElement>('[data-nav]'));
     this.items.forEach((el, i) => {
-      el.onmouseenter = () => this.setFocus(i, false);
+      el.onmouseenter = () => this.setFocus(i, true, false);
     });
     this.setFocus(Math.min(focus, this.items.length - 1), false);
   }
 
-  private setFocus(i: number, sound = true): void {
+  private setFocus(i: number, sound = true, scroll = true): void {
     if (i < 0 || i >= this.items.length) return;
-    if (sound && i !== this.focus) sfx.menuMove();
+    if (sound && i !== this.focus) {
+      const el = this.items[i];
+      if (el.closest('.card, .mod-card')) sfx.ui('hover');
+      else if (el.matches('[role=tab], [data-tab]')) sfx.ui('tab');
+      else sfx.menuMove();
+    }
     this.focus = i;
     this.items.forEach((el, j) => el.classList.toggle('focused', j === i));
-    if (sound) this.items[i].scrollIntoView({ block: 'nearest' });
+    if (sound && scroll) this.items[i].scrollIntoView({ block: 'nearest' });
   }
 
   /** Index of the closest item above (-1) or below (1) the focused one, or the focus itself. */
@@ -102,15 +125,13 @@ export class MenuNav {
       }
       if (d !== 0) {
         el.value = String(Number(el.value) + d * Number(el.step || 1));
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        sfx.menuMove();
+        el.dispatchEvent(new Event('input', { bubbles: true })); // ticks via the input listener
       }
     } else if (k('Enter') || k('Space') || pad(0)) {
-      sfx.menuSelect();
       el.click();
     }
     if ((k('Escape') || k('Backspace') || pad(1)) && this.opts.onBack) {
-      sfx.menuMove();
+      sfx.menuBack();
       this.opts.onBack();
     }
   }

@@ -1,65 +1,87 @@
+import { metaSkin } from '../data/codex';
+import { MetaRun } from './systems/meta';
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { Rng, randomSeed } from '../core/rng';
 import { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
-import { loadJson, saveJson } from '../core/storage';
-import { ELITE_MOD_IDS, ELITE_MODS, type EliteModId } from '../data/eliteMods';
+import { loadJson } from '../core/storage';
+import { lap, lapStart } from '../core/prof';
 import { ENEMIES, type EnemyDef } from '../data/enemies';
-import { ACHIEVEMENTS } from '../data/meta';
-import { MOD_BY_ID } from '../data/mods';
 import type { Tag } from '../data/tags';
-import { PASSIVES } from '../data/passives';
 import { SPECIALS } from '../data/specials';
-import { buildKey } from '../data/tracks';
-import { WEAPONS, isRightClick } from '../data/weapons';
-import { validLoadout, type Loadout } from '../data/loadout';
+import { WEAPONS } from '../data/weapons';
+import { type Loadout } from '../data/loadout';
 import { passiveTuning } from './stats';
-import { isSpecialRunning, resetSpecials, startSpecial, updateSpecials, type SpecialApi } from './specials';
-import { sfx } from '../audio/sfx';
-import { biomeTrack, music, type TrackId } from '../audio/music';
+import { isSpecialRunning, updateSpecials, type SpecialApi } from './specials';
 import { NetClient, NetHost } from '../net/peer';
-import { packBullets, packEnemies, packPickups, unpackBullets, unpackEnemies, unpackPickups } from '../net/codec';
-import { disposeObject } from '../render/dispose';
 import { DamageNumbers } from '../ui/damageNumbers';
 import { Hud, type LoadoutItem } from '../ui/hud';
-import { Screens, type Offer, type RunSummary, type ShopFx, type ShopView } from '../ui/screens';
+import { Screens, type ShopView } from '../ui/screens';
+import type { CardNum } from './cardNumbers';
 import { createFieldArena, type Arena } from '../world/fieldArena';
-import { biomeForStage } from '../data/biomes';
-import { applyBiomeLook, applyTimeOfDay } from '../render/biomeLook';
-import { retroGlobals } from '../render/retroMaterial';
-import { Barrels, barrelTuning, type Barrel } from './barrels';
+import { Barrels } from './barrels';
 import { Chests } from './chests';
 import { BULLET_Y, Bullets, Team } from './bullets';
-import { CameraRig, cameraTuning } from './cameraRig';
+import { CameraRig } from './cameraRig';
 import { Director } from './director';
 import { Enemies, type Enemy, type EnemyCtx, type SpawnOpts } from './enemies';
 import { Fx } from './fx';
-import { HERO_COLORS, Hero, MAX_GEARS, economyTuning, type HeroWorld } from './hero';
-import { loadHighScores, submitScore } from './highscores';
+import { HERO_COLORS, Hero, MAX_GEARS, type HeroWorld } from './hero';
 import { Juice } from './juice';
 import { Particles } from './particles';
 import { PickupType, Pickups, type Collector } from './pickups';
-import { playerTuning, type Player } from './player';
 import { Portal } from './portal';
-import { addRunRecord, grantAchievement, markSeen, persist, save, unlockedLoadout, unlockedWeapons } from './save';
+import { markSeen, save, unlockedWeapons } from './save';
 import { access, settings, saveSettings } from './settings';
-import { Vfx, type VfxEvent } from './vfx';
-import { ChargeShot, createWeapon, type DamageOpts, type WeaponCtx } from './weapons';
+import { Vfx } from './vfx';
+import { type WeaponCtx } from './weapons';
 import { Ambience } from './ambience';
-import { SCAR_COLORS, Scars } from './scars';
+import { Scars } from './scars';
 import { streaks } from './streaks';
 import { skinOf } from '../data/skins';
-import { RunEvents, type EventHost } from './runEvents';
-import { CURSE_BY_ID, type CurseDef } from '../data/curses';
-import { RELIC_BY_ID, rollRelic } from '../data/relics';
-import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
-import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
-import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, type DifficultyId, type ModeId } from '../data/modes';
-import { submitDaily } from './highscores';
+import { RunEvents } from './runEvents';
+import { DIFF_BY_ID, MODE_BY_ID, type DifficultyDef, type ModeId } from '../data/modes';
 import { heroOf } from '../data/heroes';
 import { binds } from '../core/keybinds';
-import { boardId, fetchTop, leaderboardEnabled, submitGlobal } from '../net/leaderboard';
-import { PVP_TARGET, applyBuild, exportBuild, pvpTuning, type HeroBuild } from './pvp';
+import { type HeroBuild } from './pvp';
+import * as RunFlowSys from './systems/runFlow';
+import * as DebugSys from './systems/debug';
+import * as SpiceSys from './systems/spice';
+import * as LevelUpsSys from './systems/levelUps';
+import * as FusionSys from './systems/fusion';
+import * as CoopSys from './systems/coop';
+import * as SpawningSys from './systems/spawning';
+import * as CombatSys from './systems/combat';
+import * as StatusesSys from './systems/statuses';
+import * as OnlineSys from './systems/online';
+import * as PvpFlowSys from './systems/pvpFlow';
+import * as NetHostSys from './systems/netHost';
+import * as NetClientSys from './systems/netClient';
+import * as RenderSys from './systems/render';
+import * as EnemyAiSys from './systems/enemyAi';
+import * as AnimSys from './systems/anim';
+import * as LookSys from './systems/look';
+import * as BossFightSys from './systems/bossFight';
+import { BossField } from './bossField';
+import { BossIntro } from './bossIntro';
+import type { BossApi } from './bosses';
+import * as ArenaSys from './systems/arena';
+import { Interactives } from './interactives';
+import { ObjectiveHud } from '../ui/objectiveHud';
+import * as WorldFxSys from './systems/worldFx';
+import * as SkySys from './systems/sky';
+import * as SkillSys from './systems/skill';
+import { Onboarding } from './onboarding';
+import { weaponCue, windupCue } from './systems/sound';
+import { rightClickHeld } from './chargeMode';
+import * as BiomeFoesSys from './systems/biomeFoes';
+import * as HeroMechsSys from './systems/heroMechs';
+import * as AttractSys from './systems/attract';
+import * as RouteSys from './systems/route';
+import * as WindSys from './wind';
+import * as CompanionSys from './systems/companion';
+import * as CharSys from './systems/characters';
+import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
 
@@ -86,16 +108,16 @@ export const bombTuning = {
 };
 
 /** This machine's chosen hero, if unlocked. */
-function localHero(): string {
+export function localHero(): string {
   const d = heroOf(settings.hero);
-  return !d.unlock || save.achievements.includes(d.unlock) ? d.id : 'rookie';
+  return !d.unlock || save.achievements.includes(d.unlock) || cheats.unlockAll ? d.id : 'rookie';
 }
 
 /** Conveyor belt speed (m/s). */
-const CONVEYOR_SPEED = 4;
+export const CONVEYOR_SPEED = 4;
 
 /** Chest pickup values from here up belong to one hero (OWNED_CHEST + hero index). */
-const OWNED_CHEST = 100;
+export const OWNED_CHEST = 100;
 
 export const dropTuning = {
   xpMul: 0.45, // XP gem value per enemy XP point (lower = slower levelling)
@@ -139,17 +161,18 @@ export const statusTuning = {
   exposeMult: 0.3,
 };
 
-export const cheats = { god: false };
+/** Dev cheats: `god` ignores damage; `unlockAll` lets test links use locked loadout items. */
+export const cheats = { god: false, unlockAll: false };
 
 export type Mode = 'title' | 'fight' | 'levelup' | 'shop' | 'cleared' | 'portal' | 'transition' | 'dead';
 export type Role = 'solo' | 'host' | 'client';
 
-const AIM_HEIGHT = BULLET_Y;
-const TITLE_SEED = 1234;
-const RECYCLE_DIST = 36;
-const CHARGE_TAGS: Tag[] = ['projectile'];
+export const AIM_HEIGHT = BULLET_Y;
+export const TITLE_SEED = 1234;
+export const RECYCLE_DIST = 36;
+export const CHARGE_TAGS: Tag[] = ['projectile'];
 /** Player bullet `kind` -> damage source and tags (see BulletSpawn.kind). */
-const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
+export const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'buster' },
   { source: 'charge', tags: CHARGE_TAGS },
   { source: 'scatter' },
@@ -162,14 +185,18 @@ const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'charge', tags: ['projectile', 'shock'] }, // 9 Lance Shot
   { source: 'pellets' }, // 10 Pellet Turret (auto weapon)
   { source: 'pellets', tags: ['projectile', 'fire'] }, // 11 Scorch Turret
+  { source: 'turret', tags: ['projectile'] }, // 12 arena turrets (src/game/systems/arena.ts)
+  { source: 'parry', tags: ['projectile'] }, // 13 bullets reflected by a parry
+  { source: 'ult', tags: [] }, // 14 Mega Barrage shots
+  { source: 'dragon_cannon', tags: ['projectile', 'fire', 'trail'] }, // 15 Dragon Cannon (fusion, src/data/fusions.ts)
 ];
 /** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
-const IMPACT_BLAST = [1, 5, 8];
-const SNAP_EVERY = 3; // host snapshot every N sim steps (20 Hz)
-const INPUT_EVERY = 2; // client input every N sim steps (30 Hz)
-const INTEREST = 50; // only send entities this close to each client's hero (wide enough for a zoomed-out camera)
-const REVIVE_TIME = 3;
-const REVIVE_RANGE = 2.4;
+export const IMPACT_BLAST = [1, 5, 8];
+export const SNAP_EVERY = 3; // host snapshot every N sim steps (20 Hz)
+export const INPUT_EVERY = 2; // client input every N sim steps (30 Hz)
+export const INTEREST = 50; // only send entities this close to each client's hero (wide enough for a zoomed-out camera)
+export const REVIVE_TIME = 3;
+export const REVIVE_RANGE = 2.4;
 
 /** XP needed to go from `level` to `level + 1`. */
 export function xpForLevel(level: number): number {
@@ -178,7 +205,7 @@ export function xpForLevel(level: number): number {
 }
 
 /** PvP match state on this machine (see src/game/pvp.ts). Builds and progress are keyed by peer id ('' = host). */
-interface PvpState {
+export interface PvpState {
   /** stage: playing your own stage; wait: done, waiting for the others; duel: the fight; over: someone won. */
   phase: 'stage' | 'wait' | 'duel' | 'over';
   /** The online role to come back to for the duel. */
@@ -195,15 +222,15 @@ interface PvpState {
   zoneTick: number;
 }
 
-const PVP_WAIT_NOTE = 'Everyone plays their own stage first. The duel starts when all are done:';
+export const PVP_WAIT_NOTE = 'Everyone plays their own stage first. The duel starts when all are done:';
 
 /** "2:31" */
-function clock(seconds: number): string {
+export function clock(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-interface LobbyEntry {
+export interface LobbyEntry {
   peerId: string; // '' = host
   name: string;
   unlocked: string[];
@@ -214,20 +241,21 @@ interface LobbyEntry {
 }
 
 /** "Scattergun / Grenade Lobber / Bomb" for the lobby list. */
-function kitText(l: Loadout): string {
+export function kitText(l: Loadout): string {
   return `${WEAPONS[l.primary]?.name} / ${WEAPONS[l.secondary]?.name} / ${SPECIALS[l.special]?.name}`;
 }
 
 /** Shop view sent over the network (Mods referenced by id). */
-interface NetShop {
+export interface NetShop {
   pre?: boolean;
   gold: number;
   interest: number;
   interestCap: number;
   interestPer: number;
-  offers: ({ id: string; price: number; hint: string } | null)[];
+  offers: ({ id: string; price: number; hint: string; locked?: boolean; nums?: CardNum[] } | null)[];
   owned: { id: string; sell: number; readout: string; level: number; maxLevel: number; upCost: number }[];
   slots: number;
+  preview?: ShopView['preview'];
   rerollCost: number;
   healCost: number;
   healed: boolean;
@@ -239,7 +267,7 @@ interface NetShop {
   relics: string[];
 }
 
-function playerName(): string {
+export function playerName(): string {
   return loadJson<{ name: string }>('profile', { name: '' }).name || 'Player';
 }
 
@@ -251,6 +279,275 @@ function playerName(): string {
  *   everyone down -> dead -> (retry | title)
  */
 export class Game implements HeroWorld {
+  // Methods that live in src/game/systems/ (see the header of each file).
+  updateWind = WindSys.updateWind;
+  clearWorld = RunFlowSys.clearWorld;
+  loadArena = RunFlowSys.loadArena;
+  spawnSpot = RunFlowSys.spawnSpot;
+  goTitle = RunFlowSys.goTitle;
+  leaveToTitle = RunFlowSys.leaveToTitle;
+  startSolo = RunFlowSys.startSolo;
+  pickDifficulty = RunFlowSys.pickDifficulty;
+  startRun = RunFlowSys.startRun;
+  restart = RunFlowSys.restart;
+  retry = RunFlowSys.retry;
+  stageSub = RunFlowSys.stageSub;
+  loadStage = RunFlowSys.loadStage;
+  pause = RunFlowSys.pause;
+  resume = RunFlowSys.resume;
+  quitRun = RunFlowSys.quitRun;
+  summary = RunFlowSys.summary;
+  bankAndShow = RunFlowSys.bankAndShow;
+  endRun = RunFlowSys.endRun;
+  checkAchievements = RunFlowSys.checkAchievements;
+  debugLevelUp = DebugSys.debugLevelUp;
+  guardMul = EnemyAiSys.guardMul;
+  spawnSquad = EnemyAiSys.spawnSquad;
+  spawnGolden = EnemyAiSys.spawnGolden;
+  onEnemyKilled = EnemyAiSys.onEnemyKilled;
+  debugGiveWeapon = DebugSys.debugGiveWeapon;
+  debugSpawnElite = DebugSys.debugSpawnElite;
+  debugSkipToBoss = DebugSys.debugSkipToBoss;
+  debugGiveMod = DebugSys.debugGiveMod;
+  debugAddGold = DebugSys.debugAddGold;
+  curseSum = SpiceSys.curseSum;
+  pauseInfo = SpiceSys.pauseInfo;
+  takeCurse = SpiceSys.takeCurse;
+  grantRelics = SpiceSys.grantRelics;
+  makeEventHost = SpiceSys.makeEventHost;
+  spiceLines = SpiceSys.spiceLines;
+  goldFx = SpiceSys.goldFx;
+  stageClear = SpiceSys.stageClear;
+  openShop = SpiceSys.openShop;
+  shopFx = SpiceSys.shopFx;
+  closeShop = SpiceSys.closeShop;
+  endlessNextWave = SpiceSys.endlessNextWave;
+  bossRushStage = SpiceSys.bossRushStage;
+  openPortal = SpiceSys.openPortal;
+  portalSpot = SpiceSys.portalSpot;
+  gainXp = LevelUpsSys.gainXp;
+  openLevelUp = LevelUpsSys.openLevelUp;
+  presentLevelUp = LevelUpsSys.presentLevelUp;
+  presentWait = LevelUpsSys.presentWait;
+  presentShop = LevelUpsSys.presentShop;
+  tell = LevelUpsSys.tell;
+  ui = LevelUpsSys.ui;
+  heroAction = LevelUpsSys.heroAction;
+  evolveFx = LevelUpsSys.evolveFx;
+  fusionFx = FusionSys.fusionFx;
+  legendaryFx = LevelUpsSys.legendaryFx;
+  legendaryBurst = LevelUpsSys.legendaryBurst;
+  afterPick = LevelUpsSys.afterPick;
+  reviveHero = CoopSys.reviveHero;
+  updateRevives = CoopSys.updateRevives;
+  ringPoint = SpawningSys.ringPoint;
+  spawnEnemy = SpawningSys.spawnEnemy;
+  rollEliteMod = SpawningSys.rollEliteMod;
+  spawnRing = SpawningSys.spawnRing;
+  spawnBoss = SpawningSys.spawnBoss;
+  recycleFarEnemies = SpawningSys.recycleFarEnemies;
+  nearestEnemy = CombatSys.nearestEnemy;
+  enemiesInRadius = CombatSys.enemiesInRadius;
+  damage = CombatSys.damage;
+  updatePets = CompanionSys.updatePets;
+  updateEliteMods = CombatSys.updateEliteMods;
+  groundAt = CombatSys.groundAt;
+  updateHazards = CombatSys.updateHazards;
+  deathFx = CombatSys.deathFx;
+  updateBossBoom = CombatSys.updateBossBoom;
+  breakShield = CombatSys.breakShield;
+  ignite = StatusesSys.ignite;
+  expose = StatusesSys.expose;
+  shock = StatusesSys.shock;
+  overload = StatusesSys.overload;
+  shatter = StatusesSys.shatter;
+  zap = StatusesSys.zap;
+  updateStatuses = StatusesSys.updateStatuses;
+  sourceName = StatusesSys.sourceName;
+  killEnemy = StatusesSys.killEnemy;
+  blast = StatusesSys.blast;
+  explodeBarrel = StatusesSys.explodeBarrel;
+  removeBarrelCollider = StatusesSys.removeBarrelCollider;
+  detonate = StatusesSys.detonate;
+  updateStrikes = StatusesSys.updateStrikes;
+  bossSlam = StatusesSys.bossSlam;
+  contactDamage = StatusesSys.contactDamage;
+  hurtHero = StatusesSys.hurtHero;
+  onHeroDown = StatusesSys.onHeroDown;
+  collect = StatusesSys.collect;
+  updateBullets = StatusesSys.updateBullets;
+  updateChests = StatusesSys.updateChests;
+  updateChestSpawns = StatusesSys.updateChestSpawns;
+  openChest = StatusesSys.openChest;
+  bulletBlast = StatusesSys.bulletBlast;
+  makeSpecialApi = StatusesSys.makeSpecialApi;
+  tryBomb = StatusesSys.tryBomb;
+  startBombWave = StatusesSys.startBombWave;
+  updateBomblets = StatusesSys.updateBomblets;
+  nuke = StatusesSys.nuke;
+  updateBomb = StatusesSys.updateBomb;
+  hostGame = OnlineSys.hostGame;
+  refreshLobby = OnlineSys.refreshLobby;
+  lobbyDifficulty = OnlineSys.lobbyDifficulty;
+  hostStart = OnlineSys.hostStart;
+  joinGame = OnlineSys.joinGame;
+  onLoadoutChanged = OnlineSys.onLoadoutChanged;
+  pvpBegin = PvpFlowSys.pvpBegin;
+  pvpStageDone = PvpFlowSys.pvpStageDone;
+  pvpTick = PvpFlowSys.pvpTick;
+  pvpCheckReady = PvpFlowSys.pvpCheckReady;
+  pvpStartDuel = PvpFlowSys.pvpStartDuel;
+  pvpHit = PvpFlowSys.pvpHit;
+  updateDuel = PvpFlowSys.updateDuel;
+  pvpCheckWinner = PvpFlowSys.pvpCheckWinner;
+  pvpOver = PvpFlowSys.pvpOver;
+  saveName = PvpFlowSys.saveName;
+  heroByPeer = NetHostSys.heroByPeer;
+  onHostMessage = NetHostSys.onHostMessage;
+  onClientLeft = NetHostSys.onClientLeft;
+  hostTick = NetHostSys.hostTick;
+  buildSnapshot = NetHostSys.buildSnapshot;
+  onClientMessage = NetClientSys.onClientMessage;
+  shopFromNet = NetClientSys.shopFromNet;
+  clientStart = NetClientSys.clientStart;
+  clientStage = NetClientSys.clientStage;
+  clientUpdate = NetClientSys.clientUpdate;
+  applySnapshot = NetClientSys.applySnapshot;
+  syncWeapons = NetClientSys.syncWeapons;
+  eliteTrails = RenderSys.eliteTrails;
+  spectateTarget = RenderSys.spectateTarget;
+  coopInput = RenderSys.coopInput;
+  ping = RenderSys.ping;
+  refreshGlobal = RenderSys.refreshGlobal;
+  updateSky = RenderSys.updateSky;
+  updateMusic = RenderSys.updateMusic;
+  localAudio = RenderSys.localAudio;
+  render = RenderSys.render;
+  renderMuzzleFlashes = RenderSys.renderMuzzleFlashes;
+  renderChestPointer = RenderSys.renderChestPointer;
+  renderMinimap = RenderSys.renderMinimap;
+  renderEliteBars = RenderSys.renderEliteBars;
+  renderTeam = RenderSys.renderTeam;
+  cameraDirector = AnimSys.cameraDirector;
+  onCorpse = AnimSys.onCorpse;
+  // Boss finishers and character portraits (src/game/systems/characters.ts).
+  finisherCatch = CharSys.finisherCatch;
+  finisherHold = CharSys.finisherHold;
+  onFinisher = CharSys.onFinisher;
+  renderCharacters = CharSys.renderCharacters;
+  resolveSpeaker = CharSys.resolveSpeaker;
+  pingPortrait = CharSys.pingPortrait;
+  updateLook = LookSys.updateLook;
+  makeBossApi = BossFightSys.makeBossApi;
+  bossHpGate = BossFightSys.bossHpGate;
+  startBossIntro = BossFightSys.startBossIntro;
+  skipBossIntro = BossFightSys.skipBossIntro;
+  updateBossFight = BossFightSys.updateBossFight;
+  updateMiniBoss = BossFightSys.updateMiniBoss;
+  bossNet = BossFightSys.bossNet;
+  applyBossNet = BossFightSys.applyBossNet;
+  renderBossFight = BossFightSys.renderBossFight;
+  bossHud = BossFightSys.bossHud;
+  routeReset = RouteSys.routeReset;
+  routeKind = RouteSys.routeKind;
+  routeMod = RouteSys.routeMod;
+  routeSecretShop = RouteSys.routeSecretShop;
+  routeStageStart = RouteSys.routeStageStart;
+  routeChest = RouteSys.routeChest;
+  routeGears = RouteSys.routeGears;
+  updateRoute = RouteSys.updateRoute;
+  routeClearRewards = RouteSys.routeClearRewards;
+  openRoute = RouteSys.openRoute;
+  routeBeginVote = RouteSys.routeBeginVote;
+  routePick = RouteSys.routePick;
+  routeVote = RouteSys.routeVote;
+  routeOptionCount = RouteSys.routeOptionCount;
+  routeDecide = RouteSys.routeDecide;
+  routeAdvance = RouteSys.routeAdvance;
+  closeRoute = RouteSys.closeRoute;
+  routeRest = RouteSys.routeRest;
+  routeEventEffect = RouteSys.routeEventEffect;
+  routeShow = RouteSys.routeShow;
+  routeViewFrom = RouteSys.routeViewFrom;
+  routeFromNet = RouteSys.routeFromNet;
+  routeTestEvent = RouteSys.routeTestEvent;
+  /** Route map between stages (systems/route.ts); clients keep their own pending vote and the last phase seen. */
+  route: RouteSys.RouteRun = RouteSys.newRouteRun();
+  routeLocalVote = -1;
+  routeNetPhase = '';
+  debugBoss = BossFightSys.debugBoss;
+  // Arena toys, hazards and objectives (src/game/systems/arena.ts).
+  loadToys = ArenaSys.loadToys;
+  updateArena = ArenaSys.updateArena;
+  arenaMoveHero = ArenaSys.arenaMoveHero;
+  startJump = ArenaSys.startJump;
+  arenaJumpMsg = ArenaSys.arenaJumpMsg;
+  landShock = ArenaSys.landShock;
+  updateTurrets = ArenaSys.updateTurrets;
+  updateEnvHazards = ArenaSys.updateEnvHazards;
+  envHit = ArenaSys.envHit;
+  onEnvKill = ArenaSys.onEnvKill;
+  hitToys = ArenaSys.hitToys;
+  hitToysWhere = ArenaSys.hitToysWhere;
+  blastToys = ArenaSys.blastToys;
+  damageProp = ArenaSys.damageProp;
+  damageTotem = ArenaSys.damageTotem;
+  updatePillars = ArenaSys.updatePillars;
+  updateObjective = ArenaSys.updateObjective;
+  completeObjective = ArenaSys.completeObjective;
+  arenaLocal = ArenaSys.arenaLocal;
+  arenaNet = ArenaSys.arenaNet;
+  arenaSetNet = ArenaSys.arenaSetNet;
+  renderArena = ArenaSys.renderArena;
+  objectiveTarget = ArenaSys.objectiveTarget;
+  worldFx = WorldFxSys.worldFx;
+  updateSkyFx = SkySys.updateSkyFx;
+  skillInput = SkillSys.skillInput;
+  skillClientInput = SkillSys.skillClientInput;
+  skillMessage = SkillSys.skillMessage;
+  skillDash = SkillSys.skillDash;
+  perfectDash = SkillSys.perfectDash;
+  tryParry = SkillSys.tryParry;
+  tryUlt = SkillSys.tryUlt;
+  updateSkill = SkillSys.updateSkill;
+  weaponFeel = SkillSys.weaponFeel;
+  muzzleScale = SkillSys.muzzleScale;
+  skillHit = SkillSys.skillHit;
+  skillKill = SkillSys.skillKill;
+  skillHurt = SkillSys.skillHurt;
+  styleScoreMul = SkillSys.styleScoreMul;
+  styleXpMul = SkillSys.styleXpMul;
+  skillNet = SkillSys.skillNet;
+  applySkillNet = SkillSys.applySkillNet;
+  renderSkill = SkillSys.renderSkill;
+  snowballCrash = BiomeFoesSys.snowballCrash;
+  kiteGust = BiomeFoesSys.kiteGust;
+  updateBiomeFoes = BiomeFoesSys.updateBiomeFoes;
+  biomeFoesClient = BiomeFoesSys.biomeFoesClient;
+  updateHeroMechs = HeroMechsSys.updateHeroMechs;
+  onParryLanded = HeroMechsSys.onParryLanded;
+  heroMechNet = HeroMechsSys.heroMechNet;
+  applyHeroMechNet = HeroMechsSys.applyHeroMechNet;
+  renderHeroMechs = HeroMechsSys.renderHeroMechs;
+  heroMechAchievements = HeroMechsSys.heroMechAchievements;
+  bestStyle = SkillSys.bestStyle;
+  // Title attract mode (src/game/systems/attract.ts).
+  attractTick = AttractSys.attractTick;
+  // Companion: growing pets, TEAM meter and team moves, high-five revives (src/game/systems/companion.ts).
+  companionState = CompanionSys.companionState;
+  companionTargets = CompanionSys.companionTargets;
+  companionStageClear = CompanionSys.companionStageClear;
+  petGrowth = CompanionSys.petGrowth;
+  petShield = CompanionSys.petShield;
+  petRevive = CompanionSys.petRevive;
+  highFive = CompanionSys.highFive;
+  updateCompanion = CompanionSys.updateCompanion;
+  companionClientInput = CompanionSys.companionClientInput;
+  tryTeamMove = CompanionSys.tryTeamMove;
+  companionNet = CompanionSys.companionNet;
+  applyCompanionNet = CompanionSys.applyCompanionNet;
+  renderCompanion = CompanionSys.renderCompanion;
+
   readonly scene = new THREE.Scene();
   arena: Arena;
   readonly enemies: Enemies;
@@ -265,17 +562,22 @@ export class Game implements HeroWorld {
   readonly cam: CameraRig;
   readonly director = new Director();
   readonly vfx: Vfx;
+  /** Arena toys and the stage objective (src/game/interactives.ts). */
+  readonly toys = new Interactives(this.scene);
+  readonly objHud = new ObjectiveHud();
 
   heroes: Hero[] = [];
   /** Index of the hero this machine controls. */
   local = 0;
   role: Role = 'solo';
-  private host: NetHost | null = null;
-  private client: NetClient | null = null;
-  private lobby: LobbyEntry[] = [];
+  host: NetHost | null = null;
+  client: NetClient | null = null;
+  lobby: LobbyEntry[] = [];
 
   mode: Mode = 'title';
   paused = false;
+  /** Photo mode (src/ui/photoMode.ts, set by main.ts): while active it gets the input instead of the game. */
+  photo: { active: boolean; update(dt: number): void } | null = null;
 
   // --- Team run state ---
   seed = 0;
@@ -290,104 +592,115 @@ export class Game implements HeroWorld {
   xpNext = xpForLevel(1);
   rng = new Rng(randomSeed());
   overloads = 0;
-  private elitesRun = 0;
+  elitesRun = 0;
   readonly scars: Scars;
   readonly ambience: Ambience;
   /** Boss death: simulation runs slowed while a chain of explosions plays. */
-  private slowMoT = 0;
-  private bossBoom: { x: number; z: number; r: number; n: number; t: number; color: string } | null = null;
-  private trailT = 0;
+  slowMoT = 0;
+  bossBoom: { x: number; z: number; r: number; n: number; t: number; color: string } | null = null;
+  trailT = 0;
   /** Co-op: index of the teammate the camera follows while you're downed (-1 = auto). */
-  private spectate = -1;
+  spectate = -1;
   readonly runEvents: RunEvents;
   /** Mode and difficulty of the current run. */
+  meta = new MetaRun();
+  get shopPriceMul(): number { return this.meta.has('shop') ? 1.5 : 1; }
   runMode: ModeId = 'standard';
   difficulty: DifficultyDef = DIFF_BY_ID.normal;
-  private runDate = '';
+  runDate = '';
   /** This shop visit is the rare secret merchant. */
-  private secretShop = false;
+  secretShop = false;
   /** Curses in effect for the whole team (src/data/curses.ts). */
   curses: string[] = [];
-  private netEvent: [string, number] | null = null;
-  private netChallenge: [string, number, number, boolean] | null = null;
-  private netBuffs: [number, number] = [0, 0];
-  private dayK = 0;
+  netEvent: [string, number] | null = null;
+  netChallenge: [string, number, number, boolean] | null = null;
+  netBuffs: [number, number] = [0, 0];
+  dayK = 0;
   /** Stage whose biome the loaded arena uses (Endless keeps one arena). */
-  private arenaStage = 1;
-  private fogK = 0;
-  private heartT = 0;
-  private bossesRun = 0;
+  arenaStage = 1;
+  fogK = 0;
+  heartT = 0;
+  bossesRun = 0;
   /** Seconds toward the next treasure chest. */
-  private chestT = 0;
+  chestT = 0;
   /** Final bosses beaten this run (one per loop). */
-  private victories = 0;
-  private newAchievements: string[] = [];
-  private boss: Enemy | null = null;
-  private comboT = 0;
-  private damagedThisStage = false;
-  private resumeMode: Mode = 'fight';
-  private modeT = 0;
-  private gameOverShown = false;
-  private stageLoaded = false;
-  private animTime = 0;
-  private recycleT = 0;
-  private stepN = 0;
+  victories = 0;
+  newAchievements: string[] = [];
+  boss: Enemy | null = null;
+  comboT = 0;
+  damagedThisStage = false;
+  resumeMode: Mode = 'fight';
+  modeT = 0;
+  gameOverShown = false;
+  stageLoaded = false;
+  animTime = 0;
+  recycleT = 0;
+  stepN = 0;
 
   // --- Client mirror state ---
-  private netEnemies = new Map<number, Enemy>();
-  private snapTime = 0;
-  private snapInterval = 50;
-  private netTimeLeft = 0;
-  private netBoss: { name: string; hp01: number } | null = null;
-  private netMods: { id: string; ro: string; lv?: number }[] = [];
-  private netCombo01 = 0;
-  private fadeT = 0;
+  netEnemies = new Map<number, Enemy>();
+  snapTime = 0;
+  snapInterval = 50;
+  netTimeLeft = 0;
+  netBoss: { name: string; hp01: number } | null = null;
+  netMods: { id: string; ro: string; lv?: number }[] = [];
+  netCombo01 = 0;
+  fadeT = 0;
 
-  private walls: StaticBoxGrid;
-  private hash = new SpatialHash<Enemy>(2);
-  private dmg: DamageNumbers;
-  private hud: Hud;
+  walls: StaticBoxGrid;
+  hash = new SpatialHash<Enemy>(2);
+  dmg: DamageNumbers;
+  hud: Hud;
   readonly screens: Screens;
-  private flashes: THREE.Mesh[] = [];
-  private enemyCtx: EnemyCtx;
-  private targets: { x: number; z: number; radius: number; alive: boolean }[] = [];
-  private collectors: Collector[] = [];
+  /** Training field, first-time tips, codex discovery, run recap (src/game/onboarding.ts). */
+  readonly onboarding: Onboarding;
+  flashes: THREE.Mesh[] = [];
+  enemyCtx: EnemyCtx;
+  targets: { x: number; z: number; radius: number; alive: boolean }[] = [];
+  collectors: Collector[] = [];
 
   // Scratch objects (no per-frame allocation)
-  private raycaster = new THREE.Raycaster();
-  private aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -AIM_HEIGHT);
-  private ndc = new THREE.Vector2();
+  raycaster = new THREE.Raycaster();
+  aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -AIM_HEIGHT);
+  ndc = new THREE.Vector2();
   readonly aimHit = new THREE.Vector3();
-  private playerPos = new THREE.Vector3();
-  private lead = new THREE.Vector3();
-  private shake = { x: 0, z: 0 };
-  private mz = { x: 0, z: 0 };
-  private tmp = new THREE.Vector3();
-  private scratch: Enemy[] = [];
+  playerPos = new THREE.Vector3();
+  lead = new THREE.Vector3();
+  shake = { x: 0, z: 0 };
+  mz = { x: 0, z: 0 };
+  tmp = new THREE.Vector3();
+  scratch: Enemy[] = [];
+  /** Boss arena state and drawing, entrance cinematic, boss move hooks (systems/bossFight.ts). */
+  bossField!: BossField;
+  bossIntro!: BossIntro;
+  bossApi: BossApi = this.makeBossApi();
+  /** Host: uid of the boss whose entrance plays, and seconds of it left (sent to clients). */
+  introUid = 0;
+  introLeft = 0;
   /** What the Q/E specials (other than the Bomb) may touch; see specials.ts. */
-  private specialApi: SpecialApi = this.makeSpecialApi();
+  specialApi: SpecialApi = this.makeSpecialApi();
   /** The free starting shop before stage 1 is open (its gold is not kept). */
-  private preShop = false;
+  preShop = false;
   /** PvP match in progress (null outside PvP). */
-  private pvp: PvpState | null = null;
+  pvp: PvpState | null = null;
   /** The online lobby's game type, picked by the host. */
-  private lobbyKind: 'coop' | 'pvp' = 'coop';
+  lobbyKind: 'coop' | 'pvp' = 'coop';
   /** The name this machine hosted or joined with (the saved name is shared by every tab on a PC). */
-  private netName = '';
+  netName = '';
   /** Last EXPOSED popup (run time), so a crowd doesn't spam it. */
-  private exposeTextT = -1;
-  private shownCharge = 0;
-  private lastReady = 1;
-  private readyFlashT = 0;
+  exposeTextT = -1;
+  shownCharge = 0;
+  lastReady = 1;
+  readyFlashT = 0;
   /** Telegraphed ground strikes (Hive Queen) counting down. */
   /** Telegraphed ground strikes; `foe` > 0 also blasts enemies (meteors). */
-  private strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number; cause?: string }[] = [];
+  strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number; cause?: string }[] = [];
 
   constructor(
-    private input: Input,
+    readonly input: Input,
     aspect: number,
     hudRoot: HTMLElement,
-    private reticle: HTMLElement,
+    readonly reticle: HTMLElement,
   ) {
     this.arena = createFieldArena(TITLE_SEED);
     this.scene.add(this.arena.group);
@@ -407,7 +720,11 @@ export class Game implements HeroWorld {
     this.pickups = new Pickups(this.scene);
     this.cam = new CameraRig(aspect);
     this.dmg = new DamageNumbers(hudRoot);
+    this.dmg.localHero = () => this.hero?.index ?? 0;
     this.hud = new Hud(hudRoot);
+    this.bossField = new BossField(this.scene);
+    this.bossIntro = new BossIntro(hudRoot);
+    this.bossIntro.onSkip = () => this.skipBossIntro();
     this.vfx = new Vfx({
       fx: this.fx,
       particles: this.particles,
@@ -416,6 +733,9 @@ export class Game implements HeroWorld {
       hud: this.hud,
       zones: this.enemies.zones,
       scars: this.scars,
+      corpse: (id, x, y, z, s, f, dx, dz) => this.onCorpse(id, x, y, z, s, f, dx, dz),
+      finisher: (id, hi, x, z) => this.onFinisher(id, hi, x, z),
+      portrait: (who, ex, text, sec) => portraits.popIn(who, ex as Parameters<typeof portraits.popIn>[1], text, sec),
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {
@@ -451,6 +771,7 @@ export class Game implements HeroWorld {
       },
       skinChanged: () => this.applyLocalSkin(),
       takeCurse: () => this.ui('curse'),
+      lockOffer: (i) => this.ui('slock', i),
       buyRelic: (i) => this.ui('relic', i),
     });
     window.addEventListener('keydown', (e) => {
@@ -469,6 +790,8 @@ export class Game implements HeroWorld {
       { passive: true },
     );
     this.hud.onPause = () => this.pause();
+    this.onboarding = new Onboarding(this, hudRoot);
+    this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
@@ -491,7 +814,7 @@ export class Game implements HeroWorld {
   get online(): boolean {
     return this.role !== 'solo';
   }
-  private get authority(): boolean {
+  get authority(): boolean {
     return this.role !== 'client';
   }
   autoFireToggle(): void {
@@ -517,23 +840,23 @@ export class Game implements HeroWorld {
     return m;
   }
 
-  private get pitch(): number {
+  get pitch(): number {
     return 1 + Math.min(this.combo, 200) * 0.003;
   }
 
-  private get aliveHeroes(): Hero[] {
+  get aliveHeroes(): Hero[] {
     return this.heroes.filter((h) => !h.player.dead && !h.left);
   }
 
   // ------------------------------------------------------------------ heroes and contexts
 
-  private makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet, heroId = localHero()): Hero {
-    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, skinOf(skin), pet, heroId);
+  makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet, heroId = localHero()): Hero {
+    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, (metaSkin(skin) ?? skinOf(skin)), pet, heroId);
     h.player.setSkin(h.skin.armor, h.skin);
     return h;
   }
 
-  private setHeroes(list: Hero[]): void {
+  setHeroes(list: Hero[]): void {
     for (const h of this.heroes) if (!list.includes(h)) h.dispose();
     this.heroes = list;
     // Solo wears the skin's armour; co-op keeps per-player armour colours.
@@ -543,7 +866,7 @@ export class Game implements HeroWorld {
   /** Wardrobe: re-dress this machine's hero. */
   applyLocalSkin(): void {
     const h = this.hero;
-    h.skin = skinOf(settings.skin);
+    h.skin = (save.meta.rewards.includes(settings.skin) ? metaSkin(settings.skin) : undefined) ?? skinOf(settings.skin);
     h.player.setSkin(this.heroes.length > 1 ? h.color : h.skin.armor, h.skin);
     h.setPet(settings.pet);
     h.setHeroDef(localHero());
@@ -552,7 +875,7 @@ export class Game implements HeroWorld {
 
   makeCtx(hero: Hero): WeaponCtx {
     const game = this;
-    return {
+    const ctx: WeaponCtx = {
       scene: this.scene,
       get player() {
         return hero.player;
@@ -586,42 +909,46 @@ export class Game implements HeroWorld {
         return out;
       },
       shake: (x, z, amount) => this.vfx.shake(x, z, amount),
-      hitBarrels: (dmg, inside) => this.barrels.hitWhere(dmg, hero.index, inside),
+      hitBarrels: (dmg, inside) => {
+        this.barrels.hitWhere(dmg, hero.index, inside);
+        this.hitToysWhere(dmg, hero.index, inside);
+      },
       blast: (x, z, r, base, color, source, tags) => this.blast(x, z, r, base, color, source, tags ?? hero.tagsOf(source) ?? ['explosive'], false, hero),
       zap: (from, hops, dmg) => this.zap(from, hops, dmg, hero),
       get combos() {
         return hero.combos;
       },
-      sound: (name) => this.vfx.sound('w:' + name, hero.player.x, hero.player.z),
+      soundSource: null,
+      sound: (name) => this.vfx.sound(weaponCue(name, ctx.soundSource), hero.player.x, hero.player.z),
     };
+    return ctx;
   }
 
-  private makeEnemyCtx(): EnemyCtx {
+  makeEnemyCtx(): EnemyCtx {
+    const game = this;
     return {
       targets: this.targets,
       target: { x: 0, z: 0, radius: 0 },
       targetAlive: true,
       hash: this.hash,
       colliders: this.arena.colliders,
+      get walls() {
+        return game.walls;
+      },
       onEnrage: (e) => {
         this.vfx.num(e.x, 4, e.z, 'ENRAGED!', 'crit');
         this.vfx.ring(e.x, e.z, e.radius, 8, '#ff3d5e', 0.5);
         this.vfx.shake(e.x, e.z, 0.8);
-        this.vfx.sound('boss', e.x, e.z);
+        this.vfx.sound('bossPhase', e.x, e.z);
       },
-      onWindup: (e) => {
-        if (e.def.boss) this.vfx.sound('bossWindup', e.x, e.z);
-        else if (e.def.behavior === 'charger') this.vfx.sound('chargerWindup', e.x, e.z);
-        else if (e.def.behavior === 'exploder') e.tickT = 0;
-        else if (e.def.behavior !== 'spawner') this.vfx.sound('telegraph', e.x, e.z);
-      },
+      onWindup: (e) => windupCue(this, e), // telegraph, threat cue and family call (systems/sound.ts)
       fireBullet: (e, dx, dz, speed, damage) => {
         this.bullets.spawn({
           x: e.x + dx * (e.radius + 0.2),
           z: e.z + dz * (e.radius + 0.2),
           dirX: dx,
           dirZ: dz,
-          speed,
+          speed: speed * (this.meta.has('bullets') ? 1.35 : 1) * (this.meta.rule('barrage') ? 2 : 1),
           life: 4,
           radius: 0.26,
           damage: damage * e.dmgMul,
@@ -640,14 +967,17 @@ export class Game implements HeroWorld {
       },
       detonate: (e) => this.detonate(e),
       slam: (e) => this.bossSlam(e),
+      boss: this.bossApi,
       strike: (x, z, r, delay, damage) => {
         this.strikes.push({ x, z, r, t: delay, dmg: damage * this.director.dmgMul });
         this.vfx.zone(x, z, r, delay);
       },
+      ...EnemyAiSys.enemyCtxExtras.call(this),
+      foe: BiomeFoesSys.biomeFoeApi.call(this),
     };
   }
 
-  private spawnOpts(extra: SpawnOpts = {}): SpawnOpts {
+  spawnOpts(extra: SpawnOpts = {}): SpawnOpts {
     let hpExtra = 0;
     for (const h of this.heroes) hpExtra += h.synergy.flags.enemyHp;
     const hpMul = (extra.hpMul ?? this.director.hpMul) * (1 + hpExtra);
@@ -655,274 +985,50 @@ export class Game implements HeroWorld {
     out.hpMul *= (1 + this.curseSum('enemyHp')) * this.difficulty.enemyHp;
     out.speedMul *= 1 + this.curseSum('enemySpeed');
     out.dmgMul *= (1 + this.curseSum('enemyDmg')) * this.difficulty.enemyDmg;
+    out.hpMul *= this.meta.has('armor') ? 1.35 : 1;
+    out.speedMul *= (this.meta.has('haste') ? 1.25 : 1) * (this.meta.rule('speed') ? 2 : 1);
+    out.dmgMul *= this.meta.has('damage') ? 1.25 : 1;
     return out;
   }
 
   // ------------------------------------------------------------------ flow
 
-  private clearWorld(): void {
-    this.enemies.clear();
-    this.netEnemies.clear();
-    this.bullets.clear();
-    this.particles.clear();
-    this.fx.clear();
-    this.dmg.clear();
-    this.pickups.clear();
-    this.portal.close();
-    this.juice.reset();
-    this.boss = null;
-    this.bossBoom = null;
-    this.slowMoT = 0;
-    this.strikes.length = 0;
-    this.enemies.zones.length = 0;
-    for (const h of this.heroes) h.bombT = -1;
-  }
 
-  private loadArena(seed: number, stage = 1): void {
-    this.scene.remove(this.arena.group);
-    disposeObject(this.arena.group);
-    const biome = biomeForStage(stage);
-    this.arenaStage = stage;
-    this.arena = createFieldArena(seed, biome, { conveyors: stage >= 2 ? 3 : 0 });
-    applyBiomeLook(biome);
-    this.scene.add(this.arena.group);
-    this.walls = new StaticBoxGrid(this.arena.colliders);
-    this.enemyCtx.colliders = this.arena.colliders;
-    this.barrels.load(this.arena);
-    this.chests.clear();
-    this.ambience.load(biome.id, seed, this.arena.halfSize, (x, z) => this.walls.hitCircle(x, z, 0.5));
-    this.scars.clear();
-    streaks.clear();
-  }
 
-  private spawnSpot(i: number): { x: number; z: number } {
-    const n = Math.max(1, this.heroes.length);
-    return { x: (i - (n - 1) / 2) * 2, z: 0 };
-  }
 
-  goTitle(): void {
-    this.paused = false;
-    this.mode = 'title';
-    this.loadArena(TITLE_SEED, 1);
-    this.clearWorld();
-    const h = this.hero;
-    h.disposeWeapons();
-    h.unlocked = unlockedWeapons();
-    h.recomputeStats();
-    h.player.reset(h.stats);
-    this.hud.setVisible(false);
-    this.hud.setFade(0);
-    this.screens.setHighScores(loadHighScores());
-    this.refreshGlobal();
-    this.screens.show('title');
-  }
 
-  /** Back to a single local hero on the title screen, closing any connection. */
-  leaveToTitle(): void {
-    this.pvp = null;
-    this.host?.close();
-    this.client?.close();
-    this.host = null;
-    this.client = null;
-    this.role = 'solo';
-    this.lobby = [];
-    if (this.heroes.length !== 1 || this.local !== 0) {
-      const keep = this.makeHero(0, playerName(), unlockedWeapons());
-      this.setHeroes([keep]);
-      this.local = 0;
-    }
-    this.goTitle();
-  }
 
-  startSolo(): void {
-    this.leaveToTitle();
-    this.hero.name = playerName();
-    this.runMode = (MODE_BY_ID[settings.mode as ModeId] ?? MODES[0]).id;
-    this.startRun();
-  }
 
-  /** Difficulty from settings, if unlocked (daily runs are always Normal). */
-  private pickDifficulty(): DifficultyDef {
-    const d = DIFF_BY_ID[settings.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
-    if (this.runMode === 'daily' || (d.unlock && !save.achievements.includes(d.unlock))) return DIFF_BY_ID.normal;
-    return d;
-  }
 
   /** "ENDLESS · HARD" style label for scores (blank for standard on normal). */
-  private get runLabel(): string {
+  get runLabel(): string {
     const parts: string[] = [];
     if (this.runMode !== 'standard') parts.push(MODE_BY_ID[this.runMode].name.toUpperCase());
     if (this.difficulty.id !== 'normal') parts.push(this.difficulty.name.toUpperCase());
+    if (this.meta.label) parts.push(this.meta.label);
     return parts.join(' · ');
   }
 
-  /** Start a run (solo or online host). */
-  startRun(fixed?: { seed: number; difficulty: string }): void {
-    this.paused = false;
-    if (this.role !== 'solo') this.runMode = 'standard';
-    this.difficulty = fixed ? DIFF_BY_ID[fixed.difficulty as DifficultyId] ?? DIFF_BY_ID.normal : this.pickDifficulty();
-    this.runDate = today();
-    this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
-    this.rng = new Rng(this.seed);
-    this.stage = 1;
-    this.score = this.kills = this.combo = this.maxCombo = 0;
-    this.runTime = this.comboT = 0;
-    this.level = 1;
-    this.xp = 0;
-    this.xpNext = xpForLevel(1);
-    this.elitesRun = this.bossesRun = this.overloads = this.victories = 0;
-    this.newAchievements = [];
-    this.curses = [];
-    this.runEvents.reset();
-    this.director.players = this.heroes.length;
-    // Everyone keeps the loadout they picked; this machine's comes from its settings.
-    if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, unlockedLoadout());
-    for (const h of this.heroes) {
-      h.left = false;
-      h.startRun();
-      h.player.showWhenDead = this.heroes.length > 1;
-    }
-    this.clearWorld();
-    this.hud.resetScore();
-    this.hud.setVisible(true);
-    this.hud.setFade(0);
-    this.screens.show('none');
-    if (this.role === 'host') {
-      for (const h of this.heroes) {
-        if (!h.peerId) continue;
-        this.host!.send(h.peerId, { t: 'start', seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
-      }
-    }
-    this.loadStage(1);
-    // Starting shop: free gold to spend before stage 1, not carried into the run.
-    if (this.role !== 'client') {
-      this.preShop = true;
-      for (const h of this.heroes) h.gold = economyTuning.startGold;
-      this.openShop();
-    }
-  }
 
-  /** Alias used by the debug panel. */
-  restart(): void {
-    if (this.role === 'client') return;
-    this.startRun();
-  }
 
-  private retry(): void {
-    if (this.role === 'client') {
-      this.hud.toast('WAITING FOR THE HOST TO RESTART');
-      return;
-    }
-    this.startRun();
-  }
 
-  /** Stage banner subtitle: biome, loop and what the stage ends with. */
-  private stageSub(stage: number): string {
-    const loop = Math.ceil(stage / LOOP_STAGES);
-    const final = stage % LOOP_STAGES === 0 ? '<br>FINAL BOSS STAGE' : '';
-    return `${biomeForStage(stage).name.toUpperCase()}${loop > 1 ? ` · LOOP ${loop}` : ''}<br>SURVIVE ${Math.round(this.director.duration / 60)} MINUTES${final}`;
-  }
 
-  private loadStage(stage: number): void {
-    this.stage = stage;
-    this.loadArena((this.seed ^ Math.imul(stage, 0x9e3779b1)) >>> 0, stage);
-    this.clearWorld();
-    this.heroes.forEach((h, i) => {
-      const s = this.spawnSpot(i);
-      h.player.teleport(s.x, s.z);
-      if (h.player.dead && !h.left) this.reviveHero(h, 0.5, false);
-    });
-    this.director.start(stage);
-    this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
-    this.runEvents.startStage(this.director.duration);
-    if (this.runMode === 'bossrush') this.bossRushStage();
-    for (const h of this.heroes) {
-      h.phoenixUsed = false;
-      if (h.hasRelic('r_clover')) h.rerollsLeft = Math.min(MAX_GEARS, h.rerollsLeft + 1);
-    }
-    resetSpecials();
-    this.chestT = 0;
-    this.damagedThisStage = false;
-    this.mode = 'fight';
-    this.modeT = 0;
-    if (this.role === 'host') this.host!.broadcast({ t: 'stage', stage, seed: this.seed });
-    this.vfx.banner(`STAGE ${stage}`, this.stageSub(stage), 2.2);
-    this.vfx.sound('wave', NaN, NaN);
-    this.checkAchievements();
-  }
 
-  pause(): void {
-    if (!this.isCombatMode || this.paused) return;
-    this.paused = true;
-    const mods =
-      this.role === 'client'
-        ? this.netMods.filter((m) => MOD_BY_ID[m.id]).map((m) => ({ def: MOD_BY_ID[m.id], level: m.lv ?? 1 }))
-        : this.hero.synergy.slots.map((sl) => ({ def: sl.def, level: sl.level }));
-    this.screens.setPauseBuild(this.hero.loadout(), mods, [
-      ...WEAPON_COMBOS.filter((c) => this.hero.combos.has(c.id)).map((c) => ({ id: c.weapons[0], name: c.name, desc: c.desc, icon: '+', color: c.color })),
-      ...this.curses.filter((id) => CURSE_BY_ID[id]).map((id) => ({ ...CURSE_BY_ID[id], curse: true })),
-    ], this.pauseInfo(), this.hero.relics.filter((id) => RELIC_BY_ID[id]).map((id) => RELIC_BY_ID[id]));
-    this.screens.show('pause');
-  }
 
-  resume(): void {
-    this.paused = false;
-    this.screens.show('none');
-  }
 
-  private quitRun(): void {
-    if (this.pvp) this.leaveToTitle();
-    else if (this.role === 'solo') this.endRun(true);
-    else this.leaveToTitle();
-  }
 
   // ------------------------------------------------------------------ debug helpers (debug panel)
 
-  debugLevelUp(): void {
-    if (this.isCombatMode && this.authority) this.gainXp(this.xpNext - this.xp);
-  }
 
-  debugGiveWeapon(id: string): void {
-    if (!this.isCombatMode || !this.authority) return;
-    const h = this.hero;
-    const w = h.weapons.find((x) => x.def.id === id);
-    if (w?.maxed) w.evolve();
-    else if (w) w.levelUp();
-    else h.weapons.push(createWeapon(id, this.scene));
-    h.loadoutDirty = true;
-  }
 
-  debugSpawnElite(defId: string, mod: EliteModId): void {
-    const def = ENEMIES[defId];
-    if (def && this.mode === 'fight' && this.authority) this.spawnEnemy(def, true, null, mod);
-  }
 
-  debugSkipToBoss(): void {
-    if (this.mode === 'fight' && this.authority) this.director.time = Math.max(this.director.time, this.director.duration - 3);
-  }
 
-  debugGiveMod(id: string): void {
-    const m = MOD_BY_ID[id];
-    const h = this.hero;
-    if (!m || h.synergy.owns(id) || h.synergy.full) return;
-    h.synergy.add(m, 0);
-    h.recomputeStats();
-  }
 
-  debugAddGold(n: number): void {
-    this.hero.gold += n;
-  }
 
   // ------------------------------------------------------------------ stage end, shop, portal
 
   // ------------------------------------------------------------------ curses, relics, events
 
-  /** Sum of one curse field over the curses in effect. */
-  private curseSum(k: 'enemyHp' | 'enemySpeed' | 'enemyCount' | 'enemyDmg' | 'dmgTaken' | 'dashCd' | 'score'): number {
-    let n = 0;
-    for (const id of this.curses) n += (CURSE_BY_ID[id]?.[k as keyof CurseDef] as number | undefined) ?? 0;
-    return n;
-  }
 
   get activeCurses(): readonly string[] {
     return this.curses;
@@ -934,574 +1040,55 @@ export class Game implements HeroWorld {
     return this.runEvents.damageMul;
   }
   get dashCurse(): number {
-    return 1 + this.curseSum('dashCd');
+    return (1 + this.curseSum('dashCd')) * (this.meta.has('dash') ? 1.5 : 1);
   }
 
-  /** Pause screen: evolution recipes for owned weapons and the live damage chart. */
-  private pauseInfo(): Parameters<Screens['setPauseBuild']>[3] {
-    const h = this.hero;
-    const recipes = h.weapons
-      .filter((w) => w.def.evolution)
-      .map((w) => ({
-        weapon: w.def.name,
-        evo: w.def.evolution!.name,
-        passive: PASSIVES[w.def.evolution!.passive]?.name ?? '?',
-        have: (h.passives[w.def.evolution!.passive] ?? 0) > 0 && w.maxed,
-        done: w.evolved,
-      }));
-    const damage = Object.entries(h.damageBy)
-      .sort((a, b) => b[1] - a[1])
-      .map(([id, dmg]) => ({ name: h.weapons.find((w) => w.def.id === id)?.name ?? this.sourceName(id), color: WEAPONS[id]?.color ?? MOD_BY_ID[id]?.color ?? '#ff3df0', dmg }));
-    return { recipes, damage };
-  }
 
-  /** A hero takes the curse deal from their shop: gold now, harder run for everyone. */
-  private takeCurse(h: Hero): string {
-    const id = h.curseOffer;
-    const c = id ? CURSE_BY_ID[id] : null;
-    if (!c || this.curses.includes(c.id)) return 'NO CURSE ON OFFER';
-    this.curses.push(c.id);
-    h.curseOffer = null;
-    h.gold += c.gold;
-    this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
-    for (const x of this.heroes) x.recomputeStats();
-    this.vfx.sound('ominous', NaN, NaN);
-    this.vfx.toast(`${h.name.toUpperCase()} TOOK A CURSE: ${c.name.toUpperCase()}`, 3);
-    // Everyone's shop drops the same curse if they were offered it.
-    for (const x of this.heroes) if (x !== h && x.curseOffer === c.id && !x.shopDone) this.presentShop(x);
-    return '';
-  }
 
-  /** Bosses drop one relic per hero (a random one they don't have). */
-  private grantRelics(): void {
-    for (const h of this.heroes) {
-      if (h.left) continue;
-      const r = rollRelic(h.relics, h.stats.luck, () => this.rng.next());
-      if (!r) continue;
-      h.relics.push(r.id);
-      h.recomputeStats();
-      h.loadoutDirty = true;
-      const msg = `RELIC: ${r.name.toUpperCase()} - ${r.desc}`;
-      if (h === this.hero) this.hud.toast(msg, 4);
-      else this.tell(h, { t: 'toast', msg });
-    }
-  }
 
-  private makeEventHost(): EventHost {
-    const game = this;
-    return {
-      get rng() {
-        return game.rng;
-      },
-      get stage() {
-        return game.stage;
-      },
-      get dmgMul() {
-        return game.director.dmgMul;
-      },
-      targets: () => this.aliveHeroes.map((h) => h.player),
-      ownedWeapons: () => [...new Set(this.heroes.flatMap((h) => h.weapons.map((w) => w.def.id)))],
-      meteor: (x, z, r, delay, dmg) => {
-        this.strikes.push({ x, z, r, t: delay, dmg, foe: 40 * this.director.hpMul, cause: 'Meteor' });
-        this.vfx.zone(x, z, r, delay);
-      },
-      spawnElite: () => {
-        const pool = Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= 2 + this.stage && (d.minStage ?? 1) <= this.stage && d.behavior !== 'spawner' && d.id !== 'swarmer');
-        if (pool.length) this.spawnEnemy(this.rng.pick(pool), true);
-      },
-      spawnRing: () => this.spawnRing(ENEMIES.swarmer, 20 + this.stage * 8),
-      vacuum: () => (this.pickups.vacuum = true),
-      banner: (t, sub, sec) => this.vfx.banner(t, sub, sec),
-      toast: (msg, sec) => this.vfx.toast(msg, sec),
-      sound: (name) => this.vfx.sound(name, NaN, NaN),
-      reward: (goldEach, score) => {
-        for (const h of this.heroes) if (!h.left) h.gold += goldEach;
-        this.score += score;
-      },
-    };
-  }
 
-  /** HUD lines under the timer: event, challenge, power-ups. */
-  private spiceLines(): { text: string; kind: 'event' | 'challenge' | 'done' | 'buff' }[] {
-    if (!this.isCombatMode) return [];
-    const client = this.role === 'client';
-    const out: { text: string; kind: 'event' | 'challenge' | 'done' | 'buff' }[] = [];
-    const ev = client ? this.netEvent : this.runEvents.event ? [this.runEvents.event.id, this.runEvents.event.t] : null;
-    if (ev && STAGE_EVENTS[ev[0] as EventId]) out.push({ text: `${STAGE_EVENTS[ev[0] as EventId].name.replace('!', '')} ${Math.ceil(Number(ev[1]))}`, kind: 'event' });
-    const c = this.runEvents.challenge;
-    const ch = client ? this.netChallenge : c ? ([c.text, c.cur, c.max, c.done] as [string, number, number, boolean]) : null;
-    if (ch) out.push({ text: ch[3] ? `✓ ${ch[0]}` : `★ ${ch[0]} ${ch[1]}/${ch[2]}`, kind: ch[3] ? 'done' : 'challenge' });
-    if (this.hero.player.dead && this.heroes.length > 1) {
-      const t = this.spectateTarget();
-      const who = this.heroes.find((x) => x.player === t);
-      if (who) out.push({ text: `WATCHING ${who.name.toUpperCase()} · CLICK TO SWITCH`, kind: 'challenge' });
-    }
-    const [fz, od] = client ? this.netBuffs : [this.runEvents.frenzyT, this.runEvents.overdriveT];
-    if (fz > 0) out.push({ text: `FRENZY ${Math.ceil(fz)}`, kind: 'buff' });
-    if (od > 0) out.push({ text: `OVERDRIVE ${Math.ceil(od)}`, kind: 'buff' });
-    return out;
-  }
 
-  goldFx(h: Hero, n: number): void {
-    this.vfx.num(h.player.x, 2.6, h.player.z, `+${n}●`, 'score');
-    this.vfx.sound('coin', h.player.x, h.player.z);
-  }
 
-  private stageClear(): void {
-    this.mode = 'cleared';
-    this.modeT = 0;
-    this.bossesRun++;
-    for (const e of this.enemies.list) {
-      if (!e.active) continue;
-      this.pickups.spawn(PickupType.Gem, e.x, e.z, e.def.xp * dropTuning.xpMul);
-      this.vfx.burst(e.x, 0.6, e.z, { count: 2, color: e.def.bodyColor, speed: [2, 5], size: [0.15, 0.3], life: [0.3, 0.5], up: 4, gravity: 12 });
-      this.enemies.kill(e);
-    }
-    this.bullets.clear();
-    // Leftover chests vanish with the stage (clients mirror via 'chestsgone').
-    for (const c of this.chests.list) this.vfx.burst(c.x, 0.4, c.z, { count: 10, color: '#ffd23f', color2: '#b8653a', speed: [2, 6], size: [0.15, 0.3], life: [0.3, 0.6], up: 5, gravity: 12 });
-    this.chests.list = [];
-    if (this.role === 'host') this.host!.broadcast({ t: 'chestsgone' });
-    this.pickups.vacuum = true;
-    const noHit = this.damagedThisStage ? 0 : scoreTuning.noHitBonus * this.stage;
-    this.score += noHit;
-    for (const h of this.heroes) {
-      if (h.left) continue;
-      // Gold: flat reward plus interest on what you're holding (capped).
-      h.gold += economyTuning.clearGold + h.interest;
-      h.synergy.stageClear();
-      if (h.player.dead) this.reviveHero(h, 0.3, false);
-      h.player.heal(h.player.maxHp * 0.3);
-    }
-    let sub = `+${economyTuning.clearGold} GOLD + INTEREST`;
-    if (noHit) sub += `<br>NO-HIT BONUS +${noHit.toLocaleString('en-US')}`;
-    if (this.stage % LOOP_STAGES === 0) {
-      // The final boss fell: that's the ending. The run carries on as a harder loop.
-      const loop = this.stage / LOOP_STAGES;
-      const bonus = scoreTuning.victoryBonus * loop;
-      this.score += bonus;
-      this.victories++;
-      this.vfx.banner(loop === 1 ? 'VICTORY!' : `LOOP ${loop} CLEARED!`, `THE FINAL BOSS FALLS · +${bonus.toLocaleString('en-US')}<br>LOOP ${loop + 1} AWAITS: EVERYTHING HITS HARDER`, 4.5);
-      this.vfx.sound('legendaryPick', NaN, NaN);
-      this.vfx.flash(1);
-      for (const h of this.heroes) if (!h.left) this.legendaryBurst(h);
-    } else {
-      this.vfx.banner('STAGE CLEAR!', sub, 2.4);
-      this.vfx.sound('stageClear', NaN, NaN);
-      this.vfx.flash(0.5);
-    }
-    this.checkAchievements();
-  }
 
-  private openShop(): void {
-    this.mode = 'shop';
-    // Now and then (from stage 2) the secret merchant turns up instead.
-    this.secretShop = this.stage >= 2 && this.rng.chance(0.22);
-    if (this.secretShop) this.vfx.banner('SECRET SHOP!', 'A STRANGE MERCHANT APPEARS', 1.8);
-    for (const h of this.heroes) {
-      if (h.left) continue;
-      h.openShop(this.secretShop, this.preShop);
-      this.presentShop(h);
-      this.shopFx(h, 'open');
-    }
-  }
 
-  /** Shop sound and particles on the screen of the player who acted. */
-  private shopFx(h: Hero, kind: ShopFx, i = 0): void {
-    if (h === this.hero) this.screens.shopFx(kind, i);
-    else this.tell(h, { t: 'shopfx', kind, i });
-  }
 
-  private closeShop(): void {
-    if (['shop', 'wait'].includes(this.screens.current)) this.screens.show('none');
-    for (const h of this.heroes) this.tell(h, { t: 'go' });
-    if (this.preShop) {
-      // Leftover starting gold isn't kept; the stage starts now.
-      this.preShop = false;
-      for (const h of this.heroes) h.gold = 0;
-      this.mode = 'fight';
-      this.modeT = 0;
-      this.vfx.banner(`STAGE ${this.stage}`, this.stageSub(this.stage), 2.2);
-      return;
-    }
-    if (this.pvp?.phase === 'stage') this.pvpStageDone();
-    else if (this.runMode === 'endless') this.endlessNextWave();
-    else this.openPortal();
-  }
 
-  /** Endless: no portal; the next, harder wave starts right here. */
-  private endlessNextWave(): void {
-    this.stage++;
-    this.director.start(this.stage);
-    this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
-    this.runEvents.startStage(this.director.duration);
-    for (const h of this.heroes) {
-      h.phoenixUsed = false;
-      if (h.hasRelic('r_clover')) h.rerollsLeft = Math.min(MAX_GEARS, h.rerollsLeft + 1);
-    }
-    this.pickups.vacuum = false;
-    this.damagedThisStage = false;
-    this.mode = 'fight';
-    this.modeT = 0;
-    this.vfx.banner(`WAVE ${this.stage}`, 'IT NEVER ENDS', 2);
-    this.vfx.sound('wave', NaN, NaN);
-    this.checkAchievements();
-  }
 
-  /** Boss Rush: skip straight to the boss and hand out bonus levels to fight it with. */
-  private bossRushStage(): void {
-    this.director.time = this.director.duration - 2.5;
-    const levels = this.stage === 1 ? 5 : 3;
-    let xp = 0;
-    for (let l = 0; l < levels; l++) xp += xpForLevel(this.level + l);
-    this.gainXp(xp - this.xp);
-  }
 
-  private openPortal(): void {
-    const p = (this.aliveHeroes[0] ?? this.hero).player;
-    const spot = this.portalSpot(p.x, p.z);
-    this.portal.open(spot.x, spot.z);
-    this.vfx.ring(this.portal.x, this.portal.z, 1, 6, '#ff3df0', 0.5);
-    this.vfx.banner('ENTER THE PORTAL', `STAGE ${this.stage + 1} AWAITS`, 1.6);
-    this.mode = 'portal';
-    this.modeT = 0;
-  }
 
-  /**
-   * A portal spot about 6 m from (px, pz) that is clear of walls and reachable in a straight line,
-   * trying nearer and farther rings when the 6 m one is blocked; worst case right where the player stands.
-   */
-  private portalSpot(px: number, pz: number): { x: number; z: number } {
-    const lim = this.arena.halfSize - 4;
-    for (const dist of [6, 4, 8, 2.5]) {
-      for (let i = 0; i < 16; i++) {
-        const dx = Math.cos((i / 16) * Math.PI * 2);
-        const dz = Math.sin((i / 16) * Math.PI * 2);
-        const x = px + dx * dist;
-        const z = pz + dz * dist;
-        if (Math.abs(x) > lim || Math.abs(z) > lim || this.walls.hitCircle(x, z, 1.8)) continue;
-        let clear = true;
-        for (let d = 0.5; d < dist && clear; d += 0.5) clear = !this.walls.hitCircle(px + dx * d, pz + dz * d, 0.4);
-        if (clear) return { x, z };
-      }
-    }
-    return { x: px, z: pz };
-  }
 
   // ------------------------------------------------------------------ end of run
 
-  private summary(h: Hero): RunSummary {
-    return {
-      score: this.score,
-      stage: this.stage,
-      kills: this.kills,
-      time: this.runTime,
-      level: this.level,
-      maxCombo: this.maxCombo,
-      loadout: h.loadout(),
-      mods: h.synergy.slots.map((sl) => sl.def.name),
-      damage: Object.entries(h.damageBy)
-        .sort((a, b) => b[1] - a[1])
-        .map(([id, dmg]) => ({ name: h.weapons.find((w) => w.def.id === id)?.name ?? this.sourceName(id), color: WEAPONS[id]?.color ?? MOD_BY_ID[id]?.color ?? '#ff3df0', dmg })),
-      achievements: h === this.hero ? this.newAchievements.map((id) => ACHIEVEMENTS.find((a) => a.id === id)!.name) : [],
-    };
-  }
 
-  /** Bank lifetime stats into this machine's save, then show game over. */
-  private bankAndShow(sum: RunSummary, quit = false): void {
-    const L = save.lifetime;
-    L.runs++;
-    L.kills += sum.kills;
-    L.elites += this.elitesRun;
-    L.bosses += Math.max(0, sum.stage - 1);
-    L.bestStage = Math.max(L.bestStage, sum.stage);
-    L.bestLevel = Math.max(L.bestLevel, sum.level);
-    L.playTime += sum.time;
-    persist();
-    this.paused = false;
-    if (quit) {
-      this.goTitle();
-      return;
-    }
-    const h = this.hero;
-    addRunRecord({
-      date: new Date().toISOString().slice(0, 10),
-      label: this.runLabel || 'STANDARD',
-      hero: h.heroDef.name,
-      stage: sum.stage,
-      score: sum.score,
-      kills: sum.kills,
-      time: sum.time,
-      level: sum.level,
-      cause: h.player.dead ? h.lastHitBy || 'Unknown' : 'Quit',
-      weapons: h.weapons.map((w) => ({ id: w.def.id, level: w.level, evo: w.evolved })),
-    });
-    persist();
-    if (leaderboardEnabled && this.role !== 'client') {
-      const board = boardId(this.runMode, this.difficulty.id, this.runDate);
-      void submitGlobal(board, { name: this.hero.name, score: Math.floor(sum.score), stage: sum.stage, kills: sum.kills, time: sum.time }).then((r) => {
-        if (r) this.hud.toast(`GLOBAL RANK #${r}!`, 4);
-        this.refreshGlobal(board, r ? r - 1 : -1);
-      });
-    }
-    const rank = submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
-    if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
-    this.screens.showGameOver(sum, rank, loadHighScores(), this.role === 'client');
-  }
 
-  private endRun(quit = false): void {
-    // PvP: dying in your own stage still takes your build to the duel.
-    if (this.pvp?.phase === 'stage') {
-      this.pvpStageDone();
-      return;
-    }
-    for (const h of this.heroes) {
-      if (!h.peerId || h.left) continue;
-      this.host?.send(h.peerId, { t: 'over', sum: this.summary(h) });
-    }
-    this.bankAndShow(this.summary(this.hero), quit);
-  }
 
   // ------------------------------------------------------------------ level-ups (per hero, team XP)
 
-  private gainXp(v: number): void {
-    this.xp += v;
-    while (this.xp >= this.xpNext) {
-      this.xp -= this.xpNext;
-      this.level++;
-      this.xpNext = xpForLevel(this.level);
-      for (const h of this.heroes) {
-        if (h.left) continue;
-        h.pendingLevels++;
-        h.synergy.levelUp();
-        // Every level-up tops you up a little (downed heroes stay down).
-        if (!h.player.dead) {
-          const healed = h.player.heal(scoreTuning.levelUpHeal);
-          if (healed > 0) this.vfx.num(h.player.x, 2.4, h.player.z, `+${Math.round(healed)}`, 'heal');
-        }
-      }
-    }
-  }
 
-  private openLevelUp(): void {
-    if (this.mode !== 'levelup') this.resumeMode = this.mode;
-    this.mode = 'levelup';
-    this.vfx.sound('levelUp', NaN, NaN);
-    for (const h of this.heroes) {
-      if (h.left) continue;
-      if (h.needsPick) {
-        h.offers = h.buildOffers();
-        this.presentLevelUp(h);
-      } else this.presentWait(h);
-    }
-  }
 
-  private presentLevelUp(h: Hero): void {
-    const view = { offers: h.offers, title: h.levelUpTitle(this.level), rerolls: h.rerollsLeft, loadout: h.loadout(), skip: h.skipGold };
-    if (h === this.hero) this.screens.showLevelUp(view.offers, view.title, view.rerolls, view.loadout, view.skip);
-    else this.tell(h, { t: 'lv', ...view });
-  }
 
-  private presentWait(h: Hero): void {
-    const who = this.heroes.filter((x) => !x.left && (this.mode === 'shop' ? !x.shopDone : x.needsPick)).map((x) => x.name);
-    if (h === this.hero) this.screens.showWait(who);
-    else this.tell(h, { t: 'wait', who });
-  }
 
-  private presentShop(h: Hero, focus?: number): void {
-    if (h === this.hero) {
-      this.screens.showShop(h.shopView(this.stage, this.preShop), focus);
-      return;
-    }
-    const v = h.shopView(this.stage, this.preShop);
-    const net: NetShop = {
-      ...v,
-      offers: v.offers.map((o) => (o ? { id: o.def.id, price: o.price, hint: o.hint } : null)),
-      owned: v.owned.map((o) => ({ id: o.def.id, sell: o.sell, readout: o.readout, level: o.level, maxLevel: o.maxLevel, upCost: o.upCost })),
-    };
-    this.tell(h, { t: 'shop', view: net, focus });
-  }
 
-  /** Send a message to a hero's player (no-op for the local hero). */
-  private tell(h: Hero, msg: unknown): void {
-    if (h.peerId && this.host) this.host.send(h.peerId, msg);
-  }
 
-  /** Menu actions from this machine: applied directly, or sent to the host. */
-  private ui(a: string, i = 0, d: -1 | 1 = 1): void {
-    if (this.role === 'client') {
-      this.client?.send({ t: 'ui', a, i, d });
-      return;
-    }
-    this.heroAction(this.hero, a, i, d);
-  }
 
-  /** Level-up and shop actions for any hero (host authority). */
-  private heroAction(h: Hero, a: string, i: number, d: -1 | 1): void {
-    if (this.mode === 'levelup' && h.needsPick) {
-      if (a === 'pick') {
-        const o = h.offers[i];
-        if (!o) return;
-        const color = h.applyOffer(o);
-        h.consumePick();
-        if (h === this.hero && (o.kind === 'evo' || o.kind === 'track')) this.checkAchievements();
-        this.vfx.sound('powerUp', h.player.x, h.player.z);
-        if (o.kind === 'evolve') this.evolveFx(h, o.name, color);
-        else if (o.rarity === 'legendary') this.legendaryFx(h, o.name);
-        this.afterPick(h, color);
-      } else if (a === 'skip') {
-        const g = h.skipGold;
-        h.gold += g;
-        h.consumePick();
-        this.vfx.num(h.player.x, 2.6, h.player.z, `+${g}●`, 'score');
-        this.vfx.sound('coin', h.player.x, h.player.z);
-        this.afterPick(h, '#ffb627');
-      } else if (a === 'reroll' && h.rerollsLeft > 0) {
-        h.rerollsLeft--;
-        h.offers = h.buildOffers();
-        this.presentLevelUp(h);
-      }
-      return;
-    }
-    if (this.mode === 'shop' && !h.shopDone) {
-      let err = '';
-      if (a === 'buy') err = h.buy(i);
-      else if (a === 'sell') err = h.sell(i);
-      else if (a === 'move') h.moveMod(i, d);
-      else if (a === 'mup') err = h.upgradeMod(i);
-      else if (a === 'sreroll') err = h.reroll();
-      else if (a === 'heal') err = h.heal();
-      else if (a === 'curse') err = this.takeCurse(h);
-      else if (a === 'relic') {
-        err = h.buyRelic(i);
-        if (!err) this.vfx.sound('chest', h.player.x, h.player.z);
-      }
-      else if (a === 'done') {
-        h.shopDone = true;
-        if (this.heroes.every((x) => x.left || x.shopDone)) this.closeShop();
-        else for (const x of this.heroes) if (x.shopDone && !x.left) this.presentWait(x);
-        return;
-      }
-      if (err) {
-        if (h === this.hero) this.hud.toast(err);
-        else this.tell(h, { t: 'toast', msg: err });
-        this.shopFx(h, 'deny');
-        return;
-      }
-      this.presentShop(h, a === 'buy' ? i : undefined);
-      const fx = ({ buy: 'buy', sell: 'sell', sreroll: 'reroll', heal: 'heal', mup: 'upgrade' } as Record<string, ShopFx>)[a];
-      if (fx) this.shopFx(h, fx, i);
-    }
-  }
 
-  /** The big moment when a weapon evolves (level-up card or chest). */
-  private evolveFx(h: Hero, name: string, color: string): void {
-    const p = h.player;
-    this.vfx.ring(p.x, p.z, 1, 9, color, 0.5);
-    this.vfx.ring(p.x, p.z, 0.6, 6, '#ffffff', 0.35);
-    this.vfx.burst(p.x, 1, p.z, { count: 40, color, color2: '#ffcd75', speed: [4, 10], size: [0.14, 0.34], life: [0.5, 1], up: 8, gravity: 10 });
-    this.vfx.shake(p.x, p.z, 0.35);
-    this.vfx.flash(0.35);
-    this.vfx.sound('evolve', NaN, NaN);
-    h.player.happyT = 2.5;
-    if (h === this.hero) this.input.rumble(0.4, 0.9, 500);
-    this.vfx.banner('EVOLUTION!', (this.role === 'solo' ? '' : `${h.name.toUpperCase()}: `) + name.toUpperCase(), 1.8);
-  }
 
-  /** Picking a legendary: fanfare, golden fountain and a team-wide banner. */
-  private legendaryFx(h: Hero, name: string): void {
-    const p = h.player;
-    this.vfx.sound('legendaryPick', p.x, p.z);
-    this.legendaryBurst(h);
-    this.vfx.banner('LEGENDARY!', this.heroes.length > 1 ? `${h.name}: ${name}` : name, 1.8);
-  }
 
-  /** Golden fountain, rings and shake around a hero. */
-  private legendaryBurst(h: Hero): void {
-    const p = h.player;
-    this.vfx.burst(p.x, 1, p.z, { count: 60, color: '#ffcd75', color2: '#ffffff', speed: [4, 12], size: [0.15, 0.4], life: [0.6, 1.2], up: 12, gravity: 9 });
-    this.vfx.ring(p.x, p.z, 1, 14, '#ffcd75', 0.6);
-    this.vfx.ring(p.x, p.z, 1, 9, '#ef7d57', 0.45);
-    this.vfx.shake(p.x, p.z, 0.6);
-  }
 
-  private afterPick(h: Hero, color: string): void {
-    const p = h.player;
-    p.happyT = 1.4;
-    for (const c of activeCombos(h.weapons.map((w) => w.def.id))) {
-      if (h.combosSeen.has(c.id)) continue;
-      h.combosSeen.add(c.id);
-      this.vfx.banner(`COMBO: ${c.name.toUpperCase()}!`, c.desc.toUpperCase(), 2.2);
-      this.vfx.sound('jingle', NaN, NaN);
-    }
-    this.vfx.burst(p.x, 1, p.z, { count: 20, color, color2: '#ffffff', speed: [3, 8], size: [0.12, 0.3], life: [0.4, 0.8], up: 6, gravity: 10 });
-    this.checkAchievements();
-    if (h.needsPick) {
-      h.offers = h.buildOffers();
-      this.presentLevelUp(h);
-      return;
-    }
-    if (this.heroes.some((x) => !x.left && x.needsPick)) {
-      for (const x of this.heroes) if (!x.left && !x.needsPick) this.presentWait(x);
-      return;
-    }
-    // Everyone has picked: back to the action with a short grace for each hero.
-    this.screens.show('none');
-    for (const x of this.heroes) this.tell(x, { t: 'go' });
-    this.mode = this.resumeMode;
-    for (const x of this.aliveHeroes) {
-      const q = x.player;
-      q.invuln = Math.max(q.invuln, 0.6);
-      this.vfx.ring(q.x, q.z, 1, 8, color, 0.35);
-      for (const e of this.enemiesInRadius(q.x, q.z, 4, this.scratch)) {
-        const dd = Math.hypot(e.x - q.x, e.z - q.z) || 1;
-        e.kx += ((e.x - q.x) / dd) * 14 * (1 - e.def.knockbackResist);
-        e.kz += ((e.z - q.z) / dd) * 14 * (1 - e.def.knockbackResist);
-      }
-    }
-  }
 
   // ------------------------------------------------------------------ achievements (this machine's save)
 
-  private checkAchievements(): void {
-    const L = save.lifetime;
-    const kills = L.kills + this.kills;
-    const h = this.hero;
-    const want: [string, boolean][] = [
-      ['first_steps', kills >= 300],
-      ['boss_slayer', this.bossesRun > 0 || this.stage > 1],
-      ['stage_2', this.stage >= 2],
-      ['elite_hunter', L.elites + this.elitesRun >= 5],
-      ['evolved', h.weapons.some((w) => w.def.slot && w.evolved) || !!h.specialEvo],
-      ['exterminator', kills >= 3000],
-      ['speedster', h.dashes >= 60],
-      ['arsenal', h.weapons.length >= 6],
-      ['maxed', h.weapons.some((w) => w.maxed)],
-      ['evolved', h.weapons.some((w) => w.evolved)],
-      ['hard_stage3', this.stage >= 3 && (this.difficulty.id === 'hard' || this.difficulty.id === 'nightmare')],
-      ['endless_5', this.runMode === 'endless' && this.stage >= 5],
-      ['rush_3', this.runMode === 'bossrush' && this.bossesRun >= 3],
-      ['stage_3', this.stage >= 3],
-      ['boss_rush', L.bosses + this.bossesRun >= 5],
-      ['elite_slayer', L.elites + this.elitesRun >= 25],
-      ['victory', this.victories > 0 || this.stage > LOOP_STAGES],
-    ];
-    for (const [id, ok] of want) {
-      if (!ok) continue;
-      const def = grantAchievement(id);
-      if (!def) continue;
-      this.newAchievements.push(id);
-      const item = def.unlockWeapon ? WEAPONS[def.unlockWeapon]?.name : def.unlockLoadout ? (WEAPONS[def.unlockLoadout] ?? SPECIALS[def.unlockLoadout])?.name : '';
-      const unlock = item ? ` - ${item} unlocked${def.unlockLoadout ? ' for your loadout' : ''}!` : '';
-      this.hud.toast(`★ ${def.name}${unlock}`, 4);
-      sfx.powerUp();
-    }
-  }
 
   // ------------------------------------------------------------------ update
 
   update(dt: number): void {
     this.stepN++;
+    if (this.photo?.active) {
+      this.photo.update(dt);
+      this.input.endStep();
+      return;
+    }
+    this.onboarding.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
     if (this.role === 'client') {
@@ -1528,10 +1115,12 @@ export class Game implements HeroWorld {
     if (this.paused && input.padButtonPressed(9)) this.resume();
     // Solo pauses the world; online the game keeps running behind the menu.
     const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop' || this.mode === 'title';
+    this.updateRoute(dt);
     if (this.mode === 'levelup' && !switched) {
       for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
       if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
     }
+    if (this.mode === 'title' && !switched) this.attractTick(dt);
     if (frozen || switched) {
       input.endStep();
       this.hostTick(true);
@@ -1539,6 +1128,12 @@ export class Game implements HeroWorld {
     }
     if (this.juice.hitStop > 0) {
       this.juice.hitStop -= dt;
+      this.hostTick(false);
+      return;
+    }
+    // Boss finisher: the world holds still until it ends, then the boss dies (systems/characters.ts).
+    if (this.finisherHold(dt)) {
+      input.endStep();
       this.hostTick(false);
       return;
     }
@@ -1562,21 +1157,31 @@ export class Game implements HeroWorld {
   }
 
   /** One authoritative simulation step (solo and host). */
-  private simulate(dt: number, localControl: boolean): void {
+  simulate(dt: number, localControl: boolean): void {
+    lapStart();
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
+    this.updateSkill(dt);
+    lap('sim.heroes+skill');
 
     // Spatial hash first: weapons and enemies query it.
     this.hash.clear();
     for (const e of this.enemies.list) if (e.alive) this.hash.insert(e, e.x, e.z, e.radius);
+    lap('sim.hash');
 
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
-      for (const w of h.weapons) w.update(dt, h.ctx);
-      if (h === this.hero && h.weapons.some((w) => w.muzzleT > 0.045)) this.juice.kick(-h.player.aim.x, -h.player.aim.z, 2);
+      for (const w of h.weapons) {
+        if (this.meta.rule('right') && w.def.slot === 'primary') continue;
+        h.ctx.soundSource = w; // evolved weapons layer their sound (systems/sound.ts weaponCue)
+        w.update(dt, h.ctx);
+      }
+      h.ctx.soundSource = null;
+      this.weaponFeel(h);
     }
+    this.updateHeroMechs(dt);
     for (const h of this.heroes) this.updateBomb(h, dt);
     updateSpecials(this.heroes, dt, this.specialApi);
     // Q/E specials recharge over time; the meter waits while the special (or bomb wave) still runs.
@@ -1584,19 +1189,30 @@ export class Game implements HeroWorld {
       if (h.player.dead || h.left || h.bombT >= 0 || isSpecialRunning(h)) continue;
       h.bombCharge = Math.min(1, h.bombCharge + dt / h.specialCooldown);
     }
+    lap('sim.weapons+specials');
 
     // Enemies chase the nearest living hero.
     this.targets.length = 0;
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
+    this.companionTargets();
     this.enemies.update(dt, this.enemyCtx);
+    lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
+    this.updateBiomeFoes(dt);
+    this.updateArena(dt);
+    this.updateWind(dt);
+    lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
     this.updateStrikes(dt);
+    lap('sim.statuses');
+    this.updateBossFight(dt);
     this.recycleFarEnemies(dt);
+    lap('sim.boss+recycle');
 
     this.updateBullets(dt);
+    lap('sim.bullets');
     this.barrels.update(dt, (i, b) => this.explodeBarrel(i, b));
     this.collectors.length = 0;
     for (const h of this.heroes) this.collectors.push({ x: h.player.x, z: h.player.z, magnet: h.stats.magnet, alive: !h.player.dead && !h.left });
@@ -1608,9 +1224,12 @@ export class Game implements HeroWorld {
     );
     this.updateChests();
     if (this.mode === 'fight' && anyAlive && !this.pvp) this.updateChestSpawns(dt);
+    lap('sim.pickups+chests');
     this.particles.update(dt);
     this.fx.update(dt);
+    lap('sim.particles+fx');
     if (this.heroes.length > 1 && !this.pvp) this.updateRevives(dt);
+    this.updateCompanion(dt);
 
     if (this.mode === 'fight' && this.combo > 0) {
       this.comboT -= dt;
@@ -1663,10 +1282,11 @@ export class Game implements HeroWorld {
 
     // Level-ups interrupt the action (after the step so this frame's effects land).
     if (this.heroes.some((h) => !h.left && h.needsPick) && this.isCombatMode && anyAlive) this.openLevelUp();
+    lap('sim.director+rest');
   }
 
   /** Movement, aim and per-hero timers. Local hero reads Input; remote heroes follow their client. */
-  private updateHero(h: Hero, dt: number, localControl: boolean): void {
+  updateHero(h: Hero, dt: number, localControl: boolean): void {
     const p = h.player;
     if (h.left) return;
     if (!p.dead && h.stats.regen > 0) p.heal(h.stats.regen * dt);
@@ -1686,10 +1306,11 @@ export class Game implements HeroWorld {
       if (p.update(dt, control ? input : null, this.arena.colliders, wantDash)) this.onDash(h);
       const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
       h.ctx.firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
-      h.ctx.charging = control && (input.mouseDown(2) || input.padButton(2));
+      h.ctx.charging = rightClickHeld(input, control);
       const wantBomb =
         control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
       if (wantBomb) this.tryBomb(h);
+      this.skillInput(h, control);
     } else if (h.remote) {
       // Smoothly follow the client's own (authoritative) movement.
       const r = h.remote;
@@ -1718,7 +1339,7 @@ export class Game implements HeroWorld {
   }
 
   /** Co-op items worn by teammates near h: Rally Banner, Medic Link, Bond of Steel. */
-  private applyTeamAuras(h: Hero, dt: number): void {
+  applyTeamAuras(h: Hero, dt: number): void {
     let near = 0;
     for (const o of this.heroes) {
       if (o === h || o.left || o.player.dead) continue;
@@ -1730,7 +1351,7 @@ export class Game implements HeroWorld {
     if (near > 0) h.stats.armor += h.stats.nearMateArmor;
   }
 
-  private updateTransition(): void {
+  updateTransition(): void {
     const t = this.modeT;
     if (t < 0.35) this.hud.setFade(t / 0.35);
     else if (!this.stageLoaded) {
@@ -1746,16 +1367,17 @@ export class Game implements HeroWorld {
     }
   }
 
-  private mouseAimPoint(): THREE.Vector3 | null {
+  mouseAimPoint(): THREE.Vector3 | null {
     this.ndc.set(this.input.mouse.ndcX, this.input.mouse.ndcY);
     this.raycaster.setFromCamera(this.ndc, this.cam.camera);
     return this.raycaster.ray.intersectPlane(this.aimPlane, this.aimHit);
   }
 
-  private onDash(h: Hero): void {
+  onDash(h: Hero): void {
     const p = h.player;
     h.dashes++;
     h.synergy.dash();
+    this.skillDash(h);
     if (h.hasRelic('r_dashbomb')) this.blast(p.x, p.z, 2.6, 30 + 8 * this.stage, '#ffb627', 'r_dashbomb', ['explosive'], false, h);
     this.vfx.sound('dash', p.x, p.z);
     if (h === this.hero) {
@@ -1767,8 +1389,8 @@ export class Game implements HeroWorld {
     if (h === this.hero && h.dashes === 60) this.checkAchievements();
   }
 
-  private footTimers = new Map<Hero, number>();
-  private updateFootsteps(h: Hero, dt: number): void {
+  footTimers = new Map<Hero, number>();
+  updateFootsteps(h: Hero, dt: number): void {
     const p = h.player;
     if (p.dead) return;
     if (p.dashing) {
@@ -1784,2323 +1406,109 @@ export class Game implements HeroWorld {
 
   // ------------------------------------------------------------------ co-op revives
 
-  private reviveHero(h: Hero, hpFrac: number, effects = true): void {
-    const p = h.player;
-    p.dead = false;
-    p.hp = Math.max(1, p.maxHp * hpFrac);
-    p.invuln = 2;
-    p.rig.root.visible = true;
-    h.reviveT = 0;
-    if (effects) {
-      this.vfx.ring(p.x, p.z, 1, 6, '#7dffb0', 0.4);
-      this.vfx.burst(p.x, 1, p.z, { count: 24, color: '#7dffb0', color2: '#ffffff', speed: [3, 8], size: [0.12, 0.3], life: [0.4, 0.8], up: 6, gravity: 10 });
-      this.vfx.num(p.x, 2.6, p.z, 'REVIVED!', 'heal');
-      this.vfx.sound('powerUp', p.x, p.z);
-    }
-  }
 
-  /** Stand next to a downed teammate to revive them. */
-  private updateRevives(dt: number): void {
-    for (const h of this.heroes) {
-      if (!h.player.dead || h.left) continue;
-      const helpers = this.aliveHeroes.filter((o) => Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) < REVIVE_RANGE);
-      // Guardian Angel on a helper: faster revives, more life on getting up.
-      const speed = 1 + Math.max(0, ...helpers.map((o) => o.stats.reviveSpeed));
-      const hp = Math.min(1, 0.4 + Math.max(0, ...helpers.map((o) => o.stats.reviveHp)));
-      h.reviveT = helpers.length ? h.reviveT + dt * speed : Math.max(0, h.reviveT - dt * 0.5);
-      if (h.reviveT >= REVIVE_TIME) {
-        this.reviveHero(h, hp);
-        // Teamwork: rescuer and rescued both get a burst of invincibility.
-        h.player.invuln = Math.max(h.player.invuln, 3);
-        for (const o of helpers) {
-          o.player.invuln = Math.max(o.player.invuln, 3);
-          o.player.happyT = 1.5;
-          this.vfx.num(o.player.x, 2.8, o.player.z, 'TEAMWORK!', 'heal');
-          this.vfx.ring(o.player.x, o.player.z, 1, 4, '#ffcd75', 0.35);
-        }
-      }
-    }
-  }
 
   // ------------------------------------------------------------------ spawning
 
-  /** A point on a ring just off-screen around a living hero, inside the arena and not in a wall. */
-  private ringPoint(rMin: number, rMax: number, r = 0.6): { x: number; z: number } | null {
-    const alive = this.aliveHeroes;
-    if (!alive.length) return null;
-    const p = alive[Math.floor(this.rng.next() * alive.length)].player;
-    const lim = this.arena.halfSize - 3;
-    // Bias spawns toward where the hero is heading so running away isn't free.
-    const heading = Math.atan2(p.vel.z, p.vel.x);
-    const moving = p.speed > 1;
-    for (let i = 0; i < 10; i++) {
-      const a = moving && this.rng.chance(0.5) ? heading + this.rng.range(-1, 1) : this.rng.range(0, Math.PI * 2);
-      const d = this.rng.range(rMin, rMax);
-      const x = p.x + Math.cos(a) * d;
-      const z = p.z + Math.sin(a) * d;
-      if (Math.abs(x) > lim || Math.abs(z) > lim) continue;
-      if (this.walls.hitCircle(x, z, r)) continue;
-      return { x, z };
-    }
-    return null;
-  }
 
-  private spawnEnemy(def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId) {
-    let pos: { x: number; z: number } | null = null;
-    if (near) {
-      const x = near.x + this.rng.range(-1.6, 1.6);
-      const z = near.z + this.rng.range(-1.6, 1.6);
-      if (!this.walls.hitCircle(x, z, def.radius)) pos = { x, z };
-    }
-    pos ??= this.ringPoint(18, 24, def.radius * (elite ? 1.6 : 1) + 0.2);
-    if (!pos) return null;
-    const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
-    this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
-    if (def.id === 'reaper') {
-      this.vfx.banner('THE REAPER COMES', 'RUN. OR TRY YOUR LUCK.', 2.4);
-      this.vfx.sound('boss', NaN, NaN);
-      this.vfx.flash(0.4);
-    }
-    if (elite) {
-      const mod = eliteMod ? `${ELITE_MODS[eliteMod].name.toUpperCase()} ` : '';
-      this.vfx.toast(`ELITE ${mod}${def.name.toUpperCase()} INCOMING!`);
-      this.vfx.sound('elite', NaN, NaN);
-    }
-    return pos;
-  }
 
-  /** Weighted elite modifier roll. Splitting skips enemies that already split, don't move, or blow themselves up. */
-  private rollEliteMod(def: EnemyDef): EliteModId {
-    const noSplit = !!def.split || def.behavior === 'spawner' || def.behavior === 'exploder';
-    const ok = ELITE_MOD_IDS.filter((id) => !(ELITE_MODS[id].split && noSplit) && !(ELITE_MODS[id].teleport && def.behavior === 'spawner'));
-    let r = this.rng.next() * ok.reduce((a, id) => a + ELITE_MODS[id].weight, 0);
-    for (const id of ok) if ((r -= ELITE_MODS[id].weight) <= 0) return id;
-    return ok[ok.length - 1];
-  }
 
-  private spawnRing(def: EnemyDef, count: number): void {
-    const alive = this.aliveHeroes;
-    if (!alive.length) return;
-    const p = alive[Math.floor(this.rng.next() * alive.length)].player;
-    const lim = this.arena.halfSize - 2;
-    const R = 15;
-    let placed = 0;
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2;
-      const x = p.x + Math.cos(a) * R;
-      const z = p.z + Math.sin(a) * R;
-      if (Math.abs(x) > lim || Math.abs(z) > lim || this.walls.hitCircle(x, z, def.radius)) continue;
-      this.enemies.spawn(def, x, z, this.spawnOpts());
-      placed++;
-    }
-    if (placed > 0) {
-      this.vfx.toast('SURROUNDED!');
-      this.vfx.sound('wave', p.x, p.z);
-    }
-  }
 
-  private spawnBoss(def: EnemyDef): void {
-    const p = (this.aliveHeroes[0] ?? this.hero).player;
-    const pos = this.ringPoint(13, 16, def.radius + 0.5) ?? { x: p.x + 12, z: p.z };
-    this.boss = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ hpMul: this.director.bossHpMul }));
-    this.vfx.banner('WARNING!', `${def.name.toUpperCase()} APPROACHES`, 2.2);
-    this.vfx.sound('boss', NaN, NaN);
-    this.vfx.shake(NaN, NaN, 0.6);
-  }
 
-  /** Keep the action near the heroes: enemies far from everyone re-enter ahead. */
-  private recycleFarEnemies(dt: number): void {
-    this.recycleT -= dt;
-    if (this.recycleT > 0 || this.mode !== 'fight') return;
-    this.recycleT = 0.5;
-    const alive = this.aliveHeroes;
-    if (!alive.length) return;
-    for (const e of this.enemies.list) {
-      if (!e.alive || e.elite || e.def.boss || e.def.behavior === 'spawner') continue;
-      if (alive.some((h) => Math.hypot(e.x - h.player.x, e.z - h.player.z) < RECYCLE_DIST)) continue;
-      const pos = this.ringPoint(18, 24, e.radius + 0.2);
-      if (!pos) continue;
-      e.x = e.px = pos.x;
-      e.z = e.pz = pos.z;
-      e.kx = e.kz = 0;
-    }
-  }
 
   // ------------------------------------------------------------------ combat
 
-  private nearestEnemy(x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null {
-    let best: Enemy | null = null;
-    let bd = r * r;
-    this.hash.query(x, z, r, (e) => {
-      if (!e.alive || e.hp <= 0 || (skip && skip(e))) return;
-      const d = (e.x - x) ** 2 + (e.z - z) ** 2;
-      if (d < bd) {
-        bd = d;
-        best = e;
-      }
-    });
-    return best;
-  }
 
-  private enemiesInRadius(x: number, z: number, r: number, out: Enemy[]): Enemy[] {
-    out.length = 0;
-    this.hash.query(x, z, r + 1, (e) => {
-      if (!e.alive || e.hp <= 0) return;
-      const rr = r + e.radius;
-      if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr && !out.includes(e)) out.push(e);
-    });
-    return out;
-  }
 
-  /** All damage to enemies, credited to the hero who dealt it. */
-  private damage(e: Enemy, base: number, o: DamageOpts, by: Hero): number {
-    if (!e.active || e.hp <= 0) return 0;
-    if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
-    const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
-    const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
-    const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
-    // Stats first, then Mods left to right, then statuses and crit.
-    let amount = o.fixed ? base : by.synergy.damage(ev, base * by.stats.damageMul);
-    if (!o.fixed && e.frozen > 0 && e.shatter > 0) amount *= 1 + e.shatter;
-    if (!o.fixed && e.shockT > 0) amount *= 1 + statusTuning.shockMult + by.synergy.flags.shockMult;
-    if (!o.fixed && e.exposeT > 0) amount *= 1 + statusTuning.exposeMult;
-    if (crit) amount *= by.stats.critMult;
-    amount = Math.max(1, Math.round(amount));
-    const dealt = Math.min(amount, Math.max(0, e.hp + e.shield));
-    // Shielded elites: the shield soaks damage (and blocks statuses) until it breaks.
-    const shielded = e.shield > 0;
-    if (shielded) {
-      const soak = Math.min(e.shield, amount);
-      e.shield -= soak;
-      e.hp -= amount - soak;
-      if (e.shield <= 0) this.breakShield(e);
-    } else e.hp -= amount;
-    by.damageBy[o.source] = (by.damageBy[o.source] ?? 0) + dealt;
-    e.flash = 0.07;
-    const k = (o.knockback ?? 0) * by.stats.knockbackMul * (1 - e.def.knockbackResist) * (crit ? 1.5 : 1);
-    if (k > 0) {
-      e.kx += (o.dirX ?? 0) * k;
-      e.kz += (o.dirZ ?? 0) * k;
-    }
-    e.squash(crit ? -6 : -3);
-    const hx = o.hx ?? e.x;
-    const hz = o.hz ?? e.z;
-    if (crit) {
-      this.vfx.num(e.x, 1.9 * e.scale, e.z, `${amount}!`, 'crit');
-      this.vfx.sound('crit', e.x, e.z);
-      this.vfx.star(hx, BULLET_Y, hz, 1.5, '#fff35c', 0.12);
-    } else if (o.loud) {
-      this.vfx.num(e.x, 1.7 * e.scale, e.z, amount);
-      this.vfx.sound('hit', e.x, e.z, this.pitch);
-      this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
-    }
-    // Heavy hits get a low thump under the hit sound.
-    if ((o.loud || crit) && amount >= 25) this.vfx.sound('impact', e.x, e.z, Math.min(3, amount / 25));
-    if (o.loud || crit) {
-      this.vfx.burst(hx, BULLET_Y, hz, { count: 3, color: '#ffffff', color2: e.def.bodyColor, speed: [3, 7], size: [0.1, 0.18], life: [0.12, 0.25], dir: { x: -(o.dirX ?? 0), z: -(o.dirZ ?? 0), spread: 2.4 } });
-    }
-    // Statuses from the weapon's own tags, then Mod triggers.
-    if (!o.noStatus && e.hp > 0 && !shielded) {
-      if (tags.includes('fire')) this.ignite(e, Math.max(3, amount * 0.15), by);
-      if (tags.includes('shock')) this.shock(e, by);
-      if (isRightClick(o.source)) this.expose(e);
-    }
-    if (!o.noStatus) {
-      by.synergy.hit(ev);
-      if (crit) by.synergy.crit(ev);
-      if (crit && by.hasRelic('r_static') && o.source !== 'zap' && e.active) this.zap(e, 2, Math.max(4, amount * 0.35), by);
-    }
-    if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);
-    return amount;
-  }
 
-  /** Sparky zaps the nearest enemy every 1.5 s. */
-  private updatePets(dt: number): void {
-    for (const h of this.heroes) {
-      if (h.pet !== 'sparky' || h.left || h.player.dead || (h.sparkyT -= dt) > 0) continue;
-      h.sparkyT = 1.5;
-      const p = h.player;
-      const e = this.nearestEnemy(p.x, p.z, 9);
-      if (!e) continue;
-      this.damage(e, 10 + 3 * this.level, { source: 'pet', tags: ['shock'], canCrit: true, loud: true }, h);
-      this.vfx.star(e.x, 1, e.z, 1.3, '#fff35c', 0.12);
-      this.vfx.ring(e.x, e.z, 0.5, 2, '#fff35c', 0.2);
-      this.vfx.sound('w:zap', e.x, e.z);
-      h.petView?.zap();
-    }
-  }
 
-  /** Elite modifiers that act over time: vampiric regen and blinking teleports. */
-  private updateEliteMods(dt: number): void {
-    for (const e of this.enemies.list) {
-      const m = e.mod;
-      if (!e.alive || !m || e.frozen > 0) continue;
-      if (m.vampire) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * m.vampire.regen * dt);
-      if (m.teleport && (e.modT -= dt) <= 0) {
-        e.modT = m.teleport * this.rng.range(0.8, 1.2);
-        const alive = this.aliveHeroes;
-        if (!alive.length) continue;
-        let best = alive[0].player;
-        for (const h of alive) if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < Math.hypot(best.x - e.x, best.z - e.z)) best = h.player;
-        const a = this.rng.next() * Math.PI * 2;
-        const d = this.rng.range(2.8, 4.2);
-        const x = best.x + Math.cos(a) * d;
-        const z = best.z + Math.sin(a) * d;
-        if (this.walls.hitCircle(x, z, e.radius)) continue;
-        this.vfx.burst(e.x, 1, e.z, { count: 12, color: m.color, color2: '#f4f4f4', speed: [2, 5], size: [0.15, 0.3], life: [0.25, 0.45], up: 3 });
-        e.x = e.px = x;
-        e.z = e.pz = z;
-        e.squash(8);
-        this.vfx.ring(x, z, 1, 3, m.color, 0.3);
-        this.vfx.burst(x, 1, z, { count: 12, color: m.color, color2: '#f4f4f4', speed: [2, 5], size: [0.15, 0.3], life: [0.25, 0.45], up: 3 });
-        this.vfx.sound('portal', x, z);
-      }
-    }
-  }
 
-  /** What's underfoot at (x, z): ice makes you slide, conveyors carry you. */
-  private groundAt(x: number, z: number, out: { slip: number; pushX: number; pushZ: number }): void {
-    out.slip = out.pushX = out.pushZ = 0;
-    for (const h of this.arena.hazards) if (h.kind === 'ice' && (x - h.x) ** 2 + (z - h.z) ** 2 < h.r * h.r) out.slip = 1;
-    for (const c of this.arena.conveyors) {
-      if (Math.abs(x - c.x) < c.w / 2 && Math.abs(z - c.z) < c.d / 2) {
-        out.pushX = c.dx * CONVEYOR_SPEED;
-        out.pushZ = c.dz * CONVEYOR_SPEED;
-      }
-    }
-  }
 
-  /** Lava burns heroes (with knockback out of the pool) and sets enemies alight; conveyors carry enemies too. */
-  private updateHazards(dt: number): void {
-    if (!this.isCombatMode) return;
-    const lava = this.arena.hazards.filter((h) => h.kind === 'lava');
-    if (lava.length) {
-      for (const h of this.aliveHeroes) {
-        const p = h.player;
-        if ((h.lavaT -= dt) > 0 || p.dashing) continue;
-        const pool = lava.find((l) => (p.x - l.x) ** 2 + (p.z - l.z) ** 2 < l.r * l.r);
-        if (!pool) continue;
-        h.lavaT = 0.5;
-        this.vfx.burst(p.x, 0.3, p.z, { count: 8, color: '#ff7a2f', color2: '#ffd23f', speed: [1, 3], size: [0.15, 0.3], life: [0.3, 0.5], up: 5 });
-        this.hurtHero(h, 8 * this.director.dmgMul, pool.x, pool.z, null, 'Lava');
-      }
-      if (this.stepN % 30 === 0) {
-        for (const e of this.enemies.list) {
-          if (!e.alive || e.def.boss || e.burnT > 0) continue;
-          if (lava.some((l) => (e.x - l.x) ** 2 + (e.z - l.z) ** 2 < l.r * l.r)) this.ignite(e, 6 + 2 * this.stage, this.hero);
-        }
-      }
-    }
-    if (this.arena.conveyors.length) {
-      for (const e of this.enemies.list) {
-        if (!e.alive || e.def.boss || e.hopY > 0) continue;
-        for (const c of this.arena.conveyors) {
-          if (Math.abs(e.x - c.x) < c.w / 2 && Math.abs(e.z - c.z) < c.d / 2) {
-            e.x += c.dx * CONVEYOR_SPEED * dt;
-            e.z += c.dz * CONVEYOR_SPEED * dt;
-          }
-        }
-      }
-    }
-  }
 
-  /** Death flavour by enemy kind. Swarm kills only sometimes get the extras, so mass kills stay light. */
-  private deathFx(e: Enemy, big: boolean): void {
-    const def = e.def;
-    const y = e.radius + 0.2;
-    const full = big || def.xp >= 2 || this.rng.chance(0.3);
-    if (!full) return;
-    switch (def.death) {
-      case 'robot':
-        // Bolts and springs.
-        this.vfx.burst(e.x, y, e.z, { count: big ? 16 : 4, color: '#94b0c2', color2: '#566c86', speed: [3, 7], size: [0.1, 0.2], life: [0.5, 0.9], up: 8, gravity: 22, drag: 1 });
-        this.vfx.burst(e.x, y, e.z, { count: big ? 6 : 1, color: '#ffcd75', color2: '#ef7d57', speed: [2, 5], size: [0.08, 0.14], life: [0.6, 1], up: 10, gravity: 24, drag: 1 });
-        break;
-      case 'goo':
-        this.vfx.scar(e.x, e.z, e.radius * 1.7, def.bodyColor, 8);
-        this.vfx.burst(e.x, y, e.z, { count: big ? 18 : 5, color: def.bodyColor, color2: def.accentColor, speed: [2, 6], size: [0.14, 0.26], life: [0.4, 0.7], up: 7, gravity: 22, drag: 1 });
-        break;
-      case 'shards':
-        this.vfx.burst(e.x, y, e.z, { count: 14, color: '#73eff7', color2: '#f4f4f4', speed: [4, 9], size: [0.1, 0.24], life: [0.4, 0.8], up: 6, gravity: 16 });
-        this.vfx.ring(e.x, e.z, e.radius, 4, '#73eff7', 0.3);
-        break;
-    }
-  }
 
-  /** The boss's last moments: a chain of explosions while time slows, then one big blast. */
-  private updateBossBoom(dt: number): void {
-    const b = this.bossBoom;
-    if (!b || (b.t -= dt) > 0) return;
-    if (b.n > 0) {
-      b.n--;
-      b.t = 0.17;
-      const a = this.rng.next() * Math.PI * 2;
-      const d = this.rng.range(0.3, 1) * b.r;
-      const x = b.x + Math.cos(a) * d;
-      const z = b.z + Math.sin(a) * d;
-      this.vfx.burst(x, 1, z, { count: 14, color: b.color, color2: '#ffcd75', speed: [4, 9], size: [0.2, 0.4], life: [0.3, 0.6], up: 6, gravity: 14 });
-      this.vfx.ring(x, z, 1, 4, '#ffcd75', 0.25);
-      this.vfx.star(x, 1.2, z, 2.2, '#ffffff', 0.12);
-      this.vfx.sound('explode', x, z);
-      this.vfx.shake(x, z, 0.25);
-      return;
-    }
-    this.bossBoom = null;
-    this.vfx.ring(b.x, b.z, 1, b.r * 5, '#ffffff', 0.45);
-    this.vfx.ring(b.x, b.z, 1, b.r * 3.5, b.color, 0.4);
-    this.vfx.burst(b.x, 1.2, b.z, { count: 50, color: b.color, color2: '#ffffff', speed: [6, 14], size: [0.25, 0.5], life: [0.5, 1], up: 8, gravity: 12 });
-    this.vfx.scar(b.x, b.z, b.r * 1.4, SCAR_COLORS.crater, 30);
-    this.vfx.sound('bomb', b.x, b.z);
-    this.vfx.shake(b.x, b.z, 1);
-    this.vfx.flash(0.7);
-  }
 
-  private breakShield(e: Enemy): void {
-    const y = e.radius + 0.4;
-    this.vfx.burst(e.x, y, e.z, { count: 26, color: '#73eff7', color2: '#f4f4f4', speed: [4, 9], size: [0.12, 0.28], life: [0.35, 0.7], up: 5, gravity: 14 });
-    this.vfx.ring(e.x, e.z, e.radius * 1.6, 5, '#41a6f6', 0.3);
-    this.vfx.num(e.x, 2.2 * e.scale, e.z, 'SHIELD BROKEN!', 'crit');
-    this.vfx.sound('shieldBreak', e.x, e.z);
-    this.vfx.shake(e.x, e.z, 0.2);
-    e.squash(-8);
-  }
 
   // ------------------------------------------------------------------ statuses and combos
 
-  ignite(e: Enemy, dps: number, by: Hero): void {
-    if (!e.active || e.hp <= 0) return;
-    e.burnT = statusTuning.burnTime;
-    e.burnDps = Math.max(e.burnDps, dps);
-    e.burnOwner = by.index;
-    if (e.shockT > 0) this.overload(e, by);
-  }
 
-  /** Right-click hit: the enemy takes more damage from everyone for a few seconds. */
-  private expose(e: Enemy): void {
-    if (e.exposeT <= 0) {
-      this.vfx.ring(e.x, e.z, e.radius, e.radius * 2.6, '#c4b8ff', 0.25);
-      if (this.runTime - this.exposeTextT > 0.6) {
-        this.exposeTextT = this.runTime;
-        this.vfx.num(e.x, 2.2 * e.scale, e.z, 'EXPOSED', 'crit');
-      }
-    }
-    e.exposeT = statusTuning.exposeTime;
-  }
 
-  shock(e: Enemy, by: Hero): void {
-    if (!e.active || e.hp <= 0) return;
-    e.shockT = statusTuning.shockTime + by.synergy.flags.shockTime;
-    if (e.burnT > 0) this.overload(e, by);
-  }
 
-  /** Burn + Shock on the same enemy: consume both for a blast. */
-  private overload(e: Enemy, by: Hero): void {
-    e.burnT = e.shockT = 0;
-    e.burnDps = 0;
-    this.overloads++;
-    const m = 1 + by.synergy.flags.overloadMult;
-    if (this.overloads % 3 === 1) this.vfx.num(e.x, 2.2, e.z, 'OVERLOAD!', 'crit');
-    this.blast(e.x, e.z, 1.8 * Math.sqrt(m), (statusTuning.overloadDamage + statusTuning.overloadPerLevel * this.level) * m, '#ffe14d', 'overload', ['explosive'], true, by);
-  }
 
-  /** Frozen enemy killed: ice shards burst out. */
-  private shatter(e: Enemy, by: Hero): void {
-    const m = 1 + by.synergy.flags.shatterMult;
-    this.vfx.burst(e.x, 0.8, e.z, { count: 10, color: '#ffffff', color2: '#9fe8ff', speed: [5, 10], size: [0.1, 0.25], life: [0.2, 0.4], up: 3, gravity: 10 });
-    this.vfx.ring(e.x, e.z, 1, 4, '#9fe8ff', 0.2);
-    for (const o of this.enemiesInRadius(e.x, e.z, 2, this.scratch).slice()) {
-      if (o === e) continue;
-      const d = Math.hypot(o.x - e.x, o.z - e.z) || 1;
-      this.damage(o, (statusTuning.shatterDamage + statusTuning.shatterPerLevel * this.level) * m, { source: 'shatter', tags: ['frost'], dirX: (o.x - e.x) / d, dirZ: (o.z - e.z) / d, knockback: 4, noStatus: true }, by);
-    }
-  }
 
-  /** Lightning arc from an enemy through nearby ones (Mods: Crit Cascade). */
-  zap(from: Enemy, hops: number, dmg: number, by: Hero): void {
-    const hit = new Set<number>([from.uid]);
-    let cur: Enemy = from;
-    hops += by.synergy.flags.chainBonus;
-    for (let i = 0; i < hops; i++) {
-      const next = this.nearestEnemy(cur.x, cur.z, 5, (o) => hit.has(o.uid));
-      if (!next) break;
-      hit.add(next.uid);
-      for (let k = 1; k < 5; k++) {
-        const t = k / 5;
-        this.vfx.burst(cur.x + (next.x - cur.x) * t, 1, cur.z + (next.z - cur.z) * t, { count: 1, color: '#fff35c', color2: '#ffffff', speed: [0, 0.5], size: [0.12, 0.2], life: [0.08, 0.14] });
-      }
-      this.vfx.star(next.x, 1, next.z, 1, '#fff35c', 0.1);
-      this.damage(next, dmg, { source: 'zap', tags: ['chain', 'shock'] }, by);
-      cur = next;
-    }
-  }
 
-  /** Burn damage ticks and status timers. */
-  private updateStatuses(dt: number): void {
-    for (const e of this.enemies.list) {
-      if (!e.active) continue;
-      // Ka-Boomer fuse: ticks that speed up and rise in pitch as it burns down.
-      if (e.state === 'windup' && e.def.behavior === 'exploder' && e.frozen <= 0 && (e.tickT -= dt) <= 0) {
-        const k = Math.max(0, Math.min(1, e.t / e.def.fuse!.time));
-        e.tickT = 0.06 + 0.22 * k;
-        this.vfx.sound('fuseTick', e.x, e.z, 1 + (1 - k) * 0.8);
-      }
-      if (e.shockT > 0) e.shockT -= dt;
-      if (e.exposeT > 0) e.exposeT -= dt;
-      if (e.burnT <= 0) continue;
-      e.burnT -= dt;
-      e.burnAcc += dt;
-      if (e.burnAcc < 0.5) continue;
-      e.burnAcc = 0;
-      if (this.rng.chance(0.5)) this.vfx.burst(e.x, 0.6 + e.radius, e.z, { count: 1, color: '#ff7a2f', color2: '#ffd23f', speed: [0.2, 1], size: [0.15, 0.3], life: [0.3, 0.5], up: 2, drag: 2 });
-      const by = this.heroes[e.burnOwner] ?? this.hero;
-      this.damage(e, e.burnDps * 0.5, { source: 'burn', tags: ['fire'], noStatus: true }, by);
-      if (e.burnT <= 0) e.burnDps = 0;
-    }
-  }
 
-  private sourceName(id: string): string {
-    if (SPECIALS[id]) return SPECIALS[id].name;
-    if (PASSIVES[id]) return PASSIVES[id].name;
-    const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
-    return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
-  }
 
-  private killEnemy(e: Enemy, source: string, by: Hero | null): void {
-    const def = e.def;
-    const wasFrozen = e.frozen > 0;
-    this.kills++;
-    this.combo++;
-    this.comboT = scoreTuning.comboWindow + (this.heroes.some((h) => h.hasRelic('r_hourglass')) ? 1 : 0);
-    this.maxCombo = Math.max(this.maxCombo, this.combo);
-    this.score += def.score * this.multiplier * (e.elite ? 5 : 1) * (1 + this.curseSum('score')) * this.difficulty.score;
-    const xp = def.xp * (e.elite ? 10 : 1);
 
-    // Drops
-    this.pickups.spawn(PickupType.Gem, e.x, e.z, xp * dropTuning.xpMul);
-    const isBoss = !!def.boss;
-    const big = e.elite || isBoss || def.id === 'reaper';
-    if (big) {
-      // Bosses drop one chest per hero that only its owner can open (value OWNED_CHEST + hero index); elites drop one for anyone.
-      if (isBoss) this.heroes.forEach((h, i) => !h.left && this.pickups.spawn(PickupType.Chest, e.x + i * 0.8, e.z, OWNED_CHEST + i));
-      else this.pickups.spawn(PickupType.Chest, e.x, e.z);
-      for (let i = 0; i < (isBoss ? 6 : 2); i++) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
-      for (let i = 0; i < (isBoss ? 2 : 1); i++) this.pickups.spawn(PickupType.Gear, e.x, e.z);
-      if (e.elite) {
-        this.elitesRun++;
-        this.runEvents.onElite();
-      }
-    } else {
-      const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive));
-      const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 4 : 1);
-      if (this.rng.chance(dropTuning.goldChance * thin * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
-      if (!this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
-      if (this.rng.chance(dropTuning.magnetChance * thin)) this.pickups.spawn(PickupType.Magnet, e.x, e.z);
-      if (this.rng.chance(dropTuning.gearChance * thin * (1 + 0.25 * (by?.stats.luck ?? 0)))) this.pickups.spawn(PickupType.Gear, e.x, e.z);
-      if (this.rng.chance(dropTuning.nukeChance * thin)) this.pickups.spawn(PickupType.Nuke, e.x, e.z);
-    }
-    // Vampire Fang: life per kill (small per kill: hordes add up).
-    if (by && by.stats.killHeal > 0 && !by.player.dead) by.player.heal(by.stats.killHeal);
 
-    // Feedback scales with importance; swarm kills stay light so hundreds don't stutter.
-    const r = e.radius;
-    const y = r + 0.1 + e.hopY;
-    this.vfx.sound('enemyDie', e.x, e.z, this.pitch);
-    this.vfx.burst(e.x, y, e.z, { count: big ? 40 : def.xp >= 3 ? 12 : 6, color: def.bodyColor, color2: def.accentColor, speed: [3, 9], size: [0.15, 0.3 + r * 0.15], life: [0.3, 0.6], up: 5, gravity: 18, drag: 2 });
-    if (def.xp >= 3 || big || this.rng.chance(0.25)) this.vfx.ring(e.x, e.z, r * 2, 3, def.bodyColor, 0.25);
-    this.deathFx(e, big);
-    if (isBoss) {
-      this.slowMoT = 1.4;
-      this.bossBoom = { x: e.x, z: e.z, r: r * 2.2, n: 7, t: 0, color: def.bodyColor };
-    }
-    if (big) {
-      this.juice.freeze(isBoss ? 0.3 : 0.08);
-      this.vfx.shake(e.x, e.z, isBoss ? 1 : 0.4);
-      this.vfx.star(e.x, y + 0.3, e.z, r * 3, '#ffffff', 0.18);
-      this.vfx.flash(isBoss ? 0.8 : 0.2);
-      this.vfx.sound('explode', e.x, e.z);
-    } else if (def.xp >= 4) this.vfx.shake(e.x, e.z, 0.08);
-    if (this.combo % 50 === 0) {
-      this.vfx.num(e.x, 3, e.z, `${this.combo} COMBO!`, 'score');
-      this.vfx.sound('comboUp', NaN, NaN);
-    }
 
-    if (def.split) {
-      for (let i = 0; i < def.split.count; i++) {
-        const a = (i / def.split.count) * Math.PI * 2;
-        this.enemyCtx.spawnChild(def.split.into, e.x + Math.cos(a) * 0.8, e.z + Math.sin(a) * 0.8, e);
-      }
-    }
-    // Volatile elites leave a telegraphed blast behind.
-    const boom = e.mod?.explode;
-    if (boom) {
-      this.strikes.push({ x: e.x, z: e.z, r: boom.r, t: boom.fuse, dmg: boom.dmg * this.director.dmgMul * this.difficulty.enemyDmg, cause: `Volatile ${e.def.name}` });
-      this.vfx.zone(e.x, e.z, boom.r, boom.fuse);
-      this.vfx.sound('fuseTick', e.x, e.z, 1.4);
-    }
-    // Splitting elites burst into normal-size copies that fly outward.
-    const split = e.mod?.split;
-    if (split) {
-      this.vfx.ring(e.x, e.z, e.radius * 1.5, 4, e.mod!.color, 0.3);
-      for (let i = 0; i < split.count && this.enemies.activeCount < 480; i++) {
-        const a = (i / split.count) * Math.PI * 2 + this.rng.next();
-        const x = e.x + Math.cos(a) * 0.9;
-        const z = e.z + Math.sin(a) * 0.9;
-        if (this.walls.hitCircle(x, z, def.radius)) continue;
-        const c = this.enemies.spawn(def, x, z, this.spawnOpts({ hpMul: this.director.hpMul * split.hpMul, instant: true }));
-        c.kx = Math.cos(a) * 9;
-        c.kz = Math.sin(a) * 9;
-        c.squash(6);
-      }
-    }
-    this.enemies.kill(e);
-    if (by?.hasRelic('r_fang') && ++by.fangKills % 20 === 0 && !by.player.dead) {
-      const healed = by.player.heal(5);
-      if (healed > 0) this.vfx.num(by.player.x, 2.4, by.player.z, `+${Math.round(healed)}`, 'heal');
-    }
-    this.runEvents.onKill(source, this.combo);
-    if (isBoss) this.grantRelics();
-    // Combos and Mod triggers after the kill is resolved (they may kill more).
-    if (by) {
-      if (wasFrozen) this.shatter(e, by);
-      by.synergy.kill(e, source);
-    }
-    if (this.kills === 300 || this.kills % 1000 === 0) this.checkAchievements();
-  }
 
-  blast(x: number, z: number, r: number, base: number, color: string, source: string, tags: readonly Tag[] = ['explosive'], noStatus = false, by: Hero = this.hero): void {
-    const explosive = tags.includes('explosive');
-    if (explosive) r *= 1 + by.synergy.flags.explosiveArea * by.synergy.tagCount('explosive');
-    this.vfx.sound('explode', x, z);
-    this.vfx.ring(x, z, 1, r * 2, color, 0.25);
-    this.vfx.star(x, 1, z, r, color, 0.12);
-    this.vfx.burst(x, 0.6, z, { count: 8, color, color2: '#fff35c', speed: [3, 8], size: [0.15, 0.3], life: [0.2, 0.45], up: 4, gravity: 12 });
-    if (r >= 1.2) this.vfx.scar(x, z, r * 0.7, SCAR_COLORS.scorch, 10);
-    if (this.authority) this.barrels.igniteNear(x, z, r, by.index);
-    const targets = this.enemiesInRadius(x, z, r, this.scratch).slice();
-    // Napalm: an explosion that catches a burning enemy sets the whole blast alight.
-    const napalm = explosive && !noStatus && targets.some((e) => e.burnT > 0);
-    if (napalm) this.vfx.ring(x, z, 1, r * 2.2, '#ff5e3a', 0.35);
-    let n = 0;
-    for (const e of targets) {
-      const d = Math.hypot(e.x - x, e.z - z) || 1;
-      this.damage(e, base, { source, tags, dirX: (e.x - x) / d, dirZ: (e.z - z) / d, knockback: 8, canCrit: true, noStatus, loud: n++ < 2 }, by);
-      if (napalm && e.active) this.ignite(e, statusTuning.napalmDps + statusTuning.napalmPerLevel * this.level, by);
-    }
-  }
 
-  /** A barrel blows up: big fiery blast credited to whoever lit it; neighbours follow. */
-  private explodeBarrel(i: number, b: Barrel): void {
-    this.removeBarrelCollider(b);
-    this.host?.broadcast({ t: 'barrel', i });
-    const by = this.heroes[b.by] ?? this.hero;
-    const R = barrelTuning.radius;
-    this.vfx.shake(b.x, b.z, 0.45);
-    this.vfx.ring(b.x, b.z, 1, R * 2.3, '#ffb627', 0.35);
-    this.vfx.burst(b.x, 0.8, b.z, { count: 26, color: '#ff4d5e', color2: '#ffd23f', speed: [5, 12], size: [0.2, 0.45], life: [0.35, 0.7], up: 7, gravity: 14 });
-    this.vfx.burst(b.x, 1.2, b.z, { count: 10, color: '#3a3d5c', color2: '#8a90c8', speed: [1, 3], size: [0.4, 0.7], life: [0.6, 1.0], up: 3, drag: 2 });
-    this.vfx.num(b.x, 2.4, b.z, 'KABOOM!', 'crit');
-    if (by === this.hero) this.juice.freeze(0.04);
-    this.blast(b.x, b.z, R, barrelTuning.damage * (1 + 0.6 * (this.stage - 1)), '#ff7a2f', 'barrel', ['explosive', 'fire'], false, by);
-    // Everything caught in it is set on fire.
-    for (const e of this.enemiesInRadius(b.x, b.z, R, this.scratch).slice()) this.ignite(e, 10, by);
-  }
 
-  private removeBarrelCollider(b: Barrel): void {
-    const k = this.arena.colliders.indexOf(b.box);
-    if (k >= 0) this.arena.colliders.splice(k, 1);
-    this.walls = new StaticBoxGrid(this.arena.colliders);
-  }
 
-  /** Exploder enemy goes off: hurts heroes and other enemies nearby. */
-  private detonate(e: Enemy): void {
-    const F = e.def.fuse!;
-    const R = F.radius * e.scale;
-    this.vfx.scar(e.x, e.z, R * 0.75, SCAR_COLORS.scorch, 12);
-    this.vfx.ring(e.x, e.z, 1, R * 2, '#ff3d5a', 0.3);
-    this.vfx.star(e.x, 1, e.z, R * 1.2, '#ffb627', 0.15);
-    this.vfx.burst(e.x, 0.6, e.z, { count: 14, color: '#ff9f3d', color2: '#3a3d5c', speed: [4, 9], size: [0.15, 0.35], life: [0.3, 0.6], up: 5, gravity: 14 });
-    this.vfx.sound('explode', e.x, e.z);
-    this.vfx.shake(e.x, e.z, 0.3);
-    this.barrels.igniteNear(e.x, e.z, R, 0);
-    for (const h of this.aliveHeroes) {
-      if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, F.damage * e.dmgMul, e.x, e.z, null, e.def.name);
-    }
-    for (const o of this.enemiesInRadius(e.x, e.z, R, this.scratch).slice()) {
-      if (o === e) continue;
-      const d = Math.hypot(o.x - e.x, o.z - e.z) || 1;
-      this.damage(o, 40, { source: 'exploder', dirX: (o.x - e.x) / d, dirZ: (o.z - e.z) / d, knockback: 10 }, this.hero);
-    }
-    if (e.active) this.killEnemy(e, 'exploder', null);
-  }
 
-  private updateStrikes(dt: number): void {
-    for (let i = this.strikes.length - 1; i >= 0; i--) {
-      const s = this.strikes[i];
-      s.t -= dt;
-      if (s.t > 0) continue;
-      this.strikes.splice(i, 1);
-      this.vfx.ring(s.x, s.z, 1, (s.r * 2.2) / 0.46 / 2, '#ff7a2f', 0.3);
-      this.vfx.star(s.x, 0.8, s.z, s.r * 1.2, '#ffb627', 0.12);
-      this.vfx.burst(s.x, 0.4, s.z, { count: 10, color: '#ff3df0', color2: '#ffd23f', speed: [3, 8], size: [0.15, 0.3], life: [0.25, 0.5], up: 6, gravity: 14 });
-      this.vfx.sound('explode', s.x, s.z);
-      this.vfx.shake(s.x, s.z, 0.2);
-      for (const h of this.aliveHeroes) {
-        if (Math.hypot(h.player.x - s.x, h.player.z - s.z) < s.r + h.player.radius * 0.6) this.hurtHero(h, s.dmg, s.x, s.z, null, s.cause ?? 'Ground strike');
-      }
-      if (s.foe) {
-        this.vfx.scar(s.x, s.z, s.r * 0.8, SCAR_COLORS.crater, 12);
-        for (const e of this.enemiesInRadius(s.x, s.z, s.r, this.scratch).slice()) this.damage(e, s.foe, { source: 'meteor', tags: ['explosive'], knockback: 8 }, this.hero);
-      }
-    }
-  }
 
-  private bossSlam(e: Enemy): void {
-    const R = 3.8;
-    this.vfx.scar(e.targetX, e.targetZ, R * 0.8, SCAR_COLORS.crater, 16);
-    this.vfx.sound('bomb', e.x, e.z);
-    this.vfx.shake(e.x, e.z, 0.8);
-    this.juice.freeze(0.06);
-    this.vfx.ring(e.x, e.z, 1, R * 2.4, '#ff3d5a', 0.4);
-    this.vfx.ring(e.x, e.z, 1, R * 1.6, '#ffffff', 0.3);
-    this.vfx.burst(e.x, 0.3, e.z, { count: 30, color: '#f2e2b8', color2: '#ffffff', speed: [5, 12], size: [0.2, 0.4], life: [0.4, 0.8], up: 4, gravity: 10 });
-    for (const h of this.aliveHeroes) {
-      if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, 24 * e.dmgMul, e.x, e.z, null, e.def.name);
-    }
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      this.enemyCtx.fireBullet(e, Math.cos(a), Math.sin(a), 8, 12);
-    }
-  }
 
-  private contactDamage(h: Hero): void {
-    const p = h.player;
-    if (p.invuln > 0) return;
-    let worst: Enemy | null = null;
-    let dmg = 0;
-    this.hash.query(p.x, p.z, 2.5, (e) => {
-      if (!e.alive || e.frozen > 0 || e.hopY > 0.5 || e.pvpOwner >= 0) return;
-      const rr = e.radius + p.radius;
-      if ((e.x - p.x) ** 2 + (e.z - p.z) ** 2 > rr * rr) return;
-      const d = e.contactDamage * (e.state === 'attack' ? 1.5 : 1);
-      if (d > dmg) {
-        dmg = d;
-        worst = e;
-      }
-    });
-    const w = worst as Enemy | null;
-    if (w) this.hurtHero(h, dmg, w.x, w.z, w);
-  }
 
-  private hurtHero(h: Hero, raw: number, fromX: number, fromZ: number, src: Enemy | null = null, cause = ''): void {
-    const p = h.player;
-    if (cheats.god || p.dead || p.invuln > 0) return;
-    h.lastHitBy = cause || src?.def.name || 'Enemy fire';
-    // One hit never takes more than maxHitFrac of max life (curses scale it before the cap).
-    let dmg = Math.max(1, Math.round(Math.min((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken')), p.maxHp * playerTuning.maxHitFrac)));
-    // Frost Totem relic: once per stage a lethal hit leaves you at 1 life and freezes everything nearby.
-    if (dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
-      h.phoenixUsed = true;
-      dmg = Math.max(0, Math.ceil(p.hp) - 1);
-      for (const e of this.enemiesInRadius(p.x, p.z, 7, this.scratch)) e.frozen = Math.max(e.frozen, e.def.boss ? 0.4 : 2.5);
-      this.vfx.ring(p.x, p.z, 1, 14, '#ff7a2f', 0.5);
-      this.vfx.burst(p.x, 1, p.z, { count: 30, color: '#ff7a2f', color2: '#ffd23f', speed: [4, 10], size: [0.15, 0.3], life: [0.4, 0.8], up: 6, gravity: 10 });
-      this.vfx.banner('PHOENIX!', `${h.name.toUpperCase()} RISES`, 1.4);
-      p.invuln = Math.max(p.invuln, 1.5);
-      if (dmg <= 0) return;
-    }
-    if (src && h.hasRelic('r_thorns') && src.active) this.damage(src, 80, { source: 'thorns', tags: [], noStatus: true }, h);
-    const vamp = src?.mod?.vampire;
-    if (vamp && src.active) {
-      src.hp = Math.min(src.maxHp, src.hp + src.maxHp * vamp.onHit);
-      this.vfx.num(src.x, 2.4 * src.scale, src.z, 'DRAIN', 'player');
-      this.vfx.burst(p.x, 1, p.z, { count: 8, color: '#b13e53', color2: '#ff5e7a', speed: [2, 5], size: [0.12, 0.22], life: [0.3, 0.5], up: 3 });
-    }
-    this.runEvents.onHurt();
-    this.runEvents.onComboBreak();
-    const dx = p.x - fromX;
-    const dz = p.z - fromZ;
-    const d = Math.hypot(dx, dz) || 1;
-    if (!p.hurt(dmg, dx / d, dz / d)) return;
-    this.damagedThisStage = true;
-    h.synergy.hurt();
-    if (this.combo >= 25) this.vfx.num(p.x, 3, p.z, 'COMBO BREAK', 'player');
-    this.combo = 0;
-    this.vfx.sound('playerHurt', p.x, p.z);
-    if (h === this.hero) {
-      this.hud.hurt();
-      this.juice.freeze(0.06);
-      this.juice.shake(0.35);
-      this.juice.kick(dx / d, dz / d, 6);
-      this.input.rumble(0.6, 0.4, 160);
-    } else this.tell(h, { t: 'hurt', dx: dx / d, dz: dz / d });
-    this.vfx.num(p.x, 2.2, p.z, dmg, 'player');
-    this.vfx.star(p.x, 1.1, p.z, 2, '#ff3d5a', 0.15);
-    this.vfx.burst(p.x, 1, p.z, { count: 10, color: '#ff3d5a', color2: '#ffffff', speed: [3, 8], size: [0.12, 0.25], life: [0.2, 0.4], up: 3, gravity: 12 });
-    if (p.dead) this.onHeroDown(h);
-  }
 
-  private onHeroDown(h: Hero): void {
-    const p = h.player;
-    if (h.revivesLeft > 0) {
-      h.revivesLeft--;
-      this.reviveHero(h, 0.5, false);
-      h.bombCharge = 1;
-      this.tryBomb(h);
-      this.vfx.banner('SECOND WIND!', `${h.name} is back on their feet`, 1.6);
-      return;
-    }
-    if (this.pvp?.phase === 'duel') {
-      this.vfx.sound('playerDie', p.x, p.z);
-      this.vfx.shake(p.x, p.z, 1);
-      this.vfx.burst(p.x, 1, p.z, { count: 40, color: h.color, color2: '#ffd23f', speed: [4, 12], size: [0.2, 0.45], life: [0.6, 1.2], up: 7, gravity: 16, drag: 1.5 });
-      this.vfx.toast(`${h.name.toUpperCase()} IS OUT!`, 2.5);
-      this.pvpCheckWinner();
-      return;
-    }
-    this.vfx.sound('playerDie', p.x, p.z);
-    this.vfx.shake(p.x, p.z, 1);
-    this.vfx.ring(p.x, p.z, 1, 10, h.color, 0.6);
-    this.vfx.burst(p.x, 1, p.z, { count: 40, color: h.color, color2: '#ffd23f', speed: [4, 12], size: [0.2, 0.45], life: [0.6, 1.2], up: 7, gravity: 16, drag: 1.5 });
-    if (h === this.hero) {
-      this.juice.freeze(0.25);
-      this.hud.flash(0.5);
-    }
-    if (this.aliveHeroes.length === 0) {
-      this.mode = 'dead';
-      this.modeT = 0;
-      this.gameOverShown = false;
-    } else this.vfx.toast(`${h.name.toUpperCase()} IS DOWN! STAND NEXT TO THEM TO REVIVE`, 3);
-  }
 
-  private collect(h: Hero, type: PickupType, value: number): void {
-    const p = h.player;
-    switch (type) {
-      case PickupType.Gem:
-        this.gainXp(value * h.stats.xpMul);
-        h.synergy.gem(value);
-        this.vfx.sound('gem', p.x, p.z);
-        break;
-      case PickupType.Bolt: {
-        const g = Math.max(1, Math.round(value * (1 + h.synergy.flags.goldMul)));
-        h.gold += g;
-        this.vfx.sound('coin', p.x, p.z);
-        this.vfx.num(p.x, 2.4, p.z, `+${g}●`, 'score');
-        break;
-      }
-      case PickupType.Heart: {
-        const healed = p.heal(30);
-        this.vfx.sound('heal', p.x, p.z);
-        if (healed > 0) this.vfx.num(p.x, 2.4, p.z, `+${Math.round(healed)}`, 'heal');
-        break;
-      }
-      case PickupType.Magnet:
-        this.pickups.vacuum = true;
-        this.vfx.sound('heal', p.x, p.z);
-        this.vfx.toast('MAGNET!');
-        break;
-      case PickupType.Nuke:
-        this.nuke(h);
-        break;
-      case PickupType.Gear:
-        h.rerollsLeft = Math.min(MAX_GEARS, h.rerollsLeft + 1);
-        this.vfx.sound('gear', p.x, p.z);
-        this.vfx.num(p.x, 2.4, p.z, `+1 GEAR (${h.rerollsLeft}/${MAX_GEARS})`, 'score');
-        break;
-      case PickupType.Chest:
-        h.chestsPending++;
-        h.gold += 2;
-        this.vfx.sound('chest', p.x, p.z);
-        if (h === this.hero) this.hud.flash(0.3);
-        break;
-    }
-  }
 
-  private updateBullets(dt: number): void {
-    const b = this.bullets;
-    b.integrate(dt);
-    for (let i = 0; i < b.count; i++) {
-      const x = b.x[i];
-      const z = b.z[i];
-      if (b.life[i] <= 0) {
-        // Flak pellets only burst on something; a miss just fizzles.
-        if (b.kind[i] !== 5) this.bulletBlast(i);
-        b.kill(i--);
-        continue;
-      }
-      if (b.team[i] === Team.Player) {
-        const bi = this.barrels.hitTest(x, z, b.radius[i]);
-        if (bi >= 0) {
-          this.barrels.hit(bi, b.damage[i], b.owner[i]);
-          this.vfx.star(x, BULLET_Y, z, 0.9, '#ffd23f', 0.08);
-          this.vfx.sound('hit', x, z, 0.8);
-          b.kill(i--);
-          continue;
-        }
-      }
-      if (this.walls.hitCircle(x, z, b.radius[i])) {
-        this.vfx.burst(b.px[i], BULLET_Y, b.pz[i], { count: 3, color: '#ffffff', color2: b.team[i] === Team.Enemy ? '#ff3df0' : '#fff36b', speed: [2, 6], size: [0.08, 0.15], life: [0.1, 0.25], up: 2, gravity: 10 });
-        this.bulletBlast(i);
-        b.kill(i--);
-        continue;
-      }
-      if (b.team[i] === Team.Enemy) {
-        for (const h of this.heroes) {
-          const p = h.player;
-          if (p.dead || h.left || p.invuln > 0) continue;
-          const rr = b.radius[i] + p.radius * 0.8;
-          if ((p.x - x) ** 2 + (p.z - z) ** 2 < rr * rr) {
-            this.hurtHero(h, b.damage[i], b.px[i], b.pz[i], null, 'Enemy fire');
-            b.kill(i--);
-            break;
-          }
-        }
-        continue;
-      }
-      let hit = null as Enemy | null;
-      const r = b.radius[i];
-      this.hash.query(x, z, r, (e) => {
-        if (hit || !e.alive || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
-        const rr = e.radius + r;
-        if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr) hit = e;
-      });
-      if (hit) {
-        const sp = Math.hypot(b.vx[i], b.vz[i]) || 1;
-        const by = this.heroes[b.owner[i]] ?? this.hero;
-        const kind = BULLET_KINDS[b.kind[i]] ?? BULLET_KINDS[0];
-        this.damage(hit, b.damage[i], { source: kind.source, tags: kind.tags, dirX: b.vx[i] / sp, dirZ: b.vz[i] / sp, knockback: b.knockback[i], hx: x, hz: z, canCrit: true, loud: true }, by);
-        if (b.blast[i] > 0 && IMPACT_BLAST.includes(b.kind[i])) {
-          this.bulletBlast(i);
-          b.blast[i] = 0;
-        }
-        if (b.pierce[i] > 0) {
-          b.pierce[i]--;
-          b.markHit(i, hit.uid);
-        } else {
-          this.bulletBlast(i);
-          b.kill(i--);
-        }
-      }
-    }
-  }
 
-  /** Walk into a treasure chest to open it; closed chests sparkle near players. */
-  private updateChests(): void {
-    if (!this.isCombatMode) return;
-    for (const h of this.aliveHeroes) {
-      const i = this.chests.touching(h.player.x, h.player.z);
-      if (i >= 0) this.openChest(i, h);
-    }
-    if (this.stepN % 40 !== 0) return;
-    for (const c of this.chests.list) {
-      if (c.openT >= 0 || !this.aliveHeroes.some((h) => Math.hypot(h.player.x - c.x, h.player.z - c.z) < 30)) continue;
-      this.vfx.burst(c.x, 0.9, c.z, { count: 2, color: '#ffcd75', color2: '#f4f4f4', speed: [0.4, 1.4], size: [0.1, 0.18], life: [0.5, 0.9], up: 2.5, drag: 1 });
-    }
-  }
 
-  /** Host/solo: a new chest every chestTuning.every seconds at a random clear spot. */
-  private updateChestSpawns(dt: number): void {
-    this.chestT += dt;
-    if (this.chestT < chestTuning.every) return;
-    this.chestT -= chestTuning.every;
-    if (this.chests.closedCount >= chestTuning.maxClosed) return;
-    const lim = this.arena.halfSize - 5;
-    for (let tries = 0; tries < 30; tries++) {
-      const x = this.rng.range(-lim, lim);
-      const z = this.rng.range(-lim, lim);
-      if (this.walls.hitCircle(x, z, 1.2)) continue;
-      const facing = this.rng.range(0, Math.PI * 2);
-      this.chests.add(x, z, facing);
-      this.host?.broadcast({ t: 'chestspawn', x, z, f: facing });
-      this.vfx.ring(x, z, 1, 6, '#ffcd75', 0.6);
-      this.vfx.burst(x, 1, z, { count: 20, color: '#ffcd75', color2: '#ffffff', speed: [2, 6], size: [0.15, 0.3], life: [0.5, 0.9], up: 8, gravity: 10 });
-      this.vfx.toast('A TREASURE CHEST APPEARED!');
-      this.vfx.sound('chest', NaN, NaN);
-      return;
-    }
-  }
 
-  private openChest(i: number, h: Hero): void {
-    const c = this.chests.open(i);
-    if (!c) return;
-    this.host?.broadcast({ t: 'wchest', i });
-    const item = h.chestItem();
-    this.runEvents.onChest();
-    h.player.happyT = 1.2;
-    this.vfx.sound('chest', c.x, c.z);
-    this.vfx.ring(c.x, c.z, 1, 5, '#ffcd75', 0.35);
-    this.vfx.burst(c.x, 0.8, c.z, { count: 22, color: '#ffcd75', color2: item.color, speed: [3, 7], size: [0.12, 0.28], life: [0.4, 0.8], up: 7, gravity: 12 });
-    this.vfx.num(c.x, 2.6, c.z, `${item.name} ${item.text}`, 'crit');
-    if (h === this.hero) {
-      this.hud.chestReveal(item);
-      this.hud.flash(0.25);
-    } else this.tell(h, { t: 'chestitem', item });
-    this.checkAchievements();
-  }
 
-  /** Full-charge shots explode where they end. */
-  private bulletBlast(i: number): void {
-    const b = this.bullets;
-    if (b.team[i] !== Team.Player || b.blast[i] <= 0) return;
-    const by = this.heroes[b.owner[i]] ?? this.hero;
-    if (b.kind[i] === 5) {
-      this.blast(b.x[i], b.z[i], b.blast[i], b.damage[i] * 0.5, this.bullets.colorOf(i), 'scatter', ['projectile', 'explosive'], false, by);
-      return;
-    }
-    this.vfx.shake(b.x[i], b.z[i], 0.25);
-    const tags: Tag[] = b.kind[i] === 8 ? ['projectile', 'explosive', 'fire'] : ['projectile', 'explosive'];
-    this.blast(b.x[i], b.z[i], b.blast[i], b.damage[i] * 0.6, this.bullets.colorOf(i), 'charge', tags, false, by);
-  }
 
-  private makeSpecialApi(): SpecialApi {
-    const g = this;
-    return {
-      get enemies() {
-        return g.enemies.list;
-      },
-      get rng() {
-        return g.rng;
-      },
-      get vfx() {
-        return g.vfx;
-      },
-      damage: (e, base, o, by) => g.damage(e, base, o, by),
-      blast: (x, z, r, base, color, source, tags, noStatus, by) => g.blast(x, z, r, base, color, source, tags, noStatus, by),
-      zap: (from, hops, dmg, by) => g.zap(from, hops, dmg, by),
-      ignite: (e, dps, by) => g.ignite(e, dps, by),
-    };
-  }
 
-  /** Q/E: fire the hero's special once its meter is full. */
-  private tryBomb(h: Hero): void {
-    if (h.bombCharge < 1 || h.player.dead) return;
-    if (h.special.id !== 'bomb') {
-      h.bombCharge = 0;
-      startSpecial(h, h.specialDef, h.specialP, this.specialApi);
-      return;
-    }
-    if (h.bombT >= 0 || h.bombNext > 0) return;
-    const p = h.player;
-    h.bombCharge = 0;
-    h.bombNuke = false;
-    h.bombWave = 1;
-    this.startBombWave(h, p.x, p.z);
-    p.invuln = Math.max(p.invuln, 0.6);
-    if (h === this.hero) {
-      this.hud.flash(0.9);
-      this.input.rumble(1, 0.8, 420);
-    }
-    this.juice.freeze(0.06);
-    const R = h.specialP.radius;
-    this.vfx.scar(p.x, p.z, 3, SCAR_COLORS.crater, 18);
-    for (let i = 0; i < this.bullets.count; i++) {
-      if (this.bullets.team[i] === Team.Enemy && Math.hypot(this.bullets.x[i] - p.x, this.bullets.z[i] - p.z) < R * 1.5) this.bullets.kill(i--);
-    }
-  }
 
-  /** One bomb wave from (x, z): Implosion's first wave pulls in (violet), everything else blasts out. */
-  private startBombWave(h: Hero, x: number, z: number): void {
-    h.bombT = 0;
-    h.bombId = (h.bombId + 1) % 1000;
-    h.bombX = x;
-    h.bombZ = z;
-    const R = h.specialP.radius;
-    const evo = h.specialEvo;
-    const pull = evo === 'implode' && h.bombWave === 1;
-    const color = pull ? '#b48cff' : evo === 'cluster' ? '#ff7a2f' : '#ef7d57';
-    this.vfx.sound('bomb', x, z);
-    this.vfx.shake(x, z, pull ? 0.5 : 0.9);
-    this.vfx.ring(x, z, 1, R * 2, color, bombTuning.duration + 0.15);
-    this.vfx.ring(x, z, 1, R * 1.6, '#ffffff', bombTuning.duration);
-    this.vfx.star(x, 1.2, z, pull ? 3 : 5, '#ffffff', 0.2);
-  }
-
-  /** Cluster Bomb's bomblets pop one by one after the wave. */
-  private updateBomblets(h: Hero, dt: number): void {
-    const p = h.specialP;
-    for (let i = h.bomblets.length - 1; i >= 0; i--) {
-      const b = h.bomblets[i];
-      if ((b.t -= dt) > 0) continue;
-      h.bomblets.splice(i, 1);
-      this.blast(b.x, b.z, bombTuning.bombletRadius, p.dmg * bombTuning.bombletDmg, '#ff7a2f', 'bomb', ['explosive'], false, h);
-    }
-  }
-
-  /** Nuke pickup: the bomb's wave, but screen-wide and lethal to everything but bosses. */
-  private nuke(h: Hero): void {
-    const p = h.player;
-    h.bombT = 0;
-    h.bombNuke = true;
-    h.bombId = (h.bombId + 1) % 1000;
-    h.bombX = p.x;
-    h.bombZ = p.z;
-    p.invuln = Math.max(p.invuln, 1);
-    this.vfx.banner('NUKE!', 'SCREEN WIPE', 1.4);
-    this.vfx.sound('bomb', p.x, p.z);
-    this.vfx.sound('explode', p.x, p.z);
-    this.vfx.flash(1);
-    this.vfx.shake(p.x, p.z, 1.6);
-    this.juice.freeze(0.12);
-    const R = nukeTuning.radius;
-    this.vfx.ring(p.x, p.z, 1, R * 2, '#ffffff', nukeTuning.duration + 0.2);
-    this.vfx.ring(p.x, p.z, 1, R * 1.7, '#ffcd75', nukeTuning.duration + 0.1);
-    this.vfx.ring(p.x, p.z, 1, R * 1.3, '#ef7d57', nukeTuning.duration);
-    this.vfx.star(p.x, 1.5, p.z, 9, '#ffffff', 0.3);
-    this.vfx.burst(p.x, 1, p.z, { count: 60, color: '#ffcd75', color2: '#ffffff', speed: [8, 20], size: [0.2, 0.5], life: [0.5, 1.1], up: 10, gravity: 8 });
-    for (let i = 0; i < this.bullets.count; i++) if (this.bullets.team[i] === Team.Enemy) this.bullets.kill(i--);
-  }
-
-  private updateBomb(h: Hero, dt: number): void {
-    if (h.bomblets.length) this.updateBomblets(h, dt);
-    // Implosion: the second, bigger blast after the pull.
-    if (h.bombNext > 0 && (h.bombNext -= dt) <= 0) {
-      h.bombWave = 2;
-      this.startBombWave(h, h.bombX, h.bombZ);
-      this.vfx.sound('explode', h.bombX, h.bombZ);
-      this.vfx.flash(0.5);
-    }
-    if (h.bombT < 0) return;
-    h.bombT += dt;
-    const nuke = h.bombNuke;
-    const sp = h.specialP;
-    const implode = !nuke && sp.implode > 0;
-    const pull = implode && h.bombWave === 1;
-    const dmgMul = implode ? (pull ? bombTuning.pullDmg : bombTuning.implodeDmg) : 1;
-    const k = Math.min(1, h.bombT / (nuke ? nukeTuning.duration : bombTuning.duration));
-    const r = (nuke ? nukeTuning.radius : sp.radius) * (1 - (1 - k) * (1 - k));
-    const stamp = h.index * 1000 + h.bombId + 1;
-    for (const e of this.enemies.list) {
-      if (!e.alive || e.hp <= 0 || e.bombStamp === stamp) continue;
-      const dx = e.x - h.bombX;
-      const dz = e.z - h.bombZ;
-      const d = Math.hypot(dx, dz);
-      if (d > r + e.radius) continue;
-      e.bombStamp = stamp;
-      const n = d || 1;
-      // The nuke over-kills normal enemies and takes a big bite out of bosses.
-      const tough = e.def.boss || e.def.id === 'reaper';
-      const dmg = !nuke ? sp.dmg * dmgMul : tough ? e.maxHp * nukeTuning.bossHpFrac : e.maxHp * 20;
-      // Implosion's first wave drags enemies toward the centre instead of blasting them away.
-      const dir = pull ? -Math.min(1, d / Math.max(1, sp.radius)) : 1;
-      this.damage(e, dmg, { source: nuke ? 'nuke' : 'bomb', tags: nuke ? [] : ['explosive'], dirX: (dx / n) * dir, dirZ: (dz / n) * dir, knockback: pull ? bombTuning.pullKnock : bombTuning.knockback, noStatus: nuke, fixed: nuke && tough }, h);
-    }
-    if (k < 1) return;
-    h.bombT = -1;
-    if (nuke) return;
-    if (pull) h.bombNext = bombTuning.implodeDelay;
-    // Cluster Bomb: bomblets scatter through the wave's area and pop one after another.
-    for (let i = 0; i < (sp.bomblets ?? 0); i++) {
-      const a = this.rng.next() * Math.PI * 2;
-      const d = sp.radius * (0.25 + this.rng.next() * 0.6);
-      h.bomblets.push({ x: h.bombX + Math.cos(a) * d, z: h.bombZ + Math.sin(a) * d, t: 0.1 + i * 0.06 + this.rng.next() * 0.1 });
-    }
-  }
 
   // ------------------------------------------------------------------ online: lobby
 
-  private async hostGame(name: string): Promise<void> {
-    this.saveName(name);
-    this.netName = name.trim().slice(0, 12) || 'Player';
-    this.leaveToTitle();
-    this.role = 'host';
-    const host = new NetHost(3);
-    this.host = host;
-    this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero() }];
-    this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
-    host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
-    host.onLeave = (id) => this.onClientLeft(id);
-    host.onError = (msg) => this.screens.setLobby({ code: '', players: [], isHost: true, status: msg });
-    try {
-      await host.ready;
-    } catch {
-      return;
-    }
-    if (this.host !== host) return;
-    this.refreshLobby();
-  }
 
-  private refreshLobby(): void {
-    if (!this.host) return;
-    const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout) }));
-    const difficulty = this.lobbyDifficulty().id;
-    const kind = this.lobbyKind;
-    this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind });
-    this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind });
-  }
 
-  /** Co-op difficulty: the host's pick, if their save has it unlocked. */
-  private lobbyDifficulty(): DifficultyDef {
-    const d = DIFF_BY_ID[settings.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
-    return d.unlock && !save.achievements.includes(d.unlock) ? DIFF_BY_ID.normal : d;
-  }
 
-  private hostStart(): void {
-    if (this.role !== 'host' || !this.host) return;
-    if (this.lobbyKind === 'pvp') {
-      if (this.lobby.length < 2) {
-        this.hud.toast('PVP NEEDS AT LEAST 2 PLAYERS', 2.5);
-        return;
-      }
-      const seed = randomSeed();
-      const difficulty = this.lobbyDifficulty().id;
-      this.host.broadcast({ t: 'pvpgo', seed, difficulty });
-      this.pvpBegin('host', seed, difficulty);
-      return;
-    }
-    const heroes = this.lobby.map((p, i) => {
-      if (i === 0) return this.hero;
-      const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
-      h.loadoutPick = p.loadout;
-      return h;
-    });
-    this.hero.name = this.lobby[0].name;
-    this.setHeroes(heroes);
-    this.local = 0;
-    this.startRun();
-  }
 
-  private async joinGame(name: string, code: string): Promise<void> {
-    this.saveName(name);
-    this.netName = name.trim().slice(0, 12) || 'Player';
-    this.leaveToTitle();
-    this.role = 'client';
-    const client = new NetClient(code);
-    this.client = client;
-    this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connecting...' });
-    client.onMessage = (m) => this.onClientMessage(m as Record<string, unknown>);
-    client.onClose = () => {
-      if (this.client !== client) return;
-      this.leaveToTitle();
-      this.hud.toast('DISCONNECTED FROM HOST', 3);
-    };
-    try {
-      await client.ready;
-    } catch (err) {
-      if (this.client !== client) return;
-      this.client = null;
-      this.role = 'solo';
-      this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
-      return;
-    }
-    client.send({ t: 'hello', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero() });
-    this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
-  }
 
-  /** Online lobby: share a new loadout pick (the host's own is read at start). */
-  private onLoadoutChanged(): void {
-    const loadout = validLoadout(settings.loadout, unlockedLoadout());
-    if (this.role === 'client') this.client?.send({ t: 'loadout', loadout });
-    else if (this.role === 'host' && this.lobby[0]) {
-      this.lobby[0].loadout = loadout;
-      this.refreshLobby();
-    }
-  }
 
   // ------------------------------------------------------------------ PvP (src/game/pvp.ts)
 
-  /** Everyone: play the shared stage alone, keeping the connection open for the duel. */
-  private pvpBegin(net: 'host' | 'client', seed: number, difficulty: string): void {
-    this.pvp = { phase: 'stage', net, seed, ready: new Map(), progress: new Map(), proxies: [], acc: [], lastHit: [], zoneR: 0, zoneT: 0, zoneTick: 0 };
-    this.role = 'solo';
-    // Solo stage: nothing to replay on clients, so don't pile up effects for the duel's first snapshot.
-    this.vfx.recording = false;
-    this.vfx.drain();
-    this.runMode = 'standard';
-    this.hero.name = this.netName || playerName();
-    this.startRun({ seed, difficulty });
-    this.vfx.banner('PVP · YOUR STAGE', 'BEAT THE BOSS AND BUILD UP<br>THEN FIGHT EVERYONE ELSE', 3);
-  }
 
-  /** Your stage is over (boss beaten and shop closed, or you died): send your build and wait. */
-  private pvpStageDone(): void {
-    const pvp = this.pvp!;
-    pvp.phase = 'wait';
-    const build = exportBuild(this.hero, this.level);
-    this.mode = 'title';
-    this.screens.showWait([`${this.hero.name}: READY`], PVP_WAIT_NOTE);
-    if (pvp.net === 'client') this.client?.send({ t: 'pvpready', build });
-    else {
-      pvp.ready.set('', build);
-      this.pvpCheckReady();
-    }
-  }
 
-  /** Every second: progress for the waiting screen (clients report it, the host shares the list). */
-  private pvpTick(): void {
-    const pvp = this.pvp!;
-    if (this.stepN % 60 !== 0 || (pvp.phase !== 'stage' && pvp.phase !== 'wait')) return;
-    const mine = pvp.phase === 'wait' ? 'READY' : `LV ${this.level} · ${this.boss ? 'BOSS FIGHT' : clock(this.director.duration - this.director.time) + ' LEFT'}`;
-    if (pvp.net === 'client') {
-      this.client?.send({ t: 'pvpprog', text: mine });
-      return;
-    }
-    pvp.progress.set('', mine);
-    const rows = this.lobby.map((p) => `${p.name}: ${pvp.ready.has(p.peerId) ? 'READY' : pvp.progress.get(p.peerId) ?? 'PLAYING'}`);
-    this.host?.broadcast({ t: 'pvpstat', rows });
-    if (pvp.phase === 'wait') this.screens.showWait(rows, PVP_WAIT_NOTE);
-  }
 
-  /** Host: start the duel once everyone still here has handed in a build. */
-  private pvpCheckReady(): void {
-    const pvp = this.pvp;
-    if (!pvp || pvp.net !== 'host' || pvp.phase === 'duel' || pvp.phase === 'over') return;
-    if (!this.lobby.every((p) => pvp.ready.has(p.peerId))) return;
-    this.pvpStartDuel();
-  }
 
-  /** Host: rebuild every hero from its build and drop them all into one arena. */
-  private pvpStartDuel(): void {
-    const pvp = this.pvp!;
-    pvp.phase = 'duel';
-    this.role = 'host';
-    this.vfx.drain();
-    const heroes = this.lobby.map((p, i) => {
-      if (i === 0) return this.hero;
-      const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
-      applyBuild(h, pvp.ready.get(p.peerId)!, this.scene);
-      return h;
-    });
-    this.hero.name = this.lobby[0].name;
-    this.setHeroes(heroes);
-    this.local = 0;
-    this.hero.recomputeStats();
-    this.hero.player.reset(this.hero.stats);
-    this.hero.revivesLeft = pvp.ready.get('')?.revives ?? this.hero.revivesLeft;
-    for (const h of heroes) {
-      h.left = false;
-      h.player.showWhenDead = true;
-      h.pendingLevels = h.chestsPending = 0;
-      h.bombCharge = 1;
-    }
-    this.screens.show('none');
-    this.hud.setVisible(true);
-    for (const h of heroes) {
-      if (!h.peerId) continue;
-      this.host!.send(h.peerId, { t: 'start', seed: pvp.seed, difficulty: this.difficulty.id, you: h.index, players: heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
-    }
-    this.loadStage(1);
-    this.enemies.clear();
-    this.pickups.clear?.();
-    // Heroes start spread on a circle facing the middle, each with an invisible stand-in the others can hit.
-    pvp.proxies = [];
-    heroes.forEach((h, i) => {
-      const a = (i / heroes.length) * Math.PI * 2;
-      h.player.teleport(Math.cos(a) * pvpTuning.spawnRadius, Math.sin(a) * pvpTuning.spawnRadius);
-      h.player.setAimDir(-Math.cos(a), -Math.sin(a));
-      const e = this.enemies.spawn(PVP_TARGET, h.player.x, h.player.z, { instant: true });
-      e.pvpOwner = h.index;
-      pvp.proxies[h.index] = e;
-    });
-    pvp.acc = heroes.map(() => 0);
-    pvp.lastHit = heroes.map(() => -1);
-    pvp.zoneR = pvpTuning.zoneStart;
-    pvp.zoneT = pvp.zoneTick = 0;
-    this.vfx.banner('DUEL!', 'LAST ONE STANDING WINS<br>THE RED RING CLOSES IN', 2.8);
-    this.vfx.sound('boss', NaN, NaN);
-  }
 
-  /** A hit on a hero's stand-in: the attacker's stats, Mods and crits apply, then it's scaled down to hero damage. */
-  private pvpHit(e: Enemy, base: number, o: DamageOpts, by: Hero): number {
-    const pvp = this.pvp;
-    const target = this.heroes[e.pvpOwner];
-    if (!pvp || pvp.phase !== 'duel' || !target || target === by || target.player.dead || target.left || target.player.dashing) return 0;
-    const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
-    const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
-    const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
-    let amount = o.fixed ? base : by.synergy.damage(ev, base * by.stats.damageMul);
-    if (e.exposeT > 0) amount *= 1 + statusTuning.exposeMult;
-    if (crit) amount *= by.stats.critMult;
-    pvp.acc[target.index] += amount * pvpTuning.damageScale;
-    pvp.lastHit[target.index] = by.index;
-    if (!o.noStatus) {
-      if (isRightClick(o.source)) e.exposeT = statusTuning.exposeTime;
-      if (tags.includes('fire')) this.ignite(e, Math.max(3, amount * 0.15), by);
-    }
-    if (crit) this.vfx.star(target.player.x, 1.4, target.player.z, 1.2, '#fff35c', 0.1);
-    return amount;
-  }
 
-  /** Duel step: stand-ins follow their heroes, pending damage lands as hits, the ring closes. */
-  private updateDuel(dt: number): void {
-    const pvp = this.pvp!;
-    for (const h of this.heroes) {
-      const e = pvp.proxies[h.index];
-      if (!e) continue;
-      if (h.player.dead || h.left) {
-        if (e.active) this.enemies.kill(e);
-        pvp.acc[h.index] = 0;
-        continue;
-      }
-      e.x = e.px = h.player.x;
-      e.z = e.pz = h.player.z;
-      e.vx = e.vz = e.kx = e.kz = 0;
-      e.hp = e.maxHp;
-      e.frozen = 0;
-      // Damage lands as hits, so i-frames and the per-hit cap pace a duel instead of one volley deciding it.
-      if (pvp.acc[h.index] >= 1 && h.player.invuln <= 0) {
-        const by = this.heroes[pvp.lastHit[h.index]];
-        const raw = pvp.acc[h.index];
-        pvp.acc[h.index] = 0;
-        this.hurtHero(h, raw, by?.player.x ?? h.player.x, by?.player.z ?? h.player.z, null, by ? by.name : 'Opponent');
-      }
-    }
-    // The safe ring closes after a while; outside it you lose life every second.
-    pvp.zoneT += dt;
-    if (pvp.zoneT > pvpTuning.zoneDelay) pvp.zoneR = Math.max(pvpTuning.zoneMin, pvp.zoneR - pvpTuning.zoneSpeed * dt);
-    if (this.stepN % 12 === 0) this.vfx.ring(0, 0, pvp.zoneR * 2, 1.01, '#b13e53', 0.25); // ring sizes are diameters
-    pvp.zoneTick -= dt;
-    if (pvp.zoneTick <= 0) {
-      pvp.zoneTick = 1;
-      for (const h of this.aliveHeroes) {
-        if (Math.hypot(h.player.x, h.player.z) <= pvp.zoneR) continue;
-        this.hurtHero(h, h.player.maxHp * pvpTuning.zoneDps + h.stats.armor, 0, 0, null, 'The ring');
-      }
-    }
-  }
 
-  /** Host: one hero left (or none): that's the match. */
-  private pvpCheckWinner(): void {
-    const pvp = this.pvp;
-    if (!pvp || pvp.net !== 'host' || pvp.phase !== 'duel') return;
-    const alive = this.aliveHeroes;
-    if (alive.length > 1) return;
-    const name = alive[0]?.name ?? '';
-    this.host?.broadcast({ t: 'pvpend', winner: name });
-    this.pvpOver(name);
-  }
 
-  /** Everyone: show the winner, then back to the title a few seconds later. */
-  private pvpOver(winner: string): void {
-    const pvp = this.pvp!;
-    pvp.phase = 'over';
-    this.vfx.banner(winner ? `${winner.toUpperCase()} WINS!` : 'DRAW!', 'LAST ONE STANDING', 4);
-    this.vfx.flash(0.8);
-    this.vfx.sound('legendaryPick', NaN, NaN);
-    window.setTimeout(() => {
-      if (this.pvp !== pvp) return;
-      this.leaveToTitle();
-      this.hud.toast(winner ? `${winner.toUpperCase()} WON THE DUEL` : 'THE DUEL WAS A DRAW', 4);
-    }, 4500);
-  }
 
-  private saveName(name: string): void {
-    saveJson('profile', { name: name.trim().slice(0, 12) || 'Player' });
-  }
 
   // ------------------------------------------------------------------ online: host side
 
-  private heroByPeer(id: string): Hero | undefined {
-    return this.heroes.find((h) => h.peerId === id);
-  }
 
-  private onHostMessage(from: string, m: Record<string, unknown>): void {
-    if (m.t === 'pvpready' && this.pvp) {
-      this.pvp.ready.set(from, m.build as HeroBuild);
-      this.pvpCheckReady();
-      return;
-    }
-    if (m.t === 'pvpprog' && this.pvp) {
-      this.pvp.progress.set(from, String(m.text ?? '').slice(0, 40));
-      return;
-    }
-    if (m.t === 'hello') {
-      if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from)) {
-        this.host?.send(from, { t: 'full', reason: 'Game already started.' });
-        return;
-      }
-      this.lobby.push({
-        peerId: from,
-        name: String(m.name ?? 'Player').slice(0, 12),
-        unlocked: Array.isArray(m.unlocked) ? (m.unlocked as string[]) : unlockedWeapons(),
-        loadout: validLoadout(m.loadout as Partial<Loadout>),
-        skin: skinOf(String(m.skin ?? '')).id,
-        pet: String(m.pet ?? 'none'),
-        hero: heroOf(String(m.hero ?? '')).id,
-      });
-      this.refreshLobby();
-      return;
-    }
-    if (m.t === 'loadout') {
-      const entry = this.lobby.find((p) => p.peerId === from);
-      if (entry && this.mode === 'title') {
-        entry.loadout = validLoadout(m.loadout as Partial<Loadout>);
-        this.refreshLobby();
-      }
-      return;
-    }
-    const h = this.heroByPeer(from);
-    if (!h) return;
-    h.lastSeen = performance.now();
-    if (m.t === 'i') {
-      h.remote = {
-        x: Number(m.x),
-        z: Number(m.z),
-        vx: Number(m.vx),
-        vz: Number(m.vz),
-        ax: Number(m.ax),
-        az: Number(m.az),
-        ad: Number(m.ad ?? -1),
-        firing: !!m.f,
-        charging: !!m.c,
-        dashing: !!m.d,
-      };
-    } else if (m.t === 'ping') {
-      if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z));
-    } else if (m.t === 'dash') {
-      if (!h.player.dead && this.isCombatMode) {
-        h.player.invuln = Math.max(h.player.invuln, playerTuning.dashTime + playerTuning.dashIframesExtra);
-        this.onDash(h);
-      }
-    } else if (m.t === 'bomb') {
-      if (this.isCombatMode) this.tryBomb(h);
-    } else if (m.t === 'ui') {
-      const d = m.d === -1 ? -1 : 1;
-      this.heroAction(h, String(m.a), Number(m.i) || 0, d);
-    }
-  }
 
-  private onClientLeft(id: string): void {
-    if (this.pvp && this.pvp.phase !== 'duel' && this.pvp.phase !== 'over') {
-      const who = this.lobby.find((p) => p.peerId === id);
-      this.lobby = this.lobby.filter((p) => p.peerId !== id);
-      this.pvp.ready.delete(id);
-      if (who) this.hud.toast(`${who.name.toUpperCase()} LEFT THE MATCH`, 3);
-      this.pvpCheckReady();
-      return;
-    }
-    if (this.mode === 'title') {
-      this.lobby = this.lobby.filter((p) => p.peerId !== id);
-      this.refreshLobby();
-      return;
-    }
-    const h = this.heroByPeer(id);
-    if (!h) return;
-    h.left = true;
-    h.player.dead = true;
-    h.player.showWhenDead = false;
-    h.pendingLevels = h.chestsPending = 0;
-    h.shopDone = true;
-    h.disposeWeapons();
-    this.vfx.toast(`${h.name.toUpperCase()} LEFT THE GAME`, 3);
-    // Don't leave the others stuck on a menu waiting for them.
-    if (this.mode === 'levelup' && !this.heroes.some((x) => !x.left && x.needsPick)) this.afterPick(this.hero, '#ffffff');
-    if (this.mode === 'shop' && this.heroes.every((x) => x.left || x.shopDone)) this.closeShop();
-    if (this.pvp?.phase === 'duel') this.pvpCheckWinner();
-    else if (this.aliveHeroes.length === 0 && this.isCombatMode) this.onHeroDown(h);
-  }
 
-  /** Send world snapshots to clients (20 Hz, slower while menus freeze the world). */
-  private hostTick(frozen: boolean): void {
-    if (this.role !== 'host' || !this.host) return;
-    this.vfx.recording = true;
-    if (this.stepN % (frozen ? 15 : SNAP_EVERY) !== 0) return;
-    const events = this.vfx.drain();
-    for (const h of this.heroes) {
-      if (!h.peerId || h.left) continue;
-      this.host.send(h.peerId, this.buildSnapshot(h, events));
-    }
-  }
 
-  private buildSnapshot(forHero: Hero, events: VfxEvent[]): Record<string, unknown> {
-    const cx = forHero.player.x;
-    const cz = forHero.player.z;
-    const near = (x: number, z: number) => Math.abs(x - cx) < INTEREST && Math.abs(z - cz) < INTEREST;
-    const en = this.enemies.list.filter((e) => e.active && (near(e.x, e.z) || e.def.boss));
-    const bi: number[] = [];
-    for (let i = 0; i < this.bullets.count; i++) if (near(this.bullets.x[i], this.bullets.z[i])) bi.push(i);
-    const pi: number[] = [];
-    for (let i = 0; i < this.pickups.count && pi.length < 600; i++) if (near(this.pickups.x[i], this.pickups.z[i])) pi.push(i);
-    const ev = events.filter((e) => {
-      const [x, z] = Vfx.position(e);
-      return Number.isNaN(x) || near(x, z);
-    });
-    const r2 = (v: number) => Math.round(v * 100) / 100;
-    const boss = this.boss && this.boss.active ? { name: this.boss.def.name, hp01: r2(Math.max(0, this.boss.hp / this.boss.maxHp)) } : null;
-    return {
-      t: 's',
-      mode: this.mode,
-      stage: this.stage,
-      tl: !this.director.bossSpawned ? r2(this.director.remaining) : this.boss ? -1 : -2,
-      boss,
-      team: { level: this.level, xp01: r2(this.xp / this.xpNext), score: this.score, combo: this.combo, combo01: r2(this.combo > 0 ? Math.max(0, this.comboT / scoreTuning.comboWindow) : 0), kills: this.kills, time: r2(this.runTime) },
-      cu: this.curses,
-      sev: this.runEvents.event ? [this.runEvents.event.id, r2(this.runEvents.event.t)] : null,
-      sch: this.runEvents.challenge ? [this.runEvents.challenge.text, this.runEvents.challenge.cur, this.runEvents.challenge.max, this.runEvents.challenge.done] : null,
-      bf: [r2(this.runEvents.frenzyT), r2(this.runEvents.overdriveT)],
-      heroes: this.heroes.map((h) => {
-        const p = h.player;
-        return {
-          i: h.index,
-          x: r2(p.x),
-          z: r2(p.z),
-          vx: r2(p.vel.x),
-          vz: r2(p.vel.z),
-          ax: r2(p.aim.x),
-          az: r2(p.aim.z),
-          hp: Math.ceil(p.hp),
-          mhp: Math.round(p.maxHp),
-          dead: p.dead,
-          left: h.left,
-          dash: p.dashing,
-          inv: r2(p.invuln),
-          rec: r2(p.recoil),
-          hf: r2(p.hurtFlash),
-          rv: r2(h.reviveT / REVIVE_TIME),
-          area: r2(h.stats.areaMul),
-          w: h.weapons.map((w) => [w.def.id, w.level, Math.round(w.ready * 20) / 20, w.buildKey, ...w.net()]),
-          rl: h.relics,
-        };
-      }),
-      you: {
-        gold: forHero.gold,
-        gears: forHero.rerollsLeft,
-        special: [forHero.special.id, forHero.special.level, forHero.specialBuild ? buildKey(forHero.specialBuild) : ''],
-        bomb: r2(forHero.bombCharge),
-        mods: forHero.synergy.slots.map((s, i) => ({ id: s.def.id, ro: forHero.synergy.readout(i), lv: s.level })),
-        passives: forHero.passives,
-        stats: { moveSpeedMul: forHero.stats.moveSpeedMul, dashCooldownMul: forHero.stats.dashCooldownMul, dashCharges: forHero.stats.dashCharges, maxHp: forHero.stats.maxHp, magnet: forHero.stats.magnet, areaMul: forHero.stats.areaMul },
-      },
-      portal: this.portal.active ? [r2(this.portal.x), r2(this.portal.z)] : null,
-      en: packEnemies(en),
-      bu: packBullets(this.bullets, bi),
-      pk: packPickups(this.pickups, pi),
-      ev,
-    };
-  }
 
   // ------------------------------------------------------------------ online: client side
 
-  private onClientMessage(m: Record<string, unknown>): void {
-    switch (m.t) {
-      case 'lobby': {
-        const players = (m.players as { name: string; color: string }[]) ?? [];
-        this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind: m.kind === 'pvp' ? 'pvp' : 'coop' });
-        break;
-      }
-      case 'pvpgo':
-        this.pvpBegin('client', Number(m.seed), String(m.difficulty ?? 'normal'));
-        break;
-      case 'pvpstat':
-        if (this.pvp?.phase === 'wait') this.screens.showWait((m.rows as string[]) ?? [], PVP_WAIT_NOTE);
-        break;
-      case 'pvpend':
-        if (this.pvp) this.pvpOver(String(m.winner ?? ''));
-        break;
-      case 'full':
-        this.leaveToTitle();
-        this.hud.toast(String(m.reason ?? 'THAT GAME IS FULL'), 3);
-        break;
-      case 'start':
-        // PvP: the duel starts; from here on this machine mirrors the host like co-op.
-        if (this.pvp) {
-          this.role = 'client';
-          this.pvp.phase = 'duel';
-        }
-        this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
-        this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
-        break;
-      case 'wchest':
-        this.chests.open(Number(m.i));
-        break;
-      case 'chestspawn':
-        this.chests.add(Number(m.x), Number(m.z), Number(m.f));
-        break;
-      case 'chestitem':
-        this.hud.chestReveal(m.item as Parameters<Hud['chestReveal']>[0]);
-        break;
-      case 'shopfx':
-        this.screens.shopFx(m.kind as ShopFx, Number(m.i));
-        break;
-      case 'chestsgone':
-        this.chests.list = [];
-        break;
-      case 'barrel': {
-        const b = this.barrels.remove(Number(m.i));
-        if (b) this.removeBarrelCollider(b);
-        break;
-      }
-      case 'stage':
-        this.clientStage(Number(m.stage), Number(m.seed));
-        break;
-      case 's':
-        this.applySnapshot(m);
-        break;
-      case 'lv':
-        this.screens.showLevelUp(m.offers as Offer[], String(m.title), Number(m.rerolls), m.loadout as LoadoutItem[], Number(m.skip));
-        break;
-      case 'shop':
-        this.screens.showShop(this.shopFromNet(m.view as NetShop), m.focus === undefined ? undefined : Number(m.focus));
-        break;
-      case 'wait':
-        this.screens.showWait((m.who as string[]) ?? []);
-        break;
-      case 'go':
-        if (['levelup', 'shop', 'relic', 'wait'].includes(this.screens.current)) this.screens.show('none');
-        break;
-      case 'toast':
-        this.hud.toast(String(m.msg));
-        break;
-      case 'hurt':
-        this.player.knock(Number(m.dx), Number(m.dz));
-        this.hud.hurt();
-        this.juice.shake(0.35);
-        this.juice.kick(Number(m.dx), Number(m.dz), 6);
-        sfx.playerHurt();
-        break;
-      case 'over':
-        this.mode = 'dead';
-        this.bankAndShow(m.sum as RunSummary);
-        break;
-      case 'end':
-        this.leaveToTitle();
-        this.hud.toast('THE HOST ENDED THE GAME', 3);
-        break;
-    }
-  }
 
-  private shopFromNet(v: NetShop): ShopView {
-    return {
-      ...v,
-      offers: v.offers.map((o) => (o && MOD_BY_ID[o.id] ? { def: MOD_BY_ID[o.id], price: o.price, hint: o.hint } : null)),
-      owned: v.owned.filter((o) => MOD_BY_ID[o.id]).map((o) => ({ def: MOD_BY_ID[o.id], sell: o.sell, readout: o.readout, level: o.level, maxLevel: o.maxLevel, upCost: o.upCost })),
-    };
-  }
 
-  private clientStart(seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string }[]): void {
-    this.seed = seed;
-    const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie'));
-    this.setHeroes(heroes);
-    this.local = you;
-    for (const h of heroes) {
-      h.player.showWhenDead = heroes.length > 1;
-      h.recomputeStats();
-      h.player.reset(h.stats);
-    }
-    this.score = this.kills = this.combo = 0;
-    this.level = 1;
-    this.hud.resetScore();
-    this.hud.setVisible(true);
-    this.hud.setFade(0);
-    this.screens.show('none');
-    this.mode = 'fight';
-  }
 
-  private clientStage(stage: number, seed: number): void {
-    this.stage = stage;
-    this.seed = seed;
-    this.loadArena((seed ^ Math.imul(stage, 0x9e3779b1)) >>> 0, stage);
-    this.clearWorld();
-    this.heroes.forEach((h, i) => {
-      const s = this.spawnSpot(i);
-      h.player.teleport(s.x, s.z);
-    });
-    this.fadeT = 0.45;
-  }
 
-  private clientUpdate(dt: number): void {
-    const input = this.input;
-    if (this.isCombatMode && this.screens.current === 'none' && (input.keyPressed('Escape') || input.actionPressed('pause') || input.padButtonPressed(9))) {
-      this.pause();
-      input.endStep();
-      return;
-    }
-    const before = this.screens.current;
-    this.screens.update(input, dt);
-    if (this.paused && this.screens.current === 'none') this.paused = false;
-    if (this.screens.current === 'levelup' && before === 'levelup') {
-      for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
-      if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
-    }
-    this.runTime += dt;
-    const h = this.hero;
-    const p = h.player;
-    const control = this.isCombatMode && !p.dead && this.screens.current === 'none';
-    if (control) {
-      if (input.device === 'pad') {
-        if (input.padAim.x !== 0 || input.padAim.y !== 0) p.setAimDir(input.padAim.x, input.padAim.y);
-        else if (input.move.x !== 0 || input.move.y !== 0) p.setAimDir(input.move.x, input.move.y);
-      } else if (this.mouseAimPoint()) p.setAimPoint(this.aimHit.x, this.aimHit.z);
-    }
-    const wantDash =
-      control &&
-      (input.actionPressed('dash') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
-    const moving = this.isCombatMode && this.mode !== 'levelup';
-    this.groundAt(p.x, p.z, p.ground);
-    if (moving && p.update(dt, control ? input : null, this.arena.colliders, wantDash)) {
-      this.client?.send({ t: 'dash' });
-      this.juice.shake(0.05);
-    }
-    const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
-    if (wantBomb) this.client?.send({ t: 'bomb' });
-    const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
-    const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
-    const charging = control && (input.mouseDown(2) || input.padButton(2));
-    if (this.stepN % INPUT_EVERY === 0 && this.client) {
-      const r2 = (v: number) => Math.round(v * 100) / 100;
-      this.client.send({ t: 'i', x: r2(p.x), z: r2(p.z), vx: r2(p.vel.x), vz: r2(p.vel.z), ax: r2(p.aim.x), az: r2(p.aim.z), ad: Number.isFinite(p.aimDist) ? r2(p.aimDist) : -1, f: firing, c: charging, d: p.dashing });
-    }
-    if (this.mode !== 'levelup' && this.mode !== 'shop') {
-      this.bullets.integrate(dt);
-      for (let i = 0; i < this.bullets.count; i++) if (this.bullets.life[i] <= 0) this.bullets.kill(i--);
-    }
-    this.particles.update(dt);
-    this.fx.update(dt);
-    if (this.fadeT > 0) this.fadeT -= dt;
-    input.endStep();
-  }
 
-  private applySnapshot(s: Record<string, unknown>): void {
-    const now = performance.now();
-    if (this.snapTime) this.snapInterval += (Math.min(200, now - this.snapTime) - this.snapInterval) * 0.2;
-    this.snapTime = now;
-    const prevMode = this.mode;
-    this.mode = s.mode as Mode;
-    if (this.mode === 'transition' && prevMode !== 'transition') this.fadeT = 0;
-    this.stage = Number(s.stage);
-    this.netTimeLeft = Number(s.tl);
-    this.netBoss = (s.boss as { name: string; hp01: number }) ?? null;
-    const team = s.team as Record<string, number>;
-    this.level = team.level;
-    this.xp = team.xp01 * 100;
-    this.xpNext = 100;
-    this.score = team.score;
-    this.combo = team.combo;
-    this.netCombo01 = team.combo01;
-    this.kills = team.kills;
-    this.runTime = team.time;
-    this.curses = (s.cu as string[]) ?? [];
-    this.netEvent = (s.sev as [string, number] | null) ?? null;
-    this.netChallenge = (s.sch as [string, number, number, boolean] | null) ?? null;
-    this.netBuffs = (s.bf as [number, number]) ?? [0, 0];
 
-    // Heroes
-    for (const hs of s.heroes as Record<string, unknown>[]) {
-      const h = this.heroes[Number(hs.i)];
-      if (!h) continue;
-      const p = h.player;
-      const wasDead = p.dead;
-      p.dead = !!hs.dead;
-      h.left = !!hs.left;
-      p.hp = Number(hs.hp);
-      h.stats.maxHp = Number(hs.mhp);
-      h.reviveT = Number(hs.rv) * REVIVE_TIME;
-      h.stats.areaMul = Number(hs.area);
-      if (h === this.hero) {
-        p.invuln = Math.max(p.invuln, Number(hs.inv));
-        if (!p.dead && wasDead) p.rig.root.visible = true;
-        p.recoil = Math.max(p.recoil, Number(hs.rec));
-      } else {
-        p.netSet(Number(hs.x), Number(hs.z), Number(hs.vx), Number(hs.vz), Number(hs.ax), Number(hs.az), !!hs.dash);
-        p.invuln = Number(hs.inv);
-        p.recoil = Number(hs.rec);
-        p.hurtFlash = Number(hs.hf);
-        if (!p.dead) p.rig.root.visible = true;
-      }
-      this.syncWeapons(h, hs.w as (string | number)[][]);
-      h.relics = (hs.rl as string[]) ?? [];
-    }
-
-    // Private info for this machine's hero
-    const you = s.you as Record<string, unknown>;
-    const h = this.hero;
-    h.gold = Number(you.gold);
-    h.rerollsLeft = Number(you.gears ?? 0);
-    const sp = you.special as [string, number, string] | undefined;
-    if (sp && sp[0] !== h.special.id) h.setSpecial(sp[0]);
-    if (sp && sp[1] !== h.special.level) {
-      h.special.level = sp[1];
-      h.loadoutDirty = true;
-    }
-    if (sp?.[2]) h.setSpecialBuild(sp[2]);
-    h.bombCharge = Number(you.bomb);
-    this.netMods = (you.mods as { id: string; ro: string; lv?: number }[]) ?? [];
-    const passives = (you.passives as Record<string, number>) ?? {};
-    if (JSON.stringify(passives) !== JSON.stringify(h.passives)) {
-      h.passives = passives;
-      h.loadoutDirty = true;
-    }
-    Object.assign(h.stats, you.stats as object);
-
-    // Enemies: create, update or remove mirrors by uid.
-    const seen = new Set<number>();
-    unpackEnemies(s.en as ArrayBuffer, (r) => {
-      seen.add(r.uid);
-      let e = this.netEnemies.get(r.uid);
-      if (!e || !e.active) {
-        e = this.enemies.spawn(r.def, r.x, r.z, { instant: true, elite: r.elite, eliteMod: r.eliteMod ?? undefined });
-        markSeen(r.def.id);
-        this.netEnemies.set(r.uid, e);
-        e.px = r.x;
-        e.pz = r.z;
-      } else {
-        e.px = e.x;
-        e.pz = e.z;
-      }
-      e.x = r.x;
-      e.z = r.z;
-      e.state = r.state;
-      e.t = r.t;
-      e.facing = r.facing;
-      e.sq = r.sq;
-      e.hopY = r.hopY;
-      e.hp = r.hp01 * e.maxHp; // drives elite health bars
-      e.frozen = r.frozen ? 1 : 0;
-      if (e.def.boss && this.netBoss) e.phase = this.netBoss.hp01 < 0.33 ? 3 : this.netBoss.hp01 < 0.66 ? 2 : 1;
-      e.shield = r.shield ? 1 : 0;
-      e.burnT = r.burn ? 1 : 0;
-      e.shockT = r.shock ? 1 : 0;
-      e.flash = r.flash ? 0.07 : 0;
-      e.action = r.action;
-      e.lungeX = Math.sin(r.lunge);
-      e.lungeZ = Math.cos(r.lunge);
-      e.targetX = r.targetX;
-      e.targetZ = r.targetZ;
-    });
-    for (const [uid, e] of this.netEnemies) {
-      if (seen.has(uid)) continue;
-      this.enemies.kill(e);
-      this.netEnemies.delete(uid);
-    }
-
-    unpackBullets(s.bu as ArrayBuffer, this.bullets);
-    unpackPickups(s.pk as ArrayBuffer, this.pickups);
-    for (const e of (s.ev as VfxEvent[]) ?? []) this.vfx.apply(e);
-
-    const portal = s.portal as [number, number] | null;
-    if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
-    else if (!portal && this.portal.active) this.portal.close();
-  }
-
-  /** Client: mirror a hero's weapon list (ids/levels) and visual state. */
-  private syncWeapons(h: Hero, list: (string | number)[][]): void {
-    let changed = h.weapons.length !== list.length;
-    for (let i = 0; i < list.length; i++) {
-      const [id, level, ready, key, ...state] = list[i] as [string, number, number, string, ...number[]];
-      let w = h.weapons[i];
-      if (!w || w.def.id !== id) {
-        w?.dispose();
-        w = createWeapon(id, this.scene);
-        h.weapons[i] = w;
-        changed = true;
-      }
-      if (w.build) {
-        if (w.buildKey !== key) {
-          w.setBuildKey(key);
-          changed = true;
-        }
-      } else if (w.level !== level) {
-        w.level = level;
-        changed = true;
-      }
-      w.ready = ready;
-      w.setNet(state);
-    }
-    while (h.weapons.length > list.length) h.weapons.pop()!.dispose();
-    if (changed) h.loadoutDirty = true;
-  }
 
   // ------------------------------------------------------------------ render
 
-  /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
-  private eliteTrails(frameDt: number): void {
-    if (this.paused || !this.isCombatMode) return;
-    this.trailT += frameDt;
-    if (this.trailT < 0.05) return;
-    this.trailT = 0;
-    for (const e of this.enemies.list) {
-      if (!e.active || !e.mod?.trail || e.state === 'spawning' || (e.x === e.px && e.z === e.pz)) continue;
-      const s = e.scale;
-      this.particles.burst(e.x, e.radius * 0.8, e.z, { count: 2, color: e.mod.color, color2: '#ffcd75', speed: [0.2, 0.9], size: [0.2 * s, 0.38 * s], life: [0.25, 0.45], up: 0.6, drag: 3 });
-    }
-  }
 
-  /** The living teammate to watch while downed. */
-  private spectateTarget(): Player | null {
-    const alive = this.heroes.filter((x) => x !== this.hero && !x.left && !x.player.dead);
-    if (!alive.length) return null;
-    return (alive.find((x) => x.index === this.spectate) ?? alive[0]).player;
-  }
 
-  /** Co-op extras for this machine's player: pings, and switching who you watch while downed. */
-  private coopInput(): void {
-    const input = this.input;
-    const h = this.hero;
-    const p = h.player;
-    if (!this.isCombatMode || this.screens.current !== 'none' || this.heroes.length < 2) return;
-    if (p.dead) {
-      if (input.mousePressed(0) || input.padButtonPressed(0) || input.actionPressed('ping')) {
-        const alive = this.heroes.filter((x) => x !== h && !x.left && !x.player.dead);
-        if (alive.length) {
-          const cur = alive.findIndex((x) => x.index === this.spectate);
-          this.spectate = alive[(cur + 1) % alive.length].index;
-        }
-      }
-      return;
-    }
-    if (!(input.actionPressed('ping') || input.padButtonPressed(8))) return;
-    let x = p.x + p.aim.x * 6;
-    let z = p.z + p.aim.z * 6;
-    if (input.device === 'kbm' && this.mouseAimPoint()) {
-      x = this.aimHit.x;
-      z = this.aimHit.z;
-    }
-    if (this.role === 'client') this.client?.send({ t: 'ping', x, z });
-    else this.ping(h, x, z);
-  }
 
-  /** A teammate pings a spot: a marker and a label everyone sees. */
-  private ping(h: Hero, x: number, z: number): void {
-    if (performance.now() - h.pingAt < 700) return;
-    h.pingAt = performance.now();
-    let label = 'HERE!';
-    const near = (ax: number, az: number, r: number) => Math.hypot(ax - x, az - z) < r;
-    if (this.chests.list.some((c) => c.openT < 0 && near(c.x, c.z, 4))) label = 'CHEST!';
-    else if (this.portal.active && near(this.portal.x, this.portal.z, 5)) label = 'PORTAL!';
-    else {
-      const e = this.nearestEnemy(x, z, 4, (en) => !en.elite && !en.def.boss);
-      if (e) label = e.def.boss ? 'BOSS!' : 'ELITE!';
-    }
-    this.vfx.ring(x, z, 0.5, 4, h.color, 0.6);
-    this.vfx.ring(x, z, 0.5, 2.5, '#ffffff', 0.45);
-    this.vfx.star(x, 2, z, 1.6, h.color, 0.5);
-    this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${label}`, 'score');
-    this.vfx.sound('telegraph', x, z);
-  }
 
-  /** Load the online top scores for the selected mode (no-op when offline). */
-  private refreshGlobal(board?: string, highlight = -1): void {
-    if (!leaderboardEnabled) return;
-    const mode = (MODE_BY_ID[settings.mode as ModeId] ?? MODES[0]).id;
-    const b = board ?? boardId(mode, mode === 'daily' ? 'normal' : this.pickDifficulty().id, today());
-    const title = b.startsWith('daily') ? 'TODAY' : b.replace('-', ' · ').toUpperCase();
-    void fetchTop(b).then((list) => this.screens.setGlobalScores(title, list, highlight));
-  }
 
-  /** Midday to sunset over each stage: dusk falls in the second half, the boss fights at sunset. */
-  private updateSky(frameDt: number): void {
-    let want = 0;
-    if (this.mode !== 'title') {
-      const d = this.director.duration;
-      const frac =
-        this.role === 'client' ? (this.netTimeLeft >= 0 ? 1 - this.netTimeLeft / d : 1) : this.director.bossSpawned ? 1 : this.director.time / d;
-      want = Math.max(0, Math.min(1, (frac - 0.35) / 0.65));
-    }
-    // A new stage starts back at midday straight away; otherwise ease.
-    this.dayK = want < this.dayK - 0.5 ? want : this.dayK + (want - this.dayK) * Math.min(1, frameDt * 0.8);
-    applyTimeOfDay(this.dayK);
-    // Fog bank event: the fog rolls in close, then lifts.
-    const fog = this.role === 'client' ? this.netEvent?.[0] === 'fog' : this.runEvents.fog;
-    const k = this.fogK + ((fog ? 1 : 0) - this.fogK) * Math.min(1, frameDt * 1.2);
-    if (k > 0.002 || this.fogK > 0.002) {
-      // The camera sits ~25 m from the hero: thick fog from 20 m hides everything past the screen's middle.
-      retroGlobals.uFogNear.value = 28 + (19 - 28) * k;
-      retroGlobals.uFogFar.value = 70 + (33 - 70) * k;
-    }
-    this.fogK = k < 0.002 ? 0 : k;
-  }
 
-  /** What the music should be doing right now (local to each machine). */
-  private updateMusic(frameDt: number, boss: { hp01: number } | null): void {
-    const m = this.mode;
-    const inRun = m !== 'title' && m !== 'dead';
-    let track: TrackId | null = null;
-    let intensity = 0.6;
-    if (!inRun) track = m === 'title' ? 'title' : null;
-    else if (boss) {
-      track = 'boss';
-      intensity = 1;
-    } else {
-      track = biomeTrack(this.arenaStage);
-      intensity = m === 'fight' ? Math.min(1, 0.12 + this.enemies.activeCount / 140 + this.director.time / this.director.duration / 3) : 0.3;
-    }
-    const duck = this.paused || m === 'levelup' || m === 'shop' || (this.screens.current !== 'none' && inRun);
-    music.update(frameDt, { track, seed: track === 'title' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, keyUp: !!boss && boss.hp01 < 0.4 });
-    document.documentElement.style.setProperty('--beat', music.pulse.toFixed(2));
-  }
 
-  /** Sounds only this machine hears: low-life heartbeat and the combo hum. */
-  private localAudio(frameDt: number, frozen: boolean): void {
-    const fighting = this.isCombatMode && !frozen && !this.paused;
-    sfx.setHum(fighting ? Math.min(1, this.combo / 150) : 0);
-    const p = this.hero.player;
-    if (!fighting || p.dead || p.hp > p.maxHp * 0.3) {
-      this.heartT = 0;
-      return;
-    }
-    if ((this.heartT -= frameDt) <= 0) {
-      this.heartT = 0.55 + 0.6 * (p.hp / (p.maxHp * 0.3));
-      sfx.heartbeat();
-    }
-  }
 
-  render(alpha: number, frameDt: number): void {
-    const client = this.role === 'client';
-    const local = this.hero;
-    const p = local.player;
-    const input = this.input;
-    const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop';
-    const a = this.juice.hitStop > 0 || frozen ? 1 : alpha;
-    // Clients draw remote things between the last two snapshots.
-    const netA = client ? Math.min(1, (performance.now() - this.snapTime) / Math.max(16, this.snapInterval)) : a;
-    const rdt = frozen ? 0 : frameDt;
-    this.localAudio(frameDt, frozen);
-    this.input.rumbleOn = settings.rumble;
-    if (!frozen) {
-      this.juice.tick(frameDt);
-      this.animTime += frameDt;
-    }
 
-    for (const h of this.heroes) {
-      if (h.left) {
-        h.player.rig.root.visible = false;
-        continue;
-      }
-      h.petView?.render(rdt, h.player.rig.root.position.x, h.player.rig.root.position.z, h.player.rig.root.rotation.y, !h.player.dead && this.mode !== 'transition');
-      h.player.cheer = this.mode === 'cleared';
-      h.player.focus = h === local && h.ctx.charging;
-      h.player.render(h === local || !client ? a : netA, rdt);
-    }
-    const watch = p.dead && this.heroes.length > 1 ? this.spectateTarget() : null;
-    (watch ?? p).renderPos(watch ? netA : a, this.playerPos);
-    // Danger zones are cosmetic timers: tick them with the frame (they hold still in menus).
-    const zones = this.enemies.zones;
-    if (!this.paused && this.mode !== 'levelup' && this.mode !== 'shop') {
-      for (let i = zones.length - 1; i >= 0; i--) if ((zones[i].t -= frameDt) <= 0) zones.splice(i, 1);
-    }
-    this.enemies.render(client ? netA : a, this.animTime);
-    this.eliteTrails(frameDt);
-    this.bullets.render(a);
-    this.barrels.render(this.animTime);
-    this.chests.render(this.paused ? 0 : frameDt, this.animTime);
-    this.particles.render();
-    this.scars.render(rdt);
-    streaks.render(rdt);
-    this.ambience.render(rdt, this.playerPos.x, this.playerPos.z, this.heroes.filter((h) => !h.left && !h.player.dead).map((h) => h.player));
-    this.pickups.render(this.animTime);
-    for (const h of this.heroes) for (const w of h.weapons) w.draw(a, h.ctx);
-    this.fx.render(this.cam.camera);
-    this.portal.render(rdt);
-    this.renderMuzzleFlashes();
 
-    const inMenu = this.mode === 'title' || this.screens.current !== 'none';
-    if (this.mode === 'title') this.lead.set(0, 0, 0);
-    else if (input.device === 'pad') {
-      const active = input.padAim.x !== 0 || input.padAim.y !== 0;
-      this.lead.set(p.aim.x, 0, p.aim.z).multiplyScalar(active ? cameraTuning.padLookAhead : 0);
-    } else if (!frozen && this.mouseAimPoint()) {
-      this.lead.set(this.aimHit.x - this.playerPos.x, 0, this.aimHit.z - this.playerPos.z).multiplyScalar(cameraTuning.lookAhead);
-      if (this.lead.length() > cameraTuning.lookAheadMax) this.lead.setLength(cameraTuning.lookAheadMax);
-    }
-    this.juice.shakeOffset(this.shake);
-    this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
 
-    if (inMenu || p.dead) this.reticle.style.display = 'none';
-    else if (input.device === 'pad') {
-      this.tmp.set(this.playerPos.x + p.aim.x * 5, AIM_HEIGHT, this.playerPos.z + p.aim.z * 5).project(this.cam.camera);
-      this.reticle.style.transform = `translate(${((this.tmp.x + 1) / 2) * innerWidth}px, ${((1 - this.tmp.y) / 2) * innerHeight}px)`;
-      this.reticle.style.display = '';
-    } else {
-      this.reticle.style.transform = `translate(${input.mouse.x}px, ${input.mouse.y}px)`;
-      this.reticle.style.display = input.mouse.inside ? '' : 'none';
-    }
-    // Crosshair meter: the Charge Shot's charge, or the right-click weapon reloading.
-    const sec = local.weapons.find((w) => w.def.slot === 'secondary');
-    let meter: number;
-    let state: string;
-    if (sec && !(sec instanceof ChargeShot)) {
-      // Ping when a long reload finishes, so you know it's ready without looking.
-      if (sec.ready >= 1 && this.lastReady < 1 && !p.dead && this.isCombatMode) {
-        this.readyFlashT = 0.4;
-        if (sec.p.cd >= 2) sfx.weapon('ready');
-      }
-      this.lastReady = sec.ready;
-      this.readyFlashT = Math.max(0, this.readyFlashT - frameDt);
-      meter = this.readyFlashT > 0 ? 1 : sec.ready;
-      state = this.readyFlashT > 0 ? 'ready' : sec.ready < 1 ? 'reload' : '';
-    } else {
-      meter = sec instanceof ChargeShot ? sec.charge : 0;
-      state = meter >= 2 ? 'over' : meter >= 1 ? 'full' : meter > 0 ? 'on' : '';
-    }
-    if (meter !== this.shownCharge || state !== this.reticle.dataset.charge) {
-      this.shownCharge = meter;
-      this.reticle.style.setProperty('--charge', String(Math.min(1, meter)));
-      this.reticle.dataset.charge = state;
-    }
 
-    // Client-side stage fade (the host fades itself in updateTransition).
-    if (client) {
-      if (this.mode === 'transition') this.hud.setFade(Math.min(1, (this.fadeT += frameDt) / 0.35));
-      else this.hud.setFade(Math.max(0, this.fadeT / 0.45));
-    }
 
-    if (local.loadoutDirty) {
-      local.loadoutDirty = false;
-      this.hud.setLoadout(local.loadout());
-    }
-    const mods = client
-      ? this.netMods.filter((m) => MOD_BY_ID[m.id]).map((m) => ({ def: MOD_BY_ID[m.id], ro: m.ro }))
-      : local.synergy.slots.map((sl, i) => ({ def: sl.def, ro: local.synergy.readout(i) }));
-    this.hud.setMods(mods.map((m) => ({ id: m.def.id, icon: m.def.icon, color: m.def.color, name: m.def.name, readout: m.ro, cursed: !!m.def.cursed })));
-    this.renderTeam();
-    this.renderEliteBars(alpha);
-    this.renderMinimap();
-    this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);
-    this.renderChestPointer();
-    this.dmg.render(rdt, this.cam.camera);
-    const boss = client ? this.netBoss : this.boss && this.boss.active ? { name: this.boss.def.name, hp01: Math.max(0, this.boss.hp / this.boss.maxHp) } : null;
-    this.updateMusic(frameDt, boss);
-    this.updateSky(frameDt);
-    this.hud.update(
-      {
-        hp: p.hp,
-        maxHp: p.maxHp,
-        dash01: p.dashReady01,
-        dashStock: p.dashStock,
-        dashMax: p.dashMax,
-        bomb01: local.bombCharge,
-        special: local.specialDef.short,
-        score: this.score,
-        combo: this.combo,
-        multiplier: this.multiplier,
-        combo01: client ? this.netCombo01 : this.combo > 0 ? Math.max(0, this.comboT / scoreTuning.comboWindow) : 0,
-        stage: this.stage,
-        level: this.level,
-        xp01: this.xp / this.xpNext,
-        timeLeft: client ? this.netTimeLeft : !this.director.bossSpawned ? this.director.remaining : this.boss ? -1 : -2,
-        kills: this.kills,
-        gold: local.gold,
-        gears: local.rerollsLeft,
-        boss,
-        lowHp: !p.dead && p.hp / p.maxHp <= 0.3 && this.mode !== 'title',
-        spice: this.spiceLines(),
-      },
-      frameDt,
-    );
-  }
-
-  private renderMuzzleFlashes(): void {
-    while (this.flashes.length < this.heroes.length) {
-      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3, 0), new THREE.MeshBasicMaterial({ color: '#fffbe0' }));
-      m.visible = false;
-      this.scene.add(m);
-      this.flashes.push(m);
-    }
-    this.flashes.forEach((m, i) => {
-      const h = this.heroes[i];
-      m.visible = !!h && !h.left && h.weapons.some((w) => w.muzzleT > 0) && !h.player.dead;
-      if (!m.visible) return;
-      h.player.muzzle(this.mz);
-      m.position.set(this.mz.x, BULLET_Y, this.mz.z);
-      m.scale.setScalar(0.8 + Math.random() * 0.6);
-    });
-  }
-
-  /** Point at the nearest closed chest when it is off screen. */
-  private renderChestPointer(): void {
-    const p = this.hero.player;
-    let best: { x: number; z: number } | null = null;
-    let bd = 60;
-    if (this.isCombatMode && !p.dead) {
-      for (const c of this.chests.list) {
-        if (c.openT >= 0) continue;
-        const d = Math.hypot(c.x - p.x, c.z - p.z);
-        if (d < bd) {
-          bd = d;
-          best = c;
-        }
-      }
-    }
-    if (!best) {
-      this.hud.setChestPointer(null);
-      return;
-    }
-    this.tmp.set(best.x, 0.5, best.z).project(this.cam.camera);
-    const sx = ((this.tmp.x + 1) / 2) * innerWidth;
-    const sy = ((1 - this.tmp.y) / 2) * innerHeight;
-    const m = 70;
-    const seen = 10; // any part of the chest on screen: no pointer needed
-    if (sx > seen && sx < innerWidth - seen && sy > seen && sy < innerHeight - seen) {
-      this.hud.setChestPointer(null);
-      return;
-    }
-    // Clamp onto a rectangle inset from the screen edge, along the line from the centre.
-    const cx = innerWidth / 2;
-    const cy = innerHeight / 2;
-    const dx = sx - cx;
-    const dy = sy - cy;
-    const k = Math.min((cx - m) / Math.abs(dx || 1e-6), (cy - m) / Math.abs(dy || 1e-6));
-    this.hud.setChestPointer({ x: cx + dx * k, y: cy + dy * k, angle: (Math.atan2(dy, dx) * 180) / Math.PI, dist: bd });
-  }
-
-  /** Teammate bars and name tags (co-op only). */
-  /** Corner minimap: you, teammates, boss, elites, closed chests, the portal. */
-  private renderMinimap(): void {
-    if (!this.isCombatMode) {
-      this.hud.setMinimap(null);
-      return;
-    }
-    const me = this.hero;
-    const elites: { x: number; z: number }[] = [];
-    let boss: { x: number; z: number } | null = null;
-    for (const e of this.enemies.list) {
-      if (!e.active) continue;
-      if (e.def.boss) boss = { x: e.x, z: e.z };
-      else if (e.elite || e.def.id === 'reaper') elites.push({ x: e.x, z: e.z });
-    }
-    this.hud.setMinimap({
-      half: this.arena.halfSize,
-      me: { x: me.player.x, z: me.player.z, color: me.color },
-      mates: this.heroes.filter((h) => h !== me && !h.left).map((h) => ({ x: h.player.x, z: h.player.z, color: h.color, down: h.player.dead })),
-      boss,
-      elites,
-      chests: this.chests.list.filter((c) => c.openT < 0).map((c) => ({ x: c.x, z: c.z })),
-      portal: this.portal.active ? { x: this.portal.x, z: this.portal.z } : null,
-    });
-  }
-
-  /** Health bars over elites (bosses use the big boss bar). */
-  private renderEliteBars(alpha: number): void {
-    const bars: { x: number; y: number; hp01: number; onScreen: boolean }[] = [];
-    if (this.isCombatMode && this.screens.current === 'none') {
-      for (const e of this.enemies.list) {
-        if (!e.active || !(e.elite || e.def.id === 'reaper') || e.def.boss || e.hp <= 0) continue;
-        const x = e.px + (e.x - e.px) * alpha;
-        const z = e.pz + (e.z - e.pz) * alpha;
-        this.tmp.set(x, e.hopY + e.radius * 2.6, z).project(this.cam.camera);
-        bars.push({
-          x: ((this.tmp.x + 1) / 2) * innerWidth,
-          y: ((1 - this.tmp.y) / 2) * innerHeight,
-          hp01: Math.max(0, Math.min(1, e.hp / e.maxHp)),
-          onScreen: this.tmp.z < 1 && Math.abs(this.tmp.x) < 1.05 && Math.abs(this.tmp.y) < 1.05,
-        });
-      }
-    }
-    this.hud.setEliteBars(bars);
-  }
-
-  private renderTeam(): void {
-    if (this.heroes.length < 2 || this.mode === 'title') {
-      this.hud.setTeam([], []);
-      return;
-    }
-    const team = this.heroes
-      .filter((h) => h !== this.hero)
-      .map((h) => ({ name: h.name, color: h.color, hp01: h.left ? 0 : Math.max(0, h.player.hp / h.player.maxHp), down: h.player.dead, left: h.left }));
-    const tags = this.heroes
-      .filter((h) => h !== this.hero && !h.left)
-      .map((h) => {
-        const r = h.player.rig.root.position;
-        this.tmp.set(r.x, 2.6, r.z).project(this.cam.camera);
-        return {
-          x: ((this.tmp.x + 1) / 2) * innerWidth,
-          y: ((1 - this.tmp.y) / 2) * innerHeight,
-          name: h.name,
-          color: h.color,
-          down: h.player.dead,
-          revive01: h.reviveT / REVIVE_TIME,
-          dist: Math.hypot(h.player.x - this.hero.player.x, h.player.z - this.hero.player.z),
-          onScreen: this.tmp.z < 1 && Math.abs(this.tmp.x) < 1.1 && Math.abs(this.tmp.y) < 1.1,
-        };
-      });
-    this.hud.setTeam(team, tags);
-  }
 }

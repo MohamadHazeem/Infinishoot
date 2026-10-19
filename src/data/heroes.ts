@@ -14,36 +14,76 @@ export interface HeroDef {
   /** Body proportions: [width, height] scale. */
   build: [number, number];
   unlock?: string;
+  /** Ultimate id (src/game/ultimates.ts ULTS). */
+  ult: string;
+  /** A unique hero mechanic (src/game/heroMechs.ts), on top of the stat quirks. */
+  mech?: 'duelist' | 'furnace' | 'twin';
 }
 
 export const HEROES: HeroDef[] = [
-  { id: 'rookie', name: 'Rookie', desc: 'Balanced. No extra weapon.', start: [], add: {}, build: [1, 1] },
+  { id: 'rookie', name: 'Rookie', desc: 'Balanced. No extra weapon. ULTIMATE: Mega Barrage.', start: [], add: {}, build: [1, 1], ult: 'barrage' },
   {
     id: 'bulwark',
     name: 'Bulwark',
-    desc: '+40 life, +1 armor, 10% slower. Starts with a Zap Field.',
+    desc: '+40 life, +1 armor, 10% slower. Starts with a Zap Field. ULTIMATE: Titan Stomp.',
     start: ['aura'],
     add: { maxHp: 40, armor: 1, moveSpeedMul: -0.1 },
     build: [1.18, 1.02],
     unlock: 'boss_slayer',
+    ult: 'stomp',
   },
   {
     id: 'dash',
     name: 'Dash',
-    desc: '15% faster, dash recharges 25% sooner, -20 life. Starts with Blaze Boots.',
+    desc: '15% faster, dash recharges 25% sooner, -20 life. Starts with Blaze Boots. ULTIMATE: Sonic Blitz.',
     start: ['fire'],
     add: { moveSpeedMul: 0.15, dashCooldownMul: -0.25, maxHp: -20 },
     build: [0.9, 0.98],
     unlock: 'speedster',
+    ult: 'blitz',
   },
   {
     id: 'ace',
     name: 'Ace',
-    desc: '+20% damage, +10% crit chance, slower right click. Starts with Chain Zap.',
+    desc: '+20% damage, +10% crit chance, slower right click. Starts with Chain Zap. ULTIMATE: Lock-On Storm.',
     start: ['lightning'],
     add: { damageMul: 0.2, critChance: 0.1, chargeSpeed: -0.2 },
     build: [0.96, 1.06],
     unlock: 'elite_hunter',
+    ult: 'storm',
+  },
+  {
+    id: 'duelist',
+    name: 'Duelist',
+    desc: 'No dash: the dash key parries. A longer parry window, and every parry in a chain adds +12% damage (up to x6) while it lasts. +5% crit chance. ULTIMATE: Blade Dance.',
+    start: [],
+    add: { critChance: 0.05 },
+    build: [0.86, 1.12],
+    unlock: 'riposte',
+    ult: 'dance',
+    mech: 'duelist',
+  },
+  {
+    id: 'furnace',
+    name: 'Furnace',
+    desc: 'Heats up while standing still: up to +60% damage and a burning aura that grows. Moving vents the heat. +30 life, 15% slower. ULTIMATE: Meltdown.',
+    start: [],
+    add: { maxHp: 30, moveSpeedMul: -0.15 },
+    build: [1.3, 0.9],
+    unlock: 'immovable',
+    ult: 'meltdown',
+    mech: 'furnace',
+  },
+  {
+    id: 'twin',
+    name: 'Twin',
+    desc: 'A small mirror twin walks beside you and copies your left click at half damage. -10 life. ULTIMATE: Mirror Storm.',
+    start: [],
+    add: { maxHp: -10 },
+    build: [0.88, 0.92],
+    unlock: 'double_trouble',
+    ult: 'mirror',
+    mech: 'twin',
   },
 ];
 

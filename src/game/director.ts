@@ -1,5 +1,5 @@
 import type { Rng } from '../core/rng';
-import { ENEMIES, VETERAN_OF, bossForStage, type EnemyDef } from '../data/enemies';
+import { ENEMIES, familyTuning, VETERAN_OF, biomeAllows, bossForStage, type EnemyDef } from '../data/enemies';
 import { bossTuning } from './enemies';
 
 /**
@@ -37,7 +37,19 @@ export const directorTuning = {
   reaperEvery: 60, // seconds between Reapers after that
   reaperMax: 4, // most alive at once
   coopEase: 0.9, // co-op only: enemy HP, boss HP and enemy count x this (user: co-op was too hard)
+  goldenChance: 1, // chance a stage gets a Goldbug (treasure enemy)
+  goldenFrom: 0.2, // it shows up between these fractions of the stage...
+  goldenTo: 0.8,
+  goldenEarliest: 60, // ...but never in stage 1's first minute
 };
+
+/** When the stage's Goldbug arrives (seconds), from a 0..1 roll. */
+export function goldenTime(stage: number, duration: number, r: number): number {
+  const t = directorTuning;
+  const lo = Math.max(duration * t.goldenFrom, stage <= 1 ? t.goldenEarliest : 0);
+  const hi = Math.max(lo, duration * t.goldenTo);
+  return lo + (hi - lo) * r;
+}
 
 export type SpawnRequest =
   | { kind: 'enemy'; def: EnemyDef; elite?: boolean }
@@ -52,12 +64,17 @@ export class Director {
   countMul = 1;
   /** Team level, set by the game every step; summons Reapers at directorTuning.reaperLevel. */
   teamLevel = 1;
+  /** Current arena's biome id (set by the game): biome-native enemies only spawn at home. */
+  biome = '';
   time = 0;
   bossSpawned = false;
   private spawnBudget = 0;
   private nextElite = 0;
   private nextRing = 0;
   private nextReaper = 0;
+  /** Goldbug arrival time this stage (-1 = not rolled yet, Infinity = none). */
+  goldenAt = -1;
+  private swarmQueenSent = false;
   private queue: SpawnRequest[] = [];
 
   start(stage: number): void {
@@ -68,6 +85,8 @@ export class Director {
     this.nextElite = directorTuning.eliteEvery;
     this.nextRing = directorTuning.ringEvery * 0.6;
     this.nextReaper = directorTuning.reaperDelay;
+    this.goldenAt = -1;
+    this.swarmQueenSent = false;
     this.queue = [];
   }
 
@@ -124,9 +143,10 @@ export class Director {
     return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1)) * this.coop * this.countMul));
   }
 
-  private pool(): EnemyDef[] {
+  /** Enemy types the director may send right now (elites pick from these too). */
+  pool(): EnemyDef[] {
     const minute = this.paceMinute + (this.stage - 1) * directorTuning.minuteHead;
-    return Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= minute && (d.minStage ?? 1) <= this.stage && d.weight > 0);
+    return Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= minute && (d.minStage ?? 1) <= this.stage && d.weight > 0 && biomeAllows(d, this.biome));
   }
 
   /** Chance a spawn is swapped for its veteran: 15% on stage 3, 30% on 4... up to 60%. */
@@ -171,6 +191,17 @@ export class Director {
       this.nextRing += t.ringEvery * rng.range(0.8, 1.2);
       const minute = this.paceMinute;
       this.queue.push({ kind: 'ring', def: this.vet(minute > 2.5 && rng.chance(0.4) ? ENEMIES.zippy : ENEMIES.swarmer, rng), count: Math.round(18 + minute * 6 + this.stage * 6) });
+    }
+
+    if (!this.swarmQueenSent && !this.bossSpawned && this.stage >= familyTuning.queenFromStage && this.time >= this.duration * familyTuning.queenAt) {
+      this.swarmQueenSent = true;
+      this.queue.push({ kind: 'enemy', def: ENEMIES.swarmqueen });
+    }
+
+    if (this.goldenAt < 0) this.goldenAt = rng.chance(t.goldenChance) ? goldenTime(this.stage, this.duration, rng.next()) : Infinity;
+    if (this.time >= this.goldenAt && !this.bossSpawned) {
+      this.goldenAt = Infinity;
+      this.queue.push({ kind: 'enemy', def: ENEMIES.golden });
     }
 
     if (this.teamLevel >= t.reaperLevel && this.time >= this.nextReaper && !this.bossSpawned) {

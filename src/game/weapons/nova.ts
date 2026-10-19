@@ -1,6 +1,7 @@
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
 import { SCAR_COLORS } from '../scars';
+import { freezeMul } from '../bossRules';
 
 /** Periodic frost blast: damages and freezes everything nearby. */
 export class Nova extends Weapon {
@@ -11,7 +12,7 @@ export class Nova extends Weapon {
     const pl = ctx.player;
     if (pl.dead || !this.tick(dt, ctx, p.cd)) return;
     const r = p.radius * ctx.stats.areaMul;
-    ctx.sound('freeze');
+    ctx.sound('nova');
     ctx.fx.ring(pl.x, pl.z, 1, r * 2, this.look('#9fe8ff'), 0.4);
     ctx.fx.ring(pl.x, pl.z, 1, r * 1.5, '#ffffff', 0.3);
     ctx.fx.scar(pl.x, pl.z, r * 0.8, SCAR_COLORS.frost, 6);
@@ -28,7 +29,7 @@ export class Nova extends Weapon {
     for (const e of ctx.inRadius(pl.x, pl.z, r, this.hits)) {
       // Bosses shrug off most of the freeze.
       const freeze = Math.min(p.freeze, 0.6 * p.cd * ctx.stats.cooldownMul); // never a permanent lock
-      e.frozen = Math.max(e.frozen, freeze * (e.def.boss ? 0.15 : 1));
+      e.frozen = Math.max(e.frozen, freeze * freezeMul(e));
       e.shatter = p.shatter;
       ctx.damage(e, p.dmg, { source: 'nova', canCrit: true, loud: n++ < 3 });
     }

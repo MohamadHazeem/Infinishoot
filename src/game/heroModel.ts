@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
 import type { SkinDef } from '../data/skins';
+import { deathFall, toLocal, wrapAngle } from './animMath';
 
 /**
  * Placeholder chunky anime hero built from primitives: big head with a
@@ -33,6 +34,8 @@ export interface HeroRig {
   armR: THREE.Group;
   head: THREE.Group;
   materials: RetroMaterial[];
+  /** Animation state (presentation only, see animateHero). */
+  anim: HeroAnimState;
 }
 
 /** `armorColor` tints the suit so co-op players are easy to tell apart; `skin` paints the rest. */
@@ -140,7 +143,7 @@ export function createHero(armorColor: string = PALETTE.armor, skin?: SkinDef): 
     o.receiveShadow = false;
   });
 
-  return { mats: { armor, armorDark, accent, suit, red, hair, face }, expression: 'normal', iris, root, body, legL, legR, armL, armR, head, materials };
+  return { mats: { armor, armorDark, accent, suit, red, hair, face }, expression: 'normal', iris, root, body, legL, legR, armL, armR, head, materials, anim: newAnimState() };
 }
 
 function darker(c: string): string {
@@ -268,33 +271,239 @@ export function faceTexture(e: Expression, iris: string): THREE.Texture {
   return tex;
 }
 
-/** Victory pose: both arms up, bouncing on the spot. `k` 0..1 blends it in. */
-export function poseVictory(rig: HeroRig, time: number, k: number): void {
-  const hop = Math.abs(Math.sin(time * 6));
-  rig.armR.rotation.x += (-Math.PI + 0.2 - rig.armR.rotation.x) * k;
-  rig.armL.rotation.x += (-Math.PI + 0.3 + Math.sin(time * 12) * 0.25 - rig.armL.rotation.x) * k;
-  rig.armL.rotation.z = -0.3 * k;
-  rig.armR.rotation.z = 0.3 * k;
-  rig.body.position.y += hop * 0.35 * k;
-  rig.legL.rotation.x = (hop - 0.5) * 0.6 * k;
-  rig.legR.rotation.x = (hop - 0.5) * -0.6 * k;
-  rig.head.rotation.z = Math.sin(time * 6) * 0.12 * k;
+// ------------------------------------------------------------------ animation
+
+/** What the hero is doing this frame. Owned and mutated in place by Player (no per-frame allocation). */
+export interface HeroPose {
+  dt: number;
+  /** World velocity divided by the run speed. */
+  vx: number;
+  vz: number;
+  /** Root yaw (the hero faces its aim). */
+  facing: number;
+  /** 1 right after a shot, decaying to 0. */
+  recoil: number;
+  dashing: boolean;
+  /** > 0 right after a hit (rising edge starts a flinch). */
+  hurtFlash: number;
+  /** World direction the last hit pushed the hero (unit, or 0 when unknown). */
+  hitX: number;
+  hitZ: number;
+  dead: boolean;
+  cheer: boolean;
+  /** Squash spring (positive = stretch up) and build proportions. */
+  sq: number;
+  bw: number;
+  bh: number;
 }
 
+export function newPose(): HeroPose {
+  return { dt: 0, vx: 0, vz: 0, facing: 0, recoil: 0, dashing: false, hurtFlash: 0, hitX: 0, hitZ: 0, dead: false, cheer: false, sq: 0, bw: 1, bh: 1 };
+}
+
+/** Smoothed animation state per rig. */
+export interface HeroAnimState {
+  time: number;
+  /** Walk cycle phase (radians) and smoothed speed 0..1. */
+  phase: number;
+  speed: number;
+  /** Smoothed move direction in the rig's local frame (forward, side). */
+  mf: number;
+  ms: number;
+  /** Lean into movement (radians). */
+  leanF: number;
+  leanS: number;
+  /** Two-handed aim stance while firing, 0..1. */
+  fire: number;
+  /** Dash pose, 0..1. */
+  dash: number;
+  /** Hurt flinch amount and its local push direction. */
+  flinch: number;
+  flF: number;
+  flS: number;
+  prevFlash: number;
+  /** Seconds since death (0 while alive) and since the victory pose started. */
+  deathT: number;
+  cheerT: number;
+  cheerK: number;
+}
+
+function newAnimState(): HeroAnimState {
+  return { time: 0, phase: 0, speed: 0, mf: 1, ms: 0, leanF: 0, leanS: 0, fire: 0, dash: 0, flinch: 0, flF: -1, flS: 0, prevFlash: 0, deathT: 0, cheerT: 0, cheerK: 0 };
+}
+
+/** Animation knobs. */
+export const heroAnimTuning = {
+  stepHz: 1.45, // walk cycles per second when barely moving
+  runHz: 1.0, // extra cycles per second at full run speed
+  legSwing: 0.95, // leg swing (radians) at full speed
+  armSwing: 0.85,
+  bob: 0.1,
+  leanFwd: 0.2,
+  leanSide: 0.15,
+  dashLean: 0.5,
+  dashStretch: 0.35,
+  flinch: 0.5,
+};
+
+const loc = { f: 0, s: 0 };
+const fall = { y: 0, back: 0, tilt: 0 };
+const ease = (rate: number, dt: number) => 1 - Math.exp(-rate * dt);
+const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+
 /**
- * Procedural walk/idle animation. `speed01` = current speed / max speed,
- * `recoil01` = 1 right after a shot, decaying to 0.
+ * Procedural hero animation: walk/run cycle (leg and arm swing, bob, lean into
+ * movement, backpedal and strafe), idle breathing, firing recoil and a
+ * two-handed aim stance, dash lunge with stretch, hurt flinch, victory dance
+ * and the death fall. Writes every animated property each frame.
  */
-export function animateHero(rig: HeroRig, time: number, speed01: number, recoil01 = 0): void {
-  const walk = time * 11;
-  const swing = Math.sin(walk) * 0.75 * speed01;
-  rig.legL.rotation.x = swing;
-  rig.legR.rotation.x = -swing;
-  rig.armL.rotation.x = -swing * 0.6;
-  rig.armL.rotation.z = rig.armR.rotation.z = 0;
-  rig.armR.rotation.x = -Math.PI / 2 + 0.1 - recoil01 * 0.45; // buster arm points forward, kicks up on fire
-  const bob = Math.abs(Math.sin(walk)) * 0.08 * speed01 + Math.sin(time * 2.2) * 0.015 * (1 - speed01);
-  rig.body.position.y = bob;
-  rig.body.rotation.x = 0.12 * speed01 - recoil01 * 0.08; // lean into run, rock back on recoil
-  rig.head.rotation.z = Math.sin(walk * 0.5) * 0.05 * speed01;
+export function animateHero(rig: HeroRig, p: HeroPose): void {
+  const t = heroAnimTuning;
+  const a = rig.anim;
+  const dt = Math.min(p.dt, 0.05);
+  a.time += dt;
+
+  // --- Inputs, smoothed ---
+  toLocal(p.vx, p.vz, p.facing, loc);
+  const spd = Math.hypot(p.vx, p.vz);
+  a.speed += ((p.dashing ? a.speed : Math.min(1, spd)) - a.speed) * ease(12, dt);
+  const s = a.speed;
+  if (spd > 0.05) {
+    const l = Math.hypot(loc.f, loc.s);
+    a.mf += (loc.f / l - a.mf) * ease(10, dt);
+    a.ms += (loc.s / l - a.ms) * ease(10, dt);
+  }
+  const ml = Math.hypot(a.mf, a.ms) || 1;
+  const mf = a.mf / ml;
+  const ms = a.ms / ml;
+  const fwd = Math.max(-1, Math.min(1, loc.f));
+  const side = Math.max(-1, Math.min(1, loc.s));
+  a.leanF += (fwd * t.leanFwd * (fwd < 0 ? 0.6 : 1) - a.leanF) * ease(8, dt);
+  a.leanS += (side * t.leanSide - a.leanS) * ease(8, dt);
+  a.dash += ((p.dashing ? 1 : 0) - a.dash) * ease(p.dashing ? 30 : 9, dt);
+  a.fire += ((p.recoil > 0.12 ? 1 : 0) - a.fire) * ease(p.recoil > 0.12 ? 14 : 2.5, dt);
+  if (p.hurtFlash > 0 && a.prevFlash <= 0) {
+    a.flinch = 1;
+    if (p.hitX !== 0 || p.hitZ !== 0) {
+      toLocal(p.hitX, p.hitZ, p.facing, loc);
+      a.flF = loc.f;
+      a.flS = loc.s;
+    } else {
+      a.flF = -1;
+      a.flS = 0;
+    }
+  }
+  a.prevFlash = p.hurtFlash;
+  a.flinch *= Math.exp(-6 * dt);
+  a.deathT = p.dead ? a.deathT + dt : 0;
+  a.cheerT = p.cheer ? a.cheerT + dt : 0;
+  a.cheerK += ((p.cheer ? 1 : 0) - a.cheerK) * ease(6, dt);
+
+  // --- Walk / run cycle ---
+  a.phase += dt * Math.PI * 2 * (t.stepHz + t.runHz * s) * Math.min(1, s * 4);
+  const sinP = Math.sin(a.phase);
+  const cosP = Math.cos(a.phase);
+  const amp = s * t.legSwing * (0.55 + 0.45 * s);
+  const sw = sinP * amp;
+  rig.legL.rotation.set(sw * mf, 0, -sw * ms * 0.8);
+  rig.legR.rotation.set(-sw * mf, 0, sw * ms * 0.8);
+  // The leg swinging forward lifts its foot.
+  rig.legL.position.y = 0.62 + Math.max(0, -cosP) * 0.09 * s;
+  rig.legR.position.y = 0.62 + Math.max(0, cosP) * 0.09 * s;
+
+  const idle = 1 - Math.min(1, s * 2);
+  const breath = Math.sin(a.time * 2.3);
+  const body = rig.body;
+  body.position.set(0, Math.abs(cosP) * t.bob * s, 0);
+  body.rotation.set(a.leanF, sinP * 0.1 * s, -a.leanS + Math.sin(a.time * 0.8) * 0.025 * idle);
+
+  // Left arm swings against the left leg; the buster arm aims forward.
+  rig.armL.position.y = rig.armR.position.y = 1.12 + breath * 0.012 * idle;
+  rig.armL.rotation.set(-sinP * s * t.armSwing, 0, -(0.1 + 0.14 * s) - (breath * 0.04 + 0.03) * idle);
+  rig.armR.rotation.set(-Math.PI / 2 + 0.1 + Math.sin(a.phase * 2) * 0.05 * s, 0, 0);
+  rig.head.position.y = 1.5 + breath * 0.018 * idle;
+  rig.head.rotation.set(-a.leanF * 0.6 + breath * 0.025 * idle, -sinP * 0.1 * s + Math.sin(a.time * 0.53) * 0.12 * idle, Math.sin(a.phase * 0.5) * 0.05 * s);
+
+  // --- Firing: recoil kick and a two-handed aim stance while the trigger is held ---
+  const r = p.recoil;
+  const f = a.fire * (1 - 0.6 * s);
+  rig.armR.rotation.x -= r * 0.5;
+  body.rotation.y += r * 0.12 - f * 0.1;
+  body.rotation.x -= r * 0.09;
+  rig.head.rotation.x -= r * 0.05;
+  rig.armL.rotation.x = lerp(rig.armL.rotation.x, -1.2, f);
+  rig.armL.rotation.z = lerp(rig.armL.rotation.z, 0.55, f);
+
+  // --- Dash: lunge into the dash, trailing leg and arms swept back, stretched along the motion ---
+  const d = a.dash;
+  let sx = 1;
+  let sy = 1;
+  let sz = 1;
+  if (d > 0.01) {
+    body.rotation.x += mf * t.dashLean * d;
+    body.rotation.z -= ms * t.dashLean * 0.8 * d;
+    rig.legL.rotation.x = lerp(rig.legL.rotation.x, -0.8 * mf, d);
+    rig.legR.rotation.x = lerp(rig.legR.rotation.x, 0.9 * mf, d);
+    rig.legL.rotation.z = lerp(rig.legL.rotation.z, 0.5 * ms, d);
+    rig.legR.rotation.z = lerp(rig.legR.rotation.z, -0.6 * ms, d);
+    rig.armL.rotation.x = lerp(rig.armL.rotation.x, 1.1, d);
+    rig.armL.rotation.z = lerp(rig.armL.rotation.z, -0.5, d);
+    rig.head.rotation.x -= mf * 0.35 * d;
+    sx += t.dashStretch * d * Math.abs(ms);
+    sz += t.dashStretch * d * Math.abs(mf);
+    sy -= 0.14 * d;
+  }
+
+  // --- Hurt flinch: knocked the way the hit pushed, head whips, arms fly up ---
+  const fl = a.flinch;
+  if (fl > 0.01) {
+    body.rotation.x += a.flF * t.flinch * fl;
+    body.rotation.z -= a.flS * t.flinch * 0.8 * fl + Math.sin(a.time * 38) * 0.1 * fl;
+    rig.head.rotation.x -= a.flF * 0.4 * fl;
+    rig.armL.rotation.x -= 0.6 * fl;
+    rig.armL.rotation.z -= 0.9 * fl;
+    rig.armR.rotation.x -= 0.4 * fl;
+  }
+
+  // --- Victory: spin-jump toward the camera, then hop and wave ---
+  const k = a.cheerK;
+  if (k > 0.01) {
+    const ct = a.cheerT;
+    const hopLen = 0.5;
+    const hop = Math.abs(Math.sin((ct * Math.PI) / hopLen));
+    const first = ct < hopLen;
+    const spin = first ? (ct / hopLen) * (ct / hopLen) * Math.PI * 2 : 0;
+    body.rotation.y = lerp(body.rotation.y, wrapAngle(-p.facing) + spin, k);
+    body.rotation.x = lerp(body.rotation.x, 0, k);
+    body.rotation.z = lerp(body.rotation.z, Math.sin(ct * 6) * 0.08, k);
+    body.position.y += hop * (first ? 0.6 : 0.32) * k;
+    rig.armR.rotation.x = lerp(rig.armR.rotation.x, -Math.PI + 0.25 + Math.sin(ct * 10) * 0.18, k);
+    rig.armR.rotation.z = lerp(rig.armR.rotation.z, 0.3, k);
+    rig.armL.rotation.x = lerp(rig.armL.rotation.x, -Math.PI + 0.45, k);
+    rig.armL.rotation.z = lerp(rig.armL.rotation.z, -0.35 + Math.sin(ct * 12) * 0.35, k);
+    rig.legL.rotation.x = lerp(rig.legL.rotation.x, (hop - 0.5) * 0.6, k);
+    rig.legR.rotation.x = lerp(rig.legR.rotation.x, (0.5 - hop) * 0.6, k);
+    rig.head.rotation.z = lerp(rig.head.rotation.z, Math.sin(ct * 6) * 0.14, k);
+    rig.head.rotation.x = lerp(rig.head.rotation.x, -0.15, k);
+  }
+
+  // --- Death: blown off the feet the way the last hit pushed, flat on the back, one bounce ---
+  if (p.dead) {
+    deathFall(a.deathT, fall);
+    const tl = fall.tilt;
+    const ang = tl * Math.PI * 0.5;
+    body.position.set(a.flS * fall.back, fall.y + 0.38 * tl, a.flF * fall.back);
+    body.rotation.set(a.flF * ang, 0, -a.flS * ang);
+    const air = a.deathT < 0.5 ? 1 : 0;
+    const flail = Math.sin(a.deathT * 28) * 0.5 * air;
+    rig.armL.rotation.set(-0.3 + flail, 0, -1.3 * tl);
+    rig.armR.rotation.set(-0.3 - flail, 0, 1.2 * tl);
+    rig.legL.rotation.set(flail * 0.6, 0, -0.25 * tl);
+    rig.legR.rotation.set(-flail * 0.6, 0, 0.25 * tl);
+    rig.legL.position.y = rig.legR.position.y = 0.62;
+    rig.head.rotation.set(0, 0, 0.4 * tl);
+  }
+
+  // Squash spring and build proportions on top of the pose stretch.
+  body.scale.set((1 - p.sq * 0.5) * p.bw * sx, (1 + p.sq) * p.bh * sy, (1 - p.sq * 0.5) * p.bw * sz);
 }

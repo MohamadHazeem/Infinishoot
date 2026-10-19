@@ -5,6 +5,7 @@ import type { Enemy } from './enemies';
 import type { Hero } from './hero';
 import type { Vfx } from './vfx';
 import type { DamageOpts } from './weapons';
+import { freezeMul } from './bossRules';
 
 /** What a special may touch. Implemented by Game (host/solo only). */
 export interface SpecialApi {
@@ -71,7 +72,7 @@ export function startSpecial(h: Hero, def: SpecialDef, p: Record<string, number>
   switch (def.id) {
     case 'storm':
       v.flash(0.2);
-      v.sound('w:zap', x, z);
+      v.sound('w:storm', x, z);
       v.sound('explode', x, z);
       v.ring(x, z, 1, p.radius * 2, p.fire ? '#ff7a2f' : '#41a6f6', 0.5);
       v.ring(x, z, 1, p.radius * 1.6, '#ffcd75', 0.4);
@@ -80,7 +81,7 @@ export function startSpecial(h: Hero, def: SpecialDef, p: Record<string, number>
       frozen = blizzard(h, p, api);
       break;
     case 'meteor':
-      v.sound('w:lob', x, z);
+      v.sound('w:meteor', x, z);
       v.ring(x, z, 1, p.area * 2, p.ice ? '#9fe8ff' : '#ef7d57', 0.5);
       break;
     case 'blackhole': {
@@ -88,7 +89,7 @@ export function startSpecial(h: Hero, def: SpecialDef, p: Record<string, number>
       const d = h.player.landDist(3, p.range);
       hx = x + h.player.aim.x * d;
       hz = z + h.player.aim.z * d;
-      v.sound('w:vortex', hx, hz);
+      v.sound('w:blackhole', hx, hz);
       v.flash(0.15);
       v.ring(hx, hz, p.radius * 4, 0.5, def.color, 0.45);
       break;
@@ -200,7 +201,7 @@ function blizzard(h: Hero, p: Record<string, number>, api: SpecialApi): Enemy[] 
     const d = Math.hypot(dx, dz);
     if (d > R + e.radius) continue;
     // Bosses shrug off most of the freeze (as with Frost Nova).
-    e.frozen = Math.max(e.frozen, p.freeze * (e.def.boss ? 0.15 : 1));
+    e.frozen = Math.max(e.frozen, p.freeze * freezeMul(e));
     e.shatter = Math.max(e.shatter, p.shatter);
     const k = d || 1;
     api.damage(e, p.dmg, { source: 'blizzard', tags: ICE_TAGS, dirX: dx / k, dirZ: dz / k, knockback: 3, canCrit: true, loud: n++ < 4 }, h);
@@ -293,7 +294,7 @@ function meteors(h: Hero, s: Running, dt: number, api: SpecialApi): boolean {
     if (ice) {
       for (const e of api.enemies) {
         if (!e.alive || e.hp <= 0 || (e.x - m.x) ** 2 + (e.z - m.z) ** 2 > (p.blast + e.radius) ** 2) continue;
-        e.frozen = Math.max(e.frozen, p.ice * (e.def.boss ? 0.15 : 1));
+        e.frozen = Math.max(e.frozen, p.ice * freezeMul(e));
         e.shatter = Math.max(e.shatter, 0.3);
       }
     }
@@ -369,13 +370,25 @@ function hole(h: Hero, s: Running, dt: number, api: SpecialApi): boolean {
       if (!e.alive || e.hp <= 0 || (e.x - s.x) ** 2 + (e.z - s.z) ** 2 > (R + e.radius) ** 2) continue;
       api.damage(e, p.dps * HOLE_TICK, { source: 'blackhole', tags: HOLE_TAGS, loud: n++ < 3 }, h);
     }
-    // The swirl: a closing ring and sparks spiralling in from the rim.
-    v.ring(s.x, s.z, R * 2, 0.35, '#b48cff', 0.3);
-    for (let k = 0; k < 4; k++) {
+    // The swirl: a closing ring and sparks spiralling in from the rim. Supermassive is a darker,
+    // heavier swirl of ink-black debris; White Hole a blinding white-gold core with sparks.
+    const evo = h.specialEvo;
+    const dark = evo === 'supermassive';
+    const white = evo === 'whitehole';
+    v.ring(s.x, s.z, R * 2, 0.35, dark ? '#7a4dff' : white ? '#fff35c' : '#b48cff', 0.3);
+    for (let k = 0; k < (dark ? 6 : 4); k++) {
       const a = api.rng.next() * Math.PI * 2;
-      v.burst(s.x + Math.cos(a) * R, 0.6, s.z + Math.sin(a) * R, { count: 2, color: '#b48cff', color2: '#5d275d', speed: [R * 1.5, R * 2.5], size: [0.15, 0.3], life: [0.3, 0.45], drag: 3, dir: { x: -Math.cos(a), z: -Math.sin(a), spread: 0.4 } });
+      const c = dark ? '#1a1c2c' : white ? '#ffffff' : '#b48cff';
+      const c2 = dark ? '#5d275d' : white ? '#fff35c' : '#5d275d';
+      // Curved in-fall: aimed a little off-centre so the stream spirals.
+      const sw = a + Math.PI + (dark ? 0.7 : 0.35);
+      v.burst(s.x + Math.cos(a) * R, 0.6, s.z + Math.sin(a) * R, { count: dark ? 3 : 2, color: c, color2: c2, speed: [R * 1.5, R * 2.5], size: dark ? [0.22, 0.42] : [0.15, 0.3], life: [0.3, 0.45], drag: 3, dir: { x: Math.cos(sw), z: Math.sin(sw), spread: 0.3 } });
     }
-    v.star(s.x, 1, s.z, 1.6, '#5d275d', 0.25);
+    if (dark) {
+      v.burst(s.x, 0.15, s.z, { count: 1, color: '#29213a', color2: '#1a1c2c', speed: [0.2, 0.5], size: [0.2, 0.3], life: [0.3, 0.4], dust: 5 });
+      v.star(s.x, 1, s.z, 2.6, '#7a4dff', 0.25);
+    } else v.star(s.x, 1, s.z, white ? 2.2 : 1.6, white ? '#ffffff' : '#5d275d', 0.25);
+    if (white) v.burst(s.x, 1, s.z, { count: 3, color: '#fff35c', color2: '#ffffff', speed: [2, 5], size: [0.12, 0.24], life: [0.2, 0.4], up: 2 });
   }
   if (s.t < p.dur) return true;
   // Collapse.

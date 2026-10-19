@@ -1,4 +1,7 @@
 import { sfx } from '../audio/sfx';
+import { threatAt } from '../audio/captions';
+import { threatOf } from '../audio/threats';
+import { playVoiceCue } from '../audio/voices';
 import type { DamageNumbers } from '../ui/damageNumbers';
 import type { Hud } from '../ui/hud';
 import type { Fx } from './fx';
@@ -15,12 +18,15 @@ export type VfxEvent =
   | ['b', number, number, number, BurstOptions]
   | ['r', number, number, number, number, string, number]
   | ['s', number, number, number, number, string, number]
-  | ['n', number, number, number, string | number, NumKind]
+  | ['n', number, number, number, string | number, NumKind, number?]
   | ['a', number, number, string, number]
   | ['k', number, number, number]
   | ['h', 'banner' | 'toast' | 'flash', string, string, number]
   | ['z', number, number, number, number]
-  | ['g', number, number, number, string, number];
+  | ['g', number, number, number, string, number]
+  | ['c', number, number, number, string, number, number, number, number]
+  | ['F', string, number, number, number]
+  | ['P', string, string, string, number];
 
 export interface DangerZone {
   x: number;
@@ -42,6 +48,12 @@ export interface VfxTargets {
   /** Danger zones drawn on the ground (telegraphed strikes). */
   zones: DangerZone[];
   scars: Scars;
+  /** A dead enemy's body is flung (x, y, z, scale, facing, push direction); cosmetic. */
+  corpse?(id: string, x: number, y: number, z: number, scale: number, facing: number, dirX: number, dirZ: number): void;
+  /** A boss finisher starts (boss id, the hero who landed it, where). */
+  finisher?(bossId: string, heroIndex: number, x: number, z: number): void;
+  /** A character portrait pops in with a line (src/ui/portraits.ts). */
+  portrait?(who: string, expression: string, text: string, seconds: number): void;
   listener(): { x: number; z: number };
 }
 
@@ -79,9 +91,11 @@ export class Vfx {
     this.rec(['s', x, y, z, size, color, life]);
   }
 
-  num(x: number, y: number, z: number, value: string | number, kind: NumKind = 'hit'): void {
-    this.t.dmg.spawn(x, y, z, value, kind);
-    this.rec(['n', x, y, z, value, kind]);
+  /** Floating number or label. `by`: index of the hero whose hit it is (DAMAGE NUMBERS: MINE / OFF); left off for messages. */
+  num(x: number, y: number, z: number, value: string | number, kind: NumKind = 'hit', by?: number): void {
+    this.t.dmg.spawn(x, y, z, value, kind, by);
+    // Older clients ignore the extra element; events without it always show.
+    this.rec(by === undefined ? ['n', x, y, z, value, kind] : ['n', x, y, z, value, kind, by]);
   }
 
   /** Positional sound: plays if the local player is in earshot. `name` is an sfx method or "w:<weapon sound>". */
@@ -108,6 +122,25 @@ export class Vfx {
     this.rec(['g', x, z, r, color, life]);
   }
 
+  /** A dead enemy's body flies off tumbling along (dirX, dirZ); boss kills also start the kill-cam. */
+  corpse(id: string, x: number, y: number, z: number, scale: number, facing: number, dirX: number, dirZ: number): void {
+    const r2 = (v: number) => Math.round(v * 100) / 100;
+    this.t.corpse?.(id, x, y, z, scale, facing, dirX, dirZ);
+    this.rec(['c', r2(x), r2(z), r2(y), id, r2(scale), r2(facing), r2(dirX), r2(dirZ)]);
+  }
+
+  /** Team-wide: the boss finisher (every machine plays it; the host holds the kill until it ends). */
+  finisher(bossId: string, heroIndex: number, x: number, z: number): void {
+    this.t.finisher?.(bossId, heroIndex, x, z);
+    this.rec(['F', bossId, heroIndex, Math.round(x * 100) / 100, Math.round(z * 100) / 100]);
+  }
+
+  /** Team-wide: a character portrait pops in ('hero:<index>', 'boss:<id>', 'announcer'). */
+  portrait(who: string, expression: string, text: string, seconds: number): void {
+    this.t.portrait?.(who, expression, text, seconds);
+    this.rec(['P', who, expression, text, seconds]);
+  }
+
   /** Team-wide HUD messages. */
   banner(title: string, sub = '', seconds = 1.6): void {
     this.t.hud.showBanner(title, sub, seconds);
@@ -132,19 +165,25 @@ export class Vfx {
     const d = this.near(x, z);
     if (d > HEAR_RANGE) return;
     // Pan by the sideways offset from the listener and fade with distance.
-    if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7);
-    if (name.startsWith('w:')) sfx.weapon(name.slice(2));
-    else {
-      const fn = (sfx as unknown as Record<string, (p?: number) => void>)[name];
-      if (typeof fn === 'function') fn.call(sfx, pitch);
-    }
+    const gain = d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7;
+    if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, gain, x, z);
+    // 'v:' boss voices and 'm:' material impacts (src/audio/voices.ts); the rest by name (weapon cues with
+    // evolution layers, enemy family calls, telegraphs: sfx.named).
+    if (!(name[1] === ':' && playVoiceCue(name, pitch, Number.isNaN(x) ? 0 : (x - this.t.listener().x) / 14, gain))) sfx.named(name, pitch);
     sfx.at(0, 1);
+    if (threatOf(name)) threatAt(name, x, z); // SOUND ARROWS (off-screen telegraphs)
   }
 
   private playShake(x: number, z: number, amount: number): void {
     const d = this.near(x, z);
     const k = d < 8 ? 1 : Math.max(0, 1 - (d - 8) / 20);
     if (k > 0) this.t.juice.shake(amount * k);
+    // Directional: the camera also punches toward where the impact happened.
+    if (k > 0 && d > 1) {
+      const l = this.t.listener();
+      const kick = Math.min(6, amount * k * 7);
+      this.t.juice.kick((x - l.x) / d, (z - l.z) / d, kick);
+    }
   }
 
   /** Client: replay an event received from the host. */
@@ -160,7 +199,7 @@ export class Vfx {
         this.t.fx.star(e[1], e[2], e[3], e[4], e[5], e[6]);
         break;
       case 'n':
-        this.t.dmg.spawn(e[1], e[2], e[3], e[4], e[5]);
+        this.t.dmg.spawn(e[1], e[2], e[3], e[4], e[5], e[6]);
         break;
       case 'a':
         this.playSound(e[3], e[1], e[2], e[4]);
@@ -173,6 +212,15 @@ export class Vfx {
         break;
       case 'g':
         this.t.scars.add(e[1], e[2], e[3], e[4], e[5]);
+        break;
+      case 'c':
+        this.t.corpse?.(e[4], e[1], e[3], e[2], e[5], e[6], e[7], e[8]);
+        break;
+      case 'F':
+        this.t.finisher?.(e[1], e[2], e[3], e[4]);
+        break;
+      case 'P':
+        this.t.portrait?.(e[1], e[2], e[3], e[4]);
         break;
       case 'h':
         if (e[1] === 'banner') this.t.hud.showBanner(e[2], e[3], e[4]);
@@ -194,6 +242,7 @@ export class Vfx {
       case 'k':
       case 'z':
       case 'g':
+      case 'c':
         return [e[1], e[2]];
       default:
         return [NaN, NaN];

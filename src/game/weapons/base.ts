@@ -3,7 +3,7 @@ import type { Rng } from '../../core/rng';
 import type { SpatialHash } from '../../core/spatialHash';
 import type { Tag } from '../../data/tags';
 import { buildKey, buildMaxed, buildParams, newBuild, parseBuild, totalRanks, type Build } from '../../data/tracks';
-import type { WeaponDef } from '../../data/weapons';
+import { DEFAULT_FEEL, type WeaponDef, type WeaponFeel } from '../../data/weapons';
 import type { ModFlags } from '../modTypes';
 import type { Bullets } from '../bullets';
 import type { Enemy, Enemies } from '../enemies';
@@ -72,8 +72,10 @@ export interface WeaponCtx {
   /** Area blast that damages enemies (never the player). */
   blast(x: number, z: number, r: number, base: number, color: string, source: string, tags?: Tag[]): void;
   sound(
-    name: 'zap' | 'disc' | 'missile' | 'mine' | 'freeze' | 'explode' | 'shoot' | 'flame' | 'charge' | 'chargeFull' | 'chargeShot' | 'lob' | 'vortex' | 'shieldUp' | 'block' | 'uplink' | 'beam' | 'rail',
+    name: 'scatter' | 'pellets' | 'laser' | 'sweeper' | 'nova' | 'aura' | 'orb' | 'bouncer' | 'drone' | 'meteor' | 'zap' | 'disc' | 'missile' | 'mine' | 'freeze' | 'explode' | 'shoot' | 'flame' | 'charge' | 'chargeFull' | 'chargeShot' | 'lob' | 'vortex' | 'shieldUp' | 'block' | 'uplink' | 'beam' | 'rail',
   ): void;
+  /** The weapon updating right now: its evolution adds a sound layer to `sound()` (src/audio/evoLayers.ts). */
+  soundSource?: Weapon | null;
   /** Screen shake at a world point (scaled by distance to each player). */
   shake(x: number, z: number, amount: number): void;
   /** Weapon combos this hero has unlocked (src/data/weaponCombos.ts). */
@@ -93,6 +95,8 @@ export abstract class Weapon {
   protected cd = 0.5;
   /** Muzzle flash timer (arm weapons; drives the flash and camera kick). */
   muzzleT = 0;
+  /** Last step's muzzleT, so a new shot (muzzleT rising) fires its feel (kick, recoil) once. */
+  feelMuzzle = 0;
   /** Right-click weapons: 0..1 readiness for the crosshair meter (synced to clients). */
   ready = 1;
   /** Length of the last cooldown, for `ready`. */
@@ -133,6 +137,18 @@ export abstract class Weapon {
       this.tagCache = { evo, tags: extra.length ? [...this.def.tags, ...extra.filter((t) => !this.def.tags.includes(t))] : this.def.tags };
     }
     return this.tagCache.tags;
+  }
+
+  /** Game feel (src/data/weapons.ts WEAPON_FEEL). */
+  get feel(): WeaponFeel {
+    return this.def.feel ?? DEFAULT_FEEL;
+  }
+
+  /** True once per shot: the muzzle flash just started (call once per step). */
+  shotStarted(): boolean {
+    const fired = this.muzzleT > this.feelMuzzle + 1e-4;
+    this.feelMuzzle = this.muzzleT;
+    return fired;
   }
 
   /** Track weapons: the chosen evolution's id ('' before evolving). */

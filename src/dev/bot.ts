@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { cheats, type Game } from '../game/game';
-import { Team } from '../game/bullets';
+import { Autopilot } from '../game/autopilot';
 
 /**
  * Dev-only autoplay bot for balance and performance testing. Installed on
@@ -10,6 +10,9 @@ import { Team } from '../game/bullets';
  *                             (per-stage level and loadout ranks, boss kill times,
  *                             first evolution; it resets when a new run starts)
  *   botStep()              -> one simulation step with bot input
+ *   botAuto(on)            -> drive the live game loop with bot input (co-op tests:
+ *                             works as host or client; clients pick cards and shop
+ *                             through the UI messages)
  * The bot kites in a circle, dodges enemy bullets, shoots the boss (or the
  * nearest enemy), holds right click in bursts, dashes when cornered and
  * always picks the first card.
@@ -26,7 +29,7 @@ export function installBot(game: Game, input: Input): void {
     poll(): void;
   };
 
-  let rightT = 0;
+  const pilot = new Autopilot();
   /** Balance tracking across botRun calls, for the current run. */
   const track = { runTime: 0, stage: 1, bossT: -1, bossName: '', bosses: [] as string[], stages: [] as string[], firstEvo: '' };
   const ranksOf = () => {
@@ -68,82 +71,51 @@ export function installBot(game: Game, input: Input): void {
       b.click();
     }
     document.querySelector<HTMLElement>('#scr-shop [data-act=shop-done]')?.click();
+    // Route map (and its encounters): take the first road.
+    if (game.screens.current === 'route' && game.route.decided < 0) document.querySelector<HTMLElement>('#scr-route [data-ri]')?.click();
   };
 
-  const step = () => {
+  const poll = input.poll.bind(input);
+  let uiT = 0;
+  /** Sets this step's bot input (keys, mouse, presses) and polls it. The decisions live in src/game/autopilot.ts. */
+  const drive = () => {
     const g = game;
-    const p = g.player;
     inp.keys.clear();
-    let best = null as null | { x: number; z: number };
-    let bd = 1e9;
-    let ax = 0;
-    let az = 0;
-    for (const e of g.enemies.list) {
-      // PvP: its own invisible stand-in isn't a target.
-      if (!e.alive || e.pvpOwner === g.hero.index) continue;
-      const dx = p.x - e.x;
-      const dz = p.z - e.z;
-      const d = Math.hypot(dx, dz);
-      if (d < bd) {
-        bd = d;
-        best = e;
-      }
-      if (d < 3.5) {
-        ax += dx / (d * d + 0.1);
-        az += dz / (d * d + 0.1);
-      }
-    }
-    for (let i = 0; i < g.bullets.count; i++) {
-      if (g.bullets.team[i] !== Team.Enemy) continue;
-      const dx = p.x - g.bullets.x[i];
-      const dz = p.z - g.bullets.z[i];
-      const d = Math.hypot(dx, dz);
-      if (d < 3) {
-        ax += (dx / (d * d + 0.1)) * 2;
-        az += (dz / (d * d + 0.1)) * 2;
-      }
-    }
-    const boss = g.enemies.list.find((e) => e.active && e.def.boss);
-    let mx: number;
-    let mz: number;
-    if (g.mode === 'portal') {
-      mx = g.portal.x - p.x;
-      mz = g.portal.z - p.z;
-    } else if (boss) {
-      // Circle the boss at a safe-ish distance.
-      const dx = p.x - boss.x;
-      const dz = p.z - boss.z;
-      const d = Math.hypot(dx, dz) || 1;
-      const want = (8 - d) * 0.3;
-      mx = -dz / d + (dx / d) * want + ax * 3;
-      mz = dx / d + (dz / d) * want + az * 3;
-      best = boss;
-    } else {
-      // Orbit the field centre, pushed away from nearby threats.
-      const r = Math.hypot(p.x, p.z) || 1;
-      const radial = (14 - r) * 0.08;
-      mx = -p.z / r + (p.x / r) * radial + ax * 3;
-      mz = p.x / r + (p.z / r) * radial + az * 3;
-    }
-    const l = Math.hypot(mx, mz) || 1;
-    if (Math.abs(mx / l) > 0.3) inp.keys.add(mx > 0 ? 'KeyD' : 'KeyA');
-    if (Math.abs(mz / l) > 0.3) inp.keys.add(mz > 0 ? 'KeyS' : 'KeyW');
-    if (best) {
-      v.set(best.x, 1.05, best.z).project(g.cam.camera);
+    const o = pilot.decide(g);
+    const l = Math.hypot(o.mx, o.mz) || 1;
+    if (Math.abs(o.mx / l) > 0.3) inp.keys.add(o.mx > 0 ? 'KeyD' : 'KeyA');
+    if (Math.abs(o.mz / l) > 0.3) inp.keys.add(o.mz > 0 ? 'KeyS' : 'KeyW');
+    if (o.target) {
+      v.set(o.target.x, 1.05, o.target.z).project(g.cam.camera);
       inp.mouse.ndcX = v.x;
       inp.mouse.ndcY = v.y;
     }
-    // Right click: hold ~1.4 s (a full charge, or fire whenever a cooldown weapon is ready), then let go briefly.
-    rightT = (rightT + 1 / 60) % 1.6;
-    inp.mouseButtons = best ? 1 | (rightT < 1.4 ? 4 : 0) : 0;
-    if (bd < 1.3 && p.dashReady01 >= 1) inp.pressed.add('Space');
-    if (g.hero.bombCharge >= 1 && Math.hypot(ax, az) > 1) inp.pressed.add('KeyQ');
+    inp.mouseButtons = o.target ? 1 | (o.charge ? 4 : 0) : 0;
+    if (o.dash) inp.pressed.add('Space');
+    if (o.special) inp.pressed.add('KeyQ');
+    if (o.ult) inp.pressed.add('KeyV');
+    if (o.parry) inp.pressed.add('KeyC');
     // The bot picks the first card straight away (it skips the human pick lock).
-    if (g.mode === 'levelup' && g.hero.needsPick) (g as unknown as { ui(a: string, i: number): void }).ui('pick', 0);
-    if (g.mode === 'shop') shop();
-    inp.poll();
+    const ui = (g as unknown as { ui(a: string, i: number): void }).ui.bind(g);
+    if (g.role === 'client') {
+      // Clients answer the host's menus through UI messages; throttled so they don't flood it.
+      uiT -= 1 / 60;
+      if (uiT <= 0 && g.screens.current === 'levelup') (ui('pick', 0), (uiT = 0.3));
+      else if (uiT <= 0 && (g.screens.current === 'shop' || g.screens.current === 'route')) (shop(), (uiT = 0.5));
+    } else {
+      if (g.mode === 'levelup' && g.hero.needsPick) ui('pick', 0);
+      if (g.mode === 'shop') shop();
+    }
+    poll();
     inp.device = 'kbm';
-    g.update(1 / 60);
+  };
+  const step = () => {
+    drive();
+    game.update(1 / 60);
+  };
+  /** Live loop: every poll of the real game loop gets bot input instead. */
+  const auto = (on: boolean) => {
+    input.poll = on ? drive : poll;
   };
 
   const run = (seconds: number, god = false) => {
@@ -191,5 +163,5 @@ export function installBot(game: Game, input: Input): void {
     };
   };
 
-  Object.assign(window, { botStep: step, botRun: run });
+  Object.assign(window, { botStep: step, botRun: run, botAuto: auto });
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { resolveCircleVsBoxes, type AABB } from '../world/collision';
-import { animateHero, applySkin, createHero, poseVictory, setExpression, type Expression, type HeroRig } from './heroModel';
+import { animateHero, applySkin, createHero, newPose, setExpression, type Expression, type HeroRig } from './heroModel';
 import type { SkinDef } from '../data/skins';
 import { textures } from '../render/textures';
 import { baseStats, type Stats } from './stats';
@@ -64,11 +64,18 @@ export class Player {
   showWhenDead = false;
   private sq = 0;
   private sqV = 0;
+  /** Ultimate speed multiplier (Sonic Blitz); 1 = normal. */
+  ultSpeed = 1;
+  /** Seconds of golden skill glow (perfect dash, parry, ultimate); presentation only. */
+  skillGlow = 0;
+  /** 0..1 orange heat glow (the Furnace hero standing still); presentation only. */
+  heatGlow = 0;
+  /** Heroes without a dash (the Duelist parries on the dash key instead). */
+  noDash = false;
 
   readonly rig: HeroRig;
   private shadow: THREE.Mesh;
   private facing = 0;
-  private animTime = 0;
   private blinkT = 0;
   // Face and pose (presentation only).
   /** Seconds of happy face left (level-ups, evolutions, chests). */
@@ -79,7 +86,7 @@ export class Player {
   focus = false;
   /** Hero build proportions (width, height). */
   buildScale: [number, number] = [1, 1];
-  private cheerK = 0;
+  private pose = newPose();
   private hurtT = 0;
   private lastHp = -1;
   private eyeT = 3;
@@ -137,12 +144,30 @@ export class Player {
     this.sq += this.sqV * dt;
   }
 
+  /** Give back one dash charge (perfect dash); `all` refills every charge (Sonic Blitz). */
+  refundDash(all = false): void {
+    this.dashStock = all ? this.dashMax : Math.min(this.dashMax, this.dashStock + 1);
+    if (this.dashStock >= this.dashMax) this.dashCd = 0;
+  }
+
+  /** Squash-and-stretch kick (negative squashes down). */
+  bounce(v: number): void {
+    this.sqV += v;
+  }
+
   /** Knockback impulse (client: host told us we got hit). */
   knock(dirX: number, dirZ: number): void {
     this.kx = dirX * playerTuning.hurtKnockback;
     this.kz = dirZ * playerTuning.hurtKnockback;
     this.hurtFlash = 0.15;
     this.sqV -= 6;
+  }
+
+  /** Shoved without damage (a Gust Kite's wind): adds to the knockback, which slides ~force/10 m. */
+  shove(dirX: number, dirZ: number, force: number): void {
+    this.kx += dirX * force;
+    this.kz += dirZ * force;
+    this.sqV -= 4;
   }
 
   get radius(): number {
@@ -191,6 +216,8 @@ export class Player {
     this.invuln = 1;
     this.dashT = this.dashCd = 0;
     this.dashStock = this.dashMax;
+    this.ultSpeed = 1;
+    this.skillGlow = 0;
     this.rig.root.visible = true;
   }
 
@@ -260,13 +287,13 @@ export class Player {
     this.sqV += (-260 * this.sq - 16 * this.sqV) * dt;
     this.sq += this.sqV * dt;
 
-    const maxSpeed = t.maxSpeed * this.stats.moveSpeedMul;
+    const maxSpeed = t.maxSpeed * this.stats.moveSpeedMul * this.ultSpeed;
     const mx = input ? input.move.x : 0;
     const mz = input ? input.move.y : 0; // screen-down = world +Z (camera has no yaw)
     const hasInput = mx !== 0 || mz !== 0;
 
     let dashed = false;
-    if (wantDash && this.dashStock >= 1 && this.dashT <= 0) {
+    if (wantDash && !this.noDash && this.dashStock >= 1 && this.dashT <= 0) {
       // Dash where you're moving; if standing still, dash toward the aim.
       this.dashX = hasInput ? mx : this.aim.x;
       this.dashZ = hasInput ? mz : this.aim.z;
@@ -361,29 +388,44 @@ export class Player {
     this.facing += diff * (1 - Math.exp(-playerTuning.turnSpeed * frameDt));
     this.rig.root.rotation.y = this.facing;
 
-    const speed01 = Math.min(1, Math.hypot(this.vel.x, this.vel.z) / playerTuning.maxSpeed);
-    this.animTime += frameDt;
-    animateHero(this.rig, this.animTime, this.dashing ? 0.3 : speed01, Math.min(1, this.recoil));
-    this.cheerK += ((this.cheer && !this.dead ? 1 : 0) - this.cheerK) * Math.min(1, frameDt * 6);
-    if (this.cheerK > 0.01) poseVictory(this.rig, this.animTime, this.cheerK);
-    const [bw, bh] = this.buildScale;
-    this.rig.body.scale.set((1 - this.sq * 0.5) * bw, (1 + this.sq) * bh, (1 - this.sq * 0.5) * bw);
+    // Pose inputs for the procedural animation (src/game/heroModel.ts).
+    const pose = this.pose;
+    pose.dt = frameDt;
+    pose.vx = this.vel.x / playerTuning.maxSpeed;
+    pose.vz = this.vel.z / playerTuning.maxSpeed;
+    pose.facing = this.facing;
+    pose.recoil = Math.min(1, this.recoil);
+    pose.dashing = this.dashing;
+    pose.hurtFlash = this.hurtFlash;
+    const kl = Math.hypot(this.kx, this.kz);
+    if (kl > 0.5) {
+      pose.hitX = this.kx / kl;
+      pose.hitZ = this.kz / kl;
+    } else if (this.hurtFlash <= 0) pose.hitX = pose.hitZ = 0;
+    pose.dead = this.dead;
+    pose.cheer = this.cheer && !this.dead;
+    pose.sq = this.sq;
+    [pose.bw, pose.bh] = this.buildScale;
+    animateHero(this.rig, pose);
 
-    // Downed in co-op: lie on the ground, greyed out.
-    this.rig.root.rotation.z = this.dead && this.showWhenDead ? Math.PI / 2 : 0;
+    // Down: the death fall plays, then the hero lies there greyed out (co-op: until revived).
     if (this.dead) {
-      this.rig.root.visible = this.showWhenDead;
-      this.rig.root.position.y = 0.4;
-      for (const m of this.rig.materials) m.uniforms.uFlash.value.set(0.5, 0.5, 0.6, 0.55);
+      this.rig.root.visible = true;
+      const grey = Math.min(1, Math.max(0, (this.rig.anim.deathT - 0.6) * 3)) * 0.55;
+      for (const m of this.rig.materials) m.uniforms.uFlash.value.set(0.5, 0.5, 0.6, grey);
       return;
     }
-    this.rig.root.position.y = 0;
     // Blink while invulnerable after a hit (not during dash i-frames).
     const blinking = this.invuln > 0 && !this.dashing && this.hurtFlash <= 0 && this.invuln > playerTuning.dashIframesExtra;
     this.blinkT += frameDt;
     this.rig.root.visible = !blinking || Math.floor(this.blinkT * 16) % 2 === 0;
-    const fa = this.hurtFlash > 0 ? 0.85 : this.dashing ? 0.35 : 0;
-    const [r, g, b] = this.hurtFlash > 0 ? [1, 0.2, 0.3] : [0.6, 0.9, 1];
+    this.skillGlow = Math.max(0, this.skillGlow - frameDt);
+    // Skill glow: a golden shimmer after a perfect dash or parry, and while an ultimate runs.
+    const glow = this.hurtFlash <= 0 && !this.dashing && this.skillGlow > 0 ? 0.25 + 0.2 * Math.sin(this.blinkT * 30) : 0;
+    // Furnace heat: a pulsing orange glow that grows while standing still.
+    const heat = this.hurtFlash <= 0 && !this.dashing && glow <= 0 && this.heatGlow > 0.05 ? this.heatGlow * (0.32 + 0.12 * Math.sin(this.blinkT * 12)) : 0;
+    const fa = this.hurtFlash > 0 ? 0.85 : this.dashing ? 0.35 : glow || heat;
+    const [r, g, b] = this.hurtFlash > 0 ? [1, 0.2, 0.3] : glow > 0 ? [1, 0.85, 0.3] : heat > 0 ? [1, 0.42, 0.1] : [0.6, 0.9, 1];
     for (const m of this.rig.materials) m.uniforms.uFlash.value.set(r, g, b, fa);
   }
 

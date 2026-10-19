@@ -1,0 +1,16 @@
+LANE: sound
+
+Goal: make the game SOUND great. Recorded ElevenLabs samples now exist in public/audio/*.mp3 (list in public/audio/manifest.json, prompts in scripts/audio/sounds.mjs; ids: explode_small/big, hit_flesh, hit_metal, crit, enemy_die, elite_die, shield_break, w_* weapon sounds, dash, perfect_dash, parry, step_grass/sand/snow/metal, jump_pad, boss_roar, boss_slam, boss_phase, charger_windup, spawn_portal, golden_laugh, turret, cover_break, chest_open, level_up, evolve, amb_meadow/dunes/peaks/magma/rain (seamless loops), and announcer vo_* lines). The existing sounds are synthesized in src/audio/sfx.ts.
+
+Build:
+1. Sample engine (new src/audio/samples.ts): lazy-load the manifest and decode the mp3s in the background after the first user gesture (never block startup; game must work fully if files are missing/offline — fall back to the synth sound). Play with random pitch/volume variation, per-sound cooldown/voice limits, routed through the existing buses (sfx/ui) in sfx.ts. Vite base path: use import.meta.env.BASE_URL + 'audio/...'.
+2. Layer samples with the existing synth sounds so each weapon gets a unique, punchy voice (sfx.weapon(name) mapping; add names for weapons that share a generic sound). Explosions, hits, crits, enemy deaths, elite deaths, shield breaks, chest, level-up, evolve, boss roar/slam.
+3. Positional audio: pan + distance attenuation from the listener (player/camera), a subtle low-pass for far sounds, and a quick whoosh for big projectiles passing near the player (cheap: only for a few big projectiles).
+4. Smarter mixing in big fights: global voice budget with priority (player weapon, boss, pickups > swarm deaths), master compressor/limiter, ducking of sfx under the announcer and big moments; swarm kill sounds thin out gracefully with 100+ enemies.
+5. Per-area ambience: loop amb_<biome> under the music on its own gain (setting under sfx or a new 'ambience' volume), crossfade on stage change, amb_rain when it rains (expose `ambience.setRain(0..1)` for the graphics lane). Per-area reverb (ConvolverNode with a generated impulse: open meadow short, peaks long and airy, magma dark, dunes dry) applied as a send on sfx.
+6. Footsteps: step sound by ground type per biome (meadow grass, dunes sand, peaks snow, magma/metal areas metal) timed to the hero's movement speed, quiet, with variation. Dash whoosh uses the 'dash' sample.
+7. Announcer (new src/audio/announcer.ts): plays vo_* lines with priorities/cooldowns so it never spams: run start "Ready... Go!", boss spawn, elite spawn, legendary pick, evolution, level up (only occasionally), stage clear, game over, combo milestones (great/awesome/unstoppable at rising combo counts), and expose `announcer.say(id)` for other lanes (parry, perfect, S rank, ultimate, overdrive). Setting toggle "Announcer" (on by default).
+Clients in co-op must hear everything too (most sounds are already triggered via vfx events on clients; check).
+
+Owns: src/audio/* (except music.ts), new src/audio/samples.ts, announcer.ts, ambienceAudio.ts, small hooks where sounds are triggered (keep them one-liners), settings toggles in settings.ts/screens.ts (small), tests/sound.test.ts.
+Don't touch: src/audio/music.ts (music lane).

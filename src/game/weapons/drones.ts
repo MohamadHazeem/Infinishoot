@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createRetroMaterial, type RetroMaterial } from '../../render/retroMaterial';
 import type { WeaponDef } from '../../data/weapons';
 import { Weapon, type WeaponCtx } from './base';
@@ -16,8 +17,11 @@ export class Drones extends Weapon {
 
   protected applyLook(c: string | null): void {
     (this.mesh.material as RetroMaterial).uniforms.uColor.value.set(c ?? '#4fc3ff');
-    (this.ring.material as RetroMaterial).uniforms.uColor.value.set(c ? '#ff3df0' : '#ffffff');
+    // Gold-white ring (it was the enemy-bullet magenta), and hex shield plates instead of gems.
+    (this.ring.material as RetroMaterial).uniforms.uColor.value.set(c ? '#fff6c8' : '#ffffff');
+    this.mesh.geometry = this.geos[c ? 1 : 0];
   }
+  private geos: THREE.BufferGeometry[];
   private lastHit = new Map<number, number>();
   private pos: { x: number; z: number }[] = Array.from({ length: MAX }, () => ({ x: 0, z: 0 }));
   private m4 = new THREE.Matrix4();
@@ -26,10 +30,14 @@ export class Drones extends Weapon {
   private v = new THREE.Vector3();
   private s = new THREE.Vector3();
   private cleanT = 0;
+  private soundAt = 0;
 
   constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
-    this.mesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.32, 0), createRetroMaterial({ color: '#4fc3ff', unlit: 0.5 }), MAX);
+    const gem = new THREE.OctahedronGeometry(0.32, 0);
+    const plate = mergeGeometries([new THREE.CylinderGeometry(0.4, 0.4, 0.1, 6).rotateX(Math.PI / 2).toNonIndexed(), new THREE.OctahedronGeometry(0.2, 0).scale(1, 1, 1.6)])!; // polyhedra are already non-indexed
+    this.geos = [gem, plate];
+    this.mesh = new THREE.InstancedMesh(gem, createRetroMaterial({ color: '#4fc3ff', unlit: 0.5 }), MAX);
     this.ring = new THREE.InstancedMesh(new THREE.TorusGeometry(0.42, 0.06, 4, 12), createRetroMaterial({ color: '#ffffff', unlit: 0.8 }), MAX);
     for (const m of [this.mesh, this.ring]) {
       m.frustumCulled = false;
@@ -69,6 +77,7 @@ export class Drones extends Weapon {
         const last = this.lastHit.get(en.uid) ?? -1;
         if (ctx.time - last < HIT_COOLDOWN) return;
         this.lastHit.set(en.uid, ctx.time);
+        if (ctx.time >= this.soundAt) { this.soundAt = ctx.time + 0.18; ctx.sound('drone'); }
         // Knock enemies along the orbit direction.
         ctx.damage(en, p.dmg, { source: 'drones', dirX: -Math.sin(a), dirZ: Math.cos(a), knockback: 5, hx: dp.x, hz: dp.z, canCrit: true, loud: true, tags: ctx.combos.has('tesla_drones') ? ['orbit', 'shock'] : undefined });
       });

@@ -49,25 +49,33 @@ const game = new Game(input, 16 / 9, document.getElementById('hud')!, document.g
 installBot(game, input);
 const botRun = (globalThis as any).window.botRun as (s: number, god?: boolean) => Record<string, unknown>;
 // Unlock everything so all heroes/difficulties/weapons get exercised.
-save.achievements.push('boss_slayer', 'elite_hunter', 'speedster', 'stage_3', 'hard_stage3', 'first_steps', 'maxed', 'evolved', 'exterminator', 'arsenal');
+save.achievements.push('boss_slayer', 'elite_hunter', 'speedster', 'stage_3', 'hard_stage3', 'first_steps', 'maxed', 'evolved', 'exterminator', 'arsenal', 'riposte', 'immovable', 'double_trouble');
 
 const runs: [string, string, string, number][] = [
   ['standard', 'normal', 'rookie', 900],
   ['endless', 'hard', 'bulwark', 600],
   ['bossrush', 'nightmare', 'dash', 400],
   ['daily', 'easy', 'ace', 300],
+  // Mechanic heroes (src/game/heroMechs.ts): parry-on-dash, heat aura, mirror twin.
+  ['standard', 'normal', 'duelist', 240],
+  ['endless', 'easy', 'furnace', 240],
+  ['standard', 'hard', 'twin', 240],
 ];
 for (const [mode, diff, hero, secs] of runs) {
   settings.mode = mode;
   settings.difficulty = diff;
   settings.hero = hero;
+  // The Twin's clone copies the left click: give it a beam weapon so the clone's own weapon instance runs too.
+  settings.loadout = { ...settings.loadout, primary: hero === 'twin' ? 'laser' : 'buster' };
   settings.pet = hero === 'rookie' ? 'sparky' : hero === 'dash' ? 'bit' : 'guardian';
   game.applyLocalSkin();
   try {
     game.startSolo();
     const t0 = Date.now();
     const r = botRun(secs, true);
-    console.log(mode, diff, hero, JSON.stringify({ stage: r.stage, mode: r.mode, level: r.level, kills: r.kills, weapons: r.weapons, avgMs: r.avgMs, worstMs: r.worstMs, curses: game.curses, relics: game.hero.relics, wall: Date.now() - t0 }));
+    console.log(mode, diff, hero, JSON.stringify({ stage: r.stage, mode: r.mode, level: r.level, kills: r.kills, weapons: r.weapons, avgMs: r.avgMs, worstMs: r.worstMs, curses: game.curses, relics: game.hero.relics, route: game.route.on ? game.route.path.slice(2).map((_, k) => game.routeKind(k + 2)).join(',') : '-', wall: Date.now() - t0 }));
+    // Route map: every stage after the first was reached through a picked node.
+    if (mode === 'standard' && r.stage >= 2 && game.route.path[r.stage] === undefined) errors.push(`route: no node picked for stage ${r.stage}`);
     // Pause screen + extras screens render without throwing.
     game.pause();
     game.resume();
@@ -75,16 +83,32 @@ for (const [mode, diff, hero, secs] of runs) {
     errors.push(mode + ': ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
   }
 }
+// The training field with the bot at the controls (onboarding lane): runs without errors and leaves cleanly.
+try {
+  game.onboarding.startTraining();
+  const tr = botRun(40, false);
+  console.log('training', JSON.stringify({ step: game.onboarding.training?.step, mode: tr.mode, screen: (game.screens as any).current }));
+  game.onboarding.endTraining(false);
+} catch (e) {
+  errors.push('training: ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
+}
 // A mortal run: die, game over, run history.
 settings.mode = 'standard';
 settings.difficulty = 'nightmare';
 game.startSolo();
 const rr = botRun(900, false);
 console.log('mortal', JSON.stringify({ stage: rr.stage, mode: rr.mode, t: rr.t, kills: rr.kills }));
+// The bot can outlive the time budget (it parries well), so finish the run off deterministically.
+if (game.mode !== 'dead') {
+  const p = game.hero.player;
+  game.hero.revivesLeft = 0;
+  p.invuln = 0;
+  if (p.hurt(p.hp + 1, 0, 1)) game.onHeroDown(game.hero);
+}
 for (let i = 0; i < 400; i++) game.update(1 / 60);
 const goScreen = (game.screens as any).current;
 console.log('after death: screen', goScreen, 'last cause', save.history[0]?.cause, 'label', save.history[0]?.label);
-for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'settings']) {
+for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'settings', 'codex']) {
   try { (game.screens as any).show(s); } catch (e) { errors.push('screen ' + s + ': ' + (e as Error).stack); }
 }
 console.log('history', save.history.length, 'seen', save.seen.length);

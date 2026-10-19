@@ -4,17 +4,48 @@ import { retroGlobals } from '../render/retroMaterial';
 import { postSettings, type RetroRenderer } from '../render/renderer';
 import { applyRetroStrength, retro } from '../render/retroSettings';
 import { cameraTuning } from '../game/cameraRig';
+import { camDirTuning } from '../game/animMath';
+import { enemyAnimTuning } from '../game/enemyAnim';
+import { heroAnimTuning } from '../game/heroModel';
 import { playerTuning } from '../game/player';
 import { cheats, scoreTuning, type Game } from '../game/game';
 import { specialTuning } from '../data/specials';
 import { directorTuning } from '../game/director';
-import { bossTuning, eliteTuning } from '../game/enemies';
+import { aiTuning, bossTuning, eliteTuning, goldenTuning, squadTuning } from '../game/enemies';
+import { arenaTuning } from '../game/interactives';
+import { hazardTuning } from '../game/hazards';
+import { objectiveTuning } from '../game/objectives';
 import { juiceTuning } from '../game/juice';
 import { WEAPONS } from '../data/weapons';
 import { MODS } from '../data/mods';
 import { ELITE_MOD_IDS } from '../data/eliteMods';
-import { ENEMIES } from '../data/enemies';
+import { ENEMIES, familyTuning } from '../data/enemies';
 import { audioSettings } from '../audio/sfx';
+import { addLookFolder } from './debugLook';
+import { addReadabilityFolder } from './debugReadability';
+import { addAudioFolder } from './debugAudio';
+import { addContentFolder } from './debugContent';
+import { addSoundFolder } from './debugSound';
+import { addSkyFolder } from './debugSky';
+import { rainTuning, weatherForce } from '../game/ambience';
+import { worldFxTuning } from '../game/particles';
+import { debrisTuning } from '../game/debris';
+import { decalTuning } from '../game/decals';
+import { surfaceTuning } from '../render/surfaces';
+import { worldDustTuning } from '../game/systems/worldFx';
+import { worldDebugFolder } from '../world/worldDebug';
+import { finisherTuning } from '../game/finisher';
+import { portraitTuning } from './portraits';
+import { skillTuning, styleTuning } from '../game/style';
+import { ultTuning } from '../game/ultimates';
+import { petTuning } from '../data/pets';
+import { teamTuning } from '../game/teamMoves';
+import { banishTuning } from '../game/banish';
+import { cardNumTuning } from '../game/cardNumbers';
+import { previewTuning } from '../game/shopPreview';
+import { trainingTuning } from '../game/training';
+import { addHudFolder } from './debugHud';
+import { addFixesFolder } from './fixesPanel';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -66,6 +97,13 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   light.add(retroGlobals.uFogNear, 'value', 0, 100, 1).name('Fog near');
   light.add(retroGlobals.uFogFar, 'value', 1, 200, 1).name('Fog far');
 
+  addLookFolder(gui);
+  addReadabilityFolder(gui);
+  addAudioFolder(gui, game);
+  addContentFolder(gui);
+  addSoundFolder(gui); // Sound designer: samples, cues, live tuning, export
+  addSkyFolder(gui);
+
   const cam = gui.addFolder('Camera').close();
   cam.add(cameraTuning, 'pitchDeg', 30, 89, 1);
   cam.add(cameraTuning, 'distance', 8, 50, 0.5);
@@ -73,6 +111,32 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   cam.add(cameraTuning, 'follow', 1, 30, 0.5);
   cam.add(cameraTuning, 'lookAhead', 0, 0.6, 0.01);
   cam.add(cameraTuning, 'lookAheadMax', 0, 10, 0.5);
+  // Smart camera and animation (animation lane).
+  const anim = cam.addFolder('Smart camera & animation').close();
+  anim.add(camDirTuning, 'autoMin', 0.6, 1, 0.01);
+  anim.add(camDirTuning, 'autoMax', 1, 2, 0.01);
+  anim.add(camDirTuning, 'swarmOut', 0, 0.6, 0.01);
+  anim.add(camDirTuning, 'edgeOut', 0, 0.6, 0.01);
+  anim.add(camDirTuning, 'coopMax', 1, 2.2, 0.05);
+  anim.add(camDirTuning, 'killCamTime', 0.5, 5, 0.1);
+  anim.add(camDirTuning, 'killCamZoom', 0.3, 1, 0.05);
+  anim.add(heroAnimTuning, 'legSwing', 0, 2, 0.05);
+  anim.add(heroAnimTuning, 'leanFwd', 0, 0.8, 0.01);
+  anim.add(heroAnimTuning, 'dashStretch', 0, 1, 0.05);
+  anim.add(enemyAnimTuning, 'gait', 0, 2, 0.05).name('Enemy gait');
+  anim.add(enemyAnimTuning, 'hitWobble', 0, 2, 0.05);
+  anim.add(enemyAnimTuning, 'flingSpeed', 0, 20, 0.5);
+  anim.add(enemyAnimTuning, 'corpseLife', 0.1, 2, 0.05);
+  // Boss finishers and portraits (finisher lane).
+  const fin = cam.addFolder('Finisher & portraits').close();
+  fin.add(finisherTuning, 'length', 1, 4, 0.05);
+  fin.add(finisherTuning, 'calmLength', 0.8, 3, 0.05);
+  fin.add(finisherTuning, 'strike', 0.15, 1, 0.01);
+  fin.add(finisherTuning, 'title', 0.2, 1.5, 0.01);
+  fin.add(finisherTuning, 'shake', 0, 8, 1);
+  fin.add(portraitTuning, 'popSeconds', 1, 6, 0.1);
+  fin.add(portraitTuning, 'typeRate', 10, 120, 1);
+  fin.add(portraitTuning, 'hurtHold', 0.1, 2, 0.05);
 
   const pl = gui.addFolder('Player').close();
   pl.add(playerTuning, 'maxSpeed', 1, 20, 0.5);
@@ -103,6 +167,17 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   run.add({ fill: () => (game.hero.bombCharge = 1) }, 'fill').name('Fill bomb');
   run.add({ restart: () => game.restart() }, 'restart').name('New run');
 
+  // Shop lane: banish charges, card number lines, order preview sample hits.
+  const shop = gui.addFolder('Shop & cards').close();
+  shop.add(banishTuning, 'start', 0, 10, 1).name('Banishes per run');
+  shop.add(banishTuning, 'perShop', 0, 5, 1).name('Banishes per shop');
+  shop.add(banishTuning, 'max', 0, 20, 1).name('Banish cap');
+  shop.add({ b: () => (game.hero.banishLeft += 1) }, 'b').name('+1 banish');
+  shop.add(cardNumTuning, 'maxLines', 1, 6, 1).name('Number lines per card');
+  shop.add(previewTuning, 'dist', 0, 20, 0.5).name('Preview hit distance');
+  shop.add(previewTuning, 'near', 0, 3.5, 0.1).name('Preview near distance');
+  shop.add(previewTuning, 'far', 8, 30, 0.5).name('Preview far distance');
+
   const dir = gui.addFolder('Director').close();
   dir.add(directorTuning, 'stageSeconds', 30, 900, 10);
   dir.add(directorTuning, 'aliveStart', 0, 200, 1);
@@ -120,6 +195,12 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   dir.add(scoreTuning, 'comboWindow', 0.5, 6, 0.1);
   dir.add(specialTuning, 'cooldown', 3, 30, 0.5).name('Special cooldown (s)');
 
+  // Arena toys, hazards and objectives (src/game/interactives.ts, hazards.ts, objectives.ts).
+  const ar = gui.addFolder('Arena').close();
+  for (const k of ['jumpTime', 'jumpHeight', 'landRadius', 'landDmg', 'landKnock', 'turretTime', 'turretCooldown', 'turretRate', 'turretDmg', 'crateHp', 'pillarHp'] as const) ar.add(arenaTuning, k);
+  for (const k of ['knockSpeed', 'iceSlide', 'splatSpeed', 'sandHero', 'sinkTime', 'thornTick', 'envScore'] as const) ar.add(hazardTuning, k);
+  for (const k of ['beaconTime', 'beaconDrain', 'envKills', 'goldBase'] as const) ar.add(objectiveTuning, k);
+
   const boss = gui.addFolder('Boss').close();
   boss.add(bossTuning, 'hp', 0.2, 5, 0.1);
   boss.add(bossTuning, 'speed', 0.5, 2.5, 0.05);
@@ -131,13 +212,94 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   boss.add(eliteTuning, 'speed', 0.5, 2, 0.05).name('Elite speed');
   boss.add(eliteTuning, 'pace', 0.3, 1.5, 0.05).name('Elite pace');
 
+  const ai = gui.addFolder('Enemy AI').close();
+  ai.add(aiTuning, 'flankMax', 0, 1.5, 0.05);
+  ai.add(aiTuning, 'wideShare', 0, 1, 0.05);
+  ai.add(aiTuning, 'coverPeek', 0, 3, 0.1);
+  ai.add(squadTuning, 'engage', 0, 20, 0.5).name('Squad engage');
+  ai.add(squadTuning, 'rallyEvery', 1, 20, 0.5).name('Rally every');
+  ai.add(squadTuning, 'rallySpeed', 1, 2, 0.05).name('Rally speed');
+  ai.add(goldenTuning, 'panicSpeed', 1, 2, 0.05).name('Goldbug panic');
+  ai.add(directorTuning, 'goldenChance', 0, 1, 0.05).name('Goldbug chance');
+  const families = ai.addFolder('Burrow / Mirror / Swarm').close();
+  families.add(familyTuning, 'mirrorDamage', 0.1, 0.7, 0.05);
+  families.add(familyTuning, 'mirrorMaxDamage', 2, 20, 1);
+  families.add(familyTuning, 'queenAt', 0.6, 0.85, 0.01);
+  families.add(familyTuning, 'queenCooldown', 4, 15, 0.5);
+  families.add(familyTuning, 'eggHatch', 3, 12, 0.5);
+  families.add(ENEMIES.burrower.burrow!, 'warn', 0.6, 2, 0.05).name('Digger warning');
+
   const fx = gui.addFolder('Juice & audio').close();
   fx.add(juiceTuning, 'hitStopScale', 0, 3, 0.1).name('Hit-stop x');
   fx.add(juiceTuning, 'shakeScale', 0, 3, 0.1).name('Shake x');
   fx.add(juiceTuning, 'shakeMax', 0, 2, 0.05);
   fx.add(juiceTuning, 'shakeDecay', 0.2, 5, 0.1);
+  // Skill layer: perfect dash, parry, style meter and ultimates.
+  const skill = gui.addFolder('Skill').close();
+  skill.add(skillTuning, 'perfectLead', 0, 0.6, 0.02).name('Perfect lead (s)');
+  skill.add(skillTuning, 'perfectSlowMo', 0, 1, 0.05).name('Perfect slow-mo (s)');
+  skill.add(skillTuning, 'buffDamage', 0, 1, 0.05).name('Buff damage +');
+  skill.add(skillTuning, 'parryWindow', 0.05, 0.5, 0.01).name('Parry window (s)');
+  skill.add(skillTuning, 'parryWindowRemote', 0.05, 0.6, 0.01).name('Parry window online');
+  skill.add(skillTuning, 'parryCooldown', 0, 2, 0.05).name('Parry cooldown');
+  skill.add(styleTuning, 'killPerSec', 0, 30, 1).name('Style kill pts/s');
+  skill.add(styleTuning, 'perfectDash', 0, 300, 5).name('Style perfect');
+  skill.add(styleTuning, 'parry', 0, 300, 5).name('Style parry');
+  skill.add(ultTuning, 'killGain', 0, 0.01, 0.0001).name('Ult per kill');
+  skill.add(ultTuning, 'hitGain', 0, 0.01, 0.0001).name('Ult per hit');
+  skill.add(ultTuning, 'bossMul', 0, 1, 0.05).name('Ult vs bosses');
+  skill.add({ fill: () => (game.hero.skill.ult = 1) }, 'fill').name('Fill ultimate');
   fx.add(audioSettings, 'volume', 0, 1, 0.05);
   fx.add(audioSettings, 'muted');
+
+  // World effects (cosmetic): weather, smoke/dust, debris, decals, surfaces.
+  const world = gui.addFolder('World FX').close();
+  world.add(game.ambience, 'rain', 0, 1, 0.01).name('Rain now').listen().disable();
+  world.add({ rain: () => game.ambience.setRain(!game.ambience.raining) }, 'rain').name('Toggle rain');
+  world.add(weatherForce, 'mode', { seeded: null, rain: 'rain', clear: 'clear' }).name('Next stages');
+  world.add(rainTuning, 'dark', 0, 1, 0.05).name('Rain darkness');
+  world.add(rainTuning, 'flash', 0, 1, 0.05).name('Lightning');
+  world.add(worldFxTuning, 'amount', 0, 2, 0.1).name('FX amount');
+  world.add(worldFxTuning, 'smokeRise', 0, 4, 0.1);
+  world.add(worldFxTuning, 'sparkGravity', 0, 60, 1);
+  world.add(debrisTuning, 'gravity', 5, 60, 1).name('Debris gravity');
+  world.add(debrisTuning, 'bounce', 0, 0.9, 0.05).name('Debris bounce');
+  world.add(debrisTuning, 'life', 0.5, 10, 0.1).name('Debris life');
+  world.add(decalTuning, 'footLife', 1, 20, 0.5).name('Footprint life');
+  world.add(decalTuning, 'footAlpha', 0, 1, 0.05).name('Footprint alpha');
+  world.add(decalTuning, 'scorchLife', 1, 20, 0.5).name('Scorch life');
+  world.add(worldDustTuning, 'stride', 0.3, 2, 0.05).name('Footprint stride');
+  world.add(surfaceTuning, 'rippleEvery', 0.1, 3, 0.05);
+  world.add(surfaceTuning, 'bubbleEvery', 0.05, 2, 0.05);
+  world.add(surfaceTuning, 'glintsPerM2', 0, 1, 0.01);
+  addHudFolder(gui);
+
+  // Onboarding: training field (src/game/training.ts) and first-time tips.
+  const ob = gui.addFolder('Onboarding').close();
+  ob.add({ go: () => game.onboarding.startTraining() }, 'go').name('Start training');
+  ob.add({ skip: () => game.onboarding.advance() }, 'skip').name('Skip training step');
+  ob.add(trainingTuning, 'moveDist', 2, 30, 1);
+  ob.add(trainingTuning, 'shotEvery', 0.6, 4, 0.1).name('Shot every (s)');
+  ob.add(trainingTuning, 'shotSpeed', 2, 20, 0.5);
+  ob.add(trainingTuning, 'skipAfter', 0, 60, 1).name('SKIP shows after (s)');
+  addFixesFolder(gui);
+  worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
+
+  // Companion lane: pets and co-op team moves.
+  const comp = gui.addFolder('Pets & team moves').close();
+  comp.add(petTuning, 'fetchMagnet', 0, 2, 0.05).name('Fetch range +');
+  comp.add(petTuning, 'zapDmg', 0, 100, 1).name('Zap damage');
+  comp.add(petTuning, 'zapPerLevel', 0, 20, 0.5).name('Zap per team lv');
+  comp.add(petTuning, 'tauntMinEnemies', 1, 10, 1).name('Taunt min crowd');
+  comp.add(petTuning, 'shieldMinFrac', 0, 1, 0.01).name('Shield min hit');
+  comp.add(petTuning, 'reviveHp', 0.1, 1, 0.05).name('Revive life');
+  comp.add(teamTuning, 'linkRange', 2, 15, 0.5).name('Team link range');
+  comp.add(teamTuning, 'linkTime', 0, 5, 0.1).name('Team link time');
+  comp.add(teamTuning, 'chargeTime', 2, 60, 1).name('Team charge (s)');
+  comp.add(teamTuning, 'highFiveBonus', 0, 1, 0.05).name('High-five bonus');
+  comp.add(teamTuning, 'dmg', 10, 400, 5).name('Team move damage');
+  comp.add({ fill: () => (game.companionState().meter.charge = 1) }, 'fill').name('Fill TEAM meter');
+  comp.add({ lv: () => game.heroes.forEach((h) => h.petState.levelUp() && h.recomputeStats()) }, 'lv').name('Pet level up');
 
   return gui;
 }
