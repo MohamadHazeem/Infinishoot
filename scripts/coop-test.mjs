@@ -64,16 +64,46 @@ const fail = (msg) => {
 
 const server = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
 await server.listen();
+if (args.includes('--offline')) await server.watcher.close(); // keep an in-progress regression run on one build
 const base = `http://127.0.0.1:${server.config.server.port ?? server.httpServer.address().port}/`;
 const browser = await chromium.launch({
   headless: true,
   executablePath: findChrome(),
-  args: [`--use-angle=${opt('--angle', process.env.COOP_ANGLE ?? 'swiftshader')}`, '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
+  args: [...(args.includes('--offline') ? ['--disable-features=WebRtcHideLocalIpsWithMdns'] : []), `--use-angle=${opt('--angle', process.env.COOP_ANGLE ?? 'swiftshader')}`, '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
 });
 
+// ci2: in-process PeerJS signalling for offline CI; the actual WebRTC channel is unchanged.
+const offlinePeers = new Map();
+let offlineId = 0;
 async function openPage(name) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
-  if (process.env.COOP_LOW) await ctx.addInitScript(() => localStorage.setItem('infinishoot.settings.v1', JSON.stringify({ graphics: 0 })));
+  if (args.includes('--offline')) {
+    await ctx.route('**/*', route => {
+      const url = new URL(route.request().url());
+      if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') return route.continue();
+      if (url.hostname.endsWith('peerjs.com') && url.pathname.endsWith('/id')) return route.fulfill({ status: 200, contentType: 'text/plain', headers: { 'access-control-allow-origin': '*' }, body: `ci2-peer-${++offlineId}` });
+      return route.fulfill({ status: 503, body: 'null' });
+    });
+    await ctx.routeWebSocket(/peerjs\.com/, ws => {
+      const id = new URL(ws.url()).searchParams.get('id');
+      if (process.env.COOP_TRACE) log('offline signalling open', id);
+      offlinePeers.set(id, ws); ws.send(JSON.stringify({ type: 'OPEN' }));
+      ws.onMessage(data => {
+        const msg = JSON.parse(String(data));
+        if (msg.type === 'HEARTBEAT') return;
+        if (process.env.COOP_TRACE) log('offline signalling', id, msg.type, msg.dst);
+        const target = offlinePeers.get(msg.dst);
+        if (target) target.send(JSON.stringify({ ...msg, src: id }));
+        else ws.send(JSON.stringify({ type: 'EXPIRE', src: msg.dst }));
+      });
+      ws.onClose(() => offlinePeers.delete(id));
+    });
+    await ctx.addInitScript(() => {
+      const NativePeer = window.RTCPeerConnection;
+      window.RTCPeerConnection = class extends NativePeer { constructor(config) { super({ ...config, iceServers: [] }); } };
+    });
+  }
+  if (process.env.COOP_LOW) await ctx.addInitScript(() => localStorage.setItem('infinishoot.settings.v1', JSON.stringify({ ...JSON.parse(localStorage.getItem('infinishoot.settings.v1') || '{}'), graphics: 0 })));
   const page = await ctx.newPage();
   page.setDefaultTimeout(PAGE_TIMEOUT);
   // Large parallel builds can saturate the dev server before the game has loaded.
@@ -144,6 +174,10 @@ await B.page.waitForFunction(() => window.game && window.botAuto, null, { timeou
 try {
   await A.page.waitForFunction(() => window.game.lobby.length === 2, null, { timeout: 25000 });
 } catch {
+  if (args.includes('--offline')) {
+    log('offline client errors', B.errors);
+    for (const p of [A, B]) log('offline ICE', p.name, await p.page.evaluate(() => { const peer = window.game.host?.peer ?? window.game.client?.peer; return Object.values(peer?.connections ?? {}).flat().map(c => ({ peer: c.peer, open: c.open, ice: c.peerConnection?.iceConnectionState, signal: c.peerConnection?.signalingState })); }));
+  }
   fail(`client never joined the lobby (client status: ${await B.page.evaluate(() => document.querySelector('#scr-online')?.innerText?.slice(0, 200))})`);
   await done();
 }
@@ -790,7 +824,7 @@ async function partyPhase() {
     const ok = await until(B, () => ['gameover', 'mvp'].includes(window.game.screens.current), null, 6000);
     const okA = await host(() => ['gameover', 'mvp'].includes(window.game.screens.current));
     // The MVP awards come first; CONTINUE leads to game over.
-    for (const p of [A, B]) await p.evaluate(() => { if (window.game.screens.current === 'mvp') window.game.screens.show('gameover'); });
+    for (const p of [A, B]) await p.page.evaluate(() => { if (window.game.screens.current === 'mvp') window.game.screens.show('gameover'); });
     if (!ok || !okA) fail(`party: game over screens host ${okA} client ${ok}`);
   };
   await Promise.all([A, B].map((p) => p.page.evaluate(() => window.botAuto(false))));
