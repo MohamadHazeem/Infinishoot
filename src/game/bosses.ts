@@ -18,6 +18,13 @@
  *                Arena twist: hive link, every standing hive heals her.
  *   Omega        its own three phases (below), plus an orbital strike grid.
  *
+ * Rematches (src/data/bossRemix.ts) reuse these brains with `def.remix` flags:
+ * King Bopper EX (shockwaves from phase 1, a bullet ring on every landing,
+ * veteran summons), Rampage Rex: Inferno (fire breath from phase 2, burning
+ * charges, a 4-arm spiral), Hive Queen: Nightshade (swarm walls from phase 2,
+ * wider fans, more hives, veteran Zippies). The Titan (src/game/titan.ts) only
+ * passes through updateBoss to reach its own brain (BossApi.titan).
+ *
  * Everything here runs on the host inside Enemies.update. Telegraph state the
  * clients need (phase, move, roar, shockwaves, fire) is synced by
  * src/game/systems/bossFight.ts.
@@ -96,6 +103,8 @@ export interface BossApi {
   swarmWall(e: Enemy, tx: number, tz: number): void;
   /** True if (x, z) is free ground inside the arena. */
   open(x: number, z: number, r: number): boolean;
+  /** The Titan's brain, one step (src/game/systems/bossLane.ts). */
+  titan?(e: Enemy, dt: number): void;
 }
 
 // ------------------------------------------------------------------ phases (pure)
@@ -219,6 +228,12 @@ function next<T>(e: Enemy, order: T[]): T {
  * returns true while the move is rigid (charging, airborne).
  */
 export function updateBoss(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: number, speed: number): boolean {
+  if (e.def.behavior === 'titan' || e.def.behavior === 'titanpart') {
+    // The Titan doesn't walk: its body and weak points are posed by its own brain.
+    e.vx = e.vz = 0;
+    if (e.def.behavior === 'titan') ctx.boss?.titan?.(e, dt);
+    return true;
+  }
   if (e.roarT > 0) {
     // Roar / entrance: hold still, blink, then open the next attack set.
     e.roarT -= dt;
@@ -285,6 +300,7 @@ function king(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist:
   const tgt = ctx.target;
   const ph = e.phase;
   const mini = isMini(e);
+  const R = e.def.remix;
   e.facing = Math.atan2(nx, nz);
   if (e.state === 'move') {
     e.vx = nx * speed;
@@ -328,13 +344,13 @@ function king(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist:
         // Royal guard: Boppers drop in around the target.
         for (let i = 0; i < 5; i++) {
           const a = (i / 5) * Math.PI * 2;
-          ctx.spawnChild('bopper', tgt.x + Math.cos(a) * 6, tgt.z + Math.sin(a) * 6, e);
+          ctx.spawnChild(R?.vetSummons ? 'v_bopper' : 'bopper', tgt.x + Math.cos(a) * 6, tgt.z + Math.sin(a) * 6, e);
         }
       } else {
         const n = mini ? 5 : 8;
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2;
-          ctx.spawnChild('swarmer', e.x + Math.cos(a) * 3, e.z + Math.sin(a) * 3, e);
+          ctx.spawnChild(R?.vetSummons ? 'v_swarmer' : 'swarmer', e.x + Math.cos(a) * 3, e.z + Math.sin(a) * 3, e);
         }
       }
       enter(e, 'recover', 0.8 * pace(e), 8);
@@ -355,8 +371,9 @@ function king(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist:
     if (e.t <= 0) {
       e.hopY = 0;
       ctx.slam(e);
-      // From phase 2 every landing sends out shockwave rings: dash through them.
-      if (ph >= 2 && ctx.boss) {
+      // From phase 2 every landing sends out shockwave rings: dash through them (King EX: from phase 1).
+      if (R?.landRing) ring(e, ctx, R.landRing, 6, 13, Math.random() * Math.PI);
+      if (ph >= (R?.shockFrom ?? 2) && ctx.boss) {
         ctx.boss.shockwave(e, e.x, e.z, 0);
         if (ph >= 3 && !mini) ctx.boss.shockwave(e, e.x, e.z, 0.45);
       }
@@ -384,6 +401,7 @@ function rex(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: 
   const CHARGE_TIME = 0.5;
   const ph = e.phase;
   const mini = isMini(e);
+  const R = e.def.remix;
   if (e.state === 'move') {
     e.facing = Math.atan2(nx, nz);
     e.vx = nx * speed;
@@ -392,7 +410,13 @@ function rex(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: 
     if (e.timerA <= 0 && ctx.targetAlive) {
       type Pick = BossAction | 'eight' | 'breath';
       const order: Pick[] =
-        ph === 1 ? ['charge', 'spiral', 'charge', 'waves'] : ph === 2 ? ['eight', 'charge', 'spiral', 'charge', 'waves'] : ['breath', 'charge', 'waves', 'eight', 'breath', 'spiral'];
+        ph === 1
+          ? ['charge', 'spiral', 'charge', 'waves']
+          : ph === 2
+            ? (R?.breathFrom ?? 3) <= 2
+              ? ['eight', 'charge', 'breath', 'spiral', 'charge', 'waves']
+              : ['eight', 'charge', 'spiral', 'charge', 'waves']
+            : ['breath', 'charge', 'waves', 'eight', 'breath', 'spiral'];
       let pick: Pick = next(e, order);
       if (dist > 13 && pick !== 'eight' && pick !== 'breath') pick = 'charge';
       e.vx = e.vz = 0;
@@ -497,11 +521,12 @@ function rex(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: 
     e.vx = e.vz = 0;
     e.timerB -= dt;
     if (e.action === 'spiral') {
-      // Three arms turning steadily: walk around it, not through it.
+      // Three arms turning steadily: walk around it, not through it (Inferno: four).
+      const arms = R?.spiralArms ?? 3;
       while (e.timerB <= 0) {
         e.timerB += 0.1;
-        for (let k = 0; k < 3; k++) {
-          const a = e.spin + (k / 3) * Math.PI * 2;
+        for (let k = 0; k < arms; k++) {
+          const a = e.spin + (k / arms) * Math.PI * 2;
           ctx.fireBullet(e, Math.cos(a), Math.sin(a), 7, 12);
         }
         e.spin += 0.24;
@@ -541,6 +566,7 @@ function queen(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
   const tgt = ctx.target;
   const ph = e.phase;
   const mini = isMini(e);
+  const R = e.def.remix;
   e.facing = Math.atan2(nx, nz);
   hover(e, dt);
   if (e.state === 'move') {
@@ -556,7 +582,9 @@ function queen(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
             ? ['volley', 'rain', 'volley', 'summon']
             : ['hive', 'volley', 'rain', 'volley', 'summon']
           : ph === 2
-            ? ['hive', 'volley', 'rain', 'hive', 'volley', 'summon']
+            ? (R?.wallFrom ?? 3) <= 2
+              ? ['hive', 'volley', 'wall', 'rain', 'hive', 'volley', 'summon']
+              : ['hive', 'volley', 'rain', 'hive', 'volley', 'summon']
             : ['wall', 'volley', 'hive', 'rain', 'wall', 'volley'];
       let pick = next(e, order);
       const cap = mini ? 2 : bossMoveTuning.hiveMax;
@@ -574,7 +602,7 @@ function queen(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
     if (e.t > 0) return;
     if (e.move === 'hive') {
       // Plant hives around the target; each lands after its own telegraph.
-      const n = mini || ph === 1 ? 1 : 2;
+      const n = (mini || ph === 1 ? 1 : 2) + (R?.extraHives ?? 0);
       for (let i = 0, tries = 0; i < n && tries < 12; tries++) {
         const a = Math.random() * Math.PI * 2;
         const d = 5 + Math.random() * 3.5;
@@ -597,7 +625,7 @@ function queen(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
       const n = mini ? 4 : 6;
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2;
-        ctx.spawnChild('zippy', e.x + Math.cos(a) * 2.5, e.z + Math.sin(a) * 2.5, e);
+        ctx.spawnChild(R?.vetSummons ? 'v_zippy' : 'zippy', e.x + Math.cos(a) * 2.5, e.z + Math.sin(a) * 2.5, e);
       }
       enter(e, 'recover', 0.8 * pace(e), 8);
     }
@@ -609,8 +637,9 @@ function queen(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
       e.spin = 0.35;
       e.burst--;
       const base = Math.atan2(nz, nx);
-      for (let i = 0; i < 7; i++) {
-        const a = base + (i / 6 - 0.5) * 0.9;
+      const fan = R?.fanBullets ?? 7; // the fan widens with the bullets, keeping its gaps
+      for (let i = 0; i < fan; i++) {
+        const a = base + (i / (fan - 1) - 0.5) * 0.9 * ((fan - 1) / 6);
         ctx.fireBullet(e, Math.cos(a), Math.sin(a), 9.5, 13);
       }
       e.squash(5);

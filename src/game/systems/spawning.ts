@@ -9,6 +9,7 @@ import { ELITE_MOD_IDS, ELITE_MODS, type EliteModId } from '../../data/eliteMods
 import { type EnemyDef } from '../../data/enemies';
 import { spawnCue } from './sound';
 import { bossLike } from '../bossRules';
+import { spawnTitan, stageBossDef } from './bossLane';
 
 /** A point on a ring just off-screen around a living hero, inside the arena and not in a wall. */
 export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x: number; z: number } | null {
@@ -32,6 +33,7 @@ export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x:
 }
 
 export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId) {
+  if (this.bossDuel) return null; // boss duel: nobody joins the one-on-one (stage events included; systems/bossLane.ts)
   if (def.treasure) return this.spawnGolden(def);
   if (this.meta.rule('elites') && !def.boss && !def.miniboss) elite = true;
   let pos: { x: number; z: number } | null = null;
@@ -74,7 +76,7 @@ export function rollEliteMod(this: Game, def: EnemyDef): EliteModId {
 
 export function spawnRing(this: Game, def: EnemyDef, count: number): void {
   const alive = this.aliveHeroes;
-  if (!alive.length) return;
+  if (!alive.length || this.bossDuel) return;
   const p = alive[Math.floor(this.rng.next() * alive.length)].player;
   const lim = this.arena.halfSize - 2;
   const R = 15;
@@ -94,6 +96,8 @@ export function spawnRing(this: Game, def: EnemyDef, count: number): void {
 }
 
 export function spawnBoss(this: Game, def: EnemyDef): void {
+  def = stageBossDef.call(this, def); // rematches and the Titan (systems/bossLane.ts)
+  if (def.behavior === 'titan') return spawnTitan.call(this, def);
   const p = (this.aliveHeroes[0] ?? this.hero).player;
   const pos = this.ringPoint(13, 16, def.radius + 0.5) ?? { x: p.x + 12, z: p.z };
   this.boss = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ hpMul: this.director.bossHpMul }));

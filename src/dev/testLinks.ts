@@ -23,6 +23,7 @@ import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
 import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
+import { bossLinks } from './bossLinks';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import type { PhotoMode } from '../ui/photoMode';
@@ -88,6 +89,8 @@ import { SCAR_COLORS } from '../game/scars';
  *     &dmgnums=mine|off, &charge=toggle, &noweather (settings for this session)
  *
  * Onboarding (src/dev/onboardingLinks.ts): &training=4, &trainingdone, &tip=boss, &discover=all, &recap, &offer, &screen=codex
+ *
+ * Bosses lane (src/dev/bossLinks.ts): &titan, &titanphase=3, &titanmove=beam, &remix, &duel.
  *
  * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
  *
@@ -219,6 +222,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   graphicsLinks(game, q); // anime, look=, customise, shatter=, impact=, fog=, puddles=, cine= (src/dev/graphicsLinks.ts)
   // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
   if (q.has('nointro')) settings.bossIntros = false;
+  bossLinks(game, q); // bosses lane: &titan, &titanphase=N, &titanmove=, &remix, &duel (src/dev/bossLinks.ts)
   game.debugBoss({ now: q.has('bossnow'), mini: q.has('miniboss'), phase: Number(q.get('phase')) || 0 });
   const near = q.get('near');
   if (near) nearToy(game, near);

@@ -68,6 +68,8 @@ export class Director {
   biome = '';
   time = 0;
   bossSpawned = false;
+  /** Boss duel (src/game/systems/bossLane.ts): no more spawns while it plays. */
+  hold = false;
   private spawnBudget = 0;
   private nextElite = 0;
   private nextRing = 0;
@@ -81,6 +83,7 @@ export class Director {
     this.stage = stage;
     this.time = 0;
     this.bossSpawned = false;
+    this.hold = false;
     this.spawnBudget = 0;
     this.nextElite = directorTuning.eliteEvery;
     this.nextRing = directorTuning.ringEvery * 0.6;
@@ -211,7 +214,7 @@ export class Director {
 
     // Keep the field topped up toward the target (lighter during the boss).
     const target = this.bossSpawned ? Math.round(this.targetAlive * 0.25) : this.targetAlive;
-    if (alive < target) {
+    if (alive < target && !this.hold) {
       this.spawnBudget = Math.min(this.spawnBudget + t.spawnPerSecond * dt * (1 + (this.stage - 1) * 0.3), 6);
       while (this.spawnBudget >= 1) {
         this.spawnBudget -= 1;

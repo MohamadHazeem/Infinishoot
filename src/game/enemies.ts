@@ -1430,6 +1430,8 @@ export class Enemies {
       case 'rex':
       case 'queen':
       case 'omega':
+      case 'titan': // the Titan and its weak points (src/game/titan.ts)
+      case 'titanpart':
         rigid = updateBoss(e, dt, ctx, nx, nz, dist, speed);
         wantX = e.vx;
         wantZ = e.vz;

@@ -17,6 +17,7 @@ import { introTuning } from '../bossIntro';
 import type { Enemy } from '../enemies';
 import { smashCover } from '../coverBreak';
 import { bossVoiceCue } from '../../audio/voices';
+import { applyBossLaneNet, bossLaneHud, bossLaneNet, remixArrival, renderBossLane, titanStep, updateBossLane } from './bossLane';
 
 /** Mid-stage mini-bosses. */
 export const miniTuning = {
@@ -56,8 +57,8 @@ export function makeBossApi(this: Game): BossApi {
         if (this.stepN % 12 === 0) this.vfx.sound(cue('coverBreak', 'impact'), e.x, e.z, 2);
       }
       this.barrels.igniteNear(e.x, e.z, e.radius + 0.6, 0);
-      // Scorched earth: charges leave burning ground (more often from phase 2).
-      if (fire && this.stepN % (e.phase >= 2 ? 15 : 24) === 0) this.bossApi.firePatch(e, e.x - e.lungeX * e.radius, e.z - e.lungeZ * e.radius);
+      // Scorched earth: charges leave burning ground (more often from phase 2; Inferno all the time).
+      if (fire && this.stepN % (e.def.remix?.fireEvery ?? (e.phase >= 2 ? 15 : 24)) === 0) this.bossApi.firePatch(e, e.x - e.lungeX * e.radius, e.z - e.lungeZ * e.radius);
     },
     firePatch: (e, x, z) => {
       const f = this.bossField.fires;
@@ -107,15 +108,17 @@ export function makeBossApi(this: Game): BossApi {
       const lim = this.arena.halfSize - 2;
       return Math.abs(x) < lim && Math.abs(z) < lim && !this.walls.hitCircle(x, z, r);
     },
+    titan: (e, dt) => titanStep.call(this, e, dt), // src/game/systems/bossLane.ts
   };
 }
 
 /** Game.damage hook: clamp HP at a phase threshold and start the phase change. */
 export function bossHpGate(this: Game, e: Enemy): void {
+  if (e.def.behavior === 'titan') return; // the Titan's phases follow its weak points (systems/bossLane.ts)
   const phase = phaseGate(e);
   if (!phase) return;
   startPhase(e, phase);
-  const lines = PHASE_LINES[e.def.behavior] ?? [];
+  const lines = e.def.remixLines ? ['', ...e.def.remixLines] : (PHASE_LINES[e.def.behavior] ?? []);
   const mini = !!e.def.miniboss;
   const last = phase > (e.def.phases?.length ?? 0);
   this.vfx.banner(mini ? `${e.def.name.toUpperCase()} ENRAGED!` : last ? 'FINAL PHASE!' : `PHASE ${phase}!`, mini ? 'LOOK OUT' : (lines[phase - 1] ?? ''), mini ? 1.4 : 2);
@@ -147,6 +150,7 @@ export function startBossIntro(this: Game, e: Enemy): void {
     this.slowMoT = Math.max(this.slowMoT, 0.9);
     this.bossIntro.start(e.uid, e.def.name, e.def.title ?? '', e.def.bodyColor);
   } else this.hud.showBanner('WARNING!', `${e.def.name.toUpperCase()} APPROACHES`, 2.2);
+  remixArrival.call(this, e); // rematches say so (systems/bossLane.ts)
 }
 
 /** Local skip (any machine): the host also cuts the slow motion and the boss's idle short. */
@@ -242,9 +246,10 @@ export function updateBossFight(this: Game, dt: number): void {
     this.vfx.sound('wave', w.cx, w.cz);
   }
   this.updateMiniBoss(dt);
+  updateBossLane.call(this, dt); // rematches, the Titan, the boss duel (systems/bossLane.ts)
   // Test links: force a phase (`&phase=N`).
   const b = this.boss;
-  if (f.debugPhase > (b?.phase ?? 99) && b!.roarT <= 0 && b!.def.phases) {
+  if (f.debugPhase > (b?.phase ?? 99) && b!.roarT <= 0 && b!.def.phases && b!.def.behavior !== 'titan') {
     b!.hp = Math.min(b!.hp, b!.maxHp * (b!.def.phases[b!.phase - 1] ?? 0));
     this.bossHpGate(b!);
   }
@@ -300,13 +305,14 @@ export function updateMiniBoss(this: Game, dt: number): void {
 
 /** Host: boss extras for the snapshot. */
 export function bossNet(this: Game): BossNet {
-  return this.bossField.pack(this.bossField.bossesIn(this.enemies.list), (e) => (e.uid === this.introUid ? Math.max(0, this.introLeft) : 0));
+  return { ...this.bossField.pack(this.bossField.bossesIn(this.enemies.list), (e) => (e.uid === this.introUid ? Math.max(0, this.introLeft) : 0)), ...bossLaneNet.call(this) };
 }
 
 /** Client: mirror the host's boss state, and start the entrance when the host does. */
 export function applyBossNet(this: Game, n: BossNet | undefined): void {
   if (!n) return;
   this.bossField.unpack(n, (uid) => this.netEnemies.get(uid));
+  applyBossLaneNet.call(this, n); // the Titan and the boss duel
   for (const [uid, , , , intro] of n.b) {
     if (intro < 0.3 || this.bossIntro.uid === uid) continue;
     const e = this.netEnemies.get(uid);
@@ -323,12 +329,13 @@ export function renderBossFight(this: Game, frameDt: number, paused: boolean): v
   if (this.role === 'client' && !paused) f.advance(frameDt);
   if (this.introLeft > 0 && !paused) this.introLeft -= frameDt; // entrance signal for clients (real time)
   f.render(this.enemies.list, this.animTime);
+  renderBossLane.call(this, frameDt, paused); // the Titan, the ring of fire
   // Entrance camera: pan toward the boss, zoom in a little.
   const boss = this.role === 'client' ? f.bossesIn(this.enemies.list).find((e) => e.def.boss) : this.boss;
   if (this.bossIntro.active && (this.mode !== 'fight' || !boss?.active)) this.bossIntro.stop(this.cam.camera);
   if (this.bossIntro.active && boss) this.bossIntro.update(paused ? 0 : frameDt, this.playerPos, boss, this.lead, this.cam.camera);
   // Music: boss phase changes (0 when no boss).
-  const ph = boss && boss.active && boss.def.boss ? boss.phase : 0;
+  const ph = boss && boss.active && boss.def.boss ? Math.min(3, boss.phase) : 0; // the Titan's core phase (4) plays as the last
   if (ph !== f.musicPhase) {
     f.musicPhase = ph;
     musicPhase(ph);
@@ -339,6 +346,10 @@ export type BossBar = { name: string; hp01: number; ticks?: number[]; phase?: nu
 
 /** The HUD boss bar: the stage boss, else the mini-boss, with phase ticks. */
 export function bossHud(this: Game, boss: { name: string; hp01: number } | null): BossBar | null {
+  return bossLaneHud.call(this, bossBar.call(this, boss)); // Titan weak points, duel tag (systems/bossLane.ts)
+}
+
+function bossBar(this: Game, boss: { name: string; hp01: number } | null): BossBar | null {
   const f = this.bossField;
   const client = this.role === 'client';
   if (boss) {
