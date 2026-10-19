@@ -7,6 +7,7 @@ import { CODEX, META_REWARDS, META_KITS, rewardAvailable } from '../data/codex';
 import { WEAPONS } from '../data/weapons';
 import { cleanFriends, type FriendsData } from './lobby';
 import { freshFirstTen, normalizeFirstTen, type FirstTenSave } from './firstten';
+import { normalizeRanked, type RankedSave } from '../data/ranked';
 
 /**
  * Persistent profile: achievements (weapon unlocks) and lifetime stats.
@@ -57,6 +58,8 @@ export interface SaveData {
   friends: FriendsData;
   /** FIRST STEPS checklist and one-time helpers for new players (src/game/firstten.ts). */
   firstten: FirstTenSave;
+  /** RANKED (race lane): this season's Elo-style rating for online PvP and race results, plus past seasons. */
+  ranked: RankedSave;
   lifetime: {
     runs: number;
     kills: number;
@@ -74,7 +77,8 @@ const KEY = 'save';
 // v4 adds opt-in heat, weekly records, lore and cosmetic-only Bolts (main), first-time tips (`tips`), the Arsenal (`discovered`) and the training field (`training`). Legacy upgrades stay removed.
 // v5: seasonal candy and permanent cosmetic ownership (halloween lane); `friends` (lobby lane: friend code, recent teammates, saved codes).
 // v6: both of the above merged (each normalises its own fields).
-const VERSION = 6;
+// v7: `ranked` (race lane: rating, monthly seasons, ladder id).
+const VERSION = 7;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
@@ -90,6 +94,7 @@ function fresh(): SaveData {
     training: { offered: false, done: false },
     friends: cleanFriends(null),
     firstten: freshFirstTen(),
+    ranked: normalizeRanked(null),
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
   };
 }
@@ -116,6 +121,7 @@ export function normalize(raw: unknown): SaveData {
     }
   }
   d.firstten = normalizeFirstTen(r.firstten, d.lifetime.runs);
+  d.ranked = normalizeRanked(r.ranked);
   const m = r.meta;
   if (m && typeof m === 'object') {
     d.meta.heat = cleanHeat(m.heat);
