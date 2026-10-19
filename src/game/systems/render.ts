@@ -1,4 +1,4 @@
-import { renderWeather2 } from './weather2';
+import { renderWeather2, prepareWeather2 } from './weather2';
 import { reduceMotion } from '../../ui/hud';
 import { eventBehavior } from '../../data/stageEvents';
 import { renderSecrets } from './secrets';
@@ -238,6 +238,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.enemies.renderBounds = this.arena.halfSize;
   this.enemies.familyReduceFlash = access.reduceFlash || !!this.juice.noise?.calm;
   this.enemies.familyColorblind = settings.colorblind;
+  prepareWeather2(this);
   if (!held) this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
   this.eliteTrails(frameDt);

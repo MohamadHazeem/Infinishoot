@@ -25,14 +25,14 @@ export interface Weather2State {
   arena: unknown; kind: WeatherKind | null; left: number; tick: number; elapsed: number;
   nextStrike: number; spread: number; sourceCursor: number; damageTick: number;
   heroes: Exposure[]; cold: Map<Enemy, Cold>; props: Prop[]; strikes: Strike[];
-  near: Enemy[]; spreadTargets: Enemy[]; view: WeatherView | null; hud: HTMLElement | null; hudText: string;
+  near: Enemy[]; spreadTargets: Enemy[]; visible: (x: number, z: number) => boolean; view: WeatherView | null; hud: HTMLElement | null; hudText: string;
 }
 const states = new WeakMap<Game, Weather2State>();
 export function weather2Of(g: Game): Weather2State {
   let s = states.get(g);
   if (!s) {
     s = { arena: g.arena, kind: null, left: 0, elapsed: 0, tick: 0, nextStrike: 1, spread: 0, sourceCursor: 0, damageTick: 0,
-      heroes: [], cold: new Map(), props: [], strikes: [], near: [], spreadTargets: [], view: null, hud: null, hudText: '' };
+      heroes: [], cold: new Map(), props: [], strikes: [], near: [], spreadTargets: [], visible: (x, z) => weather2Visible(g, x, z), view: null, hud: null, hudText: '' };
     states.set(g, s);
   }
   if (s.arena !== g.arena) { clear(s); s.arena = g.arena; }
@@ -388,6 +388,17 @@ class WeatherView {
       commit(mesh.instanceMatrix, mesh.count); if (mesh.instanceColor) commit(mesh.instanceColor, mesh.count);
     }
   }
+}
+/** Body culling also removes the otherwise visible blob shadows outside the sand veil. */
+export function weather2Visible(g: Game, x: number, z: number): boolean {
+  const s = states.get(g);
+  if (!s || s.arena !== g.arena || s.kind !== 'sandstorm' || g.mode === 'title') return true;
+  for (const h of g.heroes) if (!h.left && !h.player.dead && (x - h.player.x) ** 2 + (z - h.player.z) ** 2 <= T.silhouette ** 2) return true;
+  return false;
+}
+export function prepareWeather2(g: Game): void {
+  const s = weather2Of(g);
+  g.enemies.bodyVisible = s.kind === 'sandstorm' ? s.visible : null;
 }
 export function renderWeather2(g: Game): void {
   const s = weather2Of(g);

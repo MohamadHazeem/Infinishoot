@@ -66,6 +66,7 @@ const bullet = (x: number, z: number, dx = 1, dz = 0, team = Team.Player) => g.b
 settings.weatherEffects = true; settings.weather = false;
 W.startWeather2(g, 'sandstorm');
 ok(W.weather2Of(g).kind === 'sandstorm', 'cosmetic WEATHER off leaves combat weather on');
+ok(W.weather2Visible(g, g.hero.player.x + T.sight + 1, g.hero.player.z) && !W.weather2Visible(g, g.hero.player.x + T.silhouette + 2, g.hero.player.z), 'near silhouettes stay; distant bodies and shadows disappear');
 bullet(0, 0, 0, 1); const vx = g.bullets.vx[0]; step(4);
 ok(g.bullets.vx[0] !== vx, 'host gust bends bullets');
 g.render(1, 1 / 60);
@@ -93,9 +94,11 @@ const { createWeapon } = await import('../src/game/weapons');
 const fireWeapon = createWeapon('fire', g.scene); g.hero.weapons.push(fireWeapon);
 step(24); ok(bs.heroes[0].chill === 0 && bs.heroes[0].sheltered, 'active fire weapon supplies warmth');
 g.hero.weapons.pop(); fireWeapon.dispose();
+g.arena.hazards.push({ kind: 'lava', x: hero.x + 1, z: hero.z, r: 1 });
+step(1); ok(bs.heroes[0].sheltered, 'lava edge provides warmth'); g.arena.hazards.pop();
 const slow = g.enemies.spawn(ENEMIES.chonk, -12, -12, { instant: true });
 const nearby = g.enemies.spawn(ENEMIES.chonk, -11, -12, { instant: true });
-slow.state = nearby.state = 'chase';
+slow.state = nearby.state = 'move';
 slow.hp = slow.maxHp = 10000; nearby.hp = nearby.maxHp = 10000;
 hash(); step(29);
 ok(slow.frozen > 0 && slow.slowAmt >= 0.6, 'slow enemies progressively slow then freeze');
@@ -103,13 +106,13 @@ const hp = nearby.hp;
 g.damage(slow, 2, { source: 'buster', noStatus: true }, g.hero);
 ok(slow.alive && slow.frozen === 0 && nearby.hp < hp, 'first hit shatters weather ice while the target survives');
 const boss = g.enemies.spawn(ENEMIES.king, 0, 10, { instant: true });
-if (boss) { boss.state = 'chase'; step(30); ok(!bs.cold.has(boss), 'bosses never receive weather freeze'); }
+if (boss) { boss.state = 'move'; step(30); ok(!bs.cold.has(boss), 'bosses never receive weather freeze'); }
 
 W.startWeather2(g, 'lightning');
 const ls = W.weather2Of(g); const rod = ls.props[0];
 g.bullets.clear();
 const target = g.enemies.spawn(ENEMIES.chonk, rod.x + 2, rod.z, { instant: true });
-target.state = 'chase';
+target.state = 'move';
 target.hp = target.maxHp = 10000;
 hash();
 bullet(rod.x - 4, rod.z); ls.nextStrike = 0;
@@ -151,18 +154,22 @@ hero.teleport(hs.props[0].x, hs.props[0].z); step(12);
 ok(hs.heroes[0].heat === 0 && hs.heroes[0].sheltered, 'marked water pool cools fully within three seconds');
 const fire = g.enemies.spawn(ENEMIES.chonk, 30, 30, { instant: true });
 const catchFire = g.enemies.spawn(ENEMIES.chonk, 31, 30, { instant: true });
-fire.state = catchFire.state = 'chase';
+fire.state = catchFire.state = 'move';
 fire.hp = fire.maxHp = catchFire.hp = catchFire.maxHp = 10000;
 g.ignite(fire, 10, g.hero); hash(); step(3);
 ok(catchFire.burnT > 0 && catchFire.burnOwner === g.hero.index, 'heat wave spreads fire and preserves damage credit');
+const cluster = Array.from({ length: 20 }, (_, i) => { const e = g.enemies.spawn(ENEMIES.chonk, 40 + i * 0.05, 40, { instant: true }); e.state = 'move'; return e; });
+g.ignite(cluster[0], 10, g.hero); hash(); step(3);
+const lit = cluster.slice(1).filter(e => e.burnT > 0).length;
+ok(lit > 0 && lit <= T.spreadMax, 'fire spread is bounded and newly lit enemies cannot cascade in the same tick');
 W.applyWeather2Net(client, W.weather2Net(g));
 ok(W.weather2Of(client).heroes[0].sheltered, 'cooling state reaches client HUD');
-g.runEvents.event = null; step(1); W.applyWeather2Net(client, W.weather2Net(g));
+g.runEvents.update(T.seconds, 0, true); step(1); W.applyWeather2Net(client, W.weather2Net(g));
 ok(!W.weather2Of(g).kind && !W.weather2Of(client).kind, 'event end clears both peers');
 W.startWeather2(g, 'lightning'); g.loadStage(2);
 ok(!W.weather2Of(g).kind && W.weather2Of(g).strikes.length === 0, 'stage transition clears pending strikes and pickups');
 for (const kind of ['sandstorm', 'blizzard', 'lightning', 'heatwave'] as const) {
-  setLanguage('ar'); ok(t(`weather2.${kind}.hint`) !== t(`weather2.${kind}.name`) && !t(`weather2.${kind}.hint`).startsWith('weather2.'), `${kind} Arabic HUD catalog present`);
+  setLanguage('ar'); ok(/[\u0600-\u06ff]/.test(t(`weather2.${kind}.hint`)), `${kind} Arabic HUD catalog present`);
 }
 setLanguage('en'); settings.weather = true;
 ok(!errors.length, 'no runtime errors: ' + errors.join('\n'));
