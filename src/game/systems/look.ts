@@ -15,6 +15,10 @@ import { LightPicker, lightTuning, lightUniforms } from '../../render/lights';
 import { outlineInstanced, outlineRig } from '../../render/outlines';
 import { easeGrade, MAX_HEAT, MAX_WAVES, postfx } from '../../render/postfx';
 import { renderQuality } from '../../render/quality';
+import { biomeForStage } from '../../data/biomes';
+import { BiomeFx } from '../../render/biomeFx';
+import { sampleWind } from '../wind';
+import { samples } from '../../audio/samples';
 
 /** Test-link / debug overrides: force night on or off (null = follow the stage). */
 export const lookOverrides: { night: boolean | null } = { night: null };
@@ -53,6 +57,10 @@ interface LookState {
   v: THREE.Vector3;
   v2: THREE.Vector3;
   night: number;
+  // Neon City / Sky Fortress set dressing (src/render/biomeFx.ts).
+  biomeFx: BiomeFx;
+  arena: unknown;
+  gust: number;
 }
 
 const states = new WeakMap<Game, LookState>();
@@ -111,7 +119,7 @@ function state(game: Game): LookState {
   let st = states.get(game);
   if (!st) {
     const f = () => new Float32Array(MAX_WAVES);
-    st = { picker: new LightPicker(), fx: null, frame: 0, wx: f(), wz: f(), wr: f(), wt: f(), wl: f(), ws: f(), wn: 0, colors: new Map(), v: new THREE.Vector3(), v2: new THREE.Vector3(), night: 0 };
+    st = { picker: new LightPicker(), fx: null, frame: 0, wx: f(), wz: f(), wr: f(), wt: f(), wl: f(), ws: f(), wn: 0, colors: new Map(), v: new THREE.Vector3(), v2: new THREE.Vector3(), night: 0, biomeFx: new BiomeFx(), arena: null, gust: 0 };
     states.set(game, st);
   }
   if (st.fx !== game.fx) hookFx(game, st);
@@ -124,9 +132,17 @@ export function updateLook(this: Game, frameDt: number): void {
   const dt = frozen ? 0 : frameDt;
   const cam = this.cam.camera;
 
-  // --- Night: every 3rd arena stage (or forced by a test link), faded in.
+  // --- A new arena: build the biome's animated dressing and set the enemy palette.
+  const biome = biomeForStage(this.arenaStage);
+  if (st.arena !== this.arena) {
+    st.arena = this.arena;
+    st.biomeFx.load(this.arena.group, this.arena.deco);
+    this.enemies.setTint(biome.enemyTint ?? '#ffffff');
+  }
+
+  // --- Night: every 3rd arena stage (or forced by a test link), faded in. Neon City is always partly dark.
   const wantNight = this.mode !== 'title' && settings.nightStages && (lookOverrides.night ?? isNightStage(this.arenaStage));
-  const nt = wantNight ? 1 : 0;
+  const nt = wantNight ? 1 : settings.nightStages && lookOverrides.night !== false ? (biome.night ?? 0) : 0;
   st.night = Math.abs(nt - st.night) < 0.002 ? nt : st.night + (nt - st.night) * Math.min(1, frameDt * lookTuning.nightSpeed);
   if (st.night !== postfx.night) {
     postfx.night = st.night;
@@ -201,6 +217,26 @@ export function updateLook(this: Game, frameDt: number): void {
     }
   }
   postfx.heatCount = heat;
+  // Neon signs and street lamps light the wet roof around them.
+  const lights = this.arena.deco?.lights;
+  if (lights) {
+    const vr = lightTuning.viewRadius + 6;
+    for (let i = 0; i < lights.length; i++) {
+      const l = lights[i];
+      if (Math.abs(l.x - p.x) > vr || Math.abs(l.z - p.z) > vr) continue;
+      const lc = color(st, l.color);
+      pk.add(l.x, l.y, l.z, l.r, lc.r, lc.g, lc.b, l.k * (0.7 + 0.5 * night), 1);
+    }
+  }
+  // Wind (Sky Fortress): flags, steam and streaks follow it; each gust whooshes.
+  const wind = sampleWind(this, dt);
+  this.ambience.wind.x = wind.x;
+  this.ambience.wind.z = wind.z;
+  this.ambience.wind.s = wind.s;
+  if (wind.gust > 0.2 && st.gust <= 0.2 && dt > 0 && this.mode !== 'title') samples.play('wind_gust', { gain: 0.45, priority: 2, cooldown: 3 });
+  st.gust = wind.gust;
+  st.biomeFx.reduceFlash = access.reduceFlash;
+  st.biomeFx.render(dt, p.x, p.z, wind);
   for (const ch of this.chests.list) if (ch.openT < 0) pk.add(ch.x, 1, ch.z, 3.5, 1, 0.8, 0.35, 0.35 + 0.35 * night, 0);
   if (this.portal.active) pk.add(this.portal.x, 1.5, this.portal.z, 8, 1, 0.35, 0.95, 0.8, 4);
 

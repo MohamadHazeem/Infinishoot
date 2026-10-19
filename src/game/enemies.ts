@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ENEMIES, type EnemyDef } from '../data/enemies';
-import { createRetroMaterial } from '../render/retroMaterial';
+import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
 import { paint } from '../render/geometry';
 import { textures } from '../render/textures';
 import type { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
@@ -634,6 +634,12 @@ class EnemyBatch {
   }
 }
 
+/** Set a batch's colour multiplier (other passes may swap or wrap the material: only retro ones are tinted). */
+function tintBatch(mesh: THREE.InstancedMesh, c: THREE.Color): void {
+  const m = (Array.isArray(mesh.material) ? mesh.material[0] : mesh.material) as RetroMaterial;
+  m?.uniforms?.uColor?.value.copy(c);
+}
+
 /** Instanced ground decals: blob shadows, spawn rings, charge lines, blast-radius rings. */
 const AURA_CAP = 128;
 
@@ -741,8 +747,18 @@ export class Enemies {
 
   private batch(def: EnemyDef): EnemyBatch {
     let b = this.batches.get(def.id);
-    if (!b) this.batches.set(def.id, (b = new EnemyBatch(def, this.scene)));
+    if (!b) {
+      this.batches.set(def.id, (b = new EnemyBatch(def, this.scene)));
+      tintBatch(b.mesh, this.tint);
+    }
     return b;
+  }
+
+  /** Biome palette: multiplies every enemy's colours (Neon City's neon tint; white = none). */
+  private tint = new THREE.Color(1, 1, 1);
+  setTint(c: THREE.ColorRepresentation): void {
+    this.tint.set(c);
+    for (const b of this.batches.values()) tintBatch(b.mesh, this.tint);
   }
 
   /** Cosmetic death: the body is flung along (dirX, dirZ), tumbling (bosses shake apart in place). */

@@ -1,3 +1,4 @@
+import { biomeForStage } from '../data/biomes';
 /** Pure mix policy shared by samples and synth voices. */
 export const soundTuning = {
   voices: 32,
@@ -79,15 +80,17 @@ export function swarmGap(enemies: number): number {
 export function distanceCutoff(gain: number): number {
   return 2800 + 17200 * Math.max(0, Math.min(1, gain)) ** 2;
 }
-const BIOME_AUDIO = ['meadow', 'dunes', 'peaks', 'magma'];
 const GROUND_AUDIO: Readonly<Record<string, string>> = {
   meadow: 'grass',
   dunes: 'sand',
   peaks: 'snow',
   magma: 'metal',
+  neon: 'metal',
+  sky: 'grass',
 };
+/** The area id for a stage (ambience 'amb_<id>', room reverb, footsteps): the stage's actual biome. */
 export function biomeAudio(stage: number): string {
-  return BIOME_AUDIO[((Math.max(1, stage) - 1) % 4) | 0];
+  return biomeForStage(stage).id;
 }
 export function groundAudio(biome: string): string {
   return GROUND_AUDIO[biome] ?? 'grass';

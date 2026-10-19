@@ -66,6 +66,7 @@ import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
 import * as SkillSys from './systems/skill';
+import * as WindSys from './wind';
 
 export { economyTuning } from './hero';
 
@@ -259,6 +260,7 @@ export function playerName(): string {
  */
 export class Game implements HeroWorld {
   // Methods that live in src/game/systems/ (see the header of each file).
+  updateWind = WindSys.updateWind;
   clearWorld = RunFlowSys.clearWorld;
   loadArena = RunFlowSys.loadArena;
   spawnSpot = RunFlowSys.spawnSpot;
@@ -1081,6 +1083,7 @@ export class Game implements HeroWorld {
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
     this.updateArena(dt);
+    this.updateWind(dt);
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);

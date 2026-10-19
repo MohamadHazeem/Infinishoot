@@ -11,6 +11,7 @@ import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
+import { BIOME_BY_ID, biomeOverride } from '../data/biomes';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -40,7 +41,9 @@ import { renderQuality } from '../render/quality';
  *     near: pad, turret, pillar, crate, totem, shard, beacon, lava, ice, quicksand, thorns
  *   ?test&stage=4&topple                topple the pillar nearest the hero
  *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
+ *   ?test&biome=neon / &biome=sky     force an area (meadow, dunes, peaks, magma, neon, sky) whatever the stage
  *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
+ *     Neon City / Sky Fortress: at=holo, at=vent, at=sign, at=flag, at=gap (a chasm)
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
@@ -84,6 +87,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const obj = q.get('objective');
   game.toys.force = OBJECTIVE_KINDS.includes(obj as ObjectiveKind) ? (obj as ObjectiveKind) : null;
   weatherForce.mode = q.has('rain') ? 'rain' : q.has('dry') ? 'clear' : null;
+  const bio = q.get('biome');
+  biomeOverride.id = bio && BIOME_BY_ID[bio] ? bio : null;
   game.startSolo();
   if (q.get('seed')) game.rng = new Rng(Number(q.get('seed')));
   // Skip the starting shop.
@@ -159,7 +164,13 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     let x = NaN;
     let z = NaN;
     if (/^-?[\d.]+,-?[\d.]+$/.test(at)) [x, z] = at.split(',').map(Number);
-    else {
+    else if (game.arena.deco && ['holo', 'vent', 'flag', 'sign', 'gap'].includes(at)) {
+      // Neon City / Sky Fortress dressing: stand just south of (in front of) it.
+      const d = game.arena.deco;
+      const g = d.gaps.find((b) => b.maxX - b.minX < 10 && b.maxZ - b.minZ < 10) ?? d.gaps[0];
+      const t = at === 'holo' ? d.holos[0] : at === 'vent' ? d.vents[0] : at === 'flag' ? d.flags[0] : at === 'sign' ? d.lights[0] : g ? { x: (g.minX + g.maxX) / 2, z: g.maxZ } : undefined;
+      if (t) [x, z] = [t.x, t.z + 3];
+    } else {
       game.worldFx(0); // builds the stage's surfaces now
       const p = game.ambience.surfaces.patches.find((s) => s.kind === at);
       if (p) [x, z] = [p.x, p.z + p.r + 1.5];
