@@ -74,7 +74,7 @@ export async function lobbies(req, env, url, { json, clean }) {
     const mode = String(b.mode ?? '');
     const difficulty = String(b.difficulty ?? '');
     const region = String(b.region ?? '');
-    if (!(max >= 2 && max <= (mode === 'race' ? 8 : 4) && players >= 1 && players <= max) || !MODES.includes(mode) || !DIFFS.includes(difficulty) || !REGIONS.includes(region)) return json({ error: 'bad lobby' }, 400);
+    if (!(max >= 2 && max <= 8 && players >= 1 && players <= max) || !MODES.includes(mode) || !DIFFS.includes(difficulty) || !REGIONS.includes(region)) return json({ error: 'bad lobby' }, 400);
     if (old && now - (old.beat ?? 0) < MIN_BEAT * 1000) return json({ error: 'slow down' }, 429);
     if (!old) {
       // Only brand-new lobbies count against the IP (heartbeats don't cost an extra write).

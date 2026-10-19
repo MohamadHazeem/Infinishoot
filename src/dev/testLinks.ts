@@ -18,6 +18,7 @@ import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
 import { coop2Links } from './coop2Links';
+import { eightpLinks } from './eightpLinks';
 import { netcodeLinks } from './netcodeLinks';
 import { coopplayLinks } from './coopplayLinks';
 import { cinematicsLinks } from './cinematicsLinks';
@@ -135,6 +136,7 @@ import { SCAR_COLORS } from '../game/scars';
  *   &mate&clutchgo=2&clutchat=0.5, &mate&votego=2.
  * Coopplay lane (src/dev/coopplayLinks.ts): &mate&coopobj=door&cpme=a&cpmate=b, &mate&coopobj=escort&cpme=core&cpcore=40,
  *   &mate&coopobj=zones&cpme=a, &mate&coopobj=bomb&cpbomb, &mate&carry=1, &mate&tether=12, &mate&banter=cycle&captions
+ * Eightp lane (src/dev/eightpLinks.ts): &heroes=8&matebots&spread=24&matenames, &matedown=2.
  * Coop2 lane (src/dev/coop2Links.ts): &mate&emote=wave, &mate&mateemote=cheer, &mate&wheel=emotes, &mate&pool&downme=2,
  *   &mate&autopilot, &joincode=K7P2Q, &mate&teamult=2, &ghostgo=2.
  * Netcode lane (src/dev/netcodeLinks.ts): &mate&netdemo (NETWORK panel + a bad-connection warning), &mate&netdemo=rc, &netdemo=lost.
@@ -276,6 +278,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   }
   const numbers = q.get('numbers');
   if (numbers && ['auto', 'all', 'mine', 'off'].includes(numbers)) settings.damageNumbers = numbers as typeof settings.damageNumbers;
+  eightpLinks(game, q); // matebots, spread=, matenames, matedown= (src/dev/eightpLinks.ts)
   coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
   netcodeLinks(game, q); // netdemo, netdemo=rc, netdemo=lost (src/dev/netcodeLinks.ts)
   coopplayLinks(game, q); // coopobj=, cpme=, cpmate=, cpcore=, cpbomb, carry=, tether=, banter=, notether (src/dev/coopplayLinks.ts)

@@ -202,7 +202,7 @@ const HAND = [
 const BOOM = ['...#...#...', '#..#.#.#..#', '.#.......#.', '...#####...', '##.#####.##', '...#####...', '.#.......#.', '#..#.#.#..#', '...#...#...'];
 
 /** Palette colours for hero sleeves (by hero index, matching HERO_COLORS' hues). */
-const SLEEVES = ['var(--blue)', 'var(--green)', 'var(--yellow)', 'var(--mist)'];
+const SLEEVES = ['var(--blue)', 'var(--green)', 'var(--yellow)', 'var(--mist)', 'var(--red)', 'var(--plum)', 'var(--cyan)', 'var(--lime)']; // 5-8: eightp lane
 
 function pixels(rows: string[], px: number, paint: (ch: string) => string | null, flip = false): string {
   let r = '';
@@ -425,8 +425,8 @@ export class TimeHud {
     const hands = this.revive.querySelector('.hands')!;
     const paint = (sleeve: string) => (c: string) => (c === '#' ? 'var(--ink)' : c === 's' ? sleeve : c === 'c' || c === 'w' ? 'var(--white)' : c === 'h' ? 'var(--mist)' : null);
     hands.innerHTML =
-      localizeHtml(`<div class="h l">${pixels(HAND, 5, paint(SLEEVES[ia % 4]))}</div>` +
-      `<div class="h r">${pixels(HAND, 5, paint(SLEEVES[ib % 4]), true)}</div>` +
+      localizeHtml(`<div class="h l">${pixels(HAND, 5, paint(SLEEVES[ia % SLEEVES.length]))}</div>` +
+      `<div class="h r">${pixels(HAND, 5, paint(SLEEVES[ib % SLEEVES.length]), true)}</div>` +
       `<div class="boom">${pixels(BOOM, 6, (c) => (c === '#' ? 'var(--yellow)' : null))}</div>`);
     this.revive.querySelector('.who')!.textContent = localize(`${rescuer.toUpperCase()} PULLED ${rescued.toUpperCase()} BACK!`);
     this.revive.classList.remove('on');

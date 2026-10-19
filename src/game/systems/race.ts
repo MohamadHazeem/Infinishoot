@@ -55,6 +55,7 @@ import {
 } from '../raceRules';
 import { RaceUi } from '../../ui/raceUi';
 import type { RunSummary } from '../../ui/screens';
+import { lobbyCap } from '../eightp';
 
 /** Colours for racers 5-8 (the first four match co-op's hero colours). */
 const EXTRA_COLORS = ['#ef7d57', '#b13e53', '#73eff7', '#a7f070'];
@@ -181,15 +182,15 @@ export function installRace(g: Game, root: HTMLElement): void {
   g.hostStart = function (this: Game) {
     if (this.role !== 'host' || !this.host) return;
     if (this.lobbyKind === 'race') return raceHostStart(this);
-    if (this.lobby.length > 4 && !['pvp', 'raid'].includes(this.lobbyKind)) {
-      this.hud.toast(`ONLY RACE, PVP AND RAID TAKE MORE THAN 4 PLAYERS (${this.lobby.length} HERE)`, 3);
+    if (this.lobby.length > lobbyCap(this.lobbyKind)) {
+      this.hud.toast(`THIS MODE TAKES UP TO ${lobbyCap(this.lobbyKind)} PLAYERS (${this.lobby.length} HERE)`, 3);
       return;
     }
     return hostStart.call(this);
   };
   const refresh = g.refreshLobby;
   g.refreshLobby = function (this: Game) {
-    this.host?.setMax?.(['race', 'pvp', 'raid'].includes(this.lobbyKind) ? 7 : 3);
+    this.host?.setMax?.(this.lobbyKind === 'race' ? 7 : lobbyCap(this.lobbyKind) - 1);
     refresh.call(this);
     if (!this.host) return;
     st.ranks.set('', save.ranked.rating);

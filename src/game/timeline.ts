@@ -34,7 +34,7 @@ const TEAM_N = 8;
 /** Per hero. */
 const H_X = 0, H_Z = 1, H_VX = 2, H_VZ = 3, H_AX = 4, H_AZ = 5, H_HP = 6, H_DEAD = 7, H_DSTOCK = 8, H_DCD = 9, H_BOMB = 10, H_GOLD = 11, H_ULT = 12, H_GEARS = 13, H_HURT = 14, H_LEFT = 15;
 const HERO_N = 16;
-export const MAX_HEROES = 4;
+export const MAX_HEROES = 8; // eightp lane: 8-player co-op
 
 /** Per enemy (Float32; uid kept apart in an Int32Array). */
 const E = {

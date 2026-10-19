@@ -47,6 +47,7 @@ import { tickOnlineStop } from '../netFeel';
 import { closePingWheel, pingInput, pingKind } from '../teamPlay';
 import { updateGraphics } from './graphics';
 import { bossCamera } from './bossLane';
+import { declutterTeamTags, eightpFrame, eightpPingOk } from './eightp';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -92,6 +93,7 @@ export function coopInput(this: Game): void {
 /** A teammate pings a spot: a marker and a label everyone sees. */
 export function ping(this: Game, h: Hero, x: number, z: number, kind?: string): void {
   if (performance.now() - h.pingAt < 700) return;
+  if (!eightpPingOk(this)) return; // 5-8 heroes: a team-wide ping budget (systems/eightp.ts)
   h.pingAt = performance.now();
   // Ping wheel picks (GO HERE, DANGER, ...): their own label and colour.
   const k = pingKind(kind);
@@ -331,6 +333,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     : local.synergy.slots.map((sl, i) => ({ def: sl.def, ro: local.synergy.readout(i) }));
   this.hud.setMods(mods.map((m) => ({ id: m.def.id, icon: m.def.icon, color: m.def.color, name: m.def.name, readout: m.ro, cursed: !!m.def.cursed })));
   lap('ren.camera+reticle');
+  eightpFrame(this); // render LOD focus, teammate weapon mix, lane CSS (systems/eightp.ts)
   this.renderTeam();
   this.renderCompanion(rdt);
   this.meta2Frame(rdt); // profile/quest/achievement tracking, pet hat, trail, PROFILE screens (systems/meta2.ts)
@@ -520,5 +523,6 @@ export function renderTeam(this: Game): void {
         onScreen: this.tmp.z < 1 && Math.abs(this.tmp.x) < 1.1 && Math.abs(this.tmp.y) < 1.1,
       };
     });
+  declutterTeamTags(this, tags); // 5-8 heroes: short tags, no overlaps (systems/eightp.ts)
   this.hud.setTeam(team, tags);
 }

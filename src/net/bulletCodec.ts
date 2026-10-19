@@ -134,8 +134,8 @@ export class BulletDeltaEncoder {
       w.u8(Math.min(255, Math.round(b.length[i] * 50)));
       const c = BULLET_HEX.indexOf(b.colorHex(i));
       w.u8(c < 0 ? 0 : c);
-      // Bit 0: team; bits 1-3: the silhouette (src/game/bulletShapes.ts); bits 4-5: the owner hero (weapon skins).
-      w.u8((b.team[i] & 1) | ((b.shape[i] & 7) << 1) | ((b.owner[i] & 3) << 4));
+      // Bit 0: team; bits 1-3: the silhouette (src/game/bulletShapes.ts); bits 4-6: the owner hero (weapon skins; 8 heroes).
+      w.u8((b.team[i] & 1) | ((b.shape[i] & 7) << 1) | ((b.owner[i] & 7) << 4));
       w.u16(Math.min(65535, Math.round(Math.max(0, b.life[i]) * 1000)));
     }
     w.uv(this.gone.length);
@@ -249,7 +249,7 @@ export class BulletDeltaDecoder {
         knockback: 0,
         team: bits & 1 ? 1 : 0,
         shape: (bits >> 1) & 7,
-        owner: (bits >> 4) & 3,
+        owner: (bits >> 4) & 7,
         color,
         width,
         length,

@@ -205,6 +205,8 @@ export class RigOverlay {
   private syncedFrame = -1;
   private frame = 0;
   private color = new THREE.Color();
+  /** Draw the outline hull and x-ray (off for teammates off screen: eightp lane, src/render/lod.ts). */
+  detail = true;
 
   constructor(private root: THREE.Object3D) {
     for (let i = 0; i < MAX_RIG_PARTS; i++) this.mats.push(new THREE.Matrix4().copy(ZERO));
@@ -323,8 +325,8 @@ export class RigOverlay {
     r.uPx.value = k * T.xrayRimPx;
     r.uLight.value.set(T.xrayRim);
     r.uDark.value.set(T.xrayRim);
-    this.xrayMat.visible = this.xrayRimMat.visible = T.xray;
-    this.hullMat.visible = outlineState.on;
+    this.xrayMat.visible = this.xrayRimMat.visible = T.xray && this.detail;
+    this.hullMat.visible = outlineState.on && this.detail;
     this.ringMat.uniforms.uColor.value.copy(c);
     this.ringMat.uniforms.uUnlit.value = T.ringUnlit;
     this.ring.visible = T.ring && ringVisible;

@@ -171,3 +171,68 @@ export function silenceDuration(seconds: number, now: number, lastBeat: number, 
   const candidate = beat - now;
   return candidate >= 0.3 && candidate <= 0.6 && Math.abs(candidate - duration) <= 0.08 ? candidate : duration;
 }
+
+/**
+ * Co-op weapon mix (eightp lane). With up to 8 heroes firing, every
+ * teammate's weapon cue would play and the mix turns into noise. Your own
+ * weapons (cues at your position) always play in full; teammates' weapon cues
+ * ('w:' names) are thinned per cue: a minimum gap that grows with the number
+ * of other heroes and with distance, a lower gain the more heroes there are,
+ * the TEAMMATE WEAPONS volume, and a short duck right after your own shot.
+ * Pure policy with an injected clock, so it is unit-tested (tests/eightp.test.ts).
+ */
+export const teamMixTuning = {
+  /** A weapon cue this close to the listener counts as yours (m). */
+  ownRadius: 1.4,
+  /** Minimum gap between plays of one teammate cue (s) = (gap + gapPerMate x mates) x (1 + dist / gapDist). */
+  gap: 0.035,
+  gapPerMate: 0.018,
+  gapDist: 18,
+  /** Teammate weapon gain: 1 - perMate x (mates - 1), never below minGain. */
+  perMate: 0.07,
+  minGain: 0.5,
+  /** After your own weapon fires, teammates' weapons duck to this for duckTime (s). */
+  duck: 0.7,
+  duckTime: 0.09,
+  /** Teammate weapon cues playing at once across all cues (per 100 ms window). */
+  window: 0.1,
+  windowMax: 6,
+};
+
+export class TeamWeaponMix {
+  /** Other heroes in the run (0 = solo: nothing is thinned). Set every frame. */
+  mates = 0;
+  /** TEAMMATE WEAPONS setting, 0-1. */
+  volume = 0.8;
+  private last = new Map<string, number>();
+  private ownAt = -Infinity;
+  private winStart = -Infinity;
+  private winCount = 0;
+
+  /** Gain multiplier for a weapon cue `name` heard `dist` m away at time `now` (s); 0 = skip it. */
+  gain(name: string, dist: number, now: number): number {
+    const T = teamMixTuning;
+    if (dist < T.ownRadius) {
+      this.ownAt = now;
+      return 1;
+    }
+    if (this.mates <= 0) return 1;
+    const bar = name.indexOf('|');
+    const key = bar < 0 ? name : name.slice(0, bar);
+    const gap = (T.gap + T.gapPerMate * this.mates) * (1 + dist / T.gapDist);
+    const prev = this.last.get(key) ?? -Infinity;
+    if (now - prev < gap) return 0;
+    if (now - this.winStart >= T.window) {
+      this.winStart = now;
+      this.winCount = 0;
+    }
+    if (this.winCount >= T.windowMax) return 0;
+    this.winCount++;
+    this.last.set(key, now);
+    let g = Math.max(T.minGain, 1 - T.perMate * (this.mates - 1)) * this.volume;
+    if (now - this.ownAt < T.duckTime) g *= T.duck;
+    return g;
+  }
+}
+
+export const teamWeaponMix = new TeamWeaponMix();

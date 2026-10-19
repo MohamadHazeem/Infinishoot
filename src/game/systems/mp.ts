@@ -8,6 +8,7 @@
  *   mpReset  - back to the title (leaveToTitle)
  */
 import type { Game } from '../game';
+import { lobbyCap } from '../eightp';
 import { versusCamera, versusTick, versusClientMessage, isOverlord } from './versus';
 import { localCoopCamera, localCoopTick } from './localCoop';
 import { VersusUi } from '../../ui/versusUi';
@@ -174,7 +175,7 @@ function heartbeat(g: Game, st: MpState, dt: number): void {
     return;
   }
   const kind = g.lobbyKind as LobbyMode;
-  const entry = { code: g.host!.code, name: g.netName || g.lobby[0]?.name || 'Player', players: g.lobby.length, max: kind === 'race' ? 8 : 4, mode: kind, difficulty: g.lobbyDifficulty().id, region: regionOf(), version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '' };
+  const entry = { code: g.host!.code, name: g.netName || g.lobby[0]?.name || 'Player', players: g.lobby.length, max: lobbyCap(kind), mode: kind, difficulty: g.lobbyDifficulty().id, region: regionOf(), version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '' };
   const key = JSON.stringify(entry);
   const due = st.sentT <= 0 || (key !== st.sentKey && st.sentT <= lobbyTuning.heartbeat - lobbyTuning.minResend);
   if (!due) return;

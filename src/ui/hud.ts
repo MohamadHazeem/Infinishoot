@@ -1,5 +1,6 @@
 import type { NoiseGovernor } from '../render/noiseGovernor';
 import { localizeHtml, t, localize } from '../i18n';
+import { shortName } from '../game/eightp';
 /**
  * In-game arcade HUD: XP bar and level, life, stage timer, score and combo,
  * kills and gold, boss bar, weapon/item loadout, dash and bomb meters,
@@ -185,6 +186,10 @@ export interface TeamTag {
   revive01: number;
   onScreen: boolean;
   dist?: number;
+  /** Big teams (eightp lane): a short tag for near, healthy teammates. */
+  mini?: boolean;
+  /** Big teams: px moved up/down so tags and edge pointers don't overlap. */
+  dy?: number;
 }
 
 /** Minimap size in canvas pixels; each one is drawn as one UI pixel (--p). */
@@ -420,6 +425,7 @@ export class Hud {
     if (html !== this.lastTeam) {
       this.lastTeam = html;
       this.el('#team').innerHTML = localizeHtml(html);
+      this.el('#team').classList.toggle('compact', team.length >= 4); // 5-8 heroes: one-line rows (eightp lane)
     }
     const root = this.el('#tags');
     while (this.tagEls.length < tags.length) {
@@ -442,7 +448,7 @@ export class Hud {
         const dx = t.x - cx;
         const dy = t.y - cy;
         const k = Math.min((cx - 90) / Math.abs(dx || 1e-6), (cy - 64) / Math.abs(dy || 1e-6));
-        d.el.style.transform = `translate(${Math.round(cx + dx * k)}px, ${Math.round(cy + dy * k)}px) translate(-50%, -50%)`;
+        d.el.style.transform = `translate(${Math.round(cx + dx * k)}px, ${Math.round(cy + dy * k + (t.dy ?? 0))}px) translate(-50%, -50%)`;
         // 8 directions keep the arrow a clean sprite; it sits on that side of the tag.
         const dir = Math.round(Math.atan2(dy, dx) / (Math.PI / 4));
         if (dir !== d.dir) {
@@ -451,11 +457,12 @@ export class Hud {
           d.arrow.style.cssText = `--ax:${Math.round(Math.cos(a))};--ay:${Math.round(Math.sin(a))};--ang:${dir * 45}deg`;
         }
       } else {
-        d.el.style.transform = `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) translate(-50%, -100%)`;
+        d.el.style.transform = `translate(${Math.round(t.x)}px, ${Math.round(t.y + (t.dy ?? 0))}px) translate(-50%, -100%)`;
       }
       d.el.classList.toggle('edge', edge);
+      d.el.classList.toggle('mini', !!t.mini);
       d.el.classList.toggle('down', t.down);
-      const label = edge && t.dist !== undefined ? `${t.name} ${Math.round(t.dist)}m` : t.name;
+      const label = edge && t.dist !== undefined ? `${t.mini ? shortName(t.name) : t.name} ${Math.round(t.dist)}m` : t.mini ? shortName(t.name) : t.name;
       if (d.label !== label) d.nm.textContent = (d.label = label);
       // Revive progress: whole percent, so the DOM only changes when it moves.
       const pct = t.down ? Math.floor(Math.max(0, Math.min(1, t.revive01)) * 100) : -1;
@@ -524,7 +531,8 @@ export class Hud {
     if (m.portal) put(MM_RING, m.portal.x, m.portal.z, blink ? '#73eff7' : '#41a6f6');
     for (const e of m.elites) put(MM_DOT, e.x, e.z, '#ef7d57');
     if (m.boss) put(MM_SKULL, m.boss.x, m.boss.z, '#b13e53');
-    for (const t of m.mates) put(t.down ? MM_X : MM_ME, t.x, t.z, t.down ? (blink ? '#b13e53' : '#f4f4f4') : t.color);
+    const big = m.mates.length >= 4; // 5-8 heroes: smaller teammate dots so yours stands out (eightp lane)
+    for (const t of m.mates) put(t.down ? MM_X : big ? MM_DOT : MM_ME, t.x, t.z, t.down ? (blink ? '#b13e53' : '#f4f4f4') : t.color);
     put(MM_ME, m.me.x, m.me.z, blink ? '#f4f4f4' : m.me.color);
   }
 

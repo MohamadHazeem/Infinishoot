@@ -29,6 +29,7 @@ import { modSession } from '../../mods/manager';
  * - Client -> host: `emote` {k}, `cobuy`, `bye`.
  */
 import type { Game, LobbyEntry } from '../game';
+import { COOP_MAX_PLAYERS, eightpTuning, poolMaxFor, poolStartFor, ultParticipants } from '../eightp';
 import { Hero, HERO_COLORS, type RemoteInput } from '../hero';
 import { Autopilot } from '../autopilot';
 import { Player, playerTuning } from '../player';
@@ -254,7 +255,7 @@ export function coop2Step(this: Game, dt: number): void {
   s.lastRun = this.runTime;
   if (this.stage !== s.stage) {
     if (s.ghost && s.stage > 0) disposeGhost(s); // a new arena: the ghost's job is done
-    if (s.stage > 0 && this.stage > s.stage && s.pool.on) s.pool.lives = Math.min(poolTuning.max, s.pool.lives + poolTuning.perStage * (this.stage - s.stage));
+    if (s.stage > 0 && this.stage > s.stage && s.pool.on) s.pool.lives = Math.min(poolMaxFor(poolTuning.max, this.heroes.length), s.pool.lives + poolTuning.perStage * (this.stage - s.stage));
     s.stage = this.stage;
   }
   if (this.role === 'host') admitPending(this, s);
@@ -277,7 +278,7 @@ function newRun(g: Game, s: CoopState): void {
   s.ghostsUsed = 0;
   s.inboxNext = 0;
   disposeGhost(s);
-  s.pool = { on: g.role === 'host' && settings.coopPool === true, lives: poolTuning.start, stage: g.stage };
+  s.pool = { on: g.role === 'host' && settings.coopPool === true, lives: poolStartFor(poolTuning.start, g.heroes.length), stage: g.stage }; // eightp: 5-8 teams start with more
   // startRun stands every hero back up; nobody controls a disconnected one any more.
   if (g.role === 'host') {
     for (const h of g.heroes) {
@@ -336,9 +337,8 @@ export function coopHello(this: Game, from: string, m: Record<string, unknown>):
   const mine = (i: number) => (pid ? s.pids[i] === pid : this.heroes[i]?.name === name);
   const reclaim = this.heroes.findIndex((h, i) => i !== this.local && mine(i) && (h.left || s.grace.some((x) => x.index === i)));
   const busy = activeHeroes(this).length + s.pending.filter((p) => p.reclaim < 0).length;
-  const maxPlayers = this.runMode === 'raid' ? 8 : 4;
-  if (reclaim < 0 && busy >= maxPlayers) return refuse(`That run is full (${maxPlayers} players).`);
-  if (reclaim < 0 && this.heroes.length >= maxPlayers && !this.heroes.some((h, i) => h.left && !s.grace.some((x) => x.index === i))) return refuse(`That run is full (${maxPlayers} players).`);
+  if (reclaim < 0 && busy >= COOP_MAX_PLAYERS) return refuse('That run is full (8 players).');
+  if (reclaim < 0 && this.heroes.length >= COOP_MAX_PLAYERS && !this.heroes.some((h, i) => h.left && !s.grace.some((x) => x.index === i))) return refuse('That run is full (8 players).');
   s.pending.push({ peerId: from, pid, entry, reclaim, since: simNow(this) });
   host.send(from, { t: 'cowait', msg: reclaim >= 0 ? 'Welcome back! Jumping back into the run...' : 'The run is already going: you jump in at the next safe moment...' });
   return true;
@@ -434,9 +434,9 @@ function admit(g: Game, s: CoopState, p: Pending): void {
     h.remote = null;
   } else {
     let index = g.heroes.length;
-    if (index >= (g.runMode === 'raid' ? 8 : 4)) index = g.heroes.findIndex((x, i) => x.left && !s.grace.some((q) => q.index === i));
+    if (index >= COOP_MAX_PLAYERS) index = g.heroes.findIndex((x, i) => x.left && !s.grace.some((q) => q.index === i));
     if (index < 0) {
-      host.send(p.peerId, { t: 'full', reason: 'That run is full (4 players).' });
+      host.send(p.peerId, { t: 'full', reason: 'That run is full (8 players).' });
       return;
     }
     const e = p.entry;
@@ -556,7 +556,7 @@ function graceStep(g: Game, s: CoopState, dt: number): void {
 }
 
 /** Drive a hero with the autopilot brain through its remote input (host). */
-function pilotHero(g: Game, h: Hero, pilot: Autopilot, dt: number): void {
+export function pilotHero(g: Game, h: Hero, pilot: Autopilot, dt: number): void {
   const p = h.player;
   const r: RemoteInput = h.remote ?? { x: p.x, z: p.z, vx: 0, vz: 0, ax: p.aim.x, az: p.aim.z, ad: -1, firing: false, charging: false, dashing: false };
   h.remote = r;
@@ -669,7 +669,7 @@ export function tryBuyBack(g: Game, s: CoopState, h: Hero, auto: boolean): boole
   if (!s.pool.on || s.pool.lives <= 0 || !h.player.dead || h.left || g.pvp) return false;
   if (!auto && !canBuy(s, h)) return false;
   const payers = activeHeroes(g);
-  const cost = poolCost(g.stage);
+  const cost = poolCost(g.stage, payers.length);
   const split = splitCost(payers.map((x) => x.gold), cost);
   if (!split) {
     if (!auto) {
@@ -714,6 +714,12 @@ function teamUltStep(g: Game, s: CoopState, dt: number): void {
   if (u.run || g.pvp || g.runTime < u.cdUntil) return;
   const alive = g.aliveHeroes;
   if (alive.length < 2) return;
+  if (alive.length > 4) {
+    // eightp lane: in 5-8 teams a quorum firing together is enough; the ones who fired take part.
+    const parts = ultParticipants(alive.map((h) => u.fired[h.index] ?? -Infinity), g.runTime, u.last, teamUltTuning.window);
+    if (parts) startTeamUlt(g, s, parts.map((i) => alive[i]));
+    return;
+  }
   if (!teamUltDue(alive.map((h) => u.fired[h.index] ?? -Infinity), g.runTime, u.last)) return;
   startTeamUlt(g, s, alive);
 }
@@ -753,7 +759,7 @@ function startTeamUlt(g: Game, s: CoopState, parts: Hero[]): void {
 }
 
 function radiusFor(n: number): number {
-  return teamUltTuning.radius + teamUltTuning.radiusPerHero * Math.max(0, n - 2);
+  return teamUltTuning.radius + teamUltTuning.radiusPerHero * Math.max(0, Math.min(n, eightpTuning.ultRadiusHeroes) - 2);
 }
 
 const ultScratch: Enemy[] = [];
@@ -1018,9 +1024,9 @@ export function coopNet(this: Game, forHero: Hero): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (joinable(this)) out.j = [this.host!.code, activeHeroes(this).length];
   if (s.grace.length) out.ai = s.grace.map((x) => [x.index, Math.ceil(x.t)]);
-  if (s.pool.on) out.pl = [s.pool.lives, poolCost(this.stage)];
+  if (s.pool.on) out.pl = [s.pool.lives, poolCost(this.stage, activeHeroes(this).length)];
   if (s.pool.on && forHero.player.dead && !forHero.left) {
-    const split = splitCost(teamGold(this), poolCost(this.stage));
+    const split = splitCost(teamGold(this), poolCost(this.stage, activeHeroes(this).length));
     out.bb = [r2(Math.min(1, (s.downT[forHero.index] ?? 0) / poolTuning.wait)), canBuy(s, forHero) && !!split ? 1 : 0];
   }
   const gh = s.ghost;
@@ -1232,15 +1238,15 @@ export function renderCoop2(this: Game, rdt: number, netA: number): void {
   // Team panel: joinable code, roles and their bonus, the pool.
   const roles = this.heroes.filter((h) => !h.left).map((h) => ({ role: roleOf(h.heroDef.id), color: h.color, name: h.name }));
   const join = client ? s.net.joinable : joinable(this) ? ([this.host!.code, activeHeroes(this).length] as [string, number]) : coopDebugView.joinCode ? ([coopDebugView.joinCode, activeHeroes(this).length] as [string, number]) : null;
-  const pool = client ? s.net.pool : s.pool.on ? ([s.pool.lives, poolCost(this.stage)] as [number, number]) : null;
+  const pool = client ? s.net.pool : s.pool.on ? ([s.pool.lives, poolCost(this.stage, activeHeroes(this).length)] as [number, number]) : null;
   let buy: CoopHudView['buy'] = null;
   if (fighting && this.hero.player.dead && pool) {
     if (client) {
       const b = s.net.buy;
       buy = b ? { wait01: b[0], ok: !!b[1], cost: pool[1], lives: pool[0] } : null;
     } else {
-      const split = splitCost(teamGold(this), poolCost(this.stage));
-      buy = { wait01: Math.min(1, (s.downT[this.hero.index] ?? 0) / poolTuning.wait), ok: canBuy(s, this.hero) && !!split, cost: poolCost(this.stage), lives: s.pool.lives };
+      const split = splitCost(teamGold(this), poolCost(this.stage, activeHeroes(this).length));
+      buy = { wait01: Math.min(1, (s.downT[this.hero.index] ?? 0) / poolTuning.wait), ok: canBuy(s, this.hero) && !!split, cost: poolCost(this.stage, activeHeroes(this).length), lives: s.pool.lives };
     }
   }
   s.beatT = Math.max(0, s.beatT - (rdt > 0 ? rdt : 0));

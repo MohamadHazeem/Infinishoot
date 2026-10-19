@@ -33,6 +33,8 @@ import { soundLaneNet } from './sound2';
 import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
 import { heroes3Net } from './heroes3';
 import { coopPlayMessage, coopPlayNet } from './coopplay';
+import { lobbyCap } from '../eightp';
+import { eightpSnapTick, heroWeaponsFor } from './eightp';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -69,8 +71,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     netcodeHello(this, from, m); // remember the player id; a reconnect drops its stale old connection (systems/netcode.ts)
     this.tradingHello(from, m); // the player's co-op title (systems/trading.ts)
     if (this.coopHello(from, m)) return; // a run in progress: drop-in join (systems/coop2.ts)
-    if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from) || this.lobby.length >= 4) {
-      this.host?.send(from, { t: 'full', reason: 'Game already started.' });
+    if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from) || this.lobby.length >= lobbyCap(this.lobbyKind)) {
+      this.host?.send(from, { t: 'full', reason: this.mode === 'title' && !this.pvp && this.lobby.length >= lobbyCap(this.lobbyKind) ? 'That game is full.' : 'Game already started.' });
       return;
     }
     if (this.lobby.length >= (this.lobbyKind === 'raid' ? 8 : 4)) { this.host?.send(from, { t: 'full', reason: 'That lobby is full.' }); return; }
@@ -188,6 +190,7 @@ export function hostTick(this: Game, frozen: boolean): void {
   netcodeStep(this, frozen); // probes, silent clients, enemy history, tab-reload rejoin (systems/netcode.ts)
   if (this.role !== 'host' || !this.host) return;
   this.vfx.recording = true;
+  if (eightpSnapTick(this, frozen, isBotPeer)) return; // 5-8 players: snapshots spread over the steps (systems/eightp.ts)
   if (this.stepN % (frozen ? 15 : SNAP_EVERY) !== 0) return;
   const events = this.vfx.drain();
   for (const h of this.heroes) {
@@ -213,7 +216,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
   const r2 = (v: number) => Math.round(v * 100) / 100;
   const boss = this.boss && this.boss.active ? { name: this.boss.def.name, hp01: r2(Math.max(0, this.boss.hp / this.boss.maxHp)) } : null;
   let enc = snapEncoders.get(forHero);
-  if (!enc) snapEncoders.set(forHero, (enc = new SnapEncoder()));
+  if (!enc) snapEncoders.set(forHero, (enc = new SnapEncoder((forHero.index * 5) % 40))); // staggered keyframes per client (eightp lane)
   // The body goes through the compact snapshot codec (src/net/snapCodec.ts); records and effects are binary.
   const body: Record<string, unknown> = {
     ha: halloweenNet.call(this),
@@ -248,7 +251,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
         hf: r2(p.hurtFlash),
         rv: r2(h.reviveT / REVIVE_TIME),
         area: r2(h.stats.areaMul),
-        w: h.weapons.map((w) => [w.def.id, w.level, Math.round(w.ready * 20) / 20, w.buildKey, ...w.net()]),
+        w: heroWeaponsFor(this, forHero, h, (q) => h.weapons.map((w) => [w.def.id, w.level, Math.round(w.ready * q) / q, w.buildKey, ...w.net()])), // teammates: coarser reload, far ones refresh less often (systems/eightp.ts)
         rl: h.relics,
         tw: this.heroMechNet(h),
         gp: this.gpHeroNet(h),

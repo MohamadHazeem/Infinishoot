@@ -2,6 +2,7 @@ import { sfx } from '../audio/sfx';
 import { threatAt } from '../audio/captions';
 import { threatOf } from '../audio/threats';
 import { playVoiceCue } from '../audio/voices';
+import { teamWeaponMix } from '../audio/mix';
 import type { DamageNumbers } from '../ui/damageNumbers';
 import type { Hud } from '../ui/hud';
 import type { Fx } from './fx';
@@ -177,7 +178,13 @@ export class Vfx {
     const d = this.near(x, z);
     if (d > HEAR_RANGE) return;
     // Pan by the sideways offset from the listener and fade with distance.
-    const gain = d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7;
+    let gain = d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7;
+    // Co-op: teammates' weapon cues are thinned and ducked under yours (src/audio/mix.ts, eightp lane).
+    if (name.startsWith('w:')) {
+      const k = teamWeaponMix.gain(name, d, performance.now() / 1000);
+      if (k <= 0) return;
+      gain *= k;
+    }
     if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, gain, x, z);
     // 'v:' boss voices and 'm:' material impacts (src/audio/voices.ts); the rest by name (weapon cues with
     // evolution layers, enemy family calls, telegraphs: sfx.named).

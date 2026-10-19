@@ -1,5 +1,6 @@
 import { localizeHtml } from '../i18n';
 import { ROLES, ROLE_ORDER, bonusText, roleOf, type CoopRole, type RoleBonus } from '../data/coopRoles';
+import { COOP_MAX_PLAYERS } from '../game/eightp';
 import { prompt } from './prompts';
 import { poolTuning, type EmoteDef } from '../game/coop2';
 import { settings, saveSettings } from '../game/settings';
@@ -189,7 +190,7 @@ export class CoopHud {
       this.panel.hidden = !v.show;
       if (v.show) {
         const rows: string[] = [];
-        if (v.join) rows.push(`<div class="row join">JOINABLE · <b><bdi>${v.join[0]}</bdi></b> · ${v.join[1]}</div>`);
+        if (v.join) rows.push(`<div class="row join">JOINABLE · <b><bdi>${v.join[0]}</bdi></b> · ${v.join[1]}/${COOP_MAX_PLAYERS}</div>`); // eightp lane: 8 players
         rows.push(`<div class="row">${v.roles.map((r) => `<span class="role" style="--rc:${ROLES[r.role].color};--hc:${r.color}"><i></i>${ROLES[r.role].name}</span>`).join('')}</div>`);
         const txt = bonusText(v.bonus);
         rows.push(`<div class="row bonus ${txt ? '' : 'none'}">${txt ? `TEAM x${v.bonus.scale}: ${txt}` : 'MIX ROLES FOR A TEAM BONUS'}</div>`);

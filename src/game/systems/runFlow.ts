@@ -3,6 +3,7 @@ import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
 import { resetSecrets, clearSecrets } from './secrets';
 import { createRaidArena } from '../raid/arena';
+import { spawnSpotFor } from '../eightp';
 import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
 import { seasonAt, seasonalStage } from '../../data/seasons';
 import { gauntletScore } from '../../data/ascension';
@@ -91,8 +92,7 @@ export function loadArena(this: Game, seed: number, stage = 1): void {
 }
 
 export function spawnSpot(this: Game, i: number): { x: number; z: number } {
-  const n = Math.max(1, this.heroes.length);
-  return { x: (i - (n - 1) / 2) * 2, z: 0 };
+  return spawnSpotFor(i, Math.max(1, this.heroes.length)); // one row up to 4, two rows for 5-8 (eightp lane)
 }
 
 export function goTitle(this: Game): void {

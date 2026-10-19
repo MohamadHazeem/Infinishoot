@@ -1,5 +1,6 @@
 import { noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
+import { particleLod } from '../render/lod';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
 import { renderQuality } from '../render/quality';
@@ -371,7 +372,7 @@ export class Particles {
     if (renderQuality.worldEffects && (o.smoke || o.debris || o.sparks || o.dust)) this.extras(x, y, z, o, rand);
     this.c1.set(o.color);
     this.c2.set(o.color2 ?? o.color);
-    const count = this.noise.take('particles', o.count <= 2 ? o.count : Math.ceil(o.count * renderQuality.particles));
+    const count = this.noise.take('particles', o.count <= 2 ? o.count : Math.ceil(o.count * renderQuality.particles * particleLod(x, z))); // particleLod: far effects in big teams (eightp lane)
     for (let n = 0; n < count && this.alive < MAX; n++) {
       const i = this.alive++;
       let a = rand() * Math.PI * 2;

@@ -15,6 +15,7 @@
     "smoke": "node scripts/run-tests.mjs smoke",
     "shot": "node scripts/shot.mjs",
     "coop": "node scripts/coop-test.mjs",
+    "coop8": "node scripts/coop8.mjs",
     "bench": "node scripts/bench.mjs",
     "replay": "node scripts/replay.mjs",
     "visual": "node scripts/visual.mjs",

@@ -3486,5 +3486,14 @@ export const en = {
   "meta2.ui.n_quests": "⟪n⟫ QUESTS",
   "meta2.ui.lv_n": "LV ⟪n⟫",
   "meta2.ui.streak": "STREAK ⟪n⟫",
-  "meta2.ui.new_quests_in2": "NEW QUESTS IN"
+  "meta2.ui.new_quests_in2": "NEW QUESTS IN",
+  "eightp.coop_camera": "CO-OP CAMERA",
+  "eightp.coop_camera_desc": "TEAM: the camera also frames nearby teammates. ME: it follows only your hero (handy in big, spread-out teams).",
+  "eightp.mate_weapons": "TEAMMATE WEAPONS",
+  "eightp.mate_weapons_desc": "Volume of other players’ weapon sounds in co-op. Your own weapons always play in full.",
+  "eightp.me": "ME",
+  "eightp.run_full": "That run is full (8 players).",
+  "eightp.versus_cap": "VERSUS TAKES UP TO 4 PLAYERS (CO-OP AND PVP TAKE 8)",
+  "eightp.coop_cap": "CO-OP TAKES UP TO 8 PLAYERS",
+  "eightp.game_full": "That game is full."
 } as const;
