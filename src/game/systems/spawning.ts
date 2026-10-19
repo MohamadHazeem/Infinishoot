@@ -9,6 +9,7 @@ import { ELITE_MOD_IDS, ELITE_MODS, type EliteModId } from '../../data/eliteMods
 import { type EnemyDef } from '../../data/enemies';
 import { spawnCue } from './sound';
 import { bossLike } from '../bossRules';
+import { spawnTitan, stageBossDef } from './bossLane';
 
 /** A point on a ring just off-screen around a living hero, inside the arena and not in a wall. */
 export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x: number; z: number } | null {
@@ -94,6 +95,8 @@ export function spawnRing(this: Game, def: EnemyDef, count: number): void {
 }
 
 export function spawnBoss(this: Game, def: EnemyDef): void {
+  def = stageBossDef.call(this, def); // rematches and the Titan (systems/bossLane.ts)
+  if (def.behavior === 'titan') return spawnTitan.call(this, def);
   const p = (this.aliveHeroes[0] ?? this.hero).player;
   const pos = this.ringPoint(13, 16, def.radius + 0.5) ?? { x: p.x + 12, z: p.z };
   this.boss = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ hpMul: this.director.bossHpMul }));

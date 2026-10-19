@@ -63,7 +63,15 @@ export class Autopilot {
         az += (dz / (d * d + 0.1)) * 2;
       }
     }
-    const boss = g.enemies.list.find((e) => e.active && e.def.boss);
+    let boss = g.enemies.list.find((e) => e.active && e.def.boss);
+    if (boss && !boss.alive) {
+      // The Titan's core is sealed until its weak points break: go for the nearest open one (src/game/titan.ts).
+      let wd = Infinity;
+      for (const e of g.enemies.list) {
+        const d = e.alive && e.def.titanPart ? Math.hypot(e.x - p.x, e.z - p.z) : Infinity;
+        if (d < wd) [wd, boss] = [d, e];
+      }
+    }
     let mx: number;
     let mz: number;
     if (g.mode === 'portal') {

@@ -58,6 +58,6 @@ export function cameraDirector(this: Game): void {
 export function onCorpse(this: Game, id: string, x: number, y: number, z: number, scale: number, facing: number, dirX: number, dirZ: number): void {
   const def = ENEMIES[id];
   if (!def) return;
-  this.enemies.fling(def, x, y, z, scale, facing, dirX, dirZ);
+  if (!def.hidden) this.enemies.fling(def, x, y, z, scale, facing, dirX, dirZ); // hidden ones (the Titan) have their own view
   if (def.boss) this.cam.killCam(x, z);
 }

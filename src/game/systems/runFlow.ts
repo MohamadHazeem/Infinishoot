@@ -33,6 +33,7 @@ import { WEAPON_COMBOS } from '../../data/weaponCombos';
 import { DIFF_BY_ID, MODE_BY_ID, MODES, dailySeed, today, type DifficultyDef, type DifficultyId, type ModeId } from '../../data/modes';
 import { submitDaily } from '../highscores';
 import { boardId, leaderboardEnabled, submitGlobal } from '../../net/leaderboard';
+import { clearBossLane } from './bossLane';
 
 export function clearWorld(this: Game): void {
   this.enemies.clear();
@@ -46,6 +47,7 @@ export function clearWorld(this: Game): void {
   this.juice.reset();
   this.boss = null;
   this.bossField.clear();
+  clearBossLane.call(this); // no Titan, no boss duel (systems/bossLane.ts)
   this.bossIntro.stop(this.cam.camera);
   this.bossBoom = null;
   this.slowMoT = 0;

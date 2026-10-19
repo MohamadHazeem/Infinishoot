@@ -27,6 +27,7 @@ Open the game straight into a situation: `http://localhost:5173/?test&...` (also
 - Cover: `smash=2` (stand by the nearest ruin wall, rock or tree and smash it after 2 s, like Rex does)
 - Areas: `biome=neon` / `biome=sky` (any biome id, whatever the stage); `at=holo`, `at=vent`, `at=sign`, `at=flag`, `at=gap` start next to that piece
 - Bosses: `bossnow` (the stage boss right away), `phase=2` (push it into a phase once its entrance ends), `miniboss` (this stage's mini-boss now), `nointro` (skip entrances)
+- Titan, rematches, duel: `titan` (the stage boss is the Titan), `titanphase=3` (break the earlier weak points), `titanmove=beam`, `remix` (the boss's rematch), `duel` (straight to its last phase: the ring of fire); see src/dev/bossLinks.ts
 
 ## Rules of thumb
 - Gameplay runs in `update()` and on the host; anything clients need goes through snapshots or the effects bus (`game.vfx`). Cosmetic-only things can be derived locally in render.

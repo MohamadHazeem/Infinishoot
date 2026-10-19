@@ -65,6 +65,7 @@ import * as BossFightSys from './systems/bossFight';
 import { BossField } from './bossField';
 import { BossIntro } from './bossIntro';
 import type { BossApi } from './bosses';
+import type { BossDuel } from './bossDuel';
 import * as ArenaSys from './systems/arena';
 import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
@@ -692,6 +693,12 @@ export class Game implements HeroWorld {
   /** Telegraphed ground strikes (Hive Queen) counting down. */
   /** Telegraphed ground strikes; `foe` > 0 also blasts enemies (meteors). */
   strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number; cause?: string }[] = [];
+  /**
+   * Boss duel (src/game/bossDuel.ts): non-null on every machine while a stage boss's
+   * last phase plays as a one-on-one inside a closing ring of fire; `t` = seconds
+   * since it began. The music can switch to a call-and-response duel while it's set.
+   */
+  bossDuel: BossDuel | null = null;
 
   constructor(
     readonly input: Input,

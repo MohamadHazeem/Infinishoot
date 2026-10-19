@@ -3,6 +3,8 @@ import type { EnemyDef } from '../data/enemies';
 import { commit } from '../render/instancing';
 import { BOSS_MOVES, bossMoveTuning, breathAngle, eightPoint, eightSize, eightTime } from './bosses';
 import type { Enemy } from './enemies';
+import type { TitanNet } from './titan';
+import type { DuelNet } from './bossDuel';
 
 /** A slam shockwave: a ring wall expanding from (x, z). `hit` = bitmask of heroes it already hit. */
 export interface Shockwave {
@@ -35,6 +37,9 @@ export interface BossNet {
   w: [number, number, number, number][];
   /** Fire: x, z, radius, seconds left. */
   f: [number, number, number, number][];
+  /** The Titan and the boss duel (src/game/systems/bossLane.ts). */
+  t?: TitanNet | null;
+  d?: DuelNet | null;
 }
 
 const SEG_CAP = 640;

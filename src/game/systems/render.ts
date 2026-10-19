@@ -32,6 +32,7 @@ import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
 import { tickOnlineStop } from '../netFeel';
 import { closePingWheel, pingInput, pingKind } from '../teamPlay';
+import { bossCamera } from './bossLane';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -248,6 +249,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.renderBossFight(frameDt, frozen || this.paused);
   this.juice.shakeOffset(this.shake);
   this.cameraDirector();
+  bossCamera.call(this); // the Titan pulls the camera back (systems/bossLane.ts)
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
 
   if (inMenu || p.dead) this.reticle.style.display = 'none';
