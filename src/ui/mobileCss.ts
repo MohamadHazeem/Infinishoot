@@ -28,7 +28,7 @@ export function injectMobileCss(): void {
 .touch-tools label { display:flex; align-items:center; gap:8px; }
 .touch-tools input { width:80px; min-height:44px; }
 .touch-tools button { min-height:48px; font-size:20px; }
-@media(max-width:900px), (max-height:500px) {
+@media(max-width:900px), (max-height:500px), (pointer:coarse) {
   #hud .screen { padding: max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); gap:16px; overflow-x:hidden; }
   #hud .screen > * { flex-shrink:0; max-width:100%; }
   #hud .screen:not(#scr-settings) > * { zoom:max(1,var(--ui)); }
@@ -45,6 +45,8 @@ export function injectMobileCss(): void {
   #hud .screen .card .desc { font-size:18px; line-height:1.15; }
   #hud .screen .card .icon { width:54px; height:54px; flex:none; }
   #hud .screen .card .icon img.px-icon { width:48px; height:48px; }
+  #hud .screen .card .reel, #hud .screen .card .reel .strip > * { width:48px; height:48px; }
+  #hud .screen .card .reel .strip { transform:translateY(calc(var(--k,0) * -48px)); }
   #hud .screen .card .name { font-size:24px; }
   #hud .screen .menu { max-width:100%; }
   #hud #scr-settings .settings-shell { flex-shrink:1; }
