@@ -12,6 +12,7 @@ import { adaptiveTuning } from '../game/director';
 import { mvpDemo } from '../game/systems/mvp';
 import { cleanHeat } from '../data/heat';
 import { meta2Links } from './meta2Links';
+import { seasonLinks } from './seasonLinks';
 import { save } from '../game/save';
 import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { companionLinks } from './companionLinks';
@@ -289,6 +290,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   raceLinks(game, q); // race lane: racex[=wait|end], chal=, gochal, compete=, tourney=, lobbyrace, rating= (src/dev/raceLinks.ts)
   sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
   meta2Links(game, q); // m2screen=profile|achievements, m2lv=, m2demo, m2quests=, m2equip= (src/dev/meta2Links.ts)
+  seasonLinks(game, q); // spscreen=season, sptier=, spclaim=, spweek=, spown=all, spequip=, sppast, spmonth= (src/dev/seasonLinks.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
   if (q.has('battery')) settings.batterySaver = true;

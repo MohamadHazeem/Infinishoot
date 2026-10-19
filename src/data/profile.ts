@@ -181,7 +181,14 @@ export interface ProfileReward {
   quests?: number;
   /** Sweetie 16 colour (banner, HUD theme, trail, hat). */
   color?: string;
+  /** Season track item (seasonpass lane, src/data/season.ts): owned through the track, not by level. */
+  season?: string;
+  /** Trail colours cycled per puff (season trails). */
+  colors?: string[];
 }
+
+/** Ownership of rewards that don't open by level (season track items); src/game/save.ts installs it. */
+export const rewardHook = { owns: (_id: string): boolean => false };
 
 export const REWARD_KIND_NAME: Record<RewardKind, string> = { title: 'YOUR TITLE', banner: 'BANNER', hud: 'HUD THEME', hat: 'PET HAT', trail: 'TRAIL' };
 
@@ -246,6 +253,7 @@ export const REWARD_BY_ID: Record<string, ProfileReward> = Object.fromEntries(PR
 export const RAINBOW = ['#b13e53', '#ef7d57', '#ffcd75', '#a7f070', '#73eff7', '#41a6f6', '#5d275d'];
 
 export function rewardOpen(r: ProfileReward, level: number, quests: number): boolean {
+  if (r.season) return rewardHook.owns(r.id);
   return r.quests ? quests >= r.quests : level >= r.level;
 }
 

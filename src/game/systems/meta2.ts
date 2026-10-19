@@ -38,6 +38,7 @@ import { createRetroMaterial } from '../../render/retroMaterial';
 import type { RunSummary } from '../../ui/screens';
 import { ProfileScreen } from '../../ui/profileScreen';
 import { AchievementsScreen } from '../../ui/achievementsScreen';
+import { seasonBank, seasonFrame, seasonHatMesh } from './season';
 
 /** Hero events that count (mods2Event kinds). */
 const EVENT_STAT: Record<string, string> = {
@@ -480,6 +481,7 @@ export function meta2Bank(this: Game, sum: RunSummary): BankResult | null {
   const kit = pick ? `${pick.primary}/${pick.secondary}/${pick.special}` : '';
   const res = bankTally(t, { hero: h.heroDef.id, heroName: h.heroDef.name, kit, mode: this.pvp ? 'pvp' : this.versus ? 'versus' : this.runMode, label: this.runLabel || 'STANDARD', score: sum.score, stage: sum.stage, kills: t.kills ?? sum.kills, time: t.time ?? 0 });
   res.achievements = checkMeta2Achievements(this).map((a) => a.id);
+  seasonBank(this, t, res); // SEASON track (seasonpass lane): the run's XP and weekly challenges
   persist();
   s.last = res;
   moments(this, res);
@@ -538,6 +540,7 @@ function renderStrip(res: BankResult): void {
 /** Render hook: polling, periodic checks, cosmetics. Cheap (no allocation unless a check runs). */
 export function meta2Frame(this: Game, dt: number): void {
   const s = meta2State(this);
+  seasonFrame(this, dt); // SEASON track (seasonpass lane): title banner, EXTRAS > SEASON, raid/race wins
   trackScreens(this, s);
   applyCosmetics(this, s, dt);
   if (!s.active || s.banked || blocked(this) || !this.isCombatMode) return;
@@ -638,11 +641,14 @@ function applyCosmetics(g: Game, s: Meta2Run, dt: number): void {
   const sp = p.speed;
   if (sp < meta2Tuning.trailSpeed) return;
   s.trailT = meta2Tuning.trailEvery;
-  const color = trail === 'tr_rainbow' ? RAINBOW[s.trailI++ % RAINBOW.length] : REWARD_BY_ID[trail].color!;
+  const cols = trail === 'tr_rainbow' ? RAINBOW : REWARD_BY_ID[trail].colors;
+  const color = cols ? cols[s.trailI++ % cols.length] : REWARD_BY_ID[trail].color!;
   g.particles.soft.dust(p.x, p.z, 2, 0.5, color, Math.random, -p.vel.x, -p.vel.z, 1.2);
 }
 
 function hatMesh(id: string): THREE.Object3D {
+  const season = seasonHatMesh(id);
+  if (season) return season;
   const color = REWARD_BY_ID[id]?.color ?? '#ffcd75';
   const mat = createRetroMaterial({ color });
   const g = new THREE.Group();

@@ -1,3 +1,4 @@
+import { SEASON_SKINS } from './season';
 /**
  * Hero skins: colour sets unlocked by achievements. In solo the skin also
  * paints the armour; in co-op the armour keeps the player's colour (so
@@ -15,6 +16,8 @@ export interface SkinDef {
   gem: string;
   /** Eye colour on the painted face. */
   iris: string;
+  /** Season track skin (seasonpass lane): owned through the SEASON track instead of an achievement. */
+  season?: string;
 }
 
 export const SKINS: SkinDef[] = [
@@ -28,6 +31,7 @@ export const SKINS: SkinDef[] = [
   { id: 'prism', name: 'Prism', unlock: 'evolved', armor: '#f4f4f4', accent: '#ff3df0', suit: '#3b5dc9', hair: '#73eff7', gem: '#ffd23f', iris: '#7d3dff' },
   { id: 'cadet', name: 'Star Cadet', unlock: 'graduate', armor: '#f4f4f4', accent: '#ffcd75', suit: '#29366f', hair: '#ef7d57', gem: '#a7f070', iris: '#41a6f6' },
   { id: 'magma', name: 'Magma Core', unlock: 'stage_3', armor: '#ff5d3a', accent: '#ffd23f', suit: '#1a1c2c', hair: '#b13e53', gem: '#ffcd75', iris: '#ff7a2f' },
+  ...SEASON_SKINS,
 ];
 
 export const SKIN_BY_ID = Object.fromEntries(SKINS.map((s) => [s.id, s])) as Record<string, SkinDef>;

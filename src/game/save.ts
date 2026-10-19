@@ -10,6 +10,8 @@ import { freshFirstTen, normalizeFirstTen, type FirstTenSave } from './firstten'
 import { DEFAULT_EQUIP, REWARD_BY_ID, profileTuning, xpForLevel, type RewardKind, type SetKey } from '../data/profile';
 import { HEROES } from '../data/heroes';
 import { normalizeRanked, type RankedSave } from '../data/ranked';
+import { normalizeSeasonPass, type SeasonPassSave } from '../data/season';
+import { rewardHook } from '../data/profile';
 
 /**
  * Persistent profile: achievements (weapon unlocks) and lifetime stats.
@@ -68,6 +70,8 @@ export interface SaveData {
   achDates: Record<string, string>;
   /** RANKED (race lane): this season's Elo-style rating for online PvP and race results, plus past seasons. */
   ranked: RankedSave;
+  /** SEASON track (seasonpass lane, v9): season XP, claimed tiers, owned season cosmetics, weekly challenges, past seasons. */
+  seasonPass: SeasonPassSave;
   lifetime: {
     runs: number;
     kills: number;
@@ -144,7 +148,8 @@ const KEY = 'save';
 // v4 adds opt-in heat, weekly records, lore and cosmetic-only Bolts (main), first-time tips (`tips`), the Arsenal (`discovered`) and the training field (`training`). Legacy upgrades stay removed.
 // v5: seasonal candy + cosmetics (halloween), `friends` (lobby); v6: merged; v7: meta2 profile (XP, stats, best runs, cosmetics), daily quests and achievement dates;
 // v8: `ranked` (race lane: rating, monthly seasons, ladder id). Each lane normalises its own fields, so any older save loads.
-const VERSION = 8;
+// v9: `seasonPass` (seasonpass lane: the free cosmetic SEASON track); older saves start the current season at tier 0.
+const VERSION = 9;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
@@ -164,6 +169,7 @@ function fresh(): SaveData {
     quests: { day: '', ids: [], prog: [], done: [], all: false, streak: 0, lastAll: '' },
     achDates: {},
     ranked: normalizeRanked(null),
+    seasonPass: normalizeSeasonPass(null),
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
   };
 }
@@ -191,6 +197,7 @@ export function normalize(raw: unknown): SaveData {
   }
   d.firstten = normalizeFirstTen(r.firstten, d.lifetime.runs);
   d.ranked = normalizeRanked(r.ranked);
+  d.seasonPass = normalizeSeasonPass(r.seasonPass);
   const m = r.meta;
   if (m && typeof m === 'object') {
     d.meta.heat = cleanHeat(m.heat);
@@ -312,6 +319,8 @@ function grantFromLifetime(d: SaveData): void {
 
 export const save: SaveData = normalize(loadJson<unknown>(KEY, null));
 grantFromLifetime(save);
+// Season track cosmetics (titles, banners, HUD themes, trails, hats) are owned through the track, not by profile level.
+rewardHook.owns = (id) => save.seasonPass.owned.includes(id);
 
 /** While on (the title screen's attract demo), nothing touches the profile: no saves, achievements, enemies met or run records. */
 export const saveLock = { on: false };
