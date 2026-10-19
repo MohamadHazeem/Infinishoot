@@ -1,6 +1,8 @@
+import { followupsEn } from './followups';
 import { storyEn } from '../game/story/strings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  ...followupsEn,
   "mods.category.weapons": "weapons",
   "mods.category.enemies": "enemies",
   "mods.category.relics": "relics",

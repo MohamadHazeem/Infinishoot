@@ -1,7 +1,9 @@
+import { followupsAr } from './followups';
 import { storyAr } from '../game/story/strings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...followupsAr,
   "mods.category.weapons": "الأسلحة",
   "mods.category.enemies": "الأعداء",
   "mods.category.relics": "الآثار",

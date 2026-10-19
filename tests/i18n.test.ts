@@ -59,14 +59,8 @@ assert.equal(html, '<button data-act="BACK" title="رجوع"><bdi>BACK</bdi>رج
 assert.equal(escapeHtml('<script>"&'), '&lt;script&gt;&quot;&amp;');
 assert.equal(localizeHtml('<span>&lt;img src=x&gt;</span>'), '<span>&lt;img src=x&gt;</span>', 'translation never turns escaped text into HTML');
 
-// Coverage of content strings: other builders add content all the time, so missing Arabic is a warning
-// unless I18N_STRICT=1 (the final translation pass turns it back on).
-const missingI18n: string[] = [];
-const need = (ok: boolean, what: string): void => {
-  if (ok) return;
-  if (process.env.I18N_STRICT === '1') assert.fail(what);
-  missingI18n.push(what);
-};
+// All merged content is translated; missing copy is a release regression.
+const need = (ok: boolean, what: string): void => assert.ok(ok, what);
 for (const text of [...Object.values(VOICE_TEXT), ...Object.values(ANNOUNCER_LINES), ...Object.values(BARKS).flatMap(b => b.captions)]) {
   need(/[\u0600-\u06ff]/.test(localize(text)), 'caption: ' + text);
   need(!/[a-z]{3}/i.test(localize(text)), 'no untranslated caption: ' + text);
@@ -159,4 +153,3 @@ for (const file of ['screens', 'hud', 'onboarding', 'metaScreens', 'mvpScreen', 
   inspect(ast);
 }
 console.log(`ok   i18n: ${Object.keys(en).length} matching catalogs, placeholders, captions, content, fallback, RTL, switching and main-screen scanner`);
-if (missingI18n.length) console.log(`warn ${missingI18n.length} strings without Arabic yet, e.g. ${missingI18n.slice(0, 5).join(' | ')}`);
