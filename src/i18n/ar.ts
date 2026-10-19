@@ -4,6 +4,7 @@ import { followupsAr } from './followups';
 import { biome3Ar } from './biome3';
 import { storyAr } from '../game/story/strings';
 import { tips2Ar } from './tips2';
+import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
@@ -320,6 +321,7 @@ export const ar = {
   "menu.tip.build": "تعمل التعديلات بالترتيب من اليسار إلى اليمين. ترتيبها مهم.",
   ...storyAr,
   ...tips2Ar,
+  ...spectateAr,
   "desktop.paste": "لصق",
   "desktop.clipboardUnavailable": "الحافظة غير متاحة. أدخل النص أو حمّل ملفًا.",
 

@@ -20,6 +20,7 @@ import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
 import { coop2Links } from './coop2Links';
 import { eightpLinks } from './eightpLinks';
+import { spectateLinks } from './spectateLinks';
 import { netcodeLinks } from './netcodeLinks';
 import { coopplayLinks } from './coopplayLinks';
 import { cinematicsLinks } from './cinematicsLinks';
@@ -283,6 +284,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const numbers = q.get('numbers');
   if (numbers && ['auto', 'all', 'mine', 'off'].includes(numbers)) settings.damageNumbers = numbers as typeof settings.damageNumbers;
   eightpLinks(game, q); // matebots, spread=, matenames, matedown= (src/dev/eightpLinks.ts)
+  spectateLinks(game, q); // spectest, spcam=, spfollow=, spoverlay=0, spwatchers=, spemote=, splobby (src/dev/spectateLinks.ts)
   coop2Links(game, q); // emote=, mateemote=, wheel=emotes, pool, downme=, autopilot, joincode=, teamult=, ghostgo= (src/dev/coop2Links.ts)
   netcodeLinks(game, q); // netdemo, netdemo=rc, netdemo=lost (src/dev/netcodeLinks.ts)
   coopplayLinks(game, q); // coopobj=, cpme=, cpmate=, cpcore=, cpbomb, carry=, tether=, banter=, notether (src/dev/coopplayLinks.ts)

@@ -447,7 +447,9 @@ ok(NC.netcodeState(A).probes.get('peerB')?.rtt !== undefined && (NC.netcodeState
     if (m.t === 'full') refused = String(m.reason);
     return orig(m);
   };
+  settings.spectators = false; // with spectator seats on, the stranger would watch instead (tests/spectateCoop.test.ts)
   A.onHostMessage('peerS', { t: 'hello', pid: 'pid-stranger', name: 'STRANGER' });
   flush();
+  settings.spectators = true;
   ok(/closed/i.test(refused), `reconnect: a new player is still refused from a closed run (${refused})`);
 }

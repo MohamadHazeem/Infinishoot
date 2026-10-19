@@ -87,6 +87,8 @@ row('CO-OP', 'helpGhosts', 'HELP GHOSTS', 'Allows friends’ recorded help ghost
 row('CO-OP', 'tetherVisual', 'BUDDY TETHER', 'Shows the energy link between nearby teammates. The link bonus stays when hidden.');
 row('CO-OP', 'coopCamera', 'CO-OP CAMERA', 'TEAM: the camera also frames nearby teammates. ME: it follows only your hero (handy in big, spread-out teams).', undefined, ['team', 'me']);
 row('AUDIO', 'mateWeapons', 'TEAMMATE WEAPONS', 'Volume of other players’ weapon sounds in co-op. Your own weapons always play in full.', [0, 1, 0.1]);
+row('CO-OP', 'spectators', 'SPECTATORS', 'Host rule: up to 8 friends may watch your games (they join as spectators when the game is full or by choice).');
+row('CO-OP', 'spectateOverlay', 'BROADCAST OVERLAY', 'When you watch a game: every player’s card down the side and a clean HUD for streaming.');
 export const SETTINGS_ROWS: readonly SettingRow[] = rows;
 
 /** Only the active tab's keys; never loadouts, identity, bindings or other tabs. */

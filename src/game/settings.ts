@@ -111,6 +111,10 @@ export interface Settings extends DisplayOptions {
   coopCamera: 'team' | 'me';
   /** TEAMMATE WEAPONS (eightp lane): volume of other players' weapon sounds, 0-1 (yours always play in full). */
   mateWeapons: number;
+  /** Online (host): friends may watch as spectators (spectate lane, up to 8). */
+  spectators: boolean;
+  /** Watching: the broadcast overlay (every player's card, clean HUD) starts on. */
+  spectateOverlay: boolean;
   /** Online: the NETWORK panel with everyone's ping, packet loss and snapshot rate (netcode lane). */
   netOverlay: boolean;
   /** BUDDY TETHER: draw the energy link between nearby teammates (the bonus stays either way; coopplay lane). */
@@ -208,6 +212,8 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   helpGhosts: true,
   coopCamera: 'team',
   mateWeapons: 0.8,
+  spectators: true,
+  spectateOverlay: true,
   netOverlay: false,
   tetherVisual: true,
   cinematics: 'full',
@@ -259,6 +265,8 @@ settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
 settings.coopCamera = settings.coopCamera === 'me' ? 'me' : 'team';
 settings.mateWeapons = Number.isFinite(settings.mateWeapons) ? Math.max(0, Math.min(1, settings.mateWeapons)) : 0.8;
+settings.spectators ??= true;
+settings.spectateOverlay ??= true;
 settings.netOverlay ??= false;
 settings.tetherVisual ??= true;
 settings.cinematics ??= 'full';

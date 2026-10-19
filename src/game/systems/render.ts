@@ -49,6 +49,7 @@ import { closePingWheel, pingInput, pingKind } from '../teamPlay';
 import { updateGraphics } from './graphics';
 import { bossCamera } from './bossLane';
 import { declutterTeamTags, eightpFrame, eightpPingOk } from './eightp';
+import { spectateFrame, spectating } from './spectate';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -222,7 +223,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     h.petView?.render(rdt, h.player.rig.root.position.x, h.player.rig.root.position.z, h.player.rig.root.rotation.y, !h.player.dead && this.mode !== 'transition', reduceMotion());
     h.player.cheer = this.mode === 'cleared';
     h.player.focus = h === local && h.ctx.charging;
-    h.player.render(h === local || !client ? a : netA, rdt);
+    h.player.render((h === local && !spectating(this)) || !client ? a : netA, rdt);
   }
   lap('ren.heroes+audio');
   const watch = p.dead && this.heroes.length > 1 ? this.spectateTarget() : null;
@@ -282,6 +283,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.mpFrame(frameDt); // Versus command view and local co-op team camera, their HUDs (systems/mp.ts)
   pvp2Frame(this, frameDt); // PvP ring, team rings, round HUD, scoreboard, spectator camera (systems/pvp2.ts)
   raidCamera(this);
+  spectateFrame(this, frameDt); // spectators: camera, follow card, broadcast overlay; WATCHING badge (systems/spectate.ts)
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
   this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 
