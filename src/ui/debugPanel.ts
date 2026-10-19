@@ -30,6 +30,7 @@ import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
+import { addFixesFolder } from './fixesPanel';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -223,6 +224,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   world.add(surfaceTuning, 'rippleEvery', 0.1, 3, 0.05);
   world.add(surfaceTuning, 'bubbleEvery', 0.05, 2, 0.05);
   world.add(surfaceTuning, 'glintsPerM2', 0, 1, 0.01);
+  addFixesFolder(gui);
 
   return gui;
 }
