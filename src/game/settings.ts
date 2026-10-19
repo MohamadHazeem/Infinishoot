@@ -26,6 +26,7 @@ import { AUTO, AUTO_START, POTATO, qualitySettingLevel, QualityGovernor, renderQ
 
 /** Player-facing settings, persisted between sessions. */
 export interface Settings extends DisplayOptions {
+  highlightClips: boolean;
   language: Language;
   volume: number;
   sfxVolume: number;
@@ -138,6 +139,7 @@ const KEY = 'settings.v1';
 
 export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   windowMode: 'windowed', resolutionScale: 100, frameCap: '60', vsync: true, autoUpdate: true,
+  highlightClips: true,
   language: browserLanguage(),
   volume: 0.6,
   sfxVolume: 1,
@@ -211,6 +213,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
 };
 export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS, loadout: { ...DEFAULT_LOADOUT } });
 Object.assign(settings, displayOptions(settings));
+settings.highlightClips = settings.highlightClips !== false;
 settings.damageNumbers ??= 'auto';
 settings.batterySaver = settings.batterySaver === true;
 settings.touchOpacity = Number.isFinite(settings.touchOpacity) ? Math.max(25, Math.min(100, settings.touchOpacity)) : 70;

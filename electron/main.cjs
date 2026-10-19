@@ -107,8 +107,9 @@ function createWindow() {
   win.webContents.session.on('will-download', (_event, item) => {
     const dir = process.env.INFINISHOOT_SAVE_DIR;
     const photo = item.getFilename().toLowerCase().endsWith('.png');
+    const video = item.getFilename().toLowerCase().endsWith('.webm');
     if (dir) item.setSavePath(path.join(dir, path.basename(item.getFilename())));
-    else item.setSaveDialogOptions({ title: 'Save InfiniShoot file', defaultPath: path.join(app.getPath(photo ? 'pictures' : 'documents'), item.getFilename()) });
+    else item.setSaveDialogOptions({ title: 'Save InfiniShoot file', defaultPath: path.join(app.getPath(video ? 'videos' : photo ? 'pictures' : 'documents'), item.getFilename()) });
   });
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type === 'keyDown' && !input.isAutoRepeat && (input.key === 'F11' || (input.meta && input.control && input.key.toLowerCase() === 'f'))) {

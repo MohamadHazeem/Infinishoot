@@ -1,3 +1,4 @@
+import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
 import * as RaidSys from './systems/raid';
 import * as GauntletSys from './systems/gauntlet';
@@ -1330,6 +1331,7 @@ export class Game implements HeroWorld {
       this.hostTick(false);
       return;
     }
+    clipInput(this);
     // Cinematics (systems/cinematics.ts): solo holds the world for the ending, reveals and jackpots.
     if (this.cineStep(dt)) {
       this.input.endStep();

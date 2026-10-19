@@ -1,3 +1,4 @@
+import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
 import { t } from '../../i18n';
@@ -191,6 +192,7 @@ export function clientStart(this: Game, seed: number, you: number, players: { na
     h.player.reset(h.stats);
   }
   this.score = this.kills = this.combo = 0;
+  resetClips(this);
   this.mvp = createMvp();
   this.level = 1;
   this.hud.resetScore();

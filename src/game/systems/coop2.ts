@@ -1,3 +1,4 @@
+import { markClip } from './clips';
 import { modSession } from '../../mods/manager';
 /**
  * Co-op, wave 2 (coop2 lane): drop-in/drop-out, the shared revive pool, team
@@ -799,6 +800,7 @@ function beat(g: Game, s: CoopState, x: number, z: number, mine: boolean): void 
   g.juice.shake(0.6);
   s.beatT = 1.4;
   hud(g).teamUlt();
+  markClip(g, 'team');
 }
 
 // ---------------------------------------------------------------- emotes
