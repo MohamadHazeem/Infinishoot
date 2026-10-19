@@ -181,6 +181,11 @@ export function gaitOf(model: Model): Gait {
       return 'stomp';
     case 'kite':
       return 'hover';
+    case 'dj':
+    case 'airship':
+      return 'hover';
+    case 'jack':
+      return 'hop';
   }
 }
 

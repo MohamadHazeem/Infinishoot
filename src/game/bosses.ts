@@ -30,6 +30,8 @@
  * src/game/systems/bossFight.ts.
  */
 import type { Enemy, EnemyCtx, EnemyState, BossAction } from './enemies';
+import { BOSS3_PHASE_LINES } from '../data/bosses3';
+import { BOSS3_BEHAVIORS, bosses3Step, isFlyer3, type Bosses3Api } from './bosses3';
 
 export const bossTuning = {
   hp: 8, // boss HP multiplier on top of the boss stage curve (loadout builds melted 2.4x bosses in 7-19 s)
@@ -75,7 +77,7 @@ export const bossMoveTuning = {
 };
 
 /** Boss special moves (beyond the BossAction the codec carries). Index = net code. */
-export const BOSS_MOVES = ['', 'eight', 'breath', 'hive', 'wall'] as const;
+export const BOSS_MOVES = ['', 'eight', 'breath', 'hive', 'wall', 'grid', 'drop', 'punch', 'pinball', 'gust', 'board'] as const; // grid..board: biome bosses (src/game/bosses3.ts)
 export type BossMove = (typeof BOSS_MOVES)[number];
 
 /** Short line shown with each phase change. */
@@ -84,6 +86,7 @@ export const PHASE_LINES: Record<string, string[]> = {
   rex: ['', 'FIGURE-EIGHT RAMPAGE', 'FIRE BREATH'],
   queen: ['', 'HIVES: DESTROY THEM BEFORE THEY HATCH', 'SWARM WALLS: FIND THE GAP'],
   omega: ['', 'OVERDRIVE', 'LAST PROTOCOL'],
+  ...BOSS3_PHASE_LINES, // Glitch DJ, Boxer Jack, Admiral Gale (src/data/bosses3.ts)
 };
 
 /** Things the boss brains need from the game beyond EnemyCtx. Host only. */
@@ -105,6 +108,8 @@ export interface BossApi {
   open(x: number, z: number, r: number): boolean;
   /** The Titan's brain, one step (src/game/systems/bossLane.ts). */
   titan?(e: Enemy, dt: number): void;
+  /** Biome bosses' arena (src/game/systems/bosses3.ts). */
+  b3?: Bosses3Api;
 }
 
 // ------------------------------------------------------------------ phases (pure)
@@ -147,7 +152,7 @@ function idle(e: Enemy, seconds: number): void {
   e.state = 'recover';
   e.t = seconds;
   e.vx = e.vz = 0;
-  if (e.def.behavior !== 'queen') e.hopY = 0;
+  if (e.def.behavior !== 'queen' && !isFlyer3(e)) e.hopY = 0;
   e.burst = 0;
   e.move = '';
   e.step = 0;
@@ -174,7 +179,7 @@ export function breathAngle(base: number, t: number): number {
 
 // ------------------------------------------------------------------ helpers
 
-function enter(e: Enemy, s: EnemyState, t: number, squash: number, ctx?: EnemyCtx): void {
+export function enter(e: Enemy, s: EnemyState, t: number, squash: number, ctx?: EnemyCtx): void {
   e.state = s;
   e.t = t;
   e.squash(squash);
@@ -182,25 +187,25 @@ function enter(e: Enemy, s: EnemyState, t: number, squash: number, ctx?: EnemyCt
   if (s === 'windup' && ctx) ctx.onWindup(e);
 }
 
-function lockOn(e: Enemy, nx: number, nz: number): void {
+export function lockOn(e: Enemy, nx: number, nz: number): void {
   e.lungeX = nx;
   e.lungeZ = nz;
   e.facing = Math.atan2(nx, nz);
 }
 
-function bossSpeed(e: Enemy, speed: number): number {
+export function bossSpeed(e: Enemy, speed: number): number {
   if (e.def.behavior === 'omega') return speed * bossTuning.speed * (e.enraged ? bossTuning.enrageSpeed : 1) * (e.phase >= 3 ? omegaTuning.phase3Speed : 1);
   return speed * bossTuning.speed * (bossTuning.phaseSpeed[e.phase - 1] ?? 1.25);
 }
 
 /** Multiplier on boss pauses and recovery (smaller = more aggressive). */
-function pace(e: Enemy): number {
+export function pace(e: Enemy): number {
   if (e.def.behavior === 'omega') return bossTuning.pace * (e.enraged ? bossTuning.enragePace : 1) * (e.phase >= 3 ? omegaTuning.phase3Pace : 1);
   return bossTuning.pace * (bossTuning.phasePace[e.phase - 1] ?? 0.72);
 }
 
 /** Telegraphed ground strike on (x, z) plus `n` more scattered around it, landing one after another. */
-function rain(ctx: EnemyCtx, x: number, z: number, n: number, damage: number): void {
+export function rain(ctx: EnemyCtx, x: number, z: number, n: number, damage: number): void {
   ctx.strike(x, z, 2.2, 1.1, damage);
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + Math.random();
@@ -209,7 +214,7 @@ function rain(ctx: EnemyCtx, x: number, z: number, n: number, damage: number): v
   }
 }
 
-function ring(e: Enemy, ctx: EnemyCtx, n: number, speed: number, damage: number, off: number): void {
+export function ring(e: Enemy, ctx: EnemyCtx, n: number, speed: number, damage: number, off: number): void {
   for (let i = 0; i < n; i++) {
     const a = off + (i / n) * Math.PI * 2;
     ctx.fireBullet(e, Math.cos(a), Math.sin(a), speed, damage);
@@ -217,7 +222,7 @@ function ring(e: Enemy, ctx: EnemyCtx, n: number, speed: number, damage: number,
 }
 
 /** Pick the next attack from a phase's rotation. */
-function next<T>(e: Enemy, order: T[]): T {
+export function next<T>(e: Enemy, order: T[]): T {
   return order[e.step++ % order.length];
 }
 
@@ -250,7 +255,7 @@ export function updateBoss(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: 
     return false;
   }
   const sp = bossSpeed(e, speed);
-  if (!isMini(e)) twist(e, dt, ctx);
+  if (!isMini(e) && !BOSS3_BEHAVIORS.includes(e.def.behavior)) twist(e, dt, ctx);
   switch (e.def.behavior) {
     case 'boss':
       return king(e, dt, ctx, nx, nz, dist, sp);
@@ -259,6 +264,10 @@ export function updateBoss(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: 
     case 'queen':
       queen(e, dt, ctx, nx, nz, dist, sp);
       return false;
+    case 'glitch':
+    case 'boxer':
+    case 'gale':
+      return bosses3Step(e, dt, ctx, nx, nz, dist, sp); // biome bosses (src/game/bosses3.ts)
     default:
       return omega(e, dt, ctx, nx, nz, dist, sp);
   }

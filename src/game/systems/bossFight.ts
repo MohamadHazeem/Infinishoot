@@ -18,6 +18,7 @@ import type { Enemy } from '../enemies';
 import { smashCover } from '../coverBreak';
 import { bossVoiceCue } from '../../audio/voices';
 import { applyBossLaneNet, bossLaneHud, bossLaneNet, remixArrival, renderBossLane, titanStep, updateBossLane } from './bossLane';
+import { applyBosses3Net, bosses3Net, makeBosses3Api, renderBosses3, updateBosses3 } from './bosses3';
 
 /** Mid-stage mini-bosses. */
 export const miniTuning = {
@@ -109,6 +110,7 @@ export function makeBossApi(this: Game): BossApi {
       return Math.abs(x) < lim && Math.abs(z) < lim && !this.walls.hitCircle(x, z, r);
     },
     titan: (e, dt) => titanStep.call(this, e, dt), // src/game/systems/bossLane.ts
+    b3: makeBosses3Api.call(this), // biome bosses (src/game/systems/bosses3.ts)
   };
 }
 
@@ -247,6 +249,7 @@ export function updateBossFight(this: Game, dt: number): void {
   }
   this.updateMiniBoss(dt);
   updateBossLane.call(this, dt); // rematches, the Titan, the boss duel (systems/bossLane.ts)
+  updateBosses3.call(this, dt); // biome bosses' grids, punches, gusts, lightning (systems/bosses3.ts)
   // Test links: force a phase (`&phase=N`).
   const b = this.boss;
   if (f.debugPhase > (b?.phase ?? 99) && b!.roarT <= 0 && b!.def.phases && b!.def.behavior !== 'titan') {
@@ -305,7 +308,7 @@ export function updateMiniBoss(this: Game, dt: number): void {
 
 /** Host: boss extras for the snapshot. */
 export function bossNet(this: Game): BossNet {
-  return { ...this.bossField.pack(this.bossField.bossesIn(this.enemies.list), (e) => (e.uid === this.introUid ? Math.max(0, this.introLeft) : 0)), ...bossLaneNet.call(this) };
+  return { ...this.bossField.pack(this.bossField.bossesIn(this.enemies.list), (e) => (e.uid === this.introUid ? Math.max(0, this.introLeft) : 0)), ...bossLaneNet.call(this), g: bosses3Net.call(this) };
 }
 
 /** Client: mirror the host's boss state, and start the entrance when the host does. */
@@ -313,6 +316,7 @@ export function applyBossNet(this: Game, n: BossNet | undefined): void {
   if (!n) return;
   this.bossField.unpack(n, (uid) => this.netEnemies.get(uid));
   applyBossLaneNet.call(this, n); // the Titan and the boss duel
+  applyBosses3Net.call(this, n.g); // biome bosses (systems/bosses3.ts)
   for (const [uid, , , , intro] of n.b) {
     if (intro < 0.3 || this.bossIntro.uid === uid) continue;
     const e = this.netEnemies.get(uid);
@@ -330,6 +334,7 @@ export function renderBossFight(this: Game, frameDt: number, paused: boolean): v
   if (this.introLeft > 0 && !paused) this.introLeft -= frameDt; // entrance signal for clients (real time)
   f.render(this.enemies.list, this.animTime);
   renderBossLane.call(this, frameDt, paused); // the Titan, the ring of fire
+  renderBosses3.call(this, frameDt, paused); // biome bosses' grids, punches, gusts, lightning
   // Entrance camera: pan toward the boss, zoom in a little.
   const boss = this.role === 'client' ? f.bossesIn(this.enemies.list).find((e) => e.def.boss) : this.boss;
   if (this.bossIntro.active && (this.mode !== 'fight' || !boss?.active)) this.bossIntro.stop(this.cam.camera);
