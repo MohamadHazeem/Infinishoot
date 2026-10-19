@@ -16,6 +16,7 @@ export type TipId =
   | 'status'
   | 'combo'
   | 'boss'
+  | 'bosssoon'
   | 'chest'
   | 'special'
   | 'ult'
@@ -50,6 +51,7 @@ export const TIPS: Record<TipId, TipDef> = {
   status: { title: 'STATUSES', text: () => 'Burn ticks damage, Shock makes enemies take +20%, Freeze stops them. Put two on the same enemy for a combo.' },
   combo: { title: 'STATUS COMBO!', text: () => 'Burn + Shock = OVERLOAD blast. Kill a Frozen enemy = SHATTER. An explosion on a Burning enemy = NAPALM. Mods can make each one stronger.', time: 9 },
   boss: { title: 'BOSS!', text: () => `It changes its attacks at 66% and 33% life. Red zones and lines are telegraphs: dash through them (${keysOf('dash')}) or parry shots (${keysOf('parry')}).`, time: 9 },
+  bosssoon: { title: 'BOSS INCOMING', text: () => `The boss lands when the timer hits 0:00. Grab the XP gems and chests now. Red zones and lines are its attacks: dash (${keysOf('dash')}) out of them.`, time: 8 },
   chest: { title: 'TREASURE CHEST', text: () => 'Walk into it for a free item on the spot. The arrow at the screen edge points to the nearest one.' },
   special: { title: 'SPECIAL READY', text: () => `Press ${keysOf('bomb')} (or middle click) for your special. It recharges over time.` },
   ult: { title: 'ULTIMATE READY', text: () => `Press ${keysOf('ult')}! Perfect dodges, parries and kills charge your hero's ultimate.` },
@@ -59,6 +61,16 @@ export const TIPS: Record<TipId, TipDef> = {
   down: { title: "YOU'RE DOWN", text: () => 'A teammate revives you by standing next to you for 3 s. Click to watch another teammate meanwhile.' },
   matedown: { title: 'TEAMMATE DOWN', text: () => 'Stand next to them for 3 s to revive them. You both get a moment of invincibility.' },
 };
+
+/** In-fight tips that jump the queue (lower first): telegraphs beat trivia. Menu tips always go first. */
+export const TIP_PRIORITY: Partial<Record<TipId, number>> = { boss: 0, bosssoon: 1, elite: 2, special: 3, chest: 4, down: 0, matedown: 1 };
+
+/** Where a new in-fight tip goes in the queue: after every tip of the same or higher priority. */
+export function tipInsertAt(id: TipId, queue: readonly TipId[]): number {
+  const p = TIP_PRIORITY[id] ?? 9;
+  const i = queue.findIndex((q) => (TIP_PRIORITY[q] ?? 9) > p);
+  return i < 0 ? queue.length : i;
+}
 
 /** Should a tip show now? Off in settings, already seen, or queued already: no. */
 export function tipWanted(id: TipId, enabled: boolean, seen: readonly string[], queued: readonly string[]): boolean {

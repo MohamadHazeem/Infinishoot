@@ -6,6 +6,7 @@ import { cleanHeat, type HeatId } from '../data/heat';
 import { CODEX, META_REWARDS, META_KITS, rewardAvailable } from '../data/codex';
 import { WEAPONS } from '../data/weapons';
 import { cleanFriends, type FriendsData } from './lobby';
+import { freshFirstTen, normalizeFirstTen, type FirstTenSave } from './firstten';
 
 /**
  * Persistent profile: achievements (weapon unlocks) and lifetime stats.
@@ -54,6 +55,8 @@ export interface SaveData {
   training: { offered: boolean; done: boolean };
   /** EXTRAS > FRIENDS (lobby lane): own friend code, recent teammates, saved codes. */
   friends: FriendsData;
+  /** FIRST STEPS checklist and one-time helpers for new players (src/game/firstten.ts). */
+  firstten: FirstTenSave;
   lifetime: {
     runs: number;
     kills: number;
@@ -86,6 +89,7 @@ function fresh(): SaveData {
     discovered: [],
     training: { offered: false, done: false },
     friends: cleanFriends(null),
+    firstten: freshFirstTen(),
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
   };
 }
@@ -111,6 +115,7 @@ export function normalize(raw: unknown): SaveData {
       if (Number.isFinite(v) && v >= 0) d.lifetime[k] = v;
     }
   }
+  d.firstten = normalizeFirstTen(r.firstten, d.lifetime.runs);
   const m = r.meta;
   if (m && typeof m === 'object') {
     d.meta.heat = cleanHeat(m.heat);

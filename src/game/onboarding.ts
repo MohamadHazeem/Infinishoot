@@ -10,7 +10,8 @@ import { cheats, type Game } from './game';
 import { RunRecorder } from './runRecap';
 import { persist, save } from './save';
 import { saveSettings, settings } from './settings';
-import { TIPS, tipTime, tipWanted, type TipId } from './tips';
+import { TIPS, tipInsertAt, tipTime, tipWanted, type TipId } from './tips';
+import { firstTenTuning } from './firstten';
 import { Training, trainingTuning } from './training';
 
 /** Tips that belong to a menu: shown only while it's open, and ahead of the rest. */
@@ -39,6 +40,10 @@ export class Onboarding {
   /** The build when game over showed, for the BUILD CARD. */
   card: BuildCardData | null = null;
   private stepWait = 0;
+  /** Training is starting (its skipped starting shop is not a real first shop). */
+  opening = false;
+  /** Seconds before the next in-fight tip may show (firstten lane: tips never pile up). */
+  private gapT = 0;
 
   constructor(
     readonly game: Game,
@@ -117,7 +122,7 @@ export class Onboarding {
     if (name === 'settings') this.ui.syncSettings(settings.tips !== false);
     if (name === 'arsenal') this.ui.renderCodex(save.discovered);
     if (name === 'gameover') this.gameOver();
-    if (name === 'levelup' || name === 'shop') {
+    if ((name === 'levelup' || name === 'shop') && !this.opening) {
       this.discoverOffers();
       // Menu tips wait for their menu's content, which is filled before show().
       this.detectTips();
@@ -164,7 +169,12 @@ export class Onboarding {
         save.tips = save.tips.filter((t) => t !== this.tip!.id);
         this.tip = null;
       }
-    } else this.queue.push(id);
+    } else {
+      // In-fight tips: telegraphs (boss, elite, special) go ahead of trivia; menu tips stay in front.
+      const menus = this.queue.findIndex((q) => !MENU_TIPS[q]);
+      const from = menus < 0 ? this.queue.length : menus;
+      this.queue.splice(from + tipInsertAt(id, this.queue.slice(from)), 0, id);
+    }
   }
 
   private tickTip(dt: number): void {
@@ -174,11 +184,18 @@ export class Onboarding {
       const menu = MENU_TIPS[this.tip.id];
       if (menu && g.screens.current !== menu) this.tip.left = 0;
       this.tip.left -= dt;
-      if (this.tip.left <= 0) this.closeTip();
+      if (this.tip.left <= 0) {
+        if (!menu) this.gapT = firstTenTuning.tipGap;
+        this.closeTip();
+      }
       return;
     }
     if (settings.tips === false) this.queue.length = 0;
+    if (this.gapT > 0) this.gapT -= dt;
+    // In-fight tips wait for the gap after the last one and for the stage banner to clear.
+    const quiet = this.gapT > 0 || (g.isCombatMode && g.director.time < firstTenTuning.stageQuiet);
     while (this.queue.length) {
+      if (quiet && !MENU_TIPS[this.queue[0]]) return;
       const id = this.queue.shift()!;
       const menu = MENU_TIPS[id];
       if (menu && g.screens.current !== menu) continue; // missed its menu: it comes back next time
@@ -234,7 +251,7 @@ export class Onboarding {
     if (g.overloads > 0 || (h.damageBy.shatter ?? 0) > 0 || this.napalms > 0) this.want('combo');
     if (g.boss?.active || g.netBoss) this.want('boss');
     if (g.chests.closedCount > 0) this.want('chest');
-    if (h.bombCharge >= 1 && g.runTime > 8) this.want('special');
+    if (h.bombCharge >= 1 && g.runTime > 8 && g.firstten.specialTipReady()) this.want('special');
     if (h.skill.ult >= 1) this.want('ult');
     if (h.skill.style.rank >= 2) this.want('style');
     if (h.rerollsLeft > 0 && g.mode === 'fight' && g.runTime > 4) this.want('gear');
@@ -320,8 +337,11 @@ export class Onboarding {
     this.clearTips();
     g.leaveToTitle();
     g.runMode = 'standard';
+    // The run's starting shop opens and closes at once: it must not count as a first shop (tips, firstten helpers).
+    this.opening = true;
     g.startRun({ seed: trainingTuning.seed, difficulty: 'easy' });
     if (g.mode === 'shop') g.closeShop();
+    this.opening = false;
     this.godBefore = cheats.god;
     cheats.god = true;
     this.training = new Training(g, first);

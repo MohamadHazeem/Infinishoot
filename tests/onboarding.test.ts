@@ -209,12 +209,13 @@ ok(game.mode === 'title' && !ob.training && save.lifetime.runs === runsBefore, '
 settings.mode = 'standard';
 game.startSolo();
 step(30);
-ok(save.tips.includes('shop') && !$('#ob-tip')!.hidden, 'the starting shop shows the shop tip');
+// A new player's first shop shows the firstten helper strip instead of the tip (they never stack).
+ok(save.tips.includes('shop') && (!$('#ob-tip')!.hidden || !$('#scr-shop .ft-help')!.hidden), 'the starting shop explains itself (shop tip or helper strip)');
 game.closeShop();
 step(30);
 ok($('#ob-tip')!.hidden, 'a menu tip closes with its menu');
 game.debugSpawnElite('charger', 'shielded');
-step(40);
+step(200); // in-fight tips wait out the stage banner (firstTenTuning.stageQuiet)
 ok(save.tips.includes('elite') && $('#ob-tip')!.textContent!.includes('ELITE'), 'the first elite shows its tip');
 const tipCount = save.tips.length;
 settings.tips = false;
