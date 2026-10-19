@@ -65,7 +65,7 @@ export function loadArena(this: Game, seed: number, stage = 1): void {
   this.barrels.load(this.arena);
   this.loadToys();
   this.chests.clear();
-  this.ambience.load(biome.id, seed, this.arena.halfSize, (x, z) => this.walls.hitCircle(x, z, 0.5));
+  this.ambience.load(biome, seed, this.arena.halfSize, (x, z) => this.walls.hitCircle(x, z, 0.5));
   this.scars.clear();
   streaks.clear();
 }

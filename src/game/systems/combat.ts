@@ -13,6 +13,7 @@ import { Hero } from '../hero';
 import { type DamageOpts } from '../weapons';
 import { SCAR_COLORS } from '../scars';
 import { damageNumberLabel } from '../../ui/damageNumbers';
+import { updateWorldHazards } from './worldHazards';
 
 export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null {
   let best: Enemy | null = null;
@@ -156,8 +157,8 @@ export function groundAt(this: Game, x: number, z: number, out: { slip: number; 
   for (const h of this.arena.hazards) if (h.kind === 'ice' && (x - h.x) ** 2 + (z - h.z) ** 2 < h.r * h.r) out.slip = 1;
   for (const c of this.arena.conveyors) {
     if (Math.abs(x - c.x) < c.w / 2 && Math.abs(z - c.z) < c.d / 2) {
-      out.pushX = c.dx * CONVEYOR_SPEED;
-      out.pushZ = c.dz * CONVEYOR_SPEED;
+      out.pushX = c.dx * (c.speed ?? CONVEYOR_SPEED);
+      out.pushZ = c.dz * (c.speed ?? CONVEYOR_SPEED);
     }
   }
 }
@@ -188,12 +189,14 @@ export function updateHazards(this: Game, dt: number): void {
       if (!e.alive || e.def.boss || e.hopY > 0) continue;
       for (const c of this.arena.conveyors) {
         if (Math.abs(e.x - c.x) < c.w / 2 && Math.abs(e.z - c.z) < c.d / 2) {
-          e.x += c.dx * CONVEYOR_SPEED * dt;
-          e.z += c.dz * CONVEYOR_SPEED * dt;
+          e.x += c.dx * (c.speed ?? CONVEYOR_SPEED) * dt;
+          e.z += c.dz * (c.speed ?? CONVEYOR_SPEED) * dt;
         }
       }
     }
   }
+  // Toy Factory crushers (src/game/systems/worldHazards.ts).
+  updateWorldHazards.call(this, dt);
 }
 
 /** Death flavour by enemy kind. Swarm kills only sometimes get the extras, so mass kills stay light. */

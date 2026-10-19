@@ -9,7 +9,9 @@ import { scoreTuning, AIM_HEIGHT, REVIVE_TIME } from '../game';
 import * as THREE from 'three';
 import { MOD_BY_ID } from '../../data/mods';
 import { sfx } from '../../audio/sfx';
-import { biomeTrack, bossTrack, music, type TrackId } from '../../audio/music';
+import { bossTrack, music, type TrackId } from '../../audio/music';
+import { biomeForStage } from '../../data/biomes';
+import { attractLead } from './attract';
 import { applyTimeOfDay } from '../../render/biomeLook';
 import { retroGlobals } from '../../render/retroMaterial';
 import { BULLET_Y } from '../bullets';
@@ -140,7 +142,7 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
     track = bossTrack(this.stage);
     intensity = 1;
   } else {
-    track = biomeTrack(this.arenaStage);
+    track = biomeForStage(this.arenaStage).music;
     intensity = m === 'fight' ? Math.min(1, 0.12 + this.enemies.activeCount / 140 + this.director.time / this.director.duration / 3) : 0.3;
   }
   if (m === 'shop' || m === 'cleared' || m === 'portal') track = 'shop';
@@ -232,7 +234,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.pickups+weapons+fx');
 
   const inMenu = this.mode === 'title' || this.screens.current !== 'none';
-  if (this.mode === 'title') this.lead.set(0, 0, 0);
+  if (this.mode === 'title') this.lead.copy(attractLead(this)); // the attract demo's hero sits right of the menu
   else if (input.device === 'pad') {
     const active = input.padAim.x !== 0 || input.padAim.y !== 0;
     this.lead.set(p.aim.x, 0, p.aim.z).multiplyScalar(active ? cameraTuning.padLookAhead : 0);

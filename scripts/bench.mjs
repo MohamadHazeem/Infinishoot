@@ -32,9 +32,11 @@ const flag = (k) => {
 
 const WEAPONS = 'weapons=drones:6,missiles:6,lightning:6,fire:6';
 const BASE = `?test&bench&seed=42&god&circle&aim=0.7,0.7&${WEAPONS}`;
-/** Heavy presets. Stage 5 is the meadow again (grass tufts, rain allowed); stage 4 is magma (lava lights, heat). */
+/** Heavy presets. heavy: stage-5 numbers in the meadow (grass tufts, rain; pinned, since stage 5 is the Toy Factory now); stage 4 is magma (lava lights, heat). */
 const SCENES = {
-  heavy: `${BASE}&stage=5&night&rain&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
+  heavy: `${BASE}&stage=5&biome=meadow&night&rain&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
+  factory: `${BASE}&stage=5&night&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
+  skyruins: `${BASE}&stage=6&night&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
   magma: `${BASE}&stage=4&night&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
   light: `${BASE}&stage=1&day&dry`,
 };

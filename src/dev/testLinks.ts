@@ -20,6 +20,7 @@ import { isRouteId, type RouteId } from '../data/routes';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
+import { allBiomeKeys, biomeForce } from '../data/biomes';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -50,6 +51,8 @@ import { contentLinks } from './contentLinks';
  *   ?test&stage=4&topple                topple the pillar nearest the hero
  *   ?test&stage=2&smash=2              stand by the nearest ruin wall/rock/tree and smash it after 2 s (Rex's cover break)
  *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
+ *   ?test&biome=factory&day            pin the biome: meadow, dunes, peaks, magma, factory, skyruins,
+ *     or a remix: meadow:autumn, dunes:night, peaks:aurora, magma:ashen (src/data/biomes.ts)
  *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
@@ -119,6 +122,9 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   runModsTest.mutators = q.get('mutators') ? list('mutators').filter(isMutatorId) : null;
   runModsTest.route = isRouteId(q.get('route')) ? (q.get('route') as RouteId) : null;
   if (q.get('heatpick')) saveHeatPick(cleanHeat(Object.fromEntries(list('heatpick').map(pair)))); // stored like a MODE-screen pick
+  // &biome=factory or &biome=meadow:autumn: pin the stage's biome (or remix); see BIOME_ORDER.
+  const bk = q.get('biome');
+  biomeForce.key = bk && allBiomeKeys().includes(bk) ? bk : null;
   game.startSolo();
   if (q.get('seed')) game.rng = new Rng(Number(q.get('seed')));
   // Skip the starting shop.

@@ -5,11 +5,14 @@ import { viewCull } from '../render/viewCull';
 import { createRetroMaterial, retroGlobals } from '../render/retroMaterial';
 import { Surfaces, inPatch } from '../render/surfaces';
 import type { Particles } from './particles';
+import type { BiomeDef, Weather as BiomeWeather } from '../data/biomes';
 
 /**
  * Living environments, purely cosmetic and local to each machine:
  * - weather motes that drift in a box around the camera (meadow pollen,
- *   desert sand gusts, mountain snow, volcano embers and ash)
+ *   desert sand in gusts, mountain snow, volcano embers, factory confetti,
+ *   sky-ruin wind streaks, autumn leaves, desert fireflies, aurora glow, ash);
+ *   each biome names its weather in src/data/biomes.ts
  * - rain on some meadow and peaks stages (streaks, ground splashes, pond
  *   ripples, a darker sky and the odd lightning flash)
  * - grass tufts on the meadow that sway in the wind and bend away from
@@ -17,7 +20,7 @@ import type { Particles } from './particles';
  * - animated surfaces (water, lava, ice: src/render/surfaces.ts).
  */
 
-type Weather = 'pollen' | 'sand' | 'snow' | 'embers' | 'rain';
+type Weather = BiomeWeather | 'rain';
 
 /** Test links can force the weather: 'rain', 'clear' (never rain) or null (seeded roll). */
 export const weatherForce: { mode: 'rain' | 'clear' | null } = { mode: null };
@@ -37,8 +40,7 @@ export const rainTuning = {
 };
 
 /** Is this stage rainy? Deterministic from the stage seed, so co-op machines agree. Pure, for tests. */
-export function rollRain(biomeId: string, seed: number): boolean {
-  const chance = rainTuning.chance[biomeId] ?? 0;
+export function rollRain(biomeId: string, seed: number, chance = rainTuning.chance[biomeId] ?? 0): boolean {
   if (chance <= 0) return false;
   return new Rng((seed ^ 0x2a1b9c) >>> 0).next() < chance;
 }
@@ -59,7 +61,6 @@ const reducedMotion = () => typeof matchMedia === 'function' && (motionQuery ??=
 const RAIN_SKY = new THREE.Color(0.36, 0.42, 0.6);
 const RAIN_FOG = new THREE.Color('#7f93b8');
 
-const WEATHER_BY_BIOME: Record<string, Weather> = { meadow: 'pollen', dunes: 'sand', peaks: 'snow', magma: 'embers' };
 
 interface WeatherStyle {
   count: number;
@@ -81,7 +82,18 @@ const STYLES: Record<Weather, WeatherStyle> = {
   snow: { count: 240, colors: ['#ffffff', '#d8f0ff', '#f4f4f4'], w: 24, d: 18, y: [0, 12], vel: [0.5, -1.3, 0.2], wobble: 0.5, size: [0.09, 0.09, 0.09] },
   embers: { count: 150, colors: ['#ff7a2f', '#ffd23f', '#ff4d5e', '#566c86'], w: 24, d: 18, y: [0, 9], vel: [0.2, 1.4, 0.1], wobble: 0.7, size: [0.08, 0.08, 0.08] },
   rain: { count: 330, colors: ['#a9cdee', '#c8e2f6', '#8fb8e0'], w: 22, d: 17, y: [0, 13], vel: [-3, -26, 2], wobble: 0, size: [0.045, 0.9, 0.045] },
+  confetti: { count: 140, colors: ['#ff5a4a', '#ffcd3a', '#3b8cff', '#38c868', '#ffffff', '#ff9a3a'], w: 24, d: 18, y: [0, 10], vel: [0.4, -1.1, 0.2], wobble: 0.9, size: [0.14, 0.02, 0.1] },
+  wind: { count: 120, colors: ['#ffffff', '#f4f8ff', '#e2f0ff'], w: 26, d: 18, y: [0.3, 5], vel: [12, 0, -2], wobble: 0.3, size: [1.1, 0.03, 0.03] },
+  leaves: { count: 110, colors: ['#ef7d57', '#ffb627', '#e2563c', '#ffcd75'], w: 24, d: 18, y: [0, 9], vel: [1.2, -1.0, 0.4], wobble: 1.1, size: [0.16, 0.02, 0.12] },
+  fireflies: { count: 70, colors: ['#e8ff8a', '#a7f070', '#fff4a0'], w: 22, d: 16, y: [0.3, 3.2], vel: [0.15, 0, 0.1], wobble: 0.9, size: [0.09, 0.09, 0.09] },
+  aurora: { count: 160, colors: ['#73eff7', '#a7f070', '#b8a8ff', '#ffffff'], w: 24, d: 18, y: [1, 13], vel: [0.25, 0.45, 0.1], wobble: 0.6, size: [0.07, 0.6, 0.07] },
+  ash: { count: 190, colors: ['#9a949e', '#c8c4c8', '#6a6670', '#ff7a2f'], w: 24, d: 18, y: [0, 11], vel: [0.5, -0.7, 0.2], wobble: 0.6, size: [0.1, 0.03, 0.1] },
 };
+
+/** Weathers whose motes blow in gusts and point along the wind. */
+const GUSTY: ReadonlySet<Weather> = new Set<Weather>(['sand', 'wind']);
+/** Flat motes that tumble as they fall. */
+const TUMBLE: ReadonlySet<Weather> = new Set<Weather>(['confetti', 'leaves', 'ash']);
 
 const MAX_MOTES = 340;
 
@@ -128,6 +140,7 @@ export class Ambience {
   /** REDUCE FLASHING: lightning becomes a faint, smooth glow (set from settings each frame). */
   reduceFlash = false;
   private biomeId = '';
+  private biome: BiomeDef | null = null;
   private seed = 0;
   private rainy = false;
   private rainT = 0;
@@ -155,14 +168,16 @@ export class Ambience {
   }
 
   /**
-   * New arena: pick the biome's weather and scatter grass (meadow only).
-   * `blocked(x, z)` keeps tufts out of walls.
+   * New arena: pick the biome's weather and scatter grass (where the biome
+   * has tufts). `blocked(x, z)` keeps tufts out of walls.
    */
-  load(biomeId: string, seed: number, halfSize: number, blocked: (x: number, z: number) => boolean): void {
+  load(biome: BiomeDef, seed: number, halfSize: number, blocked: (x: number, z: number) => boolean): void {
+    const biomeId = biome.id;
     this.biomeId = biomeId;
+    this.biome = biome;
     this.seed = seed;
     const f = weatherForce.mode;
-    this.rainy = f === 'rain' ? biomeId !== 'magma' : f === 'clear' ? false : rollRain(biomeId, seed);
+    this.rainy = f === 'rain' ? biomeId !== 'magma' : f === 'clear' ? false : rollRain(biomeId, seed, biome.rain);
     this.rainT = 0;
     this.rain = 0;
     this.flash = 0;
@@ -171,8 +186,8 @@ export class Ambience {
     this.setupMotes();
     const rng = new Rng(seed ^ 0x51ed27);
     this.nTufts = 0;
-    if (biomeId === 'meadow') {
-      const greens = ['#4fd36a', '#3fbf5a', '#6ee07a', '#38b764', '#a7f070'];
+    if (biome.tufts) {
+      const greens = biome.tufts;
       const lim = halfSize - 3;
       for (let k = 0; k < MAX_TUFTS * 3 && this.nTufts < MAX_TUFTS; k++) {
         const x = rng.range(-lim, lim);
@@ -191,7 +206,7 @@ export class Ambience {
 
   /** Scatter the motes for the current weather (rain replaces the biome's own motes). */
   private setupMotes(): void {
-    this.weather = this.rainy ? 'rain' : (WEATHER_BY_BIOME[this.biomeId] ?? null);
+    this.weather = this.rainy ? 'rain' : (this.biome?.weather ?? null);
     this.style = this.weather ? STYLES[this.weather] : null;
     const rng = new Rng(this.seed ^ 0x51ed27);
     if (!this.style) return;
@@ -222,7 +237,7 @@ export class Ambience {
 
   /** Build the stage's animated surfaces (call after `load`, once the arena exists). */
   loadSurfaces(arena: { halfSize: number; hazards: readonly { x: number; z: number; r: number; kind: string }[] }, blocked: (x: number, z: number) => boolean, fx: Particles | null): void {
-    this.surfaces.load(this.biomeId, this.seed, arena, blocked, fx);
+    if (this.biome) this.surfaces.load(this.biome, this.seed, arena, blocked, fx);
     // No grass growing out of ponds.
     let k = 0;
     for (let i = 0; i < this.nTufts; i++) {
@@ -335,8 +350,11 @@ export class Ambience {
     const n = st ? Math.floor(st.count * this.density * fxQuality.ambience * fxQuality.weather * rainK) : 0;
     if (st && this.weather === 'rain') this.renderRain(dt, cx, cz, n, st);
     else if (st) {
-      // Sand blows in gusts; everything else drifts steadily.
-      const gust = this.weather === 'sand' ? 0.35 + 0.65 * Math.max(0, Math.sin(this.t * 0.6) * Math.sin(this.t * 0.23 + 1)) : 1;
+      // Sand and wind blow in gusts; everything else drifts steadily.
+      const gusty = GUSTY.has(this.weather!);
+      const tumble = TUMBLE.has(this.weather!);
+      const glow = this.weather === 'fireflies' || this.weather === 'aurora';
+      const gust = gusty ? 0.35 + 0.65 * Math.max(0, Math.sin(this.t * 0.6) * Math.sin(this.t * 0.23 + 1)) : 1;
       for (let i = 0; i < n; i++) {
         const w = Math.sin(this.t * 1.3 + this.ph[i]) * st.wobble;
         this.x[i] += (st.vel[0] * gust + w * 0.5) * dt;
@@ -349,10 +367,11 @@ export class Ambience {
         else if (this.z[i] - cz < -st.d) this.z[i] += st.d * 2;
         if (this.y[i] > st.y[1]) this.y[i] = st.y[0];
         else if (this.y[i] < st.y[0]) this.y[i] = st.y[1];
-        // Embers and pollen twinkle by size; sand streaks thin out between gusts.
-        const tw = this.weather === 'sand' ? gust : 0.7 + 0.3 * Math.sin(this.t * 5 + this.ph[i]);
-        this.e.set(this.ph[i] + this.t, this.ph[i] * 2 + this.t * 0.7, 0);
-        if (this.weather === 'sand') this.e.set(0, -Math.atan2(st.vel[2], st.vel[0]), 0);
+        // Embers and pollen twinkle by size; sand and wind streaks thin out between gusts; fireflies blink.
+        const tw = gusty ? gust : glow ? Math.max(0, Math.sin(this.t * 2.2 + this.ph[i] * 3)) : 0.7 + 0.3 * Math.sin(this.t * 5 + this.ph[i]);
+        if (tumble) this.e.set(this.ph[i] + this.t * 2.6, this.ph[i] * 2 + this.t * 1.3, Math.sin(this.t * 3 + this.ph[i]));
+        else this.e.set(this.ph[i] + this.t, this.ph[i] * 2 + this.t * 0.7, 0);
+        if (gusty) this.e.set(0, -Math.atan2(st.vel[2], st.vel[0]), 0);
         this.q.setFromEuler(this.e);
         this.m4.compose(this.v.set(this.x[i], this.y[i], this.z[i]), this.q, this.s.set(st.size[0] * tw, st.size[1] * tw, st.size[2] * tw));
         this.motes.setMatrixAt(i, this.m4);

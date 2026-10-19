@@ -31,6 +31,7 @@ import { debrisTuning } from '../game/debris';
 import { decalTuning } from '../game/decals';
 import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
+import { worldDebugFolder } from '../world/worldDebug';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
 import { banishTuning } from '../game/banish';
@@ -266,6 +267,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   ob.add(trainingTuning, 'shotSpeed', 2, 20, 0.5);
   ob.add(trainingTuning, 'skipAfter', 0, 60, 1).name('SKIP shows after (s)');
   addFixesFolder(gui);
+  worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
 
   return gui;
 }
