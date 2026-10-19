@@ -47,6 +47,7 @@ import * as RunFlowSys from './systems/runFlow';
 import * as DebugSys from './systems/debug';
 import * as SpiceSys from './systems/spice';
 import * as LevelUpsSys from './systems/levelUps';
+import * as FusionSys from './systems/fusion';
 import * as CoopSys from './systems/coop';
 import * as SpawningSys from './systems/spawning';
 import * as CombatSys from './systems/combat';
@@ -172,6 +173,7 @@ export const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'turret', tags: ['projectile'] }, // 12 arena turrets (src/game/systems/arena.ts)
   { source: 'parry', tags: ['projectile'] }, // 13 bullets reflected by a parry
   { source: 'ult', tags: [] }, // 14 Mega Barrage shots
+  { source: 'dragon_cannon', tags: ['projectile', 'fire', 'trail'] }, // 15 Dragon Cannon (fusion, src/data/fusions.ts)
 ];
 /** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
 export const IMPACT_BLAST = [1, 5, 8];
@@ -315,6 +317,7 @@ export class Game implements HeroWorld {
   ui = LevelUpsSys.ui;
   heroAction = LevelUpsSys.heroAction;
   evolveFx = LevelUpsSys.evolveFx;
+  fusionFx = FusionSys.fusionFx;
   legendaryFx = LevelUpsSys.legendaryFx;
   legendaryBurst = LevelUpsSys.legendaryBurst;
   afterPick = LevelUpsSys.afterPick;

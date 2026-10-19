@@ -1,11 +1,12 @@
 import { degreeMidi, type Patch, type Style } from './music/composition';
 import type { MusicSynth } from './music/synth';
+import { FUSIONS } from '../data/fusions';
 
 export const stemTuning = { slots: 8, gain: 0.032, maxLevel: 10 };
 export interface StemWeapon { readonly def: { readonly id: string }; readonly level: number; readonly evolved: boolean }
 interface Instrument { patch: Patch; steps: readonly number[]; degrees: readonly number[]; octave: number; length: number; cutoff: number; pan: number; sweep?: boolean }
 /** Each weapon has its own rhythm/register, including the two click slots. */
-export const WEAPON_STEMS: Readonly<Record<string, Instrument>> = {
+const BASE_STEMS: Readonly<Record<string, Instrument>> = {
   buster: { patch: 'triangle', steps: [0, 6, 10, 14], degrees: [0, 2, 4, 2], octave: 12, length: 0.8, cutoff: 5200, pan: -0.12 },
   charge: { patch: 'bell', steps: [4, 12], degrees: [4, 7], octave: 12, length: 2.8, cutoff: 4200, pan: 0.15 },
   drones: { patch: 'triangle', steps: [0, 2, 4, 6, 8, 10, 12, 14], degrees: [0, 2, 4, 7], octave: 24, length: 0.8, cutoff: 7000, pan: -0.3 },
@@ -28,6 +29,15 @@ export const WEAPON_STEMS: Readonly<Record<string, Instrument>> = {
   pellets: { patch: 'square', steps: [2, 6, 10, 14], degrees: [0, 2, 4, 2], octave: 12, length: 0.3, cutoff: 2000, pan: 0.22 },
   bouncer: { patch: 'pluck', steps: [0, 5, 8, 13], degrees: [0, 4, 7, 4], octave: 12, length: 1.3, cutoff: 5500, pan: -0.38 },
   starfall: { patch: 'bell', steps: [3, 7, 11, 15], degrees: [7, 4, 2, 0], octave: 24, length: 2, cutoff: 6500, pan: 0.35 },
+};
+/** A fused weapon plays its first part's rhythm through its second part's patch, merged rhythms, an octave up. */
+function fusedStem(a: Instrument, b: Instrument): Instrument {
+  const steps = [...new Set([...a.steps, ...b.steps])].sort((x, y) => x - y).slice(0, 8);
+  return { ...a, patch: b.patch, steps, octave: Math.min(24, a.octave + 12), cutoff: Math.max(a.cutoff, b.cutoff), sweep: a.sweep || b.sweep };
+}
+export const WEAPON_STEMS: Readonly<Record<string, Instrument>> = {
+  ...BASE_STEMS,
+  ...Object.fromEntries(FUSIONS.filter((f) => BASE_STEMS[f.parts[0]] && BASE_STEMS[f.parts[1]]).map((f) => [f.id, fusedStem(BASE_STEMS[f.parts[0]], BASE_STEMS[f.parts[1]])])),
 };
 export function stemIntensity(level: number): number {
   return 0.4 + 0.6 * (Math.max(1, Math.min(stemTuning.maxLevel, Number.isFinite(level) ? level : 1)) - 1) / (stemTuning.maxLevel - 1);

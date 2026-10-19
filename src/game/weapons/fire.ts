@@ -58,6 +58,12 @@ export class Fire extends Weapon {
     }
   }
 
+  /** Drop a burning patch anywhere (Napalm Rockets, src/data/fusions.ts). */
+  drop(x: number, z: number, life: number, r: number): void {
+    if (this.flames.length >= MAX) this.flames.shift();
+    this.flames.push({ x, z, age: 0, life, r });
+  }
+
   update(dt: number, ctx: WeaponCtx): void {
     const p = this.p;
     const pl = ctx.player;

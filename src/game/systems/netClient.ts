@@ -17,6 +17,8 @@ import { markSeen, unlockedWeapons } from '../save';
 import { settings } from '../settings';
 import { type VfxEvent } from '../vfx';
 import { createWeapon } from '../weapons';
+import { FUSION_BY_ID } from '../../data/fusions';
+import { showFusionMerge } from '../../ui/fusionUi';
 import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
@@ -93,6 +95,11 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
     case 'toast':
       this.hud.toast(String(m.msg));
       break;
+    case 'fusefx': {
+      const f = FUSION_BY_ID[String(m.id)];
+      if (f) showFusionMerge(f.parts, f.id);
+      break;
+    }
     case 'hurt':
       this.player.knock(Number(m.dx), Number(m.dz));
       this.hud.hurt();
