@@ -195,7 +195,7 @@ function countingKit() {
   a11yAudio.captions = true;
   const v = new HeroVoice(() => now, () => roll);
   // A hero without recorded barks (the recorded ones speak through src/audio/voices.ts).
-  const sp = { heroId: 'duelist', index: 1, name: 'Mia', color: '#fff' };
+  const sp = { heroId: 'robo', index: 1, name: 'Mia', color: '#fff' }; // (the Duelist has recorded barks since the heroes3 lane)
   ok(!!v.bark('hurt', sp), 'a bark plays');
   ok(caps.length === 1 && caps[0].startsWith('MIA: '), 'voice lines are captioned with the speaker');
   ok(!v.bark('hurt', sp), 'same bark is on cooldown');

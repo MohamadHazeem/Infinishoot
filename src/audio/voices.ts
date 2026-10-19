@@ -177,6 +177,7 @@ function speak(id: string, priority: number, gain: number, duck: number): boolea
 const SPEAKER_NAMES: Readonly<Record<string, string>> = {
   king: 'KING BOPPER', rex: 'RAMPAGE REX', queen: 'HIVE QUEEN', omega: 'OMEGA OVERLORD',
   rookie: 'ROOKIE', bulwark: 'BULWARK', dash: 'DASH', ace: 'ACE',
+  duelist: 'DUELIST', furnace: 'FURNACE', twin: 'TWIN', ronin: 'RONIN', tinker: 'TINKER',
 };
 
 /** CAPTIONS: show what a recorded boss line or bark says (src/audio/voiceText.ts). */
@@ -239,7 +240,7 @@ export function speaking(): boolean {
 }
 
 /** Heroes with recorded barks; the others speak with the synthesized voice (src/audio/heroVoice.ts). */
-export const RECORDED_VOICES: ReadonlySet<string> = new Set(['rookie', 'bulwark', 'dash', 'ace']);
+export const RECORDED_VOICES: ReadonlySet<string> = new Set(['rookie', 'bulwark', 'dash', 'ace', 'duelist', 'furnace', 'twin', 'ronin', 'tinker']);
 
 /** The sample for a hero bark; skins keep the hero's voice, unknown heroes use the Rookie's. */
 export function barkSample(heroId: string, kind: BarkKind): string {
