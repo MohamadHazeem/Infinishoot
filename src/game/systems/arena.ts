@@ -139,7 +139,7 @@ export function startJump(this: Game, h: Hero, k: number) {
   p.invuln = Math.max(p.invuln, 0.06);
   if (h === this.hero) this.juice.shake(0.08);
   if (this.authority) {
-    this.vfx.sound('dash', pad.x, pad.z, 0.7);
+    this.vfx.sound('jumpPad', pad.x, pad.z);
     this.vfx.ring(pad.x, pad.z, 1, 3.5, '#ffcd75', 0.3);
     this.vfx.burst(pad.x, 0.3, pad.z, { count: 14, color: '#ffcd75', color2: '#ef7d57', speed: [3, 7], size: [0.15, 0.3], life: [0.25, 0.5], up: 9, gravity: 16 });
   }
@@ -395,7 +395,7 @@ export function damageProp(this: Game, p: PropState, dmg: number, owner: number,
     return;
   }
   const h = p.def.kind === 'stack' ? 2.4 : 1.2;
-  this.vfx.sound('shieldBreak', x, z, 0.8);
+  this.vfx.sound('coverBreak', x, z);
   this.vfx.burst(x, h * 0.5, z, { count: p.def.kind === 'stack' ? 22 : 14, color: '#c8803f', color2: '#ffcd75', speed: [3, 8], size: [0.18, 0.4], life: [0.4, 0.8], up: 6, gravity: 18, drag: 1 });
   this.vfx.burst(x, h * 0.5, z, { count: 6, color: '#94b0c2', color2: '#f4f4f4', speed: [1, 2.5], size: [0.35, 0.6], life: [0.4, 0.7], up: 2, drag: 3 });
   this.vfx.star(x, h * 0.6, z, 1.6, '#ffcd75', 0.12);

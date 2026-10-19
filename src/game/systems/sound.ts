@@ -13,12 +13,13 @@ interface AudioState {
   scan: number;
   pass: number;
   goUntil: number;
+  strikes: number;
 }
 const states = new WeakMap<Game, AudioState>();
 export function updateSound(this: Game, dt: number, frozen: boolean): void {
   let state = states.get(this);
   if (!state) {
-    state = { mode: 'title', started: false, steps: 0, combo: 0, scan: 0, pass: 0, goUntil: 0 };
+    state = { mode: 'title', started: false, steps: 0, combo: 0, scan: 0, pass: 0, goUntil: 0, strikes: 0 };
     states.set(this, state);
   }
   const mode = this.mode;
@@ -27,6 +28,12 @@ export function updateSound(this: Game, dt: number, frozen: boolean): void {
   const biome = biomeAudio(this.arenaStage);
   sfx.crowd = this.enemies.activeCount;
   ambience.update(biome, active, !fighting);
+  // Rain bed and thunder follow the weather (worked out locally on every machine).
+  ambience.setRain(active ? this.ambience.rain : 0);
+  if (this.ambience.strikes !== state.strikes) {
+    if (active && this.ambience.strikes > state.strikes) sfx.thunder(this.ambience.strikeDist);
+    state.strikes = this.ambience.strikes;
+  }
   announcer.update();
   if (
     mode === 'title' ||

@@ -745,6 +745,20 @@ class Sfx {
     if (ctx) { this.noise(ctx, 0.45, 0.45, 350, 60); this.tone(ctx, 'sine', 100, 28, 0.4, 0.4); }
   }
 
+  /** Thunder after a lightning flash: later and quieter when the strike is far (0 = overhead .. 1 = far). */
+  thunder(dist: number): void {
+    setTimeout(() => {
+      if (samples.play('w_storm', { gain: 0.55 * (1 - dist * 0.6), priority: 2, cooldown: 1, limit: 1, variation: 0.15 })) return;
+      const ctx = this.begin('thunder', 1);
+      if (ctx) this.noise(ctx, 1.2, 0.3 * (1 - dist * 0.6), 400, 60, 1);
+    }, 150 + dist * 1600);
+  }
+
+  bossRoar(): void {
+    const ctx = this.begin('bossRoar', 0.8);
+    if (ctx) { this.noise(ctx, 0.7, 0.35, 500, 120, 2); this.tone(ctx, 'sawtooth', 90, 55, 0.7, 0.2); }
+  }
+
   bossPhase(): void {
     const ctx = this.begin('bossPhase', 1);
     if (ctx) this.tone(ctx, 'sawtooth', 110, 660, 0.6, 0.14);

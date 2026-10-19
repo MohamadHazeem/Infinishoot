@@ -55,6 +55,7 @@ export const cueSamples: Readonly<Record<string, string>> = {
   dash: 'dash',
   cwind: 'charger_windup',
   boss: 'boss_roar',
+  bossRoar: 'boss_roar',
   bossSlam: 'boss_slam',
   bossPhase: 'boss_phase',
   portal: 'spawn_portal',

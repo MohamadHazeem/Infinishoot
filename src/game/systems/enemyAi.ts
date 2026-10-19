@@ -89,9 +89,10 @@ export function guardMul(this: Game, e: Enemy, o: DamageOpts, by: Hero): number 
   const dz = o.dirZ ?? 0;
   const k = dx || dz ? guardFactor(e, -dx, -dz) : guardFactor(e, by.player.x - e.x, by.player.z - e.z);
   if (k < 1 && e.blockT <= 0) {
-    e.blockT = 0.6;
+    e.blockT = 1.2;
     const fx = e.def.guard ? e.facing : e.guardAng;
-    this.vfx.num(e.x, 1.9 * e.scale, e.z, 'BLOCK', 'hit');
+    // Only the Shield Bot itself says BLOCK (the bots hiding behind it just flash), so crowds don't spam labels.
+    if (e.def.guard) this.vfx.num(e.x, 1.9 * e.scale, e.z, 'BLOCK', 'hit');
     this.vfx.star(e.x + Math.sin(fx) * e.radius, 1, e.z + Math.cos(fx) * e.radius, 0.9, '#73eff7', 0.08);
   }
   return k;
