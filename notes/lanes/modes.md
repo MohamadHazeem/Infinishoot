@@ -131,7 +131,7 @@
 
 ## Verification
 - `npm run typecheck` passes.
-- `npm test` passes. One run had an unrelated flake in `tests/worldEventsGame.test.ts` ("the enemy on it fell"); it passed 3 of 3 times on rerun, on a machine shared with other lanes. My tests:
+- `npm test` passes (see the flakes below). My tests:
   - `tests/modes.test.ts`, the pure rules:
     - the beat clock, tempo continuity, the on-beat window, the crossing check
     - the pulse averages x1.000
@@ -152,7 +152,8 @@
     - The client stays within 0.036 beats of the host on a 128 BPM stage, and within 0.043 beats through the switch to the boss tempo (152) and the entrance's slow motion.
     - The client sees the Pacifist timer, and its shots hurt nothing.
     - Both see the Coin Dash. The guest earned 56 gold and the host none. The client's HUD and gold match, and the portal opens at the end.
-- `npm run smoke` passes. Output: `modes {"rhythm":true,"onBeat":270,"pacifist":{"kills":0,"gold":85,...},"mini":{"gallery":37,"coins":50,"whack":21},"raced":true,"ghost":"382 samples"}`. That was with coin values before the last trim: Coin Dash now spawns 4 coins every 2 s (it was 6 every 1.3 s), and whacks pay 1 (were 2). The standard bot also went through a Rhythm Stage node on its own (`route: treasure,rhythm,event`).
+- `npm run smoke` passes. Final run: `modes {"rhythm":true,"onBeat":319,"pacifist":{"kills":0,"gold":74,"stage":2,"mode":"cleared"},"mini":{"gallery":27,"coins":30,"whack":22},"raced":true,"ghost":"392 samples"}`. The gold is the bot's haul per mini-game after the payout trim; it was 37 / 50 / 21 before. An earlier smoke run's standard bot also took a Rhythm Stage node on its own (`route: treasure,rhythm,event`).
+- Flaky tests seen once each in full `npm test` runs on the shared machine, both outside this lane: `worldEventsGame.test.ts` ("the enemy on it fell") and `fixes.test.ts` ("with the wall gone it fires"). Both passed on every rerun of the file (3 of 3 and 8 of 8). Both start random-seed solo runs; I didn't dig further.
 - Screenshots I looked at (`shots/`, not committed):
   - `modes-rhythm*.png`: the disco floor, after three passes. The first used additive blending, which wrote the bloom mask and washed out the field, so the floor now adds colour and leaves alpha alone. The tiles were also dimmed and shrunk.
   - `modes-cursor.png`: the crosshair beat frame lit in the window.
@@ -175,7 +176,7 @@
 - **The Pacifist road is unbalanced so far.** 120 s of dodging with no XP, 40% fewer enemies but swarm rings and elites as usual: survival there hasn't been measured with a mortal bot. The stage objective and side challenge (shoot totems, kill elites) are impossible on that stage. World events and the gameplay lane's supply crates still happen; a Minigun from a crate does nothing either.
 - **The legendary card is spent on the next draw.** A REROLL on that card redraws normal cards.
 - **Mini-games run in mode `portal`**, with the portal closed and moved to 1e5 so nothing walks into it. Any system that assumes `mode === 'portal'` means the portal is up would be fooled during a game; the autopilot is, and `pilotModes` overrides it. The stage timer still shows during a game.
-- **Mini-game balance:** the bot made 37 / 50 / 21 gold before the coin trim. Against the roughly 80-90 gold a stage-1 player earns, a strong player can take a lot from an arcade. `miniTuning` holds the knobs.
+- **Mini-game balance:** the bot makes 27 / 30 / 22 gold (gallery / coins / whack) with perfect aim and pathing. Against the roughly 80-90 gold a stage-1 player earns, a strong player can take a lot from an arcade. `miniTuning` holds the knobs.
 - **Ghost codes are long.** About 50 KB of text for a 20-minute run (packing barely helps; the varints are already tight), so files are the practical way to share. The worker accepts codes up to 200 KB.
 - **The worker route** (`server/leaderboard/ghosts.js`) wasn't deployed or exercised. Uploads are only checked for shape and size, as with the score board, which is not real anti-cheat.
 - **A ghost shows only on your current stage.** A ghost that died earlier, or is on another stage, is hidden. The delta still compares scores.
