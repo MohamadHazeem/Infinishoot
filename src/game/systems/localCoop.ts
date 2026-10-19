@@ -1,3 +1,4 @@
+import { accessibilityInput } from './aimAssist';
 /**
  * Shared-screen local co-op (MP lane): 2-4 heroes on one PC, no network.
  * Game methods (`this` is the Game), installed on the class as fields.
@@ -88,6 +89,7 @@ export function localHeroUpdate(this: Game, h: Hero, dt: number, localControl: b
     if (pad && this.local !== h.index) {
       pad.poll();
       pad.rumbleOn = settings.rumble;
+      accessibilityInput(pad.asInput(), localControl && !this.paused && this.screens.current === 'none', dt, this.stage, h.player.dead);
       // Any player's Start pauses the shared game.
       if (pad.padButtonPressed(9) && this.isCombatMode && !this.paused && this.screens.current === 'none') {
         this.pause();

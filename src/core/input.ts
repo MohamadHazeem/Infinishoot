@@ -46,6 +46,9 @@ export class Input {
   /** Right-stick aim direction (screen space, y down). Zero when stick is idle. */
   readonly padAim: Vec2 = { x: 0, y: 0 };
 
+  private accessiblePresses = new Set<Action>();
+  pressAction(a: Action): void { this.accessiblePresses.add(a); }
+
   private keys = new Set<string>();
   private pressed = new Set<string>();
   private mouseButtons = 0;
@@ -109,7 +112,7 @@ export class Input {
 
   /** A rebindable action went down this step. */
   actionPressed(a: Action): boolean {
-    return binds[a].some((c) => c && this.pressed.has(c));
+    return this.accessiblePresses.has(a) || binds[a].some((c) => c && this.pressed.has(c));
   }
 
   actionDown(a: Action): boolean {
@@ -157,6 +160,7 @@ export class Input {
 
   /** Swallow this step's press of an action (a wheel or prompt used it, so the game doesn't). */
   consumeAction(a: Action): void {
+    this.accessiblePresses.delete(a);
     for (const c of binds[a]) if (c) this.pressed.delete(c);
   }
 
@@ -184,6 +188,7 @@ export class Input {
     // Gamepad (first connected, or the one padIndex names; standard mapping)
     const pads = navigator.getGamepads?.() ?? [];
     const pad = this.pickPad(pads);
+    if (!pad) this.padButtons.fill(false); // Release virtual buttons and disconnected controllers.
     if (pad) {
       const m = applyDeadzone(pad.axes[0] ?? 0, pad.axes[1] ?? 0, STICK_DEADZONE, this.tmp);
       if (m.x !== 0 || m.y !== 0) {
@@ -239,6 +244,7 @@ export class Input {
 
   /** Call at the end of each simulation step. */
   endStep(): void {
+    this.accessiblePresses.clear();
     this.pressed.clear();
     this.mousePressedBits = 0;
   }

@@ -159,7 +159,7 @@ export function updateLook(this: Game, frameDt: number): void {
   }
   easeGrade(frameDt);
   // Distortion follows its own toggle; screen shake at 0 (motion-sensitive players) also turns it off.
-  postfx.distortion = settings.distortion && settings.shake > 0;
+  postfx.distortion = settings.distortion && settings.shake > 0 && !settings.reduceScreenEffects;
   const motion = Math.min(1, settings.shake);
 
   // --- Outlines: attach to new enemy batches (created lazily) and hero rigs.

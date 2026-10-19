@@ -778,7 +778,7 @@ export function renderGameplay(this: Game, alpha: number, netA: number, rdt: num
     super: pl.superId ? { id: pl.superId, glyph: SUPERS[pl.superId].glyph, name: SUPERS[pl.superId].name, color: SUPERS[pl.superId].color, ammo01: pl.superAmmo / SUPERS[pl.superId].ammo, t: pl.superT, flamer: pl.superId === 'flamer', ammo: pl.superAmmo } : null,
     overload: pl.overloadT > 0 ? -pl.overloadT / overloadTuning.duration : pl.overloadReady ? pl.overload01 : -2,
     comeback: show && pl.comeback,
-    reduceFlash: settings.reduceFlash,
+    reduceFlash: settings.reduceFlash || settings.reduceScreenEffects,
     combo: this.combo,
     tiers,
     afford: cashAffordable(this.combo, W.cashUses),

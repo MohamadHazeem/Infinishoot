@@ -229,6 +229,14 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
+  // Settings lane: &settingstab=0..5, &vision=protanopia|deuteranopia|tritanopia, &textsize=150, &reduceeffects.
+  if (q.has('settingstab')) game.screens.settingsScreen.selectTab(Number(q.get('settingstab')) || 0);
+  if (q.has('assist')) settings.aimAssist = q.get('assist') !== 'off';
+  const vision = q.get('vision');
+  if (vision === 'protanopia' || vision === 'deuteranopia' || vision === 'tritanopia' || vision === 'off') settings.colorblindMode = vision;
+  if (q.has('textsize')) settings.textScale = Number(q.get('textsize'));
+  if (q.has('reduceeffects')) settings.reduceScreenEffects = true;
+  if (q.has('vision') || q.has('textsize') || q.has('reduceeffects')) { applySettings(); game.screens.settingsScreen.sync(); }
   // &boom: an explosion near the hero every 0.7 s (checks lights, bloom and shockwaves).
   if (q.has('boom')) {
     let n = 0;

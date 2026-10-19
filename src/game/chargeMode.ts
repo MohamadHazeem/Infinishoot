@@ -32,10 +32,12 @@ export class ChargeLatch {
   }
 }
 
-/** The local player's latch (one hero per machine). */
-export const chargeLatch = new ChargeLatch();
+/** Each local controller has its own latch (including shared-screen co-op). */
+const chargeLatches = new WeakMap<Input, ChargeLatch>();
 
 /** Right click held for this step, honouring CHARGE MODE. Call once per step for the local hero. */
 export function rightClickHeld(input: Input, control: boolean): boolean {
-  return chargeLatch.update(settings.chargeMode, input.mouseDown(2) || input.padButton(2), input.mousePressed(2) || input.padButtonPressed(2), control);
+  let latch = chargeLatches.get(input);
+  if (!latch) { latch = new ChargeLatch(); chargeLatches.set(input, latch); }
+  return latch.update(settings.chargeMode, input.mouseDown(2) || input.padButton(2), input.mousePressed(2) || input.padButtonPressed(2), control);
 }

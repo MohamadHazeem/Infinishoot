@@ -66,6 +66,8 @@ const browser = await chromium.launch({
 async function openPage(name) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
   const page = await ctx.newPage();
+  // Large parallel builds can saturate the dev server before the game has loaded.
+  page.setDefaultNavigationTimeout(Number(process.env.COOP_LOAD_TIMEOUT) || 30000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(`${e.message}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}`));
   page.on('console', (m) => {
