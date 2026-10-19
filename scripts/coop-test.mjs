@@ -522,6 +522,15 @@ async function coopFight() {
         window.__xpNext ??= window.game.xpNext;
         window.game.xpNext = 1e12;
       });
+      // Stopping botAuto restores poll(), but its synthetic held inputs remain.
+      // Stationary carry/switch fixtures must release them on both machines.
+      await Promise.all([A.page, B.page].map(page => page.evaluate(() => {
+        window.botAuto(false);
+        const g = window.game;
+        g.input.keys.clear(); g.input.pressed.clear();
+        g.input.mouseButtons = g.input.mousePressedBits = 0;
+        for (const h of g.heroes) for (const w of h.weapons) if ('predFocus' in w) w.focus = w.predFocus = 0;
+      })));
       return true;
     }
     await pause(250);
@@ -1010,6 +1019,9 @@ const SCENARIO = [
   [22, 'trading: the client gives the host gold, the host gives a gear back', async () => {
     await host(() => {
       const g = window.game;
+      // Wallet changes in this fixture must come from the trade, not live drops.
+      window.__tradePickupUpdate = g.pickups.update;
+      g.pickups.update = () => {};
       g.heroes[1].gold = 20;
       g.heroes[0].rerollsLeft = 2;
       g.heroes[1].rerollsLeft = 0;
@@ -1029,6 +1041,7 @@ const SCENARIO = [
       ]);
       if (c.gears === h.gears[1] && c.gold === h.gold[1]) break;
     }
+    await host(() => { window.game.pickups.update = window.__tradePickupUpdate; delete window.__tradePickupUpdate; });
     if (h.gold[0] < before + 7 || h.gold[1] > 13 + 4 /* coins picked up meanwhile */ || h.gears[1] !== 1 || c.gears !== 1 || c.gold !== h.gold[1]) fail(`trading: host ${JSON.stringify(h)}, client ${JSON.stringify(c)}`);
     return { host: h, client: c };
   }],
