@@ -3,6 +3,7 @@ import { save } from '../game/save';
 import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
+import { cinematicsLinks } from './cinematicsLinks';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
@@ -97,6 +98,7 @@ import { SCAR_COLORS } from '../game/scars';
  * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
  *
  * World events (src/dev/worldEventLinks.ts): &wev=collapse|flood|split|giant|eclipse|flower|volcano|stealth, &wevt=6 (jump its clock), &wevoff.
+ * Cinematics lane (src/dev/cinematicsLinks.ts): &skyfall=1&skyat=0.5, &ending=1&endat=0.3, &reveal=starfall, &jackpot=1&jackkind=gold, &flawless=1&portalnow, &titleplay, &cine=short.
  * Time lane (src/dev/timeLinks.ts): &rewindgo=3&rewindat=0.5, &standgo=2, &btgo=2&btat=0.5, &replaygo=3&replayat=1,
  *   &mate&clutchgo=2&clutchat=0.5, &mate&votego=2.
  *
@@ -209,6 +211,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
+  cinematicsLinks(game, q); // skyfall=, ending=, reveal=, jackpot=, flawless=, titleplay=, cine= (src/dev/cinematicsLinks.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

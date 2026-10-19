@@ -23,6 +23,7 @@ import { loadoutOptions, type Loadout, type LoadoutSlot } from '../../data/loado
 import { biomeStagesUpTo } from '../../data/biomes';
 import { save, saveLock, unlockedLoadout, unlockedWeapons } from '../save';
 import { audioSettings } from '../../audio/sfx';
+import { titlePlayTick, type TitleInput } from '../titlePlay';
 
 export const attractTuning = {
   /** Run the demo behind the title at all. */
@@ -152,21 +153,23 @@ export function attractTick(this: Game, dt: number): void {
   const ok = attractTuning.enabled && this.mode === 'title' && this.role === 'solo' && !this.pvp && this.heroes.length === 1 && this.screens.current === 'title' && !this.paused && !hidden;
   // Something rebuilt the title world (back to the title after a run): start over.
   if (s.running && s.arena !== this.arena) s.running = false;
+  // Playable title (src/game/titlePlay.ts): moving or aiming takes the hero from the bot.
+  const live = titlePlayTick(this, this.input, dt, ok && attractTuning.enabled);
   if (!ok) {
     s.idle = 0;
     return;
   }
   if (!s.running) {
-    if ((s.idle += dt) >= attractTuning.delay) startDemo(this, s);
+    if ((s.idle += dt) >= attractTuning.delay || live) startDemo(this, s);
     return;
   }
   s.t += dt;
   if (this.hero.player.dead) s.deadT += dt;
-  if (s.t >= attractTuning.length || s.deadT >= attractTuning.deadWait || this.director.bossSpawned) {
+  if ((s.t >= attractTuning.length && !live) || s.deadT >= attractTuning.deadWait || this.director.bossSpawned) {
     startDemo(this, s);
     return;
   }
-  stepDemo(this, s, dt);
+  stepDemo(this, s, dt, live);
 }
 
 /** A random loadout from what this save has unlocked. */
@@ -230,10 +233,10 @@ type Swappable = { input: Input; mode: Mode };
 const noop = () => {};
 
 /** One simulation step of the demo, with the world's side effects muted. */
-function stepDemo(g: Game, s: AttractState, dt: number): void {
+function stepDemo(g: Game, s: AttractState, dt: number, live: TitleInput | null = null): void {
   const t0 = performance.now();
   const p = g.hero.player;
-  s.input.set(s.pilot.decide(g), p.x, p.z);
+  if (!live) s.input.set(s.pilot.decide(g), p.x, p.z);
   const w = g as unknown as Swappable;
   const realInput = w.input;
   const sfx = audioSettings.sfx;
@@ -242,9 +245,9 @@ function stepDemo(g: Game, s: AttractState, dt: number): void {
   const hooks = ['openLevelUp', 'openShop', 'stageClear', 'endRun', 'checkAchievements', 'pause', 'openPortal', 'startBossIntro'] as const;
   const saved = hooks.map((k) => g[k]);
   const dmgSpawn = g.dmg.spawn;
-  w.input = s.input as unknown as Input;
+  w.input = (live ?? s.input) as unknown as Input;
   w.mode = 'fight';
-  audioSettings.sfx = 0;
+  audioSettings.sfx = live ? sfx * 0.6 : 0; // the player's own shots are heard (softly)
   audioSettings.ui = 0;
   saveLock.on = true;
   for (const k of hooks) (g as unknown as Record<string, unknown>)[k] = noop;
@@ -260,6 +263,7 @@ function stepDemo(g: Game, s: AttractState, dt: number): void {
     hooks.forEach((k, i) => ((g as unknown as Record<string, unknown>)[k] = saved[i]));
     g.dmg.spawn = dmgSpawn;
     s.input.endStep();
+    live?.endStep();
     // No screen shake, hit-stop or camera kicks behind the menu.
     g.juice.reset();
   }

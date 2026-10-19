@@ -88,6 +88,8 @@ export interface Settings {
   look: string;
   /** Slow-motion replay of the hit that ended the run, before the game-over screen. */
   deathReplay: boolean;
+  /** CINEMATICS: sky-fall transitions, the ending, legendary reveals, jackpot reels (full, short or off). */
+  cinematics: 'full' | 'short' | 'off';
 }
 
 const KEY = 'settings.v1';
@@ -140,6 +142,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   animeLook: false,
   look: '---00',
   deathReplay: true,
+  cinematics: 'full',
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -150,6 +153,7 @@ settings.portraitPops ??= true;
 settings.animeLook ??= false;
 settings.look ??= '---00';
 settings.deathReplay ??= true;
+settings.cinematics ??= 'full';
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

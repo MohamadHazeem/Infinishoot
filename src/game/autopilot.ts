@@ -1,6 +1,7 @@
 import type { Game } from './game';
 import { Team } from './bullets';
 import { pilotGameplay } from './systems/gameplay';
+import { goldenPortalAt } from './systems/cinematics';
 
 /**
  * The autoplay brain: what a bot-driven hero wants to do this step. Shared by
@@ -78,8 +79,10 @@ export class Autopilot {
     let mx: number;
     let mz: number;
     if (g.mode === 'portal') {
-      mx = g.portal.x - p.x;
-      mz = g.portal.z - p.z;
+      // A flawless stage's golden portal beats the normal one (cinematics lane).
+      const to = goldenPortalAt(g) ?? g.portal;
+      mx = to.x - p.x;
+      mz = to.z - p.z;
     } else if (boss) {
       // Circle the boss at a safe-ish distance.
       const dx = p.x - boss.x;

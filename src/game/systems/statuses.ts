@@ -630,6 +630,7 @@ export function updateChestSpawns(this: Game, dt: number): void {
     const z = this.rng.range(-lim, lim);
     if (this.walls.hitCircle(x, z, 1.2)) continue;
     const facing = this.rng.range(0, Math.PI * 2);
+    if (this.jackpotRoll(x, z, facing)) return; // now and then a golden jackpot chest instead (systems/cinematics.ts)
     this.chests.add(x, z, facing);
     this.host?.broadcast({ t: 'chestspawn', x, z, f: facing });
     this.vfx.ring(x, z, 1, 6, '#ffcd75', 0.6);
