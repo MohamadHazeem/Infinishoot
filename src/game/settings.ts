@@ -106,6 +106,10 @@ export interface Settings extends DisplayOptions {
   coopJoinable: boolean;
   /** Friends' help ghosts appear in your runs (EXTRAS > HELP GHOSTS). */
   helpGhosts: boolean;
+  /** CO-OP CAMERA (eightp lane): frame nearby teammates ('team') or follow only your hero ('me'). */
+  coopCamera: 'team' | 'me';
+  /** TEAMMATE WEAPONS (eightp lane): volume of other players' weapon sounds, 0-1 (yours always play in full). */
+  mateWeapons: number;
   /** Online: the NETWORK panel with everyone's ping, packet loss and snapshot rate (netcode lane). */
   netOverlay: boolean;
   /** CINEMATICS: sky-fall transitions, the ending, legendary reveals, jackpot reels (full, short or off). */
@@ -188,6 +192,8 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   coopPool: false,
   coopJoinable: true,
   helpGhosts: true,
+  coopCamera: 'team',
+  mateWeapons: 0.8,
   netOverlay: false,
   cinematics: 'full',
   teamName: '',
@@ -230,6 +236,8 @@ settings.deathReplay ??= true;
 settings.coopPool ??= false;
 settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
+settings.coopCamera = settings.coopCamera === 'me' ? 'me' : 'team';
+settings.mateWeapons = Number.isFinite(settings.mateWeapons) ? Math.max(0, Math.min(1, settings.mateWeapons)) : 0.8;
 settings.netOverlay ??= false;
 settings.cinematics ??= 'full';
 settings.teamName ??= '';

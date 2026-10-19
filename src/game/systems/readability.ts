@@ -7,6 +7,7 @@
 import type * as THREE from 'three';
 import type { Game } from '../game';
 import { heroMarkerTuning, RigOverlay } from '../../render/rigOverlay';
+import { onScreen } from '../../render/lod';
 
 const overlays = new WeakMap<THREE.Object3D, RigOverlay>();
 
@@ -20,6 +21,7 @@ export function updateHeroMarkers(game: Game): void {
       overlays.set(root, o);
     }
     const color = coop ? h.color : heroMarkerTuning.soloColor;
+    o.detail = !coop || h === game.hero || onScreen(game.cam.camera, root.position.x, 1, root.position.z); // eightp: no outline/x-ray draws for teammates off screen
     o.update(color, !h.player.dead && !h.left && game.mode !== 'title');
   }
 }

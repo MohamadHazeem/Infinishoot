@@ -8,6 +8,7 @@ import type { Game } from '../game';
 import { ENEMIES } from '../../data/enemies';
 import { autoZoom, teamFrame, viewBand } from '../animMath';
 import { settings } from '../settings';
+import { frameMates } from './eightp';
 
 const mates = new Float64Array(8);
 const frame = { x: 0, z: 0, zoom: 1 };
@@ -40,16 +41,9 @@ export function cameraDirector(this: Game): void {
   }
   cam.auto = autoZoom(near, edge, boss);
   // Co-op: keep living teammates in view (bounded; further ones keep their edge arrows).
-  let n = 0;
   const me = this.hero;
   const watch = me.player.dead && this.heroes.length > 1 ? this.spectateTarget() : null;
-  for (const h of this.heroes) {
-    if (h === me || h.left || h.player.dead || n >= 4 || h.player === watch) continue;
-    const r = h.player.rig.root.position;
-    mates[n * 2] = r.x;
-    mates[n * 2 + 1] = r.z;
-    n++;
-  }
+  const n = frameMates(this, watch, mates); // up to 4 heroes: everyone; 5-8: the nearest group; CO-OP CAMERA: ME (systems/eightp.ts)
   teamFrame(fx, fz, mates, n, frame);
   cam.frameTeam(frame.x, frame.z, frame.zoom);
 }
