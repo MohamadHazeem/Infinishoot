@@ -10,6 +10,9 @@ import { Team } from '../game/bullets';
  *                             (per-stage level and loadout ranks, boss kill times,
  *                             first evolution; it resets when a new run starts)
  *   botStep()              -> one simulation step with bot input
+ *   botAuto(on)            -> drive the live game loop with bot input (co-op tests:
+ *                             works as host or client; clients pick cards and shop
+ *                             through the UI messages)
  * The bot kites in a circle, dodges enemy bullets, shoots the boss (or the
  * nearest enemy), holds right click in bursts, dashes when cornered and
  * always picks the first card.
@@ -70,7 +73,10 @@ export function installBot(game: Game, input: Input): void {
     document.querySelector<HTMLElement>('#scr-shop [data-act=shop-done]')?.click();
   };
 
-  const step = () => {
+  const poll = input.poll.bind(input);
+  let uiT = 0;
+  /** Sets this step's bot input (keys, mouse, presses) and polls it. */
+  const drive = () => {
     const g = game;
     const p = g.player;
     inp.keys.clear();
@@ -142,11 +148,26 @@ export function installBot(game: Game, input: Input): void {
     if (g.hero.skill.ult >= 1 && bd < 8) inp.pressed.add('KeyV');
     for (let i = 0; i < g.bullets.count; i++) if (g.bullets.team[i] === 1 && Math.hypot(g.bullets.x[i] - p.x, g.bullets.z[i] - p.z) < 1.4) inp.pressed.add('KeyC');
     // The bot picks the first card straight away (it skips the human pick lock).
-    if (g.mode === 'levelup' && g.hero.needsPick) (g as unknown as { ui(a: string, i: number): void }).ui('pick', 0);
-    if (g.mode === 'shop') shop();
-    inp.poll();
+    const ui = (g as unknown as { ui(a: string, i: number): void }).ui.bind(g);
+    if (g.role === 'client') {
+      // Clients answer the host's menus through UI messages; throttled so they don't flood it.
+      uiT -= 1 / 60;
+      if (uiT <= 0 && g.screens.current === 'levelup') (ui('pick', 0), (uiT = 0.3));
+      else if (uiT <= 0 && g.screens.current === 'shop') (shop(), (uiT = 0.5));
+    } else {
+      if (g.mode === 'levelup' && g.hero.needsPick) ui('pick', 0);
+      if (g.mode === 'shop') shop();
+    }
+    poll();
     inp.device = 'kbm';
-    g.update(1 / 60);
+  };
+  const step = () => {
+    drive();
+    game.update(1 / 60);
+  };
+  /** Live loop: every poll of the real game loop gets bot input instead. */
+  const auto = (on: boolean) => {
+    input.poll = on ? drive : poll;
   };
 
   const run = (seconds: number, god = false) => {
@@ -194,5 +215,5 @@ export function installBot(game: Game, input: Input): void {
     };
   };
 
-  Object.assign(window, { botStep: step, botRun: run });
+  Object.assign(window, { botStep: step, botRun: run, botAuto: auto });
 }

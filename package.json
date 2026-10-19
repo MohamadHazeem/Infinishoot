@@ -14,6 +14,7 @@
     "test": "node scripts/run-tests.mjs",
     "smoke": "node scripts/run-tests.mjs smoke",
     "shot": "node scripts/shot.mjs",
+    "coop": "node scripts/coop-test.mjs",
     "icons": "node scripts/icons.mjs",
     "format": "prettier --write \"src/**/*.{ts,css}\"",
     "app": "npm run build && electron .",

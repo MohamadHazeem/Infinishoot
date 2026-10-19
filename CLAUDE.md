@@ -10,6 +10,7 @@ Roadmap and decision log: @PLAN.md
 - `npm test`: unit tests in tests/*.test.ts (bundled with rolldown, run in Node)
 - `npm run smoke`: headless whole-game smoke test (jsdom, autoplay bot through every mode and hero, fails on any runtime error); CI runs both
 - `npm run shot -- "?test&stage=4&boss" shots/x.png`: headless screenshot of a test link (src/dev/testLinks.ts); see CONTRIBUTING.md for the link options
+- `npm run coop`: two headless game instances play online co-op (host + client via the PeerJS broker, dev bot on both via `botAuto`), forced boss/arena/skill situations, host-vs-client state checks and screenshots in shots/coop/; fails on page errors or lasting desyncs (notes/lanes/coop.md)
 - Workflow rules for people and agents: CONTRIBUTING.md (Codex reads AGENTS.md). Most Game methods live in src/game/systems/*.ts.
 - `npm run app`: build and open the Electron desktop app
 - `npm run dist`: build the portable Windows exe to `release/InfiniShoot.exe` (Electron, electron/main.cjs).
