@@ -1,4 +1,4 @@
-import { localize, localizeHtml } from '../i18n';
+import { getLanguage, localize, localizeHtml } from '../i18n';
 import type { Game } from '../game/game';
 import { samples } from '../audio/samples';
 import { sfx } from '../audio/sfx';
@@ -538,7 +538,7 @@ export class PhotoMode {
 
   private drawSticker(x: CanvasRenderingContext2D, id: StickerId, cx: number, cy: number, u: number, alpha: number): void {
     if (id === 'none') return;
-    const sp = this.sprite(`st-${id}`, () => this.makeSticker(id));
+    const sp = this.sprite(`st-${getLanguage()}-${id}`, () => this.makeSticker(id));
     const s = u * (WORDS[id as keyof typeof WORDS] ? 3 : 2);
     x.globalAlpha = alpha;
     x.drawImage(sp, Math.round(cx - (sp.width * s) / 2), Math.round(cy - (sp.height * s) / 2), sp.width * s, sp.height * s);
@@ -604,15 +604,18 @@ export class PhotoMode {
 
   /** Small caps text in Silkscreen (an 8-pixel font, so it stays crisp when scaled by whole numbers). */
   private pixelText(text: string, size: number, color: string, outline: string | null): HTMLCanvasElement {
+    text = localize(text);
+    const arabic = /[\u0600-\u06ff]/.test(text);
     return this.sprite(`t-${text}-${size}-${color}-${outline}`, () => {
-      const font = `${size}px "Silkscreen", monospace`;
+      const font = `${size}px "${arabic ? 'Infini Arabic' : 'Silkscreen'}", monospace`;
       const [m, mx] = this.canvas(4, 4);
       mx.font = font;
       const w = Math.ceil(mx.measureText(text).width) + 2;
-      const [c, x] = this.canvas(w, size + 2);
+      const [c, x] = this.canvas(w, Math.ceil(size * (arabic ? 1.7 : 1)) + 2);
       void m;
       x.font = font;
       x.textBaseline = 'top';
+      x.textAlign = 'left';
       x.fillStyle = color;
       x.fillText(text, 1, 1);
       return this.crisp(c, outline);
@@ -723,13 +726,15 @@ export class PhotoMode {
       case 'gg':
       case 'wow':
       case 'oneup': {
-        const [word, color, burst] = WORDS[id];
-        const font = '8px "Silkscreen", monospace';
+        const [source, color, burst] = WORDS[id];
+        const word = localize(source);
+        const arabic = /[\u0600-\u06ff]/.test(word);
+        const font = `8px "${arabic ? 'Infini Arabic' : 'Silkscreen'}", monospace`;
         const [, mx] = this.canvas(4, 4);
         mx.font = font;
         const tw = Math.ceil(mx.measureText(word).width);
         const W = tw + (burst ? 12 : 4);
-        const H = burst ? 18 : 12;
+        const H = arabic ? 22 : burst ? 18 : 12;
         const [cc, cx] = this.canvas(W, H);
         if (burst) {
           // A spiky comic burst behind the word.
@@ -748,8 +753,9 @@ export class PhotoMode {
         }
         cx.font = font;
         cx.textBaseline = 'top';
+        cx.textAlign = 'left';
         const tx = Math.round((W - tw) / 2);
-        const ty = Math.round((H - 8) / 2) - 1;
+        const ty = Math.round((H - (arabic ? 14 : 8)) / 2) - 1;
         // Letters with a hard ink drop, then the colour.
         cx.fillStyle = C.ink;
         cx.fillText(word, tx + 1, ty + 1);

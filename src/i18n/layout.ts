@@ -7,6 +7,8 @@ const CSS = `
 [lang=ar] #hud, [lang=ar] #hud * { letter-spacing: 0; }
 [lang=ar] .screen { line-height: 1.65; }
 [lang=ar] .screen h1 { font-size: 34px; line-height: 1.6; margin-block: 0; }
+[lang=ar] #scr-gameover { justify-content: flex-start; padding-top: 28px; }
+[lang=ar] #scr-gameover > h1 { flex-shrink: 0; }
 [lang=ar] .screen button { font-size: 19px; line-height: 1.6; }
 [lang=ar] .screen .note, [lang=ar] .screen .desc, [lang=ar] .screen small { line-height: 1.7; }
 [lang=ar] .screen .note { font-size: 15px; }

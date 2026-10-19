@@ -103,7 +103,7 @@ export class MenuNav {
     const prevPad = this.opts.horizontal ? 14 : 12;
     const nextPad = this.opts.horizontal ? 15 : 13;
     const cols = this.opts.columns ?? 1;
-    const horizontalDir = isRtl() ? -1 : 1;
+    const horizontalDir = isRtl() && !this.items[this.focus]?.closest('.owned-mods') ? -1 : 1;
     if (cols > 1) {
       // Grids: up/down go to the nearest item on screen in that direction, so rows of any length work.
       if (prevKeys.some(k) || pad(prevPad) || stick < 0) this.setFocus(this.nearestVertical(-1));
