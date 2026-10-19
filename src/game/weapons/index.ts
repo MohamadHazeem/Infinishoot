@@ -24,6 +24,9 @@ import { Pellets } from './pellets';
 import { Bouncer } from './bouncer';
 import { Starfall } from './starfall';
 import { FusionWeapon } from './fusion';
+import { Katana } from './katana';
+import { Iaido } from './iaido';
+import { Beacon } from './beacon';
 import type { WeaponDef } from '../../data/weapons';
 
 export { Weapon } from './base';
@@ -80,6 +83,13 @@ export function createWeapon(id: string, scene: THREE.Scene, def: WeaponDef = WE
       return new Bouncer(def, scene);
     case 'starfall':
       return new Starfall(def);
+    // Hero kits (src/data/heroWeapons.ts): the Ronin's sword and dash-strike, the Tinker's beacon.
+    case 'katana':
+      return new Katana(def, scene);
+    case 'iaido':
+      return new Iaido(def, scene);
+    case 'beacon':
+      return new Beacon(def, scene);
     default:
       throw new Error(`Unknown weapon: ${id}`);
   }

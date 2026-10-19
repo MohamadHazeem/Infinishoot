@@ -72,7 +72,7 @@ export interface WeaponCtx {
   /** Area blast that damages enemies (never the player). */
   blast(x: number, z: number, r: number, base: number, color: string, source: string, tags?: Tag[]): void;
   sound(
-    name: 'scatter' | 'pellets' | 'laser' | 'sweeper' | 'nova' | 'aura' | 'orb' | 'bouncer' | 'drone' | 'meteor' | 'zap' | 'disc' | 'missile' | 'mine' | 'freeze' | 'explode' | 'shoot' | 'flame' | 'charge' | 'chargeFull' | 'chargeShot' | 'lob' | 'vortex' | 'shieldUp' | 'block' | 'uplink' | 'beam' | 'rail' | 'mechCannon' | 'mechMissile',
+    name: 'scatter' | 'pellets' | 'laser' | 'sweeper' | 'nova' | 'aura' | 'orb' | 'bouncer' | 'drone' | 'meteor' | 'zap' | 'disc' | 'missile' | 'mine' | 'freeze' | 'explode' | 'shoot' | 'flame' | 'charge' | 'chargeFull' | 'chargeShot' | 'lob' | 'vortex' | 'shieldUp' | 'block' | 'uplink' | 'beam' | 'rail' | 'mechCannon' | 'mechMissile' | 'swordSlash' | 'swordCombo' | 'swordDash' | 'summon' | 'minionZap',
   ): void;
   /** The weapon updating right now: its evolution adds a sound layer to `sound()` (src/audio/evoLayers.ts). */
   soundSource?: Weapon | null;

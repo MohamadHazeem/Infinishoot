@@ -17,7 +17,9 @@ export interface HeroDef {
   /** Ultimate id (src/game/ultimates.ts ULTS). */
   ult: string;
   /** A unique hero mechanic (src/game/heroMechs.ts), on top of the stat quirks. */
-  mech?: 'duelist' | 'furnace' | 'twin';
+  mech?: 'duelist' | 'furnace' | 'twin' | 'ronin' | 'tinker';
+  /** Hero kit clicks (src/data/heroWeapons.ts) that replace the loadout's left / right click. */
+  clicks?: { primary?: string; secondary?: string };
 }
 
 export const HEROES: HeroDef[] = [
@@ -85,7 +87,37 @@ export const HEROES: HeroDef[] = [
     ult: 'mirror',
     mech: 'twin',
   },
+  // heroes3 lane (src/game/systems/heroes3.ts): a melee hero and a summoner.
+  {
+    id: 'ronin',
+    name: 'Ronin',
+    desc: 'Melee. LEFT CLICK is a 3-hit sword combo (the third hit cleaves), RIGHT CLICK a focused dash-strike through enemies; a parry answers with a counter-slash. +20 life, +1 armor, 5% faster. ULTIMATE: Thousand Cuts.',
+    start: [],
+    add: { maxHp: 20, armor: 1, moveSpeedMul: 0.05 },
+    build: [1.02, 1.04],
+    unlock: 'point_blank',
+    ult: 'cuts',
+    mech: 'ronin',
+    clicks: { primary: 'katana', secondary: 'iaido' },
+  },
+  {
+    id: 'tinker',
+    name: 'Tinker',
+    desc: 'Builds an army: little robots assemble every few seconds (more as the team levels) and zap nearby enemies. RIGHT CLICK drops a turret beacon that repairs. -10 life. ULTIMATE: Scrap Legion.',
+    start: [],
+    add: { maxHp: -10 },
+    build: [0.94, 0.94],
+    unlock: 'workshop',
+    ult: 'legion',
+    mech: 'tinker',
+    clicks: { secondary: 'beacon' },
+  },
 ];
+
+/** The clicks a hero actually plays with: its kit's clicks (Ronin, Tinker) over the loadout's. */
+export function heroClicks(def: HeroDef, l: { primary: string; secondary: string }): { primary: string; secondary: string } {
+  return { primary: def.clicks?.primary ?? l.primary, secondary: def.clicks?.secondary ?? l.secondary };
+}
 
 export const HERO_BY_ID = Object.fromEntries(HEROES.map((h) => [h.id, h])) as Record<string, HeroDef>;
 

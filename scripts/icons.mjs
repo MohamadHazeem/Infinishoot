@@ -205,6 +205,16 @@ const ART = {
   route_event: 'perspective-dice-six-faces-random',
   route_rest: 'fire-bowl',
   route_hard: 'dread-skull',
+  // hero kits (heroes3 lane): the Ronin's sword and dash-strike, the Tinker's beacon
+  katana: 'katana',
+  katana_evo: 'crescent-blade',
+  katana_evo2: 'bloody-sword',
+  iaido: 'quick-slash',
+  iaido_evo: 'ghost',
+  iaido_evo2: 'lightning-saber',
+  beacon: 'radar-dish',
+  beacon_evo: 'laser-turret',
+  beacon_evo2: 'auto-repair',
 };
 
 const set = JSON.parse(readFileSync(new URL('../node_modules/@iconify-json/game-icons/icons.json', import.meta.url), 'utf8'));

@@ -36,4 +36,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'riposte', name: 'Riposte', desc: 'Parry 25 times in one run' },
   { id: 'immovable', name: 'Immovable', desc: 'Stand still for 20 seconds straight during a stage' },
   { id: 'double_trouble', name: 'Double Trouble', desc: 'Evolve both your left and right click in one run' },
+  // heroes3 lane: Ronin and Tinker (checked in src/game/systems/heroes3.ts).
+  { id: 'point_blank', name: 'Point Blank', desc: 'Defeat 150 enemies within 2.5 m of you in one run' },
+  { id: 'workshop', name: 'Workshop', desc: 'Hold 4 auto weapons at level 5 or higher in one run' },
 ];

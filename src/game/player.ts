@@ -153,6 +153,20 @@ export class Player {
     if (this.dashStock >= this.dashMax) this.dashCd = 0;
   }
 
+  /** Speed of a forced dash (`lunge`), 0 = a normal dash. */
+  private lungeSpeed = 0;
+
+  /** Forced dash along (dirX, dirZ) for `time` s at `speed` m/s, with i-frames (the Ronin's dash-strike). */
+  lunge(dirX: number, dirZ: number, time: number, speed: number): void {
+    const l = Math.hypot(dirX, dirZ) || 1;
+    this.dashX = dirX / l;
+    this.dashZ = dirZ / l;
+    this.dashT = time;
+    this.lungeSpeed = speed;
+    this.invuln = Math.max(this.invuln, time + playerTuning.dashIframesExtra);
+    this.sqV -= 7;
+  }
+
   /** Squash-and-stretch kick (negative squashes down). */
   bounce(v: number): void {
     this.sqV += v;
@@ -304,6 +318,7 @@ export class Player {
       this.dashX /= l;
       this.dashZ /= l;
       this.dashT = t.dashTime;
+      this.lungeSpeed = 0;
       if (this.dashStock >= this.dashMax) this.dashCd = this.dashCooldownFull;
       this.dashStock--;
       this.invuln = Math.max(this.invuln, t.dashTime + t.dashIframesExtra);
@@ -313,9 +328,10 @@ export class Player {
 
     if (this.dashT > 0) {
       this.dashT -= dt;
-      this.vel.x = this.dashX * t.dashSpeed;
-      this.vel.z = this.dashZ * t.dashSpeed;
+      this.vel.x = this.dashX * (this.lungeSpeed || t.dashSpeed);
+      this.vel.z = this.dashZ * (this.lungeSpeed || t.dashSpeed);
       if (this.dashT <= 0) {
+        this.lungeSpeed = 0;
         // Exit the dash carrying normal run speed, not dash speed.
         this.vel.x = this.dashX * maxSpeed;
         this.vel.z = this.dashZ * maxSpeed;

@@ -85,6 +85,13 @@ export const EVO_LAYERS: Readonly<Record<string, EvoLayer>> = {
   'pellets.evo': { char: 'fire', pitch: 1.5, gain: 0.8 },
   'bouncer.evo': { char: 'swarm', pitch: 0.9, gain: 0.8 },
   'starfall.evo': { char: 'prism', pitch: 0.75 },
+  // Hero kits (heroes3 lane): the Ronin's katana and dash-strike, the Tinker's beacon.
+  'katana.tempest': { char: 'swarm', pitch: 1.4, gain: 0.8 },
+  'katana.crimson': { char: 'fire', pitch: 1.35, gain: 0.9 },
+  'iaido.phantom': { char: 'mirror', pitch: 0.85 },
+  'iaido.raijin': { char: 'thunder', pitch: 1.1 },
+  'beacon.fortress': { char: 'shock', pitch: 0.9 },
+  'beacon.medbay': { char: 'radiant', pitch: 1.3, gain: 0.8 },
 };
 
 /** Fallback for evolutions added later without a layer entry: a bright sparkle. */

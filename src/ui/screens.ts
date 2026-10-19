@@ -947,7 +947,10 @@ export class Screens {
             </button>`;
           })
           .join('');
-        return `<div class="lo-row"><div class="lo-label">${label}</div><div class="lo-cards">${cards}</div></div>`;
+        // Hero kits (Ronin, Tinker) replace a click: say so on its row (src/data/heroWeapons.ts).
+        const hk = HEROES.find((x) => x.id === settings.hero)?.clicks?.[slot as 'primary' | 'secondary'];
+        const kitNote = hk ? ` · ${(HEROES.find((x) => x.id === settings.hero)?.name ?? '').toUpperCase()} USES ${WEAPONS[hk]?.name.toUpperCase()}` : '';
+        return `<div class="lo-row"><div class="lo-label">${label}${kitNote}</div><div class="lo-cards">${cards}</div></div>`;
       })
       .join('');
   }

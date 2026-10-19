@@ -366,6 +366,16 @@ function paintHero(p: Painter, look: PortraitLook, expr: Expression, blink: bool
     p.line(9, 11 + hurt, 22, 11 + hurt, mix(armor, 0xfff6d0, 0.3));
   }
 
+  if (id === 'tinker') {
+    // Big goggles pushed up on the helmet: a dark strap, gold rims, cyan lenses.
+    p.line(5, 9 + hurt, 26, 9 + hurt, 0x333c57);
+    for (const gx of [11.5, 20.5]) {
+      p.ellipse(gx, 8.5 + hurt, 3, 2.8, 0xffcd75, { ink: true });
+      p.ellipse(gx, 8.5 + hurt, 1.7, 1.6, 0x73eff7, { shade: 'flat' });
+      p.dot(gx - 1, 7.5 + hurt, WHITE);
+    }
+  }
+
   // Fringe under the brim.
   const hy2 = 13 + hurt;
   p.rect(9, hy2, 22, hy2, hair, { shade: 'flat' });
@@ -392,6 +402,16 @@ function paintHero(p: Painter, look: PortraitLook, expr: Expression, blink: bool
     p.dots([11, 14, 13, 14, 18, 14, 20, 14], mix(SKIN, 0x3b5dc9, 0.55)); // gloom lines
   }
   if (expr === 'victorious') sparkle(p, 28, 4);
+  if (id === 'ronin') {
+    // A wide straw kasa over the helmet, with a red band, and a headband tail flying out.
+    const STRAW = 0xd9a95b;
+    p.poly([0, 10 + hurt, 16, -1 + hurt, 32, 10 + hurt, 28, 11 + hurt, 4, 11 + hurt], STRAW, { ink: true });
+    p.line(3, 10 + hurt, 28, 10 + hurt, mix(STRAW, 0x1a1c2c, 0.35));
+    p.line(9, 7 + hurt, 22, 7 + hurt, 0xb13e53);
+    p.line(8, 8 + hurt, 23, 8 + hurt, mix(0xb13e53, 0x1a1c2c, 0.3));
+    p.dots([13, 3 + hurt, 15, 2 + hurt, 18, 4 + hurt, 11, 5 + hurt], mix(STRAW, 0xfff6d0, 0.4));
+    p.poly([26, 16 + hurt, 31, 19 + hurt, 30, 21 + hurt, 25, 18 + hurt], 0xb13e53, { ink: true });
+  }
 }
 
 // ---------------------------------------------------------------- bosses

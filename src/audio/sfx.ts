@@ -624,6 +624,43 @@ class Sfx {
     this.tone(ctx, 'square', 900, 300, 0.2, 0.08, 0.05);
   }
 
+  // heroes3 lane: the Ronin's sword and the Tinker's bots (samples sword_*, summon, minion_zap in mix.ts cueSamples).
+  swordSlash(pitch = 1): void {
+    const ctx = this.begin('swordSlash', 0.04);
+    if (!ctx) return;
+    this.noise(ctx, 0.11, 0.3, 3200 * pitch, 900, 1.5);
+    this.tone(ctx, 'triangle', 1900 * pitch, 700 * pitch, 0.08, 0.08);
+  }
+
+  swordCombo(pitch = 1): void {
+    const ctx = this.begin('swordCombo', 0.12);
+    if (!ctx) return;
+    this.noise(ctx, 0.2, 0.42, 2600 * pitch, 500, 1.2);
+    this.tone(ctx, 'sawtooth', 420 * pitch, 110, 0.18, 0.14);
+    this.tone(ctx, 'triangle', 2400 * pitch, 1200, 0.12, 0.07, 0.03);
+  }
+
+  swordDash(pitch = 1): void {
+    const ctx = this.begin('swordDash', 0.1);
+    if (!ctx) return;
+    this.noise(ctx, 0.28, 0.35, 700 * pitch, 4200, 2);
+    this.tone(ctx, 'triangle', 2800 * pitch, 1500, 0.1, 0.08, 0.2);
+  }
+
+  summon(pitch = 1): void {
+    const ctx = this.begin('summon', 0.15);
+    if (!ctx) return;
+    for (let i = 0; i < 4; i++) this.tone(ctx, 'square', (520 + i * 180) * pitch, (560 + i * 200) * pitch, 0.06, 0.05, i * 0.05);
+    this.noise(ctx, 0.15, 0.12, 5000, 2500, 3, 0.18);
+  }
+
+  minionZap(pitch = 1): void {
+    const ctx = this.begin('minionZap', 0.05);
+    if (!ctx) return;
+    this.tone(ctx, 'square', 1500 * pitch, 2600 * pitch, 0.05, 0.05);
+    this.noise(ctx, 0.05, 0.1, 6000, 3000, 4);
+  }
+
   explode(): void {
     const ctx = this.begin('explode', 0.05);
     if (!ctx) return;
@@ -790,6 +827,24 @@ class Sfx {
         break;
       case 'missile':
         this.noise(ctx, 0.25, 0.2, 400, 2400, 2);
+        break;
+      // heroes3 lane: sword and bot cues (samples in mix.ts weaponSamples).
+      case 'swordSlash':
+        this.noise(ctx, 0.11, 0.3, 3200 * p, 900, 1.5);
+        this.tone(ctx, 'triangle', 1900 * p, 700 * p, 0.08, 0.08);
+        break;
+      case 'swordCombo':
+        this.noise(ctx, 0.2, 0.42, 2600 * p, 500, 1.2);
+        this.tone(ctx, 'sawtooth', 420 * p, 110, 0.18, 0.14);
+        break;
+      case 'swordDash':
+        this.noise(ctx, 0.28, 0.35, 700 * p, 4200, 2);
+        break;
+      case 'summon':
+        for (let i = 0; i < 4; i++) this.tone(ctx, 'square', (520 + i * 180) * p, (560 + i * 200) * p, 0.06, 0.05, i * 0.05);
+        break;
+      case 'minionZap':
+        this.tone(ctx, 'square', 1500 * p, 2600 * p, 0.05, 0.05);
         break;
       case 'mine':
         this.tone(ctx, 'square', 200, 160, 0.05, 0.06);

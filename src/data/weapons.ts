@@ -2,6 +2,7 @@ import type { Rarity } from './rarity';
 import type { Tag } from './tags';
 import type { Upgradable } from './tracks';
 import { FUSION_FEEL, fusionWeaponDefs } from './fusions';
+import { HERO_WEAPON_FEEL, HERO_WEAPONS } from './heroWeapons';
 
 /**
  * Weapon definitions. Each level lists its full parameter set (not deltas)
@@ -39,6 +40,8 @@ export interface WeaponDef extends Upgradable {
   rarity: Rarity;
   /** Loadout slot; loadout weapons don't take an auto-weapon slot. */
   slot?: ArmSlot;
+  /** Only this hero's kit (src/data/heroWeapons.ts): never on the LOADOUT screen. */
+  heroOnly?: string;
   /** Weapons without tracks: the last level is an evolution (new name, colour and look). */
   evo?: { name: string; color: string };
   tags: Tag[];
@@ -831,6 +834,9 @@ export const WEAPON_FEEL: Record<string, Partial<WeaponFeel>> = {
 // Fusion weapons (src/data/fusions.ts) join the table so names, tags, feel and icons resolve by id.
 Object.assign(WEAPONS, fusionWeaponDefs(WEAPONS));
 Object.assign(WEAPON_FEEL, FUSION_FEEL);
+// Hero-only clicks (src/data/heroWeapons.ts): the Ronin's sword and dash-strike, the Tinker's beacon.
+Object.assign(WEAPONS, HERO_WEAPONS);
+Object.assign(WEAPON_FEEL, HERO_WEAPON_FEEL);
 
 for (const [id, f] of Object.entries(WEAPON_FEEL)) if (WEAPONS[id]) WEAPONS[id].feel = { ...DEFAULT_FEEL, ...f };
 

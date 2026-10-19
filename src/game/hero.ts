@@ -22,7 +22,7 @@ import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
 import { PET_BY_ID } from '../data/pets';
 import { PetState, PetView } from './pet';
 import { RELIC_BY_ID, rollRelic } from '../data/relics';
-import { HEROES, heroOf, type HeroDef } from '../data/heroes';
+import { HEROES, heroClicks, heroOf, type HeroDef } from '../data/heroes';
 import { HeroSkill } from './style';
 import { banishTuning, canBanish, offerKey } from './banish';
 import { HeroMech, attachHeroGear, detachHeroGear } from './heroMechs';
@@ -282,7 +282,8 @@ export class Hero implements SynergyHost {
     this.curseOffer = null;
     this.disposeWeapons();
     const lo = this.loadoutPick;
-    this.weapons = [createWeapon(lo.primary, this.world.scene), createWeapon(lo.secondary, this.world.scene)];
+    const clicks = heroClicks(this.heroDef, lo); // the Ronin's sword and the Tinker's beacon replace loadout clicks
+    this.weapons = [createWeapon(clicks.primary, this.world.scene), createWeapon(clicks.secondary, this.world.scene)];
     // The hero's own starting auto weapons (src/data/heroes.ts).
     for (const id of this.heroDef.start) {
       if (WEAPONS[id] && !WEAPONS[id].slot && !this.weapons.some((w) => w.def.id === id)) this.weapons.push(createWeapon(id, this.world.scene));

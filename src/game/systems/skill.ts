@@ -465,6 +465,26 @@ export function skillHit(this: Game, e: Enemy, o: DamageOpts, dealt: number, cri
   }
 }
 
+/**
+ * A hit-stop for hero `by`'s big hit (heroes3 lane: the Ronin's cleave, cut and
+ * counter-slash): freezes a solo world, online only the hitter's own picture
+ * (like weapon feel above), with the same 10-step spacing.
+ */
+export function heroHitStop(g: Game, by: Hero, seconds: number): void {
+  if (seconds <= 0 || by.left) return;
+  const w = world(g);
+  if (!g.online) {
+    if (by === g.hero && g.stepN >= w.stopStep) {
+      g.juice.freeze(seconds);
+      w.stopStep = g.stepN + 10;
+    }
+  } else if (g.stepN >= (w.heroStop[by.index] ?? 0)) {
+    w.heroStop[by.index] = g.stepN + 10;
+    if (by === g.hero) onlineStop(g, seconds);
+    else if (by.remote) emit(g, 'hs', by, Math.round(seconds * 1000) / 1000);
+  }
+}
+
 /** Every kill (Game.killEnemy): style and ultimate charge for the killer. */
 export function skillKill(this: Game, e: Enemy, source: string, by: Hero | null): void {
   if (!by) return;

@@ -27,6 +27,7 @@ import { rightClickHeld } from '../chargeMode';
 import { onHeartbeat } from '../netFeel';
 import { onCoverMsg } from '../coverBreak';
 import { applySoundLaneNet } from './sound2';
+import { applyHeroes3Net, heroes3ClientStep } from './heroes3';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
@@ -225,6 +226,7 @@ export function clientUpdate(this: Game, dt: number): void {
   this.skillClientInput(control);
   this.companionClientInput(control);
   this.gameplayClientInput(control);
+  heroes3ClientStep(this, dt, control, rightClickHeld(input, control)); // the Ronin's own dash-strike (systems/heroes3.ts)
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
   const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
   const charging = rightClickHeld(input, control);
@@ -392,6 +394,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyWorldEventNet(s.we, s.wt);
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
+  applyHeroes3Net(this, s.h3); // Tinker bots (systems/heroes3.ts)
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();
