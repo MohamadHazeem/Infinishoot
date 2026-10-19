@@ -94,6 +94,9 @@ function localHero(): string {
 /** Conveyor belt speed (m/s). */
 const CONVEYOR_SPEED = 4;
 
+/** Chest pickup values from here up belong to one hero (OWNED_CHEST + hero index). */
+const OWNED_CHEST = 100;
+
 export const dropTuning = {
   xpMul: 0.45, // XP gem value per enemy XP point (lower = slower levelling)
   goldChance: 0.005, // (was 0.009: stage 1 paid ~150 gold, user) thinned with the horde like the utility drops, so income stays steady
@@ -232,7 +235,7 @@ interface NetShop {
   stage: number;
   curse: ShopView['curse'];
   secret: boolean;
-  relic: ShopView['relic'];
+  relicOffers: ShopView['relicOffers'];
   relics: string[];
 }
 
@@ -448,7 +451,7 @@ export class Game implements HeroWorld {
       },
       skinChanged: () => this.applyLocalSkin(),
       takeCurse: () => this.ui('curse'),
-      buyRelic: () => this.ui('relic'),
+      buyRelic: (i) => this.ui('relic', i),
     });
     window.addEventListener('keydown', (e) => {
       if (binds.autofire.includes(e.code) && this.isCombatMode && !this.paused && this.screens.current === 'none') {
@@ -1370,7 +1373,7 @@ export class Game implements HeroWorld {
       else if (a === 'heal') err = h.heal();
       else if (a === 'curse') err = this.takeCurse(h);
       else if (a === 'relic') {
-        err = h.buyRelic();
+        err = h.buyRelic(i);
         if (!err) this.vfx.sound('chest', h.player.x, h.player.z);
       }
       else if (a === 'done') {
@@ -1601,7 +1604,7 @@ export class Game implements HeroWorld {
       dt,
       this.collectors,
       (t, v, who) => this.collect(this.heroes[who], t, v),
-      (t, who) => t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS,
+      (t, who, v) => (t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS) && (t !== PickupType.Chest || v < OWNED_CHEST || v - OWNED_CHEST === who),
     );
     this.updateChests();
     if (this.mode === 'fight' && anyAlive && !this.pvp) this.updateChestSpawns(dt);
@@ -2277,9 +2280,9 @@ export class Game implements HeroWorld {
     const isBoss = !!def.boss;
     const big = e.elite || isBoss || def.id === 'reaper';
     if (big) {
-      // Every hero gets a chest from bosses; elites drop one.
-      const chests = isBoss ? Math.max(1, this.heroes.filter((h) => !h.left).length) : 1;
-      for (let i = 0; i < chests; i++) this.pickups.spawn(PickupType.Chest, e.x + i * 0.8, e.z);
+      // Bosses drop one chest per hero that only its owner can open (value OWNED_CHEST + hero index); elites drop one for anyone.
+      if (isBoss) this.heroes.forEach((h, i) => !h.left && this.pickups.spawn(PickupType.Chest, e.x + i * 0.8, e.z, OWNED_CHEST + i));
+      else this.pickups.spawn(PickupType.Chest, e.x, e.z);
       for (let i = 0; i < (isBoss ? 6 : 2); i++) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
       for (let i = 0; i < (isBoss ? 2 : 1); i++) this.pickups.spawn(PickupType.Gear, e.x, e.z);
       if (e.elite) {
@@ -3431,7 +3434,7 @@ export class Game implements HeroWorld {
         this.screens.showWait((m.who as string[]) ?? []);
         break;
       case 'go':
-        if (['levelup', 'shop', 'wait'].includes(this.screens.current)) this.screens.show('none');
+        if (['levelup', 'shop', 'relic', 'wait'].includes(this.screens.current)) this.screens.show('none');
         break;
       case 'toast':
         this.hud.toast(String(m.msg));

@@ -140,7 +140,7 @@ export class Pickups {
    * collector in range (its magnet stat scales the range); `collect` gets
    * the collector's index.
    */
-  update(dt: number, collectors: Collector[], collect: (type: PickupType, value: number, who: number) => void, canTake: (type: PickupType, who: number) => boolean = () => true): void {
+  update(dt: number, collectors: Collector[], collect: (type: PickupType, value: number, who: number) => void, canTake: (type: PickupType, who: number, value: number) => boolean = () => true): void {
     for (let i = 0; i < this.count; i++) {
       this.age[i] += dt;
       // Nearest living collector.
@@ -157,7 +157,7 @@ export class Pickups {
       }
       const t = this.type[i];
       // A collector that can't take it (gears at the cap) leaves it lying there.
-      if (ci >= 0 && !canTake(t as PickupType, ci)) {
+      if (ci >= 0 && !canTake(t as PickupType, ci, this.value[i])) {
         ci = -1;
         this.pulled[i] = 0;
       }

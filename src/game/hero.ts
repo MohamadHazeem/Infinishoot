@@ -660,9 +660,9 @@ export class Hero implements SynergyHost {
 
   // ---------------------------------------------------------------- shop
 
-  /** This visit is the secret merchant: rare and cursed Mods at 25% off, plus a free relic. */
+  /** This visit is the secret merchant: rare and cursed Mods at 25% off, plus a free pick of one of these relics. */
   secretShop = false;
-  relicOffer: string | null = null;
+  relicOffers: string[] = [];
 
   /** `pre`: the starting shop before stage 1 (its gold isn't kept, so no curse deals there). */
   openShop(secret = false, pre = false): void {
@@ -670,7 +670,11 @@ export class Hero implements SynergyHost {
     this.shopHealed = false;
     this.shopDone = false;
     this.secretShop = secret;
-    this.relicOffer = secret ? (rollRelic(this.relics, this.stats.luck, () => this.rng.next())?.id ?? null) : null;
+    this.relicOffers = [];
+    for (let k = 0; secret && k < 3; k++) {
+      const r = rollRelic([...this.relics, ...this.relicOffers], this.stats.luck, () => this.rng.next());
+      if (r) this.relicOffers.push(r.id);
+    }
     this.rollShop();
     const left = CURSES.filter((c) => !this.world.activeCurses.includes(c.id));
     this.curseOffer = !pre && left.length && this.rng.chance(0.85) ? left[Math.floor(this.rng.next() * left.length)].id : null;
@@ -689,12 +693,12 @@ export class Hero implements SynergyHost {
     }
   }
 
-  /** Take the secret merchant's relic: relics are free (user), the merchant just has one to give. */
-  buyRelic(): string {
-    const id = this.relicOffer;
+  /** Take one of the secret merchant's relics: relics are free (user), the others go away. */
+  buyRelic(i: number): string {
+    const id = this.relicOffers[i];
     if (!id) return 'SOLD OUT';
     this.relics.push(id);
-    this.relicOffer = null;
+    this.relicOffers = [];
     this.recomputeStats();
     return '';
   }
@@ -753,7 +757,7 @@ export class Hero implements SynergyHost {
       loadout: this.loadout(),
       stage,
       secret: this.secretShop,
-      relic: this.relicOffer ? RELIC_BY_ID[this.relicOffer] : null,
+      relicOffers: this.relicOffers.map((id) => RELIC_BY_ID[id]),
       relics: this.relics,
       curse: this.curseOffer && !this.world.activeCurses.includes(this.curseOffer) ? (({ id, name, desc, icon, color, gold, score }) => ({ id, name, desc, icon, color, gold, score }))(CURSE_BY_ID[this.curseOffer]) : null,
     };

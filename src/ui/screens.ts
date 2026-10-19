@@ -26,7 +26,7 @@ import { ENEMIES } from '../data/enemies';
 import { ENEMY_TIPS } from '../data/bestiary';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic';
 
 export interface ScreenActions {
   start(): void;
@@ -58,7 +58,7 @@ export interface ScreenActions {
   /** The local skin setting changed. */
   skinChanged(): void;
   takeCurse(): void;
-  buyRelic(): void;
+  buyRelic(i: number): void;
 }
 
 export interface LobbyView {
@@ -91,7 +91,8 @@ export interface ShopView {
   pre?: boolean;
   /** The rare secret merchant (rare/cursed Mods at a discount, a free relic). */
   secret: boolean;
-  relic: { id: string; name: string; desc: string; icon: string; color: string; rarity?: Rarity } | null;
+  /** The secret merchant's relics: pick one, free, on the RELIC screen before the shop. */
+  relicOffers: RelicDef[];
   /** Relic ids this hero owns (shown in the shop's RELICS section, apart from the Mods). */
   relics: string[];
   /** Optional curse deal (one per shop visit). */
@@ -339,6 +340,13 @@ export class Screens {
     <button data-nav data-act="lo-back">BACK</button>
   </div>
 </div>
+<div id="scr-relic" class="screen dim" hidden>
+  <h1>PICK A RELIC</h1>
+  <p class="note">The secret merchant gives you one for free. Relics are always on and don't use a Mod slot.</p>
+  <div class="relic-offers"></div>
+  <div class="section relic-owned-title"></div>
+  <div class="relic-owned mod-strip"></div>
+</div>
 <div id="scr-wait" class="screen dim" hidden>
   <h1>WAITING</h1>
   <p class="note">Your teammates are still choosing:</p>
@@ -450,7 +458,7 @@ export class Screens {
   <div class="hiscores global" hidden></div>
 </div>`,
     );
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary'];
+    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'relic'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
@@ -458,6 +466,7 @@ export class Screens {
       settings: new MenuNav(this.els.settings, { onBack: () => this.show(this.settingsReturn) }),
       levelup: new MenuNav(this.els.levelup, { horizontal: true }),
       shop: new MenuNav(this.els.shop, { columns: 4 }),
+      relic: new MenuNav(this.els.relic, { horizontal: true }),
       unlocks: new MenuNav(this.els.unlocks, { horizontal: true, onBack: () => actions.title() }),
       savedata: new MenuNav(this.els.savedata, { horizontal: true, onBack: () => this.show('unlocks') }),
       gameover: new MenuNav(this.els.gameover, { horizontal: true }),
@@ -541,7 +550,7 @@ export class Screens {
         case 'take-curse':
           return actions.takeCurse();
         case 'buy-relic':
-          return actions.buyRelic();
+          return actions.buyRelic(Number(btn.dataset.index));
         case 'shop-done':
           return actions.shopDone();
         case 'settings':
@@ -1020,7 +1029,29 @@ export class Screens {
 
   // ---------------------------------------------------------------- shop
 
+  private showRelicPick(v: ShopView): void {
+    const el = this.els.relic;
+    el.querySelector('.relic-offers')!.innerHTML = v.relicOffers
+      .map(
+        (r, i) => `<button class="mod-card ${r.rarity} r-${r.rarity} relic-deal" data-nav data-act="buy-relic" data-index="${i}">
+          <div class="rarity">${RARITY[r.rarity].label} RELIC</div>
+          <div class="icon" style="--c:${r.color}">${iconHtml(r.id, r.color, r.icon)}</div>
+          <div class="name">${r.name}</div>
+          <div class="desc">${r.desc}</div>
+          <div class="price">TAKE FREE</div>
+        </button>`,
+      )
+      .join('');
+    const owned = v.relics.filter((id) => RELIC_BY_ID[id]);
+    el.querySelector('.relic-owned-title')!.textContent = owned.length ? `YOUR RELICS ${owned.length}` : '';
+    el.querySelector('.relic-owned')!.innerHTML = owned.map((id) => relicChip(RELIC_BY_ID[id])).join('');
+    if (this.current !== 'relic') sfx.shopOpen();
+    this.show('relic', 0);
+  }
+
   showShop(v: ShopView, focus?: number): void {
+    // The secret merchant's relic pick comes first, on its own screen, so it can't be missed.
+    if (v.relicOffers.length) return this.showRelicPick(v);
     const el = this.els.shop;
     const wasOpen = this.current === 'shop';
     el.querySelector('h1')!.textContent = v.pre ? 'STARTING SHOP' : v.secret ? 'SECRET SHOP' : `STAGE ${v.stage} SHOP`;
@@ -1059,20 +1090,10 @@ export class Screens {
         </button>`
       : '';
     el.querySelector('.shop-offers')!.insertAdjacentHTML('beforeend', curseCard);
-    // Relics sit in their own section: free, always on, and they don't take a Mod slot.
-    const r = v.relic;
-    const relicCard = r
-      ? `<button class="mod-card ${r.rarity ?? 'rare'} r-${r.rarity ?? 'rare'} relic-deal" data-nav data-act="buy-relic">
-          <div class="rarity">${RARITY[r.rarity ?? 'rare'].label} RELIC</div>
-          <div class="icon" style="--c:${r.color}">${iconHtml(r.id, r.color, r.icon)}</div>
-          <div class="name">${r.name}</div>
-          <div class="desc">${r.desc}</div>
-          <div class="price">TAKE FREE</div>
-        </button>`
-      : '';
+    // Owned relics get their own section: always on, and they don't take a Mod slot.
     const owned = v.relics.filter((id) => RELIC_BY_ID[id]).map((id) => relicChip(RELIC_BY_ID[id])).join('');
-    el.querySelector('.relic-title')!.textContent = r || owned ? `RELICS ${v.relics.length} — free, always on, no Mod slot` : '';
-    el.querySelector('.shop-relics')!.innerHTML = relicCard + (owned ? `<div class="mod-strip">${owned}</div>` : '');
+    el.querySelector('.relic-title')!.textContent = owned ? `YOUR RELICS ${v.relics.length} — always on, no Mod slot` : '';
+    el.querySelector('.shop-relics')!.innerHTML = owned ? `<div class="mod-strip">${owned}</div>` : '';
     el.querySelector('.shop-extras')!.innerHTML =
       `<button data-nav data-act="shop-reroll" class="${v.rerollCost > v.gold ? 'cant' : ''}">REROLL ${v.rerollCost ? `<span class="gold-dot"></span> ${v.rerollCost}` : 'FREE'}</button>` +
       `<button data-nav data-act="shop-heal" class="${v.healed || v.healCost > v.gold ? 'cant' : ''}">HEAL 40% <span class="gold-dot"></span> ${v.healCost}</button>` +
