@@ -40,6 +40,7 @@ import { smashCover } from '../game/coverBreak';
  *   ?test&objective=totems&near=totem   force the stage objective, start next to an arena toy
  *     near: pad, turret, pillar, crate, totem, shard, beacon, lava, ice, quicksand, thorns
  *   ?test&stage=4&topple                topple the pillar nearest the hero
+ *   ?test&stage=2&smash=2              stand by the nearest ruin wall/rock/tree and smash it after 2 s (Rex's cover break)
  *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
  *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
