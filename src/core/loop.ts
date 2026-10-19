@@ -1,3 +1,5 @@
+import { MobileFrameGate } from './mobile';
+
 /**
  * Fixed-timestep game loop. Simulation runs at a constant rate; rendering
  * runs every animation frame with an interpolation factor between the last
@@ -15,12 +17,14 @@ export interface LoopCallbacks {
   update(dt: number): void;
   render(alpha: number, frameDt: number): void;
   runHidden(): boolean;
+  batterySaver?(): boolean;
 }
 
 const TICKER = 'setInterval(() => postMessage(0), 1000 / 60);';
 
 export class GameLoop {
   private acc = 0;
+  private renderGate = new MobileFrameGate();
   private last = 0;
   private rafId = 0;
   private running = false;
@@ -69,7 +73,8 @@ export class GameLoop {
   private frame = (now: number): void => {
     if (!this.running) return;
     const frameDt = this.step(now);
-    this.cb.render(this.paused ? 1 : this.acc / SIM_DT, frameDt);
+    if (this.renderGate.ready(now, frameDt, this.cb.batterySaver?.() ?? false))
+      this.cb.render(this.paused ? 1 : this.acc / SIM_DT, this.renderGate.dt);
     this.rafId = requestAnimationFrame(this.frame);
   };
 }

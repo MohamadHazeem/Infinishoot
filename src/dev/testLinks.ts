@@ -251,6 +251,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   lobbyLinks(game, q); // lobby lane: lobbyx, lobbyx=count, party, friends (src/dev/lobbyLinks.ts)
   sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
+  // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
+  if (q.has('battery')) settings.batterySaver = true;
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
   // Settings lane: &settingstab=0..5, &vision=protanopia|deuteranopia|tritanopia, &textsize=150, &reduceeffects.

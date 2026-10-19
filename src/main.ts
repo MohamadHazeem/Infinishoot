@@ -9,6 +9,8 @@ import { renderQuality } from './render/quality';
 import { Game, cheats } from './game/game';
 import { applySettings, autoQualityTick, settings } from './game/settings';
 import { setupTouch } from './ui/touch';
+import { setupTouchEditor } from './ui/touchEditor';
+import { setupMobilePwa } from './ui/mobilePwa';
 import { syncPrompts } from './ui/prompts';
 import { prof } from './core/prof';
 import type { PhotoMode } from './ui/photoMode';
@@ -28,7 +30,9 @@ const input = new Input(canvas);
 const game = new Game(input, renderer.aspect, hudEl, reticleEl);
 performance.mark('infinishoot:game');
 window.addEventListener('resize', () => game.cam.setAspect(renderer.aspect));
-setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none');
+setupTouchEditor(game.screens);
+setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none', game);
+setupMobilePwa();
 // Optional tools load only on their first use (including lil-gui and its tuning panels).
 let debugLoading = false;
 const openDebug = (e: KeyboardEvent) => {
@@ -84,6 +88,7 @@ let stageMeasured = false;
 const loop = new GameLoop({
   // Co-op hosts keep simulating in a background tab so clients don't freeze.
   runHidden: () => game.role === 'host',
+  batterySaver: () => settings.batterySaver,
 
   update(dt) {
     const t0 = prof.on ? performance.now() : 0;
