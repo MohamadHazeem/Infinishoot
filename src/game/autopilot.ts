@@ -103,7 +103,7 @@ export class Autopilot {
     }
     // Supply crates and mech suits nearby, and combo cash-ins (gameplay lane).
     const mv = { mx, mz };
-    if (g.mode !== 'portal') pilotHeroes3(g.hero.heroDef.mech, p.x, p.z, mv, boss ?? null); // the Ronin fights up close (heroes3 lane)
+    if (g.mode !== 'portal') pilotHeroes3(g.hero.heroDef?.mech, p.x, p.z, mv, boss ?? null); // the Ronin fights up close (heroes3 lane; help ghosts drive a stand-in without a hero def)
     o.cash = pilotGameplay(g, mv, Math.hypot(ax, az) > 1);
     const aim = pilotModes(g, mv); // mini-games, the Pacifist road (modes lane)
     if (aim !== undefined) best = aim;

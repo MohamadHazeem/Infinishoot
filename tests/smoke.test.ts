@@ -49,7 +49,7 @@ const game = new Game(input, 16 / 9, document.getElementById('hud')!, document.g
 installBot(game, input);
 const botRun = (globalThis as any).window.botRun as (s: number, god?: boolean) => Record<string, unknown>;
 // Unlock everything so all heroes/difficulties/weapons get exercised.
-save.achievements.push('boss_slayer', 'elite_hunter', 'speedster', 'stage_3', 'hard_stage3', 'first_steps', 'maxed', 'evolved', 'exterminator', 'arsenal', 'riposte', 'immovable', 'double_trouble');
+save.achievements.push('boss_slayer', 'elite_hunter', 'speedster', 'stage_3', 'hard_stage3', 'first_steps', 'maxed', 'evolved', 'exterminator', 'arsenal', 'riposte', 'immovable', 'double_trouble', 'point_blank', 'workshop');
 
 const runs: [string, string, string, number][] = [
   ['standard', 'normal', 'rookie', 900],
@@ -60,6 +60,9 @@ const runs: [string, string, string, number][] = [
   ['standard', 'normal', 'duelist', 240],
   ['endless', 'easy', 'furnace', 240],
   ['standard', 'hard', 'twin', 240],
+  // heroes3 lane: the melee Ronin and the summoner Tinker (src/game/systems/heroes3.ts).
+  ['standard', 'normal', 'ronin', 240],
+  ['endless', 'normal', 'tinker', 240],
 ];
 for (const [mode, diff, hero, secs] of runs) {
   settings.mode = mode;

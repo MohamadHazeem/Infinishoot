@@ -200,7 +200,9 @@ function fieldBoost(g: Game, owner: number, x: number, z: number): number {
   return (x - bc.x) ** 2 + (z - bc.z) ** 2 <= r * r ? bc.p.boost : 0;
 }
 
-const seen = (owner: number) => (e: Enemy) => e.pvpOwner === owner;
+/** Per owner: skip that hero's own PvP stand-in (cached, no allocation per retarget). */
+const skipOwn: ((e: Enemy) => boolean)[] = [];
+const seen = (owner: number) => (skipOwn[owner] ??= (e: Enemy) => e.pvpOwner === owner);
 
 function stepMinions(g: Game, w: H3World, dt: number): void {
   const m = w.minions;
@@ -463,20 +465,25 @@ class MinionView {
       part(new THREE.CylinderGeometry(0.02, 0.02, 0.24, 4), '#333c57', 0, 1.06, 0),
       part(new THREE.OctahedronGeometry(0.08, 0), '#b13e53', 0, 1.21, 0),
     ])!;
+    // A Scrap Legion mech: steel legs, an orange hull with a cyan cockpit, twin arm cannons and a yellow warning stripe.
     const mech = mergeGeometries([
       part(new THREE.BoxGeometry(0.34, 0.9, 0.42), '#566c86', -0.42, 0.45, 0),
       part(new THREE.BoxGeometry(0.34, 0.9, 0.42), '#566c86', 0.42, 0.45, 0),
       part(new THREE.BoxGeometry(0.46, 0.14, 0.64), '#333c57', -0.42, 0.07, 0.08),
       part(new THREE.BoxGeometry(0.46, 0.14, 0.64), '#333c57', 0.42, 0.07, 0.08),
-      part(new THREE.BoxGeometry(1.4, 0.95, 1.0), '#ffcd75', 0, 1.35, 0),
-      part(new THREE.BoxGeometry(0.7, 0.35, 0.08), '#73eff7', 0, 1.5, 0.52),
-      part(new THREE.BoxGeometry(0.9, 0.18, 0.1), '#ef7d57', 0, 1.0, 0.5),
-      part(new THREE.CylinderGeometry(0.16, 0.16, 0.9, 8).rotateX(Math.PI / 2), '#333c57', -0.92, 1.45, 0.3),
-      part(new THREE.CylinderGeometry(0.16, 0.16, 0.9, 8).rotateX(Math.PI / 2), '#333c57', 0.92, 1.45, 0.3),
-      part(new THREE.BoxGeometry(0.3, 0.5, 0.3), '#ffcd75', -0.92, 1.45, -0.1),
-      part(new THREE.BoxGeometry(0.3, 0.5, 0.3), '#ffcd75', 0.92, 1.45, -0.1),
-      part(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 4), '#333c57', 0.4, 2.05, -0.3),
-      part(new THREE.OctahedronGeometry(0.1, 0), '#b13e53', 0.4, 2.33, -0.3),
+      part(new THREE.BoxGeometry(1.4, 0.9, 1.0), '#ef7d57', 0, 1.33, 0),
+      part(new THREE.BoxGeometry(1.42, 0.16, 1.02), '#ffcd75', 0, 1.05, 0),
+      part(new THREE.BoxGeometry(0.8, 0.5, 0.7), '#ef7d57', 0, 1.98, 0.05),
+      part(new THREE.BoxGeometry(0.62, 0.22, 0.08), '#73eff7', 0, 2.02, 0.42),
+      part(new THREE.BoxGeometry(0.3, 0.3, 0.06), '#ffcd75', 0, 1.35, 0.52),
+      part(new THREE.CylinderGeometry(0.17, 0.17, 1.0, 8).rotateX(Math.PI / 2), '#333c57', -0.95, 1.4, 0.35),
+      part(new THREE.CylinderGeometry(0.17, 0.17, 1.0, 8).rotateX(Math.PI / 2), '#333c57', 0.95, 1.4, 0.35),
+      part(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 8).rotateX(Math.PI / 2), '#ffcd75', -0.95, 1.4, 0.86),
+      part(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 8).rotateX(Math.PI / 2), '#ffcd75', 0.95, 1.4, 0.86),
+      part(new THREE.BoxGeometry(0.34, 0.5, 0.4), '#566c86', -0.95, 1.4, -0.15),
+      part(new THREE.BoxGeometry(0.34, 0.5, 0.4), '#566c86', 0.95, 1.4, -0.15),
+      part(new THREE.CylinderGeometry(0.03, 0.03, 0.5, 4), '#333c57', 0.3, 2.45, -0.15),
+      part(new THREE.OctahedronGeometry(0.1, 0), '#b13e53', 0.3, 2.73, -0.15),
     ])!;
     this.bots = new THREE.InstancedMesh(bot, createRetroMaterial({ vertexColors: true }), MAX_MINIONS);
     this.mechs = new THREE.InstancedMesh(mech, createRetroMaterial({ vertexColors: true }), 24);
@@ -606,6 +613,7 @@ class SlashFx {
   }
 
   draw(dt: number): void {
+    (this.mesh.material as THREE.MeshBasicMaterial).opacity = settings.reduceFlash ? 0.55 : 0.95; // REDUCE FLASHING: softer marks
     let k = 0;
     for (let i = 0; i < this.n; i++) {
       // Drawn at its age, then aged: every mark shows for at least one frame, however slow the frames.
