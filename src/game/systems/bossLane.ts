@@ -50,6 +50,7 @@ import { Team } from '../bullets';
 import { bossLike } from '../bossRules';
 import { setBossLaneHud } from '../../ui/bossLaneHud';
 import type { BossBar } from './bossFight';
+import { camDirTuning } from '../animMath';
 
 /** Test links: force the Titan or a remix as the stage boss; `move` pins the Titan's attack (screenshots). */
 export const bossLaneForce = { titan: false, remix: false, move: '' as TitanState['move'] };
@@ -82,8 +83,6 @@ interface LaneState {
   /** Host: uid of the boss whose duel already ran. */
   duelUid: number;
   duelTick: number;
-  /** Every machine: uid of the duel whose camera beat played. */
-  duelBeat: number;
   firstQuake: boolean;
 }
 
@@ -91,7 +90,7 @@ const states = new WeakMap<Game, LaneState>();
 function lane(g: Game): LaneState {
   let s = states.get(g);
   if (!s) {
-    s = { beaten: new Set(), runSeed: NaN, runTime: 0, pendingBase: '', titan: null, core: null, parts: [], walls: [], wallsArena: null, wallsKey: '', view: null, fallen: null, duelView: null, duelUid: 0, duelTick: 0, duelBeat: 0, firstQuake: true };
+    s = { beaten: new Set(), runSeed: NaN, runTime: 0, pendingBase: '', titan: null, core: null, parts: [], walls: [], wallsArena: null, wallsKey: '', view: null, fallen: null, duelView: null, duelUid: 0, duelTick: 0, firstQuake: true };
     states.set(g, s);
   }
   return s;
@@ -666,16 +665,11 @@ export function renderBossLane(this: Game, frameDt: number, paused: boolean): vo
       } else v.update(L.fallen!, this.animTime, dt, () => 0, calm);
     }
   }
-  // The duel: ring of fire, plus a camera beat when it starts.
+  // The duel's ring of fire (its camera framing is in bossCamera; the start shake comes over the vfx bus).
   const d = this.bossDuel;
   if (d || L.duelView) {
     L.duelView ??= new DuelView(this.scene);
     L.duelView.update(d, this.animTime, dt, calm);
-  }
-  if (d && L.duelBeat !== d.uid) {
-    L.duelBeat = d.uid;
-    const b = this.enemies.list.find((e) => e.active && e.uid === d.uid) ?? (client ? this.netEnemies.get(d.uid) : undefined);
-    if (b) this.cam.killCam(b.x, b.z);
   }
 }
 
@@ -685,9 +679,12 @@ function titanFlash(g: Game, L: LaneState, s: TitanState, i: number): number {
   return e && e.active && e.uid === uid ? e.flash : 0;
 }
 
-/** After the camera director: pull the camera back while a Titan stands, so its whole body reads. */
+/** After the camera director: pull the camera back for the duel's ring and while a Titan stands, so its whole body reads. */
 export function bossCamera(this: Game): void {
   const L = lane(this);
+  const duel = this.bossDuel;
+  // Duel: pull back far enough to show the ring (it eases back in as the ring closes).
+  if (duel && this.isCombatMode) this.cam.auto = Math.max(this.cam.auto, Math.min(duelTuning.zoomMax, (duel.r * 0.85 + 1) / camDirTuning.viewHalfZ));
   const s = L.titan;
   if (!s || !this.isCombatMode) return;
   this.cam.auto = Math.max(this.cam.auto, titanTuning.zoom);

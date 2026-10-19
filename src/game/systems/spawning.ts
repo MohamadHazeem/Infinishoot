@@ -33,6 +33,7 @@ export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x:
 }
 
 export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId) {
+  if (this.bossDuel) return null; // boss duel: nobody joins the one-on-one (stage events included; systems/bossLane.ts)
   if (def.treasure) return this.spawnGolden(def);
   if (this.meta.rule('elites') && !def.boss && !def.miniboss) elite = true;
   let pos: { x: number; z: number } | null = null;
@@ -75,7 +76,7 @@ export function rollEliteMod(this: Game, def: EnemyDef): EliteModId {
 
 export function spawnRing(this: Game, def: EnemyDef, count: number): void {
   const alive = this.aliveHeroes;
-  if (!alive.length) return;
+  if (!alive.length || this.bossDuel) return;
   const p = alive[Math.floor(this.rng.next() * alive.length)].player;
   const lim = this.arena.halfSize - 2;
   const R = 15;

@@ -309,6 +309,8 @@ step(Math.ceil((DU.duelTuning.delay + DU.duelTuning.shrink) * 60) + 30);
 ok(!!A.bossDuel && Math.abs(A.bossDuel.r - A.bossDuel.r1) < 1e-6 && A.bossDuel.r < r0, 'the ring closes to its final size');
 const d = A.bossDuel!;
 ok(Math.hypot(boss.x - d.x, boss.z - d.z) <= d.r - boss.radius + 0.5, 'the boss stays inside the ring');
+A.spawnEnemy(ENEMIES.bopper, true); // a stage event's elite (Elite Parade) can't join either
+A.spawnRing(ENEMIES.swarmer, 20);
 const late = A.enemies.list.filter((e) => e.active && e !== boss && !bossLike(e));
 ok(late.length === 0, `no new horde spawns during the duel (${late.map((e) => e.def.id)})`);
 // Outside the ring you burn.

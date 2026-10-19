@@ -25,6 +25,7 @@ export const duelTuning = {
   dps: 0.1, // share of max life per second outside the ring (ticks, through armour)
   tick: 0.5,
   flames: 84, // flame tongues around the ring
+  zoomMax: 1.8, // the camera pulls back to show the ring, up to this auto zoom
 };
 
 /** Live duel state (host simulates; clients mirror). */
