@@ -635,6 +635,119 @@ const SCENARIO = [
     if (!h1 || !c1 || !held || h2 || c2 || !gone) fail(`finisher: playing host ${h1} client ${c1}, boss held ${held}; after: host ${h2} client ${c2}, boss gone ${gone}`);
     return { boss: id, playing: [h1, c1], held, after: [h2, c2], gone };
   }],
+  // Coopplay lane (notes/lanes/coopplay.md): a co-op objective, carrying a downed teammate, the buddy tether.
+  [51, 'co-op objective: host and client each hold a vault switch', async () => {
+    const lay = await host(async () => {
+      const g = window.game;
+      for (let k = 0; k < 30 && g.mode !== 'fight'; k++) await new Promise((r) => setTimeout(r, 200));
+      if (g.mode !== 'fight') return null;
+      const cp = await import('/src/game/systems/coopplay.ts');
+      if (!cp.forceCoopObjective(g, 'door')) return null;
+      window.botAuto(false);
+      const L = cp.coopPlayState(g).lay;
+      g.hero.player.teleport(L.a.x, L.a.z);
+      return L;
+    });
+    if (!lay) return 'skipped (not fighting or no room)';
+    await client((L) => {
+      window.botAuto(false);
+      window.game.hero.player.teleport(L.b.x, L.b.z);
+    }, lay);
+    let h, c;
+    for (let k = 0; k < 25; k++) {
+      await pause(200);
+      await host((L) => window.game.hero.player.teleport(L.a.x, L.a.z), lay);
+      await client((L) => window.game.hero.player.teleport(L.b.x, L.b.z), lay);
+      [h, c] = await Promise.all([
+        host(() => ({ kind: window.game.toys.objective.kind, state: window.game.toys.objective.state, cur: window.game.toys.objective.cur })),
+        client(async () => ({ kind: window.game.toys.objective.kind, state: window.game.toys.objective.state, open: (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).open })),
+      ]);
+      if (h.state === 'done' && c.open) break;
+    }
+    await shot('coopplay-vault');
+    await host(() => window.botAuto(true));
+    await client(() => window.botAuto(true));
+    if (h.kind !== 'door' || h.state !== 'done' || c.kind !== 'door' || c.state !== 'done' || !c.open) fail(`co-op vault: host ${JSON.stringify(h)}, client ${JSON.stringify(c)}`);
+    return { host: h, client: c };
+  }],
+  [59, 'client carries the downed host, then puts them down', async () => {
+    const downed = await host(() => {
+      const g = window.game;
+      if (!g.isCombatMode) return false;
+      const h = g.heroes[0];
+      window.botAuto(false);
+      window.cheats.god = false;
+      h.revivesLeft = 0;
+      h.phoenixUsed = true;
+      h.petState.reviveUsed = true;
+      h.petState.shieldReady = false;
+      for (let k = 0; k < 4 && !h.player.dead; k++) {
+        h.player.invuln = 0;
+        h.player.hp = 1;
+        g.hurtHero(h, 999, h.player.x + 1, h.player.z);
+      }
+      window.cheats.god = true;
+      return h.player.dead ? [h.player.x, h.player.z] : false;
+    });
+    if (!downed) {
+      await host(() => window.botAuto(true));
+      return 'skipped (host not downed)';
+    }
+    let carried = [-1, -1];
+    await client(() => window.botAuto(false));
+    for (let k = 0; k < 12 && !(carried[0] === 1 && carried[1] === 1); k++) {
+      await client((at) => {
+        window.game.hero.player.teleport(at[0] + 1, at[1]);
+        window.game.client.send({ t: 'carry' });
+      }, downed);
+      await pause(250);
+      carried = await Promise.all([
+        host(async () => (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).carriedBy[0] ?? -1),
+        client(async () => (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).carriedBy[0] ?? -1),
+      ]);
+    }
+    // Walk 4 m with them; the host hero rides along on both screens.
+    await client((at) => window.game.hero.player.teleport(at[0] + 5, at[1]), downed);
+    await pause(600);
+    const ride = await Promise.all([
+      host(() => { const g = window.game; return Math.hypot(g.heroes[0].player.x - g.heroes[1].player.x, g.heroes[0].player.z - g.heroes[1].player.z); }),
+      client(() => { const g = window.game; return Math.hypot(g.heroes[0].player.x - g.hero.player.x, g.heroes[0].player.z - g.hero.player.z); }),
+    ]);
+    await shot('coopplay-carry');
+    await client(() => window.game.client.send({ t: 'carry' }));
+    await pause(400);
+    const down = await host(async () => (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).carriedBy[0] ?? -1);
+    await host(() => {
+      window.game.reviveHero(window.game.heroes[0], 0.6);
+      window.botAuto(true);
+    });
+    await client(() => window.botAuto(true));
+    if (carried[0] !== 1 || carried[1] !== 1 || ride[0] > 1 || ride[1] > 2.5 || down !== -1) fail(`carry: carried host ${carried[0]} client ${carried[1]}, ride host ${ride[0]?.toFixed(2)} client ${ride[1]?.toFixed(2)}, put down ${down}`);
+    return { carried, ride: ride.map((d) => +d.toFixed(2)), down };
+  }],
+  [66, 'buddy tether between the two heroes', async () => {
+    await host(() => window.botAuto(false));
+    await client(() => window.botAuto(false));
+    let r;
+    for (let k = 0; k < 10; k++) {
+      const at = await host(() => {
+        const p = window.game.hero.player;
+        return [p.x, p.z];
+      });
+      await client((at) => window.game.hero.player.teleport(at[0] + 3, at[1]), at);
+      await pause(300);
+      r = await Promise.all([
+        host(async () => { const s = (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game); return [s.pairs, +(s.link[0] ?? 0).toFixed(1)]; }),
+        client(async () => { const s = (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game); return [s.pairs, +(s.link[1] ?? 0).toFixed(1)]; }),
+      ]);
+      if (r[0][0] === 1 && r[1][0] === 1 && r[0][1] > 1) break;
+    }
+    await shot('coopplay-tether');
+    await host(() => window.botAuto(true));
+    await client(() => window.botAuto(true));
+    if (r[0][0] !== 1 || r[1][0] !== 1 || !(r[0][1] > 0) || !(r[1][1] > 0)) fail(`tether: host ${JSON.stringify(r[0])}, client ${JSON.stringify(r[1])}`);
+    return { host: r[0], client: r[1] };
+  }],
 ];
 
 // Optional Halloween run: force a shared pickup and verify its receipt travels once.

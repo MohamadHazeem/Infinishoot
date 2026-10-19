@@ -298,7 +298,7 @@ const hostTo = (x: number, z: number) => hA.player.teleport(x, z);
   ok(SA.pairs === 1 && SA.link[0] >= tetherTuning.ramp - 0.5 && SA.link[1] >= tetherTuning.ramp - 0.5, `heroes 4 m apart are linked (${SA.link[0].toFixed(1)} s)`);
   ok(Math.abs(hA.stats.damageMul - base - tetherTuning.damage) < 0.005, `full link: +${(tetherTuning.damage * 100).toFixed(0)}% damage (${base.toFixed(3)} -> ${hA.stats.damageMul.toFixed(3)})`);
   ok(hA.stats.regen >= tetherTuning.regen, 'full link: regen bonus');
-  ok(SB.pairs === 1 && Math.abs(SB.link[1] - SA.link[1]) < 0.3, 'client sees the link');
+  ok(SB.pairs === 1 && Math.abs(SB.link[1] - SA.link[1]) < 1.2, 'client sees the link (whole seconds)');
   sounds.length = 0;
   guestTo(20, 0);
   step(10);

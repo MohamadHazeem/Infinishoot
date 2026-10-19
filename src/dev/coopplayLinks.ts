@@ -11,8 +11,9 @@ import { settings, applySettings } from '../game/settings';
  * - `cpme=a|b|v|bomb|core` and `cpmate=a|b|v|bomb|core`: put your hero / the dummy on a piece
  *   (a/b: switch or zone A/B, or the core and its beacon; v: the vault or bunker)
  * - `cpcore=<pct>`: escort: the core starts that far along its road
+ * - `cpopen`: door: opens at once when both switches are held (screenshots)
  * - `cpbomb`: bomb: you hold the bomb; `cpboss`: and the stage boss is up (`nointro`)
- * - `carry=<s>`: the dummy goes down after s seconds and you pick it up
+ * - `carry=<s>`: the dummy goes down after s seconds and you pick it up (`carry` alone: at once)
  * - `tether=<s>`: the dummy stands 4 m away with a link already s seconds old
  * - `banter=<line>|cycle`: the dummy calls a banter line every 3 s (nicesave, behind, thanks, groupup, onmyway, greatshot)
  * - `notether`: BUDDY TETHER off (the visual only)
@@ -53,6 +54,7 @@ export function coopplayLinks(game: Game, q: URLSearchParams): void {
     if (me) game.hero.player.teleport(me.x, me.z);
     const mate = spot(q.get('cpmate'));
     if (mate && game.heroes[1]) game.heroes[1].player.teleport(mate.x, mate.z);
+    if (q.has('cpopen') && kind === 'door') s.hold = 99; // opens on the first step with both switches held
     if (q.has('cpbomb') && kind === 'bomb') {
       game.hero.player.teleport(s.bomb.x, s.bomb.z);
       if (q.has('cpboss')) game.debugSkipToBoss();
@@ -64,16 +66,21 @@ export function coopplayLinks(game: Game, q: URLSearchParams): void {
     mate.player.teleport(game.hero.player.x + 4, game.hero.player.z + 0.6);
     s.link[0] = s.link[1] = tether;
   }
-  const carry = Number(q.get('carry'));
-  if (carry > 0 && mate) {
-    later(carry, () => {
+  const carry = q.get('carry');
+  if (carry !== null && mate) {
+    const go = () => {
       mate.revivesLeft = 0;
       mate.petState.reviveUsed = true;
       mate.player.invuln = 0;
       if (!mate.player.dead && mate.player.hurt(mate.player.hp + 1, 1, 0)) game.onHeroDown(mate);
       game.hero.player.teleport(mate.player.x + 1, mate.player.z);
-      later(0.6, () => toggleCarry(game, s, game.hero));
-    });
+    };
+    const sec = Number(carry);
+    if (sec > 0) later(sec, () => (go(), later(0.6, () => toggleCarry(game, s, game.hero))));
+    else {
+      go();
+      toggleCarry(game, s, game.hero); // carry (no value): picked up at once
+    }
   }
   const ban = q.get('banter');
   if (ban && mate) {

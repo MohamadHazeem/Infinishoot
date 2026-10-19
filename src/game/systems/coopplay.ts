@@ -86,6 +86,7 @@ export class CoopPlayState {
   link: number[] = [];
   pairs = 0;
   pairT: number[] = new Array(PAIRS).fill(0);
+  pairOff: number[] = new Array(PAIRS).fill(99);
   // ---- banter (host)
   brain = new BanterBrain();
   wasDead: boolean[] = [];
@@ -192,6 +193,14 @@ export function coopObjectiveLoad(g: Game): void {
   resetObjective(s, g.arenaStage);
   s.carriedBy.length = 0;
   s.bomb.by = -1;
+  if (g.arenaStage <= 1) {
+    // A new run: links and banter start fresh (they carry over between stages).
+    s.link.length = 0;
+    s.pairs = 0;
+    s.pairT.fill(0);
+    s.brain.reset();
+    s.replies.length = 0;
+  }
   if (!g.authority || !coopOn(g)) return;
   const kind = s.force ?? pickCoopObjective(g.arena.seed, g.arenaStage);
   if (!kind) return;
@@ -679,11 +688,14 @@ function tetherStep(g: Game, s: CoopPlayState, dt: number): void {
       const linked = alive && pairLinked(Math.hypot(a.player.x - b.player.x, a.player.z - b.player.z), was);
       if (linked) {
         mask |= 1 << k;
-        if (!was) g.vfx.sound('v:s:tether_hum', (a.player.x + b.player.x) / 2, (a.player.z + b.player.z) / 2);
+        // The hum when a link forms (not again for a pair that only just broke: no buzzing at the edge).
+        if (!was && s.pairOff[k] > 2) g.vfx.sound('v:s:tether_hum', (a.player.x + b.player.x) / 2, (a.player.z + b.player.z) / 2);
         s.pairT[k] += dt;
+        s.pairOff[k] = 0;
       } else {
         if (was && s.pairT[k] >= tetherTuning.snapMin && on) snapFx(g, a, b);
         s.pairT[k] = 0;
+        s.pairOff[k] += dt;
       }
     }
   }
@@ -822,7 +834,7 @@ export function coopPlayNet(g: Game): Record<string, unknown> | null {
   if (g.heroes.length < 2 && !s.kind) return null;
   const out: Record<string, unknown> = {
     c: g.heroes.map((h) => s.carriedBy[h.index] ?? -1),
-    t: g.heroes.map((h) => r1(s.link[h.index] ?? 0)),
+    t: g.heroes.map((h) => Math.ceil(s.link[h.index] ?? 0)), // whole seconds: the HUD bar and bonus don't need more
     p: s.pairs,
   };
   if (s.kind && s.lay) {
@@ -987,7 +999,13 @@ class CoopView {
         mergeParts([
           box(2.3, 2.1, 2.3, '#566c86', 0, 1.05, 0),
           box(2.5, 0.25, 2.5, '#333c57', 0, 0.12, 0),
-          box(2.45, 0.22, 2.45, '#ffcd75', 0, 2.15, 0),
+          box(2.4, 0.2, 2.4, '#94b0c2', 0, 2.15, 0),
+          box(2.5, 0.1, 0.18, '#ffcd75', 0, 2.27, 1.16),
+          box(2.5, 0.1, 0.18, '#ffcd75', 0, 2.27, -1.16),
+          box(0.18, 0.1, 2.5, '#ffcd75', 1.16, 2.27, 0),
+          box(0.18, 0.1, 2.5, '#ffcd75', -1.16, 2.27, 0),
+          box(0.8, 0.12, 0.8, '#ffcd75', 0, 2.3, 0),
+          box(0.4, 0.14, 0.4, '#ef7d57', 0, 2.34, 0),
           box(0.25, 2.1, 0.25, '#ffcd75', 1.15, 1.05, 1.15),
           box(0.25, 2.1, 0.25, '#ffcd75', -1.15, 1.05, 1.15),
           box(0.25, 2.1, 0.25, '#ffcd75', 1.15, 1.05, -1.15),
@@ -1105,7 +1123,7 @@ class CoopView {
           const hgt = 0.7 + (lit && held ? 0.4 : 0) + (q % 2) * 0.15;
           this.m4.compose(this.v.set(p.x + Math.cos(ang) * R, 0, p.z + Math.sin(ang) * R), this.q.identity(), this.sc.set(1, hgt, 1));
           this.pylons.setMatrixAt(pylons, this.m4);
-          this.pylons.setColorAt(pylons++, lit ? this.col : this.col2.set('#333c57'));
+          this.pylons.setColorAt(pylons++, lit ? this.col : this.col2.copy(this.col).multiplyScalar(0.45));
         }
         zn.g.position.set(p.x, 0.05, p.z);
         zn.g.rotation.y += dt * (held && o.charging ? 1.5 : 0.3);
