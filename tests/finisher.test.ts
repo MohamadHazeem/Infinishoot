@@ -264,8 +264,10 @@ const finEl = () => document.getElementById('finisher');
   if (game.mode === 'shop') game.closeShop();
   portraits.clear();
   const h = game.hero;
+  h.pingAt = -1e9; // pings are rate-limited by wall time
+  game.renderCharacters(0); // pop-ins follow the setting
   game.ping(h, h.player.x + 3, h.player.z);
-  ok(portraits.showing('hero:0'), "a ping pops the pinger's portrait in");
+  ok(portraits.showing('hero:0'), `a ping pops the pinger's portrait in (pops on: ${portraits.enabled}, now ${performance.now().toFixed(0)}, last ping ${h.pingAt.toFixed(0)})`);
   game.renderCharacters(1);
   const pop = [...document.querySelectorAll('.pp-pop')].find((el) => !(el as HTMLElement).hidden);
   ok(!!pop && /HERE|CHEST|ELITE|BOSS|PORTAL/.test(pop.querySelector('.pp-tx')?.textContent ?? ''), 'with the ping label in the bubble');

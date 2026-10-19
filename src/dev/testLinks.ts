@@ -46,7 +46,7 @@ import { portraits, type Expression } from '../ui/portraits';
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
- *   ?test&stage=2&bossnow&nointro&killboss=2&finat=0.7   boss finisher, pinned 0.7 s in (screenshots); `nofinish` turns finishers off
+ *   ?test&stage=2&bossnow&nointro&killboss=2&finat=0.7   boss finisher, pinned 0.7 s in (screenshots); `nofinish` turns finishers off, `calm` = reduce flashing
  *   ?test&face=shocked&pops            force the HUD face's expression; pop in the announcer, the boss and a ping
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
@@ -177,6 +177,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // Finisher lane (src/game/systems/characters.ts).
   if (q.get('finat')) charDebug.holdAt = Number(q.get('finat')) || 0.7;
   if (q.has('nofinish')) settings.finishers = false;
+  if (q.has('calm')) {
+    settings.reduceFlash = true; // also the game's reduce-motion switch
+    applySettings();
+  }
   const face = q.get('face');
   if (face) charDebug.face = face as Expression;
   if (q.has('pops')) {
