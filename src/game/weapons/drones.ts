@@ -26,6 +26,7 @@ export class Drones extends Weapon {
   private v = new THREE.Vector3();
   private s = new THREE.Vector3();
   private cleanT = 0;
+  private soundAt = 0;
 
   constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
@@ -69,6 +70,7 @@ export class Drones extends Weapon {
         const last = this.lastHit.get(en.uid) ?? -1;
         if (ctx.time - last < HIT_COOLDOWN) return;
         this.lastHit.set(en.uid, ctx.time);
+        if (ctx.time >= this.soundAt) { this.soundAt = ctx.time + 0.18; ctx.sound('drone'); }
         // Knock enemies along the orbit direction.
         ctx.damage(en, p.dmg, { source: 'drones', dirX: -Math.sin(a), dirZ: Math.cos(a), knockback: 5, hx: dp.x, hz: dp.z, canCrit: true, loud: true, tags: ctx.combos.has('tesla_drones') ? ['orbit', 'shock'] : undefined });
       });

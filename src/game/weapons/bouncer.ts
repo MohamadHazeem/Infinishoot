@@ -80,7 +80,7 @@ export class Bouncer extends Weapon {
         const t = ctx.nearest(pl.x, pl.z, 12, (e) => this.list.some((d) => d.target === e));
         if (!t) break;
         this.list.push({ x: pl.x, z: pl.z, px: pl.x, pz: pl.z, target: t, hitsLeft: p.bounces, hit: new Set(), back: false, spin: 0 });
-        ctx.sound('disc');
+        ctx.sound('bouncer');
       }
     }
     const speed = p.speed;

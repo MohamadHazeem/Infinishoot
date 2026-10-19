@@ -4,6 +4,7 @@
  * installed on the class as fields, e.g. `eliteTrails = Render.eliteTrails;`.
  */
 import type { Game } from '../game';
+import { updateSound } from './sound';
 import { scoreTuning, AIM_HEIGHT, REVIVE_TIME } from '../game';
 import * as THREE from 'three';
 import { MOD_BY_ID } from '../../data/mods';
@@ -168,6 +169,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const netA = client ? Math.min(1, (performance.now() - this.snapTime) / Math.max(16, this.snapInterval)) : a;
   const rdt = frozen ? 0 : frameDt;
   this.localAudio(frameDt, frozen);
+  updateSound.call(this, frameDt, frozen);
   this.input.rumbleOn = settings.rumble;
   if (!frozen) {
     this.juice.tick(frameDt);

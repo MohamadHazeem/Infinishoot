@@ -97,7 +97,7 @@ export class Sweeper extends Weapon {
     this.dirSign = ctx.rng.next() < 0.5 ? -1 : 1;
     this.t = this.dur = p.sweep;
     this.tickT = 0;
-    ctx.sound('zap');
+    ctx.sound('sweeper');
   }
 
   /** Damage everything along one beam. */

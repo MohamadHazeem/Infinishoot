@@ -67,7 +67,7 @@ export class Scatter extends Weapon {
     }
     this.muzzleT = 0.08;
     pl.recoil = 1.8;
-    ctx.sound(evo ? 'flame' : 'shoot');
+    ctx.sound(evo ? 'flame' : 'scatter');
     ctx.particles.burst(this.mz.x, BULLET_Y, this.mz.z, {
       count: evo ? 14 : flak ? 9 : 6,
       color: evo ? '#ff7a2f' : flak ? '#ffb627' : '#ffe9a8',

@@ -138,7 +138,7 @@ export interface RunSummary {
 }
 
 /** Settings switched by ON/OFF buttons. */
-type ToggleKey = 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash';
+type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -272,6 +272,8 @@ export class Screens {
     <label>VOLUME <input data-nav type="range" min="0" max="1" step="0.1" data-set="volume"></label>
     <label>MUSIC <input data-nav type="range" min="0" max="1" step="0.1" data-set="musicVolume"></label>
     <label>EFFECTS <input data-nav type="range" min="0" max="1" step="0.1" data-set="sfxVolume"></label>
+    <label>AMBIENCE <input data-nav type="range" min="0" max="1" step="0.1" data-set="ambienceVolume"></label>
+    <button data-nav data-toggle="announcer">ANNOUNCER <b></b></button>
     <label>MENU SOUNDS <input data-nav type="range" min="0" max="1" step="0.1" data-set="uiVolume"></label>
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>

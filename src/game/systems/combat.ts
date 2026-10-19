@@ -79,7 +79,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
     // Cosmetic labels travel through the existing number event on hosts and clients.
     const accent = shielded ? 'shield' : tags.includes('fire') ? 'fire' : tags.includes('shock') ? 'shock' : tags.includes('frost') ? 'frost' : undefined;
     this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, accent));
-    this.vfx.sound('hit', e.x, e.z, this.pitch);
+    this.vfx.sound(shielded ? 'hitMetal' : 'hit', e.x, e.z, this.pitch);
     this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
   }
   // Heavy hits get a low thump under the hit sound.

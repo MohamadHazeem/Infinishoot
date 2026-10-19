@@ -78,7 +78,7 @@ export class Laser extends Weapon {
     if (this.tickT > 0) return;
     this.tickT += TICK * ctx.stats.cooldownMul;
     if (this.soundT <= 0) {
-      ctx.sound('zap');
+      ctx.sound('laser');
       this.soundT = 0.3;
     }
     const p = this.p;
