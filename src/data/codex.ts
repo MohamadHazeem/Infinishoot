@@ -4,6 +4,7 @@ import { ENEMY_TIPS } from './bestiary';
 import { BIOMES } from './biomes';
 import { HEROES } from './heroes';
 import type { Loadout } from './loadout';
+import { BIOME_LORE2, ENEMY_LORE2, ENEMY_TIPS2, EXTRA_CODEX, VETERAN_LORE } from './codex2';
 
 const ENEMY_LORE: Record<string, string> = {
   cake: "The royal bakery never stopped baking. Its proudest cake crowned itself and declared every day a birthday.",
@@ -82,6 +83,13 @@ const HERO_LORE: Record<string, string> = {
     'The islands\' youngest mechanic builds friends out of whatever the robots leave behind. Every bot gets a name, a number and a tiny hand-painted smile.',
 };
 
+/** Lore + field tip (tips2 lane fills the gaps; veterans reuse their base enemy's text). */
+function enemyText(id: string): string {
+  const base = id.startsWith('v_') ? id.slice(2) : id;
+  const lore = ENEMY_LORE[id] ?? ENEMY_LORE2[id] ?? (base !== id ? `${VETERAN_LORE} ${ENEMY_LORE[base] ?? ENEMY_LORE2[base] ?? ''}`.trim() : 'A veteran of the old island network, patched up and sent back out on patrol.');
+  return `${lore} ${ENEMY_TIPS[id] ?? ENEMY_TIPS2[id] ?? ENEMY_TIPS[base] ?? ENEMY_TIPS2[base] ?? 'Keep moving and watch its wind-up.'}`;
+}
+
 export const CODEX = [
   ...SECRET_LORE,
   ...Object.values(ENEMIES)
@@ -90,7 +98,7 @@ export const CODEX = [
       id: `enemy:${e.id}`,
       kind: SECRET_BOSSES.some(id => id === e.id) ? 'SECRET' : e.boss || e.miniboss ? 'BOSS' : 'ENEMY',
       name: e.name,
-      text: `${ENEMY_LORE[e.id] ?? 'A veteran of the old island network, patched up and sent back out on patrol.'} ${ENEMY_TIPS[e.id] ?? 'Keep moving and watch its wind-up.'}`,
+      text: enemyText(e.id),
     })),
   ...BIOMES.map((b) => ({
     id: `biome:${b.id}`,
@@ -110,7 +118,7 @@ export const CODEX = [
           magma:
             'Deep under the islands, the planet keeps its own furnace running. The machines here learned to love the heat.',
         } as Record<string, string>
-      )[b.id] ?? 'Another island on the old relay route, waiting to be rediscovered.',
+      )[b.id] ?? BIOME_LORE2[b.id] ?? 'Another island on the old relay route, waiting to be rediscovered.',
   })),
   ...HEROES.map((h) => ({
     id: `hero:${h.id}`,
@@ -118,6 +126,7 @@ export const CODEX = [
     name: h.name,
     text: `${HERO_LORE[h.id] ?? ''} ${h.desc}`.trim(),
   })),
+  ...EXTRA_CODEX,
 ];
 export const META_REWARDS = [
   { id: 'secret_skin', name: 'Pixel Relay Armour', kind: 'skin', cost: 0, color: '#a7f070', condition: 'Solve a secret room or discover the old directional code.' },

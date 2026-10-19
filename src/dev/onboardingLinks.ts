@@ -1,3 +1,4 @@
+import { CODEX } from '../data/codex';
 import { codexEntries } from '../data/arsenal';
 import { cheats, type Game } from '../game/game';
 import { save } from '../game/save';
@@ -11,6 +12,8 @@ import { drawBuildCard } from '../ui/buildCard';
  *   &tip=boss          show a first-time tip now (any id in src/game/tips.ts)
  *   &lvlup             a level-up now (&lvlup&tip=levelup: the tip over the cards)
  *   &discover=all      mark every codex entry discovered (or &discover=40: the first 40)
+ *   &tip=raid&tipnow  show that tip at once (screenshots)
+ *   &cxtab=powerups    open that Arsenal tab (tips2 lane); &codexall: every Codex & Lore entry discovered
  *   &recap             a sample 4-stage run timeline, then game over (unlock progress + recap + BUILD CARD)
  *   &offer             the title screen with the first-time training offer
  *   &recap&card        ...and the BUILD CARD drawn on top (what the PNG looks like)
@@ -24,6 +27,10 @@ export function onboardingLinks(game: Game, q: URLSearchParams): void {
     save.discovered = disc === 'all' ? all : all.filter((_, i) => i % 2 === 0).slice(0, Number(disc) || 40);
     if (game.screens.current === 'arsenal') ob.ui.renderCodex(save.discovered);
   }
+  // tips2 lane: &cxtab=powerups opens that Arsenal tab (with &screen=arsenal); &codexall discovers every Codex & Lore entry.
+  const cxtab = q.get('cxtab');
+  if (cxtab) setTimeout(() => document.querySelector<HTMLElement>(`[data-act=ob-tab][data-tab="${cxtab}"]`)?.click(), 300);
+  if (q.has('codexall')) save.meta.codex = CODEX.map((c) => c.id);
   if (q.has('training')) ob.startTraining(Math.max(0, (Number(q.get('training')) || 1) - 1));
   if (q.has('trainingdone')) {
     ob.startTraining(8);
@@ -35,6 +42,8 @@ export function onboardingLinks(game: Game, q: URLSearchParams): void {
   if (tip && TIPS[tip]) {
     save.tips = save.tips.filter((t) => t !== tip);
     ob.want(tip);
+    // &tipnow: show it at once, for 30 s (slow headless screenshots never get past the stage-banner quiet time).
+    if (q.has('tipnow')) ob.ui.showTip(TIPS[tip].title, TIPS[tip].text(), 30);
   }
   if (q.has('offer')) {
     game.leaveToTitle();

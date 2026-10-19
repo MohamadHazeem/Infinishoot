@@ -7,6 +7,7 @@ import type { Tag } from './tags';
 import { WEAPON_COMBOS } from './weaponCombos';
 import { WEAPONS } from './weapons';
 import { modDesc } from '../game/modTypes';
+import { POWERUPS } from './codex2';
 
 /**
  * The Arsenal (EXTRAS > ARSENAL): every weapon, special, item, Mod, relic, weapon
@@ -15,9 +16,9 @@ import { modDesc } from '../game/modTypes';
  * `discovered` list holds, so keep them stable.
  *   w:<weapon>  sp:<special>  p:<passive>  m:<mod>  r:<relic>  c:<combo>
  *   e:<item>:<evo index>  (loadout/special evolutions)  e:<weapon>:auto  (auto-weapon partner evolutions)
- *   s:<status>
+ *   s:<status>  x:<power-up>  (mech suit, crate super weapons, candy: tips2 lane)
  */
-export type CodexTab = 'weapons' | 'specials' | 'items' | 'mods' | 'relics' | 'combos' | 'evolutions' | 'statuses';
+export type CodexTab = 'weapons' | 'specials' | 'items' | 'mods' | 'relics' | 'combos' | 'evolutions' | 'statuses' | 'powerups';
 
 export const CODEX_TABS: { id: CodexTab; label: string }[] = [
   { id: 'weapons', label: 'WEAPONS' },
@@ -28,6 +29,7 @@ export const CODEX_TABS: { id: CodexTab; label: string }[] = [
   { id: 'combos', label: 'COMBOS' },
   { id: 'evolutions', label: 'EVOLUTIONS' },
   { id: 'statuses', label: 'STATUSES' },
+  { id: 'powerups', label: 'POWER-UPS' },
 ];
 
 export interface CodexEntry {
@@ -103,6 +105,7 @@ export function codexEntries(): CodexEntry[] {
     (s.evos ?? []).forEach((e, k) => out.push({ key: `e:${s.id}:${k}`, tab: 'evolutions', name: e.name, icon: evoIcon('sp_' + s.id, k), glyph: s.icon, color: e.color, tags: e.tags, desc: e.text, kind: `${s.name} EVOLUTION`.toUpperCase() }));
   }
   for (const s of STATUSES) out.push({ key: `s:${s.id}`, tab: 'statuses', name: s.name, icon: 's_' + s.id, glyph: s.glyph, color: s.color, desc: s.desc, kind: s.kind });
+  for (const x of POWERUPS) out.push({ key: `x:${x.id}`, tab: 'powerups', name: x.name, icon: 'x_' + x.id, glyph: x.glyph, color: x.color, desc: x.desc, kind: x.kind });
   cache = out;
   return out;
 }
