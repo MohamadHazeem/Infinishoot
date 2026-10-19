@@ -46,7 +46,7 @@ export const heroMarkerTuning = {
 };
 
 /** Max rig parts in one merged mesh (mat4 uniforms: 4 vectors each, WebGL2 guarantees 256). */
-export const MAX_RIG_PARTS = 40;
+export const MAX_RIG_PARTS = 48; // Ronin and Tinker carry their mechanic plus wardrobe (44 parts)
 
 const vert = /* glsl */ `
 #define MAX_PARTS ${MAX_RIG_PARTS}

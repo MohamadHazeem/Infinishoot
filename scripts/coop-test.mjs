@@ -572,8 +572,12 @@ const SCENARIO = [
           g.heroes[1].recomputeStats();
         }
       }, id);
-      await pause(500);
-      const seen = await client(() => ({ event: window.game.netEvent?.[0], relic: window.game.hero.relics.includes('r_cinder'), pressure: window.game.director.adaptive.pressure }));
+      // The client sees it a snapshot or two later (simulated latency, playout buffer): poll up to 4 s.
+      let seen = null;
+      for (let k = 0; k < 16 && seen?.event !== id; k++) {
+        await pause(250);
+        seen = await client(() => ({ event: window.game.netEvent?.[0], relic: window.game.hero.relics.includes('r_cinder'), pressure: window.game.director.adaptive.pressure }));
+      }
       if (seen.event !== id || !seen.relic || !Number.isFinite(seen.pressure)) fail(`director2 ${id}: ${JSON.stringify(seen)}`);
     }
     const [a, b] = await Promise.all([host(() => window.game.director2Net().slice(4)), client(() => window.game.director2Net().slice(4))]);

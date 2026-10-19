@@ -125,6 +125,62 @@ export const storyEn = {
   'story.chapter.queen_night.title': 'THE NIGHT CHOIR',
   'story.chapter.queen_night':
     'The last drone switches off its searchlight. Under the stars, the swarm plays the festival tune all the way to the end.',
+  "story.hero.ronin":
+    "A wandering swordsman who refused every upgrade except a sharper blade. Ronin believes a cut in the right place fixes more than a thousand bullets.",
+  "story.end.ronin":
+    "Ronin sheathes the blade on the last relay tower. The swarm powers down in a perfect line, as if bowing. The wind carries one clean note across the sea.",
+  "story.hero.tinker":
+    "Tinker builds friends out of scrap and never leaves one behind. Every bot has a name, a job and a tiny painted smile.",
+  "story.end.tinker":
+    "Tinker rewires the Overlord's last workshop into a toy factory for the islands. By morning, the little bots are delivering breakfast instead of trouble.",
+  "story.boss.glitch":
+    "Neon City's favourite DJ was rewired mid-set. Glitch still drops the beat on time, but now every bass drop is a shockwave.",
+  "story.chapter.glitch.title":
+    "THE LAST TRACK",
+  "story.chapter.glitch":
+    "Under the decks is the setlist from opening night, every song crossed out but one. The crew plays it for the whole city.",
+  "story.boss.boxer":
+    "Boxer Jack was the Toy Factory's best-selling surprise. The Overlord wound his crank too tight, and now he never stops swinging.",
+  "story.chapter.boxer.title":
+    "UNWOUND",
+  "story.chapter.boxer":
+    "Jack's spring finally relaxes. Inside the box is a note from the toymaker: \"Made to make someone smile.\"",
+  "story.boss.gale":
+    "Admiral Gale commanded the Sky Fortress fleet with pride. Now her cannons fire at anything below the clouds.",
+  "story.chapter.gale.title":
+    "CALM SEAS",
+  "story.chapter.gale":
+    "The storm in her compass breaks. Gale lowers the flag, and for the first time in years the airships drift home.",
+  "story.boss.mc_static":
+    "Glitch DJ's opening act, still stuck on the same loop. MC Static hypes the crowd with feedback instead of music.",
+  "story.chapter.mc_static.title":
+    "SOUND CHECK",
+  "story.chapter.mc_static":
+    "One tap on the mixer and the loop ends. MC Static mouths a quiet thank-you into a dead microphone.",
+  "story.boss.jack_jr":
+    "A smaller box with the same bad temper. Jack Jr. practises his punches on anything that moves.",
+  "story.chapter.jack_jr.title":
+    "SMALL SPRINGS",
+  "story.chapter.jack_jr":
+    "Jack Jr.'s crank clicks back to zero. He pops out one last time, just to wave.",
+  "story.boss.squall":
+    "Gale's second in command, as loyal as the wind is fast. Squall clears the skies so the Admiral never has to.",
+  "story.chapter.squall.title":
+    "FAIR WINDS",
+  "story.chapter.squall":
+    "Squall salutes, drops the anchor and waits for orders that will now only say: \"Rest.\"",
+  "story.boss.golden_king":
+    "Legend says a king made entirely of Goldbug treasure waits behind a golden statue. The legend was right.",
+  "story.chapter.golden_king.title":
+    "ALL THAT GLITTERS",
+  "story.chapter.golden_king":
+    "The Golden King crumbles into coins. Under them is a plain tin crown and a sign: \"Was worth it?\"",
+  "story.boss.shadow_hero":
+    "Fight in the dark without a scratch and something notices. The Shadow Hero wears your own build like a mask.",
+  "story.chapter.shadow_hero.title":
+    "MIRROR, MIRROR",
+  "story.chapter.shadow_hero":
+    "Your shadow stops fighting the moment you do. It nods once, steps back into the dark and keeps your secret.",
 } as const;
 
 export const storyAr = {
@@ -249,4 +305,60 @@ export const storyAr = {
   'story.chapter.queen_night.title': 'جوقة الليل',
   'story.chapter.queen_night':
     'تطفئ آخر طائرة كشافها. وتحت النجوم يعزف السرب لحن المهرجان حتى نهايته.',
+  "story.hero.ronin":
+    "سيّاف متجوّل رفض كل ترقية إلا نصلًا أحدّ. يؤمن رونين بأن ضربة واحدة في المكان الصحيح تُصلح أكثر من ألف رصاصة.",
+  "story.end.ronin":
+    "يغمد رونين سيفه فوق آخر برج ترحيل. يطفئ السرب نفسه في صفّ واحد كأنه ينحني. وتحمل الريح نغمة صافية واحدة عبر البحر.",
+  "story.hero.tinker":
+    "يبني تِنكر أصدقاءه من الخردة ولا يترك أحدًا منهم خلفه. لكل روبوت اسم ومهمة وابتسامة صغيرة مرسومة.",
+  "story.end.tinker":
+    "يحوّل تِنكر آخر ورشة للسيد الأعلى إلى مصنع ألعاب للجزر. ومع الصباح، صارت الروبوتات الصغيرة توصل الفطور بدل المتاعب.",
+  "story.boss.glitch":
+    "أشهر منسّق أغانٍ في مدينة النيون أُعيدت برمجته أثناء عرضه. ما زال غليتش يضبط الإيقاع بدقة، لكن كل ضربة باص صارت موجة صادمة.",
+  "story.chapter.glitch.title":
+    "المقطوعة الأخيرة",
+  "story.chapter.glitch":
+    "تحت منصّة الأغاني قائمة ليلة الافتتاح، كل أغانيها مشطوبة إلا واحدة. يعزفها الفريق للمدينة كلها.",
+  "story.boss.boxer":
+    "كان بوكسر جاك المفاجأة الأكثر مبيعًا في مصنع الألعاب. شدّ السيد الأعلى نابضه أكثر من اللازم، فلم يعد يتوقف عن اللكم.",
+  "story.chapter.boxer.title":
+    "انفكّ النابض",
+  "story.chapter.boxer":
+    "يرتخي نابض جاك أخيرًا. وفي داخل الصندوق رسالة من صانع الألعاب: «صُنعتَ لتُضحك أحدًا».",
+  "story.boss.gale":
+    "قادت الأميرال غيل أسطول قلعة السماء بفخر. أما الآن فمدافعها تطلق على كل ما تحت الغيوم.",
+  "story.chapter.gale.title":
+    "بحار هادئة",
+  "story.chapter.gale":
+    "تنكسر العاصفة في بوصلتها. تُنزل غيل العلم، ولأول مرة منذ سنوات تعود السفن الطائرة إلى ديارها.",
+  "story.boss.mc_static":
+    "الفقرة الافتتاحية لغليتش، عالق في الحلقة نفسها. يُشعل إم سي ستاتيك الجمهور بالتشويش بدل الموسيقى.",
+  "story.chapter.mc_static.title":
+    "اختبار الصوت",
+  "story.chapter.mc_static":
+    "لمسة واحدة على جهاز المزج وتنتهي الحلقة. يهمس إم سي ستاتيك بالشكر في ميكروفون معطّل.",
+  "story.boss.jack_jr":
+    "صندوق أصغر بالمزاج السيئ نفسه. يتدرّب جاك الصغير على لكماته في كل ما يتحرك.",
+  "story.chapter.jack_jr.title":
+    "نوابض صغيرة",
+  "story.chapter.jack_jr":
+    "تعود ذراع جاك الصغير إلى الصفر. يقفز مرة أخيرة، فقط ليلوّح.",
+  "story.boss.squall":
+    "نائب غيل، وفيّ بقدر سرعة الريح. ينظّف سكوول السماء كي لا تضطر الأميرال إلى ذلك.",
+  "story.chapter.squall.title":
+    "رياح طيبة",
+  "story.chapter.squall":
+    "يؤدي سكوول التحية، ويُلقي المرساة، وينتظر أوامر لن تقول بعد الآن سوى: «استرح».",
+  "story.boss.golden_king":
+    "تقول الأسطورة إن ملكًا مصنوعًا بالكامل من كنوز الخنافس الذهبية ينتظر خلف تمثال ذهبي. وكانت الأسطورة على حق.",
+  "story.chapter.golden_king.title":
+    "ليس كل ما يلمع ذهبًا",
+  "story.chapter.golden_king":
+    "يتفتّت الملك الذهبي إلى عملات. وتحتها تاج بسيط من الصفيح ولافتة: «هل كان يستحق؟»",
+  "story.boss.shadow_hero":
+    "قاتل في الظلام دون خدش واحد، وسينتبه شيء ما. يرتدي بطل الظل تجهيزاتك أنت كقناع.",
+  "story.chapter.shadow_hero.title":
+    "يا مرآتي",
+  "story.chapter.shadow_hero":
+    "يتوقف ظلك عن القتال لحظة تتوقف أنت. يومئ مرة، ويعود إلى الظلام، ويحفظ سرّك.",
 } as const;
