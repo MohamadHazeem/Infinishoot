@@ -164,7 +164,7 @@ export const PASSIVES: Record<string, PassiveDef> = {
     name: 'Vampire Fang',
     icon: '♠',
     color: '#b13e53',
-    desc: 'Heal 0.05 life per kill',
+    desc: 'Kills heal 0.05% of max life (full rate up to 2.5% of max life a second)',
     maxLevel: 3,
     add: { killHeal: 0.05 },
   },

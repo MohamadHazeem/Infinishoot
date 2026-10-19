@@ -25,6 +25,7 @@ import { viewCull } from '../../render/viewCull';
 import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
 import { tickOnlineStop } from '../netFeel';
+import { closePingWheel, pingInput, pingKind } from '../teamPlay';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -51,6 +52,7 @@ export function coopInput(this: Game): void {
   const input = this.input;
   const h = this.hero;
   const p = h.player;
+  if (!this.isCombatMode || this.screens.current !== 'none' || this.heroes.length < 2 || p.dead) closePingWheel(this);
   if (!this.isCombatMode || this.screens.current !== 'none' || this.heroes.length < 2) return;
   if (p.dead) {
     if (input.mousePressed(0) || input.padButtonPressed(0) || input.actionPressed('ping')) {
@@ -62,21 +64,24 @@ export function coopInput(this: Game): void {
     }
     return;
   }
-  if (!(input.actionPressed('ping') || input.padButtonPressed(8))) return;
-  let x = p.x + p.aim.x * 6;
-  let z = p.z + p.aim.z * 6;
-  if (input.device === 'kbm' && this.mouseAimPoint()) {
-    x = this.aimHit.x;
-    z = this.aimHit.z;
-  }
-  if (this.role === 'client') this.client?.send({ t: 'ping', x, z });
-  else this.ping(h, x, z);
+  // Tap: contextual ping; hold: the ping wheel (src/game/teamPlay.ts).
+  pingInput(this);
 }
 
 /** A teammate pings a spot: a marker and a label everyone sees. */
-export function ping(this: Game, h: Hero, x: number, z: number): void {
+export function ping(this: Game, h: Hero, x: number, z: number, kind?: string): void {
   if (performance.now() - h.pingAt < 700) return;
   h.pingAt = performance.now();
+  // Ping wheel picks (GO HERE, DANGER, ...): their own label and colour.
+  const k = pingKind(kind);
+  if (k) {
+    this.vfx.ring(x, z, 0.5, 4, k.color, 0.6);
+    this.vfx.ring(x, z, 0.5, 2.5, h.color, 0.45);
+    this.vfx.star(x, 2, z, 1.6, k.color, 0.5);
+    this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${k.label}`, 'score');
+    this.vfx.sound('telegraph', x, z);
+    return;
+  }
   let label = 'HERE!';
   const near = (ax: number, az: number, r: number) => Math.hypot(ax - x, az - z) < r;
   if (this.chests.list.some((c) => c.openT < 0 && near(c.x, c.z, 4))) label = 'CHEST!';

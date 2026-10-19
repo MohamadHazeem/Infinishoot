@@ -73,7 +73,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       dashing: !!m.d,
     };
   } else if (m.t === 'ping') {
-    if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z));
+    if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z), typeof m.k === 'string' ? m.k : undefined);
   } else if (m.t === 'dash') {
     if (!h.player.dead && this.isCombatMode) {
       h.player.invuln = Math.max(h.player.invuln, playerTuning.dashTime + playerTuning.dashIframesExtra);

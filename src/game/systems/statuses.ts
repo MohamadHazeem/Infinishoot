@@ -23,13 +23,20 @@ import { SCAR_COLORS } from '../scars';
 import { CURSE_BY_ID } from '../../data/curses';
 import { bossLike } from '../bossRules';
 import { noteBulletHit } from '../netFeel';
+import { vampHeal } from '../lifesteal';
+import { noteShock, overloadPartner, teamCombo, teamGame, teamTuning } from '../teamPlay';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
   e.burnT = statusTuning.burnTime;
   e.burnDps = Math.max(e.burnDps, dps);
   e.burnOwner = by.index;
-  if (e.shockT > 0) this.overload(e, by);
+  if (e.shockT > 0) {
+    // My Burn on your Shock: a team combo (src/game/teamPlay.ts).
+    const mate = overloadPartner(this, e, by, 'burn');
+    this.overload(e, by, mate >= 0 ? teamTuning.overloadMul : 1);
+    if (mate >= 0) teamCombo(this, e, by, this.heroes[mate], 'OVERLOAD');
+  }
 }
 
 /** Right-click hit: the enemy takes more damage from everyone for a few seconds. */
@@ -46,16 +53,21 @@ export function expose(this: Game, e: Enemy): void {
 
 export function shock(this: Game, e: Enemy, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
+  const mate = e.burnT > 0 ? overloadPartner(this, e, by, 'shock') : -1;
   e.shockT = statusTuning.shockTime + by.synergy.flags.shockTime;
-  if (e.burnT > 0) this.overload(e, by);
+  noteShock(this, e, by);
+  if (e.burnT > 0) {
+    this.overload(e, by, mate >= 0 ? teamTuning.overloadMul : 1);
+    if (mate >= 0) teamCombo(this, e, by, this.heroes[mate], 'OVERLOAD');
+  }
 }
 
 /** Burn + Shock on the same enemy: consume both for a blast. */
-export function overload(this: Game, e: Enemy, by: Hero): void {
+export function overload(this: Game, e: Enemy, by: Hero, teamMul = 1): void {
   e.burnT = e.shockT = 0;
   e.burnDps = 0;
   this.overloads++;
-  const m = 1 + by.synergy.flags.overloadMult;
+  const m = (1 + by.synergy.flags.overloadMult) * teamMul;
   if (this.overloads % 3 === 1) this.vfx.num(e.x, 2.2, e.z, 'OVERLOAD!', 'crit');
   this.blast(e.x, e.z, 1.8 * Math.sqrt(m), (statusTuning.overloadDamage + statusTuning.overloadPerLevel * this.level) * m, '#ffe14d', 'overload', ['explosive'], true, by);
 }
@@ -157,8 +169,8 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     if (this.rng.chance(dropTuning.gearChance * thin * (1 + 0.25 * (by?.stats.luck ?? 0)))) this.pickups.spawn(PickupType.Gear, e.x, e.z);
     if (this.rng.chance(dropTuning.nukeChance * thin)) this.pickups.spawn(PickupType.Nuke, e.x, e.z);
   }
-  // Vampire Fang: life per kill (small per kill: hordes add up).
-  if (by && by.stats.killHeal > 0 && !by.player.dead) by.player.heal(by.stats.killHeal);
+  // Vampire Fang: life per kill, scaled by max life and budgeted per second (src/game/lifesteal.ts).
+  if (by && by.stats.killHeal > 0 && !by.player.dead) by.player.heal(vampHeal(by, by.stats.killHeal, this.runTime));
 
   // Feedback scales with importance; swarm kills stay light so hundreds don't stutter.
   const r = e.radius;
@@ -258,6 +270,11 @@ export function blast(this: Game, x: number, z: number, r: number, base: number,
   // Napalm: an explosion that catches a burning enemy sets the whole blast alight.
   const napalm = explosive && !noStatus && targets.some((e) => e.burnT > 0);
   if (napalm) this.vfx.ring(x, z, 1, r * 2.2, '#ff5e3a', 0.35);
+  // My blast catching your Burn: a team combo.
+  if (napalm && teamGame(this)) {
+    const lit = targets.find((e) => e.burnT > 0 && e.burnOwner !== by.index && this.heroes[e.burnOwner] && !this.heroes[e.burnOwner].left);
+    if (lit) teamCombo(this, lit, by, this.heroes[lit.burnOwner], 'NAPALM');
+  }
   let n = 0;
   for (const e of targets) {
     const d = Math.hypot(e.x - x, e.z - z) || 1;
