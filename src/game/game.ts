@@ -3,6 +3,7 @@ import type { Input } from '../core/input';
 import { Rng, randomSeed } from '../core/rng';
 import { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
 import { loadJson } from '../core/storage';
+import { lap, lapStart } from '../core/prof';
 import { ENEMIES, type EnemyDef } from '../data/enemies';
 import type { Tag } from '../data/tags';
 import { SPECIALS } from '../data/specials';
@@ -1041,15 +1042,18 @@ export class Game implements HeroWorld {
 
   /** One authoritative simulation step (solo and host). */
   simulate(dt: number, localControl: boolean): void {
+    lapStart();
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
     this.updateSkill(dt);
+    lap('sim.heroes+skill');
 
     // Spatial hash first: weapons and enemies query it.
     this.hash.clear();
     for (const e of this.enemies.list) if (e.alive) this.hash.insert(e, e.x, e.z, e.radius);
+    lap('sim.hash');
 
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
@@ -1063,21 +1067,27 @@ export class Game implements HeroWorld {
       if (h.player.dead || h.left || h.bombT >= 0 || isSpecialRunning(h)) continue;
       h.bombCharge = Math.min(1, h.bombCharge + dt / h.specialCooldown);
     }
+    lap('sim.weapons+specials');
 
     // Enemies chase the nearest living hero.
     this.targets.length = 0;
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
     this.enemies.update(dt, this.enemyCtx);
+    lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
     this.updateArena(dt);
+    lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
     this.updateStrikes(dt);
+    lap('sim.statuses');
     this.updateBossFight(dt);
     this.recycleFarEnemies(dt);
+    lap('sim.boss+recycle');
 
     this.updateBullets(dt);
+    lap('sim.bullets');
     this.barrels.update(dt, (i, b) => this.explodeBarrel(i, b));
     this.collectors.length = 0;
     for (const h of this.heroes) this.collectors.push({ x: h.player.x, z: h.player.z, magnet: h.stats.magnet, alive: !h.player.dead && !h.left });
@@ -1089,8 +1099,10 @@ export class Game implements HeroWorld {
     );
     this.updateChests();
     if (this.mode === 'fight' && anyAlive && !this.pvp) this.updateChestSpawns(dt);
+    lap('sim.pickups+chests');
     this.particles.update(dt);
     this.fx.update(dt);
+    lap('sim.particles+fx');
     if (this.heroes.length > 1 && !this.pvp) this.updateRevives(dt);
 
     if (this.mode === 'fight' && this.combo > 0) {
@@ -1144,6 +1156,7 @@ export class Game implements HeroWorld {
 
     // Level-ups interrupt the action (after the step so this frame's effects land).
     if (this.heroes.some((h) => !h.left && h.needsPick) && this.isCombatMode && anyAlive) this.openLevelUp();
+    lap('sim.director+rest');
   }
 
   /** Movement, aim and per-hero timers. Local hero reads Input; remote heroes follow their client. */

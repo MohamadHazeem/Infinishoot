@@ -20,6 +20,7 @@ import { settings } from '../settings';
 import { ChargeShot } from '../weapons';
 import { bossTuning, omegaTuning } from '../enemies';
 import { streaks } from '../streaks';
+import { lap, lapStart } from '../../core/prof';
 import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
 
@@ -159,6 +160,7 @@ export function localAudio(this: Game, frameDt: number, frozen: boolean): void {
 }
 
 export function render(this: Game, alpha: number, frameDt: number): void {
+  lapStart();
   const client = this.role === 'client';
   const local = this.hero;
   const p = local.player;
@@ -188,6 +190,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     h.player.focus = h === local && h.ctx.charging;
     h.player.render(h === local || !client ? a : netA, rdt);
   }
+  lap('ren.heroes+audio');
   const watch = p.dead && this.heroes.length > 1 ? this.spectateTarget() : null;
   (watch ?? p).renderPos(watch ? netA : a, this.playerPos);
   // Danger zones are cosmetic timers: tick them with the frame (they hold still in menus).
@@ -196,20 +199,26 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     for (let i = zones.length - 1; i >= 0; i--) if ((zones[i].t -= frameDt) <= 0) zones.splice(i, 1);
   }
   this.enemies.render(client ? netA : a, this.animTime);
+  lap('ren.enemies');
   this.eliteTrails(frameDt);
   this.bullets.render(a);
+  lap('ren.bullets');
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
+  lap('ren.barrels+arena+chests');
   this.particles.render();
   this.scars.render(rdt);
   streaks.render(rdt);
+  lap('ren.particles+scars');
   this.ambience.render(rdt, this.playerPos.x, this.playerPos.z, this.heroes.filter((h) => !h.left && !h.player.dead).map((h) => h.player));
+  lap('ren.ambience');
   this.pickups.render(this.animTime);
   for (const h of this.heroes) for (const w of h.weapons) w.draw(a, h.ctx);
   this.fx.render(this.cam.camera);
   this.portal.render(rdt);
   this.renderMuzzleFlashes();
+  lap('ren.pickups+weapons+fx');
 
   const inMenu = this.mode === 'title' || this.screens.current !== 'none';
   if (this.mode === 'title') this.lead.set(0, 0, 0);
@@ -272,17 +281,23 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     ? this.netMods.filter((m) => MOD_BY_ID[m.id]).map((m) => ({ def: MOD_BY_ID[m.id], ro: m.ro }))
     : local.synergy.slots.map((sl, i) => ({ def: sl.def, ro: local.synergy.readout(i) }));
   this.hud.setMods(mods.map((m) => ({ id: m.def.id, icon: m.def.icon, color: m.def.color, name: m.def.name, readout: m.ro, cursed: !!m.def.cursed })));
+  lap('ren.camera+reticle');
   this.renderTeam();
   this.renderEliteBars(alpha);
   this.renderMinimap();
   this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);
   this.renderChestPointer();
+  lap('ren.hudbits');
   this.dmg.render(rdt, this.cam.camera);
+  lap('ren.dmgnums');
   const boss = client ? this.netBoss : this.boss && this.boss.active ? { name: this.boss.def.name, hp01: Math.max(0, this.boss.hp / this.boss.maxHp) } : null;
   this.updateMusic(frameDt, boss);
   this.updateSky(frameDt);
+  lap('ren.music+sky');
   this.updateLook(frameDt);
+  lap('ren.look');
   this.worldFx(frameDt);
+  lap('ren.worldfx');
   this.hud.update(
     {
       hp: p.hp,
@@ -309,7 +324,9 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     },
     frameDt,
   );
+  lap('ren.hud');
   this.renderSkill(frameDt, frozen);
+  lap('ren.skill');
 }
 
 export function renderMuzzleFlashes(this: Game): void {

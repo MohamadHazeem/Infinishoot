@@ -11,6 +11,7 @@ import { applySettings, autoQualityTick, settings } from './game/settings';
 import { createDebugPanel } from './ui/debugPanel';
 import { setupTouch } from './ui/touch';
 import { applyTestLink } from './dev/testLinks';
+import { prof } from './core/prof';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const hudEl = document.getElementById('hud')!;
@@ -38,21 +39,37 @@ document.addEventListener('visibilitychange', () => {
 let fpsAcc = 0;
 let fpsFrames = 0;
 let statsTimer = 0;
+// Benchmark timers (`&bench`): update time summed over this frame's sim steps.
+let profUpdate = 0;
+let profSteps = 0;
 
 const loop = new GameLoop({
   // Co-op hosts keep simulating in a background tab so clients don't freeze.
   runHidden: () => game.role === 'host',
 
   update(dt) {
+    const t0 = prof.on ? performance.now() : 0;
     input.poll();
     game.update(dt);
+    if (prof.on) {
+      profUpdate += performance.now() - t0;
+      profSteps++;
+    }
   },
 
   render(alpha, frameDt) {
+    const t0 = prof.on ? performance.now() : 0;
     if (!game.paused && game.mode !== 'levelup') retroGlobals.uTime.value += frameDt;
     game.render(alpha, frameDt);
+    const t1 = prof.on ? performance.now() : 0;
     renderer.gl.setClearColor(retroGlobals.uFogColor.value); // follows the biome
     renderer.render(game.scene, game.cam.camera);
+    if (prof.on) {
+      const t2 = performance.now();
+      const info = renderer.gl.info.render;
+      prof.frames.push([profUpdate, t1 - t0, t2 - t1, frameDt * 1000, profSteps, info.calls, info.triangles]);
+      profUpdate = profSteps = 0;
+    }
     // Auto quality: measured while actually playing (menus and pauses don't count).
     autoQualityTick(frameDt, game.isCombatMode && !game.paused && game.screens.current === 'none' && !document.hidden);
 

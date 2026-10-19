@@ -9,6 +9,7 @@ import { OBJECTIVE_KINDS, type ObjectiveKind } from '../game/objectives';
 import { weatherForce } from '../game/ambience';
 import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
+import { prof, profReset } from '../core/prof';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -42,6 +43,9 @@ import { Team } from '../game/bullets';
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
+ *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
+ *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
+ *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -62,6 +66,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     applySettings();
   }
   if (q.has('fps')) settings.showFps = true;
+  if (q.has('bench')) {
+    prof.on = true;
+    Object.assign(window, { __prof: prof, __profReset: profReset, __game: game });
+  }
   if (q.has('night')) lookOverrides.night = true;
   else if (q.has('day')) lookOverrides.night = false;
   if (q.get('hero')) {
@@ -92,6 +100,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   }
   h.recomputeStats();
   h.loadoutDirty = true;
+  if (q.has('bench')) game.xpNext = 1e12; // no level-up menus: the load stays steady
   if (q.get('gold')) h.gold = Number(q.get('gold'));
   for (const e of list('elite')) {
     const [id, mod] = e.split(':');
@@ -244,6 +253,41 @@ function animLinks(game: Game, q: URLSearchParams): void {
       const r = 6 + (i / count) * 16;
       game.enemies.spawn(def, p.x + Math.cos(a) * r, p.z + Math.sin(a) * r, { instant: true });
     }
+  }
+  if (q.get('hold')) {
+    // hold=180 (swarmers) or hold=150,20:spinner: top each type back up to its count.
+    const want = (q.get('hold') ?? '').split(',').filter(Boolean).map((x) => {
+      const [n, id] = x.split(':');
+      return { def: ENEMIES[id ?? 'swarmer'] ?? ENEMIES.swarmer, n: Math.min(400, Number(n) || 150) };
+    });
+    let k = 0;
+    setInterval(() => {
+      if (game.paused || !game.isCombatMode) return;
+      const p = game.hero.player;
+      for (const w of want) {
+        for (let i = game.enemies.countOf(w.def.id); i < w.n; i++, k++) {
+          const a = k * 2.399; // golden angle: spread around the hero
+          const r = 10 + (k % 7) * 2;
+          game.enemies.spawn(w.def, p.x + Math.cos(a) * r, p.z + Math.sin(a) * r, { instant: true });
+        }
+      }
+    }, 500);
+  }
+  if (q.get('bullets')) {
+    // bullets=500: keep that many enemy bullets in flight (spirals around the hero; god mode recommended).
+    const want = Math.min(2000, Number(q.get('bullets')) || 300);
+    let k = 0;
+    setInterval(() => {
+      if (game.paused || !game.isCombatMode) return;
+      const p = game.hero.player;
+      for (let i = game.bullets.count; i < want; i++, k++) {
+        const a = k * 2.399;
+        const r = 6 + (k % 11);
+        const x = p.x + Math.cos(a) * r;
+        const z = p.z + Math.sin(a) * r;
+        game.bullets.spawn({ x, z, dirX: -Math.sin(a), dirZ: Math.cos(a), speed: 5, life: 2.5, radius: 0.26, damage: 1, knockback: 0, team: Team.Enemy, color: '#ff3df0', width: 0.5, length: 0.5 });
+      }
+    }, 100);
   }
   if (q.has('frozen')) for (const e of game.enemies.list) e.speedMul = 0;
   const later = (k: string, fn: () => void) => {
