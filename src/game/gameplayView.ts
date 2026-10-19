@@ -302,6 +302,7 @@ export class GameplayView {
       sp.setMatrixAt(sp.count++, this.m4);
     }
     commit(sp.instanceMatrix, sp.count);
+    sp.visible = sp.count > 0;
   }
 
   private renderHeroFx(g: Game, time: number): void {
@@ -349,6 +350,8 @@ export class GameplayView {
     }
     commit(sats.instanceMatrix, sats.count);
     commit(au.instanceMatrix, au.count);
+    sats.visible = sats.count > 0;
+    au.visible = au.count > 0;
     if (au.instanceColor) commit(au.instanceColor, au.count);
   }
 }

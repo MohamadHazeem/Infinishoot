@@ -29,7 +29,7 @@ Mech suits, supply crates with super weapons, build-defining relics, enemy mutat
 - **Combo Engine** (legendary): your damage grows with the team combo, +4% per multiplier step (x8 = +28%).
 
 ### Enemy mutations
-- Any enemy alive for **40 s** mutates (oldest first, at most 30 mutants alive): x2.5 life, x1.25 speed, x1.3 damage, x1.22 size, a lime glow, a ring of six spinning spikes and a crown spike, a lime transformation burst and MUTATED! (rate-limited). Their extra attack: a ring of 6 spit bullets every ~4 s. Killing one pays x3 XP and score.
+- Any enemy alive for **40 s** mutates (at most 30 mutants alive): x2.5 life, x1.25 speed, x1.3 damage, x1.22 size, a lime glow, a ring of six spinning spikes and a crown spike, a lime transformation burst and MUTATED! (rate-limited). Their extra attack: a ring of 6 spit bullets every ~4 s. Killing one pays x2 XP and score (`rewardMul`).
 - Never: bosses, mini-bosses (`bossLike`), the Reaper, the Goldbug, eggs, swarm walls, PvP stand-ins. Elites do mutate. Enemies the director recycles closer keep their age, so stragglers you kite around come back mutated.
 
 ### Weapon overload
@@ -86,7 +86,26 @@ Shared hot files, small edits:
 - tests/smoke.test.ts: the mortal run's forced finish also spends the Guardian pet's revive (with this lane the bot can outlive the 900 s budget with the pet's revive unused, and the pet picked it straight back up).
 
 ## Verification
-BALANCE_PLACEHOLDER
+- `npm run typecheck`, `npm test` (40 files; tests/gameplay.test.ts: pure rules (cash-in costs and effects, comeback line, mutation candidates, finale order, power curve, net round trip, relic data/icons/Arsenal, keys) plus a solo Game that pilots a mech (damage, slower, armour, clicks idle, eject), grabs all three crates, mutates enemies (life, size, spit, no bosses, extra XP), maxes all six slots and fires an overload, cashes in all three tiers (incl. through the X key), goes into comeback mode and out, uses all six relics, gets a mech drop from an elite and the finale; tests/gameplayCoop.test.ts: host + client in-process: the client's own and the host's mech (speed, no dash), crates and mech drops, a client-grabbed railgun firing on the host, mutant mirrors, the client's cash-in key, comeback mirrored), `npm run smoke` (passes; see the smoke edit above).
+- Screenshots looked at (shots/, not committed): mech suit walking and firing with the HUD row; mech + railgun + overload together; falling crate flare and ring; landed crate, mech drop and spiky mutants with the cash-in panel; railgun beam; flamethrower; overload barrage and banner; finale fireworks at STAGE CLEAR; comeback red screen. No page errors (the favicon 404 is old).
+- Cost: this lane's two calls take ~0.03 ms per step (of 0.73 ms, god bot, stage 1-2 with a mech, supers and mutants; GP_PERF in tests/gpbench.bench.ts). `npm run bench` ran on a machine shared with four other lanes (1.3 fps SwiftShader, 3.97 ms per step), so its absolute numbers aren't comparable to the perf lane's; 122 draw calls. Empty lane meshes are hidden.
+
+## Balance (dev bot, tests/gpbench.bench.ts, jsdom, Normal; lane on vs everything switched off in the same build)
+Mortal bot, Buster / Charge Shot / Bomb, up to 1200 s (the bot doesn't really dodge):
+| seed | survived on / off (s) | stage on / off | level on / off | mechs, supers, cash-ins, comeback s, mutant kills (on) |
+|---|---|---|---|---|
+| 1 | 496 / 624 | 2 / 3 | 25 / 32 | 1, 7, 15, 18, 72 |
+| 2 | 264 / 259 | 1 / 1 | 17 / 16 | 1, 3, 7, 4, 72 |
+| 3 | 527 / 501 | 2 / 2 | 26 / 22 | 1, 6, 15, 5, 19 |
+| 4 | 520 / 419 | 2 / 2 | 25 / 20 | 2, 6, 14, 0, 114 |
+Mean survival 452 s on vs 451 s off: the heals from cash-ins and the mech's armour roughly cancel the mutants' extra pressure. About one mech suit and 3-7 super weapons per stage-1-2 run, 7-15 cash-ins.
+
+God bot, Scattergun / Grenade Lobber / Thunderstorm (the PLAN v1.2.1 kit), ~1000 s:
+| seed | levels at stage clears on / off | bosses on | bosses off |
+|---|---|---|---|
+| 1 | 18/26/34/42 vs 16/24/33/41 | King 7, Rex 5, Queen 6, Omega 5 s | 6, 7, 7, 8 s |
+| 2 | 17/26/37 vs 15/23/31 | King 21, Rex 35, Queen 37 s | 17, 11, 19 s |
+2 mechs, 12-13 super weapons, 34-40 cash-ins and ~130 mutant kills per run. Levels ran 2-6 higher with the lane on, mostly from the mutants' x3 XP, so `mutationTuning.rewardMul` went 3 -> 2 after these runs (not re-measured). Boss times move both ways (seed 2 was slower with the lane: mutants and spit around the boss fight); no bot reached all six maxed slots, so overload never fired in a bot run (it's tested directly).
 
 ## Unfinished / risky
 - **Not played by a person**, and `npm run coop` (two real browsers) not run: co-op is covered by the in-process host+client test only.
@@ -99,4 +118,4 @@ BALANCE_PLACEHOLDER
 - HUD per-frame state object allocations (small; the DOM is only touched on change).
 
 ## PLAN.md decision-log paragraph
-- 2026-10-19: Gameplay lane (notes/lanes/gameplay.md). Mech suits (rare drop: 0.03% per kill thinned with the horde, 4% per elite, one per 90 s): 30 s in a big mech whose arm cannons, homing missile salvo and stomping steps replace both clicks (auto weapons keep firing), x0.72 speed, +8 +4/stage armour, an eject blast at the end. Supply crates fall from the sky every 55-85 s (flare, parachute, thump) with a Minigun, Railgun or Flamethrower that takes over the left click for 15 s or its ammo. Six rule relics (Trigger Dash, Satellite Rounds, Nova Heart, Adrenal Gland, Powder Keg, Combo Engine). Enemies alive for 40 s mutate (x2.5 life, faster, spiky, lime, spit rings; never bosses; x3 rewards). Weapon overload when all six weapon slots are maxed (4 maxed auto weapons + both clicks fully ranked and evolved): a meter fills over 25 s, then 5 s of x0.35 cooldowns, forced fire and a star-spiral barrage. Combo cash-in (X, choice on Z; D-pad right/left): spend the whole team combo on HEAL 40 / BOMB 80 / GOLD RAIN 150, effects grow with the combo, costs x1.5 per use per stage. A chain-reaction finale of fireworks over the leftover horde, corpses and recent kills at every stage clear. Comeback mode at <= 10% life with no revives: x2 damage and a red screen until healed (`hero.comeback` for the music). Lane damage scales with enemy life ^0.8. Lane bullet kinds register into BULLET_KINDS at runtime (no fixed numbers). BALANCE_LOG_PLACEHOLDER
+- 2026-10-19: Gameplay lane (notes/lanes/gameplay.md). Mech suits (rare drop: 0.03% per kill thinned with the horde, 4% per elite, one per 90 s): 30 s in a big mech whose arm cannons, homing missile salvo and stomping steps replace both clicks (auto weapons keep firing), x0.72 speed, +8 +4/stage armour, an eject blast at the end. Supply crates fall from the sky every 55-85 s (flare, parachute, thump) with a Minigun, Railgun or Flamethrower that takes over the left click for 15 s or its ammo. Six rule relics (Trigger Dash, Satellite Rounds, Nova Heart, Adrenal Gland, Powder Keg, Combo Engine). Enemies alive for 40 s mutate (x2.5 life, faster, spiky, lime, spit rings; never bosses; x2 rewards). Weapon overload when all six weapon slots are maxed (4 maxed auto weapons + both clicks fully ranked and evolved): a meter fills over 25 s, then 5 s of x0.35 cooldowns, forced fire and a star-spiral barrage. Combo cash-in (X, choice on Z; D-pad right/left): spend the whole team combo on HEAL 40 / BOMB 80 / GOLD RAIN 150, effects grow with the combo, costs x1.5 per use per stage. A chain-reaction finale of fireworks over the leftover horde, corpses and recent kills at every stage clear. Comeback mode at <= 10% life with no revives: x2 damage and a red screen until healed (`hero.comeback` for the music). Lane damage scales with enemy life ^0.8. Lane bullet kinds register into BULLET_KINDS at runtime (no fixed numbers). Bot check (Normal, 4 mortal seeds): mean survival 452 s with the lane vs 451 s without; god runs levelled 2-6 higher (mutant XP), so mutant rewards were cut from x3 to x2.

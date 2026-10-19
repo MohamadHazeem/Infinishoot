@@ -91,7 +91,15 @@ game.gpOnKill = function (e, src, by) {
   if (e.mutated) mutated++;
   return killOrig.call(this, e, src, by);
 };
+// GP_PERF=1: time this lane's two per-step calls.
+const perf = { ms: 0, n: 0 };
+if (env.GP_PERF) {
+  const pre = game.gameplayPreWeapons;
+  const upd = game.updateGameplay;
+  game.gameplayPreWeapons = function (dt) { const t = performance.now(); pre.call(this, dt); perf.ms += performance.now() - t; };
+  game.updateGameplay = function (dt) { const t = performance.now(); upd.call(this, dt); perf.ms += performance.now() - t; perf.n++; };
+}
 const t0 = Date.now();
 const r = (globalThis as any).window.botRun(Number(env.GP_SECS ?? 600), env.GP_GOD === '1');
-console.log(JSON.stringify({ cfg: on ? 'on' : 'off', seed, diff: settings.difficulty, kit: kit.join('/'), mode: r.mode, stage: r.stage, t: r.t, level: r.level, kills: r.kills, runTime: Math.round(game.runTime), stages: r.stages, bosses: r.bosses, avgMs: r.avgMs, ...c, mutantKills: mutated, wall: Date.now() - t0 }));
+console.log(JSON.stringify({ cfg: on ? 'on' : 'off', seed, diff: settings.difficulty, kit: kit.join('/'), mode: r.mode, stage: r.stage, t: r.t, level: r.level, kills: r.kills, runTime: Math.round(game.runTime), stages: r.stages, bosses: r.bosses, avgMs: r.avgMs, ...c, mutantKills: mutated, laneMsPerStep: perf.n ? +(perf.ms / perf.n).toFixed(4) : undefined, wall: Date.now() - t0 }));
 process.exit(0);

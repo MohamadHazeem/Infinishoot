@@ -152,7 +152,7 @@ export const mutationTuning = {
   dmgMul: 1.3,
   scale: 1.22,
   /** Kill rewards: extra XP and score x this. */
-  rewardMul: 3,
+  rewardMul: 2,
   /** Their extra attack: a ring of spit bullets. */
   spitEvery: 4,
   spitShots: 6,
