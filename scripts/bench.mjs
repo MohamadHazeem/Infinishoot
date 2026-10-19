@@ -4,6 +4,8 @@
 //   npm run bench -- --gpu metal         native Apple GPU (default: portable SwiftShader)
 //   npm run bench -- --scene magma        another preset (see SCENES), or --link "?test&..."
 //   npm run bench -- --seconds 30 --warmup 5 --dev --json out.json --size 1280x720
+//   npm run bench -- --dev --gpu metal --profile profile.json  CPU/allocation diagnostic
+//   npm run bench -- --skip-build         reuse an already-built dist/
 // Builds the game (vite build to dist/, skipped with --dev, which uses the dev server),
 // opens a test link with `&bench` (src/dev/testLinks.ts turns on src/core/prof.ts),
 // waits out the warm-up, then records every frame: simulation (all fixed steps in the
@@ -50,6 +52,8 @@ if (!['swiftshader', 'metal'].includes(gpu)) throw new Error('--gpu must be swif
 const scene = opt('--scene', 'heavy');
 const [w, h] = opt('--size', '1280x720').split('x').map(Number);
 const jsonOut = opt('--json', null);
+const profileOut = opt('--profile', null); // separate diagnostic run: CPU + sampled allocations
+const skipBuild = flag('--skip-build');
 const dev = flag('--dev');
 const link = `${opt('--link', SCENES[scene] ?? SCENES.heavy)}&quality=${quality}`;
 
@@ -77,7 +81,7 @@ if (dev) {
   await server.listen();
   base = `http://127.0.0.1:${server.httpServer.address().port}/`;
 } else {
-  await build({ logLevel: 'error' });
+  if (!skipBuild) await build({ logLevel: 'error' });
   server = await preview({ preview: { port: 0, host: '127.0.0.1', headers: ISOLATE }, logLevel: 'error' });
   base = `http://127.0.0.1:${server.httpServer.address().port}/`;
 }
@@ -94,6 +98,12 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 await page.goto(base + link);
 await page.waitForFunction(() => !!window.__prof, null, { timeout: 90000 });
 await page.waitForTimeout(warmup * 1000);
+const cdp = profileOut ? await page.context().newCDPSession(page) : null;
+if (cdp) {
+  await cdp.send('Profiler.enable');
+  await cdp.send('Profiler.start');
+  await cdp.send('HeapProfiler.startSampling', { samplingInterval: 32768, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true });
+}
 
 // Reset the timers and start a heap sampler + entity counter in the page.
 await page.evaluate(() => {
@@ -110,6 +120,11 @@ await page.evaluate(() => {
 await browser.startTracing(page, { categories: ['devtools.timeline', 'v8', 'disabled-by-default-v8.gc'] });
 await page.waitForTimeout(seconds * 1000);
 const trace = JSON.parse((await browser.stopTracing()).toString());
+if (cdp) {
+  const { profile: cpu } = await cdp.send('Profiler.stop');
+  const { profile: heap } = await cdp.send('HeapProfiler.stopSampling');
+  writeFileSync(profileOut, JSON.stringify({ cpu, heap }));
+}
 const res = await page.evaluate(() => {
   clearInterval(window.__benchTimer);
   const p = window.__prof;
@@ -150,6 +165,7 @@ const onMain = (e) => !mainTid || `${e.pid}:${e.tid}` === mainTid;
 const sumDur = (names) => trace.traceEvents.filter((e) => e.ph === 'X' && names.includes(e.name) && onMain(e)).reduce((a, e) => a + e.dur / 1000, 0);
 const styleMs = sumDur(['UpdateLayoutTree', 'Layout']);
 const paintMs = sumDur(['Paint', 'PrePaint', 'Layerize', 'UpdateLayer']);
+const clipAsyncMs = (res.phase['ren.clipAsync'] ?? 0) / Math.max(1, frames);
 const heap = res.samples.heap.filter((x) => x > 0);
 let alloc = 0;
 for (let i = 1; i < heap.length; i++) if (heap[i] > heap[i - 1]) alloc += heap[i] - heap[i - 1];
@@ -169,10 +185,11 @@ out.push(`simulation (all steps) ${fmt(stat(upd))}`);
 out.push(`  per sim step         ${(upd.reduce((a, b) => a + b, 0) / Math.max(1, steps)).toFixed(2).padStart(6)}`);
 out.push(`game.render            ${fmt(stat(ren))}`);
 out.push(`renderer.render (GL)   ${fmt(stat(gl))}`);
-out.push(`total CPU              ${fmt(stat(cpu))}`);
-out.push(`CPU at 1 step/frame    ${(upd.reduce((a, b) => a + b, 0) / Math.max(1, steps) + stat(ren).avg + stat(gl).avg).toFixed(2).padStart(6)}   (sim per step + render + GL: a 60 fps frame)`);
+out.push(`frame callback CPU     ${fmt(stat(cpu))}`);
+out.push(`CPU at 1 step/frame    ${(upd.reduce((a, b) => a + b, 0) / Math.max(1, steps) + stat(ren).avg + stat(gl).avg + clipAsyncMs).toFixed(2).padStart(6)}   (sim per step + render + GL + async clips)`);
 out.push(`frame interval         ${fmt(stat(interval))}`);
 out.push(`style+layout (DOM)     ${(styleMs / Math.max(1, frames)).toFixed(2).padStart(6)}   paint ${(paintMs / Math.max(1, frames)).toFixed(2)}   (browser main thread, from the trace)`);
+out.push(`clip callbacks (outside frame timers) ${clipAsyncMs.toFixed(2)} ms/frame; frame + callbacks ${(stat(cpu).avg + clipAsyncMs).toFixed(2)} ms/frame`);
 out.push('');
 out.push(`draw calls  ${Math.round(calls.avg)} avg / ${calls.worst} max    triangles ${Math.round(tris.avg)} avg / ${tris.worst} max`);
 out.push(`entities    enemies ${ent(res.samples.enemies)}   bullets ${ent(res.samples.bullets)}   particles ${ent(res.samples.particles)}`);
@@ -188,7 +205,7 @@ console.log(out.join('\n'));
 if (jsonOut) {
   writeFileSync(
     jsonOut,
-    JSON.stringify({ link, seconds, frames, steps, quality: res.quality, gpu, update: stat(upd), render: stat(ren), gl: stat(gl), cpu: stat(cpu), interval: stat(interval), calls, tris, phase: Object.fromEntries(phases), gc: { minorMs: gcMs('MinorGC'), majorMs: gcMs('MajorGC'), worst: gcWorst }, allocMBs: alloc / seconds / 1048576, styleLayoutMs: styleMs / frames, paintMs: paintMs / frames, errors }, null, 2),
+    JSON.stringify({ link, seconds, frames, steps, quality: res.quality, gpu, update: stat(upd), render: stat(ren), gl: stat(gl), cpu: stat(cpu), interval: stat(interval), calls, tris, phase: Object.fromEntries(phases), gc: { minorMs: gcMs('MinorGC'), majorMs: gcMs('MajorGC'), worst: gcWorst }, allocMBs: alloc / seconds / 1048576, styleLayoutMs: styleMs / frames, paintMs: paintMs / frames, clipAsyncMs, cpuWithClipsMs: stat(cpu).avg + clipAsyncMs, errors }, null, 2),
   );
 }
 process.exit(errors.length ? 1 : 0);

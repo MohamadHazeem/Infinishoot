@@ -320,7 +320,7 @@ export function installReplay(g: Game): void {
     g.cam.camera.matrixWorld.fromArray(header.camera); g.cam.camera.matrixWorldInverse.copy(g.cam.camera.matrixWorld).invert();
     g.cam.camera.projectionMatrix.fromArray(header.projection); g.cam.camera.projectionMatrixInverse.copy(g.cam.camera.projectionMatrix).invert();
   };
-  const api = { export: file, play, run: () => { advance(false); return { steps, events: event, hash: replayHash(g), failed, done }; }, status: () => ({ steps, events: event, failed, done }), download };
+  const api = { export: file, play, run: () => { advance(false); return { steps, events: event, hash: replayHash(g), failed, done }; }, status: () => ({ steps, events: event, failed, done, tapeBytes: tape.chunks.reduce((n, c) => n + c.byteLength, 0) }), download };
   Object.assign(window, { replay: api });
   window.addEventListener('error', e => persistCrash(e.message));
   window.addEventListener('unhandledrejection', e => persistCrash(String(e.reason)));

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { commit } from '../render/instancing';
+import { commit, instanceMatrix } from '../render/instancing';
 import { GroundScars, type ScarKind } from '../render/groundScars';
 
 /**
@@ -102,7 +102,7 @@ export class Scars {
       this.q.setFromAxisAngle(this.up, this.rot[i]);
       const r = this.r[i] * k;
       this.m4.compose(this.v.set(this.x[i], 0.02, this.z[i]), this.q, this.s.set(r, 1, r));
-      this.mesh.setMatrixAt(i, this.m4);
+      instanceMatrix(this.mesh, i, this.m4);
     }
     this.mesh.count = n;
     commit(this.mesh.instanceMatrix, n);

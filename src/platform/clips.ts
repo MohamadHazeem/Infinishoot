@@ -1,5 +1,7 @@
 /** Local, silent canvas highlights. Frames are JPEG-encoded off the main thread by the
  * browser; WebM encoding only runs on an explicit save. No screen/microphone permission. */
+import { prof } from '../core/prof';
+const wallNow = performance.now.bind(performance);
 export const clipsTuning = { seconds: 15, fps: 20, width: 480, height: 270, jpeg: 0.65, postroll: 3, highlights: 8, ringBytes: 12 * 1024 * 1024, archiveBytes: 64 * 1024 * 1024 };
 export type HighlightKind = 'boss' | 'combo' | 'revive' | 'legendary' | 'team' | 'flawless' | 'manual';
 export interface ClipFrame { time: number; blob: Blob }
@@ -41,8 +43,8 @@ export class HighlightRecorder {
   failed = false;
   exporting = false;
   onChange: (() => void) | null = null;
-  private canvas?: HTMLCanvasElement;
-  private ctx?: CanvasRenderingContext2D;
+  private canvas?: HTMLCanvasElement | OffscreenCanvas;
+  private ctx?: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
   private clock = 0;
   private next = 0;
   private busy = false;
@@ -70,23 +72,45 @@ export class HighlightRecorder {
     this.next = this.clock + 1 / clipsTuning.fps;
     try {
       if (!this.canvas) {
-        this.canvas = document.createElement('canvas'); this.canvas.width = clipsTuning.width; this.canvas.height = clipsTuning.height;
+        this.canvas = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(clipsTuning.width, clipsTuning.height) : document.createElement('canvas');
+        this.canvas.width = clipsTuning.width; this.canvas.height = clipsTuning.height;
         this.ctx = this.canvas.getContext('2d', { alpha: false }) ?? undefined;
       }
       if (!this.ctx) throw new Error('Canvas unavailable');
       // Letterbox ultrawide/portrait views instead of stretching them.
       const scale = Math.min(this.canvas.width / source.width, this.canvas.height / source.height);
       const w = source.width * scale, h = source.height * scale;
-      this.ctx.fillStyle = '#1a1c2c'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-      this.ctx.drawImage(source, (this.canvas.width - w) / 2, (this.canvas.height - h) / 2, w, h);
       this.busy = true;
       const generation = this.generation, time = this.clock;
-      this.canvas.toBlob(blob => {
+      const finish = (blob: Blob | null) => {
         if (generation !== this.generation) return;
         this.busy = false;
         if (blob) this.addFrame({ time, blob });
         else { this.failed = true; this.stop(true); }
-      }, 'image/jpeg', clipsTuning.jpeg);
+      };
+      // Snapshot the drawing buffer now, but defer the GPU readback/2D copy
+      // until the bitmap is ready. Only one snapshot/encoder may be in flight.
+      if ('convertToBlob' in this.canvas) {
+        const canvas = this.canvas, ctx = this.ctx;
+        void createImageBitmap(source).then(async bitmap => {
+          const start = prof.on ? wallNow() : 0;
+          let encoded: Promise<Blob>;
+          try {
+            if (generation !== this.generation) return;
+            ctx.fillStyle = '#1a1c2c'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(bitmap, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+            encoded = canvas.convertToBlob({ type: 'image/jpeg', quality: clipsTuning.jpeg });
+          } finally {
+            bitmap.close();
+            if (start) prof.phase['ren.clipAsync'] = (prof.phase['ren.clipAsync'] ?? 0) + wallNow() - start;
+          }
+          finish(await encoded);
+        }).catch(() => finish(null));
+      } else {
+        this.ctx.fillStyle = '#1a1c2c'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.drawImage(source, (this.canvas.width - w) / 2, (this.canvas.height - h) / 2, w, h);
+        this.canvas.toBlob(finish, 'image/jpeg', clipsTuning.jpeg);
+      }
     } catch { this.failed = true; this.stop(true); }
   }
   /** Public for deterministic frame/retention tests. */

@@ -199,7 +199,8 @@ const MM_DOT = ['##', '##'];
 /** Small heading over goal-stack lines (challenges carry their own star / tick). */
 const SPICE_LABEL: Record<HudState['spice'][number]['kind'], string> = { event: 'STAGE EVENT', challenge: '', done: '', buff: 'POWER-UP' };
 
-export const fmtScore = (n: number) => Math.floor(n).toLocaleString('en-US');
+const scoreFormat = new Intl.NumberFormat('en-US');
+export const fmtScore = (n: number) => scoreFormat.format(Math.floor(n));
 const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 export class Hud {

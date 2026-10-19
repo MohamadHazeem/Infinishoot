@@ -102,8 +102,10 @@ export class NoiseField {
     for (let i = 0; i < this.size; i++) {
       const L = this.level[i];
       if (L <= 0) continue;
-      const d = Math.hypot(this.x[i] - x, this.z[i] - z);
-      if (d >= range) continue;
+      const dx = this.x[i] - x, dz = this.z[i] - z;
+      const distance2 = dx * dx + dz * dz;
+      if (distance2 >= range * range) continue;
+      const d = Math.sqrt(distance2);
       const heard = L * (1 - d / range);
       if (heard > best) {
         best = heard;

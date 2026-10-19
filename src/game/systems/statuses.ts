@@ -1,4 +1,5 @@
 import { saveLock } from '../save';
+import { bulletCandidates } from './perf2';
 import { secretsKill } from './secrets';
 import { RARITY } from '../../data/rarity';
 import { coopPlayKill } from './coopplay';
@@ -561,6 +562,7 @@ export function collect(this: Game, h: Hero, type: PickupType, value: number): v
 
 export function updateBullets(this: Game, dt: number): void {
   const b = this.bullets;
+  const candidates = bulletCandidates(this);
   b.integrate(dt);
   for (let i = 0; i < b.count; i++) {
     const x = b.x[i];
@@ -607,14 +609,16 @@ export function updateBullets(this: Game, dt: number): void {
     let hit = null as Enemy | null;
     const r = b.radius[i];
     const lag = lagSteps(this, b.owner[i]); // a remote hero's shot: test against where enemies were on its screen (systems/netcode.ts)
-    this.hash.query(x, z, lag ? r + lagTuning.pad : r, (e) => {
-      if (hit || !e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || pvpFriendly(this.pvp?.teams, e.pvpOwner, b.owner[i])) return;
+    const count = this.hash.queryInto(x, z, lag ? r + lagTuning.pad : r, candidates);
+    for (let n = 0; n < count; n++) {
+      const e = candidates[n];
+      if (!e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || pvpFriendly(this.pvp?.teams, e.pvpOwner, b.owner[i])) continue;
       const rr = e.radius + r;
       const back = lag > 0 && rewindEnemy(this, e, lag);
       const ex = back ? lagOut.x : e.x;
       const ez = back ? lagOut.z : e.z;
-      if ((ex - x) ** 2 + (ez - z) ** 2 < rr * rr) hit = e;
-    });
+      if ((ex - x) ** 2 + (ez - z) ** 2 < rr * rr) { hit = e; break; }
+    }
     if (hit) {
       const sp = Math.hypot(b.vx[i], b.vz[i]) || 1;
       const by = this.heroes[b.owner[i]] ?? this.hero;

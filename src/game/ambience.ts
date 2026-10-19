@@ -1,7 +1,7 @@
 import { noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { Rng } from '../core/rng';
-import { commit } from '../render/instancing';
+import { commit, instanceMatrix } from '../render/instancing';
 import { viewCull } from '../render/viewCull';
 import { createRetroMaterial, retroGlobals } from '../render/retroMaterial';
 import { Surfaces, inPatch } from '../render/surfaces';
@@ -324,7 +324,7 @@ export class Ambience {
       if (this.z[i] - cz > st.d) this.z[i] -= st.d * 2;
       else if (this.z[i] - cz < -st.d) this.z[i] += st.d * 2;
       this.m4.compose(this.v.set(this.x[i], this.y[i] + st.size[1] * 0.5, this.z[i]), this.fall, this.s.set(st.size[0], st.size[1], st.size[2]));
-      this.motes.setMatrixAt(i, this.m4);
+      instanceMatrix(this.motes, i, this.m4);
     }
   }
 
@@ -393,7 +393,7 @@ export class Ambience {
         else if (windy) this.e.set(0, -Math.atan2(vz, vx), 0);
         this.q.setFromEuler(this.e);
         this.m4.compose(this.v.set(this.x[i], this.y[i], this.z[i]), this.q, this.s.set(st.size[0] * tw, st.size[1] * tw, st.size[2] * tw));
-        this.motes.setMatrixAt(i, this.m4);
+        instanceMatrix(this.motes, i, this.m4);
       }
     }
     this.motes.count = n;
@@ -431,7 +431,7 @@ export class Ambience {
       this.q.setFromEuler(this.e);
       const s = this.ts[i];
       this.m4.compose(this.v.set(x, 0, z), this.q, this.s.set(s, s, s));
-      this.tufts.setMatrixAt(vis, this.m4);
+      instanceMatrix(this.tufts, vis, this.m4);
       col[vis * 3] = this.tCol[i * 3];
       col[vis * 3 + 1] = this.tCol[i * 3 + 1];
       col[vis * 3 + 2] = this.tCol[i * 3 + 2];
