@@ -920,7 +920,7 @@ export class Screens {
       return `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-diff" data-diff="${d.id}" class="diff ${d.id === pick.id ? 'on' : ''} ${lock ? 'locked' : ''}" ${v.isHost ? '' : 'disabled'}>${lock ? '🔒 ' : ''}${d.name.toUpperCase()}</button>`;
     }).join(''));
     el.querySelector('.mp-diff-note')!.textContent = localize(`${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`);
-    if (v.isHost && pick.id !== 'legend' && v.players.length < 2 && save.achievements.includes('hard_stage3')) el.querySelector('.mp-diff-note')!.textContent += ` ${t('trading.legend_needs')}`;
+    if (v.isHost && pick.id !== 'legend' && v.players.length < 2 && save.achievements.includes('hard_stage3')) el.querySelector('.mp-diff-note')!.textContent = t('trading.legend_needs', { note: el.querySelector('.mp-diff-note')!.textContent ?? '' });
     // Game type: co-op, or PvP (everyone plays the same stage alone, then a last-one-standing duel).
     const kind = v.kind ?? 'coop';
     const kindName = { coop: 'CO-OP', pvp: 'PVP', versus: 'VERSUS', weekly: 'WEEKLY' };
@@ -1483,7 +1483,7 @@ export class Screens {
       const on = daily ? d.id === 'normal' : settings.difficulty === d.id;
       return `<button data-nav data-act="diff" data-diff="${d.id}" class="diff ${on ? 'on' : ''} ${open ? '' : 'locked'}" ${daily ? 'disabled' : ''} title="${open ? d.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? d.name.toUpperCase() : '🔒 ' + d.name.toUpperCase()}</button>`;
     }).join(''));
-    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty) ?? DIFFICULTIES[1];
+    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty && !d.coopOnly) ?? DIFFICULTIES[1];
     const best = dailyBest(today());
     el.querySelector('.mode-note')!.textContent = localize(daily
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`

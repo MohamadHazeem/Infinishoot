@@ -634,18 +634,30 @@ const SCENARIO = [
     await client(() => window.game.tradeAct({ a: 'give', k: 'gold', to: 0, n: 7 }));
     await pause(400);
     await host(() => window.game.tradeAct({ a: 'give', k: 'gear', to: 1 }));
-    await pause(700);
-    const [h, c] = await Promise.all([
-      host(() => ({ gold: window.game.heroes.map((x) => x.gold), gears: window.game.heroes.map((x) => x.rerollsLeft) })),
-      client(() => ({ gold: window.game.hero.gold, gears: window.game.hero.rerollsLeft, mateGold: window.game.tradeView().heroes[0].gold })),
-    ]);
-    if (h.gold[0] < before + 7 || h.gold[1] > 13 || h.gears[1] !== 1 || c.gears !== 1 || c.gold !== h.gold[1]) fail(`trading: host ${JSON.stringify(h)}, client ${JSON.stringify(c)}`);
+    // The client mirrors the host's snapshot: poll until it catches up (menus slow snapshots to 4 Hz).
+    let h, c;
+    for (let k = 0; k < 20; k++) {
+      await pause(400);
+      [h, c] = await Promise.all([
+        host(() => ({ gold: window.game.heroes.map((x) => x.gold), gears: window.game.heroes.map((x) => x.rerollsLeft) })),
+        client(() => ({ gold: window.game.hero.gold, gears: window.game.hero.rerollsLeft, mateGold: window.game.tradeView().heroes[0].gold })),
+      ]);
+      if (c.gears === h.gears[1] && c.gold === h.gold[1]) break;
+    }
+    if (h.gold[0] < before + 7 || h.gold[1] > 13 + 4 /* coins picked up meanwhile */ || h.gears[1] !== 1 || c.gears !== 1 || c.gold !== h.gold[1]) fail(`trading: host ${JSON.stringify(h)}, client ${JSON.stringify(c)}`);
     return { host: h, client: c };
   }],
   [25, 'trading: the TRADE quick menu on the client', async () => {
-    await client(() => window.game.openTrade());
-    await pause(500);
-    const open = await client(() => window.game.screens.current === 'trade' && document.querySelectorAll('#scr-trade [data-tr=gold]').length > 0);
+    // Wait for a fight moment on the client (no level-up or shop menu up), then open it.
+    let open = false;
+    for (let k = 0; k < 20 && !open; k++) {
+      await client(() => {
+        const g = window.game;
+        if (g.isCombatMode && g.screens.current === 'none') g.openTrade();
+      });
+      await pause(400);
+      open = await client(() => window.game.screens.current === 'trade' && document.querySelectorAll('#scr-trade [data-tr=gold]').length > 0);
+    }
     await shot('trade');
     await client(() => window.game.resume());
     if (!open) fail('trading: the TRADE menu did not open on the client');

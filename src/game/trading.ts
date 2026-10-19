@@ -148,14 +148,14 @@ export class TradePools {
  * LEGEND scaling by players in the run, on top of the director's usual co-op
  * scaling (+45% HP / +50% count per extra player, x0.9 co-op ease). Index =
  * players (2, 3, 4; more use the last). Tuned with autopilot bot runs
- * (notes/lanes/trading.md): bigger teams get a little less extra HP because
- * the director already scales them, but more damage, since four heroes
- * revive each other easily.
+ * (tests/legend.bench.ts, notes/lanes/trading.md): bigger teams get a little
+ * less extra HP and count because the director already scales those, but more
+ * damage, since four heroes revive each other easily.
  */
 export const legendTuning = {
-  hp: [0, 0, 2.3, 2.2, 2.1],
-  dmg: [0, 0, 1.75, 1.85, 1.95],
-  count: [0, 0, 1.35, 1.3, 1.25],
+  hp: [0, 0, 2.6, 2.5, 2.4],
+  dmg: [0, 0, 1.9, 2.0, 2.1],
+  count: [0, 0, 1.45, 1.4, 1.35],
   score: 3,
   /** Boss bounty: each hero rolls one more relic per boss, with this much extra luck. */
   relicLuck: 1.5,

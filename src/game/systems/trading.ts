@@ -19,7 +19,7 @@ import { bestTitle, COOP_ACH_BY_ID, titleOf } from '../../data/coopAchievements'
 import { save, grantAchievement } from '../save';
 import { samples } from '../../audio/samples';
 import { sfx } from '../../audio/sfx';
-import { t } from '../../i18n';
+import { localize, t } from '../../i18n';
 import { checkGive, goldMoved, legendDifficulty, legendTuning, poolLeft, poolTotal, TradeLimiter, TradePools, tradeTuning, type GiveKind, type Pool } from '../trading';
 import { TradeUi } from '../../ui/tradeMenu';
 
@@ -389,13 +389,13 @@ function showEvent(g: Game, e: TradeEvent): void {
   }
   let msg = '';
   if (e.k === 'g' || e.k === 'r' || e.k === 'l') {
-    const what = e.k === 'g' ? t('trading.what_gold', { n: e.n }) : e.k === 'r' ? t('trading.what_gear') : (RELIC_BY_ID[e.s]?.name ?? e.s).toUpperCase();
+    const what = e.k === 'g' ? t('trading.what_gold', { n: e.n }) : e.k === 'r' ? t('trading.what_gear') : localize(RELIC_BY_ID[e.s]?.name ?? e.s).toUpperCase();
     if (e.b === me) msg = t('trading.got', { who: name(e.a), what });
     else if (e.a === me) msg = t('trading.sent', { who: name(e.b), what });
   } else if (e.k === 'c') {
     if (e.b === me && e.a !== me) msg = t('trading.chipped', { who: name(e.a), n: e.n });
   } else if (e.k === 'p') {
-    msg = t('trading.funded', { who: name(e.a), mod: (MOD_BY_ID[e.s]?.name ?? e.s).toUpperCase() });
+    msg = t('trading.funded', { who: name(e.a), mod: localize(MOD_BY_ID[e.s]?.name ?? e.s).toUpperCase() });
   } else if (e.k === 'x') {
     if (e.a !== me) msg = t('trading.cancelled', { who: name(e.a) });
   }

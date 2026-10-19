@@ -1038,7 +1038,7 @@ export const ar = {
   "trading.start_pool": "افتح صندوقا لأحد عروضك:",
   "trading.pool_title": "صندوق الفريق · ساهم بالذهب في تعديل واحد لزميل",
   "trading.no_pools": "لا صناديق مفتوحة",
-  "trading.legend_needs": "الأسطورة تحتاج لاعبين أو أكثر.",
+  "trading.legend_needs": "⟪note⟫ الأسطورة تحتاج لاعبين أو أكثر.",
   "trading.title.co_gift": "رفيق طيب",
   "trading.title.co_buddy": "صديق",
   "trading.title.co_heirloom": "حافظ الإرث",

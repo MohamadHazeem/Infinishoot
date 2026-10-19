@@ -1037,7 +1037,7 @@ export const en = {
   "trading.start_pool": "START A POOL FOR ONE OF YOUR OFFERS:",
   "trading.pool_title": "TEAM POOL · CHIP GOLD INTO ONE MOD FOR A TEAMMATE",
   "trading.no_pools": "NO POOLS OPEN",
-  "trading.legend_needs": "LEGEND needs 2+ players.",
+  "trading.legend_needs": "⟪note⟫ LEGEND needs 2+ players.",
   "trading.title.co_gift": "GOOD SPORT",
   "trading.title.co_buddy": "BUDDY",
   "trading.title.co_heirloom": "HEIRLOOM KEEPER",

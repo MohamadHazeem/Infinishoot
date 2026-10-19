@@ -11,7 +11,7 @@ import { tradingDebug } from '../game/systems/trading';
  * and the shop lane's `shop`):
  * - `tradedemo`: wallets for screenshots (you: 60 gold, 2 gears, 3 relics; the mate: 18 gold, 1 gear, 1 relic)
  *   and titles (`title=<id>` for you, `matetitle=<id>` for the mate; default PATRON and LEGEND)
- * - `trade=<s>`: open the TRADE quick menu after s seconds (1 by default); `traderelic`: with your relic picker open
+ * - `trade=<s>`: open the TRADE quick menu after s seconds of play (1 by default); `traderelic`: with your relic picker open
  * - `tradepool`: in the shop, the mate opens a pool on its first offer and chips in; you chip 10
  * - `tradelobby`: the online lobby as a host with 3 players, titles and LEGEND picked (no connection)
  */
@@ -34,11 +34,15 @@ export function tradingLinks(game: Game, q: URLSearchParams): void {
     }
   }
   if (q.has('trade')) {
+    // After s seconds of play (game time, so slow machines and headless shots agree).
     const s = Number(q.get('trade')) || 1;
-    setTimeout(() => {
+    const t0 = game.stepN;
+    st.later.push(() => {
+      if (game.stepN - t0 < s * 60 || !game.isCombatMode || game.screens.current !== 'none') return false;
       game.openTrade();
       if (q.has('traderelic')) document.querySelector<HTMLElement>('#scr-trade [data-tr=relics]:not(.cant)')?.click();
-    }, s * 1000);
+      return true;
+    });
   }
   if (q.has('tradepool')) {
     st.later.push(() => {

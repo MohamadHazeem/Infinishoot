@@ -71,8 +71,15 @@ if (n > 1) {
   for (let i = 1; i < n; i++) g.onClientLeft(`peer${i}`); // autopilot
 } else game.startSolo();
 game.rng = new Rng(seed);
+// Threat: raw damage aimed at the heroes (counted before god mode drops it), per hero-minute of fighting.
+let raw = 0;
+const hurt = g.hurtHero;
+g.hurtHero = function (h: any, dmg: number, ...rest: any[]) {
+  if (!h.player.dead && h.player.invuln <= 0) raw += dmg;
+  return hurt.call(this, h, dmg, ...rest);
+};
 const t0 = Date.now();
-// Run until everyone is down (botRun stops on 'dead').
-const r = (globalThis as any).window.botRun(Number(env.LG_SECS ?? 1500), false);
-console.log(JSON.stringify({ n, diff: settings.difficulty, eff: { hp: game.difficulty.enemyHp, dmg: game.difficulty.enemyDmg, count: game.difficulty.enemyCount }, seed, mode: r.mode, stage: r.stage, t: r.t, level: r.level, runTime: Math.round(game.runTime), bosses: r.bosses, wall: Date.now() - t0 }));
+// LG_GOD=1: nobody dies (power curve and threat); else until everyone is down (botRun stops on 'dead').
+const r = (globalThis as any).window.botRun(Number(env.LG_SECS ?? 1500), env.LG_GOD === '1');
+console.log(JSON.stringify({ n, diff: settings.difficulty, eff: { hp: game.difficulty.enemyHp, dmg: game.difficulty.enemyDmg, count: game.difficulty.enemyCount }, seed, mode: r.mode, stage: r.stage, t: r.t, level: r.level, runTime: Math.round(game.runTime), threat: Math.round(raw / Math.max(1, n * game.runTime / 60)), kills: r.kills, stages: r.stages, bosses: r.bosses, wall: Date.now() - t0 }));
 process.exit(0);

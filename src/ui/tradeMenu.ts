@@ -9,7 +9,7 @@
 import type { Game } from '../game/game';
 import type { ShopView } from './screens';
 import { MenuNav } from './menu';
-import { escapeHtml, t } from '../i18n';
+import { escapeHtml, localize, t } from '../i18n';
 import { MOD_BY_ID } from '../data/mods';
 import { RELIC_BY_ID } from '../data/relics';
 import { titleChip } from './coopTitle';
@@ -62,6 +62,7 @@ export class TradeUi {
   private lastShop: ShopView | null = null;
   private titleT = 0;
   private titleKey = '';
+  private pauseBtn: HTMLElement | null = null;
 
   constructor(private g: Game) {
     if (!document.getElementById('tr-css')) {
@@ -125,12 +126,12 @@ export class TradeUi {
       else if (v !== this.shown) this.render(true);
     }
     if (g.screens.current === 'shop' && v !== this.shopShown) this.renderPool(true);
-    const pb = document.querySelector<HTMLElement>('#scr-pause [data-tr=open]');
+    const pb = (this.pauseBtn ??= document.querySelector<HTMLElement>('#scr-pause [data-tr=open]'));
     if (pb && pb.hidden === on) {
       pb.hidden = !on;
       pb.toggleAttribute('data-nav', on); // hidden buttons stay out of the menu's navigation
     }
-    if ((this.titleT -= 1) <= 0) {
+    if (on && (this.titleT -= 1) <= 0) {
       this.titleT = 15;
       this.titles();
     }
@@ -164,7 +165,7 @@ export class TradeUi {
                 .filter((r) => !h.relics.includes(r))
                 .map((id) => {
                   const r = RELIC_BY_ID[id];
-                  return `<button data-nav data-tr="relic" data-to="${h.index}" data-id="${id}" class="r-${r.rarity}" title="${escapeHtml(r.desc)}">${iconHtml(r.id, r.color, r.icon)}${escapeHtml(r.name)}</button>`;
+                  return `<button data-nav data-tr="relic" data-to="${h.index}" data-id="${id}" class="r-${r.rarity}" title="${escapeHtml(localize(r.desc))}">${iconHtml(r.id, r.color, r.icon)}${escapeHtml(localize(r.name))}</button>`;
                 })
                 .join('')}<button data-nav data-tr="relics" data-to="-1">${escapeHtml(t('trading.cancel'))}</button></div>`
             : '';
@@ -222,7 +223,7 @@ export class TradeUi {
           `<button data-nav data-tr="chip" data-p="${p.id}" data-n="${left}" class="${(me?.gold ?? 0) > 0 ? '' : 'cant'}">${escapeHtml(t('trading.chip_rest'))} ${gold(Math.min(left, me?.gold ?? 0))}</button>`,
           p.owner === v.me ? `<button data-nav data-tr="unpool" data-p="${p.id}">${escapeHtml(t('trading.cancel'))}</button>` : '',
         ].join('');
-        return `<div class="tr-prow" style="--c:${o.color}"><i></i><bdi>${escapeHtml(o.name)}</bdi> ${iconHtml(m.id, m.color, m.icon)} ${escapeHtml(m.name)} <b>${p.paid}/${gold(p.price)}</b><span class="tr-bar" style="--f:${f}%"><b></b></span>${p.mine ? `<small>${escapeHtml(t('trading.yours', { n: p.mine }))}</small>` : ''}${chips}</div>`;
+        return `<div class="tr-prow" style="--c:${o.color}"><i></i><bdi>${escapeHtml(o.name)}</bdi> ${iconHtml(m.id, m.color, m.icon)} ${escapeHtml(localize(m.name))} <b>${p.paid}/${gold(p.price)}</b><span class="tr-bar" style="--f:${f}%"><b></b></span>${p.mine ? `<small>${escapeHtml(t('trading.yours', { n: p.mine }))}</small>` : ''}${chips}</div>`;
       })
       .join('');
     // Your own offers start pools: the host reads its hero, a client the last shop the host sent.
@@ -230,7 +231,7 @@ export class TradeUi {
     const start =
       !mine && me
         ? `<div class="tr-start"><span>${escapeHtml(t('trading.start_pool'))}</span>${offers
-            .map((o, i) => (o ? `<button data-nav data-tr="pool" data-i="${i}">${escapeHtml(o.name)} ${gold(o.price)}</button>` : ''))
+            .map((o, i) => (o ? `<button data-nav data-tr="pool" data-i="${i}">${escapeHtml(localize(o.name))} ${gold(o.price)}</button>` : ''))
             .join('')}</div>`
         : '';
     box.innerHTML = `<div class="tr-sec">${escapeHtml(t('trading.pool_title'))}</div>${rows || `<div class="tr-none">${escapeHtml(t('trading.no_pools'))}</div>`}${start}<div class="tr-start"><button data-nav data-tr="open">${escapeHtml(t('trading.trade'))} &#9654;</button></div>`;

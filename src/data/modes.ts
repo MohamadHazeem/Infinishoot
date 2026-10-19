@@ -38,7 +38,7 @@ export const DIFFICULTIES: DifficultyDef[] = [
   { id: 'hard', name: 'Hard', desc: 'Tougher, angrier, more of them. Score x1.5.', enemyHp: 1.4, enemyDmg: 1.3, enemyCount: 1.15, score: 1.5 },
   { id: 'nightmare', name: 'Nightmare', desc: 'Good luck. Score x2.2.', enemyHp: 2, enemyDmg: 1.6, enemyCount: 1.3, score: 2.2, unlock: 'hard_stage3' },
   // Trading lane (src/game/trading.ts `legendTuning`): co-op only; these base numbers are rescaled for 2/3/4+ players at run start.
-  { id: 'legend', name: 'Legend', desc: 'Co-op only, above Nightmare. Bonus relic per boss, a gear per clear. Score x3.', enemyHp: 2.3, enemyDmg: 1.75, enemyCount: 1.35, score: 3, unlock: 'hard_stage3', coopOnly: true },
+  { id: 'legend', name: 'Legend', desc: 'Co-op only, above Nightmare. Bonus relic per boss, a gear per clear. Score x3.', enemyHp: 2.6, enemyDmg: 1.9, enemyCount: 1.45, score: 3, unlock: 'hard_stage3', coopOnly: true },
 ];
 
 export const DIFF_BY_ID = Object.fromEntries(DIFFICULTIES.map((d) => [d.id, d])) as Record<DifficultyId, DifficultyDef>;
