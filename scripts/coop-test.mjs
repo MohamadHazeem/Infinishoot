@@ -364,11 +364,11 @@ const SCENARIO = [
       const g = window.game;
       const { ENEMIES } = await import('/src/data/enemies.ts');
       const c = g.heroes[1].player;
-      const ids = ['shielder', 'medic', 'leaper', 'mortar', 'charger', 'sniper', 'splitter'];
+      const ids = ['shielder', 'medic', 'leaper', 'mortar', 'charger', 'sniper', 'splitter', 'bastion', 'blinksniper', 'bombcourier'];
       let k = 0;
       for (const id of ids)
         for (let i = 0; i < 2; i++, k++) {
-          const a = (k / 14) * Math.PI * 2;
+          const a = (k / (ids.length * 2)) * Math.PI * 2;
           g.enemies.spawn(ENEMIES[id], c.x + Math.cos(a) * 9, c.z + Math.sin(a) * 9, g.spawnOpts());
         }
       g.debugSpawnElite('charger', 'shielded');
@@ -429,6 +429,24 @@ const SCENARIO = [
     return c;
   }],
   [18, 'ultimates charged for both heroes', () => host(() => window.game.heroes.forEach((h) => (h.skill.ult = 1)))],
+  [20, 'director2 events, relics and event anchors reach the client', async () => {
+    for (const id of ['garden', 'rebellion', 'gravity', 'goblins', 'blackout', 'turrets']) {
+      await host((id) => {
+        const g = window.game;
+        g.runEvents.forceEvent(id);
+        if (!g.heroes[1].relics.includes('r_cinder')) {
+          g.heroes[1].relics.push('r_cinder', 'r_relay', 'r_backbeat');
+          g.heroes[1].recomputeStats();
+        }
+      }, id);
+      await pause(500);
+      const seen = await client(() => ({ event: window.game.netEvent?.[0], relic: window.game.hero.relics.includes('r_cinder'), pressure: window.game.director.adaptive.pressure }));
+      if (seen.event !== id || !seen.relic || !Number.isFinite(seen.pressure)) fail(`director2 ${id}: ${JSON.stringify(seen)}`);
+    }
+    const [a, b] = await Promise.all([host(() => window.game.director2Net().slice(4)), client(() => window.game.director2Net().slice(4))]);
+    if (JSON.stringify(a) !== JSON.stringify(b)) fail(`director2 turret anchors: ${JSON.stringify(a)} vs ${JSON.stringify(b)}`);
+    return 'six events, guest relics, pressure and turret anchors synced';
+  }],
   [24, 'mini-boss', () => host(() => window.game.debugBoss({ mini: true }))],
   [34, 'stage boss now, push to phase 3', () => host(() => window.game.debugBoss({ now: true, phase: 3 }))],
   [42, 'enemy bullets closing in on the client (parry)', () =>
