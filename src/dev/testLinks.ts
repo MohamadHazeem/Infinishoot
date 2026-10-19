@@ -22,6 +22,7 @@ import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
 import { shopLinks } from './shopLinks';
 import { onboardingLinks } from './onboardingLinks';
+import { firsttenLinks } from './firsttenLinks';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
@@ -95,6 +96,7 @@ import { SCAR_COLORS } from '../game/scars';
  *   ?test&pad=ps&ui=125&levelup        HUD: button prompts (pad=xbox|ps|kbm|touch), UI scale %, open a level-up;
  *     &dmgnums=mine|off, &charge=toggle, &noweather (settings for this session)
  *
+ * First ten minutes (src/dev/firsttenLinks.ts): &fresh, &ftgoals=run,chest|all, &ftmodes, &ftshop, &ftlvl, &ftdie=Rhino&ftat=50.
  * Onboarding (src/dev/onboardingLinks.ts): &training=4, &trainingdone, &tip=boss, &discover=all, &recap, &offer, &screen=codex
  *
  * Bosses lane (src/dev/bossLinks.ts): &titan, &titanphase=3, &titanmove=beam, &remix, &duel.
@@ -320,6 +322,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
+  firsttenLinks(game, q); // fresh, ftgoals=, ftmodes, ftshop, ftlvl, ftdie=Rhino (src/dev/firsttenLinks.ts)
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }

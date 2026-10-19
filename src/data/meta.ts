@@ -36,4 +36,6 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'riposte', name: 'Riposte', desc: 'Parry 25 times in one run' },
   { id: 'immovable', name: 'Immovable', desc: 'Stand still for 20 seconds straight during a stage' },
   { id: 'double_trouble', name: 'Double Trouble', desc: 'Evolve both your left and right click in one run' },
+  // FIRST STEPS checklist on the title (src/game/firstten.ts): unlocks the Star Cadet skin.
+  { id: 'graduate', name: 'Graduate', desc: 'Finish every FIRST STEPS goal on the title screen' },
 ];

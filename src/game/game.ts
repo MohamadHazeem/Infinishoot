@@ -73,6 +73,8 @@ import * as WorldFxSys from './systems/worldFx';
 import * as SkySys from './systems/sky';
 import * as SkillSys from './systems/skill';
 import { Onboarding } from './onboarding';
+import { FirstTen } from './systems/firstten';
+import { earlyXpMul } from './firstten';
 import { weaponCue, windupCue } from './systems/sound';
 import { soundLaneStep } from './systems/sound2';
 import { rightClickHeld } from './chargeMode';
@@ -213,7 +215,7 @@ export const REVIVE_RANGE = 2.4;
 /** XP needed to go from `level` to `level + 1`. */
 export function xpForLevel(level: number): number {
   const l = level - 1;
-  return Math.round(6 + 8 * l + 1.4 * l * l);
+  return Math.round((6 + 8 * l + 1.4 * l * l) * earlyXpMul(level)); // the first levels come quicker (src/game/firstten.ts)
 }
 
 /** PvP match state on this machine (see src/game/pvp.ts). Builds and progress are keyed by peer id ('' = host). */
@@ -756,6 +758,8 @@ export class Game implements HeroWorld {
   readonly screens: Screens;
   /** Training field, first-time tips, codex discovery, run recap (src/game/onboarding.ts). */
   readonly onboarding: Onboarding;
+  /** A new player's first ten minutes: FIRST STEPS, stage-1 moments, helpers, next-try advice (src/game/systems/firstten.ts). */
+  readonly firstten: FirstTen;
   flashes: THREE.Mesh[] = [];
   enemyCtx: EnemyCtx;
   targets: { x: number; z: number; radius: number; alive: boolean }[] = [];
@@ -900,6 +904,7 @@ export class Game implements HeroWorld {
     );
     this.hud.onPause = () => this.pause();
     this.onboarding = new Onboarding(this, hudRoot);
+    this.firstten = new FirstTen(this, hudRoot);
     this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
@@ -1199,6 +1204,7 @@ export class Game implements HeroWorld {
       return;
     }
     this.onboarding.step(dt);
+    this.firstten.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
     this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)

@@ -72,6 +72,8 @@ export class Director {
   lengthMul = 1;
   /** Boss duel (src/game/systems/bossLane.ts): no more spawns while it plays. */
   hold = false;
+  /** Swarm rings sent this stage (firstten lane: the first one is a new player's "use your special" moment). */
+  ringsSent = 0;
   private spawnBudget = 0;
   private nextElite = 0;
   private nextRing = 0;
@@ -94,6 +96,12 @@ export class Director {
     this.goldenAt = -1;
     this.swarmQueenSent = false;
     this.queue = [];
+    this.ringsSent = 0;
+  }
+
+  /** Stage time of the next elite (firstten lane: a heads-up for new players). */
+  get nextEliteAt(): number {
+    return this.nextElite;
   }
 
   get duration(): number {
@@ -195,6 +203,7 @@ export class Director {
 
     if (this.time >= this.nextRing && !this.bossSpawned) {
       this.nextRing += t.ringEvery * rng.range(0.8, 1.2);
+      this.ringsSent++;
       const minute = this.paceMinute;
       this.queue.push({ kind: 'ring', def: this.vet(minute > 2.5 && rng.chance(0.4) ? ENEMIES.zippy : ENEMIES.swarmer, rng), count: Math.round(18 + minute * 6 + this.stage * 6) });
     }
