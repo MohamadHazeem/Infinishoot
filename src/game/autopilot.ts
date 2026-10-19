@@ -1,5 +1,6 @@
 import type { Game } from './game';
 import { Team } from './bullets';
+import { pilotGameplay } from './systems/gameplay';
 
 /**
  * The autoplay brain: what a bot-driven hero wants to do this step. Shared by
@@ -25,11 +26,13 @@ export interface PilotIntent {
   special: boolean;
   ult: boolean;
   parry: boolean;
+  /** Combo cash-in tier to use this step (-1 = none; src/game/systems/gameplay.ts). */
+  cash: number;
 }
 
 export class Autopilot {
   private rightT = 0;
-  readonly out: PilotIntent = { mx: 0, mz: 0, target: null, charge: false, dash: false, special: false, ult: false, parry: false };
+  readonly out: PilotIntent = { mx: 0, mz: 0, target: null, charge: false, dash: false, special: false, ult: false, parry: false, cash: -1 };
 
   decide(g: Game): PilotIntent {
     const o = this.out;
@@ -85,8 +88,11 @@ export class Autopilot {
       mx = -p.z / r + (p.x / r) * radial + ax * 3;
       mz = p.x / r + (p.z / r) * radial + az * 3;
     }
-    o.mx = mx;
-    o.mz = mz;
+    // Supply crates and mech suits nearby, and combo cash-ins (gameplay lane).
+    const mv = { mx, mz };
+    o.cash = pilotGameplay(g, mv, Math.hypot(ax, az) > 1);
+    o.mx = mv.mx;
+    o.mz = mv.mz;
     o.target = best;
     // Right click: hold ~1.4 s (a full charge, or fire whenever a cooldown weapon is ready), then let go briefly.
     this.rightT = (this.rightT + 1 / 60) % 1.6;

@@ -16,7 +16,7 @@ const CSS = `
 #ingame > #pausebtn, #ingame > #bossbar, #ingame > #toast, #ingame > #chestreveal,
 #ingame > #score, #ingame > #combo, #ingame > #loadout, #ingame > #mods, #ingame > #minimap,
 #ingame > #downed, #ingame > #meters, #ingame > #banner, #ingame > #stylemeter,
-#hud > #navhint, #ob-tip, #ob-train, #caps,
+#hud > #navhint, #ob-tip, #ob-train, #caps, #ingame > #gp-power, #ingame > #gp-cash, #ingame > #gp-comeback,
 .screen:not(.hud-pick-layer):not(#scr-settings) > * {
   zoom: var(--ui);
 }

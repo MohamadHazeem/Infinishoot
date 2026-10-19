@@ -81,6 +81,7 @@ import * as RouteSys from './systems/route';
 import * as WindSys from './wind';
 import * as CompanionSys from './systems/companion';
 import * as CharSys from './systems/characters';
+import * as GameplaySys from './systems/gameplay';
 import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
@@ -546,6 +547,19 @@ export class Game implements HeroWorld {
   companionNet = CompanionSys.companionNet;
   applyCompanionNet = CompanionSys.applyCompanionNet;
   renderCompanion = CompanionSys.renderCompanion;
+  // Gameplay lane: mech suits, supply crates, rule relics, mutations, overload, cash-ins, finale, comeback (systems/gameplay.ts).
+  gameplayPreWeapons = GameplaySys.gameplayPreWeapons;
+  updateGameplay = GameplaySys.updateGameplay;
+  gpOnDash = GameplaySys.gpOnDash;
+  gpOnKill = GameplaySys.gpOnKill;
+  gpFinale = GameplaySys.gpFinale;
+  gpCashIn = GameplaySys.gpCashIn;
+  gpHeroNet = GameplaySys.gpHeroNet;
+  applyGpHeroNet = GameplaySys.applyGpHeroNet;
+  gameplayNet = GameplaySys.gameplayNet;
+  applyGameplayNet = GameplaySys.applyGameplayNet;
+  gameplayClientInput = GameplaySys.gameplayClientInput;
+  renderGameplay = GameplaySys.renderGameplay;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -1170,6 +1184,7 @@ export class Game implements HeroWorld {
     for (const e of this.enemies.list) if (e.alive) this.hash.insert(e, e.x, e.z, e.radius);
     lap('sim.hash');
 
+    this.gameplayPreWeapons(dt); // mech suit, super weapon, overload; idles the clicks they replace (systems/gameplay.ts)
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
       for (const w of h.weapons) {
@@ -1181,6 +1196,7 @@ export class Game implements HeroWorld {
       this.weaponFeel(h);
     }
     this.updateHeroMechs(dt);
+    this.updateGameplay(dt);
     for (const h of this.heroes) this.updateBomb(h, dt);
     updateSpecials(this.heroes, dt, this.specialApi);
     // Q/E specials recharge over time; the meter waits while the special (or bomb wave) still runs.
@@ -1377,6 +1393,7 @@ export class Game implements HeroWorld {
     h.dashes++;
     h.synergy.dash();
     this.skillDash(h);
+    this.gpOnDash(h);
     if (h.hasRelic('r_dashbomb')) this.blast(p.x, p.z, 2.6, 30 + 8 * this.stage, '#ffb627', 'r_dashbomb', ['explosive'], false, h);
     this.vfx.sound('dash', p.x, p.z);
     if (h === this.hero) {

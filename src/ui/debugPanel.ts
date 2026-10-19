@@ -47,6 +47,7 @@ import { previewTuning } from '../game/shopPreview';
 import { trainingTuning } from '../game/training';
 import { addHudFolder } from './debugHud';
 import { addFixesFolder } from './fixesPanel';
+import { addGameplayFolder } from './debugGameplay';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -285,6 +286,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   ob.add(trainingTuning, 'shotSpeed', 2, 20, 0.5);
   ob.add(trainingTuning, 'skipAfter', 0, 60, 1).name('SKIP shows after (s)');
   addFixesFolder(gui);
+  addGameplayFolder(gui, game); // mech suits, crates, mutations, overload, cash-ins (gameplay lane)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
 
   // Companion lane: pets and co-op team moves.

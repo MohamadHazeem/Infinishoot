@@ -27,6 +27,7 @@ import { HeroSkill } from './style';
 import { banishTuning, canBanish, offerKey } from './banish';
 import { HeroMech, attachHeroGear, detachHeroGear } from './heroMechs';
 import { fuseWeapons, fusionOfferFor, placeFusion } from './fusion';
+import { HeroPlay } from './gameplay';
 
 /** Auto-weapon slots (the loadout's clicks don't use them). */
 export const MAX_WEAPONS = 4;
@@ -182,6 +183,12 @@ export class Hero implements SynergyHost {
   readonly skill = new HeroSkill();
   /** Hero mechanic state: Furnace heat, Duelist chain, Twin clone (src/game/heroMechs.ts). */
   readonly mech = new HeroMech();
+  /** Gameplay lane: mech suit, super weapon, overload, comeback and relic state (src/game/gameplay.ts). */
+  readonly play = new HeroPlay();
+  /** Comeback mode: at death's door with no revives left (x2 damage, red screen). For the music and sound. */
+  get comeback(): boolean {
+    return this.play.comeback;
+  }
   private gear: THREE.Object3D[] = [];
 
   constructor(
@@ -298,6 +305,8 @@ export class Hero implements SynergyHost {
     this.banishLeft = banishTuning.start;
     this.skill.reset();
     this.mech.reset();
+    this.play.reset();
+    this.player.noDash = this.mech.id === 'duelist'; // a mech suit from the last run may have switched the dash off
     this.petState.reset();
     this.recomputeStats();
     this.rerollsLeft = Math.min(MAX_GEARS, this.stats.rerolls);
@@ -392,6 +401,7 @@ export class Hero implements SynergyHost {
     this.stats.damageMul *= this.world.damageBuff;
     this.stats.damageMul *= this.skill.damageMul;
     this.stats.damageMul *= this.mech.damageMul;
+    this.play.applyLive(this.stats);
   }
 
   get specialDef(): SpecialDef {

@@ -140,6 +140,7 @@ export function stageClear(this: Game): void {
   this.mode = 'cleared';
   this.modeT = 0;
   this.bossesRun++;
+  this.gpFinale(); // chain-reaction fireworks over the leftover horde and recent kills (systems/gameplay.ts)
   for (const e of this.enemies.list) {
     if (!e.active) continue;
     this.pickups.spawn(PickupType.Gem, e.x, e.z, e.def.xp * dropTuning.xpMul);

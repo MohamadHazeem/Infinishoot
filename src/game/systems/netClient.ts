@@ -217,6 +217,7 @@ export function clientUpdate(this: Game, dt: number): void {
   if (wantBomb) this.client?.send({ t: 'bomb' });
   this.skillClientInput(control);
   this.companionClientInput(control);
+  this.gameplayClientInput(control);
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
   const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
   const charging = rightClickHeld(input, control);
@@ -291,6 +292,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     this.syncWeapons(h, hs.w as (string | number)[][]);
     h.relics = (hs.rl as string[]) ?? [];
     this.applyHeroMechNet(h, hs.tw);
+    this.applyGpHeroNet(h, hs.gp);
   }
 
   // Private info for this machine's hero
@@ -367,6 +369,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     this.netEnemies.delete(uid);
   }
   this.applyBossNet(s.bx as BossNet | undefined);
+  this.applyGameplayNet(s.gpw);
 
   unpackBullets(s.bu as NetBytes, this.bullets);
   unpackPickups(s.pk as NetBytes, this.pickups);

@@ -100,6 +100,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     this.skillMessage(h, m.t);
   } else if (m.t === 'team') {
     this.tryTeamMove(h);
+  } else if (m.t === 'cash') {
+    this.gpCashIn(h, Number(m.k) || 0); // combo cash-in (systems/gameplay.ts)
   } else if (m.t === 'ui') {
     const d = m.d === -1 ? -1 : 1;
     this.heroAction(h, String(m.a), Number(m.i) || 0, d);
@@ -200,6 +202,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
         w: h.weapons.map((w) => [w.def.id, w.level, Math.round(w.ready * 20) / 20, w.buildKey, ...w.net()]),
         rl: h.relics,
         tw: this.heroMechNet(h),
+        gp: this.gpHeroNet(h),
       };
     }),
     you: {
@@ -216,6 +219,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     ar: this.arenaNet(),
     sk: this.skillNet(forHero),
     cp: this.companionNet(),
+    gpw: this.gameplayNet(forHero),
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }
