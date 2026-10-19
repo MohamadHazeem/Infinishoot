@@ -39,6 +39,14 @@ export const evoTuning = {
 };
 
 export const EVO_LAYERS: Readonly<Record<string, EvoLayer>> = {
+  'crosswind.evo': { char: 'swarm', pitch: 1.65, gain: 0.7 },
+  'tesla.evo': { char: 'thunder', pitch: 1.6, gain: 0.65 },
+  'swarm.evo': { char: 'cluster', pitch: 1.6, gain: 0.65 },
+  'prism.evo': { char: 'prism', pitch: 1.7, gain: 0.75 },
+  'whip.sunlash': { char: 'fire', pitch: 1.4, gain: 0.8 },
+  'whip.twinlash': { char: 'shock', pitch: 1.5, gain: 0.8 },
+  'sentry.cryo': { char: 'frost', pitch: 1.4, gain: 0.6 },
+  'sentry.ember': { char: 'fire', pitch: 1.7, gain: 0.6 },
   // Left click
   'buster.flare': { char: 'fire', pitch: 1.2 },
   'buster.volt': { char: 'shock', pitch: 1.25 },

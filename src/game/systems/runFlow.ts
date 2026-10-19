@@ -344,6 +344,8 @@ export function checkAchievements(this: Game): void {
   const h = this.hero;
   const want: [string, boolean][] = [
     ['first_steps', kills >= 300],
+    ['light_tamer', kills >= 1500],
+    ['field_engineer', L.elites + this.elitesRun >= 12],
     ['boss_slayer', this.bossesRun > 0 || this.stage > 1],
     ['stage_2', this.stage >= 2],
     ['elite_hunter', L.elites + this.elitesRun >= 5],

@@ -16,6 +16,8 @@ export interface AchievementDef {
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
+  { id: 'light_tamer', name: 'Light Tamer', desc: 'Defeat 1,500 enemies in total', unlockLoadout: 'whip', lifetime: (l) => l.kills >= 1500 },
+  { id: 'field_engineer', name: 'Field Engineer', desc: 'Defeat 12 elites in total', unlockLoadout: 'sentry', lifetime: (l) => l.elites >= 12 },
   { id: 'first_steps', name: 'First Steps', desc: 'Defeat 300 enemies in total', unlockLoadout: 'shield', unlockWeapon: 'pellets', lifetime: (l) => l.kills >= 300 },
   { id: 'boss_slayer', name: 'Boss Slayer', desc: 'Defeat a boss', unlockWeapon: 'missiles', lifetime: (l) => l.bosses >= 1 },
   { id: 'stage_2', name: 'Onward', desc: 'Reach stage 2', unlockLoadout: 'blizzard', lifetime: (l) => l.bestStage >= 2 },

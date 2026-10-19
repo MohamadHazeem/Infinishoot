@@ -7,6 +7,12 @@ export interface StemWeapon { readonly def: { readonly id: string }; readonly le
 interface Instrument { patch: Patch; steps: readonly number[]; degrees: readonly number[]; octave: number; length: number; cutoff: number; pan: number; sweep?: boolean }
 /** Each weapon has its own rhythm/register, including the two click slots. */
 const BASE_STEMS: Readonly<Record<string, Instrument>> = {
+  crosswind: { patch: 'pluck', steps: [0, 3, 8, 11], degrees: [0, 7, 4, 2], octave: 24, length: 1.1, cutoff: 6600, pan: -0.28 },
+  tesla: { patch: 'square', steps: [2, 5, 10, 13], degrees: [2, 4, 7, 4], octave: 12, length: 0.35, cutoff: 3300, pan: 0.26 },
+  swarm: { patch: 'sawtooth', steps: [0, 1, 2, 8, 9, 10], degrees: [0, 2, 4, 7], octave: 0, length: 0.5, cutoff: 2100, pan: -0.18, sweep: true },
+  prism: { patch: 'bell', steps: [1, 6, 9, 14], degrees: [7, 2, 4, 0], octave: 24, length: 1.7, cutoff: 7500, pan: 0.36 },
+  whip: { patch: 'wide', steps: [0, 6, 8, 14], degrees: [0, 4, 2, 7], octave: 12, length: 1.2, cutoff: 3800, pan: -0.24, sweep: true },
+  sentry: { patch: 'triangle', steps: [0, 4, 7, 10, 12], degrees: [0, 0, 4, 2], octave: 12, length: 0.45, cutoff: 2400, pan: 0.18 },
   buster: { patch: 'triangle', steps: [0, 6, 10, 14], degrees: [0, 2, 4, 2], octave: 12, length: 0.8, cutoff: 5200, pan: -0.12 },
   charge: { patch: 'bell', steps: [4, 12], degrees: [4, 7], octave: 12, length: 2.8, cutoff: 4200, pan: 0.15 },
   drones: { patch: 'triangle', steps: [0, 2, 4, 6, 8, 10, 12, 14], degrees: [0, 2, 4, 7], octave: 24, length: 0.8, cutoff: 7000, pan: -0.3 },

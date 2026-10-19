@@ -60,12 +60,14 @@ const base = `http://127.0.0.1:${server.config.server.port ?? server.httpServer.
 const browser = await chromium.launch({
   headless: true,
   executablePath: findChrome(),
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
+  args: [`--use-angle=${opt('--angle', 'swiftshader')}`, '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
 });
 
 async function openPage(name) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
   const page = await ctx.newPage();
+  // Parallel overnight lanes can take longer to load the cold Vite module graph.
+  if (args.includes('--weapons3')) page.setDefaultNavigationTimeout(120000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(`${e.message}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}`));
   page.on('console', (m) => {
@@ -138,6 +140,29 @@ await Promise.all(
 );
 await A.page.evaluate(() => window.game.hostStart());
 await B.page.waitForFunction(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.heroes.length === 2, null, { timeout: 15000 }).catch(() => fail('client never started the run'));
+// Optional weapons3 coverage: both fork choices plus all four evolved auto weapons.
+if (args.includes('--weapons3')) await A.page.evaluate(async () => {
+  const { createWeapon } = await import('/src/game/weapons/index.ts');
+  const g = window.game;
+  // This maxed kit would end the boss before the timed ping/parry checks.
+  const spawnBoss = g.spawnBoss;
+  g.spawnBoss = function (...a) {
+    spawnBoss.apply(this, a);
+    if (this.boss) this.boss.hp = this.boss.maxHp = 1e7;
+  };
+  for (const h of g.heroes) {
+    for (const w of h.weapons) w.dispose();
+    h.weapons.length = 0;
+    h.loadoutPick = { primary: 'whip', secondary: 'sentry', special: 'bomb' };
+    for (const id of ['whip', 'sentry', 'crosswind', 'tesla', 'swarm', 'prism']) {
+      const w = createWeapon(id, g.scene);
+      if (w.build) { for (let t = 0; t < 3; t++) for (let r = 0; r < 4; r++) w.addRank(t); w.evolve(h.index % 2); }
+      else { while (!w.maxed) w.levelUp(); w.evolve(); }
+      h.weapons.push(w);
+    }
+    h.loadoutDirty = true;
+  }
+});
 await Promise.all(
   [A, B].map((p) =>
     p.page.evaluate(async (trace) => {

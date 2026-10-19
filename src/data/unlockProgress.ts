@@ -39,6 +39,8 @@ export interface UnlockProgress {
 type Goal = (L: UnlockLifetime, r: UnlockRun) => [cur: number, max: number, unit: string] | null;
 
 const GOALS: Record<string, Goal> = {
+  light_tamer: (L) => [L.kills, 1500, 'kills'],
+  field_engineer: (L) => [L.elites, 12, 'elites'],
   first_steps: (L) => [L.kills, 300, 'kills'],
   boss_slayer: (L) => [L.bosses, 1, 'bosses'],
   stage_2: (L) => [L.bestStage, 2, 'best stage'],

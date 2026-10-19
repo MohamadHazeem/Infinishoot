@@ -201,6 +201,7 @@ export const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'parry', tags: ['projectile'] }, // 13 bullets reflected by a parry
   { source: 'ult', tags: [] }, // 14 Mega Barrage shots
   { source: 'dragon_cannon', tags: ['projectile', 'fire', 'trail'] }, // 15 Dragon Cannon (fusion, src/data/fusions.ts)
+  { source: 'sentry' }, // 16 Pocket Sentry; evolution tags come from its owner's build
 ];
 /** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
 export const IMPACT_BLAST = [1, 5, 8];
