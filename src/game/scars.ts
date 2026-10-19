@@ -4,7 +4,8 @@ import { commit } from '../render/instancing';
 /**
  * Ground scars that linger: scorch marks from explosions, frost patches
  * from novas, craters from bombs and slams, goo splats from jellies. A ring
- * buffer of flat pixel-art splats; each shrinks away over the end of its life.
+ * buffer of flat pixel-art splats; each fades and shrinks away over the end
+ * of its life.
  */
 const MAX = 220;
 
@@ -14,6 +15,38 @@ export const SCAR_COLORS = {
   crater: '#3d3046',
 } as const;
 
+/**
+ * Readability lane: explosive builds used to carpet the floor (scorch stayed
+ * 10 s at 0.8 opacity). Life multipliers and peak opacity per kind; craters
+ * (bombs, slams, boss deaths) keep most of their life so big hits still mark the arena.
+ */
+export const scarTuning = {
+  scorchLife: 0.5,
+  scorchAlpha: 0.55,
+  craterLife: 1,
+  craterAlpha: 0.8,
+  /** Frost patches and goo splats. */
+  otherLife: 0.6,
+  otherAlpha: 0.65,
+  /** Share of the life (at the end) spent fading out and shrinking. */
+  fade: 0.45,
+};
+
+/** Life multiplier and peak opacity for a scar of this colour. Pure, for tests. */
+export function scarLook(color: string): [life: number, alpha: number] {
+  const T = scarTuning;
+  if (color === SCAR_COLORS.scorch) return [T.scorchLife, T.scorchAlpha];
+  if (color === SCAR_COLORS.crater) return [T.craterLife, T.craterAlpha];
+  return [T.otherLife, T.otherAlpha];
+}
+
+/** 0..1 presence of a scar `age` seconds into a `life`-second life (pop in, hold, fade out over the last `fade` share). Pure, for tests. */
+export function scarFade(age: number, life: number): number {
+  const left = life - age;
+  if (left <= 0) return 0;
+  return Math.min(1, age * 10, left / (life * scarTuning.fade));
+}
+
 export class Scars {
   private mesh: THREE.InstancedMesh;
   private x = new Float32Array(MAX);
@@ -22,6 +55,8 @@ export class Scars {
   private rot = new Float32Array(MAX);
   private age = new Float32Array(MAX);
   private life = new Float32Array(MAX);
+  private a0 = new Float32Array(MAX);
+  private alpha: THREE.InstancedBufferAttribute;
   private next = 0;
   private used = 0;
   private m4 = new THREE.Matrix4();
@@ -35,13 +70,21 @@ export class Scars {
     const mat = new THREE.MeshBasicMaterial({
       map: splatTexture(),
       transparent: true,
-      opacity: 0.8,
       depthWrite: false,
       polygonOffset: true,
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
     });
-    this.mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), mat, MAX);
+    // Per-instance opacity (each scar fades on its own).
+    mat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float scarAlpha;\nvarying float vScarAlpha;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvScarAlpha = scarAlpha;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vScarAlpha;').replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.a *= vScarAlpha;');
+    };
+    const geo = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2);
+    this.alpha = new THREE.InstancedBufferAttribute(new Float32Array(MAX), 1);
+    this.alpha.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute('scarAlpha', this.alpha);
+    this.mesh = new THREE.InstancedMesh(geo, mat, MAX);
     this.mesh.setColorAt(0, this.c.set('#ffffff'));
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
@@ -58,7 +101,9 @@ export class Scars {
     this.r[i] = r;
     this.rot[i] = Math.random() * Math.PI * 2;
     this.age[i] = 0;
-    this.life[i] = life;
+    const [lifeMul, a0] = scarLook(color);
+    this.life[i] = life * lifeMul;
+    this.a0[i] = a0;
     this.mesh.setColorAt(i, this.c.set(color));
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
@@ -70,18 +115,20 @@ export class Scars {
 
   render(dt: number): void {
     const n = this.used;
+    const al = this.alpha.array as Float32Array;
     for (let i = 0; i < n; i++) {
       this.age[i] += dt;
-      const left = this.life[i] - this.age[i];
-      // Pop in fast, shrink out over the last 25% of life.
-      const k = left <= 0 ? 0 : Math.min(1, this.age[i] * 10, left / (this.life[i] * 0.25));
+      // Pop in fast, then fade and shrink out over the end of life.
+      const k = scarFade(this.age[i], this.life[i]);
+      al[i] = this.a0[i] * k;
       this.q.setFromAxisAngle(this.up, this.rot[i]);
-      const r = this.r[i] * k;
+      const r = this.r[i] * (0.6 + 0.4 * k);
       this.m4.compose(this.v.set(this.x[i], 0.02, this.z[i]), this.q, this.s.set(r, 1, r));
       this.mesh.setMatrixAt(i, this.m4);
     }
     this.mesh.count = n;
     commit(this.mesh.instanceMatrix, n);
+    commit(this.alpha, n);
   }
 }
 
