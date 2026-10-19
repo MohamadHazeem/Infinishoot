@@ -195,7 +195,7 @@ function parrySwing(g: Game, h: Hero): void {
   for (let k = 0; k < 7; k++) {
     const t = k / 6;
     const a = a0 - 1.1 + t * 2.2;
-    g.fx.star(p.x + Math.cos(a) * r, 1.1, p.z + Math.sin(a) * r, 0.5 + 0.5 * Math.sin(t * Math.PI), k === 3 ? '#ffffff' : '#73eff7', 0.1 + t * 0.08);
+    g.fx.star(p.x + Math.cos(a) * r, 1.1, p.z + Math.sin(a) * r, 0.4 + 0.4 * Math.sin(t * Math.PI), k === 3 ? '#ffffff' : '#73eff7', 0.1 + t * 0.08);
   }
   p.recoil = Math.max(p.recoil, 1.4);
   p.bounce(-3);

@@ -91,6 +91,21 @@ ok(after < before * 0.3, `a busy effect list shrinks to under 30% (${before} -> 
 
 ok(!fxRelevant(['a', 40, 0, 'hit', 1], 0, 0) && fxRelevant(['a', 20, 0, 'hit', 1], 0, 0) && fxRelevant(['a', NaN, NaN, 'levelUp', 1], 0, 0), 'sounds past hearing range are dropped, team-wide ones kept');
 ok(!fxRelevant(['k', 0, 31, 0.3], 0, 0) && fxRelevant(['k', 0, 20, 0.3], 0, 0) && fxRelevant(['b', 49, 0, 0, hit], 0, 0), 'far shakes are dropped, bursts are left to the interest box');
+// Things added later by other code still arrive: a new event kind, a new HUD sub-kind, a new burst option.
+{
+  const later = [
+    ['q', 1.5, 2.5, 'newThing', 3] as unknown as VfxEvent,
+    ['h', 'shout', 'BIG', 'NEWS', 1.5] as unknown as VfxEvent,
+    ['b', 1, 0.5, 2, { ...hit, glow: 0.7, trail: 'long' } as BurstOptions],
+  ];
+  const out: unknown[] = [];
+  decodeFx(enc.encode(later), (e) => out.push(JSON.parse(JSON.stringify(e))));
+  const b = out[2] as [string, number, number, number, Record<string, unknown>];
+  ok(
+    JSON.stringify(out[0]) === JSON.stringify(later[0]) && JSON.stringify(out[1]) === JSON.stringify(later[1]) && b[4].glow === 0.7 && b[4].trail === 'long' && b[4].count === 3,
+    'unknown effect kinds, sub-kinds and burst options travel losslessly (generic fallback)',
+  );
+}
 // Chunked PeerJS messages hand over Uint8Array views.
 let viewCount = 0;
 decodeFx(new Uint8Array(buf), () => viewCount++);

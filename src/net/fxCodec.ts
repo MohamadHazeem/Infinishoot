@@ -1,6 +1,7 @@
 import type { BurstOptions } from '../game/particles';
 import type { NumKind, VfxEvent } from '../game/vfx';
 import { ByteReader, ByteWriter, type NetBytes } from './bytes';
+import { packValue, unpackValue } from './snapCodec';
 
 /**
  * Compact binary encoding of the cosmetic effects bus (src/game/vfx.ts) for
@@ -37,6 +38,10 @@ const NUM_KINDS: NumKind[] = ['hit', 'crit', 'player', 'heal', 'score'];
 const NUM_SUFFIXES = ['!', ' FIRE', ' SHOCK', ' FROST', ' SHIELD'];
 const NUM_LABEL = /^(0|[1-9]\d{0,8})(!| FIRE| SHOCK| FROST| SHIELD)$/;
 const HUD_KINDS = ['banner', 'toast', 'flash'] as const;
+/** Tag for anything this codec doesn't know (a new event kind or sub-kind): sent as a generic value. */
+const GENERIC = 15;
+/** Burst options this codec writes field by field; any other option travels as a generic value. */
+const BURST_KEYS = new Set(['count', 'color', 'color2', 'speed', 'size', 'life', 'up', 'gravity', 'drag', 'dir', 'smoke', 'debris', 'sparks', 'dust', 'scorch']);
 const NAN16 = -32768;
 
 // Burst template optional-field bits.
@@ -50,6 +55,7 @@ const B_DEBRIS = 64;
 const B_SPARKS = 128;
 const B_DUST = 256;
 const B_SCORCH = 512;
+const B_EXTRA = 1024;
 
 const clamp16 = (v: number) => Math.max(-32767, Math.min(32767, Math.round(v)));
 const clampU16 = (v: number) => Math.max(0, Math.min(65535, Math.round(v)));
@@ -154,6 +160,13 @@ export class FxEncoder {
     if (o.sparks) bits |= B_SPARKS;
     if (o.dust) bits |= B_DUST;
     if (o.scorch !== undefined) bits |= B_SCORCH;
+    let extra: Record<string, unknown> | null = null;
+    for (const k in o) {
+      const v = (o as unknown as Record<string, unknown>)[k];
+      if (BURST_KEYS.has(k) || v === undefined) continue;
+      (extra ??= {})[k] = v;
+    }
+    if (extra) bits |= B_EXTRA;
     t.uv(bits);
     t.uv(Math.max(0, Math.round(o.count)));
     t.uv(this.str(colorKey(o.color)));
@@ -173,6 +186,11 @@ export class FxEncoder {
     if (bits & B_SPARKS) t.uv(Math.round(o.sparks!));
     if (bits & B_DUST) t.uv(Math.round(o.dust!));
     if (bits & B_SCORCH) t.u16(clampU16(o.scorch! * 1000));
+    if (extra) {
+      const b = new Uint8Array(packValue(extra));
+      t.uv(b.length);
+      t.raw(b);
+    }
     let key = '';
     for (let i = 0; i < t.n; i++) key += String.fromCharCode(t.buf[i]);
     let idx = this.templates.get(key);
@@ -193,6 +211,14 @@ export class FxEncoder {
     w.i16(this.pY);
     w.uv(this.pT);
     if (this.pHasDir) w.i16(this.pDir);
+  }
+
+  /** Event kinds (and sub-kinds) with a compact encoding here. */
+  private known(e: VfxEvent): boolean {
+    const k = e[0] as string;
+    if (k === 'n') return NUM_KINDS.includes(e[5] as NumKind);
+    if (k === 'h') return (HUD_KINDS as readonly string[]).includes(e[1] as string);
+    return k in KIND_INDEX;
   }
 
   private event(e: VfxEvent): void {
@@ -218,6 +244,14 @@ export class FxEncoder {
       return;
     }
     this.flushBurst();
+    if (!this.known(e)) {
+      // Not something this codec was written for: send it whole (lossless, just less compact).
+      const b = new Uint8Array(packValue(e));
+      w.u8(GENERIC);
+      w.uv(b.length);
+      w.raw(b);
+      return;
+    }
     switch (e[0]) {
       case 'r':
         this.head('r', e[1], e[2], false);
@@ -329,6 +363,7 @@ export function decodeFx(buf: NetBytes, each: (e: VfxEvent) => void): void {
     if (bits & B_SPARKS) o.sparks = r.uv();
     if (bits & B_DUST) o.dust = r.uv();
     if (bits & B_SCORCH) o.scorch = r.u16() / 1000;
+    if (bits & B_EXTRA) Object.assign(o, unpackValue(r.raw(r.uv())));
     templates.push({ o, dir });
   }
   const s = (i: number) => strings[i] ?? '';
@@ -337,8 +372,12 @@ export function decodeFx(buf: NetBytes, each: (e: VfxEvent) => void): void {
   const T = scratch;
   while (r.more) {
     const tag = r.u8();
+    if (tag === GENERIC) {
+      each(unpackValue(r.raw(r.uv())) as VfxEvent);
+      continue;
+    }
     const kind = KINDS[tag & 15];
-    if (!kind) return; // unknown kind: the rest can't be parsed
+    if (!kind) return; // unknown tag: the rest can't be parsed
     if (kind !== 'h' && !(tag & SAME_POS)) {
       x = dqPos(r.i16());
       z = dqPos(r.i16());
