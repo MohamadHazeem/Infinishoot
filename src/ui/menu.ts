@@ -37,6 +37,7 @@ export class MenuNav {
         (event.target as HTMLElement).blur();
         this.back();
       }
+      if (['ArrowLeft', 'ArrowRight'].includes(event.code) && (event.target as HTMLElement).matches('input[type=range]')) event.preventDefault();
       // MenuNav owns activation, including a button reached with native focus.
       if (['Enter', 'Space'].includes(event.code) && (event.target as HTMLElement).matches('button, a[data-nav]')) event.preventDefault();
     });
@@ -119,7 +120,7 @@ export class MenuNav {
   }
 
   update(input: Input, dt: number): void {
-    if (this.dirty || (this.selected && !menuItemAvailable(this.selected))) {
+    if (this.dirty || (this.selected && (!this.root.contains(this.selected) || !menuItemAvailable(this.selected)))) {
       const selected = this.selected;
       const previous = this.focus;
       this.refresh(previous);
@@ -273,8 +274,9 @@ export class TitleMenu {
     const booth = this.title.querySelector<HTMLElement>('.ha-booth');
     if (banner && booth && banner.parentElement !== booth) booth.append(banner);
     for (const sel of ['.wallet', '.hiscores']) {
-      const el = this.title.querySelector<HTMLElement>(sel);
-      if (el && el.parentElement !== this.primary) this.primary.append(el);
+      for (const el of this.title.querySelectorAll<HTMLElement>(sel)) {
+        if (el.parentElement !== this.primary) this.primary.append(el);
+      }
     }
     const level = profileLevel(save.lifetime, save.achievements.length);
     this.profile.innerHTML = localizeHtml(`<span class="menu-profile-star" aria-hidden="true">★</span><span><small>${t('menu.profile', { level })}</small><b>${t(profileTitle(level))}</b></span>`);
@@ -349,6 +351,8 @@ const CSS = `
 #scr-title.menu-home > .credits { position: static; order: 5; max-width: 80%; font-size: calc(2.5 * var(--p)); }
 #scr-title.menu-home > .version { inset-inline-end: calc(5 * var(--p)); }
 .menu-consistent { gap: calc(5 * var(--p)); padding: calc(7 * var(--p)); }
+#scr-wardrobe.menu-consistent { justify-content: safe flex-end; }
+.menu-consistent > :not(.scroll) { flex-shrink: 0; }
 .menu-consistent > h1 { font-size: calc(20 * var(--p)); line-height: 1.1; text-align: center; }
 .menu-consistent > .note { max-width: min(calc(240 * var(--p)), 90%); margin-block: calc(2 * var(--p)); text-align: center; }
 .menu-consistent button { min-height: calc(12 * var(--p)); touch-action: manipulation; }

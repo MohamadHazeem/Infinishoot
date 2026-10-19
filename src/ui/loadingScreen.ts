@@ -115,8 +115,9 @@ const CSS = `
 .menu-loading-track { height: calc(5 * var(--p)); background: var(--ink); padding: var(--p); box-shadow: 0 0 0 var(--p) var(--slate); }
 .menu-loading-track i { display: block; width: var(--loaded, 0%); height: 100%; background: var(--cyan); }
 .menu-loading-count { display: block; color: var(--cyan); font: calc(6 * var(--p)) var(--display); margin-top: calc(3 * var(--p)); }
-.menu-loading .menu-loading-tip { color: var(--silver); font-size: calc(5 * var(--p)); }
+.menu-loading .menu-loading-tip { color: var(--mist); font-size: calc(5 * var(--p)); }
 .menu-loading button { font: calc(7 * var(--p)) var(--font); background: var(--blue); color: var(--white); padding: calc(3 * var(--p)) calc(7 * var(--p)); cursor: pointer; border: var(--p) solid var(--cyan); }
+.menu-loading button:focus-visible { outline: var(--p) solid var(--yellow); outline-offset: var(--p); }
 .menu-loading-compact { inset: auto calc(5 * var(--p)) calc(5 * var(--p)) auto; background: transparent; padding: 0; pointer-events: none; max-width: 90vw; }
 .menu-loading-compact .menu-loading-card { width: calc(90 * var(--p)); padding: calc(4 * var(--p)); }
 .menu-loading-compact .menu-loading-art, .menu-loading-compact h1, .menu-loading-compact small, .menu-loading-compact .menu-loading-tip, .menu-loading-compact .menu-loading-count { display: none; }

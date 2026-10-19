@@ -759,6 +759,8 @@ export class Screens {
   show(name: ScreenName, focus?: number): void {
     name = this.titleMenu.destination(name, this.current);
     const previous = this.current;
+    // A text field on the screen we hide must not keep swallowing menu keys.
+    if (previous !== name && this.root.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
     if (previous !== 'none' && previous !== name) this.menuFocus.set(previous, this.nav(previous).focus);
     this.current = name;
     for (const [k, el] of Object.entries(this.els)) el.hidden = k !== name;

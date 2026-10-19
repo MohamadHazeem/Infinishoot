@@ -33,6 +33,9 @@ root.innerHTML = ''; await Promise.resolve(); nav.update(input('Escape'),1/60); 
 nav.update(input('',1),1/60); assert.equal(backs,2,'controller B on empty menus');
 root.innerHTML='<input type="text">'; root.querySelector('input')!.dispatchEvent(new KeyboardEvent('keydown',{code:'Escape',bubbles:true})); assert.equal(backs,3,'Escape from an editing text field');
 root.innerHTML='<button data-nav>A</button><button data-nav>B</button>'; nav.refresh(1); const keep=root.lastElementChild; root.prepend(document.createElement('p')); await Promise.resolve(); nav.update(input(),1/60); assert.equal(root.querySelector('.focused'),keep,'unrelated async content preserves focus');
+keep!.remove(); nav.update(input(),1/60); assert.equal(root.querySelector('.focused')?.textContent,'A','synchronous removal repairs focus before observers run');
+let confirms=0;root.querySelector('button')!.onclick=()=>confirms++;nav.update(input('',0),1/60);assert.equal(confirms,1,'controller A activates once');
+root.innerHTML='<input type="range" data-nav min="0" max="10" step="1" value="3">';nav.refresh();const range=root.querySelector('input')!;const arrow=new KeyboardEvent('keydown',{code:'ArrowRight',bubbles:true,cancelable:true});range.dispatchEvent(arrow);assert.ok(arrow.defaultPrevented,'native slider change cannot double the menu step');nav.update(input('ArrowRight'),1/60);assert.equal(range.value,'4');
 assert.equal(profileTitle(1),'menu.title.cadet');assert.equal(profileTitle(5),'menu.title.ranger');assert.equal(profileTitle(10),'menu.title.ace');assert.equal(profileTitle(99),'menu.title.legend');
 assert.equal(loadingPercent(-2,3),0);assert.equal(loadingPercent(2,3),67);assert.equal(loadingPercent(9,3),100);assert.equal(loadingPercent(1,0),0);assert.equal(loadingPercent(NaN,1),0);
 assert.equal(loadingTip(-1),'menu.tip.build');assert.equal(loadingTip(4),'menu.tip.move');
@@ -54,5 +57,6 @@ screens.show('title');assert.ok(hud.querySelector('#scr-title [data-menu-play].f
 screens.update(input('',1),1/60);assert.equal(screens.current,'title');assert.ok(train.closest('#scr-title'),'launcher returns for other title integrations');
 screens.show('play');assert.equal(hud.querySelectorAll('#scr-play [data-act=ob-training]').length,1,'reopening retains exactly one training launcher');
 screens.show('title');screens.show('extras');screens.update(input('ArrowRight'),1/60);const focused=hud.querySelector('#scr-extras .focused')?.textContent;screens.show('history');screens.update(input('Escape'),1/60);assert.equal(hud.querySelector('#scr-extras .focused')?.textContent,focused,'submenu Back remembers parent focus');
+screens.show('online');const nameField=hud.querySelector<HTMLInputElement>('#mp-name')!;nameField.focus();screens.show('extras');assert.notEqual(document.activeElement,nameField,'leaving a screen releases its text field focus');
 setLanguage('ar');screens.show('title');assert.match(hud.querySelector('.menu-profile')!.textContent!,/المستوى/);setLanguage('en');
 console.log('ok menu: navigation, empty/async menus, title integration, profile, loading progress and recovery');
