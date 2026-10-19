@@ -1,9 +1,11 @@
+import { trialsEn } from './trials';
 import { followupsEn } from './followups';
 import { biome3En } from './biome3';
 import { storyEn } from '../game/story/strings';
 import { tips2En } from './tips2';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  ...trialsEn,
   ...biome3En,
   "clips.title": "HIGHLIGHT CLIPS",
   "clips.hint": "Silent gameplay · Save the last 15 seconds:",

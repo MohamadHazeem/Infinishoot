@@ -1,3 +1,4 @@
+import { acceptTrialStart, applyTrialsNet } from './trials';
 import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
@@ -77,6 +78,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.hud.toast(String(m.reason ?? 'THAT GAME IS FULL'), 3);
       break;
     case 'start':
+      acceptTrialStart(this, m.trial);
       this.runMode = m.runMode === 'raid' ? 'raid' : m.runMode === 'weekly' ? 'weekly' : 'standard';
       selectSeason.call(this, m.season);
       resetHalloween.call(this);
@@ -442,6 +444,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   applyGauntletNet(this, s.gl);
   this.applyRaidNet(s.rd);
   this.applyModesNet(s.md);
+  applyTrialsNet(this, s.trial);
   applySoundLaneNet(this, s.s2);
   applySecretsNet(this, s.ss);
   if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen

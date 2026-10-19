@@ -1,3 +1,4 @@
+import { TRIAL_ACHIEVEMENTS } from './trials';
 import { SECRET_ACHIEVEMENTS } from './secrets';
 import { COOP_ACHIEVEMENTS } from './coopAchievements';
 /**
@@ -59,6 +60,7 @@ function m(id: string, name: string, desc: string, tier: T, cat: AchievementCat,
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
+  ...TRIAL_ACHIEVEMENTS,
   ...SECRET_ACHIEVEMENTS,
   { id: 'hydra_engine', name: 'Engine Breakers', desc: 'Defeat the Hydra Engine raid.' },
   { id: 'light_tamer', name: 'Light Tamer', desc: 'Defeat 1,500 enemies in total', unlockLoadout: 'whip', lifetime: (l) => l.kills >= 1500 },

@@ -1,3 +1,4 @@
+import { trialsNet } from './trials';
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
 import { en } from '../../i18n/en';
@@ -279,6 +280,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     rd: this.raidNet(),
     tr: this.tradingNet(forHero),
     md: this.modesNet(),
+    trial: trialsNet(this),
     cn: this.cineNet(),
     vs: this.versusNet(),
     s2: soundLaneNet(this, forHero),

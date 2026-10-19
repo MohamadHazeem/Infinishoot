@@ -1,3 +1,4 @@
+import { trialsTest } from '../game/systems/trials';
 import { biome3Force } from '../game/biome3Brain';
 import { clipsFor, markClip } from '../game/systems/clips';
 import { secretsLinks } from '../game/systems/secrets';
@@ -205,6 +206,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     for (let i = 0; i < n; i++) game.debugGiveWeapon(id);
   }
   gauntletTest(game, q);
+  trialsTest(game, q);
   raidTestLink(game, q);
   const h = game.hero;
   for (const p of list('passives')) {
