@@ -39,6 +39,7 @@ import { trainingTuning } from '../game/training';
 import { routeTuning } from '../data/routes';
 import { heatTuning } from '../data/heat';
 import { mutatorTuning } from '../data/mutators';
+import { addHudFolder } from './debugHud';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -251,6 +252,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   world.add(surfaceTuning, 'rippleEvery', 0.1, 3, 0.05);
   world.add(surfaceTuning, 'bubbleEvery', 0.05, 2, 0.05);
   world.add(surfaceTuning, 'glintsPerM2', 0, 1, 0.01);
+  addHudFolder(gui);
 
   // Onboarding: training field (src/game/training.ts) and first-time tips.
   const ob = gui.addFolder('Onboarding').close();

@@ -17,7 +17,7 @@ export type VfxEvent =
   | ['b', number, number, number, BurstOptions]
   | ['r', number, number, number, number, string, number]
   | ['s', number, number, number, number, string, number]
-  | ['n', number, number, number, string | number, NumKind]
+  | ['n', number, number, number, string | number, NumKind, number?]
   | ['a', number, number, string, number]
   | ['k', number, number, number]
   | ['h', 'banner' | 'toast' | 'flash', string, string, number]
@@ -84,9 +84,11 @@ export class Vfx {
     this.rec(['s', x, y, z, size, color, life]);
   }
 
-  num(x: number, y: number, z: number, value: string | number, kind: NumKind = 'hit'): void {
-    this.t.dmg.spawn(x, y, z, value, kind);
-    this.rec(['n', x, y, z, value, kind]);
+  /** Floating number or label. `by`: index of the hero whose hit it is (DAMAGE NUMBERS: MINE / OFF); left off for messages. */
+  num(x: number, y: number, z: number, value: string | number, kind: NumKind = 'hit', by?: number): void {
+    this.t.dmg.spawn(x, y, z, value, kind, by);
+    // Older clients ignore the extra element; events without it always show.
+    this.rec(by === undefined ? ['n', x, y, z, value, kind] : ['n', x, y, z, value, kind, by]);
   }
 
   /** Positional sound: plays if the local player is in earshot. `name` is an sfx method or "w:<weapon sound>". */
@@ -175,7 +177,7 @@ export class Vfx {
         this.t.fx.star(e[1], e[2], e[3], e[4], e[5], e[6]);
         break;
       case 'n':
-        this.t.dmg.spawn(e[1], e[2], e[3], e[4], e[5]);
+        this.t.dmg.spawn(e[1], e[2], e[3], e[4], e[5], e[6]);
         break;
       case 'a':
         this.playSound(e[3], e[1], e[2], e[4]);

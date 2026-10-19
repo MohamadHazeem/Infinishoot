@@ -85,8 +85,8 @@ const STYLES: Record<Weather, WeatherStyle> = {
 
 const MAX_MOTES = 340;
 
-/** Quality preset scale for weather (set by settings). */
-export const fxQuality = { ambience: 1 };
+/** Quality preset scale for weather (set by settings). `weather` 0 hides the weather motes and rain splashes (SETTINGS > WEATHER; visual only). */
+export const fxQuality = { ambience: 1, weather: 1 };
 const MAX_TUFTS = 1100;
 
 export class Ambience {
@@ -332,7 +332,7 @@ export class Ambience {
     this.updateRain(dt, cx, cz);
     const st = this.style;
     const rainK = this.weather === 'rain' ? this.rain : 1;
-    const n = st ? Math.floor(st.count * this.density * fxQuality.ambience * rainK) : 0;
+    const n = st ? Math.floor(st.count * this.density * fxQuality.ambience * fxQuality.weather * rainK) : 0;
     if (st && this.weather === 'rain') this.renderRain(dt, cx, cz, n, st);
     else if (st) {
       // Sand blows in gusts; everything else drifts steadily.
@@ -360,7 +360,7 @@ export class Ambience {
     }
     this.motes.count = n;
     commit(this.motes.instanceMatrix, n);
-    this.surfaces.render(dt, cx, cz, this.rain, walkers, Math.max(0.4, fxQuality.ambience));
+    this.surfaces.render(dt, cx, cz, this.rain * fxQuality.weather, walkers, Math.max(0.4, fxQuality.ambience));
 
     // Grass: sway with the wind; bend away from nearby walkers and spring back.
     // Only tufts in view are written (packed to the front with their colours), so off-screen grass costs no vertex work.

@@ -10,6 +10,7 @@ import { juiceTuning } from './juice';
 import { fxQuality } from './ambience';
 import { streaks } from './streaks';
 import { DEFAULT_LOADOUT, validLoadout, type Loadout } from '../data/loadout';
+import { applyUiScale } from '../ui/hudLayout';
 import { AUTO, AUTO_START, MANUAL_LEVELS, QualityGovernor, renderQuality, setRenderQuality } from '../render/quality';
 
 /** Player-facing settings, persisted between sessions. */
@@ -60,6 +61,14 @@ export interface Settings {
   slowMo: boolean;
   /** First-time tip panels during runs (src/game/tips.ts). */
   tips: boolean;
+  /** UI SCALE in percent (75-150): zooms the HUD panels and menus. */
+  uiScale: number;
+  /** DAMAGE NUMBERS: all, only your hero's hits (co-op), or none. */
+  damageNumbers: 'all' | 'mine' | 'off';
+  /** WEATHER: rain streaks, snow, pollen, sand and embers (visual only). */
+  weather: boolean;
+  /** Right click: hold to charge, or press once to start and again to release. */
+  chargeMode: 'hold' | 'toggle';
 }
 
 const KEY = 'settings.v1';
@@ -98,6 +107,10 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   bossIntros: true,
   slowMo: true,
   tips: true,
+  uiScale: 100,
+  damageNumbers: 'all',
+  weather: true,
+  chargeMode: 'hold',
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -153,6 +166,8 @@ export function applySettings(): void {
   access.colorblind = settings.colorblind;
   access.reduceFlash = settings.reduceFlash;
   document.body.classList.toggle('reduce-flash', settings.reduceFlash);
+  applyUiScale(settings.uiScale);
+  fxQuality.weather = settings.weather ? 1 : 0;
   const g = Math.max(0, Math.min(AUTO, Math.round(settings.graphics)));
   if (g === AUTO) {
     // Keep the governor (and its rung) across unrelated settings changes.

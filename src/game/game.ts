@@ -72,6 +72,7 @@ import * as RunModsSys from './systems/runMods';
 import { RunMods } from './runMods';
 import { RunUi } from '../ui/runUi';
 import { weaponCue, windupCue } from './systems/sound';
+import { rightClickHeld } from './chargeMode';
 
 export { economyTuning } from './hero';
 
@@ -658,6 +659,7 @@ export class Game implements HeroWorld {
     this.pickups = new Pickups(this.scene);
     this.cam = new CameraRig(aspect);
     this.dmg = new DamageNumbers(hudRoot);
+    this.dmg.localHero = () => this.hero?.index ?? 0;
     this.hud = new Hud(hudRoot);
     this.bossField = new BossField(this.scene);
     this.bossIntro = new BossIntro(hudRoot);
@@ -1224,7 +1226,7 @@ export class Game implements HeroWorld {
       if (p.update(dt, control ? input : null, this.arena.colliders, wantDash)) this.onDash(h);
       const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
       h.ctx.firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
-      h.ctx.charging = control && (input.mouseDown(2) || input.padButton(2));
+      h.ctx.charging = rightClickHeld(input, control);
       const wantBomb =
         control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
       if (wantBomb) this.tryBomb(h);

@@ -17,6 +17,7 @@ import { settings } from '../settings';
 import { type VfxEvent } from '../vfx';
 import { createWeapon } from '../weapons';
 import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
+import { rightClickHeld } from '../chargeMode';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   switch (m.t) {
@@ -188,7 +189,7 @@ export function clientUpdate(this: Game, dt: number): void {
   this.skillClientInput(control);
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
   const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
-  const charging = control && (input.mouseDown(2) || input.padButton(2));
+  const charging = rightClickHeld(input, control);
   if (this.stepN % INPUT_EVERY === 0 && this.client) {
     const r2 = (v: number) => Math.round(v * 100) / 100;
     this.client.send({ t: 'i', x: r2(p.x), z: r2(p.z), vx: r2(p.vel.x), vz: r2(p.vel.z), ax: r2(p.aim.x), az: r2(p.aim.z), ad: Number.isFinite(p.aimDist) ? r2(p.aimDist) : -1, f: firing, c: charging, d: p.dashing });

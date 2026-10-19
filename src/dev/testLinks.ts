@@ -17,6 +17,7 @@ import { runModsTest, saveHeatPick } from '../game/runMods';
 import { cleanHeat } from '../data/heat';
 import { isMutatorId } from '../data/mutators';
 import { isRouteId, type RouteId } from '../data/routes';
+import { hudLinks } from '../ui/hudLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -54,6 +55,8 @@ import { isRouteId, type RouteId } from '../data/routes';
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
+ *   ?test&pad=ps&ui=125&levelup        HUD: button prompts (pad=xbox|ps|kbm|touch), UI scale %, open a level-up;
+ *     &dmgnums=mine|off, &charge=toggle, &noweather (settings for this session)
  *
  * Onboarding (src/dev/onboardingLinks.ts): &training=4, &trainingdone, &tip=boss, &discover=all, &recap, &offer, &screen=codex
  * Routes, heat and Weekly mutators (src/game/systems/runMods.ts):
@@ -169,6 +172,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       ],
     });
   }
+  hudLinks(game, q);
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
