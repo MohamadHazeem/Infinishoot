@@ -58,7 +58,8 @@
   - Phase 4: the head tipped open with the glowing core inside, the pips all dark except the core.
   - King Bopper EX: its title card, plum body, phase-1 shockwave ring and its own pop-in portrait.
   - Rex's duel: the SHOWDOWN banner and the ring of fire, then the closed ring.
-- `npm run typecheck`, `npm test` (40 files; bossLane.test.ts has 69 checks) and `npm run smoke` pass.
+- `npm run typecheck`, `npm test` (40 files; bossLane.test.ts has 69 checks) and `npm run smoke` pass. One `npm test` run failed tests/arenaCoop.test.ts "client mirrors broken cover and falling pillars". It passed on the rerun and on 6 more runs, so it looks like a random-layout flake in that test, not something this lane touches.
+- `npm run bench`: the build machine was saturated (other lanes were benching and building at the same time; SwiftShader drew 1.5 fps), so the absolute numbers mean nothing. The base commit and this branch were run back to back: draw calls 132 / 130 avg, and `sim.boss+recycle` (which now includes this lane's step) 0.021 / 0.016 ms. Every other phase swung by up to 15x between the two runs, including phases this lane doesn't touch, so the frame time can't be compared. **Re-bench on a quiet machine before merging.** None of the new code runs in the bench scene (no Titan, no duel) apart from a few per-frame null checks.
 - God-bot balance runs: standard mode, normal difficulty, Scattergun / Grenade / Thunderstorm, one run each with random seeds, so the numbers vary a lot run to run. Times run from the boss spawning to it dying, so the Titan's include its 3 s rise.
 
   | Run | King | Rex | Queen | Omega | King EX | Titan | Nightshade |
