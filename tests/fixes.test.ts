@@ -207,7 +207,9 @@ const enemyBullet = (x: number, z: number, dx: number, dz: number, speed = 20) =
   }
   ok(fired === 0, `a shooter with a wall in the way holds fire (${fired})`);
   game.arena.colliders.length = 0;
-  game.arena.colliders.push(...saved);
+  // Put the arena back, minus any random cover that happens to sit between the two (some seeds have a rock there).
+  const clear = (b: { minX: number; maxX: number; minZ: number; maxZ: number }) => b.maxX < p.x - 1 || b.minX > p.x + 9 || b.maxZ < p.z - 1.5 || b.minZ > p.z + 1.5;
+  game.arena.colliders.push(...saved.filter(clear));
   game.walls = new StaticBoxGrid(game.arena.colliders);
   let fired2 = 0;
   for (let k = 0; k < 300; k++) {
