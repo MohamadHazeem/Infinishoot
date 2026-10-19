@@ -15,6 +15,12 @@
 // Signalling goes through PeerJS's public broker like the real game (needs
 // internet); the WebRTC data channel itself is local, page to page.
 // COOP_TRACE=1 prints the client hero's position trail on both pages when they disagree.
+// Netcode lane: the client's connection is a simulated bad one by default
+// (--netsim <latency ms>,<jitter ms>,<loss>, default 70,30,0.02; --netsim off
+// for a clean link): every message both ways is delayed, jittered and now and
+// then held up by a resent packet (src/net/netsim.ts). Late in the run the
+// client's connection is cut and it must reconnect and reclaim its hero
+// (--reload: also reload the client's tab and rejoin from the reloaded page).
 import { chromium } from 'playwright-core';
 import { createServer } from 'vite';
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
@@ -29,6 +35,10 @@ const opt = (k, d) => {
 const SECS = Number(opt('--secs', '80'));
 const OUT = opt('--out', join('shots', 'coop'));
 const [W, H] = opt('--size', '960x540').split('x').map(Number);
+const NETSIM = opt('--netsim', '70,30,0.02') === 'off' ? '' : opt('--netsim', '70,30,0.02');
+const RELOAD = args.includes('--reload');
+/** Host and client positions may differ by what the client's view lags behind (more on a simulated slow link). */
+const POS_TOL = NETSIM ? 4.5 : 3;
 mkdirSync(OUT, { recursive: true });
 
 function findChrome() {
@@ -75,14 +85,22 @@ async function openPage(name) {
     if (/favicon|Failed to load resource|AudioContext was not allowed|WebGL: INVALID_OPERATION|GPU stall/i.test(t)) return;
     errors.push(t);
   });
-  await page.goto(base);
-  await page.waitForFunction(() => window.game && window.botAuto && window.game.mode === 'title', null, { timeout: 30000 });
+  await page.goto(base, { timeout: 180000 });
+  await page.waitForFunction(() => window.game && window.botAuto && window.game.mode === 'title', null, { timeout: 120000 });
   return { name, page, errors };
 }
 
 const A = await openPage('host');
 const B = await openPage('client');
 log('pages loaded');
+const setNetSim = (page) => page.evaluate(async (c) => {
+  const m = await import('/src/net/netsim.ts');
+  m.setNetSim(m.parseNetSim(c));
+}, NETSIM);
+if (NETSIM) {
+  await setNetSim(B.page);
+  log(`client link simulated: ${NETSIM} (latency ms, jitter ms, loss)`);
+}
 
 // ---------------------------------------------------------------- lobby
 // Pets: Sparky for the host, Bit for the client (companion lane checks pet levels and team moves).
@@ -137,7 +155,7 @@ await Promise.all(
   ),
 );
 await A.page.evaluate(() => window.game.hostStart());
-await B.page.waitForFunction(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.heroes.length === 2, null, { timeout: 15000 }).catch(() => fail('client never started the run'));
+await B.page.waitForFunction(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.heroes.length === 2, null, { timeout: 60000 }).catch(() => fail('client never started the run'));
 await Promise.all(
   [A, B].map((p) =>
     p.page.evaluate(async (trace) => {
@@ -170,7 +188,7 @@ await Promise.all(
           c.total += bytes;
           c.max = Math.max(c.max, bytes);
           if (bytes > 16000) c.over16k++;
-          if (c.n % 4 === 0) for (const k of ['ev', 'b', 'fx', 'en', 'bu', 'pk', 'heroes', 'sk', 'ar', 'bx', 'you']) if (r[k] !== undefined) c.parts[k] = (c.parts[k] ?? 0) + size(r[k]) * 4;
+          if (c.n % 4 === 0) for (const k of ['ev', 'b', 'fx', 'en', 'bu', 'bd', 'pk', 'heroes', 'sk', 'ar', 'bx', 'you']) if (r[k] !== undefined) c.parts[k] = (c.parts[k] ?? 0) + size(r[k]) * 4;
           return r;
         };
         const net = g.skillNet;
@@ -291,7 +309,7 @@ async function compare(tag) {
     for (const e of h.sample) {
       const m = c.byUid[e.uid];
       if (!m) continue;
-      check(`pos${e.uid}`, Math.hypot(m.x - e.x, m.z - e.z) < 3 && m.id === e.id, `enemy ${e.uid} (${e.id}) host ${e.x.toFixed(1)},${e.z.toFixed(1)} vs client ${m.id} ${m.x.toFixed(1)},${m.z.toFixed(1)}`);
+      check(`pos${e.uid}`, Math.hypot(m.x - e.x, m.z - e.z) < POS_TOL && m.id === e.id, `enemy ${e.uid} (${e.id}) host ${e.x.toFixed(1)},${e.z.toFixed(1)} vs client ${m.id} ${m.x.toFixed(1)},${m.z.toFixed(1)}`);
     }
     const missing = h.defs.filter((d) => !c.defs.includes(d));
     check('defs', missing.length <= 2, `enemy types near the client on the host, not on the client: ${missing.join(',')}`);
@@ -316,7 +334,7 @@ async function compare(tag) {
       console.log('host trace', JSON.stringify(ta), '\nclient trace', JSON.stringify(tb));
     }
     // Both fighting: during level-ups the host holds the client's hero while the client may still be finishing its last step.
-    check(`pos${i}`, !fighting || Math.hypot(a.x - b.x, a.z - b.z) < 3, `hero ${i} position host ${a.x.toFixed(1)},${a.z.toFixed(1)} vs client ${b.x.toFixed(1)},${b.z.toFixed(1)}`);
+    check(`pos${i}`, !fighting || Math.hypot(a.x - b.x, a.z - b.z) < POS_TOL, `hero ${i} position host ${a.x.toFixed(1)},${a.z.toFixed(1)} vs client ${b.x.toFixed(1)},${b.z.toFixed(1)}`);
     check(`style${i}`, Math.abs(a.style - b.style) <= 120, `hero ${i} style host ${a.style} vs client ${b.style}`);
     check(`ult${i}`, Math.abs(a.ult - b.ult) <= 0.15 && !(a.ultT > 0.3 && b.ultT <= 0), `hero ${i} ult host ${a.ult}/${a.ultT} vs client ${b.ult}/${b.ultT}`);
     check(`weap${i}`, a.weapons === b.weapons, `hero ${i} weapons host [${a.weapons}] vs client [${b.weapons}]`);
@@ -379,10 +397,17 @@ const SCENARIO = [
         window.__jumps.push({ hero: h.index, k, mode: this.mode, started: !!this.toys.jumps[h.index] });
       };
     });
+    // A level-up menu on the host holds the world (and jumps): wait for the fight (slow machines level up mid-scenario).
+    for (let k = 0; k < 40 && (await host(() => window.game.mode)) !== 'fight'; k++) await pause(250);
     const at = await clientTo('pad');
     if (!at) return 'no pads on this arena';
-    await pause(400);
-    const [h, c] = await Promise.all([host(() => window.__jumps), client(() => !!window.game.toys.jumps[window.game.local])]);
+    let h, c;
+    for (let k = 0; k < 12; k++) {
+      await pause(250);
+      [h, c] = await Promise.all([host(() => window.__jumps), client(() => !!window.game.toys.jumps[window.game.local])]);
+      if (h.some((j) => j.hero === 1 && j.started) && c) break;
+      if (k === 6 && !h.some((j) => j.hero === 1 && j.started)) await clientTo('pad'); // landed during a menu: try once more
+    }
     if (!h.some((j) => j.hero === 1 && j.started) || !c) fail(`jump pad: host got ${JSON.stringify(h)}, client jumping ${c}`);
     return { host: h, client: c };
   }],
@@ -416,8 +441,12 @@ const SCENARIO = [
       return best;
     });
     if (i < 0) return 'no pillars';
-    await pause(600);
-    const c = await client((i) => window.game.toys.props[i] && { alive: window.game.toys.props[i].alive, fallT: window.game.toys.props[i].fallT }, i);
+    let c;
+    for (let k = 0; k < 16; k++) {
+      await pause(250);
+      c = await client((i) => window.game.toys.props[i] && { alive: window.game.toys.props[i].alive, fallT: window.game.toys.props[i].fallT }, i);
+      if (c && !c.alive && c.fallT >= 0) break;
+    }
     if (!c || c.alive || c.fallT < 0) fail(`pillar ${i} toppled on the host, client sees ${JSON.stringify(c)}`);
     return c;
   }],
@@ -489,11 +518,14 @@ const SCENARIO = [
       return f?.def.id ?? null;
     });
     if (id !== 'storm_drones') fail(`fusion: host could not fuse (${id})`);
-    await pause(1200);
-    const c = await client(() => {
-      const w = window.game.hero.weapons.find((x) => x.def.id === 'storm_drones');
-      return w ? { parts: w.parts.map((p) => p.def.id), drones: w.parts[0].net().length, merge: !!document.querySelector('.fusion-merge') } : null;
-    });
+    let c = null;
+    for (let k = 0; k < 20 && !(c && c.drones); k++) {
+      await pause(300);
+      c = await client(() => {
+        const w = window.game.hero.weapons.find((x) => x.def.id === 'storm_drones');
+        return w ? { parts: w.parts.map((p) => p.def.id), drones: w.parts[0].net().length, merge: !!document.querySelector('.fusion-merge') } : null;
+      });
+    }
     if (!c || c.parts.join() !== 'drones,lightning' || !c.drones) fail(`fusion: client sees ${JSON.stringify(c)}`);
     return c;
   }],
@@ -560,6 +592,33 @@ const SCENARIO = [
     await shot('teammove');
     return r;
   }],
+  // Netcode lane: the client's connection dies mid-fight; it reconnects on its own and gets its hero back.
+  [66, 'client connection cut: autopilot, reconnect, same hero (netcode lane)', async () => {
+    const before = await host(() => ({ peer: window.game.heroes[1].peerId, n: window.game.heroes.length, weapons: window.game.heroes[1].weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' ') }));
+    await client(() => window.game.client.drop());
+    // The host notices (the stale connection is dropped when the hello comes back, or by silence) and the hero waits on autopilot.
+    let sawBanner = false;
+    let back = null;
+    for (let k = 0; k < 90 && !back; k++) {
+      await pause(500);
+      const c = await client(() => ({ banner: !!document.querySelector('#net-lost:not([hidden])'), role: window.game.role, mode: window.game.mode, local: window.game.local, n: window.game.heroes.length }));
+      sawBanner ||= c.banner;
+      const h = await host(() => ({ peer: window.game.heroes[1].peerId, n: window.game.heroes.length, left: window.game.heroes[1].left }));
+      if (c.role === 'client' && !c.banner && c.local === 1 && c.n === h.n && h.peer && h.peer !== before.peer && !h.left) back = { client: c, host: h };
+      if (c.role !== 'client') break;
+    }
+    if (!back) {
+      fail(`reconnect: client never got its hero back (before ${JSON.stringify(before)})`);
+      return { before };
+    }
+    if (back.host.n !== before.n) fail(`reconnect: hero count changed ${before.n} -> ${back.host.n} (a new hero instead of the old one)`);
+    if (!sawBanner) fail('reconnect: the client never showed CONNECTION LOST');
+    await pause(1500);
+    const wc = await client(() => window.game.hero.weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' '));
+    if (wc.split(' ').length < before.weapons.split(' ').length) fail(`reconnect: client build after rejoin [${wc}] lost weapons vs [${before.weapons}]`);
+    await client(() => window.botAuto(true));
+    return { before: before.peer, after: back.host.peer, weapons: wc };
+  }],
   // Finisher lane: a client ping pops the client's portrait in on both screens; the boss finisher plays on both.
   [46, 'client pings: its portrait pops in on both machines', async () => {
     await client(() => {
@@ -591,6 +650,23 @@ const SCENARIO = [
   }],
 ];
 
+if (RELOAD) {
+  SCENARIO.push([74, 'client reloads its tab and rejoins within 60 s (netcode lane)', async () => {
+    const before = await host(() => window.game.heroes.length);
+    await B.page.reload({ timeout: 120000 });
+    await B.page.waitForFunction(() => window.game && window.botAuto, null, { timeout: 120000 });
+    if (NETSIM) await setNetSim(B.page);
+    let ok = false;
+    for (let k = 0; k < 120 && !ok; k++) {
+      await pause(500);
+      ok = await client(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.local === 1);
+    }
+    const after = await host(() => ({ n: window.game.heroes.length, left: window.game.heroes[1].left }));
+    if (!ok || after.n !== before || after.left) fail(`reload: rejoined ${ok}, host heroes ${before} -> ${after.n}, left ${after.left}`);
+    await client(() => window.botAuto(true));
+    return { rejoined: ok, host: after };
+  }]);
+}
 SCENARIO.sort((a, b) => a[0] - b[0]);
 let next = 0;
 let shots = 0;
@@ -627,6 +703,12 @@ async function done() {
     const [ha, cb] = await Promise.all([A.page.evaluate(() => window.__coop), B.page.evaluate(() => window.__coop)]);
     log(`skill events sent to the client: ${JSON.stringify(ha?.skill)}; received: ${JSON.stringify(cb?.skill)}`);
     log(`effects received by the client: ${JSON.stringify(cb?.vfx)}`);
+    const net = await B.page.evaluate(async () => {
+      const m = await import('/src/game/systems/netcode.ts');
+      const s = m.netcodeState(window.game);
+      return { playout: s.playout?.stats, nq: s.nq };
+    });
+    log(`client playout (netcode lane): ${JSON.stringify(net.playout)}; host's numbers for everyone: ${JSON.stringify(net.nq)}`);
     const sn = ha?.snap;
     if (sn?.n) {
       log(`snapshots${sn.wire ? ' (wire bytes)' : ' (JSON estimate)'}: ${sn.n}, avg ${Math.round(sn.total / sn.n)} B, max ${sn.max} B, ${sn.over16k} over 16 KB (PeerJS chunks those)`);

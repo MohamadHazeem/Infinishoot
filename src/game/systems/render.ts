@@ -1,4 +1,5 @@
 import { weeklyChallenge } from '../../data/weekly';
+import { netInterpAlpha, renderNetcode } from './netcode';
 /**
  * Rendering: per-frame presentation, HUD, music and sky.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -178,7 +179,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop';
   const a = this.juice.hitStop > 0 || frozen ? 1 : alpha;
   // Clients draw remote things between the last two snapshots.
-  const netA = client ? Math.min(1, (performance.now() - this.snapTime) / Math.max(16, this.snapInterval)) : a;
+  const netA = client ? netInterpAlpha(this) : a; // adaptive playout buffer (systems/netcode.ts)
   // Online hit-stop: hold the picture (not the simulation) for the local hero's heavy hits.
   const held = tickOnlineStop(this, frameDt);
   const rdt = frozen || held ? 0 : frameDt * (this.slowMoT > 0 ? 0.35 : 1);
@@ -310,6 +311,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.renderTeam();
   this.renderCompanion(rdt);
   this.renderCoop2(rdt, netA); // emote bubbles, autopilot tags, help ghost, team panel, buy-back (systems/coop2.ts)
+  renderNetcode(this); // NETWORK panel, bad-connection warnings, reconnect banner (systems/netcode.ts)
   this.renderEliteBars(alpha);
   this.renderMinimap();
   this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);

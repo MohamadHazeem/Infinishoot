@@ -1,4 +1,5 @@
 import { markSeen } from '../save';
+import { lagOut, lagSteps, lagTuning, rewindEnemy } from './netcode';
 /**
  * Statuses and combos, hazards, strikes, specials, pickups and other per-step systems.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -583,10 +584,14 @@ export function updateBullets(this: Game, dt: number): void {
     }
     let hit = null as Enemy | null;
     const r = b.radius[i];
-    this.hash.query(x, z, r, (e) => {
+    const lag = lagSteps(this, b.owner[i]); // a remote hero's shot: test against where enemies were on its screen (systems/netcode.ts)
+    this.hash.query(x, z, lag ? r + lagTuning.pad : r, (e) => {
       if (hit || !e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
       const rr = e.radius + r;
-      if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr) hit = e;
+      const back = lag > 0 && rewindEnemy(this, e, lag);
+      const ex = back ? lagOut.x : e.x;
+      const ez = back ? lagOut.z : e.z;
+      if ((ex - x) ** 2 + (ez - z) ** 2 < rr * rr) hit = e;
     });
     if (hit) {
       const sp = Math.hypot(b.vx[i], b.vz[i]) || 1;

@@ -152,7 +152,7 @@ export function unpackEnemies(buf: NetBytes, each: (r: EnemyRecord) => void): vo
 // ---------------------------------------------------------------- bullets
 
 // Unknown colours fall back to the first; keep in sync with weapon bullet colours.
-const BULLET_COLORS = ['#fff36b', '#ff7a2f', '#ff3df0', '#7df9ff', '#3dffb0', '#ffe9a8', '#ff5e3a', '#ffd23f', '#ffb627', '#b13eec', '#ffffff'];
+export const BULLET_COLORS = ['#fff36b', '#ff7a2f', '#ff3df0', '#7df9ff', '#3dffb0', '#ffe9a8', '#ff5e3a', '#ffd23f', '#ffb627', '#b13eec', '#ffffff'];
 
 export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
   const buf = new ArrayBuffer(idx.length * BULLET_BYTES);

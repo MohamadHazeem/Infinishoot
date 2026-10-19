@@ -8,7 +8,7 @@ import type { Game } from '../game';
 import { scoreTuning, SNAP_EVERY, INTEREST, REVIVE_TIME } from '../game';
 import { buildKey } from '../../data/tracks';
 import { validLoadout, type Loadout } from '../../data/loadout';
-import { packBullets, packEnemies, packPickups } from '../../net/codec';
+import { packEnemies, packPickups } from '../../net/codec';
 import { Hero } from '../hero';
 import { playerTuning } from '../player';
 import { unlockedWeapons } from '../save';
@@ -21,6 +21,7 @@ import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
+import { netcodeHello, netcodeHostMsg, netcodeStep, netNq, noteViewStep } from './netcode';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -46,8 +47,9 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     return;
   }
   if (m.t === 'hello') {
+    netcodeHello(this, from, m); // remember the player id; a reconnect drops its stale old connection (systems/netcode.ts)
     if (this.coopHello(from, m)) return; // a run in progress: drop-in join (systems/coop2.ts)
-    if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from)) {
+    if (this.mode !== 'title' || this.pvp || this.lobby.some((p) => p.peerId === from) || this.lobby.length >= 4) {
       this.host?.send(from, { t: 'full', reason: 'Game already started.' });
       return;
     }
@@ -75,6 +77,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   const h = this.heroByPeer(from);
   if (!h) return;
   h.lastSeen = performance.now();
+  if (netcodeHostMsg(this, from, m)) return; // ping probes and quality reports (systems/netcode.ts)
   if (this.versusHostMessage(h, m)) return; // Versus Overlord orders and camera (systems/versus.ts)
   if (m.t === 'rvote') return this.routeVote(h, Number(m.i)); // route map vote (systems/route.ts)
   if (m.t === 'i') {
@@ -90,6 +93,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       charging: !!m.c,
       dashing: !!m.d,
     };
+    if (m.vt !== undefined) noteViewStep(this, h, Number(m.vt)); // lag compensation (systems/netcode.ts)
   } else if (m.t === 'ping') {
     if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z), typeof m.k === 'string' ? m.k : undefined);
   } else if (m.t === 'dash') {
@@ -153,6 +157,7 @@ export function onClientLeft(this: Game, id: string): void {
 
 /** Send world snapshots to clients (20 Hz, slower while menus freeze the world). */
 export function hostTick(this: Game, frozen: boolean): void {
+  netcodeStep(this, frozen); // probes, silent clients, enemy history, tab-reload rejoin (systems/netcode.ts)
   if (this.role !== 'host' || !this.host) return;
   this.vfx.recording = true;
   if (this.stepN % (frozen ? 15 : SNAP_EVERY) !== 0) return;
@@ -241,6 +246,8 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     cn: this.cineNet(),
     vs: this.versusNet(),
     s2: soundLaneNet(this, forHero),
+    nq: netNq(this), // everyone's ping / loss / snapshot rate (systems/netcode.ts)
   };
-  return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
+  // Bullets go as deltas (`bd`, src/net/bulletCodec.ts); `hs` stamps the host step for the client's playout clock.
+  return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length, bu: { b: this.bullets, idx: bi } }, { fx: fxEncoder.encode(events, keepFx), hs: this.stepN });
 }

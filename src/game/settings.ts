@@ -96,6 +96,8 @@ export interface Settings {
   coopJoinable: boolean;
   /** Friends' help ghosts appear in your runs (EXTRAS > HELP GHOSTS). */
   helpGhosts: boolean;
+  /** Online: the NETWORK panel with everyone's ping, packet loss and snapshot rate (netcode lane). */
+  netOverlay: boolean;
   /** CINEMATICS: sky-fall transitions, the ending, legendary reveals, jackpot reels (full, short or off). */
   cinematics: 'full' | 'short' | 'off';
   /** Weekly co-op team name this machine hosts under (MP lane; '' = "<name>'s Team"). */
@@ -161,6 +163,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   coopPool: false,
   coopJoinable: true,
   helpGhosts: true,
+  netOverlay: false,
   cinematics: 'full',
   teamName: '',
   lobbyPublic: false,
@@ -179,6 +182,7 @@ settings.deathReplay ??= true;
 settings.coopPool ??= false;
 settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
+settings.netOverlay ??= false;
 settings.cinematics ??= 'full';
 settings.teamName ??= '';
 settings.lobbyPublic ??= false;

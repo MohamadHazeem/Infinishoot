@@ -179,7 +179,7 @@ function rangeLabel(inp: HTMLInputElement): void {
   else if (inp.dataset.unit && out) out.textContent = `${inp.value}${inp.dataset.unit}`;
 }
 
-type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'captions' | 'soundArrows' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops' | 'deathReplay' | 'crowd' | 'radioDj';
+type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'captions' | 'soundArrows' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops' | 'deathReplay' | 'crowd' | 'radioDj' | 'netOverlay';
 /** Settings switched by buttons that cycle through `data-opts` (DAMAGE NUMBERS: ALL / MINE / OFF). */
 type CycleKey = 'damageNumbers' | 'chargeMode' | 'cinematics';
 
@@ -373,6 +373,7 @@ export class Screens {
     <button data-nav data-act="controls">CONTROLS...</button>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
     <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>
+    <button data-nav data-toggle="netOverlay">NETWORK STATS <b></b></button>
     <button data-nav data-act="back">BACK</button>
   </div>
 </div>

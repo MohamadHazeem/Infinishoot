@@ -27,8 +27,10 @@ import { rightClickHeld } from '../chargeMode';
 import { onHeartbeat } from '../netFeel';
 import { onCoverMsg } from '../coverBreak';
 import { applySoundLaneNet } from './sound2';
+import { applyNq, clientViewStep, netcodeBullets, netcodeClientMsg, netcodeSnapshot, netcodeStep, snapIfTeleported } from './netcode';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
+  if (netcodeClientMsg(this, m)) return; // probes; flushes the playout buffer before world changes (systems/netcode.ts)
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
   if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)
   switch (m.t) {
@@ -86,7 +88,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.clientStage(Number(m.stage), Number(m.seed));
       break;
     case 's':
-      this.applySnapshot(m);
+      netcodeSnapshot(this, m); // through the adaptive playout buffer on a real connection (systems/netcode.ts)
       break;
     case 'lv':
       this.screens.showLevelUp(m.offers as Offer[], String(m.title), Number(m.rerolls), m.loadout as LoadoutItem[], Number(m.skip), Number(m.banish ?? -1));
@@ -184,6 +186,7 @@ export function clientStage(this: Game, stage: number, seed: number): void {
 }
 
 export function clientUpdate(this: Game, dt: number): void {
+  netcodeStep(this); // playout clock, quality reports, reconnects (systems/netcode.ts)
   const input = this.input;
   if (this.isCombatMode && this.screens.current === 'none' && (input.keyPressed('Escape') || input.actionPressed('pause') || input.padButtonPressed(9))) {
     this.pause();
@@ -230,7 +233,7 @@ export function clientUpdate(this: Game, dt: number): void {
   const charging = rightClickHeld(input, control);
   if (this.stepN % INPUT_EVERY === 0 && this.client) {
     const r2 = (v: number) => Math.round(v * 100) / 100;
-    this.client.send({ t: 'i', x: r2(p.x), z: r2(p.z), vx: r2(p.vel.x), vz: r2(p.vel.z), ax: r2(p.aim.x), az: r2(p.aim.z), ad: Number.isFinite(p.aimDist) ? r2(p.aimDist) : -1, f: firing, c: charging, d: p.dashing });
+    this.client.send({ t: 'i', x: r2(p.x), z: r2(p.z), vx: r2(p.vel.x), vz: r2(p.vel.z), ax: r2(p.aim.x), az: r2(p.aim.z), ad: Number.isFinite(p.aimDist) ? r2(p.aimDist) : -1, f: firing, c: charging, d: p.dashing, vt: clientViewStep(this) });
   }
   if (this.mode !== 'levelup' && this.mode !== 'shop') {
     this.bullets.integrate(dt);
@@ -291,6 +294,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
       p.recoil = Math.max(p.recoil, Number(hs.rec));
     } else {
       p.netSet(Number(hs.x), Number(hs.z), Number(hs.vx), Number(hs.vz), Number(hs.ax), Number(hs.az), !!hs.dash);
+      snapIfTeleported(p.prev, p.pos); // a respawn or jump pad landing: no slide across the map
       p.invuln = Number(hs.inv);
       p.recoil = Number(hs.rec);
       p.hurtFlash = Number(hs.hf);
@@ -340,6 +344,10 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     }
     e.x = r.x;
     e.z = r.z;
+    if (Math.abs(e.x - e.px) > 6 || Math.abs(e.z - e.pz) > 6) {
+      e.px = e.x; // teleported (blink, recycled ahead of the team): snap, don't slide
+      e.pz = e.z;
+    }
     e.state = r.state;
     e.t = r.t;
     e.facing = r.facing;
@@ -378,7 +386,9 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyBossNet(s.bx as BossNet | undefined);
   this.applyGameplayNet(s.gpw);
 
-  unpackBullets(s.bu as NetBytes, this.bullets);
+  if (s.bd) netcodeBullets(this, s.bd as NetBytes); // bullet deltas (src/net/bulletCodec.ts)
+  else if (s.bu) unpackBullets(s.bu as NetBytes, this.bullets);
+  applyNq(this, s.nq);
   unpackPickups(s.pk as NetBytes, this.pickups);
   if (s.fx) decodeFx(s.fx as NetBytes, (e) => this.vfx.apply(e));
   this.applySkillNet(s.sk);
