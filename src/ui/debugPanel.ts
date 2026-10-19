@@ -22,6 +22,7 @@ import { ELITE_MOD_IDS } from '../data/eliteMods';
 import { ENEMIES } from '../data/enemies';
 import { audioSettings } from '../audio/sfx';
 import { addLookFolder } from './debugLook';
+import { addReadabilityFolder } from './debugReadability';
 import { rainTuning, weatherForce } from '../game/ambience';
 import { worldFxTuning } from '../game/particles';
 import { debrisTuning } from '../game/debris';
@@ -82,6 +83,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   light.add(retroGlobals.uFogFar, 'value', 1, 200, 1).name('Fog far');
 
   addLookFolder(gui);
+  addReadabilityFolder(gui);
 
   const cam = gui.addFolder('Camera').close();
   cam.add(cameraTuning, 'pitchDeg', 30, 89, 1);

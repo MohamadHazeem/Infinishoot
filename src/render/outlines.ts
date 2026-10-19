@@ -11,7 +11,9 @@ import { retroGlobals } from './retroMaterial';
  *    a second material through geometry groups, so the hull reuses the same
  *    instance buffers and costs one extra draw call per enemy type.
  *    Elites (instance scale >= 1.3) get a thicker line in their glow colour.
- *  - Other meshes (hero rigs) get a hull child mesh per part.
+ *  - Hero rigs get one merged hull per hero (src/render/rigOverlay.ts).
+ *  - At night the plain outline lifts toward a moonlit colour so dark enemies
+ *    keep a readable edge on dark ground (readability lane).
  */
 export const outlineTuning = {
   /** Line width in internal pixels at 270p (scaled with the resolution). */
@@ -23,10 +25,15 @@ export const outlineTuning = {
   eliteScale: 1.3,
   /** Rig parts smaller than this (bounding radius, m) get no outline. */
   minPartRadius: 0.12,
+  /** Night outline colour and how far plain outlines move toward it at full night (0 = stay dark). */
+  nightColor: new THREE.Color('#94b0c2'),
+  night: 0.75,
 };
 
 const uniforms = {
   uOutlinePx: { value: 1 },
+  uNightOutlineColor: { value: outlineTuning.nightColor },
+  uNightOutline: { value: outlineTuning.night },
   uElitePx: { value: 1.75 },
   uOutlineColor: { value: outlineTuning.color },
   uEliteColor: { value: outlineTuning.eliteColor },
@@ -43,6 +50,9 @@ uniform float uElitePx;
 uniform vec3 uOutlineColor;
 uniform vec3 uEliteColor;
 uniform float uEliteScale;
+uniform vec3 uNightOutlineColor;
+uniform float uNightOutline;
+uniform float uNight;
 out vec3 vCol;
 out float vFog;
 #ifdef RETRO_INSTANCE_FLASH
@@ -52,7 +62,7 @@ out float vFog;
 void main() {
   mat4 m = modelMatrix;
   float px = uOutlinePx;
-  vCol = uOutlineColor;
+  vCol = mix(uOutlineColor, uNightOutlineColor, uNight * uNightOutline);
   #ifdef USE_INSTANCING
     m = m * instanceMatrix;
     #ifdef RETRO_INSTANCE_FLASH
@@ -102,10 +112,16 @@ function hullMaterial(instanced: boolean): THREE.ShaderMaterial {
       uFogNear: retroGlobals.uFogNear,
       uFogFar: retroGlobals.uFogFar,
       uFogColor: retroGlobals.uFogColor,
+      uNight: retroGlobals.uNight,
       ...uniforms,
     },
   });
 }
+
+/** Shared outline uniforms (the merged hero hulls in rigOverlay.ts use them too). */
+export const outlineUniforms = uniforms;
+/** Whether outlines are on this frame (quality). */
+export const outlineState = { on: true };
 
 const instancedHull = hullMaterial(true);
 /**
@@ -114,16 +130,17 @@ const instancedHull = hullMaterial(true);
  * (a full getProgram() lookup) between the two kinds of mesh every frame.
  */
 const instancedHullColor = hullMaterial(true);
-const meshHull = hullMaterial(false);
 const done = new WeakSet<object>();
 
 /** Turn outlines on or off and size them for the internal resolution. */
 export function setOutlines(on: boolean, internalHeight: number): void {
-  instancedHull.visible = instancedHullColor.visible = meshHull.visible = on;
+  instancedHull.visible = instancedHullColor.visible = on;
+  outlineState.on = on;
   const k = Math.max(1, internalHeight / 270);
   uniforms.uOutlinePx.value = outlineTuning.px * k;
   uniforms.uElitePx.value = outlineTuning.elitePx * k;
   uniforms.uEliteScale.value = outlineTuning.eliteScale;
+  uniforms.uNightOutline.value = outlineTuning.night;
 }
 
 /** Outline an instanced mesh that carries an `instanceFlash` attribute (enemies, barrels). Idempotent. */
@@ -137,31 +154,4 @@ export function outlineInstanced(mesh: THREE.InstancedMesh): boolean {
   geo.addGroup(0, Infinity, 1);
   mesh.material = [mat, mesh.instanceColor ? instancedHullColor : instancedHull];
   return true;
-}
-
-/** Outline every solid part of a character rig (skips decals with textures and transparent parts). Idempotent. */
-export function outlineRig(root: THREE.Object3D): void {
-  if (done.has(root)) return;
-  done.add(root);
-  const parts: THREE.Mesh[] = [];
-  root.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh || done.has(m)) return;
-    const mat = m.material as THREE.ShaderMaterial;
-    if (Array.isArray(mat) || mat.transparent || !m.geometry.attributes.normal) return;
-    if (mat.uniforms?.uMap?.value) return; // painted face decal and other textured planes
-    // Tiny bits (fins, gems, antenna tips) would only add noise and draw calls.
-    const g = m.geometry;
-    if (!g.boundingSphere) g.computeBoundingSphere();
-    if ((g.boundingSphere?.radius ?? 1) < outlineTuning.minPartRadius) return;
-    parts.push(m);
-  });
-  for (const m of parts) {
-    const hull = new THREE.Mesh(m.geometry, meshHull);
-    hull.name = 'outline';
-    hull.frustumCulled = m.frustumCulled;
-    hull.raycast = () => {};
-    done.add(hull);
-    m.add(hull);
-  }
 }

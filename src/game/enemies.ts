@@ -11,6 +11,7 @@ import { viewCull } from '../render/viewCull';
 import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
 import { Corpses, EnemyAnim, poseEnemy, type EnemyPose } from './enemyAnim';
 import { bossTuning, updateBoss, type BossApi } from './bosses';
+import { crowdTuning, keepOffHeroes } from './crowd';
 
 export type EnemyState = 'spawning' | 'move' | 'windup' | 'attack' | 'recover';
 export type BossAction = 'ring' | 'summon' | 'slam' | 'charge' | 'spiral' | 'waves' | 'volley' | 'rain';
@@ -895,6 +896,9 @@ export class Enemies {
       // Separation from neighbours so crowds spread out instead of stacking.
       let sx = 0;
       let sz = 0;
+      let hx = 0;
+      let hz = 0;
+      let jam = 0;
       if (!e.def.boss && e.def.behavior !== 'reaper') {
         const r = e.radius;
         // queryInto + a plain loop: a closure here allocated a context (and boxed sx/sz) per enemy per step.
@@ -912,9 +916,23 @@ export class Enemies {
             const push = ((min - d) / min) * (o.def.boss ? 3 : 1);
             sx += (ox / d) * push;
             sz += (oz / d) * push;
+            jam += push;
+            // Readability: deep overlaps are corrected outright (src/game/crowd.ts).
+            const hard = min * crowdTuning.hardGap;
+            if (d < hard) {
+              const f = ((hard - d) / d) * crowdTuning.hardFix;
+              hx += ox * f;
+              hz += oz * f;
+            }
           }
         }
         const steer = rigid ? 1 : 1 - Math.exp(-10 * dt);
+        if (!rigid && jam > 0) {
+          // Jammed in a crowd: push on less, so the swarm doesn't pack into one blob.
+          const k = 1 / (1 + jam * crowdTuning.jam);
+          wantX *= k;
+          wantZ *= k;
+        }
         e.vx += (wantX - e.vx) * steer;
         e.vz += (wantZ - e.vz) * steer;
       }
@@ -922,8 +940,9 @@ export class Enemies {
       const kd = Math.exp(-9 * dt);
       e.kx *= kd;
       e.kz *= kd;
-      e.x += (e.vx + e.kx + sx * 7) * dt;
-      e.z += (e.vz + e.kz + sz * 7) * dt;
+      e.x += (e.vx + e.kx + sx * crowdTuning.push) * dt + hx;
+      e.z += (e.vz + e.kz + sz * crowdTuning.push) * dt + hz;
+      if (!rigid && e.hopY <= 0 && !e.def.boss && !e.def.hidden && e.def.behavior !== 'reaper') keepOffHeroes(e, ctx.targets);
       if (e.def.behavior === 'reaper') {
         e.x = Math.max(-58, Math.min(58, e.x));
         e.z = Math.max(-58, Math.min(58, e.z));
