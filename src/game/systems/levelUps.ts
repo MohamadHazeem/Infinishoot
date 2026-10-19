@@ -74,6 +74,7 @@ export function tell(this: Game, h: Hero, msg: unknown): void {
 
 /** Menu actions from this machine: applied directly, or sent to the host. */
 export function ui(this: Game, a: string, i = 0, d: -1 | 1 = 1): void {
+  if (a === 'pick') this.screens.pickFx(i);
   if (this.role === 'client') {
     this.client?.send({ t: 'ui', a, i, d });
     return;

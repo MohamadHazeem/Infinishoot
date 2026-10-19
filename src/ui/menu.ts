@@ -14,23 +14,30 @@ export class MenuNav {
   constructor(
     private root: HTMLElement,
     private opts: { horizontal?: boolean; columns?: number; onBack?: () => void } = {},
-  ) {}
+  ) {
+    // One selection sound for mouse, keyboard and gamepad: all activate via click().
+    this.root.addEventListener('click', (event) => {
+      const el = (event.target as HTMLElement).closest<HTMLElement>('[data-nav]');
+      if (!el || el.matches(':disabled, .cant, .locked, .rolling, input')) return;
+      sfx.menuSelect();
+    });
+  }
 
   /** Re-scan items (call after the menu's content changes). */
   refresh(focus = 0): void {
     this.items = Array.from(this.root.querySelectorAll<HTMLElement>('[data-nav]'));
     this.items.forEach((el, i) => {
-      el.onmouseenter = () => this.setFocus(i, false);
+      el.onmouseenter = () => this.setFocus(i, true, false);
     });
     this.setFocus(Math.min(focus, this.items.length - 1), false);
   }
 
-  private setFocus(i: number, sound = true): void {
+  private setFocus(i: number, sound = true, scroll = true): void {
     if (i < 0 || i >= this.items.length) return;
     if (sound && i !== this.focus) sfx.menuMove();
     this.focus = i;
     this.items.forEach((el, j) => el.classList.toggle('focused', j === i));
-    if (sound) this.items[i].scrollIntoView({ block: 'nearest' });
+    if (sound && scroll) this.items[i].scrollIntoView({ block: 'nearest' });
   }
 
   /** Index of the closest item above (-1) or below (1) the focused one, or the focus itself. */
@@ -106,7 +113,6 @@ export class MenuNav {
         sfx.menuMove();
       }
     } else if (k('Enter') || k('Space') || pad(0)) {
-      sfx.menuSelect();
       el.click();
     }
     if ((k('Escape') || k('Backspace') || pad(1)) && this.opts.onBack) {
