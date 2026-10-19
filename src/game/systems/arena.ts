@@ -20,9 +20,9 @@ import { PickupType } from '../pickups';
 import { SCAR_COLORS } from '../scars';
 
 /** Damage sources that count as environmental kills (bonus score, ENVIRONMENTAL KILL popups, objective). */
-export const ENV_SOURCES = ['lava', 'thorns', 'quicksand', 'splat', 'pillar', 'barrel'];
+export const ENV_SOURCES = ['lava', 'thorns', 'quicksand', 'splat', 'pillar', 'barrel', 'crusher'];
 /** Names for the damage breakdown. */
-export const ARENA_SOURCE_NAMES: Record<string, string> = { lava: 'Lava', thorns: 'Thorns', quicksand: 'Quicksand', splat: 'Ice Splat', pillar: 'Falling Pillars', turret: 'Turrets', jumppad: 'Jump Landings' };
+export const ARENA_SOURCE_NAMES: Record<string, string> = { lava: 'Lava', thorns: 'Thorns', quicksand: 'Quicksand', splat: 'Ice Splat', pillar: 'Falling Pillars', turret: 'Turrets', jumppad: 'Jump Landings', crusher: 'Crushers' };
 /** Bullet `kind` for turret shots (see BULLET_KINDS in game.ts). */
 export const TURRET_BULLET = 12;
 

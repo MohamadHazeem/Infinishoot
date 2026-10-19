@@ -1,6 +1,6 @@
 import { Rng } from '../../core/rng';
 
-export type TrackId = 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover';
+export type TrackId = 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'factory' | 'skyruins' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover';
 export type Patch = OscillatorType | 'pluck' | 'bell' | 'wide';
 export type Section = 'intro' | 'verse' | 'chorus' | 'bridge' | 'final' | 'turnaround';
 
@@ -36,6 +36,9 @@ export const TRACKS: { id: TrackId; name: string; stage: number; boss?: boolean;
   { id: 'dunes', stage: 2, name: 'Sunset Dunes', style: { name: 'dunes', bpm: 112, root: 38, scale: PHRYG_DOM, lead: 'pluck', arp: 'triangle', bass: 'triangle', padCut: 1100, swing: 0.18, drums: 'break', density: 5 } },
   { id: 'frost', stage: 3, name: 'Frosty Peaks', style: { name: 'frost', bpm: 120, root: 40, scale: LYDIAN, lead: 'bell', arp: 'pluck', bass: 'triangle', padCut: 2400, swing: 0, drums: 'half', density: 4 } },
   { id: 'magma', stage: 4, name: 'Magma Isle', style: { name: 'magma', bpm: 140, root: 33, scale: DORIAN, lead: 'wide', arp: 'pluck', bass: 'sawtooth', padCut: 900, swing: 0, drums: 'gallop', density: 7 } },
+  // Loop-2 biomes (world lane): first heard on stages 5 and 6.
+  { id: 'factory', stage: 5, name: 'Toy Factory', style: { name: 'factory', bpm: 136, root: 45, scale: MIXO, lead: 'square', arp: 'bell', bass: 'square', padCut: 1600, swing: 0.1, drums: 'four', density: 7 } },
+  { id: 'skyruins', stage: 6, name: 'Sky Ruins', style: { name: 'skyruins', bpm: 116, root: 41, scale: LYDIAN, lead: 'bell', arp: 'triangle', bass: 'triangle', padCut: 2600, swing: 0, drums: 'half', density: 5 } },
   { id: 'boss', stage: 1, boss: true, name: 'King Bopper · Crown Bounce', style: { name: 'boss', bpm: 152, root: 35, scale: MIXO, lead: 'square', arp: 'pluck', bass: 'sawtooth', padCut: 1000, swing: 0, drums: 'gallop', density: 8 } },
   { id: 'rex', stage: 2, boss: true, name: 'Rampage Rex · Redline', style: { name: 'rex', bpm: 160, root: 34, scale: MINOR, lead: 'wide', arp: 'square', bass: 'sawtooth', padCut: 850, swing: 0, drums: 'gallop', density: 7 } },
   { id: 'queen', stage: 3, boss: true, name: 'Hive Queen · Royal Flight', style: { name: 'queen', bpm: 146, root: 41, scale: HARM_MINOR, lead: 'bell', arp: 'pluck', bass: 'square', padCut: 2200, swing: 0.08, drums: 'break', density: 6 } },

@@ -5,6 +5,7 @@ import { commit } from './instancing';
 import { textures } from './textures';
 import { SpritePool, pixelTexture, spriteTextures } from '../game/fx';
 import type { Particles } from '../game/particles';
+import type { BiomeDef } from '../data/biomes';
 
 /**
  * Animated surfaces, purely cosmetic and local to each machine:
@@ -247,7 +248,7 @@ export class Surfaces {
     rim: THREE.Material;
     lily: THREE.Material;
   };
-  private biome = '';
+  private snowGlints = false;
   private hasLava = false;
   private half = 55;
   private t = 0;
@@ -313,9 +314,10 @@ export class Surfaces {
    * Build a stage's surfaces. `hazards` are the arena's lava/ice pools (drawn
    * on top of the arena's own pool meshes); decorative ponds are added here.
    */
-  load(biomeId: string, seed: number, arena: { halfSize: number; hazards: readonly { x: number; z: number; r: number; kind: string }[] }, blocked: (x: number, z: number) => boolean, fx: Particles | null): void {
+  load(biome: BiomeDef, seed: number, arena: { halfSize: number; hazards: readonly { x: number; z: number; r: number; kind: string }[] }, blocked: (x: number, z: number) => boolean, fx: Particles | null): void {
     this.fx = fx;
-    this.biome = biomeId;
+    const biomeId = biome.id;
+    this.snowGlints = !!biome.glints;
     this.half = arena.halfSize;
     for (const ch of [...this.group.children]) {
       this.group.remove(ch);
@@ -344,7 +346,7 @@ export class Surfaces {
         const l = loop(p, radii, 1);
         shore.push(band(l.pts, l.nrm, -0.32, 0.14, 0.04, 1 / 1.6));
         lap.push(band(l.pts, l.nrm, -1.25, -0.28, 0.036, 1 / 1.6));
-        if (biomeId === 'meadow') {
+        if (biome.lilies) {
           const rng = new Rng(((p.x * 31) ^ (p.z * 17)) >>> 0);
           for (let k = rng.int(2, 4); k > 0; k--) {
             const a = rng.next() * Math.PI * 2;
@@ -374,10 +376,10 @@ export class Surfaces {
       [1, 1],
       [-1, 1],
     ];
-    if (biomeId === 'meadow' || biomeId === 'dunes') {
+    if (biome.shore === 'foam') {
       shore.push(band(sq, mit, 0, 0.5, -0.38, 1 / 1.6));
       lap.push(band(sq, mit, 0.4, 2.2, -0.385, 1 / 1.6));
-    } else if (biomeId === 'magma') rim.push(band(sq, mit, 0, 1.6, -0.37, 1 / 1.4));
+    } else if (biome.shore === 'lava') rim.push(band(sq, mit, 0, 1.6, -0.37, 1 / 1.4));
 
     const add = (parts: THREE.BufferGeometry[], mat: THREE.Material, order = 0) => {
       const g = merge(parts);
@@ -482,7 +484,7 @@ export class Surfaces {
       }
     }
     // Snow sparkles here and there around the camera on Frosty Peaks.
-    if (this.biome === 'peaks' && dt > 0 && Math.random() < dt * 14 * amount) {
+    if (this.snowGlints && dt > 0 && Math.random() < dt * 14 * amount) {
       this.glint(cx + (Math.random() - 0.5) * 40, 0.06, cz + (Math.random() - 0.5) * 28, 0.22 + Math.random() * 0.15);
     }
     // Waders: ripples around anyone moving through water.

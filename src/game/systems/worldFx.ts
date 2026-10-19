@@ -11,6 +11,7 @@ import { biomeForStage } from '../../data/biomes';
 import { fxQuality } from '../ambience';
 import { worldFxTuning } from '../particles';
 import { access } from '../settings';
+import { worldRender } from '../../world/worldRender';
 
 export const worldDustTuning = {
   /** Metres walked between footprints. */
@@ -20,9 +21,6 @@ export const worldDustTuning = {
   footSize: 0.6,
 };
 
-/** Dust tint and footprint tint per biome (no prints on grass or ash). */
-const DUST: Record<string, string> = { meadow: '#e6d9a8', dunes: '#ffcf95', peaks: '#ffffff', magma: '#8d7aa3' };
-const PRINT: Record<string, string> = { dunes: '#8a4a2a', peaks: '#5d7fbf' };
 
 interface HeroFx {
   dash: boolean;
@@ -75,6 +73,8 @@ function state(g: Game): WorldFxState {
 
 export function worldFx(this: Game, frameDt: number): void {
   const s = state(this);
+  // Animated scenery, crusher presses and boss arena dressing (src/world/worldRender.ts).
+  worldRender(this, frameDt);
   // A new arena: build its surfaces; the title screen never rains.
   if (s.arena !== this.arena) {
     s.arena = this.arena;
@@ -89,9 +89,11 @@ export function worldFx(this: Game, frameDt: number): void {
 
   const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop';
   if (frozen || frameDt <= 0 || this.mode === 'title') return;
-  const biome = biomeForStage(this.arenaStage).id;
-  const dust = DUST[biome] ?? '#e6d9a8';
-  const print = PRINT[biome];
+  // Dust tint and footprint tint come from the biome (no prints on grass, tiles or ash).
+  const b = biomeForStage(this.arenaStage);
+  const biome = b.id;
+  const dust = b.dust;
+  const print = b.prints;
   const soft = this.particles.soft;
   const decals = this.particles.decals;
   const T = worldDustTuning;

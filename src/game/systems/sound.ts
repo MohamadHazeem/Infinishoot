@@ -3,7 +3,8 @@ import type { Game } from '../game';
 import { sfx } from '../../audio/sfx';
 import { ambience } from '../../audio/ambienceAudio';
 import { announcer } from '../../audio/announcer';
-import { biomeAudio, comboLine, groundAudio, soundTuning } from '../../audio/mix';
+import { comboLine, soundTuning } from '../../audio/mix';
+import { biomeForStage } from '../../data/biomes';
 
 interface AudioState {
   mode: string;
@@ -25,7 +26,9 @@ export function updateSound(this: Game, dt: number, frozen: boolean): void {
   const mode = this.mode;
   const active = mode !== 'title' && mode !== 'dead';
   const fighting = this.isCombatMode && !this.paused && !frozen;
-  const biome = biomeAudio(this.arenaStage);
+  // Ambience bed and footsteps are biome data (new biomes reuse the classic beds).
+  const area = biomeForStage(this.arenaStage);
+  const biome = area.ambience;
   sfx.crowd = this.enemies.activeCount;
   ambience.update(biome, active, !fighting);
   // Rain bed and thunder follow the weather (worked out locally on every machine).
@@ -74,7 +77,7 @@ export function updateSound(this: Game, dt: number, frozen: boolean): void {
     state.steps += Math.min(dt, 0.05) * p.speed;
     if (state.steps >= soundTuning.stepStride) {
       state.steps %= soundTuning.stepStride;
-      sfx.footstep(p.ground.pushX || p.ground.pushZ ? 'metal' : groundAudio(biome));
+      sfx.footstep((p.ground.pushX || p.ground.pushZ) && area.belts !== 0 ? 'metal' : area.footstep);
     }
   } else state.steps = 0;
   // Round-robin at most 32 slots/frame and one whoosh/0.4 s. No per-projectile objects.
