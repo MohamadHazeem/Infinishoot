@@ -162,7 +162,7 @@ export const ROUTE_NODES: Record<NodeKind, RouteNodeDef> = {
     short: 'A hidden road. Nobody knows where it goes',
     lines: ['It rarely shows up', 'Pick it to find out'],
     icon: 'route_secret',
-    glyph: '?',
+    glyph: '??',
     color: '#566c86',
     weight: 0,
   },

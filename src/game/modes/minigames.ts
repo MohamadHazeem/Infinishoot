@@ -51,9 +51,9 @@ export const miniTuning = {
   goldValue: 3,
   bombCost: 2,
   // Coin dash
-  coinEvery: 1.6,
+  coinEvery: 2,
   coinWave: 4,
-  coinLife: 5,
+  coinLife: 4,
   coinR: 0.95,
   coinArea: 12,
   bigShare: 0.08,

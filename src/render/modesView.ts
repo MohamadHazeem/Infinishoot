@@ -27,6 +27,7 @@ function instanced(scene: THREE.Scene, geo: THREE.BufferGeometry, mat: THREE.Mat
   m.geometry.setAttribute('instanceFlash', new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4));
   m.frustumCulled = false;
   m.count = 0;
+  m.visible = false;
   scene.add(m);
   return m;
 }
@@ -146,6 +147,7 @@ export class ModesView {
 
   private done(m: THREE.InstancedMesh, n: number): void {
     m.count = n;
+    m.visible = n > 0; // an empty InstancedMesh would still cost a draw call
     if (!n) return;
     commit(m.instanceMatrix, n);
     commit(m.geometry.getAttribute('instanceFlash') as THREE.InstancedBufferAttribute, n);
@@ -156,6 +158,7 @@ export class ModesView {
     this.t += dt;
     if (!on) {
       this.floor.count = 0;
+      this.floor.visible = false;
       return;
     }
     const c = this.c;

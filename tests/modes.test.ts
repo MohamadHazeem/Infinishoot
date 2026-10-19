@@ -314,6 +314,25 @@ for (const kind of MG.MINI_KINDS) {
   ok(!g.modes.mg && g.mode === 'portal' && g.portal.active && g.hero.gold > gold0, `${kind}: ${g.hero.gold - gold0} gold in ${(steps / 60).toFixed(1)} s, then the portal`);
 }
 
+// The Bonus Arcade road from a real route pick: mini-game first, then the portal to the next stage.
+{
+  const { routeChoices } = await import('../src/game/route');
+  let seed = 1;
+  let opt = -1;
+  for (; seed < 5000 && opt < 0; seed++) opt = routeChoices(seed, 1, 0).findIndex((i) => routeLayer(seed, 2).nodes[i].kind === 'arcade');
+  seed--;
+  const g = solo(seed);
+  run(g, 5);
+  for (const e of g.enemies.list) if (e.active) g.enemies.kill(e);
+  g.mode = 'shop';
+  ok(g.openRoute() && g.route.options.length >= 2, 'route map open after stage 1');
+  g.routePick(opt);
+  run(g, 60);
+  ok(!!g.modes.mg && g.mode === 'portal' && !g.route.open && !g.portal.active, `picking the Bonus Arcade starts ${g.modes.mg?.kind} before the portal`);
+  run(g, 60 * 26);
+  ok(!g.modes.mg && g.portal.active && g.routeKind(2) === 'arcade', 'after the game the portal opens to stage 2');
+}
+
 // Route map: the new roads roll, the hidden one reads ??? until picked.
 {
   ok(ROLLABLE.includes('rhythm') && ROLLABLE.includes('arcade') && ROLLABLE.includes('pacifist') && !ROLLABLE.includes('secret'), 'route: rhythm, arcade and (rarely) pacifist roads roll; ??? is only a look');

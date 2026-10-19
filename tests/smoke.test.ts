@@ -92,6 +92,53 @@ try {
 } catch (e) {
   errors.push('training: ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
 }
+// Modes lane: a rhythm stage, the Pacifist road, the three mini-games and a weekly run racing a ghost.
+try {
+  const { modesForce } = await import('../src/game/systems/modes');
+  const { demoGhost } = await import('../src/dev/modesLinks');
+  const { ghostStore } = await import('../src/game/modes/ghostStore');
+  settings.mode = 'standard';
+  settings.difficulty = 'normal';
+  settings.hero = 'rookie';
+  game.applyLocalSkin();
+  modesForce.rhythm = true;
+  game.startSolo();
+  const r1 = botRun(90, true);
+  const onBeat = game.modes.onBeat[0] ?? 0;
+  const rhythm = game.modes.rhythm;
+  modesForce.rhythm = null;
+  game.route.force = 'pacifist';
+  game.loadStage(2);
+  const gold0 = game.hero.gold;
+  const r2 = botRun(126, true);
+  const pac = { kills: game.modes.pacKills[0], gold: game.hero.gold - gold0, stage: game.stage, mode: game.mode };
+  game.route.force = null;
+  const mini: Record<string, number> = {};
+  for (const k of ['gallery', 'coins', 'whack'] as const) {
+    if (game.mode === 'dead' || game.mode === 'title') break;
+    const g0 = game.hero.gold;
+    game.startMiniGame(k);
+    botRun(26.5, true);
+    mini[k] = game.hero.gold - g0;
+  }
+  settings.mode = 'weekly';
+  game.startSolo();
+  ghostStore.setRival(demoGhost(game.meta.week, 0, game.hero.player.x, game.hero.player.z));
+  game.modes.stage = 0;
+  botRun(45, true);
+  const raced = !!game.modes.rival && !!game.modes.rec;
+  const week = game.meta.week;
+  game.quitRun();
+  const kept = ghostStore.mine(week);
+  console.log('modes', JSON.stringify({ rhythm, onBeat, r1: r1.mode, pacifist: pac, r2: r2.mode, mini, raced, ghost: kept ? `${kept.xs.length} samples` : 'none' }));
+  if (!rhythm) errors.push('modes: the forced rhythm stage did not start');
+  if (pac.kills !== 0) errors.push('modes: the bot killed on the Pacifist road');
+  if (!raced || !kept) errors.push('modes: the weekly run did not record or race a ghost');
+  if (Object.values(mini).some((v) => !(v > 0))) errors.push('modes: a mini-game paid nothing to the bot ' + JSON.stringify(mini));
+  settings.mode = 'standard';
+} catch (e) {
+  errors.push('modes: ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
+}
 // A mortal run: die, game over, run history.
 settings.mode = 'standard';
 settings.difficulty = 'nightmare';
@@ -109,7 +156,7 @@ if (game.mode !== 'dead') {
 for (let i = 0; i < 400; i++) game.update(1 / 60);
 const goScreen = (game.screens as any).current;
 console.log('after death: screen', goScreen, 'last cause', save.history[0]?.cause, 'label', save.history[0]?.label);
-for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'settings', 'codex']) {
+for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'settings', 'codex', 'ghosts']) {
   try { (game.screens as any).show(s); } catch (e) { errors.push('screen ' + s + ': ' + (e as Error).stack); }
 }
 console.log('history', save.history.length, 'seen', save.seen.length);

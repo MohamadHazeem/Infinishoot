@@ -3,6 +3,8 @@ import { modesForce } from '../game/systems/modes';
 import { MINI_GAMES, type MiniKind } from '../game/modes/minigames';
 import { GhostEv, GhostRecorder, type Ghost } from '../game/modes/ghost';
 import { ghostStore } from '../game/modes/ghostStore';
+import { routeChoices, routeLayer } from '../game/route';
+import { LOOP_STAGES } from '../game/game';
 
 /**
  * Modes lane test links (called from src/dev/testLinks.ts):
@@ -12,6 +14,9 @@ import { ghostStore } from '../game/modes/ghostStore';
  *   &minigame=gallery|coins|whack   a bonus mini-game right now; &mgt=<s> jumps into its play time
  *   &ghost=demo                 race a made-up rival ghost (runs circles, scores steadily); &ghostlead=<s> moves it
  *                               ahead (+) or behind (-) in time. Works in any mode; add &mode=weekly for the real thing.
+ *   &secretroute                the route map now, on a run seed whose next roads include the hidden ??? road
+ *                               (with &arcade and/or &rhythm in the name: one that also offers those roads)
+ *   &cursor=<x>,<y>             park the mouse at that fraction of the screen (screenshots of the crosshair beat frame)
  *   &modescreen=ghosts          open EXTRAS > GHOST RACE
  * Examples: ?test&god&rhythm&spawn=bopper:10,blaster:4&spawnr=8   ?test&god&stage=2&pacifist&pact=40
  *           ?test&god&minigame=gallery&mgt=6   ?test&god&ghost=demo&ghostlead=3
@@ -43,6 +48,24 @@ export function modesLinks(game: Game, q: URLSearchParams): void {
     const week = game.meta.week || 'test';
     ghostStore.setRival(demoGhost(week, Number(q.get('ghostlead')) || 0, game.hero.player.x, game.hero.player.z));
     game.modes.stage = 0;
+  }
+  if (q.has('secretroute')) {
+    const st = game.stage;
+    const want = (q.get('secretroute') ?? '').split(',').filter(Boolean);
+    for (let seed = 1; seed < 20000; seed++) {
+      const kinds = routeChoices(seed, st, game.route.path[st] ?? 0, LOOP_STAGES).map((i) => routeLayer(seed, st + 1, LOOP_STAGES).nodes[i].kind);
+      if (!kinds.includes('pacifist') || !want.every((k) => kinds.includes(k as never))) continue;
+      game.seed = seed;
+      game.route.on = true;
+      game.route.open = false;
+      game.mode = 'shop';
+      game.openRoute();
+      break;
+    }
+  }
+  const cur = (q.get('cursor') ?? '').split(',').map(Number);
+  if (cur.length === 2 && cur.every((v) => v >= 0 && v <= 1)) {
+    (game.input as unknown as { setMouse(x: number, y: number): void }).setMouse(cur[0] * innerWidth, cur[1] * innerHeight);
   }
   if (q.get('modescreen') === 'ghosts') {
     game.render(1, 0); // the screen is built on the first frame
