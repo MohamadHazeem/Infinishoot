@@ -1,3 +1,4 @@
+import { raidCamera } from './raid';
 import { gauntletScore } from '../../data/ascension';
 import { renderGauntlet, challengeState } from './gauntlet';
 import { beginReadability, renderReadability } from './readability2';
@@ -157,6 +158,7 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
     intensity = m === 'fight' ? Math.min(1, 0.12 + this.enemies.activeCount / 140 + this.director.time / this.director.duration / 3) : 0.3;
   }
   if (m === 'shop' || m === 'cleared' || m === 'portal') track = 'shop';
+  if (inRun && this.runMode === 'raid') { track = 'omega'; intensity = 1; }
   const omega = bossTrack(this.stage) === 'omega';
   music.setBossPhase(!boss ? 1 : omega && boss.hp01 < omegaTuning.phase3At ? 3 : boss.hp01 < (omega ? omegaTuning.phase2At : bossTuning.enrageAt) ? 2 : 1);
   const duck = this.paused || m === 'levelup' || (track !== 'shop' && this.screens.current !== 'none' && inRun);
@@ -228,6 +230,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
   this.renderWorldEvent(rdt);
+  this.renderRaid();
   this.renderModes(rdt); // rhythm floor, mini-games, race ghost, their HUD (systems/modes.ts)
   renderGauntlet(this);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
@@ -262,6 +265,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.cameraDirector();
   bossCamera.call(this); // the Titan and the duel ring pull the camera back (systems/bossLane.ts)
   this.mpFrame(frameDt); // Versus command view and local co-op team camera, their HUDs (systems/mp.ts)
+  raidCamera(this);
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
   this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 

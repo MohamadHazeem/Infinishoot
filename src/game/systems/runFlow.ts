@@ -1,3 +1,4 @@
+import { createRaidArena } from '../raid/arena';
 import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
 import { seasonAt, seasonalStage } from '../../data/seasons';
 import { gauntletScore } from '../../data/ascension';
@@ -25,7 +26,7 @@ import { sfx } from '../../audio/sfx';
 import { disposeObject } from '../../render/dispose';
 import { type RunSummary } from '../../ui/screens';
 import { createFieldArena } from '../../world/fieldArena';
-import { biomeForStage } from '../../data/biomes';
+import { BIOME_BY_ID, biomeForStage } from '../../data/biomes';
 import { applyBiomeLook } from '../../render/biomeLook';
 import { Hero, MAX_GEARS, economyTuning } from '../hero';
 import { loadHighScores, submitScore } from '../highscores';
@@ -42,6 +43,7 @@ import { clearBossLane } from './bossLane';
 import { clearBosses3 } from './bosses3';
 
 export function clearWorld(this: Game): void {
+  this.resetRaid();
   clearHalloween.call(this);
   this.enemies.clear();
   this.netEnemies.clear();
@@ -67,9 +69,9 @@ export function clearWorld(this: Game): void {
 export function loadArena(this: Game, seed: number, stage = 1): void {
   this.scene.remove(this.arena.group);
   disposeObject(this.arena.group);
-  const biome = biomeForStage(stage);
+  const biome = this.runMode === 'raid' && this.mode !== 'title' ? BIOME_BY_ID.factory : biomeForStage(stage);
   this.arenaStage = stage;
-  this.arena = createFieldArena(seed, biome, { conveyors: stage >= 2 ? 3 : 0 });
+  this.arena = this.runMode === 'raid' && this.mode !== 'title' ? createRaidArena(seed) : createFieldArena(seed, biome, { conveyors: stage >= 2 ? 3 : 0 });
   dressHalloween.call(this);
   applyBiomeLook(biome);
   this.scene.add(this.arena.group);
@@ -142,7 +144,7 @@ export function pickDifficulty(this: Game): DifficultyDef {
 /** Start a run (solo or online host). */
 export function startRun(this: Game, fixed?: { seed: number; difficulty: string }): void {
   this.paused = false;
-  if (this.role !== 'solo' && this.lobbyKind !== 'weekly') this.runMode = 'standard'; // online weekly co-op keeps 'weekly'
+  if (this.role !== 'solo' && this.lobbyKind !== 'weekly' && this.lobbyKind !== 'raid') this.runMode = 'standard'; // online weekly co-op keeps 'weekly'
   this.difficulty = fixed ? DIFF_BY_ID[fixed.difficulty as DifficultyId] ?? DIFF_BY_ID.normal : this.pickDifficulty();
   this.runDate = today();
   this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
@@ -158,7 +160,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.newAchievements = [];
   this.curses = [];
   resetHalloween.call(this);
-  selectSeason.call(this, typeof location === 'undefined' || ['daily', 'weekly'].includes(this.runMode) || this.pvp || this.versus ? null : seasonAt(new Date(), typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('season'))?.id);
+  selectSeason.call(this, typeof location === 'undefined' || ['daily', 'weekly', 'raid'].includes(this.runMode) || this.pvp || this.versus ? null : seasonAt(new Date(), typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('season'))?.id);
   this.runEvents.reset();
   this.routeReset();
   this.director.players = this.heroes.length;
@@ -180,13 +182,14 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.role === 'host') {
     for (const h of this.heroes) {
       if (!h.peerId) continue;
-      this.host!.send(h.peerId, { t: 'start', season: this.halloween.season, meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
+      this.host!.send(h.peerId, { t: 'start', runMode: this.runMode, season: this.halloween.season, meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
     }
   }
+  if (this.runMode === 'raid') this.mode = 'fight';
   this.loadStage(1);
   this.mvpStep(true);
   // Starting shop: free gold to spend before stage 1, not carried into the run.
-  if (this.role !== 'client' && this.runMode !== 'gauntlet') {
+  if (this.role !== 'client' && this.runMode !== 'gauntlet' && this.runMode !== 'raid') {
     this.preShop = true;
     for (const h of this.heroes) h.gold = economyTuning.startGold;
     this.openShop();
@@ -247,6 +250,7 @@ export function loadStage(this: Game, stage: number): void {
   this.routeStageStart();
   this.modesStageStart(); // rhythm stage / Pacifist road rules, weekly ghost (systems/modes.ts)
   if (this.runMode === 'gauntlet') { this.modes.rhythm = false; this.modes.pacifist = false; this.modes.holster = false; }
+  this.startRaid();
   this.checkAchievements();
 }
 
@@ -278,13 +282,13 @@ export function quitRun(this: Game): void {
 export function summary(this: Game, h: Hero): RunSummary {
   return {
     mvp: this.mvp.report ?? undefined,
-    score: this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : Math.floor(this.score * this.meta.multiplier),
+    score: this.runMode === 'raid' ? this.score : this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : Math.floor(this.score * this.meta.multiplier),
     heat: this.meta.points,
     clears: this.victories,
     bosses: this.bossesRun,
     stage: this.stage,
     kills: this.kills,
-    time: this.runTime,
+    time: this.runMode === 'raid' ? this.raidNet()?.time ?? this.runTime : this.runTime,
     level: this.level,
     maxCombo: this.maxCombo,
     loadout: h.loadout(),
@@ -334,14 +338,14 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   persist();
   if (quit) { this.goTitle(); return; }
   this.hud.toast(`+${bolts} BOLTS · COSMETICS ONLY`, 4);
-  if (leaderboardEnabled && this.role !== 'client') {
+  if (leaderboardEnabled && this.role !== 'client' && (this.runMode !== 'raid' || this.victories > 0)) {
     const board = this.meta.week ? weeklyChallenge(this.meta.week).board : boardId(this.runMode, this.difficulty.id, this.runDate);
     void submitGlobal(board, { name: this.hero.name, score: Math.floor(sum.score), stage: sum.stage, kills: sum.kills, time: sum.time }).then((r) => {
       if (r) this.hud.toast(`GLOBAL RANK #${r}!`, 4);
       this.refreshGlobal(board, r ? r - 1 : -1);
     });
   }
-  const rank = this.runMode === 'gauntlet' ? challengeState(this).bankRank : this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
+  const rank = this.runMode === 'raid' ? -1 : this.runMode === 'gauntlet' ? challengeState(this).bankRank : this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
   if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
   this.screens.showGameOver(sum, rank, this.runMode === 'gauntlet' ? loadGauntletScores() : loadHighScores(), this.role === 'client');
   if (sum.mvp) { this.mvp.report = sum.mvp; this.showMvp(sum.mvp); }

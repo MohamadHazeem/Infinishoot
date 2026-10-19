@@ -51,7 +51,7 @@ export function startGauntlet(g: Game): void {
   const s = challengeState(g);
   s.hud = old?.hud ?? null;
   s.nextMini = gauntletTuning.mini; s.nextBoss = gauntletTuning.boss;
-  const solo = g.role === 'solo' && !g.pvp && !g.onboarding.training && !['daily', 'weekly', 'gauntlet', 'bossrush'].includes(g.runMode);
+  const solo = g.role === 'solo' && !g.pvp && !g.onboarding.training && !['daily', 'weekly', 'gauntlet', 'bossrush', 'raid'].includes(g.runMode);
   if (save.achievements.includes('victory')) gauntletProfile.victory = true; // old profiles retain their earned NG+ access
   s.ascension = solo ? Math.min(gauntletProfile.unlocked, gauntletProfile.selected) : 0;
   s.ng = solo && gauntletProfile.victory && gauntletProfile.ng;

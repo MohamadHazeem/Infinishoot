@@ -3,6 +3,10 @@
  * generated them): CAPTIONS shows these. Regenerate this table if a line is re-recorded.
  */
 export const VOICE_TEXT: Readonly<Record<string, string>> = {
+  boss_hydra_intro: 'Three heads. One purpose. Your end.',
+  boss_hydra_phase: 'Cut one head, two return!',
+  boss_hydra_defeat: 'The engine... stops...',
+
   boss_king_intro: "Bop till you drop!",
   boss_king_phase: "You're getting squished now!",
   boss_king_defeat: "Nooo... my crown!",

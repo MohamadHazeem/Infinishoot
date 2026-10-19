@@ -406,6 +406,8 @@ class Sfx {
 
   /** Any cue by name: an sfx method, `w:<weapon>[|<evo key>]`, `evo:<key>` or `call:<family>`. Used by the effects bus. */
   named(name: string, pitch = 1): void {
+    if (name === 'vo_raid') { announcer.say('raid'); return; }
+    if (['raid_alarm', 'raid_horn'].includes(name)) { samples.play(name, { gain: 0.7, priority: 3, cooldown: 1, limit: 1 }); return; }
     if (name.startsWith('w:')) return this.weapon(name.slice(2));
     if (name.startsWith('s2:')) return this.laneCue(name, pitch);
     if (name.startsWith('evo:')) return this.evoLayer(name.slice(4));

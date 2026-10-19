@@ -1,3 +1,4 @@
+import { pilotRaid } from './systems/raid';
 import type { Game } from './game';
 import { Team } from './bullets';
 import { pilotGameplay } from './systems/gameplay';
@@ -122,6 +123,7 @@ export class Autopilot {
         break;
       }
     }
+    pilotRaid(g, o);
     return o;
   }
 }

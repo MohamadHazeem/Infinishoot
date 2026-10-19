@@ -331,8 +331,9 @@ export function coopHello(this: Game, from: string, m: Record<string, unknown>):
   const mine = (i: number) => (pid ? s.pids[i] === pid : this.heroes[i]?.name === name);
   const reclaim = this.heroes.findIndex((h, i) => i !== this.local && mine(i) && (h.left || s.grace.some((x) => x.index === i)));
   const busy = activeHeroes(this).length + s.pending.filter((p) => p.reclaim < 0).length;
-  if (reclaim < 0 && busy >= 4) return refuse('That run is full (4 players).');
-  if (reclaim < 0 && this.heroes.length >= 4 && !this.heroes.some((h, i) => h.left && !s.grace.some((x) => x.index === i))) return refuse('That run is full (4 players).');
+  const maxPlayers = this.runMode === 'raid' ? 8 : 4;
+  if (reclaim < 0 && busy >= maxPlayers) return refuse(`That run is full (${maxPlayers} players).`);
+  if (reclaim < 0 && this.heroes.length >= maxPlayers && !this.heroes.some((h, i) => h.left && !s.grace.some((x) => x.index === i))) return refuse(`That run is full (${maxPlayers} players).`);
   s.pending.push({ peerId: from, pid, entry, reclaim, since: simNow(this) });
   host.send(from, { t: 'cowait', msg: reclaim >= 0 ? 'Welcome back! Jumping back into the run...' : 'The run is already going: you jump in at the next safe moment...' });
   return true;
@@ -428,7 +429,7 @@ function admit(g: Game, s: CoopState, p: Pending): void {
     h.remote = null;
   } else {
     let index = g.heroes.length;
-    if (index >= 4) index = g.heroes.findIndex((x, i) => x.left && !s.grace.some((q) => q.index === i));
+    if (index >= (g.runMode === 'raid' ? 8 : 4)) index = g.heroes.findIndex((x, i) => x.left && !s.grace.some((q) => q.index === i));
     if (index < 0) {
       host.send(p.peerId, { t: 'full', reason: 'That run is full (4 players).' });
       return;
@@ -454,7 +455,7 @@ function admit(g: Game, s: CoopState, p: Pending): void {
   if (li >= 1) g.lobby[li] = p.entry;
   else g.lobby.push(p.entry);
   // The joiner: the run, the arena, then its spawn and the world's one-off state.
-  host.send(p.peerId, { t: 'start', join: 1, season: g.halloween.season, candyBaseline: g.halloween.earned, meta: { heat: g.meta.heat, week: g.meta.week, clears: g.victories }, seed: g.seed, difficulty: g.difficulty.id, you: h.index, players: rosterOf(g) });
+  host.send(p.peerId, { t: 'start', runMode: g.runMode, join: 1, season: g.halloween.season, candyBaseline: g.halloween.earned, meta: { heat: g.meta.heat, week: g.meta.week, clears: g.victories }, seed: g.seed, difficulty: g.difficulty.id, you: h.index, players: rosterOf(g) });
   host.send(p.peerId, { t: 'stage', season: g.halloween.season, stage: g.stage, seed: g.seed });
   host.send(p.peerId, {
     t: 'cojoin',

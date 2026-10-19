@@ -1,3 +1,4 @@
+import { raidTuning } from '../game/raid/encounter';
 import { gauntletTuning } from '../game/systems/gauntlet';
 import { addDirector2Debug } from '../game/systems/director2';
 import { mvpTuning } from '../game/systems/mvp';
@@ -337,6 +338,8 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addMpFolder(gui, game); // MP lane: Versus Swarm, local co-op, lobby browser (src/ui/debugMp.ts)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
   addWorldEventsFolder(gui, game); // world events: start any now, force one, knobs (src/ui/debugWorldEvents.ts)
+  const rf = gui.addFolder('Hydra raid').close();
+  for (const key of ['weaponDamage','headHp','enrage','wipe','ghostDps','parryDamage','fireWarn','stumpSeconds'] as const) rf.add(raidTuning, key);
   const gf = gui.addFolder('Gauntlet / Boss Rush').close();
   gf.add(gauntletTuning, 'wave', 10, 90, 5);
   gf.add(gauntletTuning, 'mini', 30, 360, 30);

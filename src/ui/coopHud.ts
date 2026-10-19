@@ -189,7 +189,7 @@ export class CoopHud {
       this.panel.hidden = !v.show;
       if (v.show) {
         const rows: string[] = [];
-        if (v.join) rows.push(`<div class="row join">JOINABLE · <b><bdi>${v.join[0]}</bdi></b> · ${v.join[1]}/4</div>`);
+        if (v.join) rows.push(`<div class="row join">JOINABLE · <b><bdi>${v.join[0]}</bdi></b> · ${v.join[1]}</div>`);
         rows.push(`<div class="row">${v.roles.map((r) => `<span class="role" style="--rc:${ROLES[r.role].color};--hc:${r.color}"><i></i>${ROLES[r.role].name}</span>`).join('')}</div>`);
         const txt = bonusText(v.bonus);
         rows.push(`<div class="row bonus ${txt ? '' : 'none'}">${txt ? `TEAM x${v.bonus.scale}: ${txt}` : 'MIX ROLES FOR A TEAM BONUS'}</div>`);

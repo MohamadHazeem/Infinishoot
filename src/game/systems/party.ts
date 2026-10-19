@@ -247,7 +247,7 @@ function cleanLobbyX(raw: unknown): LobbyXView | null {
   const r = raw as Partial<LobbyXView>;
   if (!Array.isArray(r.p)) return null;
   return {
-    p: r.p.slice(0, 4).map((c) => ({
+    p: r.p.slice(0, 8).map((c) => ({
       ready: !!c?.ready,
       ping: Number.isFinite(c?.ping) ? Number(c.ping) : -1,
       hero: String(c?.hero ?? ''),
@@ -620,7 +620,7 @@ function cleanParty(raw: unknown): PartyView | null {
     kills: n(r.kills),
     time: n(r.time),
     level: n(r.level),
-    rows: (Array.isArray(r.rows) ? r.rows : []).slice(0, 4).map((x) => ({ n: String(x?.n ?? '').slice(0, 12), c: String(x?.c ?? '#f4f4f4'), hero: String(x?.hero ?? ''), dmg: n(x?.dmg), dead: !!x?.dead, v: (['restart', 'lobby'] as const).find((k) => k === x?.v) ?? '' })),
+    rows: (Array.isArray(r.rows) ? r.rows : []).slice(0, 8).map((x) => ({ n: String(x?.n ?? '').slice(0, 12), c: String(x?.c ?? '#f4f4f4'), hero: String(x?.hero ?? ''), dmg: n(x?.dmg), dead: !!x?.dead, v: (['restart', 'lobby'] as const).find((k) => k === x?.v) ?? '' })),
     you: n(r.you),
   };
 }

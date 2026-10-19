@@ -1,5 +1,5 @@
 /** Game modes and difficulty levels, picked on the MODE screen before a solo run. */
-export type ModeId = 'standard' | 'endless' | 'bossrush' | 'daily' | 'weekly' | 'gauntlet';
+export type ModeId = 'standard' | 'endless' | 'bossrush' | 'daily' | 'weekly' | 'gauntlet' | 'raid';
 
 export interface ModeDef {
   id: ModeId;
@@ -12,6 +12,7 @@ export const MODES: ModeDef[] = [
   { id: 'endless', name: 'Endless', desc: 'One arena, no portals. A boss every 4 minutes, the shop between, and it never ends.' },
   { id: 'bossrush', name: 'Boss Rush', desc: 'Every boss, two laps. Remixed second lap, timed shops every two bosses, combat timer and splits.' },
   { id: 'gauntlet', name: 'Survival Gauntlet', desc: 'Endless arena. Waves 30s, mini-bosses 3m, bosses 6m. No shops, level-ups only. Time × kills.' },
+  { id: 'raid', name: 'Raid', desc: 'A colossal three-headed engine. 1–8 heroes, AI role helpers, a 15-minute limit.' },
   { id: 'weekly', name: 'Weekly Challenge', desc: 'A shared UTC ISO-week seed, two wild rules, fixed Rookie kit. Your own weekly score table.' },
   { id: 'daily', name: 'Daily Challenge', desc: "Today's seed, Medium difficulty. Same arenas for everyone; beat your best of the day." },
 ];
