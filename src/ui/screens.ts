@@ -1,3 +1,5 @@
+import { META_SCREENS, metaScreenHtml, renderMeta, metaAction, applyMetaTheme, type MetaScreen } from './metaScreens';
+import { weeklyChallenge } from '../data/weekly';
 import type { Input } from '../core/input';
 import { ACHIEVEMENTS } from '../data/meta';
 import { tagChips, type Tag } from '../data/tags';
@@ -26,7 +28,7 @@ import { ENEMIES } from '../data/enemies';
 import { ENEMY_TIPS } from '../data/bestiary';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | MetaScreen;
 
 export interface ScreenActions {
   start(): void;
@@ -125,6 +127,10 @@ export interface Offer {
 }
 
 export interface RunSummary {
+  heat?: number;
+  bolts?: number;
+  clears?: number;
+  bosses?: number;
   score: number;
   stage: number;
   kills: number;
@@ -344,6 +350,7 @@ export class Screens {
   <div class="msg mp-status"></div>
   <div class="menu row">
     <button data-nav data-act="lo-online">LOADOUT</button>
+    <button data-nav data-act="heat" class="mp-heat" hidden>HOST HEAT</button>
     <button data-nav data-act="mp-start" hidden>START GAME</button>
     <button data-nav data-act="mp-leave">BACK</button>
   </div>
@@ -406,6 +413,8 @@ export class Screens {
   <div class="menu row diff-row"></div>
   <div class="note mode-note"></div>
   <div class="menu row">
+    <button data-nav data-act="heat">HEAT</button>
+    <button data-nav data-act="weekly">WEEKLY RULES</button>
     <button data-nav data-act="play" class="continue">NEXT: LOADOUT &#9654;</button>
     <button data-nav data-act="md-back">BACK</button>
   </div>
@@ -414,6 +423,7 @@ export class Screens {
   <h1>EXTRAS</h1>
   <div class="menu">
     <button data-nav data-act="wardrobe">WARDROBE</button>
+    <button data-nav data-act="rewards">SOUVENIRS</button>
     <button data-nav data-act="history">RUN HISTORY</button>
     <button data-nav data-act="bestiary">ENEMY GUIDE</button>
     <button data-nav data-act="jukebox">JUKEBOX</button>
@@ -427,6 +437,7 @@ export class Screens {
 </div>
 <div id="scr-bestiary" class="screen dim" hidden>
   <h1>ENEMY GUIDE</h1>
+  <div class="menu row"><button data-nav data-act="codex">CODEX & LORE</button></div>
   <p class="note bst-count"></p>
   <div class="scroll"><div class="bestiary"></div></div>
   <div class="menu row"><button data-nav data-act="ex-sub-back">BACK</button></div>
@@ -468,7 +479,9 @@ export class Screens {
   <div class="hiscores global" hidden></div>
 </div>`,
     );
-    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary'];
+    root.insertAdjacentHTML('beforeend', metaScreenHtml);
+    applyMetaTheme();
+    const names: Named[] = ['title', 'pause', 'settings', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', ...META_SCREENS];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
     this.navs = {
       title: new MenuNav(this.els.title),
@@ -488,6 +501,10 @@ export class Screens {
       modes: new MenuNav(this.els.modes, { columns: 4, onBack: () => actions.title() }),
       controls: new MenuNav(this.els.controls, { columns: 2, onBack: () => this.show('settings') }),
       history: new MenuNav(this.els.history, { onBack: () => this.show('extras') }),
+      heat: new MenuNav(this.els.heat, { columns: 3, onBack: () => this.show(this.metaReturn) }),
+      weekly: new MenuNav(this.els.weekly, { onBack: () => this.show('modes') }),
+      codex: new MenuNav(this.els.codex, { columns: 3, onBack: () => this.show('bestiary') }),
+      rewards: new MenuNav(this.els.rewards, { columns: 3, onBack: () => this.show('extras') }),
       bestiary: new MenuNav(this.els.bestiary, { onBack: () => this.show('extras') }),
     };
 
@@ -499,7 +516,19 @@ export class Screens {
     root.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
       if (!btn) return;
+      if (metaAction(btn.dataset.act ?? '', btn.dataset.id ?? '')) {
+        if (btn.dataset.act === 'meta-reward') { actions.skinChanged(); actions.loadoutChanged(); }
+        renderMeta(this.els[this.current as MetaScreen], this.current as MetaScreen);
+        this.navs[this.current as MetaScreen].refresh(this.navs[this.current as MetaScreen].focus);
+        return;
+      }
       switch (btn.dataset.act) {
+        case 'heat': this.metaReturn = this.current; return this.show('heat');
+        case 'weekly': return this.show('weekly');
+        case 'codex': return this.show('codex');
+        case 'rewards': return this.show('rewards');
+        case 'meta-back': return this.show(this.current === 'heat' ? this.metaReturn : this.current === 'weekly' ? 'modes' : this.current === 'codex' ? 'bestiary' : 'extras');
+        case 'meta-weekly': settings.mode = 'weekly'; saveSettings(); return actions.start();
         case 'start':
           return actions.start();
         case 'play':
@@ -696,11 +725,14 @@ export class Screens {
     });
   }
 
+  private metaReturn: ScreenName = 'modes';
+
   show(name: ScreenName, focus?: number): void {
     this.current = name;
     for (const [k, el] of Object.entries(this.els)) el.hidden = k !== name;
     // Hide in-game banners and toasts behind menus.
     this.root.classList.toggle('menu-open', name !== 'none');
+    if (META_SCREENS.includes(name as MetaScreen)) renderMeta(this.els[name as MetaScreen], name as MetaScreen);
     if (name === 'settings') this.syncSettings();
     if (name === 'title') this.renderProgress();
     if (name === 'unlocks') this.renderUnlocks();
@@ -819,6 +851,7 @@ export class Screens {
     el.querySelector('.players')!.innerHTML = v.players
       .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span>${p.name}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
       .join('');
+    el.querySelector<HTMLElement>('.mp-heat')!.hidden = !(v.isHost && v.code && v.kind !== 'pvp');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
     // Difficulty: the host picks it; everyone else sees the choice.
     const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFFICULTIES[1];
@@ -1228,7 +1261,7 @@ export class Screens {
     const rows = save.history.map(
       (r) => `<tr>
         <td>${r.date}</td>
-        <td>${r.label}<br><small>${r.hero.toUpperCase()}</small></td>
+        <td>${r.label}<br><small>HEAT ${r.heat ?? 0} · +${r.bolts ?? 0} BOLTS</small><br><small>${r.hero.toUpperCase()}</small></td>
         <td>STAGE ${r.stage}<br><small>LV ${r.level} · ${fmtTime(r.time)}</small></td>
         <td class="sc">${fmtScore(r.score)}<br><small>${r.kills.toLocaleString('en-US')} KILLS</small></td>
         <td class="ws">${r.weapons.map((w) => `<span class="badge${w.evo ? ' evo' : ''}" style="--c:${WEAPONS[w.id]?.color ?? '#fff'}">${iconHtml(w.id, WEAPONS[w.id]?.color ?? '#fff', WEAPONS[w.id]?.icon ?? '?')}<i>${w.evo ? 'E' : w.level}</i></span>`).join('')}</td>
@@ -1281,7 +1314,7 @@ export class Screens {
     el.querySelector('.mode-grid')!.innerHTML = MODES.map(
       (m) => `<button data-nav data-act="mode" data-mode="${m.id}" class="mode ${m.id === mode.id ? 'on' : ''}"><b>${m.name.toUpperCase()}</b><small>${m.desc}</small></button>`,
     ).join('');
-    const daily = mode.id === 'daily';
+    const daily = mode.id === 'daily' || mode.id === 'weekly';
     el.querySelector('.diff-row')!.innerHTML = DIFFICULTIES.map((d) => {
       const open = !d.unlock || save.achievements.includes(d.unlock);
       const ach = d.unlock ? ACHIEVEMENTS.find((a) => a.id === d.unlock) : null;
@@ -1293,6 +1326,7 @@ export class Screens {
     el.querySelector('.mode-note')!.textContent = daily
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`
       : diff.desc.toUpperCase();
+    if (mode.id === 'weekly') el.querySelector('.mode-note')!.textContent = `${weeklyChallenge().week}: ${weeklyChallenge().rules.map(r => r.name).join(' + ')} · FIXED ROOKIE KIT`;
     this.navs.modes.refresh(this.navs.modes.focus);
   }
 
@@ -1407,6 +1441,8 @@ export class Screens {
         <span>LEVEL</span><b>${sum.level}</b>
         <span>KILLS</span><b>${sum.kills.toLocaleString('en-US')}</b>
         <span>BEST COMBO</span><b>${sum.maxCombo}</b>
+        ${sum.heat ? `<span>HEAT</span><b>${sum.heat}</b>` : ''}
+        ${sum.bolts !== undefined ? `<span>BOLTS EARNED</span><b>+${sum.bolts}</b>` : ''}
         ${sum.style ? `<span>BEST STYLE</span><b>${sum.style}</b>` : ''}
         <span>TIME</span><b>${fmtTime(sum.time)}</b>
       </div>`;

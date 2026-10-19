@@ -1,3 +1,6 @@
+import { cleanHeat } from '../data/heat';
+import { save } from '../game/save';
+import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
@@ -84,6 +87,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const obj = q.get('objective');
   game.toys.force = OBJECTIVE_KINDS.includes(obj as ObjectiveKind) ? (obj as ObjectiveKind) : null;
   weatherForce.mode = q.has('rain') ? 'rain' : q.has('dry') ? 'clear' : null;
+  if (q.has('heat')) save.meta.heat = cleanHeat(list('heat'));
   game.startSolo();
   if (q.get('seed')) game.rng = new Rng(Number(q.get('seed')));
   // Skip the starting shop.
@@ -191,6 +195,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (pg > 0) setTimeout(() => (shootAt(1.5, 8), game.tryParry(game.hero)), pg * 1000);
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
+  const metaScreen = q.get('metascreen') as MetaScreen;
+  if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   return true;
 }
 

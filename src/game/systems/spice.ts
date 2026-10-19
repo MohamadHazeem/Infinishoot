@@ -1,3 +1,4 @@
+import { recordHeatClear } from './meta';
 /**
  * Run spice: curses, relics, stage events, side challenges, pets, co-op pings and spectating.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -50,7 +51,7 @@ export function takeCurse(this: Game, h: Hero): string {
   this.curses.push(c.id);
   h.curseOffer = null;
   h.gold += c.gold;
-  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
+  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount * (this.meta.has('crowds') ? 1.25 : 1);
   for (const x of this.heroes) x.recomputeStats();
   this.vfx.sound('ominous', NaN, NaN);
   this.vfx.toast(`${h.name.toUpperCase()} TOOK A CURSE: ${c.name.toUpperCase()}`, 3);
@@ -168,6 +169,7 @@ export function stageClear(this: Game): void {
     const bonus = scoreTuning.victoryBonus * loop;
     this.score += bonus;
     this.victories++;
+    recordHeatClear(this);
     this.vfx.banner(loop === 1 ? 'VICTORY!' : `LOOP ${loop} CLEARED!`, `THE FINAL BOSS FALLS · +${bonus.toLocaleString('en-US')}<br>LOOP ${loop + 1} AWAITS: EVERYTHING HITS HARDER`, 4.5);
     this.vfx.sound('legendaryPick', NaN, NaN);
     this.vfx.flash(1);
@@ -220,7 +222,7 @@ export function closeShop(this: Game): void {
 export function endlessNextWave(this: Game): void {
   this.stage++;
   this.director.start(this.stage);
-  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount;
+  this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount * (this.meta.has('crowds') ? 1.25 : 1);
   this.runEvents.startStage(this.director.duration);
   for (const h of this.heroes) {
     h.phoenixUsed = false;

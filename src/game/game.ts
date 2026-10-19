@@ -1,3 +1,5 @@
+import { metaSkin } from '../data/codex';
+import { MetaRun } from './systems/meta';
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { Rng, randomSeed } from '../core/rng';
@@ -517,6 +519,8 @@ export class Game implements HeroWorld {
   spectate = -1;
   readonly runEvents: RunEvents;
   /** Mode and difficulty of the current run. */
+  meta = new MetaRun();
+  get shopPriceMul(): number { return this.meta.has('shop') ? 1.5 : 1; }
   runMode: ModeId = 'standard';
   difficulty: DifficultyDef = DIFF_BY_ID.normal;
   runDate = '';
@@ -755,7 +759,7 @@ export class Game implements HeroWorld {
   // ------------------------------------------------------------------ heroes and contexts
 
   makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet, heroId = localHero()): Hero {
-    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, skinOf(skin), pet, heroId);
+    const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, (metaSkin(skin) ?? skinOf(skin)), pet, heroId);
     h.player.setSkin(h.skin.armor, h.skin);
     return h;
   }
@@ -770,7 +774,7 @@ export class Game implements HeroWorld {
   /** Wardrobe: re-dress this machine's hero. */
   applyLocalSkin(): void {
     const h = this.hero;
-    h.skin = skinOf(settings.skin);
+    h.skin = (save.meta.rewards.includes(settings.skin) ? metaSkin(settings.skin) : undefined) ?? skinOf(settings.skin);
     h.player.setSkin(this.heroes.length > 1 ? h.color : h.skin.armor, h.skin);
     h.setPet(settings.pet);
     h.setHeroDef(localHero());
@@ -855,7 +859,7 @@ export class Game implements HeroWorld {
           z: e.z + dz * (e.radius + 0.2),
           dirX: dx,
           dirZ: dz,
-          speed,
+          speed: speed * (this.meta.has('bullets') ? 1.35 : 1) * (this.meta.rule('barrage') ? 2 : 1),
           life: 4,
           radius: 0.26,
           damage: damage * e.dmgMul,
@@ -891,6 +895,9 @@ export class Game implements HeroWorld {
     out.hpMul *= (1 + this.curseSum('enemyHp')) * this.difficulty.enemyHp;
     out.speedMul *= 1 + this.curseSum('enemySpeed');
     out.dmgMul *= (1 + this.curseSum('enemyDmg')) * this.difficulty.enemyDmg;
+    out.hpMul *= this.meta.has('armor') ? 1.35 : 1;
+    out.speedMul *= (this.meta.has('haste') ? 1.25 : 1) * (this.meta.rule('speed') ? 2 : 1);
+    out.dmgMul *= this.meta.has('damage') ? 1.25 : 1;
     return out;
   }
 
@@ -908,6 +915,7 @@ export class Game implements HeroWorld {
     const parts: string[] = [];
     if (this.runMode !== 'standard') parts.push(MODE_BY_ID[this.runMode].name.toUpperCase());
     if (this.difficulty.id !== 'normal') parts.push(this.difficulty.name.toUpperCase());
+    if (this.meta.label) parts.push(this.meta.label);
     return parts.join(' · ');
   }
 
@@ -942,7 +950,7 @@ export class Game implements HeroWorld {
     return this.runEvents.damageMul;
   }
   get dashCurse(): number {
-    return 1 + this.curseSum('dashCd');
+    return (1 + this.curseSum('dashCd')) * (this.meta.has('dash') ? 1.5 : 1);
   }
 
 
@@ -1061,7 +1069,10 @@ export class Game implements HeroWorld {
 
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
-      for (const w of h.weapons) w.update(dt, h.ctx);
+      for (const w of h.weapons) {
+        if (this.meta.rule('right') && w.def.slot === 'primary') continue;
+        w.update(dt, h.ctx);
+      }
       this.weaponFeel(h);
     }
     for (const h of this.heroes) this.updateBomb(h, dt);

@@ -1,3 +1,4 @@
+import { weeklyChallenge } from '../../data/weekly';
 /**
  * Rendering: per-frame presentation, HUD, music and sky.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -95,7 +96,7 @@ export function ping(this: Game, h: Hero, x: number, z: number): void {
 export function refreshGlobal(this: Game, board?: string, highlight = -1): void {
   if (!leaderboardEnabled) return;
   const mode = (MODE_BY_ID[settings.mode as ModeId] ?? MODES[0]).id;
-  const b = board ?? boardId(mode, mode === 'daily' ? 'normal' : this.pickDifficulty().id, today());
+  const b = board ?? (mode === 'weekly' ? weeklyChallenge().board : boardId(mode, mode === 'daily' ? 'normal' : this.pickDifficulty().id, today()));
   const title = b.startsWith('daily') ? 'TODAY' : b.replace('-', ' · ').toUpperCase();
   void fetchTop(b).then((list) => this.screens.setGlobalScores(title, list, highlight));
 }
@@ -309,7 +310,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
       dashMax: p.dashMax,
       bomb01: local.bombCharge,
       special: local.specialDef.short,
-      score: this.score,
+      score: this.score * this.meta.multiplier,
+      metaLabel: this.meta.label,
       combo: this.combo,
       multiplier: this.multiplier,
       combo01: client ? this.netCombo01 : this.combo > 0 ? Math.max(0, this.comboT / scoreTuning.comboWindow) : 0,

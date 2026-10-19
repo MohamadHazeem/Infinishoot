@@ -1,3 +1,4 @@
+import { metaSkin } from '../../data/codex';
 /**
  * Online, host side: messages from clients and snapshots.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -40,7 +41,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       name: String(m.name ?? 'Player').slice(0, 12),
       unlocked: Array.isArray(m.unlocked) ? (m.unlocked as string[]) : unlockedWeapons(),
       loadout: validLoadout(m.loadout as Partial<Loadout>),
-      skin: skinOf(String(m.skin ?? '')).id,
+      skin: (metaSkin(String(m.skin ?? '')) ?? skinOf(String(m.skin ?? ''))).id,
       pet: String(m.pet ?? 'none'),
       hero: heroOf(String(m.hero ?? '')).id,
     });
@@ -149,6 +150,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
   const boss = this.boss && this.boss.active ? { name: this.boss.def.name, hp01: r2(Math.max(0, this.boss.hp / this.boss.maxHp)) } : null;
   return {
     t: 's',
+    meta: { heat: this.meta.heat, week: this.meta.week, clears: this.victories },
     mode: this.mode,
     stage: this.stage,
     tl: !this.director.bossSpawned ? r2(this.director.remaining) : this.boss ? -1 : -2,

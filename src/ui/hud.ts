@@ -73,6 +73,7 @@ export interface ChestItem {
 import { access, settings } from '../game/settings';
 
 export interface HudState {
+  metaLabel?: string;
   hp: number;
   maxHp: number;
   dash01: number;
@@ -622,7 +623,7 @@ export class Hud {
     // Timer / boss
     this.text('#timer .clock', s.timeLeft >= 0 ? fmtClock(s.timeLeft) : s.timeLeft === -1 ? 'BOSS!' : 'CLEAR!');
     this.el('#timer').classList.toggle('urgent', s.timeLeft >= 0 && s.timeLeft <= 10);
-    this.text('#timer .stage', `STAGE ${s.stage}`);
+    this.text('#timer .stage', `STAGE ${s.stage}${s.metaLabel ? " · " + s.metaLabel : ""}`);
     const bb = this.el('#bossbar');
     bb.hidden = !s.boss;
     if (s.boss) {
