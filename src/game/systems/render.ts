@@ -32,6 +32,7 @@ import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
 import { tickOnlineStop } from '../netFeel';
 import { closePingWheel, pingInput, pingKind } from '../teamPlay';
+import { updateGraphics } from './graphics';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -317,6 +318,8 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.sky');
   this.worldFx(frameDt);
   lap('ren.worldfx');
+  updateGraphics(this, frameDt); // graphics lane: destruction, anime look, water, fog, framing, customisation
+  lap('ren.graphics');
   this.hud.update(
     {
       hp: p.hp,

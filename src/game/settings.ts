@@ -82,6 +82,10 @@ export interface Settings {
   finishers: boolean;
   /** Character portraits popping in (announcer, bosses, pings). */
   portraitPops: boolean;
+  /** ANIME LOOK: ink outlines on everything, flat cel bands, speed lines, impact frames (graphics lane). */
+  animeLook: boolean;
+  /** CUSTOMISE: hero colours, accessory and weapon skin as a 5-character code (src/data/customise.ts). */
+  look: string;
 }
 
 const KEY = 'settings.v1';
@@ -131,6 +135,8 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   petSounds: true,
   finishers: true,
   portraitPops: true,
+  animeLook: false,
+  look: '---00',
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -138,6 +144,8 @@ settings.weather ??= true;
 settings.petSounds ??= true;
 settings.finishers ??= true;
 settings.portraitPops ??= true;
+settings.animeLook ??= false;
+settings.look ??= '---00';
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

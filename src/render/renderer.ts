@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { retroGlobals } from './retroMaterial';
 import { renderQuality } from './quality';
 import { setOutlines } from './outlines';
+import { gfxPostUniforms } from './graphicsPost';
 import { blurFrag, brightFrag, compositeFrag, fullscreenVert, postfx, postfxTuning } from './postfx';
 
 /**
@@ -63,6 +64,9 @@ export class RetroRenderer {
       magFilter: THREE.NearestFilter,
       depthBuffer: true,
     });
+    // Read by the ink-edge pass (src/render/graphicsPost.ts).
+    this.target.depthTexture = new THREE.DepthTexture(1, 1);
+    gfxPostUniforms.tDepth.value = this.target.depthTexture;
     const half = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false };
     this.bloomA = new THREE.WebGLRenderTarget(1, 1, half);
     this.bloomB = new THREE.WebGLRenderTarget(1, 1, half);
@@ -90,6 +94,7 @@ export class RetroRenderer {
       uGamma: { value: postfx.gamma },
       uGain: { value: postfx.gain },
       uNight: { value: 0 },
+      ...gfxPostUniforms,
     });
     this.brightMat = fullscreen(brightFrag, {
       tScene: { value: this.target.texture },
@@ -159,6 +164,8 @@ export class RetroRenderer {
     u.uWavePx.value = postfxTuning.wavePx * (this.height.value / 270);
     u.uHeatPx.value = postfxTuning.heatPx * (this.height.value / 270);
     u.uNight.value = postfx.night * postfxTuning.nightVignette;
+    const pc = camera as THREE.PerspectiveCamera;
+    if (pc.isPerspectiveCamera) gfxPostUniforms.uNearFar.value.set(pc.near, pc.far);
 
     this.gl.setRenderTarget(this.target);
     this.gl.setClearAlpha(0); // alpha is the bloom mask: the background doesn't glow

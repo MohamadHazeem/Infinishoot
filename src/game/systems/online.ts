@@ -14,6 +14,7 @@ import { save, unlockedLoadout, unlockedWeapons } from '../save';
 import { settings } from '../settings';
 import { DIFF_BY_ID, type DifficultyDef, type DifficultyId } from '../../data/modes';
 import { prefetchIce } from '../../net/ice';
+import { cleanLook } from '../../data/customise';
 
 export async function hostGame(this: Game, name: string): Promise<void> {
   this.saveName(name);
@@ -24,7 +25,7 @@ export async function hostGame(this: Game, name: string): Promise<void> {
   if (this.role !== 'host' || this.host) return;
   const host = new NetHost(3);
   this.host = host;
-  this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero() }];
+  this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) }];
   this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
   host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
   host.onLeave = (id) => this.onClientLeft(id);
@@ -69,6 +70,7 @@ export function hostStart(this: Game): void {
   const heroes = this.lobby.map((p, i) => {
     if (i === 0) return this.hero;
     const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
+    h.player.look = cleanLook(p.look);
     h.loadoutPick = p.loadout;
     return h;
   });
@@ -103,7 +105,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
     return;
   }
-  client.send({ t: 'hello', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero() });
+  client.send({ t: 'hello', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) });
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }
 
