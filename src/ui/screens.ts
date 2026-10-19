@@ -41,7 +41,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard';
+export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'mvp';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly';
 
@@ -154,6 +154,7 @@ export interface Offer {
 }
 
 export interface RunSummary {
+  mvp?: import('../game/systems/mvp').MvpReport;
   heat?: number;
   bolts?: number;
   clears?: number;

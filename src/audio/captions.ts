@@ -15,6 +15,7 @@ export interface Caption {
 
 /** Announcer recordings' lines (scripts/audio/sounds.mjs). */
 export const ANNOUNCER_LINES: Readonly<Record<string, string>> = {
+  mvp: 'M V P!',
   combo: 'Combo!',
   great: 'Great!',
   awesome: 'Awesome!',

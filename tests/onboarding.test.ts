@@ -244,7 +244,9 @@ p.invuln = 0;
 h.revivesLeft = 0;
 if (p.hurt(p.hp + 1, 0, 1)) game.onHeroDown(h);
 step(360); // the death replay (time lane, ~5 s) plays before the game-over screen
-ok(game.screens.current === 'gameover', 'the run ends on the game-over screen');
+ok(game.screens.current === 'mvp', 'the run opens its awards before the summary');
+(document.querySelector('#scr-mvp button') as HTMLButtonElement).click();
+ok(game.screens.current === 'gameover', 'continue opens the game-over screen');
 ok(!!$('#scr-gameover .ob-unlocks') && $('#scr-gameover .ob-unlocks')!.querySelectorAll('.ob-ul').length === 3, 'game over shows the 3 closest unlocks');
 ok($('#scr-gameover .ob-recap tr:nth-child(2) .st')?.textContent === 'ST 1', 'game over shows the stage timeline');
 ok(!!$('#scr-gameover [data-act=ob-card]'), 'BUILD CARD button on game over');

@@ -182,6 +182,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
   if (!enc) snapEncoders.set(forHero, (enc = new SnapEncoder()));
   // The body goes through the compact snapshot codec (src/net/snapCodec.ts); records and effects are binary.
   const body: Record<string, unknown> = {
+    mvp: this.mvp.report, // final awards; unchanged reports are omitted by the delta codec
     meta: { heat: this.meta.heat, week: this.meta.week, clears: this.victories },
     mode: this.mode,
     stage: this.stage,

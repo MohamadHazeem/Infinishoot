@@ -150,6 +150,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   if (this.finisherCatch(e, source, by)) return; // a stage boss's killing blow plays the finisher first
   const def = e.def;
   markSeen(def.id);
+  this.mvpKill(e, by);
   const wasFrozen = e.frozen > 0;
   this.kills++;
   this.combo++;
@@ -437,7 +438,9 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   const dx = p.x - fromX;
   const dz = p.z - fromZ;
   const d = Math.hypot(dx, dz) || 1;
+  const mvpHp = p.hp;
   if (!p.hurt(dmg, dx / d, dz / d)) return;
+  this.mvpHurt(h, Math.min(mvpHp, dmg));
   this.damagedThisStage = true;
   this.skillHurt(h);
   h.synergy.hurt();

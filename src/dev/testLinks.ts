@@ -1,3 +1,4 @@
+import { mvpDemo } from '../game/systems/mvp';
 import { cleanHeat } from '../data/heat';
 import { save } from '../game/save';
 import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
@@ -348,6 +349,12 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
+  if (q.has('mvp')) {
+    const report = mvpDemo(game, Number(q.get('mvp')) || 4);
+    game.mode = 'dead'; game.gameOverShown = true;
+    game.screens.showGameOver(game.summary(game.hero), -1, [], false);
+    game.showMvp(report);
+  }
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   return true;

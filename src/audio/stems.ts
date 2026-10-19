@@ -3,7 +3,7 @@ import type { MusicSynth } from './music/synth';
 import { FUSIONS } from '../data/fusions';
 
 export const stemTuning = { slots: 8, gain: 0.032, maxLevel: 10 };
-export interface StemWeapon { readonly def: { readonly id: string }; readonly level: number; readonly evolved: boolean }
+export interface StemWeapon { readonly def: { readonly id: string }; readonly level: number; readonly evolved: boolean; readonly gain?: number; readonly pan?: number }
 interface Instrument { patch: Patch; steps: readonly number[]; degrees: readonly number[]; octave: number; length: number; cutoff: number; pan: number; sweep?: boolean }
 /** Each weapon has its own rhythm/register, including the two click slots. */
 const BASE_STEMS: Readonly<Record<string, Instrument>> = {
@@ -77,9 +77,9 @@ export class WeaponStems {
       slot.instrument = w ? WEAPON_STEMS[w.def.id] ?? null : null;
       slot.intensity = w ? stemIntensity(w.level) : 0;
       slot.evolved = w?.evolved ?? false;
-      slot.gain.gain.setTargetAtTime(slot.instrument ? mul * stemTuning.gain * slot.intensity / Math.sqrt(Math.max(1, weapons.length / 2)) : 0, t, 0.025);
+      slot.gain.gain.setTargetAtTime(slot.instrument ? mul * (w?.gain ?? 1) * stemTuning.gain * slot.intensity / Math.sqrt(Math.max(1, weapons.length / 2)) : 0, t, 0.025);
       if (slot.instrument) {
-        slot.pan.pan.setValueAtTime(slot.instrument.pan, t);
+        slot.pan.pan.setValueAtTime(Math.max(-1, Math.min(1, slot.instrument.pan + (w?.pan ?? 0))), t);
         slot.filter.frequency.setValueAtTime(slot.instrument.cutoff, t);
       }
     }
@@ -99,5 +99,47 @@ export class WeaponStems {
       // One upper-register turnaround flourish per evolved instrument, every other bar.
       if (slot.evolved && step % 32 === 31) synth.note(slot.gain, 'bell', degreeMidi(style, chord + 7, transpose) + 24, t, d * 0.8, 0.45);
     }
+  }
+}
+
+export const bandTuning = { near: 10, range: 28, slots: 8 };
+export interface BandPlayer {
+  readonly index: number; readonly left: boolean;
+  readonly player: { readonly x: number; readonly z: number; readonly dead: boolean };
+  readonly weapons: readonly StemWeapon[];
+}
+interface BandStem extends StemWeapon { def: { id: string }; level: number; evolved: boolean; gain: number; pan: number; owner: number }
+export function bandGain(distance: number): number {
+  return Math.max(0, Math.min(1, (bandTuning.range - distance) / (bandTuning.range - bandTuning.near)));
+}
+/** One fixed mixer per listener. At most eight layers, fair round-robin across nearby players.
+ * Loadouts bigger than their slot share rotate on bar boundaries; duplicate weapons stay distinct. */
+export class BandMixer {
+  private readonly pool: BandStem[] = Array.from({ length: 8 }, () => ({ def: { id: '' }, level: 1, evolved: false, gain: 1, pan: 0, owner: 0 }));
+  private readonly audible: BandPlayer[] = [];
+  readonly weapons: BandStem[] = [];
+  mix(players: readonly BandPlayer[], listener: BandPlayer, bar: number): readonly StemWeapon[] {
+    const near = this.audible;
+    near.length = 0;
+    if (!listener.left && !listener.player.dead) near.push(listener);
+    for (const p of players) {
+      if (p === listener || p.left || p.player.dead || !p.weapons.length) continue;
+      if (bandGain(Math.hypot(p.player.x - listener.player.x, p.player.z - listener.player.z)) > 0 && near.length < 8) near.push(p);
+    }
+    this.weapons.length = 0;
+    const limit = Math.min(this.pool.length, bandTuning.slots);
+    for (let pass = 0; pass < 8 && this.weapons.length < limit; pass++) {
+      for (const p of near) {
+        if (pass >= p.weapons.length || this.weapons.length >= limit) continue;
+        const w = p.weapons[(Math.max(0, Math.floor(bar)) + pass) % p.weapons.length];
+        if (!WEAPON_STEMS[w.def.id]) continue;
+        const slot = this.pool[this.weapons.length];
+        slot.def.id = w.def.id; slot.level = w.level; slot.evolved = w.evolved; slot.owner = p.index;
+        slot.gain = p === listener ? 1 : bandGain(Math.hypot(p.player.x - listener.player.x, p.player.z - listener.player.z));
+        slot.pan = p === listener ? 0 : Math.max(-0.75, Math.min(0.75, (p.player.x - listener.player.x) / bandTuning.range));
+        this.weapons.push(slot);
+      }
+    }
+    return this.weapons;
   }
 }

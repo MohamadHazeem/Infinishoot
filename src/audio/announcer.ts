@@ -12,6 +12,7 @@ export const voiceGate = {
 };
 const priorities: Readonly<Record<string, number>> = {
   game_over: 10,
+  mvp: 11, // results can follow GAME OVER without its normal chatter cooldown
   boss: 9,
   stage_clear: 8,
   evolution: 7,
