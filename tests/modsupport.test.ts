@@ -37,6 +37,7 @@ for (const [label, fn] of [
   ['negative radius', (x: any) => x.content.enemies[0].set.radius = -2],
   ['bad colour', (x: any) => x.content.enemies[0].set.bodyColor = 'red'],
   ['markup', (x: any) => x.name = '<img src=x onerror=alert(1)>'],
+  ['attribute injection', (x: any) => x.content.weapons[0].set.name = '" onerror=alert(1)'],
   ['silent shipped override', (x: any) => x.content.enemies[0].id = 'bopper'],
   ['invalid override type', (x: any) => x.content.enemies[0].override = 'true'],
   ['behaviour-changing override', (x: any) => { x.content.enemies[0].id = 'zippy'; x.content.enemies[0].override = true; }],
@@ -165,3 +166,15 @@ try {
   ok(scan.files.find((f: any) => f.name === 'linked.json').error.includes('symlink'), 'desktop refuses symlinks');
   ok(scan.files.find((f: any) => f.name === 'too-large.json').error.includes('size'), 'desktop enforces byte budget before reading');
 } finally { await rm(temp, { recursive: true, force: true }); }
+
+// Two archive members may not silently replace each other by declaring the same pack ID.
+const z1 = Buffer.from(zip('one.json', raw)), z2 = Buffer.from(zip('two.json', raw));
+const off1 = z1.readUInt32LE(z1.length - 6), off2 = z2.readUInt32LE(z2.length - 6);
+const c1 = z1.subarray(off1, z1.length - 22), c2 = Buffer.from(z2.subarray(off2, z2.length - 22));
+c2.writeUInt32LE(off1, 42);
+const end = Buffer.from(z1.subarray(z1.length - 22));
+end.writeUInt16LE(2, 8); end.writeUInt16LE(2, 10); end.writeUInt32LE(c1.length + c2.length, 12); end.writeUInt32LE(off1 + off2, 16);
+const duplicateZip = Buffer.concat([z1.subarray(0, off1), z2.subarray(0, off2), c1, c2, end]);
+const duplicateManager = new ModManager();
+try { await duplicateManager.importFile('duplicate.zip', duplicateZip); ok(false, 'duplicate archive pack IDs rejected'); }
+catch (e) { ok(String(e).includes('duplicate pack IDs') && duplicateManager.files.length === 0, 'duplicate archive pack IDs rejected atomically'); }

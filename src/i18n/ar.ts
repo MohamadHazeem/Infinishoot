@@ -1,6 +1,13 @@
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "mods.category.weapons": "الأسلحة",
+  "mods.category.enemies": "الأعداء",
+  "mods.category.relics": "الآثار",
+  "mods.category.mods": "تعديلات المتجر",
+  "mods.category.biomes": "المناطق",
+  "mods.category.events": "الأحداث",
+
   "mods.title": "التعديلات",
   "mods.intro": "محتوى يصنعه اللاعبون. التحميل من الأعلى للأسفل، والتعديل الأخير له الأولوية. يجب أن يستخدم اللاعبون عبر الإنترنت الحزم النشطة نفسها وبالترتيب نفسه.",
   "mods.active": "النشط: ⟪count⟫ حزم · ⟪hash⟫",

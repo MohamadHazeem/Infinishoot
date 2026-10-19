@@ -1,5 +1,12 @@
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "mods.category.weapons": "weapons",
+  "mods.category.enemies": "enemies",
+  "mods.category.relics": "relics",
+  "mods.category.mods": "shop Mods",
+  "mods.category.biomes": "biomes",
+  "mods.category.events": "events",
+
   "mods.title": "MODS",
   "mods.intro": "Player-made content. Load order runs top to bottom; later overrides win. Online players must use the same active packs and order.",
   "mods.active": "ACTIVE: ⟪count⟫ packs · ⟪hash⟫",

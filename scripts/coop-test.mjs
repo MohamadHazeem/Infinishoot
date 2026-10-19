@@ -24,7 +24,7 @@
 // (still connected), then the host KICKs the client.
 import { chromium } from 'playwright-core';
 import { createServer } from 'vite';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -73,7 +73,11 @@ const browser = await chromium.launch({
 
 async function openPage(name) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
-  if (process.env.COOP_LOW) await ctx.addInitScript(() => localStorage.setItem('infinishoot.settings.v1', JSON.stringify({ graphics: 0 })));
+  if (process.env.COOP_LOW) await ctx.addInitScript(() => localStorage.setItem('infinishoot.settings.v1', JSON.stringify({ ...JSON.parse(localStorage.getItem('infinishoot.settings.v1') ?? '{}'), graphics: 0 })));
+  // --modsupport: real persisted pack on both peers (including invite-link reload).
+  if (args.includes('--modsupport')) await ctx.addInitScript(raw => {
+    localStorage.setItem('infinishoot.contentMods', JSON.stringify({ version: 1, files: [{ key: 'import/mint', name: 'example.json', raw, enabled: false }], order: ['import/mint'], enabled: ['import/mint'] }));
+  }, readFileSync(new URL('../docs/mods/example.json', import.meta.url), 'utf8'));
   const page = await ctx.newPage();
   page.setDefaultTimeout(PAGE_TIMEOUT);
   // Large parallel builds can saturate the dev server before the game has loaded.
@@ -679,6 +683,27 @@ if (opt('--season', 'off') === 'halloween') SCENARIO.push([14, 'Halloween shared
   return result;
 }]);
 
+// Modsupport: inherited weapon state, new enemy wire IDs, and the exact same pack hash.
+if (args.includes('--modsupport')) SCENARIO.push([5, 'matching content packs', async () => {
+  const expected = await host(async () => {
+    const { modSession } = await import('/src/mods/manager.ts');
+    const { createWeapon } = await import('/src/game/weapons/index.ts');
+    const { ENEMIES } = await import('/src/data/enemies.ts');
+    const g = window.game, h = g.heroes[1];
+    h.weapons.push(createWeapon('mint_drones', g.scene)); h.loadoutDirty = true;
+    g.enemies.spawn(ENEMIES.mint_bopper, h.player.x + 8, h.player.z, g.spawnOpts());
+    return modSession.hash;
+  });
+  const result = await until(B, async () => {
+    const { modSession } = await import('/src/mods/manager.ts');
+    const { ENEMIES } = await import('/src/data/enemies.ts');
+    const w = window.game.hero.weapons.find(w => w.def.id === 'mint_drones');
+    return w && { hash: modSession.hash, color: w.color, params: w.p.count, net: w.net(), enemy: ENEMIES.mint_bopper.bodyColor };
+  });
+  if (!result || result.hash !== expected || result.color !== '#a7f070' || result.params !== 4 || result.net.length !== 2 || result.enemy !== '#38b764') fail('custom content did not match on the client: ' + JSON.stringify(result));
+  return result;
+}]);
+
 SCENARIO.sort((a, b) => a[0] - b[0]);
 let next = 0;
 let shots = 0;
@@ -787,6 +812,11 @@ async function partyPhase() {
       g.mode = 'dead';
       g.endRun();
     });
+    // MVP is the shipped first post-run screen; continue through it before testing PARTY.
+    await Promise.all([A, B].map(async p => {
+      await until(p, () => ['mvp', 'gameover'].includes(window.game.screens.current), null, 6000);
+      if (await p.page.evaluate(() => window.game.screens.current === 'mvp')) await click(p, '#scr-mvp button[data-nav]');
+    }));
     const ok = await until(B, () => window.game.screens.current === 'gameover', null, 6000);
     const okA = await host(() => window.game.screens.current === 'gameover');
     if (!ok || !okA) fail(`party: game over screens host ${okA} client ${ok}`);

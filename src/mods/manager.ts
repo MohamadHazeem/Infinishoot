@@ -71,9 +71,12 @@ export class ModManager {
   async importFile(name: string, data: Uint8Array): Promise<void> {
     const imported = await readModArchive(name, data);
     const next = [...this.files];
+    const incoming = new Set<string>();
     for (const f of imported) {
       const parsed = parseMod(f.raw);
       const key = 'import/' + (parsed.ok ? parsed.mod.id : f.name);
+      if (incoming.has(key)) throw new Error('Import contains duplicate pack IDs: ' + key.slice(7));
+      incoming.add(key);
       const old = next.findIndex(x => x.key === key);
       const file = { ...f, key, enabled: old >= 0 ? next[old].enabled : false };
       if (old >= 0) next[old] = file; else next.push(file);
