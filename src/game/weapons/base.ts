@@ -72,7 +72,7 @@ export interface WeaponCtx {
   /** Area blast that damages enemies (never the player). */
   blast(x: number, z: number, r: number, base: number, color: string, source: string, tags?: Tag[]): void;
   sound(
-    name: 'zap' | 'disc' | 'missile' | 'mine' | 'freeze' | 'explode' | 'shoot' | 'flame' | 'charge' | 'chargeFull' | 'chargeShot' | 'lob' | 'vortex' | 'shieldUp' | 'block' | 'uplink' | 'beam' | 'rail',
+    name: 'scatter' | 'pellets' | 'laser' | 'sweeper' | 'nova' | 'aura' | 'orb' | 'bouncer' | 'drone' | 'meteor' | 'zap' | 'disc' | 'missile' | 'mine' | 'freeze' | 'explode' | 'shoot' | 'flame' | 'charge' | 'chargeFull' | 'chargeShot' | 'lob' | 'vortex' | 'shieldUp' | 'block' | 'uplink' | 'beam' | 'rail',
   ): void;
   /** Screen shake at a world point (scaled by distance to each player). */
   shake(x: number, z: number, amount: number): void;

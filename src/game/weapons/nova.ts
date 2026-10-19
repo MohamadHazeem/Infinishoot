@@ -11,7 +11,7 @@ export class Nova extends Weapon {
     const pl = ctx.player;
     if (pl.dead || !this.tick(dt, ctx, p.cd)) return;
     const r = p.radius * ctx.stats.areaMul;
-    ctx.sound('freeze');
+    ctx.sound('nova');
     ctx.fx.ring(pl.x, pl.z, 1, r * 2, this.look('#9fe8ff'), 0.4);
     ctx.fx.ring(pl.x, pl.z, 1, r * 1.5, '#ffffff', 0.3);
     ctx.fx.scar(pl.x, pl.z, r * 0.8, SCAR_COLORS.frost, 6);

@@ -76,7 +76,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
     this.vfx.star(hx, BULLET_Y, hz, 1.5, '#fff35c', 0.12);
   } else if (o.loud) {
     this.vfx.num(e.x, 1.7 * e.scale, e.z, amount);
-    this.vfx.sound('hit', e.x, e.z, this.pitch);
+    this.vfx.sound(shielded ? 'hitMetal' : 'hit', e.x, e.z, this.pitch);
     this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
   }
   // Heavy hits get a low thump under the hit sound.

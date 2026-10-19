@@ -742,7 +742,7 @@ export class Game implements HeroWorld {
         this.vfx.num(e.x, 4, e.z, 'ENRAGED!', 'crit');
         this.vfx.ring(e.x, e.z, e.radius, 8, '#ff3d5e', 0.5);
         this.vfx.shake(e.x, e.z, 0.8);
-        this.vfx.sound('boss', e.x, e.z);
+        this.vfx.sound('bossPhase', e.x, e.z);
       },
       onWindup: (e) => {
         if (e.def.boss) this.vfx.sound('bossWindup', e.x, e.z);

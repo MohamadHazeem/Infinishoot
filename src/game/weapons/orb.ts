@@ -121,7 +121,7 @@ export class PlasmaOrb extends Weapon {
     this.orbs.push({ x: this.mz.x, z: this.mz.z, vx: pl.aim.x * p.speed, vz: pl.aim.z * p.speed, life: p.life, tickT: 0.05, mega });
     this.muzzleT = 0.06;
     pl.recoil = 1.2;
-    ctx.sound('chargeShot');
+    ctx.sound('orb');
     ctx.particles.burst(this.mz.x, BULLET_Y, this.mz.z, { count: 6, color: this.color, color2: '#ffffff', speed: [2, 6], size: [0.1, 0.22], life: [0.1, 0.2], dir: { x: pl.aim.x, z: pl.aim.z, spread: 1.4 } });
   }
 

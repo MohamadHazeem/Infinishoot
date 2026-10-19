@@ -1,5 +1,7 @@
 import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
+import { ambienceSettings } from '../audio/ambienceAudio';
+import { announcerSettings, announcer } from '../audio/announcer';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
@@ -13,6 +15,8 @@ export interface Settings {
   sfxVolume: number;
   musicVolume: number;
   uiVolume: number;
+  ambienceVolume: number;
+  announcer: boolean;
   retro: number;
   shake: number;
   autoFire: boolean;
@@ -41,6 +45,8 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   sfxVolume: 1,
   musicVolume: 0.7,
   uiVolume: 0.8,
+  ambienceVolume: 0.45,
+  announcer: true,
   retro: 0.5,
   shake: 1,
   autoFire: false,
@@ -76,6 +82,9 @@ export function applySettings(): void {
   audioSettings.music = settings.musicVolume;
   audioSettings.ui = settings.uiVolume;
   sfx.applyVolumes();
+  ambienceSettings.volume = settings.ambienceVolume;
+  announcerSettings.enabled = settings.announcer;
+  announcer.update();
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
   postSettings.glow = settings.quality === 0 ? 0 : settings.glow;

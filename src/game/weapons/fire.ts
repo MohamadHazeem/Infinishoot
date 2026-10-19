@@ -85,6 +85,7 @@ export class Fire extends Weapon {
       for (const e of ctx.inRadius(f.x, f.z, f.r, this.hits)) {
         if (burned.has(e.uid)) continue; // overlapping flames don't stack
         burned.add(e.uid);
+        if (n === 0) ctx.sound('flame');
         ctx.damage(e, dmg, { source: 'fire', canCrit: true, loud: n++ < 2 });
       }
     }

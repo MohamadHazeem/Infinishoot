@@ -71,7 +71,7 @@ export function startSpecial(h: Hero, def: SpecialDef, p: Record<string, number>
   switch (def.id) {
     case 'storm':
       v.flash(0.2);
-      v.sound('w:zap', x, z);
+      v.sound('w:storm', x, z);
       v.sound('explode', x, z);
       v.ring(x, z, 1, p.radius * 2, p.fire ? '#ff7a2f' : '#41a6f6', 0.5);
       v.ring(x, z, 1, p.radius * 1.6, '#ffcd75', 0.4);
@@ -80,7 +80,7 @@ export function startSpecial(h: Hero, def: SpecialDef, p: Record<string, number>
       frozen = blizzard(h, p, api);
       break;
     case 'meteor':
-      v.sound('w:lob', x, z);
+      v.sound('w:meteor', x, z);
       v.ring(x, z, 1, p.area * 2, p.ice ? '#9fe8ff' : '#ef7d57', 0.5);
       break;
     case 'blackhole': {
@@ -88,7 +88,7 @@ export function startSpecial(h: Hero, def: SpecialDef, p: Record<string, number>
       const d = h.player.landDist(3, p.range);
       hx = x + h.player.aim.x * d;
       hz = z + h.player.aim.z * d;
-      v.sound('w:vortex', hx, hz);
+      v.sound('w:blackhole', hx, hz);
       v.flash(0.15);
       v.ring(hx, hz, p.radius * 4, 0.5, def.color, 0.45);
       break;

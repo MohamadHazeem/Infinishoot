@@ -158,7 +158,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   // Feedback scales with importance; swarm kills stay light so hundreds don't stutter.
   const r = e.radius;
   const y = r + 0.1 + e.hopY;
-  this.vfx.sound('enemyDie', e.x, e.z, this.pitch);
+  this.vfx.sound(big ? 'eliteDie' : 'enemyDie', e.x, e.z, this.pitch);
   this.vfx.burst(e.x, y, e.z, { count: big ? 40 : def.xp >= 3 ? 12 : 6, color: def.bodyColor, color2: def.accentColor, speed: [3, 9], size: [0.15, 0.3 + r * 0.15], life: [0.3, 0.6], up: 5, gravity: 18, drag: 2 });
   if (def.xp >= 3 || big || this.rng.chance(0.25)) this.vfx.ring(e.x, e.z, r * 2, 3, def.bodyColor, 0.25);
   this.deathFx(e, big);
@@ -311,7 +311,7 @@ export function updateStrikes(this: Game, dt: number): void {
 export function bossSlam(this: Game, e: Enemy): void {
   const R = 3.8;
   this.vfx.scar(e.targetX, e.targetZ, R * 0.8, SCAR_COLORS.crater, 16);
-  this.vfx.sound('bomb', e.x, e.z);
+  this.vfx.sound('bossSlam', e.x, e.z);
   this.vfx.shake(e.x, e.z, 0.8);
   this.juice.freeze(0.06);
   this.vfx.ring(e.x, e.z, 1, R * 2.4, '#ff3d5a', 0.4);
