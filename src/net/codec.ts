@@ -21,6 +21,13 @@ const q16 = (v: number) => Math.max(-32767, Math.min(32767, Math.round(v * 100))
 const qAng = (a: number) => Math.round((Math.atan2(Math.sin(a), Math.cos(a)) / Math.PI) * 127);
 const dqAng = (v: number) => (v / 127) * Math.PI;
 
+/**
+ * Records arrive as an ArrayBuffer, except when PeerJS had to chunk a big
+ * snapshot: its reassembly unpacks binary fields as Uint8Array views instead.
+ */
+export type NetBytes = ArrayBuffer | ArrayBufferView;
+const viewOf = (b: NetBytes) => (ArrayBuffer.isView(b) ? new DataView(b.buffer, b.byteOffset, b.byteLength) : new DataView(b));
+
 export function defById(i: number): EnemyDef | undefined {
   return ENEMIES[DEF_IDS[i]];
 }
@@ -85,8 +92,8 @@ export interface EnemyRecord {
   ai: number;
 }
 
-export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void): void {
-  const v = new DataView(buf);
+export function unpackEnemies(buf: NetBytes, each: (r: EnemyRecord) => void): void {
+  const v = viewOf(buf);
   const r = {} as EnemyRecord;
   for (let o = 0; o + ENEMY_BYTES <= buf.byteLength; o += ENEMY_BYTES) {
     const def = defById(v.getUint8(o + 4));
@@ -145,8 +152,8 @@ export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
 }
 
 /** Client: replace all bullets with the snapshot (they then fly on locally until the next one). */
-export function unpackBullets(buf: ArrayBuffer, b: Bullets): void {
-  const v = new DataView(buf);
+export function unpackBullets(buf: NetBytes, b: Bullets): void {
+  const v = viewOf(buf);
   b.clear();
   for (let o = 0; o + BULLET_BYTES <= buf.byteLength; o += BULLET_BYTES) {
     const vx = v.getInt16(o + 4, true) / 10;
@@ -189,8 +196,8 @@ export function packPickups(p: Pickups, idx: number[]): ArrayBuffer {
   return buf;
 }
 
-export function unpackPickups(buf: ArrayBuffer, p: Pickups): void {
-  const v = new DataView(buf);
+export function unpackPickups(buf: NetBytes, p: Pickups): void {
+  const v = viewOf(buf);
   const n = Math.floor(buf.byteLength / PICKUP_BYTES);
   p.setFromNet(n, (i) => {
     const o = i * PICKUP_BYTES;

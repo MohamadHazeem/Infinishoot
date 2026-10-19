@@ -8,7 +8,7 @@ import type { BossNet } from '../bossField';
 import { Mode, INPUT_EVERY, REVIVE_TIME, PVP_WAIT_NOTE, NetShop } from '../game';
 import { MOD_BY_ID } from '../../data/mods';
 import { sfx } from '../../audio/sfx';
-import { unpackBullets, unpackEnemies, unpackPickups } from '../../net/codec';
+import { unpackBullets, unpackEnemies, unpackPickups, type NetBytes } from '../../net/codec';
 import { Hud, type LoadoutItem } from '../../ui/hud';
 import { type Offer, type RunSummary, type ShopFx, type ShopView } from '../../ui/screens';
 import { Hero } from '../hero';
@@ -273,7 +273,7 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
 
   // Enemies: create, update or remove mirrors by uid.
   const seen = new Set<number>();
-  unpackEnemies(s.en as ArrayBuffer, (r) => {
+  unpackEnemies(s.en as NetBytes, (r) => {
     seen.add(r.uid);
     let e = this.netEnemies.get(r.uid);
     if (!e || !e.active) {
@@ -314,8 +314,8 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
   }
   this.applyBossNet(s.bx as BossNet | undefined);
 
-  unpackBullets(s.bu as ArrayBuffer, this.bullets);
-  unpackPickups(s.pk as ArrayBuffer, this.pickups);
+  unpackBullets(s.bu as NetBytes, this.bullets);
+  unpackPickups(s.pk as NetBytes, this.pickups);
   for (const e of (s.ev as VfxEvent[]) ?? []) this.vfx.apply(e);
   this.applySkillNet(s.sk);
 

@@ -222,6 +222,10 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   }
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
   this.enemies.kill(e);
+  // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
+  // (a stale `boss` once became a Chonk: wrong boss bar on clients and a stage that wouldn't clear).
+  if (e === this.boss) this.boss = null;
+  if (e === this.bossField.mini) this.bossField.mini = null;
   if (by?.hasRelic('r_fang') && ++by.fangKills % 20 === 0 && !by.player.dead) {
     const healed = by.player.heal(5);
     if (healed > 0) this.vfx.num(by.player.x, 2.4, by.player.z, `+${Math.round(healed)}`, 'heal');
