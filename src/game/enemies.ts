@@ -765,7 +765,7 @@ export class Enemy {
   }
 
   get alive(): boolean {
-    return this.active && this.state !== 'spawning' && !this.under;
+    return this.active && this.state !== 'spawning' && !this.under && !this.phaseOut;
   }
 
   get underground(): boolean { return !!this.def.burrow && (this.familyState === 1 || this.familyState === 2); }

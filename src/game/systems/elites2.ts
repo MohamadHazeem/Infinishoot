@@ -51,7 +51,7 @@ export function updateElites2(this: Game, dt: number): void {
   const s = state(this);
   for (const f of s.frost) if (f.t > 0) f.t = Math.max(0, f.t - dt);
   for (const e of this.enemies.list) {
-    if (!e.alive || !e.mod || e.hp <= 0) continue;
+    if (!e.active || e.state === 'spawning' || e.under || !e.mod || e.hp <= 0) continue;
     // Phase clocks always advance, even if frozen: immunity can never get stuck on.
     e.eliteAge += dt;
     const phased = hasEliteMod(e, 'phasing') && phaseAt(e.eliteAge);
