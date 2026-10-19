@@ -1,4 +1,5 @@
 import { storyEn } from '../game/story/strings';
+import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
   "mods.category.weapons": "weapons",
@@ -232,6 +233,7 @@ export const en = {
   "menu.tip.gear": "Save gears to reroll your next level-up choices.",
   "menu.tip.build": "Mods trigger from left to right. Their order matters.",
   ...storyEn,
+  ...spectateEn,
   "desktop.paste": "PASTE",
   "desktop.clipboardUnavailable": "Clipboard unavailable. Use text entry or load a file.",
 

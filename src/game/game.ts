@@ -1,4 +1,5 @@
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
+import { installSpectate } from './systems/spectate';
 import * as GauntletSys from './systems/gauntlet';
 import * as Director2Sys from './systems/director2';
 import * as MvpSys from './systems/mvp';
@@ -986,6 +987,7 @@ export class Game implements HeroWorld {
     MpSys.installMp(this, hudRoot);
     PartySys.installParty(this, hudRoot);
     Pvp2Sys.installPvp2(this); // PvP formats, bots, arenas and rules rows (systems/pvp2.ts)
+    installSpectate(this, hudRoot); // JOIN AS SPECTATOR, lobby WATCHING rows, spectator overlay (systems/spectate.ts)
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     HalloweenSys.installHalloween.call(this, hudRoot);
     this.story = StorySys.installStory.call(this, hudRoot);

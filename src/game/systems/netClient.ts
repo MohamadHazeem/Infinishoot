@@ -40,6 +40,7 @@ import { onCoverMsg } from '../coverBreak';
 import { applySoundLaneNet } from './sound2';
 import { applyNq, clientViewStep, netcodeBullets, netcodeClientMsg, netcodeSnapshot, netcodeStep, snapIfTeleported } from './netcode';
 import { applyHeroes3Net, heroes3ClientStep } from './heroes3';
+import { applySpectateNet, spectateClientMsg, spectateClientUpdate, spectating } from './spectate';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (netcodeClientMsg(this, m)) return; // probes; flushes the playout buffer before world changes (systems/netcode.ts)
@@ -48,6 +49,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
     this.hud.toast(t('mods.mismatch'), 6);
     return;
   }
+  if (spectateClientMsg(this, m)) return; // spectator seat, run start, lobby watchers (systems/spectate.ts)
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
   if (this.lobbyClientMessage(m)) return; // lobby lane: cards, chat, pings, kick, party (systems/party.ts)
   if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)
@@ -210,6 +212,7 @@ export function clientStage(this: Game, stage: number, seed: number): void {
 }
 
 export function clientUpdate(this: Game, dt: number): void {
+  if (spectateClientUpdate(this, dt)) return; // watching: no hero of our own (systems/spectate.ts)
   netcodeStep(this); // playout clock, quality reports, reconnects (systems/netcode.ts)
   const input = this.input;
   if (this.isCombatMode && this.screens.current === 'none' && (input.keyPressed('Escape') || input.actionPressed('pause') || input.padButtonPressed(9))) {
@@ -316,7 +319,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     h.stats.maxHp = Number(hs.mhp);
     h.reviveT = Number(hs.rv) * REVIVE_TIME;
     h.stats.areaMul = Number(hs.area);
-    if (h === this.hero) {
+    if (h === this.hero && !spectating(this)) {
       p.invuln = Math.max(p.invuln, Number(hs.inv));
       if (!p.dead && wasDead) p.rig.root.visible = true;
       p.recoil = Math.max(p.recoil, Number(hs.rec));
@@ -436,6 +439,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen
   applyHeroes3Net(this, s.h3); // Tinker bots (systems/heroes3.ts)
   applyPvp2Net(this, s.p2); // PvP rounds, teams and ring (systems/pvp2.ts)
+  applySpectateNet(this, s.sp); // watchers and their emotes (systems/spectate.ts)
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

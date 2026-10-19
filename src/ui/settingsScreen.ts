@@ -78,6 +78,8 @@ row('CO-OP', 'coopPool', 'SHARED REVIVE POOL', 'Host rule for the next run: the 
 row('CO-OP', 'coopJoinable', 'JOIN IN PROGRESS', 'Host rule: friends may join or reconnect after a run starts.');
 row('CO-OP', 'lobbyPublic', 'PUBLIC LOBBY', 'Lists hosted games in Browse Games when the online service is enabled.');
 row('CO-OP', 'helpGhosts', 'HELP GHOSTS', 'Allows friends’ recorded help ghosts to appear in your runs.');
+row('CO-OP', 'spectators', 'SPECTATORS', 'Host rule: up to 8 friends may watch your games (they join as spectators when the game is full or by choice).');
+row('CO-OP', 'spectateOverlay', 'BROADCAST OVERLAY', 'When you watch a game: every player’s card down the side and a clean HUD for streaming.');
 export const SETTINGS_ROWS: readonly SettingRow[] = rows;
 
 /** Only the active tab's keys; never loadouts, identity, bindings or other tabs. */

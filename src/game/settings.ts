@@ -106,6 +106,10 @@ export interface Settings extends DisplayOptions {
   coopJoinable: boolean;
   /** Friends' help ghosts appear in your runs (EXTRAS > HELP GHOSTS). */
   helpGhosts: boolean;
+  /** Online (host): friends may watch as spectators (spectate lane, up to 8). */
+  spectators: boolean;
+  /** Watching: the broadcast overlay (every player's card, clean HUD) starts on. */
+  spectateOverlay: boolean;
   /** Online: the NETWORK panel with everyone's ping, packet loss and snapshot rate (netcode lane). */
   netOverlay: boolean;
   /** CINEMATICS: sky-fall transitions, the ending, legendary reveals, jackpot reels (full, short or off). */
@@ -188,6 +192,8 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   coopPool: false,
   coopJoinable: true,
   helpGhosts: true,
+  spectators: true,
+  spectateOverlay: true,
   netOverlay: false,
   cinematics: 'full',
   teamName: '',
@@ -230,6 +236,8 @@ settings.deathReplay ??= true;
 settings.coopPool ??= false;
 settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
+settings.spectators ??= true;
+settings.spectateOverlay ??= true;
 settings.netOverlay ??= false;
 settings.cinematics ??= 'full';
 settings.teamName ??= '';

@@ -31,6 +31,7 @@ import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
 import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
 import { heroes3Net } from './heroes3';
+import { spectateHostMessage, spectateHostStep, spectateLeft, spectateNet, spectateSend, type SnapView } from './spectate';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -53,6 +54,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     setTimeout(() => host?.kick(from), 250);
     return;
   }
+  if (spectateHostMessage(this, from, m)) return; // spectator seats, views, emotes, play next stage (systems/spectate.ts)
   if (this.lobbyHostMessage(from, m)) return; // lobby lane: ready, chat, pings, party votes, kicked players (systems/party.ts)
   if (m.t === 'pvpready' && this.pvp) {
     this.pvp.ready.set(from, m.build as HeroBuild);
@@ -145,6 +147,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
 
 export function onClientLeft(this: Game, id: string): void {
   netcodeNote(this, `host: ${id.slice(0, 6)} left`);
+  if (spectateLeft(this, id)) return; // a spectator's seat (systems/spectate.ts)
   if (this.coopLeft(id)) return; // mid-run: autopilot grace period, then a clean leave (systems/coop2.ts)
   if (this.pvp && this.pvp.phase !== 'duel' && this.pvp.phase !== 'over') {
     const who = this.lobby.find((p) => p.peerId === id);
@@ -180,6 +183,7 @@ export function hostTick(this: Game, frozen: boolean): void {
   netcodeStep(this, frozen); // probes, silent clients, enemy history, tab-reload rejoin (systems/netcode.ts)
   if (this.role !== 'host' || !this.host) return;
   this.vfx.recording = true;
+  spectateHostStep(this); // spectators: run starts, roster, play from the next stage (systems/spectate.ts)
   if (this.stepN % (frozen ? 15 : SNAP_EVERY) !== 0) return;
   const events = this.vfx.drain();
   for (const h of this.heroes) {
@@ -187,12 +191,15 @@ export function hostTick(this: Game, frozen: boolean): void {
     if (isBotPeer(h.peerId)) continue; // PvP bots play on the host (systems/pvp2.ts)
     this.host.send(h.peerId, this.buildSnapshot(h, events));
   }
+  spectateSend(this, events); // every 2nd snapshot, reduced, to spectators (systems/spectate.ts)
 }
 
-export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Record<string, unknown> {
-  const cx = forHero.player.x;
-  const cz = forHero.player.z;
-  const near = (x: number, z: number) => Math.abs(x - cx) < INTEREST && Math.abs(z - cz) < INTEREST;
+/** `view`: a spectator's snapshot (systems/spectate.ts): its own centre, interest box and encoder, no private data. */
+export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[], view?: SnapView): Record<string, unknown> {
+  const cx = view ? view.x : forHero.player.x;
+  const cz = view ? view.z : forHero.player.z;
+  const R = view ? view.r : INTEREST;
+  const near = (x: number, z: number) => Math.abs(x - cx) < R && Math.abs(z - cz) < R;
   const en = this.enemies.list.filter((e) => e.active && (near(e.x, e.z) || e.def.boss));
   const bi: number[] = [];
   for (let i = 0; i < this.bullets.count; i++) if (near(this.bullets.x[i], this.bullets.z[i])) bi.push(i);
@@ -204,7 +211,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
   };
   const r2 = (v: number) => Math.round(v * 100) / 100;
   const boss = this.boss && this.boss.active ? { name: this.boss.def.name, hp01: r2(Math.max(0, this.boss.hp / this.boss.maxHp)) } : null;
-  let enc = snapEncoders.get(forHero);
+  let enc = view?.enc ?? snapEncoders.get(forHero);
   if (!enc) snapEncoders.set(forHero, (enc = new SnapEncoder()));
   // The body goes through the compact snapshot codec (src/net/snapCodec.ts); records and effects are binary.
   const body: Record<string, unknown> = {
@@ -247,11 +254,11 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
       };
     }),
     you: {
-      gold: forHero.gold,
-      gears: forHero.rerollsLeft,
+      gold: view ? 0 : forHero.gold,
+      gears: view ? 0 : forHero.rerollsLeft,
       special: [forHero.special.id, forHero.special.level, forHero.specialBuild ? buildKey(forHero.specialBuild) : ''],
       bomb: r2(forHero.bombCharge),
-      mods: forHero.synergy.slots.map((s, i) => ({ id: s.def.id, ro: forHero.synergy.readout(i), lv: s.level })),
+      mods: view ? [] : forHero.synergy.slots.map((s, i) => ({ id: s.def.id, ro: forHero.synergy.readout(i), lv: s.level })),
       passives: forHero.passives,
       stats: { moveSpeedMul: forHero.stats.moveSpeedMul, dashCooldownMul: forHero.stats.dashCooldownMul, dashCharges: forHero.stats.dashCharges, maxHp: forHero.stats.maxHp, magnet: forHero.stats.magnet, areaMul: forHero.stats.areaMul },
     },
@@ -273,8 +280,9 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     vs: this.versusNet(),
     s2: soundLaneNet(this, forHero),
     nq: netNq(this), // everyone's ping / loss / snapshot rate (systems/netcode.ts)
-    h3: heroes3Net(this, forHero, INTEREST), // Tinker bots (systems/heroes3.ts)
+    h3: heroes3Net(this, forHero, R), // Tinker bots (systems/heroes3.ts)
     p2: pvp2Net(this), // PvP rounds, teams and ring (systems/pvp2.ts)
+    sp: spectateNet(this, view), // watchers and their emotes (systems/spectate.ts)
   };
   // Bullets go as deltas (`bd`, src/net/bulletCodec.ts); `hs` stamps the host step for the client's playout clock.
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length, bu: { b: this.bullets, idx: bi } }, { fx: fxEncoder.encode(events, keepFx), hs: this.stepN });

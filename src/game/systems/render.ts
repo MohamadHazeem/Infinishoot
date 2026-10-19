@@ -45,6 +45,7 @@ import { tickOnlineStop } from '../netFeel';
 import { closePingWheel, pingInput, pingKind } from '../teamPlay';
 import { updateGraphics } from './graphics';
 import { bossCamera } from './bossLane';
+import { spectateFrame, spectating } from './spectate';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -216,7 +217,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     h.petView?.render(rdt, h.player.rig.root.position.x, h.player.rig.root.position.z, h.player.rig.root.rotation.y, !h.player.dead && this.mode !== 'transition');
     h.player.cheer = this.mode === 'cleared';
     h.player.focus = h === local && h.ctx.charging;
-    h.player.render(h === local || !client ? a : netA, rdt);
+    h.player.render((h === local && !spectating(this)) || !client ? a : netA, rdt);
   }
   lap('ren.heroes+audio');
   const watch = p.dead && this.heroes.length > 1 ? this.spectateTarget() : null;
@@ -274,6 +275,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   bossCamera.call(this); // the Titan and the duel ring pull the camera back (systems/bossLane.ts)
   this.mpFrame(frameDt); // Versus command view and local co-op team camera, their HUDs (systems/mp.ts)
   pvp2Frame(this, frameDt); // PvP ring, team rings, round HUD, scoreboard, spectator camera (systems/pvp2.ts)
+  spectateFrame(this, frameDt); // spectators: camera, follow card, broadcast overlay; WATCHING badge (systems/spectate.ts)
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
   this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 
