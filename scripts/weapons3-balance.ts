@@ -74,6 +74,7 @@ process.on('unhandledRejection', (e) => {
 });
 
 const { Input } = await import('../src/core/input');
+const { Rng } = await import('../src/core/rng');
 const { Game, cheats } = await import('../src/game/game');
 const { installBot } = await import('../src/dev/bot');
 const { settings } = await import('../src/game/settings');
@@ -87,7 +88,6 @@ const game = new Game(
   document.getElementById('hud')!,
   document.getElementById('reticle')!,
 );
-installBot(game, input);
 settings.mode = 'standard';
 settings.difficulty = 'normal';
 settings.hero = 'rookie';
@@ -124,6 +124,10 @@ for (const id of ids)
   for (const tier of ['base', 'max', 'evo0', ...(WEAPONS[id].slot ? ['evo1'] : [])]) {
     const rows = [];
     for (const seed of [42, 77, 123]) {
+      // Legacy crit/drop rolls still use Math.random, separate from Game.rng.
+      const rolls = new Rng(seed);
+      Math.random = () => rolls.next();
+      installBot(game, input); // Reset the bot's right-click hold phase for each sample.
       game.startRun({ seed, difficulty: 'normal' });
       if (game.mode === 'shop') game.closeShop();
       game.loadStage(2);

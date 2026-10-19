@@ -340,7 +340,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
       { text: 'Wider and faster throws.', p: {cd: 1.25, dmg: 38, count: 3, range: 9, size: 0.9, flight: 1.1} },
       { text: 'Four huge crescent blades.', p: {cd: 1.1, dmg: 44, count: 4, range: 10, size: 1, flight: 1.05} },
     ],
-    evolution: { name: 'Gale Reapers', color: '#ffcd75', passive: 'thrusters', text: 'Four huge crescent blades. Evolved: more coverage and damage.', p: {cd: 0.95, dmg: 58, count: 6, range: 11, size: 1.2, flight: 1} },
+    evolution: { name: 'Gale Reapers', color: '#ffcd75', passive: 'thrusters', text: 'Six huge crescents hit again on their return.', p: {cd: 0.95, dmg: 58, count: 6, range: 11, size: 1.2, flight: 1} },
   },
   tesla: {
     id: 'tesla', name: 'Tesla Coils', icon: '✦', color: '#73eff7', rarity: 'uncommon',
@@ -352,7 +352,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
       { text: 'Wider, faster electric pulses.', p: {cd: 2.2, dmg: 27, max: 3, life: 10, range: 7.5, tick: 0.55, width: 0.5} },
       { text: 'Four heavy coils.', p: {cd: 2, dmg: 32, max: 4, life: 11, range: 8, tick: 0.5, width: 0.6} },
     ],
-    evolution: { name: 'Thunder Grid', color: '#fff35c', passive: 'battery_pack', text: 'Four heavy coils. Evolved: more coverage and damage.', p: {cd: 1.6, dmg: 44, max: 5, life: 12, range: 9, tick: 0.42, width: 0.8} },
+    evolution: { name: 'Thunder Grid', color: '#fff35c', passive: 'battery_pack', text: 'Six long-range coils weave a fast-pulsing lightning fence.', p: {cd: 1.6, dmg: 54, max: 6, life: 12, range: 10, tick: 0.4, width: 0.8} },
   },
   swarm: {
     id: 'swarm', name: 'Swarm Missiles', icon: '✦', color: '#ef7d57', rarity: 'uncommon',
@@ -364,7 +364,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
       { text: 'Eight fast missiles.', p: {cd: 1.65, dmg: 23, count: 8, radius: 1.35, speed: 19, gap: 0.075} },
       { text: 'Ten missiles per wave.', p: {cd: 1.5, dmg: 28, count: 10, radius: 1.5, speed: 20, gap: 0.07} },
     ],
-    evolution: { name: 'Hornet Armada', color: '#ff7a2f', passive: 'power_cell', text: 'Ten missiles per wave. Evolved: more coverage and damage.', p: {cd: 1.25, dmg: 36, count: 14, radius: 1.8, speed: 24, gap: 0.055} },
+    evolution: { name: 'Hornet Armada', color: '#ff7a2f', passive: 'power_cell', text: 'Fourteen fast homing hornets erupt in a rolling wave.', p: {cd: 1.25, dmg: 36, count: 14, radius: 1.8, speed: 24, gap: 0.055} },
   },
   prism: {
     id: 'prism', name: 'Prism Shards', icon: '✦', color: '#b8c0ff', rarity: 'uncommon',
@@ -376,7 +376,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
       { text: 'Four ricochets and harder hits.', p: {cd: 1.35, dmg: 26, count: 2, hops: 4, speed: 23, range: 11} },
       { text: 'Three splitting crystals.', p: {cd: 1.2, dmg: 30, count: 3, hops: 4, speed: 24, range: 12} },
     ],
-    evolution: { name: 'Kaleidoscope', color: '#73eff7', passive: 'cryo_rounds', text: 'Three splitting crystals. Evolved: more coverage and damage.', p: {cd: 1, dmg: 40, count: 4, hops: 6, speed: 27, range: 13} },
+    evolution: { name: 'Kaleidoscope', color: '#73eff7', passive: 'cryo_rounds', text: 'Four crystals ricochet six times and split into smaller shards.', p: {cd: 1, dmg: 40, count: 4, hops: 6, speed: 27, range: 13} },
   },
   whip: {
     id: 'whip', name: 'Beam Whip', icon: '⌁', color: '#ffcd75', rarity: 'rare', slot: 'primary',
