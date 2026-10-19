@@ -1,5 +1,6 @@
 import { secretsLinks } from '../game/systems/secrets';
 import { gfx3Links } from './gfx3Links';
+import { raidTestLink } from '../game/raid/testLinks';
 import { LoadingScreen } from '../ui/loadingScreen';
 import { storyLinks } from '../game/systems/story';
 import { halloweenLinks } from '../game/systems/halloween';
@@ -194,6 +195,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     for (let i = 0; i < n; i++) game.debugGiveWeapon(id);
   }
   gauntletTest(game, q);
+  raidTestLink(game, q);
   const h = game.hero;
   for (const p of list('passives')) {
     const [id, n] = pair(p);

@@ -75,7 +75,7 @@ const fail = (msg) => {
   log('FAIL', msg);
 };
 
-const server = await createServer({ server: { port: 0, host: '127.0.0.1' }, logLevel: 'error' });
+const server = await createServer({ server: { port: 0, host: '127.0.0.1', hmr: false }, logLevel: 'error' });
 await server.listen();
 const base = `http://127.0.0.1:${server.config.server.port ?? server.httpServer.address().port}/`;
 const browser = await chromium.launch({
@@ -1076,6 +1076,7 @@ while ((Date.now() - t0) / 1000 < SECS) {
 }
 if (!A.errors.length && !B.errors.length) {
   try {
+    if (args.includes('--raid')) await raidPhase();
     await partyPhase();
   } catch (e) {
     fail(`party phase threw: ${e.message}`);
@@ -1218,4 +1219,24 @@ async function done() {
   await server.close();
   console.log(failures.length ? `\nCO-OP TEST FAILED (${failures.length}):\n- ${[...new Set(failures)].join('\n- ')}` : '\nCO-OP TEST PASSED');
   process.exit(failures.length ? 1 : 0);
+}
+
+/** Raid authority, role state, cell carry and late phases over the real data channel. */
+async function raidPhase() {
+  await A.page.evaluate(() => { const g=window.game;g.lobbyKind='raid';g.runMode='raid';g.startRun(); });
+  const started=await until(B,()=>window.game.runMode==='raid'&&window.game.raidNet()?.phase==='heads');
+  if(!started)fail('raid client did not start');
+  const arena=await B.page.evaluate(()=>window.game.arena.halfSize);
+  if(arena!==27)fail(`raid client arena wrong: ${arena}`);
+  await new Promise(r=>setTimeout(r,3000));
+  await shot('raid-heads');
+  await A.page.evaluate(()=>{const s=window.game.raidNet();s.phase='core';for(const h of s.heads)h.sealed=true;s.actors[1].cell=true;});
+  if(!await until(B,()=>window.game.raidNet()?.phase==='core'&&window.game.raidNet()?.actors[1].cell))fail('raid cell/core state did not mirror');
+  await shot('raid-core');
+  await A.page.evaluate(()=>{const s=window.game.raidNet();s.delivered=12;s.core=0;});
+  if(!await until(B,()=>window.game.raidNet()?.phase==='overdrive'))fail('raid overdrive did not mirror');
+  await A.page.evaluate(()=>{const s=window.game.raidNet();for(const h of s.heads)h.sealed=true;});
+  if(!await until(B,()=>window.game.raidNet()?.phase==='won'))fail('raid finisher did not mirror');
+  await shot('raid-finisher');
+  log('raid: heads, arena, carry, overdrive and finisher checked');
 }

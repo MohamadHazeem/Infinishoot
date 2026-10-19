@@ -36,7 +36,7 @@ export function startMeta(g: Game): void {
   m.banked = false;
   m.week = g.runMode === 'weekly' && !g.pvp ? weeklyChallenge().week : '';
   m.rules = m.week ? weeklyChallenge(m.week).rules.map((r) => r.id) : [];
-  m.heat = m.week || g.runMode === 'daily' || g.pvp ? [] : cleanHeat(save.meta.heat);
+  m.heat = m.week || g.runMode === 'daily' || g.runMode === 'raid' || g.pvp ? [] : cleanHeat(save.meta.heat);
   if (m.week) {
     g.seed = weeklyChallenge(m.week).seed;
     // Same starting hero, kit, auto-weapon pool and pet for every weekly entrant.
@@ -81,7 +81,7 @@ export function applyMetaSnapshot(g: Game, raw: unknown): void {
     g.meta.week = week;
     g.meta.rules = week ? weeklyChallenge(week).rules.map((r) => r.id) : [];
   }
-  g.runMode = week ? 'weekly' : 'standard';
+  g.runMode = week ? 'weekly' : g.runMode === 'raid' ? 'raid' : 'standard';
   g.victories = Number(m.clears) || 0;
   recordHeatClear(g);
   visitMeta(g);

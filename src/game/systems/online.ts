@@ -35,7 +35,7 @@ export async function hostGame(this: Game, name: string, randomCode = false): Pr
   if (this.role !== 'host' || this.host) return;
   // Lobby lane: host under the player's friend code (saved codes and invite links keep working); a taken code falls back to a random one.
   const fixed = randomCode ? undefined : hostCode();
-  const host = new NetHost(3, fixed);
+  const host = new NetHost(7, fixed);
   this.host = host;
   this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), pf: cleanSummary(profileSummary()) }];
   this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
@@ -64,7 +64,7 @@ export async function hostGame(this: Game, name: string, randomCode = false): Pr
 
 export function refreshLobby(this: Game): void {
   if (!this.host) return;
-  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout), pf: p.pf ?? null }));
+  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i % HERO_COLORS.length], kit: kitText(p.loadout), pf: p.pf ?? null }));
   const difficulty = this.lobbyDifficulty().id;
   const kind = this.lobbyKind;
   const extra = this.mpLobbyExtra(); // Versus Overlord, weekly team, PUBLIC (systems/mp.ts)
@@ -80,6 +80,7 @@ export function lobbyDifficulty(this: Game): DifficultyDef {
 
 export function hostStart(this: Game): void {
   if (this.role !== 'host' || !this.host) return;
+  if (this.lobby.length > 4 && this.lobbyKind !== 'raid') { this.hud.toast('Select RAID for more than four players.', 3); return; }
   if (this.lobbyKind === 'pvp') {
     if (this.lobby.length < 2) {
       this.hud.toast('PVP NEEDS AT LEAST 2 PLAYERS', 2.5);
@@ -102,7 +103,7 @@ export function hostStart(this: Game): void {
     this.hud.toast('VERSUS NEEDS A HERO: WAIT FOR A FRIEND OR PICK THE AI OVERLORD', 3);
     return;
   }
-  this.runMode = this.lobbyKind === 'weekly' ? 'weekly' : 'standard'; // weekly co-op: this week's seed and rules for the whole team
+  this.runMode = this.lobbyKind === 'raid' ? 'raid' : this.lobbyKind === 'weekly' ? 'weekly' : 'standard'; // weekly co-op: this week's seed and rules for the whole team
   const heroes = this.lobby.map((p, i) => {
     if (i === 0) return this.hero;
     const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);

@@ -1,4 +1,5 @@
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
+import * as RaidSys from './systems/raid';
 import * as GauntletSys from './systems/gauntlet';
 import * as Director2Sys from './systems/director2';
 import * as MvpSys from './systems/mvp';
@@ -346,6 +347,14 @@ export class Game implements HeroWorld {
   leaveToTitle = RunFlowSys.leaveToTitle;
   startSolo = RunFlowSys.startSolo;
   pickDifficulty = RunFlowSys.pickDifficulty;
+  resetRaid = RaidSys.resetRaid;
+  startRaid = RaidSys.startRaid;
+  updateRaid = RaidSys.updateRaid;
+  damageRaid = RaidSys.damageRaid;
+  raidNet = RaidSys.raidNet;
+  applyRaidNet = RaidSys.applyRaidNet;
+  renderRaid = RaidSys.renderRaid;
+  raidClientMessage = RaidSys.raidClientMessage;
   startRun = RunFlowSys.startRun;
   restart = RunFlowSys.restart;
   retry = RunFlowSys.retry;
@@ -1436,7 +1445,8 @@ export class Game implements HeroWorld {
     this.updateArena(dt);
     coopPlayStep(this, dt); // carrying teammates, buddy tether, co-op banter (systems/coopplay.ts)
     this.updateWind(dt);
-    this.updateWorldEvent(dt);
+    if (this.runMode !== 'raid') this.updateWorldEvent(dt);
+    this.updateRaid(dt);
     this.updateModes(dt); // pacifist timer and rewards, mini-games, ghost recording (systems/modes.ts)
     soundLaneStep(this, dt); // instrument pickups, sound-reactive enemies (systems/sound2.ts)
     lap('sim.hazards+arena');
@@ -1444,7 +1454,7 @@ export class Game implements HeroWorld {
     this.updateStatuses(dt);
     this.updateStrikes(dt);
     lap('sim.statuses');
-    this.updateBossFight(dt);
+    if (this.runMode !== 'raid') this.updateBossFight(dt);
     this.recycleFarEnemies(dt);
     lap('sim.boss+recycle');
 
@@ -1460,7 +1470,7 @@ export class Game implements HeroWorld {
       (t, who, v) => (t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS) && (t !== PickupType.Chest || v < OWNED_CHEST || v - OWNED_CHEST === who),
     );
     this.updateChests();
-    if (this.mode === 'fight' && anyAlive && !this.pvp) this.updateChestSpawns(dt);
+    if (this.runMode !== 'raid' && this.mode === 'fight' && anyAlive && !this.pvp) this.updateChestSpawns(dt);
     lap('sim.pickups+chests');
     this.particles.update(dt);
     this.fx.update(dt);
@@ -1480,13 +1490,14 @@ export class Game implements HeroWorld {
 
     // Stage flow
     if (this.stepN % 30 === 0) for (const e of this.enemies.list) if (e.active) markSeen(e.def.id);
-    if (this.mode === 'fight' && anyAlive) {
+    if (this.runMode === 'raid' && this.mode === 'fight' && anyAlive) this.updatePets(dt);
+    if (this.runMode !== 'raid' && this.mode === 'fight' && anyAlive) {
       this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
       this.updateDirector2(dt);
       this.updateEliteMods(dt);
       this.updatePets(dt);
     }
-    if (this.mode === 'fight' && anyAlive && this.pvp?.phase !== 'duel' && this.pvp?.phase !== 'over') {
+    if (this.runMode !== 'raid' && this.mode === 'fight' && anyAlive && this.pvp?.phase !== 'duel' && this.pvp?.phase !== 'over') {
       this.director.teamLevel = this.level; // the Reaper comes for high-level teams
       const reqs = secretsHolding(this) ? NO_SECRET_REQUESTS : this.runMode === 'gauntlet' ? GauntletSys.gauntletRequests(this, dt) : this.runMode === 'bossrush' ? GauntletSys.rushRequests(this, dt) : this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;

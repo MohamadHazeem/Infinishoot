@@ -3,6 +3,7 @@ import { renderSecrets } from './secrets';
 import { encounterTrack, updateAudio3 } from './audio3';
 import { PING_BANTER } from '../../audio/teammateVoice';
 import { renderGfx3, styleMuzzles } from './gfx3';
+import { raidCamera } from './raid';
 import { gauntletScore } from '../../data/ascension';
 import { renderGauntlet, challengeState } from './gauntlet';
 import { beginReadability, renderReadability } from './readability2';
@@ -240,6 +241,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.renderArena(rdt);
   this.renderWorldEvent(rdt);
   renderSecrets(this);
+  this.renderRaid();
   this.renderModes(rdt); // rhythm floor, mini-games, race ghost, their HUD (systems/modes.ts)
   renderGauntlet(this);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
@@ -275,6 +277,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   bossCamera.call(this); // the Titan and the duel ring pull the camera back (systems/bossLane.ts)
   this.mpFrame(frameDt); // Versus command view and local co-op team camera, their HUDs (systems/mp.ts)
   pvp2Frame(this, frameDt); // PvP ring, team rings, round HUD, scoreboard, spectator camera (systems/pvp2.ts)
+  raidCamera(this);
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
   this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 

@@ -71,6 +71,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       this.host?.send(from, { t: 'full', reason: 'Game already started.' });
       return;
     }
+    if (this.lobby.length >= (this.lobbyKind === 'raid' ? 8 : 4)) { this.host?.send(from, { t: 'full', reason: 'That lobby is full.' }); return; }
     this.lobby.push({
       peerId: from,
       name: String(m.name ?? 'Player').slice(0, 12),
@@ -271,6 +272,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     tm: this.timeNet(forHero),
     co: this.coopNet(forHero),
     gl: gauntletNet(this),
+    rd: this.raidNet(),
     md: this.modesNet(),
     cn: this.cineNet(),
     vs: this.versusNet(),

@@ -59,6 +59,7 @@ function m(id: string, name: string, desc: string, tier: T, cat: AchievementCat,
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   ...SECRET_ACHIEVEMENTS,
+  { id: 'hydra_engine', name: 'Engine Breakers', desc: 'Defeat the Hydra Engine raid.' },
   { id: 'light_tamer', name: 'Light Tamer', desc: 'Defeat 1,500 enemies in total', unlockLoadout: 'whip', lifetime: (l) => l.kills >= 1500 },
   { id: 'field_engineer', name: 'Field Engineer', desc: 'Defeat 12 elites in total', unlockLoadout: 'sentry', lifetime: (l) => l.elites >= 12 },
   { id: 'first_steps', name: 'First Steps', desc: 'Defeat 300 enemies in total', unlockLoadout: 'shield', unlockWeapon: 'pellets', lifetime: (l) => l.kills >= 300 },

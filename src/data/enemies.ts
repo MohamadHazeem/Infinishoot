@@ -1,4 +1,5 @@
 import { secretBossDefs } from './secrets';
+import { raidDefs } from '../game/raid/defs';
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
 import { bossLaneDefs, type RemixFlags } from './bossRemix';
 import { BIOME_BOSSES, BIOME_MINIS, bosses3Defs } from './bosses3';
@@ -1017,6 +1018,7 @@ export function miniBossForStage(stage: number): EnemyDef {
   return ENEMIES[pool[Math.max(0, stage) % pool.length].id];
 }
 
+Object.assign(ENEMIES, raidDefs());
 // Boss rematches and the Titan (src/data/bossRemix.ts).
 Object.assign(ENEMIES, bossLaneDefs(ENEMIES));
 // Biome bosses, their mini-bosses and minions (src/data/bosses3.ts).

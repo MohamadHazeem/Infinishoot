@@ -49,6 +49,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
     this.hud.toast(t('mods.mismatch'), 6);
     return;
   }
+  if (this.raidClientMessage(m)) return;
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
   if (this.lobbyClientMessage(m)) return; // lobby lane: cards, chat, pings, kick, party (systems/party.ts)
   if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)
@@ -56,7 +57,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   switch (m.t) {
     case 'lobby': {
       const players = (m.players as { name: string; color: string }[]) ?? [];
-      const kind = (['pvp', 'versus', 'weekly', 'race'] as const).find((k) => k === m.kind) ?? 'coop';
+      const kind = (['pvp', 'versus', 'weekly', 'race', 'raid'] as const).find((k) => k === m.kind) ?? 'coop';
       this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind, extra: m.mp });
       break;
     }
@@ -74,6 +75,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.hud.toast(String(m.reason ?? 'THAT GAME IS FULL'), 3);
       break;
     case 'start':
+      this.runMode = m.runMode === 'raid' ? 'raid' : m.runMode === 'weekly' ? 'weekly' : 'standard';
       selectSeason.call(this, m.season);
       resetHalloween.call(this);
       this.halloween.earned = this.halloween.banked = Math.max(0, Number(m.candyBaseline) || 0);
@@ -433,6 +435,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyDirector2Net(s.d2);
   this.applyWorldEventNet(s.we, s.wt);
   applyGauntletNet(this, s.gl);
+  this.applyRaidNet(s.rd);
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
   applySecretsNet(this, s.ss);

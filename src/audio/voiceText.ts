@@ -5,6 +5,10 @@
 export const VOICE_TEXT: Readonly<Record<string, string>> = {
   ...Object.fromEntries(['rookie', 'bulwark', 'dash', 'ace', 'duelist', 'furnace', 'twin', 'ronin', 'tinker'].flatMap(hero =>
     Object.entries({ nicesave: 'Nice save!', behind: 'Behind you!', thanks: 'Thanks for the revive!', groupup: 'Group up!', onmyway: 'On my way!', greatshot: 'Great shot!' }).map(([kind, text]) => [`banter_${hero}_${kind}`, text]))),
+  boss_hydra_intro: 'Three heads. One purpose. Your end.',
+  boss_hydra_phase: 'Cut one head, two return!',
+  boss_hydra_defeat: 'The engine... stops...',
+
   boss_king_intro: "Bop till you drop!",
   boss_king_phase: "You're getting squished now!",
   boss_king_defeat: "Nooo... my crown!",

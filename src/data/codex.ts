@@ -111,6 +111,8 @@ export const CODEX = [
 ];
 export const META_REWARDS = [
   { id: 'secret_skin', name: 'Pixel Relay Armour', kind: 'skin', cost: 0, color: '#a7f070', condition: 'Solve a secret room or discover the old directional code.' },
+  { id: 'raid_skin', name: 'Hydra Armour', kind: 'skin', cost: 0, color: '#73eff7', condition: 'Complete the Hydra Engine raid.' },
+  { id: 'raid_ember', name: 'Hydra Ember Armour', kind: 'skin', cost: 0, color: '#ef7d57', condition: 'Complete the Hydra Engine raid.' },
   {
     id: 'heat_skin',
     name: 'Relay Gold Armour',
@@ -179,6 +181,7 @@ export interface MetaProgress {
 }
 export function rewardAvailable(id: string, p: MetaProgress): boolean {
   if (id === 'secret_skin') return p.achievements.includes('secret_room') || p.achievements.includes('secret_code');
+  if (id === 'raid_skin' || id === 'raid_ember') return p.achievements.includes('hydra_engine');
   if (id === 'mint') return p.achievements.length > 0;
   if (id === 'sunset' || id === 'heat_skin' || id === 'heat_kit')
     return Object.values(p.bestHeat).some((n) => n >= 4);
@@ -190,6 +193,8 @@ export function rewardAvailable(id: string, p: MetaProgress): boolean {
 /** These colour sets travel through the existing skin id in co-op start messages. */
 export const META_SKINS = [
   { id: 'secret_skin', name: 'Pixel Relay', armor: '#a7f070', accent: '#ffcd75', suit: '#29366f', hair: '#f4f4f4', gem: '#73eff7', iris: '#5d275d' },
+  { id: 'raid_skin', name: 'Hydra Armour', armor: '#3b5dc9', accent: '#73eff7', suit: '#29366f', hair: '#f4f4f4', gem: '#ffcd75', iris: '#a7f070' },
+  { id: 'raid_ember', name: 'Hydra Ember Armour', armor: '#b13e53', accent: '#ef7d57', suit: '#1a1c2c', hair: '#ffcd75', gem: '#a7f070', iris: '#73eff7' },
   {
     id: 'heat_skin',
     name: 'Relay Gold',

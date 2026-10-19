@@ -6,6 +6,7 @@ export const ambienceSettings = { volume: 0.45 };
 export const roomTuning: Readonly<
   Record<string, { seconds: number; decay: number; wet: number; dark: number }>
 > = {
+  raid: { seconds: 1.8, decay: 2.4, wet: 0.15, dark: 0.7 },
   meadow: { seconds: 0.22, decay: 4, wet: 0.07, dark: 0.3 },
   dunes: { seconds: 0.12, decay: 5, wet: 0.025, dark: 0.5 },
   peaks: { seconds: 1.5, decay: 2.5, wet: 0.13, dark: 0.2 },
@@ -13,7 +14,7 @@ export const roomTuning: Readonly<
   neon: { seconds: 1.1, decay: 2.6, wet: 0.12, dark: 0.45 },
   sky: { seconds: 0.4, decay: 3.5, wet: 0.04, dark: 0.15 },
 };
-const LOOP_IDS = ['amb_halloween', 'amb_meadow', 'amb_dunes', 'amb_peaks', 'amb_magma', 'amb_neon', 'amb_sky', 'amb_rain'];
+const LOOP_IDS = ['amb_raid', 'amb_halloween', 'amb_meadow', 'amb_dunes', 'amb_peaks', 'amb_magma', 'amb_neon', 'amb_sky', 'amb_rain'];
 interface Loop {
   source: AudioBufferSourceNode;
   gain: GainNode;

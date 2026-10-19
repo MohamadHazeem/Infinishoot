@@ -411,6 +411,8 @@ class Sfx {
     if (name.startsWith('banter:')) { playBanter(name, this.sourceX, this.sourceZ, this.pan, this.posGain); return; }
     const feature = FEATURE_CUES[name];
     if (feature) { this.play(name, feature.gap, feature.bus, feature.recipe); return; }
+    if (name === 'vo_raid') { announcer.say('raid'); return; }
+    if (['raid_alarm', 'raid_horn'].includes(name)) { samples.play(name, { gain: 0.7, priority: 3, cooldown: 1, limit: 1 }); return; }
     if (name.startsWith('w:')) return this.weapon(name.slice(2));
     if (name.startsWith('s2:')) return this.laneCue(name, pitch);
     if (name.startsWith('evo:')) return this.evoLayer(name.slice(4));

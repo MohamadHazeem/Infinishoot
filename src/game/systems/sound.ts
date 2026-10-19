@@ -129,7 +129,7 @@ export function updateSound(this: Game, dt: number, frozen: boolean): void {
   const fighting = this.isCombatMode && !this.paused && !frozen;
   // Ambience bed and footsteps are biome data (new biomes reuse the classic beds).
   const area = biomeForStage(this.arenaStage);
-  const biome = area.ambience;
+  const biome = this.runMode === 'raid' ? 'raid' : area.ambience;
   sfx.crowd = this.enemies.activeCount;
   ambience.update(biome, active, !fighting);
   // Rain bed and thunder follow the weather (worked out locally on every machine).

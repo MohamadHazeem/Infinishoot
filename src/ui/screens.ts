@@ -43,9 +43,9 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney';
+export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
-export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race';
+export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
 export interface ScreenActions {
   start(): void;
@@ -696,7 +696,7 @@ export class Screens {
           return this.renderModes();
         }
         case 'mp-kind':
-          return actions.mpKind((['pvp', 'versus', 'weekly', 'race'] as const).find((k) => k === btn.dataset.kind) ?? 'coop');
+          return actions.mpKind((['pvp', 'versus', 'weekly', 'race', 'raid'] as const).find((k) => k === btn.dataset.kind) ?? 'coop');
         case 'mp-diff': {
           const d = DIFFICULTIES.find((x) => x.id === btn.dataset.diff);
           if (!d || (d.unlock && !save.achievements.includes(d.unlock))) return;
@@ -939,12 +939,12 @@ export class Screens {
     el.querySelector('.mp-diff-note')!.textContent = localize(`${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`);
     // Game type: co-op, or PvP (everyone plays the same stage alone, then a last-one-standing duel).
     const kind = v.kind ?? 'coop';
-    const kindName = { coop: 'CO-OP', pvp: 'PVP', versus: 'VERSUS', weekly: 'WEEKLY', race: 'RACE' };
-    el.querySelector('.mp-kind-row')!.innerHTML = localizeHtml((['coop', 'pvp', 'versus', 'weekly', 'race'] as const)
+    const kindName = { coop: 'CO-OP', pvp: 'PVP', versus: 'VERSUS', weekly: 'WEEKLY', race: 'RACE', raid: 'RAID' };
+    el.querySelector('.mp-kind-row')!.innerHTML = localizeHtml((['coop', 'pvp', 'versus', 'weekly', 'race', 'raid'] as const)
       .map((k) => `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-kind" data-kind="${k}" class="diff ${k === kind ? 'on' : ''}" ${v.isHost ? '' : 'disabled'}>${kindName[k]}</button>`)
       .join(''));
     el.querySelector('.mp-kind-note')!.textContent =
-      localize(kind === 'pvp'
+      localize(kind === 'raid' ? 'A colossal three-headed engine. 1–8 heroes, AI role helpers, a 15-minute limit.' : kind === 'pvp'
         ? 'Everyone plays the same stage alone and builds up, then all of you fight in one arena. Last one standing wins.'
         : kind === 'versus'
           ? 'Versus Swarm: one player is the Overlord and sends the waves from above; the rest survive the timer and beat the boss.'
