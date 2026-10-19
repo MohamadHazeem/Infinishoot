@@ -26,6 +26,7 @@ import { onboardingLinks } from './onboardingLinks';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
+import { weapons3Links } from './weapons3Links';
 import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
 import { bossLinks } from './bossLinks';
@@ -219,6 +220,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   animLinks(game, q);
   hudLinks(game, q);
   contentLinks(game, q);
+  weapons3Links(game, q);
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   // Readability stress: &heroes=4 (up to 8), with real rigs, weapons and local effect replay.
   const heroCount = Math.min(8, Math.max(1, Number(q.get('heroes')) || 1));

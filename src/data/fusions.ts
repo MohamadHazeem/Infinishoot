@@ -54,6 +54,22 @@ export interface FusionDef {
 
 export const FUSIONS: FusionDef[] = [
   {
+    id: 'glass_gale', name: 'Glass Gale', parts: ['crosswind', 'prism'],
+    children: [{ weapon: 'crosswind', mul: { dmg: 1.15 } }, { weapon: 'prism', mul: { dmg: 1.1 } }],
+    color: '#b8c0ff', color2: '#a7f070', tags: ['projectile', 'orbit', 'chain'],
+    desc: 'Crescent blades burst into crystal flashes while splitting shards ricochet through the crowd.',
+    rider: { pop: { on: 'crosswind', chance: 0.3, radius: 1.2, mul: 0.4, gap: 0.12 } },
+    feel: { knock: 1, critPitch: 2.3 },
+  },
+  {
+    id: 'hornet_grid', name: 'Hornet Grid', parts: ['tesla', 'swarm'],
+    children: [{ weapon: 'tesla', mul: { dmg: 1.1 } }, { weapon: 'swarm', mul: { dmg: 1.15 } }],
+    color: '#73eff7', color2: '#ef7d57', tags: ['projectile', 'explosive', 'chain', 'shock', 'trail'],
+    desc: 'An electric missile battery: micro-missile blasts jump lightning through nearby enemies while coils guard your trail.',
+    rider: { blastZap: { on: 'swarm', hops: 2, dmg: 16 } },
+    feel: { knock: 1.1, critPitch: 1.6 },
+  },
+  {
     id: 'storm_drones',
     name: 'Storm Drones',
     parts: ['drones', 'lightning'],

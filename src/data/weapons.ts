@@ -330,6 +330,101 @@ export const WEAPONS: Record<string, WeaponDef> = {
     evolution: { name: 'Phoenix Trail', color: '#ffe14d', passive: 'sneakers', text: 'Blazing trail; dashes leave a huge firewall.', p: { life: 4.27, radius: 1.5, dps: 130, dash: 1 } },
   },
 
+  crosswind: {
+    id: 'crosswind', name: 'Crosswind Blades', icon: '✦', color: '#a7f070', rarity: 'uncommon',
+    tags: ['projectile', 'orbit'], starter: true, desc: 'Paired crescent blades cross outward, then slice back along a curved return path.',
+    levels: [
+      { text: 'Two curved blades; each can hit once going out and once returning.', p: {cd: 1.6, dmg: 24, count: 2, range: 7, size: 0.65, flight: 1.2} },
+      { text: 'Larger blades reach further.', p: {cd: 1.5, dmg: 29, count: 2, range: 8, size: 0.75, flight: 1.2} },
+      { text: 'Three crossing blades.', p: {cd: 1.4, dmg: 32, count: 3, range: 8, size: 0.8, flight: 1.15} },
+      { text: 'Wider and faster throws.', p: {cd: 1.25, dmg: 38, count: 3, range: 9, size: 0.9, flight: 1.1} },
+      { text: 'Four huge crescent blades.', p: {cd: 1.1, dmg: 44, count: 4, range: 10, size: 1, flight: 1.05} },
+    ],
+    evolution: { name: 'Gale Reapers', color: '#ffcd75', passive: 'thrusters', text: 'Six huge crescents hit again on their return.', p: {cd: 0.95, dmg: 58, count: 6, range: 11, size: 1.2, flight: 1} },
+  },
+  tesla: {
+    id: 'tesla', name: 'Tesla Coils', icon: '✦', color: '#73eff7', rarity: 'uncommon',
+    tags: ['trail', 'chain', 'shock'], starter: true, desc: 'Drops coils behind you. They zap nearby foes and electrify the line to the previous coil.',
+    levels: [
+      { text: 'Two coils; run to lay an electric fence.', p: {cd: 2.8, dmg: 14, max: 2, life: 8, range: 6, tick: 0.7, width: 0.35} },
+      { text: 'Longer-lived, stronger coils.', p: {cd: 2.6, dmg: 18, max: 2, life: 9, range: 6.5, tick: 0.65, width: 0.4} },
+      { text: 'Three linked coils.', p: {cd: 2.4, dmg: 22, max: 3, life: 9, range: 7, tick: 0.6, width: 0.45} },
+      { text: 'Wider, faster electric pulses.', p: {cd: 2.2, dmg: 27, max: 3, life: 10, range: 7.5, tick: 0.55, width: 0.5} },
+      { text: 'Four heavy coils.', p: {cd: 2, dmg: 32, max: 4, life: 11, range: 8, tick: 0.5, width: 0.6} },
+    ],
+    evolution: { name: 'Thunder Grid', color: '#fff35c', passive: 'battery_pack', text: 'Six long-range coils weave a fast-pulsing lightning fence.', p: {cd: 1.6, dmg: 54, max: 6, life: 12, range: 10, tick: 0.4, width: 0.8} },
+  },
+  swarm: {
+    id: 'swarm', name: 'Swarm Missiles', icon: '✦', color: '#ef7d57', rarity: 'uncommon',
+    tags: ['projectile', 'explosive'], starter: true, desc: 'Fans tiny homing missiles out in a staggered wave. Small blasts saturate the crowd.',
+    levels: [
+      { text: 'Five micro-missiles in a wave.', p: {cd: 2, dmg: 13, count: 5, radius: 1.1, speed: 16, gap: 0.1} },
+      { text: 'Six quicker missiles.', p: {cd: 1.9, dmg: 16, count: 6, radius: 1.15, speed: 17, gap: 0.09} },
+      { text: 'Seven missiles with wider blasts.', p: {cd: 1.8, dmg: 19, count: 7, radius: 1.25, speed: 18, gap: 0.08} },
+      { text: 'Eight fast missiles.', p: {cd: 1.65, dmg: 23, count: 8, radius: 1.35, speed: 19, gap: 0.075} },
+      { text: 'Ten missiles per wave.', p: {cd: 1.5, dmg: 28, count: 10, radius: 1.5, speed: 20, gap: 0.07} },
+    ],
+    evolution: { name: 'Hornet Armada', color: '#ff7a2f', passive: 'power_cell', text: 'Fourteen fast homing hornets erupt in a rolling wave.', p: {cd: 1.25, dmg: 36, count: 14, radius: 1.8, speed: 24, gap: 0.055} },
+  },
+  prism: {
+    id: 'prism', name: 'Prism Shards', icon: '✦', color: '#b8c0ff', rarity: 'uncommon',
+    tags: ['projectile', 'chain'], starter: true, desc: 'Crystals ricochet between enemies. Each splits into two smaller crystals on its first hit.',
+    levels: [
+      { text: 'One crystal, two small splinters.', p: {cd: 1.8, dmg: 15, count: 1, hops: 2, speed: 20, range: 9} },
+      { text: 'Another ricochet.', p: {cd: 1.65, dmg: 19, count: 1, hops: 3, speed: 21, range: 10} },
+      { text: 'Two splitting crystals.', p: {cd: 1.5, dmg: 22, count: 2, hops: 3, speed: 22, range: 10} },
+      { text: 'Four ricochets and harder hits.', p: {cd: 1.35, dmg: 26, count: 2, hops: 4, speed: 23, range: 11} },
+      { text: 'Three splitting crystals.', p: {cd: 1.2, dmg: 30, count: 3, hops: 4, speed: 24, range: 12} },
+    ],
+    evolution: { name: 'Kaleidoscope', color: '#73eff7', passive: 'cryo_rounds', text: 'Four crystals ricochet six times and split into smaller shards.', p: {cd: 1, dmg: 40, count: 4, hops: 6, speed: 27, range: 13} },
+  },
+  whip: {
+    id: 'whip', name: 'Beam Whip', icon: '⌁', color: '#ffcd75', rarity: 'rare', slot: 'primary',
+    tags: ['area'], starter: false, desc: 'LEFT CLICK: sweep a flexible beam across a wide arc. Each swing hits a foe once.',
+    levels: [{ text: 'Sweeps a 120-degree arc, alternating sides.', p: { dmg: 48, rate: 2.1, range: 4.8, arc: 120, width: 0.38, sweep: 0.28 } }],
+    tracks: [
+      { id: 'capacitors', name: 'Capacitors', ranks: [
+        { text: '+18 damage.', p: { dmg: 18 } }, { text: '+20 damage.', p: { dmg: 20 } },
+        { text: '+22 damage.', p: { dmg: 22 } }, { text: '+26 damage.', p: { dmg: 26 } },
+      ] },
+      { id: 'tempo', name: 'Swing Tempo', ranks: [
+        { text: '+0.25 swings per second.', p: { rate: 0.25 } }, { text: '+0.25 swings per second.', p: { rate: 0.25 } },
+        { text: '+0.3 swings per second.', p: { rate: 0.3 } }, { text: '+0.3 swings per second.', p: { rate: 0.3 } },
+      ] },
+      { id: 'reach', name: 'Light Links', ranks: [
+        { text: '+0.5 reach, wider beam.', p: { range: 0.5, width: 0.06 } }, { text: '+20-degree sweep.', p: { arc: 20 } },
+        { text: '+0.6 reach, wider beam.', p: { range: 0.6, width: 0.06 } }, { text: '+0.8 reach, +20-degree sweep.', p: { range: 0.8, arc: 20 } },
+      ] },
+    ], evoAt: 8,
+    evos: [
+      { id: 'sunlash', name: 'Sunlash', color: '#ff7a2f', text: 'A broad burning whip (Fire), +40 degrees and 25% damage.', tags: ['fire'], p: { arc: 40, width: 0.16 }, mul: { dmg: 1.25 } },
+      { id: 'twinlash', name: 'Twinlash', color: '#73eff7', text: 'A second whip sweeps behind you. Both Shock enemies.', tags: ['shock'], p: { twin: 1, range: 0.8 } },
+    ],
+  },
+  sentry: {
+    id: 'sentry', name: 'Pocket Sentry', icon: '♜', color: '#a7f070', rarity: 'rare', slot: 'secondary',
+    tags: ['projectile'], starter: false, desc: 'RIGHT CLICK: deploy a sentry at the cursor. It tracks and shoots enemies; placing another replaces the oldest.',
+    levels: [{ text: 'Places a sentry for 6 seconds; 2 deployed at once.', p: { dmg: 22, cd: 3, rate: 3, life: 6, range: 11, deploy: 7, max: 2, pierce: 0 } }],
+    tracks: [
+      { id: 'payload', name: 'Payload', ranks: [
+        { text: '+8 shot damage.', p: { dmg: 8 } }, { text: '+9 shot damage.', p: { dmg: 9 } },
+        { text: '+10 shot damage.', p: { dmg: 10 } }, { text: '+12 shot damage.', p: { dmg: 12 } },
+      ] },
+      { id: 'servos', name: 'Quick Servos', ranks: [
+        { text: '+0.5 shots per second.', p: { rate: 0.5 } }, { text: 'Deploy 0.3s faster.', p: { cd: -0.3 } },
+        { text: '+0.6 shots per second.', p: { rate: 0.6 } }, { text: 'Deploy 0.4s faster; +0.6 shots per second.', p: { cd: -0.4, rate: 0.6 } },
+      ] },
+      { id: 'battery', name: 'Field Battery', ranks: [
+        { text: '+1s lifetime; +1 targeting range.', p: { life: 1, range: 1 } }, { text: '+1s lifetime; +1 deployment range.', p: { life: 1, deploy: 1 } },
+        { text: '3 sentries deployed at once.', p: { max: 1 } }, { text: '+2s lifetime; +2 targeting range.', p: { life: 2, range: 2 } },
+      ] },
+    ], evoAt: 8,
+    evos: [
+      { id: 'cryo', name: 'Glacier Sentry', color: '#9fe8ff', text: 'Wide Frost bolts pierce 2 foes. +20% damage.', tags: ['frost'], p: { pierce: 2 }, mul: { dmg: 1.2 } },
+      { id: 'ember', name: 'Ember Battery', color: '#ff7a2f', text: 'Twin barrels fire burning rounds (Fire). +1 sentry capacity.', tags: ['fire'], p: { twin: 1, max: 1 }, mul: { dmg: 0.7 } },
+    ],
+  },
+
   // ---------------------------------------------------------------- arm weapons
   scatter: {
     id: 'scatter',
@@ -813,6 +908,12 @@ export const WEAPON_FEEL: Record<string, Partial<WeaponFeel>> = {
   well: { kick: 3, recoil: 1.5, flash: 1.2, knock: 0.5, critFlash: 1.3, critPitch: 1.5 },
   shield: { kick: 4, recoil: 1.8, flash: 1.3, hitStop: 0.02, knock: 1.25, critFlash: 1.3, critPitch: 1.3, critStop: 0.02 },
   orbital: { kick: 4, recoil: 1.8, flash: 1.4, hitStop: 0.05, knock: 1.2, critFlash: 1.7, critPitch: 1.15, critStop: 0.04 },
+  crosswind: { knock: 1.1, critPitch: 1.8 },
+  tesla: { knock: 0.5, critPitch: 2.5 },
+  swarm: { knock: 1.1, critPitch: 1.4 },
+  prism: { knock: 0.8, critFlash: 1.3, critPitch: 2.4 },
+  whip: { kick: 2, recoil: 1.5, flash: 1.1, knock: 1.3, critStop: 0.012 },
+  sentry: { kick: 3, recoil: 1.4, flash: 1.3, knock: 0.9, critPitch: 1.7 },
   // Auto weapons
   drones: { knock: 0.8, critPitch: 2.1 },
   aura: { knock: 0.7, critPitch: 2.2 },

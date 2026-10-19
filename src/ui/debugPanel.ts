@@ -18,6 +18,7 @@ import { hazardTuning } from '../game/hazards';
 import { objectiveTuning } from '../game/objectives';
 import { juiceTuning } from '../game/juice';
 import { WEAPONS } from '../data/weapons';
+import { weapons3Tuning } from '../game/weapons/weapons3Shared';
 import { MODS } from '../data/mods';
 import { ELITE_MOD_IDS } from '../data/eliteMods';
 import { ENEMIES, familyTuning } from '../data/enemies';
@@ -165,6 +166,9 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   pl.add(playerTuning, 'dashCooldown', 0, 3, 0.05);
   pl.add(playerTuning, 'hurtIframes', 0, 3, 0.05);
   pl.add(cheats, 'god').name('God mode');
+
+  const w3 = gui.addFolder('Weapons 3').close();
+  for (const key of Object.keys(weapons3Tuning) as (keyof typeof weapons3Tuning)[]) w3.add(weapons3Tuning, key, 0.1, key === 'swarmTurn' ? 14 : 5, 0.05);
 
   const run = gui.addFolder('Run cheats').close();
   run.add(game, 'autoFire').name('Auto-fire (F)').listen();

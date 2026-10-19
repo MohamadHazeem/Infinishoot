@@ -5,6 +5,19 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 /** Item id (weapon, passive, Mod or level-up bonus) -> game-icons.net icon name. */
 const ART = {
+  // weapons3: all silhouettes are distinct from existing items.
+  crosswind: 'crescent-blade',
+  tesla: 'wire-coil',
+  swarm: 'missile-pod',
+  prism: 'crystal-bars',
+  whip: 'whip',
+  whip_evo: 'flame-spin',
+  whip_evo2: 'electric-whip',
+  sentry: 'walking-turret',
+  sentry_evo: 'crystal-shrine',
+  sentry_evo2: 'autogun',
+  glass_gale: 'spinning-blades',
+  hornet_grid: 'missile-mech',
   // weapons
   buster: 'ray-gun',
   charge: 'beam-wake',
