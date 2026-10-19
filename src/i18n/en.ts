@@ -1,5 +1,8 @@
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "desktop.paste": "PASTE",
+  "desktop.clipboardUnavailable": "Clipboard unavailable. Use text entry or load a file.",
+
   "desktop.keyboard": "TEXT ENTRY",
   "desktop.case": "ABC / abc",
   "desktop.space": "SPACE",

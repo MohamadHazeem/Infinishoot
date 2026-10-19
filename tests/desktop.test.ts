@@ -34,14 +34,16 @@ ok(!pacer.ready(8, 30) && pacer.ready(10, 60) && pacer.ready(2000, 60), 'cap cha
 
 // Controller text entry uses the existing screen/navigation contract without network state.
 const { JSDOM } = await import('jsdom');
-const dom = new JSDOM('<body><div class="screen" id="scr-online"><input data-nav maxlength="5" value="AB"></div></body>', { url: 'http://localhost/' });
+const dom = new JSDOM('<body><div class="screen" id="scr-online"><input maxlength="5" value="AB"></div></body>', { url: 'http://localhost/' });
 for (const key of ['window', 'document', 'HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'Event', 'MouseEvent']) Object.defineProperty(globalThis, key, { value: (dom.window as any)[key], configurable: true });
 const { promptState } = await import('../src/ui/prompts');
 const { installControllerKeyboard } = await import('../src/platform/keyboard');
 let selected = -1;
-const screens: any = { current: 'online', addScreen: (_name: string, el: HTMLElement) => document.body.append(el), show(name: string) { this.current = name; }, nav: () => ({ refresh: (i: number) => { selected = i; } }) };
+const screens: any = { current: 'online', addScreen: (_name: string, el: HTMLElement) => document.body.append(el), show(name: string) { this.current = name; this.onShow?.(name); }, nav: () => ({ refresh: (i: number) => { selected = i; } }) };
 installControllerKeyboard(screens);
+screens.show('online');
 const field = document.querySelector('input')!;
+ok(field.hasAttribute('data-nav'), 'legacy name/code fields become reachable by controller on screen entry');
 promptState.mode = 'kbm'; field.click(); ok(screens.current === 'online', 'keyboard/mouse retain normal text entry');
 promptState.mode = 'xbox'; field.click(); ok(screens.current === 'desktopKeyboard', 'controller activation opens text entry');
 const keys = [...document.querySelectorAll<HTMLButtonElement>('.desktop-keys button')];
@@ -52,3 +54,15 @@ actions[4].click();
 ok(field.value === 'AB123' && changed === 1 && screens.current === 'online' && selected === 0, 'done honors max length, dispatches input and restores original controller focus');
 field.click(); actions[2].click(); actions[3].click(); ok(field.value === 'AB123', 'cancel leaves the original field intact');
 field.click(); actions[2].click(); actions[4].click(); ok(field.value === 'AB12', 'delete removes one character');
+
+const { GameLoop } = await import('../src/core/loop');
+(globalThis as any).requestAnimationFrame = () => 1;
+for (const cap of [30, 60, 120, 0]) {
+  let steps = 0, rendered = 0;
+  const loop = new GameLoop({ update: () => { steps++; }, render: () => { rendered++; }, runHidden: () => true, frameCap: () => cap });
+  // Deterministic 120 Hz display input, without starting browser workers/timers.
+  (loop as any).running = true;
+  for (let i = 1; i <= 120; i++) (loop as any).frame(i * 1000 / 120);
+  ok(steps >= 59 && steps <= 60, `render cap ${cap} keeps simulation at 60 Hz`);
+  ok(Math.abs(rendered - (cap || 120)) <= 1, `game loop applies presentation cap ${cap}`);
+}

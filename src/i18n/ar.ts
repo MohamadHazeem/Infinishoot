@@ -1,6 +1,9 @@
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "desktop.paste": "لصق",
+  "desktop.clipboardUnavailable": "الحافظة غير متاحة. أدخل النص أو حمّل ملفًا.",
+
   "desktop.keyboard": "إدخال النص",
   "desktop.case": "ABC / abc",
   "desktop.space": "مسافة",

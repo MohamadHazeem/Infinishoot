@@ -182,7 +182,7 @@ export class SettingsScreen {
   private describe(el: HTMLElement | null): void {
     if (!el) return;
     const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting);
-    if (r) this.description.textContent = localize(r.desc);
+    if (r) this.description.textContent = ['windowMode', 'resolutionScale', 'frameCap', 'vsync'].includes(r.key) ? localize(r.desc) : r.desc;
     else if (el.hasAttribute('data-reset')) this.description.textContent = 'Restore defaults for this tab only. Key bindings have their own reset on REBIND KEYS.';
     else if (el.hasAttribute('data-rebind')) this.description.textContent = 'Choose the keyboard keys for each action. Gamepad and touch layouts remain fixed.';
     else if (el.hasAttribute('data-settings-back')) this.description.textContent = 'Return to the previous menu. Your changes are already saved.';

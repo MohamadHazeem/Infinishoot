@@ -19,7 +19,7 @@ const activeVsync = state.options?.vsync !== false;
 function write(file, value) {
   try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file + '.tmp', JSON.stringify(value)); fs.renameSync(file + '.tmp', file); } catch { /* Read-only/full disks must never prevent play. */ }
 }
-function flush() { clearTimeout(writeTimer); if (ring) write(logPath, ring.entries); }
+function flush() { clearTimeout(writeTimer); writeTimer = null; if (ring) write(logPath, ring.entries); }
 function log(kind, message, urgent = false) {
   if (!ring) return;
   ring.add(kind, message);
@@ -92,6 +92,11 @@ function createWindow() {
     boundsTimer = setTimeout(() => {
       if (!win.isDestroyed() && mode === 'windowed' && !win.isMaximized() && !win.isFullScreen()) { normalBounds = win.getBounds(); persist(); }
     }, 200);
+  });
+  win.on('close', () => {
+    clearTimeout(boundsTimer);
+    if (mode === 'windowed' && !win.isMaximized() && !win.isFullScreen()) normalBounds = win.getBounds();
+    persist();
   });
   win.on('enter-full-screen', () => { mode = 'fullscreen'; persist(); notifyMode(); });
   win.on('leave-full-screen', () => { if (mode === 'fullscreen') mode = 'windowed'; persist(); notifyMode(); });

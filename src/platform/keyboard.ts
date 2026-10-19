@@ -8,6 +8,19 @@ export function installControllerKeyboard(screens: Screens): void {
   let returning: ScreenName = 'title';
   let value = '';
   let upper = true;
+  // Legacy name/code fields were mouse-only. Register them when their screen opens,
+  // after its content renders and before Screens refreshes MenuNav.
+  const previousShow = screens.onShow;
+  screens.onShow = name => {
+    previousShow?.(name);
+    const root = document.getElementById(`scr-${name}`);
+    root?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea').forEach(field => {
+      if (field.disabled || field.readOnly || field.closest('[hidden]')) return;
+      if (field instanceof HTMLInputElement && !['text', 'search', 'url', 'email', 'tel'].includes(field.type)) return;
+      field.dataset.nav = '';
+      if (!field.getAttribute('aria-label') && !field.labels?.length) field.setAttribute('aria-label', field.placeholder || t('desktop.keyboard'));
+    });
+  };
   const el = document.createElement('div'); el.id = 'scr-desktopKeyboard'; el.className = 'screen dim';
   const title = document.createElement('h1');
   const preview = document.createElement('p'); preview.className = 'desktop-keyboard-value'; preview.dir = 'auto';
@@ -23,7 +36,7 @@ export function installControllerKeyboard(screens: Screens): void {
     }
   };
   const draw = () => { preview.textContent = value || '▏'; };
-  const append = (text: string) => { if (target) { value = (value + text).slice(0, target.maxLength > 0 ? target.maxLength : 200); draw(); } };
+  const append = (text: string) => { if (target) { value = (value + text).slice(0, target.maxLength > 0 ? target.maxLength : 100_000); draw(); } };
   const add = (root: HTMLElement, label: string, action: () => void) => {
     const b = document.createElement('button'); b.dataset.nav = ''; b.textContent = label; b.onclick = action; root.append(b); return b;
   };
@@ -34,8 +47,12 @@ export function installControllerKeyboard(screens: Screens): void {
   const erase = add(actions, '', () => { value = Array.from(value).slice(0, -1).join(''); draw(); });
   const cancel = add(actions, '', () => leave(false));
   const done = add(actions, '', () => leave(true));
+  const paste = add(actions, '', () => {
+    if (!navigator.clipboard) { preview.textContent = t('desktop.clipboardUnavailable'); return; }
+    void navigator.clipboard.readText().then(text => append(text)).catch(() => { preview.textContent = t('desktop.clipboardUnavailable'); });
+  });
   const localize = () => {
-    title.textContent = t('desktop.keyboard'); shift.textContent = t('desktop.case'); space.textContent = t('desktop.space'); erase.textContent = t('desktop.erase'); cancel.textContent = t('desktop.cancel'); done.textContent = t('desktop.done');
+    title.textContent = t('desktop.keyboard'); shift.textContent = t('desktop.case'); space.textContent = t('desktop.space'); erase.textContent = t('desktop.erase'); cancel.textContent = t('desktop.cancel'); done.textContent = t('desktop.done'); paste.textContent = t('desktop.paste');
   };
   localize(); onLanguageChange(localize);
   el.append(title, preview, keys, actions);
@@ -52,6 +69,7 @@ export function installControllerKeyboard(screens: Screens): void {
     event.preventDefault(); event.stopPropagation(); screens.show('desktopKeyboard');
   }, true);
   const css = document.createElement('style'); css.textContent = `
+.screen :is(input,textarea)[data-nav].focused { outline:calc(2 * var(--p)) solid var(--cyan); outline-offset:var(--p); }
 #scr-desktopKeyboard { gap:calc(4 * var(--p)); }
 #scr-desktopKeyboard h1 { margin:0; }
 .desktop-keyboard-value { width:min(800px,90vw); min-height:2em; overflow-wrap:anywhere; text-align:center; color:var(--cyan); font:26px var(--font); max-height:15vh; overflow:auto; }
