@@ -442,6 +442,7 @@ function openJackpot(g: Game, s: CineState, c: JackpotChest, h: Hero): void {
   h.player.happyT = 2;
   h.loadoutDirty = true;
   g.runEvents.onChest();
+  g.mods2Event(h, 'chest');
   timeBarrier(g); // a rewind must not take the payout back
   // Online the opener is untouchable while their reels spin; solo the world holds instead.
   if (g.role !== 'solo') h.player.invuln = Math.max(h.player.invuln, jackpotTuning.onlineIframes);

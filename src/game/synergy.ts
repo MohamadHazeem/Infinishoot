@@ -1,7 +1,16 @@
 import type { Rng } from '../core/rng';
 import type { Tag } from '../data/tags';
 import type { Enemy } from './enemies';
-import { emptyFlags, modMaxLevel, type DamageEvent, type ModApi, type ModDef, type ModFlags, type ModState } from './modTypes';
+import {
+  emptyFlags,
+  modMaxLevel,
+  type DamageEvent,
+  type ModApi,
+  type ModDef,
+  type ModFlags,
+  type ModState,
+  type ModEvent,
+} from './modTypes';
 import type { Player } from './player';
 import { passiveTuning, type Stats } from './stats';
 import type { Weapon } from './weapons';
@@ -45,6 +54,11 @@ export class Synergy implements ModApi {
   slots: Slot[] = [];
   flags: ModFlags = emptyFlags();
   moving = false;
+  needsWall = false;
+  needsFire = false;
+  nearWall = false;
+  ownFire = false;
+  private eventEff: { s: Slot; n: number }[] = [];
   time = 0;
   private eff: Slot[] = [];
   private dmgEff: { s: Slot; n: number }[] = [];
@@ -175,12 +189,20 @@ export class Synergy implements ModApi {
   private rebuild(): void {
     this.eff = [];
     this.dmgEff = [];
+    this.eventEff = [];
+    this.needsWall = this.owns('wallflower');
+    this.needsFire = this.owns('hearth');
     for (let i = 0; i < this.slots.length; i++) {
       const s = this.slots[i];
       // A level-N Mod (and an Echo of it) counts as N copies.
       const src = s.def.echo ? this.slots[i + 1] : s;
       if (!src || (s.def.echo && src.def.echo)) continue;
       for (let k = 0; k < src.level; k++) this.eff.push(src);
+      if (src.def.onEvent) {
+        const existing = this.eventEff.find((e) => e.s === src);
+        if (existing) existing.n += src.level;
+        else this.eventEff.push({ s: src, n: src.level });
+      }
       if (src.def.dmg) this.dmgEff.push({ s: src, n: src.level });
     }
     const f = emptyFlags();
@@ -224,6 +246,10 @@ export class Synergy implements ModApi {
   // ---------------------------------------------------------------- triggers
   // Passive triggers run after the Mods (so Phoenix can revive before Spiked Shell
   // checks for death), once each: Echo never copies them.
+
+  event(kind: ModEvent): void {
+    for (const { s, n } of this.eventEff) s.def.onEvent!(kind, this, s.st, n);
+  }
 
   hit(ev: DamageEvent): void {
     for (const e of this.eff) e.def.onHit?.(ev, this, e.st);

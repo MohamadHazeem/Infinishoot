@@ -1,3 +1,4 @@
+import * as Mods2Sys from './systems/mods2';
 import { metaSkin } from '../data/codex';
 import { MetaRun } from './systems/meta';
 import * as THREE from 'three';
@@ -530,6 +531,11 @@ export class Game implements HeroWorld {
   perfectDash = SkillSys.perfectDash;
   tryParry = SkillSys.tryParry;
   tryUlt = SkillSys.tryUlt;
+  mods2Event = Mods2Sys.mods2Event;
+  mods2Position = Mods2Sys.mods2Position;
+  mods2Auras = Mods2Sys.mods2Auras;
+  mods2Crit = Mods2Sys.mods2Crit;
+  mods2Heal = Mods2Sys.mods2Heal;
   updateSkill = SkillSys.updateSkill;
   weaponFeel = SkillSys.weaponFeel;
   muzzleScale = SkillSys.muzzleScale;
@@ -1464,10 +1470,12 @@ export class Game implements HeroWorld {
       h.ctx.firing = r.firing && !p.dead;
       h.ctx.charging = r.charging && !p.dead;
     }
+    this.mods2Position(h);
     h.synergy.moving = p.speed > 1.2;
     if (!p.dead) h.synergy.tick(dt);
     h.refreshLive();
     if (this.heroes.length > 1 && !p.dead) this.applyTeamAuras(h, dt);
+    this.mods2Auras(h);
     this.coopRoleStats(h); // co-op roles: a mixed party's team bonus (systems/coop2.ts)
     this.updateFootsteps(h, dt);
   }

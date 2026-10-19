@@ -21,6 +21,7 @@ import { PickupType } from '../game/pickups';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
 import { shopLinks } from './shopLinks';
+import { mods2Links } from './mods2Links';
 import { onboardingLinks } from './onboardingLinks';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
@@ -318,6 +319,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
   shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
+  mods2Links(game, q);
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)

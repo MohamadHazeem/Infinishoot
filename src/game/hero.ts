@@ -773,8 +773,8 @@ export class Hero implements SynergyHost {
 
   rollShop(): void {
     // Locked offers stay on their card (rerolls and the next shop) until bought or unlocked.
-    const kept = this.shopOffers.map((m, i) => (m && this.shopLocked[i] && !this.synergy.owns(m.id) ? m : null));
-    const pool = MODS.filter((m) => !this.synergy.owns(m.id) && !kept.includes(m) && (!this.secretShop || m.rarity === 'rare' || m.rarity === 'legendary' || m.cursed));
+    const kept = this.shopOffers.map((m, i) => (m && (!m.coop || this.world.coop) && this.shopLocked[i] && !this.synergy.owns(m.id) ? m : null));
+    const pool = MODS.filter((m) => (!m.coop || this.world.coop) && !this.synergy.owns(m.id) && !kept.includes(m) && (!this.secretShop || m.rarity === 'rare' || m.rarity === 'legendary' || m.cursed));
     // Luck lifts the rarer Mods, like level-up cards.
     const w = (m: ModDef) => MOD_RARITY_WEIGHT[m.rarity] * (1 + this.stats.luck * RARITY[m.rarity].luck);
     this.shopOffers = [];
