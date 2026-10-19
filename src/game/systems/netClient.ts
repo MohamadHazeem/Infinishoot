@@ -1,4 +1,7 @@
 import { assistAim } from './aimAssist';
+import { applyPvp2Net, pvp2ClientMessage } from './pvp2';
+import { cleanRules } from '../pvp';
+import { PVP_ARENAS } from '../../data/pvpArenas';
 import { applyHalloweenNet, selectSeason, resetHalloween, applyVineGrab } from './halloween';
 import { applyMetaSnapshot, MetaRun } from './meta';
 /**
@@ -34,6 +37,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
   if (this.lobbyClientMessage(m)) return; // lobby lane: cards, chat, pings, kick, party (systems/party.ts)
   if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)
+  if (pvp2ClientMessage(this, m)) return; // PvP rounds, scoreboard, lobby rules (systems/pvp2.ts)
   switch (m.t) {
     case 'lobby': {
       const players = (m.players as { name: string; color: string }[]) ?? [];
@@ -42,13 +46,13 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       break;
     }
     case 'pvpgo':
-      this.pvpBegin('client', Number(m.seed), String(m.difficulty ?? 'normal'));
+      this.pvpBegin('client', Number(m.seed), String(m.difficulty ?? 'normal'), cleanRules(m.rules, PVP_ARENAS.map((a) => a.id)));
       break;
     case 'pvpstat':
       if (this.pvp?.phase === 'wait') this.screens.showWait((m.rows as string[]) ?? [], PVP_WAIT_NOTE);
       break;
     case 'pvpend':
-      if (this.pvp) this.pvpOver(String(m.winner ?? ''));
+      if (this.pvp) this.pvpOver(String(m.winner ?? ''), m.team === undefined ? -2 : Number(m.team));
       break;
     case 'full':
       this.leaveToTitle();
@@ -402,6 +406,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyWorldEventNet(s.we, s.wt);
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
+  applyPvp2Net(this, s.p2); // PvP rounds, teams and ring (systems/pvp2.ts)
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

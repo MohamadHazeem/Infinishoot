@@ -1,4 +1,5 @@
 import { beginReadability, renderReadability } from './readability2';
+import { pvp2Frame } from './pvp2';
 import { renderHalloween } from './halloween';
 import { weeklyChallenge } from '../../data/weekly';
 /**
@@ -258,6 +259,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.cameraDirector();
   bossCamera.call(this); // the Titan and the duel ring pull the camera back (systems/bossLane.ts)
   this.mpFrame(frameDt); // Versus command view and local co-op team camera, their HUDs (systems/mp.ts)
+  pvp2Frame(this, frameDt); // PvP ring, team rings, round HUD, scoreboard, spectator camera (systems/pvp2.ts)
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
   this.renderTime(frameDt); // time lane: cinematic camera beats and its HUD (systems/time.ts)
 

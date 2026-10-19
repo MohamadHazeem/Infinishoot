@@ -1,4 +1,5 @@
 import { halloweenKill } from './halloween';
+import { pvpFriendly } from '../pvp';
 import { markSeen } from '../save';
 /**
  * Statuses and combos, hazards, strikes, specials, pickups and other per-step systems.
@@ -587,7 +588,7 @@ export function updateBullets(this: Game, dt: number): void {
     let hit = null as Enemy | null;
     const r = b.radius[i];
     this.hash.query(x, z, r, (e) => {
-      if (hit || !e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
+      if (hit || !e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || pvpFriendly(this.pvp?.teams, e.pvpOwner, b.owner[i])) return;
       const rr = e.radius + r;
       if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr) hit = e;
     });

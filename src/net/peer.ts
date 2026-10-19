@@ -35,7 +35,7 @@ export class NetHost {
   errorType = '';
 
   /** `code`: a fixed room code (the player's friend code, lobby lane); random if absent. */
-  constructor(private max = 3, code?: string) {
+  constructor(public max = 3, code?: string) {
     this.code = code ? normalizeCode(code) : makeCode();
     this.peer = new Peer(PREFIX + this.code, { debug: 0, config: iceConfig() });
     this.ready = new Promise((resolve, reject) => {

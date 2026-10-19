@@ -46,7 +46,7 @@ import { RunEvents } from './runEvents';
 import { DIFF_BY_ID, MODE_BY_ID, type DifficultyDef, type ModeId } from '../data/modes';
 import { heroOf } from '../data/heroes';
 import { binds } from '../core/keybinds';
-import { type HeroBuild } from './pvp';
+import { type HeroBuild, type PvpRules, pvpFriendly } from './pvp';
 import * as RunFlowSys from './systems/runFlow';
 import * as DebugSys from './systems/debug';
 import * as SpiceSys from './systems/spice';
@@ -58,6 +58,7 @@ import * as CombatSys from './systems/combat';
 import * as StatusesSys from './systems/statuses';
 import * as OnlineSys from './systems/online';
 import * as PvpFlowSys from './systems/pvpFlow';
+import * as Pvp2Sys from './systems/pvp2';
 import * as NetHostSys from './systems/netHost';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
@@ -239,6 +240,23 @@ export interface PvpState {
   zoneR: number;
   zoneT: number;
   zoneTick: number;
+  /** pvp2 lane (src/game/systems/pvp2.ts): the host's rules, team per hero index, rounds and the round clock. */
+  rules: PvpRules;
+  teams: number[];
+  /** Rounds played (the current one included) and round wins per team. */
+  round: number;
+  wins: number[];
+  arena: string;
+  zoneStart: number;
+  /** > 0: the round's 3-2-1 (no damage yet); > 0: the round is over and the scoreboard shows. */
+  countdown: number;
+  roundEnd: number;
+  /** Seconds until pending damage may land again, per hero index. */
+  landT: number[];
+  /** Match stats per hero index: damage dealt and taken (life), knockouts, and whether they're out this round. */
+  stats: { dealt: number; taken: number; kos: number; out: boolean }[];
+  /** Set once the match is decided (host). */
+  done: boolean;
 }
 
 export const PVP_WAIT_NOTE = 'Everyone plays their own stage first. The duel starts when all are done:';
@@ -931,6 +949,7 @@ export class Game implements HeroWorld {
     this.runEvents = new RunEvents(this.makeEventHost());
     MpSys.installMp(this, hudRoot);
     PartySys.installParty(this, hudRoot);
+    Pvp2Sys.installPvp2(this); // PvP formats, bots, arenas and rules rows (systems/pvp2.ts)
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     HalloweenSys.installHalloween.call(this, hudRoot);
     this.goTitle();
@@ -1040,10 +1059,10 @@ export class Game implements HeroWorld {
       charging: false,
       damage: (e, base, o) => this.damage(e, base, o, hero),
       // PvP: a hero's weapons never aim at or hit its own stand-in.
-      nearest: (x, z, r, skip) => this.nearestEnemy(x, z, r, (e) => e.pvpOwner === hero.index || !!skip?.(e)),
+      nearest: (x, z, r, skip) => this.nearestEnemy(x, z, r, (e) => pvpFriendly(this.pvp?.teams, e.pvpOwner, hero.index) || !!skip?.(e)),
       inRadius: (x, z, r, out) => {
         this.enemiesInRadius(x, z, r, out);
-        if (this.pvp) for (let i = out.length - 1; i >= 0; i--) if (out[i].pvpOwner === hero.index) out.splice(i, 1);
+        if (this.pvp) for (let i = out.length - 1; i >= 0; i--) if (pvpFriendly(this.pvp.teams, out[i].pvpOwner, hero.index)) out.splice(i, 1);
         return out;
       },
       shake: (x, z, amount) => this.vfx.shake(x, z, amount),

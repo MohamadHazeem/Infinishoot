@@ -1,4 +1,5 @@
 import { halloweenNet, cleanHalloweenLook } from './halloween';
+import { pvp2Net, isBotPeer } from './pvp2';
 import { metaSkin } from '../../data/codex';
 /**
  * Online, host side: messages from clients and snapshots.
@@ -162,6 +163,7 @@ export function hostTick(this: Game, frozen: boolean): void {
   const events = this.vfx.drain();
   for (const h of this.heroes) {
     if (!h.peerId || (h.left && this.versus?.overlord !== h.index)) continue; // a Versus Overlord sits out but still watches
+    if (isBotPeer(h.peerId)) continue; // PvP bots play on the host (systems/pvp2.ts)
     this.host.send(h.peerId, this.buildSnapshot(h, events));
   }
 }
@@ -245,6 +247,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     cn: this.cineNet(),
     vs: this.versusNet(),
     s2: soundLaneNet(this, forHero),
+    p2: pvp2Net(this), // PvP rounds, teams and ring (systems/pvp2.ts)
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

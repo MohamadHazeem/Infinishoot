@@ -3,6 +3,7 @@ import { Team } from './bullets';
 import { pilotGameplay } from './systems/gameplay';
 import { pilotModes } from './systems/modes';
 import { goldenPortalAt } from './systems/cinematics';
+import { pvpFriendly } from './pvp';
 
 /**
  * The autoplay brain: what a bot-driven hero wants to do this step. Shared by
@@ -45,7 +46,7 @@ export class Autopilot {
     let az = 0;
     for (const e of g.enemies.list) {
       // PvP: its own invisible stand-in isn't a target.
-      if (!e.alive || e.pvpOwner === g.hero.index) continue;
+      if (!e.alive || pvpFriendly(g.pvp?.teams, e.pvpOwner, g.hero.index)) continue;
       const dx = p.x - e.x;
       const dz = p.z - e.z;
       const d = Math.hypot(dx, dz);

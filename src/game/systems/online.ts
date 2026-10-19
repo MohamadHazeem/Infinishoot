@@ -19,6 +19,7 @@ import { coopPlayerId } from '../coop2';
 import { versusOverlordIndex } from './mp';
 import { hostCode, myProfile } from './party';
 import { parseInviteCode } from '../lobby';
+import { pvpRules } from './pvp2';
 
 /** `randomCode`: skip the friend code (lobby lane), e.g. when it is taken. */
 export async function hostGame(this: Game, name: string, randomCode = false): Promise<void> {
@@ -82,8 +83,13 @@ export function hostStart(this: Game): void {
     }
     const seed = randomSeed();
     const difficulty = this.lobbyDifficulty().id;
-    this.host.broadcast({ t: 'pvpgo', seed, difficulty });
-    this.pvpBegin('host', seed, difficulty);
+    const rules = pvpRules(this); // format, rounds, arena (systems/pvp2.ts)
+    this.host.broadcast({ t: 'pvpgo', seed, difficulty, rules });
+    this.pvpBegin('host', seed, difficulty, rules);
+    return;
+  }
+  if (this.lobby.length > 4) {
+    this.hud.toast('CO-OP AND VERSUS TAKE UP TO 4 PLAYERS (PVP TAKES 8)', 3);
     return;
   }
   // Versus Swarm: a player Overlord needs at least one hero to play against (or pick the AI Overlord).
