@@ -1,3 +1,4 @@
+import { squadTuning as aiSquadTuning } from '../game/aisquadBrain';
 import { pvpTuning } from '../game/pvp';
 import { addBiome3Folder } from './debugBiome3';
 import { secretsTuning } from '../data/secrets';
@@ -356,6 +357,13 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addFixesFolder(gui);
   addGameplayFolder(gui, game); // mech suits, crates, mutations, overload, cash-ins (gameplay lane)
   addTimeFolder(gui, game); // time lane: rewind, last stand, bullet time, replay (src/ui/debugTime.ts)
+  const squad = gui.addFolder('AI squad').close();
+  squad.add(aiSquadTuning, 'thinkEvery', 1, 12, 1);
+  squad.add(aiSquadTuning, 'leash', 5, 20, 1);
+  squad.add(aiSquadTuning, 'follow', 2, 8, 0.5);
+  squad.add(aiSquadTuning, 'spread', 4, 12, 0.5);
+  squad.add(aiSquadTuning, 'lootRange', 3, 12, 1);
+  squad.add(aiSquadTuning, 'pingTime', 3, 15, 1);
   addCoop2Folder(gui, game); // coop2 lane: drop-in, revive pool, roles, team ultimate, ghosts (src/ui/debugCoop2.ts)
   addCoopplayFolder(gui, game); // coopplay lane: co-op objectives, carry, tether, banter (src/ui/debugCoopplay.ts)
   addCinematicsFolder(gui, game); // cinematics lane: sky fall, ending, reveals, jackpot, flawless (src/ui/debugCinematics.ts)

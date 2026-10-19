@@ -232,7 +232,7 @@ function poll(g: Game, s: Meta2Run, dt: number): void {
     const n = g.stage - s.lastStage;
     add(L, 'stages', n);
     if (!s.stageHit && !p.dead) add(L, 'flawless');
-    if (g.heroes.length > 1) add(L, 'coopStages', n);
+    if (!g.squadRun && g.heroes.length > 1) add(L, 'coopStages', n);
     if (s.rhythmStage) add(L, 'rhythm');
     if (s.pacifistStage) add(L, 'pacifist');
     if (s.eventKind) {
@@ -277,7 +277,7 @@ function poll(g: Game, s: Meta2Run, dt: number): void {
   // Teammates revived near you.
   g.heroes.forEach((o, i) => {
     const was = s.deadWas[i];
-    if (was && !o.player.dead && o !== h && !p.dead) {
+    if (!g.squadRun && was && !o.player.dead && o !== h && !p.dead) {
       const dx = o.player.x - p.x;
       const dz = o.player.z - p.z;
       if (dx * dx + dz * dz <= meta2Tuning.reviveRange ** 2) add(L, 'revives');
@@ -313,7 +313,7 @@ function finish(g: Game, t: RunTally, sum: RunSummary): RunTally {
   peak(t, 'stage', sum.stage);
   peak(t, 'level', sum.level);
   if (g.localCoop) t.localRuns = 1;
-  else if (g.heroes.length > 1 && !g.pvp && !g.versus) t.coopRuns = 1;
+  else if (!g.squadRun && g.heroes.length > 1 && !g.pvp && !g.versus) t.coopRuns = 1;
   if (g.versus) {
     t.versusRuns = 1;
     const won = g.versus.winner === (isOverlord(g) ? 'overlord' : 'heroes');

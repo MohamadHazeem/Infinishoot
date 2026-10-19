@@ -1,3 +1,4 @@
+import { renderSquadOptions } from '../game/systems/aisquad';
 import { ModsScreen } from './modsScreen';
 import { gauntletOption, renderGauntletOptions } from '../game/systems/gauntlet';
 import { SettingsScreen } from './settingsScreen';
@@ -157,6 +158,7 @@ export interface Offer {
 }
 
 export interface RunSummary {
+  squad?: number;
   mvp?: import('../game/systems/mvp').MvpReport;
   /** meta2: the host's profile counters for this hero (src/game/systems/meta2.ts). */
   m2?: Record<string, number>;
@@ -1516,6 +1518,7 @@ export class Screens {
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`
       : diff.desc.toUpperCase());
     if (mode.id === 'weekly') el.querySelector('.mode-note')!.textContent = localize(`${weeklyChallenge().week}: ${weeklyChallenge().rules.map(r => r.name).join(' + ')} · FIXED ROOKIE KIT`);
+    renderSquadOptions(el, () => this.navs.modes.refresh(this.navs.modes.focus));
     renderGauntletOptions(el);
     this.navs.modes.refresh(this.navs.modes.focus);
   }

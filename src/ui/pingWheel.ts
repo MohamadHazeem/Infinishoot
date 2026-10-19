@@ -1,3 +1,6 @@
+import { SQUAD_ORDERS } from '../game/aisquadBrain';
+import { orderLabel } from '../game/systems/aisquad';
+import { t } from '../i18n';
 import { localizeHtml } from '../i18n';
 import { PING_KINDS } from '../game/teamPlay';
 import { EMOTES } from '../game/coop2';
@@ -20,7 +23,7 @@ const CSS = `
 #ping-wheel .pw-tabs { position: absolute; left: 0; top: calc(-16 * var(--p, 4px) - 96px); transform: translateX(-50%); display: flex; gap: calc(2 * var(--p, 4px)); font: 12px var(--label); white-space: nowrap; }
 #ping-wheel .pw-tabs span { padding: var(--p, 4px) calc(2 * var(--p, 4px)); color: var(--mist); background: var(--ink); }
 #ping-wheel .pw-tabs span.on { color: var(--ink); background: var(--yellow); }
-#ping-wheel .pw-item[hidden] { display: none; }
+#ping-wheel .pw-tabs span[hidden], #ping-wheel .pw-item[hidden] { display: none; }
 `;
 
 export class PingWheel {
@@ -41,8 +44,8 @@ export class PingWheel {
     this.el.id = 'ping-wheel';
     this.el.hidden = true;
     const R = 110;
-    let html = '<div class="pw-hub"></div><div class="pw-tabs"><span>PINGS</span><span>EMOTES</span></div>';
-    const pages = [PING_KINDS.map((k) => ({ label: k.label.replace('!', ''), color: k.color })), EMOTES.map((e) => ({ label: e.label, color: e.color }))];
+    let html = `<div class="pw-hub"></div><div class="pw-tabs"><span>PINGS</span><span>EMOTES</span><span>${t('squad.orders')}</span></div>`;
+    const pages = [PING_KINDS.map((k) => ({ label: k.label.replace('!', ''), color: k.color })), EMOTES.map((e) => ({ label: e.label, color: e.color })), SQUAD_ORDERS.map((o) => ({ label: orderLabel(o), color: '#73eff7' }))];
     pages.forEach((items, pg) =>
       items.forEach((k, i) => {
         const a = (i / items.length) * Math.PI * 2; // 0 = up, clockwise
@@ -53,7 +56,7 @@ export class PingWheel {
     );
     html += '<div class="pw-tip">RELEASE TO SEND · TAB / WHEEL / LB RB: PAGE</div>';
     this.el.innerHTML = localizeHtml(html);
-    this.pages = [0, 1].map((pg) => [...this.el.querySelectorAll<HTMLElement>(`.pw-item[data-pg="${pg}"]`)]);
+    this.pages = [0, 1, 2].map((pg) => [...this.el.querySelectorAll<HTMLElement>(`.pw-item[data-pg="${pg}"]`)]);
     this.tabs = [...this.el.querySelectorAll<HTMLElement>('.pw-tabs span')];
     this.setPage(0);
     document.body.appendChild(this.el);
@@ -69,7 +72,12 @@ export class PingWheel {
     this.items.forEach((it, k) => it.classList.toggle('on', k === i));
   }
 
-  /** Show page 0 (pings) or 1 (emotes). */
+  squad(on: boolean): void {
+    this.tabs[2].hidden = !on;
+    if (!on && this.page === 2) this.setPage(0);
+  }
+
+  /** Show pings, emotes or squad orders. */
   setPage(p: number): void {
     this.page = p;
     this.items = this.pages[p] ?? [];

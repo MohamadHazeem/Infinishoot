@@ -4,6 +4,18 @@ import { storyEn } from '../game/story/strings';
 import { tips2En } from './tips2';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "squad.title": "SQUAD",
+  "squad.bot": "BOT",
+  "squad.count": "SQUAD: ⟪count⟫ BOTS",
+  "squad.pick": "BOT ⟪slot⟫: ⟪hero⟫",
+  "squad.random": "RANDOM",
+  "squad.orders": "SQUAD ORDERS",
+  "squad.follow": "FOLLOW",
+  "squad.spread": "SPREAD OUT",
+  "squad.hold": "HOLD HERE",
+  "squad.boss": "FOCUS BOSS",
+  "squad.modes": "Available in Standard, Endless and Boss Rush",
+
   ...biome3En,
   "clips.title": "HIGHLIGHT CLIPS",
   "clips.hint": "Silent gameplay · Save the last 15 seconds:",

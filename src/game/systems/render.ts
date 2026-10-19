@@ -1,3 +1,4 @@
+import { squadPing } from './aisquad';
 import { eventBehavior } from '../../data/stageEvents';
 import { renderSecrets } from './secrets';
 import { encounterTrack, updateAudio3 } from './audio3';
@@ -93,6 +94,7 @@ export function coopInput(this: Game): void {
 export function ping(this: Game, h: Hero, x: number, z: number, kind?: string): void {
   if (performance.now() - h.pingAt < 700) return;
   h.pingAt = performance.now();
+  if (h.index === 0) squadPing(this, x, z, kind);
   // Ping wheel picks (GO HERE, DANGER, ...): their own label and colour.
   const k = pingKind(kind);
   if (k) {

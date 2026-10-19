@@ -1,3 +1,5 @@
+import { SQUAD_ORDERS } from './aisquadBrain';
+import { squadOrder } from './systems/aisquad';
 /**
  * Co-op team play (fixes lane): team status combos and the ping wheel.
  *
@@ -124,9 +126,8 @@ export function pingKind(k: unknown): (typeof PING_KINDS)[number] | null {
 }
 
 /** Which slice (index into PING_KINDS) a pointer offset (dx right, dy down, px or stick units) selects, or -1 inside the dead zone. Slice 0 is straight up, then clockwise. */
-export function wheelSlice(dx: number, dy: number, dead: number): number {
+export function wheelSlice(dx: number, dy: number, dead: number, n = PING_KINDS.length): number {
   if (Math.hypot(dx, dy) < dead) return -1;
-  const n = PING_KINDS.length;
   const a = Math.atan2(dx, -dy); // 0 = up, clockwise positive
   return ((Math.round(a / ((Math.PI * 2) / n)) % n) + n) % n;
 }
@@ -192,6 +193,8 @@ export function pingInput(g: Game): void {
     if (!w.open && w.held >= teamTuning.holdTime) {
       w.open = true;
       w.ui ??= new PingWheel();
+      w.ui.squad(g.squadRun);
+      if (!g.squadRun && w.page === 2) w.page = 0;
       w.ui.show(input.device === 'pad' ? innerWidth / 2 : w.mx, input.device === 'pad' ? innerHeight / 2 : w.my);
       w.ui.setPage(w.page);
       wheelFlips = 0;
@@ -203,16 +206,21 @@ export function pingInput(g: Game): void {
       input.consumePad(4);
       input.consumePad(5);
       if (flip) {
-        w.page = 1 - w.page;
+        w.page = (w.page + 1) % (g.squadRun ? 3 : 2);
         w.ui?.setPage(w.page);
       }
-      w.pick = input.device === 'pad' ? wheelSlice(input.padAim.x, input.padAim.y, teamTuning.pickStick) : wheelSlice(input.mouse.x - w.mx, input.mouse.y - w.my, teamTuning.pickPx);
+      w.pick = input.device === 'pad' ? wheelSlice(input.padAim.x, input.padAim.y, teamTuning.pickStick, w.page === 2 ? 4 : 6) : wheelSlice(input.mouse.x - w.mx, input.mouse.y - w.my, teamTuning.pickPx, w.page === 2 ? 4 : 6);
       w.ui?.select(w.pick);
     }
     return;
   }
   if (w.held < 0) return;
   // Released.
+  if (w.open && w.page === 2) {
+    if (w.pick >= 0 && SQUAD_ORDERS[w.pick]) squadOrder(g, SQUAD_ORDERS[w.pick]);
+    w.held = -1; w.open = false; w.ui?.hide();
+    return;
+  }
   const emote = w.open && w.page === 1 && w.pick >= 0 ? EMOTES[w.pick] : null;
   if (emote) {
     w.held = -1;
@@ -239,6 +247,7 @@ export function pinWheel(g: Game, page: number, pick = 1): void {
   let w = wheels.get(g);
   if (!w) wheels.set(g, (w = { held: -1, open: false, ox: 0, oz: 0, mx: 0, my: 0, pick: -1, ui: null, page: 0 }));
   w.ui ??= new PingWheel();
+  w.ui.squad(g.squadRun);
   w.ui.show(innerWidth / 2, innerHeight / 2);
   w.ui.setPage(page);
   w.ui.select(pick);
