@@ -195,9 +195,16 @@ const hostTo = (x: number, z: number) => hA.player.teleport(x, z);
 {
   clearEnemies();
   ok(CP.forceCoopObjective(A, 'bomb'), 'host places a bomb and a bunker');
-  step(3);
   const L = SA.lay!;
+  // Step the host off the bomb before the world ticks: layouts are seeded per arena and
+  // stage (layoutCoop takes the first fitting spawn spot), so the bomb can land on the
+  // zones' first zone, where the host is still standing from the block above, and the
+  // host would pick it up on the first tick. Which spots coincide depends on the arena
+  // the seeded run rolls, so it changed when other lanes' arena/RNG changes merged.
   hostTo(L.a.x + 12, L.a.z + 12);
+  guestTo(L.a.x - 12, L.a.z - 12);
+  step(3);
+  ok(SA.bomb.by < 0, 'nobody holds the bomb yet');
   guestTo(SA.bomb.x, SA.bomb.z);
   step(20);
   ok(SA.bomb.by === 1 && SB.bomb.by === 1, 'the guest walks over the bomb and picks it up (both machines)');

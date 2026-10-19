@@ -50,6 +50,7 @@ const { unlockedWeapons, save } = await import('../src/game/save');
 const { validLoadout, DEFAULT_LOADOUT } = await import('../src/data/loadout');
 const { raceState, playTurn, startChallenge } = await import('../src/game/systems/race');
 const { decodeChallenge, createTourney, encodeChallenge } = await import('../src/game/raceRules');
+const { DEFAULT_PVP_RULES } = await import('../src/game/pvp');
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const newRoot = () => {
@@ -235,7 +236,12 @@ A.lobby = [
 ];
 sa.ranks.set('peerB', 1000);
 A.netName = 'Host';
-(A as any).pvp = { phase: 'duel', net: 'host', seed: 1, ready: new Map(), progress: new Map(), proxies: [], acc: [], lastHit: [], zoneR: 0, zoneT: 0, zoneTick: 0 };
+// The full PvpState shape: the pvp2 lane (rounds, teams, rules) added fields that pvpOver reads
+// (`rules.rounds`, `wins`), so the old hand-built state from before that merge crashed it.
+(A as any).pvp = {
+  phase: 'duel', net: 'host', seed: 1, ready: new Map(), progress: new Map(), proxies: [], acc: [], lastHit: [], zoneR: 0, zoneT: 0, zoneTick: 0,
+  rules: DEFAULT_PVP_RULES, teams: [0, 1], round: 1, wins: [1, 0], arena: '', zoneStart: 0, countdown: 0, roundEnd: 0, landT: [], stats: [], done: false,
+};
 A.pvpOver('Host');
 ok(save.ranked.games === games + 1 && save.ranked.rating > 1000, 'PvP win raises the rating: ' + save.ranked.rating);
 
