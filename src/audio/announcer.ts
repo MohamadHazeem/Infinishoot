@@ -14,6 +14,7 @@ const priorities: Readonly<Record<string, number>> = {
   gauntlet: 7,
   ascension: 7,
   game_over: 10,
+  mvp: 11, // results can follow GAME OVER without its normal chatter cooldown
   boss: 9,
   stage_clear: 8,
   evolution: 7,

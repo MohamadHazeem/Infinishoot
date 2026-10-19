@@ -1,5 +1,6 @@
 import * as GauntletSys from './systems/gauntlet';
 import * as Director2Sys from './systems/director2';
+import * as MvpSys from './systems/mvp';
 import * as Mods2Sys from './systems/mods2';
 import { accessibilityInput, assistAim } from './systems/aimAssist';
 import { metaSkin } from '../data/codex';
@@ -328,6 +329,14 @@ export class Game implements HeroWorld {
   quitRun = RunFlowSys.quitRun;
   summary = RunFlowSys.summary;
   bankAndShow = RunFlowSys.bankAndShow;
+  mvp = MvpSys.createMvp();
+  mvpStep = MvpSys.mvpStep;
+  mvpKill = MvpSys.mvpKill;
+  mvpHurt = MvpSys.mvpHurt;
+  mvpRevive = MvpSys.mvpRevive;
+  mvpShared = MvpSys.mvpShared;
+  mvpFinish = MvpSys.mvpFinish;
+  showMvp = MvpSys.showMvp;
   endRun = RunFlowSys.endRun;
   checkAchievements = RunFlowSys.checkAchievements;
   debugLevelUp = DebugSys.debugLevelUp;
@@ -1236,6 +1245,7 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    this.mvpStep();
     accessibilityInput(this.input, this.isCombatMode && !this.paused && this.screens.current === 'none' && !this.photo?.active, dt, this.stage, this.hero.player.dead);
     if (this.photo?.active) {
       this.photo.update(dt);

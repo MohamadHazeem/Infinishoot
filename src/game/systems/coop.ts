@@ -32,6 +32,7 @@ export function updateRevives(this: Game, dt: number): void {
     const hp = Math.min(1, 0.4 + Math.max(0, ...helpers.map((o) => o.stats.reviveHp)));
     h.reviveT = helpers.length ? h.reviveT + dt * speed : Math.max(0, h.reviveT - dt * 0.5);
     if (h.reviveT >= REVIVE_TIME) {
+      this.mvpRevive(h, helpers);
       this.reviveHero(h, hp);
       // Teamwork: rescuer and rescued both get a burst of invincibility.
       h.player.invuln = Math.max(h.player.invuln, 3);

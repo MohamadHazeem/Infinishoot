@@ -675,6 +675,7 @@ export function tryBuyBack(g: Game, s: CoopState, h: Hero, auto: boolean): boole
   payers.forEach((x, i) => {
     if (split[i] <= 0) return;
     x.gold -= split[i];
+    if (x !== h) g.mvpShared(x, split[i]);
     g.vfx.num(x.player.x, 2.8, x.player.z, `-${split[i]}●`, 'score');
   });
   s.pool.lives--;

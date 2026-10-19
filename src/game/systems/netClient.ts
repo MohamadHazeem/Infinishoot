@@ -1,4 +1,5 @@
 import { applyGauntletNet } from './gauntlet';
+import { createMvp, type MvpReport } from './mvp';
 import { assistAim } from './aimAssist';
 import { applyHalloweenNet, selectSeason, resetHalloween, applyVineGrab } from './halloween';
 import { applyMetaSnapshot, MetaRun } from './meta';
@@ -171,6 +172,7 @@ export function clientStart(this: Game, seed: number, you: number, players: { na
     h.player.reset(h.stats);
   }
   this.score = this.kills = this.combo = 0;
+  this.mvp = createMvp();
   this.level = 1;
   this.hud.resetScore();
   this.hud.setVisible(true);
@@ -405,6 +407,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   applyGauntletNet(this, s.gl);
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
+  if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

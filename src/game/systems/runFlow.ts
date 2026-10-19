@@ -2,6 +2,7 @@ import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './
 import { seasonAt, seasonalStage } from '../../data/seasons';
 import { gauntletScore } from '../../data/ascension';
 import { startGauntlet, gauntletStage, gauntletSub, bankGauntlet, loadGauntletScores, challengeState } from './gauntlet';
+import { createMvp } from './mvp';
 import { startMeta, visitMeta, bankMeta } from './meta';
 import { weeklyChallenge } from '../../data/weekly';
 /**
@@ -149,6 +150,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.stage = 1;
   this.score = this.kills = this.combo = this.maxCombo = 0;
   this.runTime = this.comboT = 0;
+  this.mvp = createMvp();
   this.level = 1;
   this.xp = 0;
   this.xpNext = xpForLevel(1);
@@ -182,6 +184,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
     }
   }
   this.loadStage(1);
+  this.mvpStep(true);
   // Starting shop: free gold to spend before stage 1, not carried into the run.
   if (this.role !== 'client' && this.runMode !== 'gauntlet') {
     this.preShop = true;
@@ -274,6 +277,7 @@ export function quitRun(this: Game): void {
 
 export function summary(this: Game, h: Hero): RunSummary {
   return {
+    mvp: this.mvp.report ?? undefined,
     score: this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : Math.floor(this.score * this.meta.multiplier),
     heat: this.meta.points,
     clears: this.victories,
@@ -340,6 +344,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   const rank = this.runMode === 'gauntlet' ? challengeState(this).bankRank : this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
   if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
   this.screens.showGameOver(sum, rank, this.runMode === 'gauntlet' ? loadGauntletScores() : loadHighScores(), this.role === 'client');
+  if (sum.mvp) { this.mvp.report = sum.mvp; this.showMvp(sum.mvp); }
 }
 
 export function endRun(this: Game, quit = false): void {
@@ -348,6 +353,7 @@ export function endRun(this: Game, quit = false): void {
     this.pvpStageDone();
     return;
   }
+  if (!quit && !this.pvp && !this.onboarding.training) this.mvpFinish();
   for (const h of this.heroes) {
     if (!h.peerId || h.left) continue;
     this.host?.send(h.peerId, { t: 'over', sum: this.summary(h) });

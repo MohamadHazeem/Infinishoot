@@ -132,7 +132,7 @@ setLanguage('en');
 // This catches new hardcoded labels (and data-driven English) even inside conditional expressions.
 const require = createRequire(import.meta.url);
 const { parsers } = require('prettier/plugins/typescript');
-for (const file of ['screens', 'hud', 'onboarding', 'metaScreens']) {
+for (const file of ['screens', 'hud', 'onboarding', 'metaScreens', 'mvpScreen']) {
   const source = readFileSync(`src/ui/${file}.ts`, 'utf8');
   const ast = parsers.typescript.parse(source);
   const inspect = (node: any): void => {

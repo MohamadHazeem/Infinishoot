@@ -1,5 +1,7 @@
 import { gauntletTuning } from '../game/systems/gauntlet';
 import { addDirector2Debug } from '../game/systems/director2';
+import { mvpTuning } from '../game/systems/mvp';
+import { bandTuning } from '../audio/stems';
 import { noiseTuning } from '../render/noiseGovernor';
 import { halloweenTuning } from '../data/seasons';
 import GUI from 'lil-gui';
@@ -71,6 +73,15 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Backquote') gui._hidden ? gui.show() : gui.hide();
   });
+
+  const mvp = gui.addFolder('MVP & band').close();
+  mvp.add(mvpTuning, 'comboWindow', 0.5, 5, 0.1);
+  mvp.add(mvpTuning, 'saveRange', 1, 6, 0.5);
+  mvp.add(mvpTuning, 'highlights', 8, 64, 1);
+  mvp.add(mvpTuning, 'clutchHp', 0.1, 0.5, 0.05);
+  mvp.add(bandTuning, 'near', 0, 10, 1);
+  mvp.add(bandTuning, 'range', 12, 40, 1);
+  mvp.add(bandTuning, 'slots', 1, 8, 1);
 
   const noise = gui.addFolder('Readable chaos').close();
   for (const key of Object.keys(noiseTuning) as (keyof typeof noiseTuning)[]) noise.add(noiseTuning, key);

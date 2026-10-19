@@ -173,6 +173,8 @@ if (game.mode !== 'dead') {
   if (p.hurt(p.hp + 1, 0, 1)) game.onHeroDown(game.hero);
 }
 for (let i = 0; i < 400; i++) game.update(1 / 60);
+ok(game.screens.current === 'mvp', 'death opens the solo MVP report');
+(document.querySelector('#scr-mvp button') as HTMLButtonElement).click();
 const goScreen = (game.screens as any).current;
 console.log('after death: screen', goScreen, 'last cause', save.history[0]?.cause, 'label', save.history[0]?.label);
 for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'settings', 'codex', 'ghosts']) {
