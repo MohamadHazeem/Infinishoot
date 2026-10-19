@@ -5,7 +5,7 @@ import { announcerSettings, announcer } from '../audio/announcer';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
-import { fxQuality } from './ambience';
+import { fxQuality, weatherSettings } from './ambience';
 import { streaks } from './streaks';
 import { DEFAULT_LOADOUT, validLoadout, type Loadout } from '../data/loadout';
 import { AUTO, AUTO_START, MANUAL_LEVELS, QualityGovernor, renderQuality, setRenderQuality } from '../render/quality';
@@ -49,6 +49,8 @@ export interface Settings {
   bossIntros: boolean;
   /** Slow-motion on perfect dashes and Mega Barrage (solo only). */
   slowMo: boolean;
+  /** Weather: rain, snow and other motes, lightning (off = always clear skies). */
+  weather: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -82,8 +84,10 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   dynamicCamera: true,
   bossIntros: true,
   slowMo: true,
+  weather: true,
 });
 settings.dynamicCamera ??= true;
+settings.weather ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */
@@ -131,6 +135,7 @@ export function applySettings(): void {
   postSettings.crt = settings.crt ? 1 : 0;
   access.colorblind = settings.colorblind;
   access.reduceFlash = settings.reduceFlash;
+  weatherSettings.enabled = settings.weather;
   document.body.classList.toggle('reduce-flash', settings.reduceFlash);
   const g = Math.max(0, Math.min(AUTO, Math.round(settings.graphics)));
   if (g === AUTO) {
