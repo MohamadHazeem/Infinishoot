@@ -4,6 +4,7 @@
  * installed on the class as fields, e.g. `nearestEnemy = Combat.nearestEnemy;`.
  */
 import { familyCanHit } from './enemyFamilies';
+import { materialHit } from '../particles';
 import type { Game } from '../game';
 import { CONVEYOR_SPEED, statusTuning } from '../game';
 import type { Tag } from '../../data/tags';
@@ -94,7 +95,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   // Heavy hits get a low thump under the hit sound.
   if ((o.loud || crit) && amount >= 25) this.vfx.sound('impact', e.x, e.z, Math.min(3, amount / 25));
   if (o.loud || crit) {
-    this.vfx.burst(hx, BULLET_Y, hz, { count: 3, color: '#ffffff', color2: e.def.bodyColor, speed: [3, 7], size: [0.1, 0.18], life: [0.12, 0.25], dir: { x: -(o.dirX ?? 0), z: -(o.dirZ ?? 0), spread: 2.4 } });
+    this.vfx.burst(hx, BULLET_Y, hz, materialHit(shielded ? 'shield' : e.def.material, e.def.bodyColor, o.dirX, o.dirZ));
   }
   this.skillHit(e, o, dealt, crit, by);
   // Statuses from the weapon's own tags, then Mod triggers.

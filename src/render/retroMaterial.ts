@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { shadowUniforms, shadowFragment } from './shadows';
 import { lightUniforms, MAX_LIGHTS } from './lights';
 
 /**
@@ -42,6 +43,7 @@ export const retroGlobals = {
   uCloud: { value: new THREE.Vector4(0, 0, 0.012, 0) },
   uCloudCut: { value: new THREE.Vector3(0.5, 0.25, 30) },
   ...lightUniforms,
+  ...shadowUniforms,
 };
 
 const vertexShader = /* glsl */ `
@@ -110,6 +112,7 @@ void main() {
 `;
 
 const fragmentShader = /* glsl */ `
+${shadowFragment}
 uniform vec3 uColor;
 uniform float uAffine;
 uniform float uAlphaTest;
@@ -168,6 +171,7 @@ void main() {
     float cn = texture(uCloudMap, cp * uCloud.z + uCloud.xy).r;
     d *= 1.0 - uCloud.w * smoothstep(uCloudCut.x, uCloudCut.x + uCloudCut.y, cn);
   }
+  d *= gfxSunShadow(vWorld, normalize(vNormal));
   vec3 lit = base.rgb * (vAmbient + uSunColor * d);
   // Dynamic point lights: smooth falloff, half-wrapped Lambert, banded with the cel steps.
   if (uLightCount > 0 && uUnlit < 0.99) {

@@ -1,3 +1,4 @@
+import { gfx3Links } from './gfx3Links';
 import { LoadingScreen } from '../ui/loadingScreen';
 import { halloweenLinks } from '../game/systems/halloween';
 import { gauntletTest } from '../game/systems/gauntlet';
@@ -289,6 +290,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     }, 700);
   }
   skyLinks(game, q);
+  gfx3Links(game, q);
   graphicsLinks(game, q); // anime, look=, customise, shatter=, impact=, fog=, puddles=, cine= (src/dev/graphicsLinks.ts)
   // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
   if (q.has('nointro')) settings.bossIntros = false;

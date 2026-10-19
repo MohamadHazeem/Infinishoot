@@ -16,6 +16,7 @@ function row(tab: SettingsTab, key: keyof Settings, label: string, desc: string,
   rows.push({ tab, key, label, desc, range, options, labels });
 }
 row('VIDEO', 'graphics', 'QUALITY', 'AUTO adjusts visual detail to keep the game running smoothly. POTATO is the lightest, for very old PCs.', [0, 4, 1], undefined, ['LOW', 'MEDIUM', 'HIGH', 'AUTO', 'POTATO']);
+row('VIDEO', 'dynamicShadows', 'DYNAMIC SHADOWS', 'Real sun shadows for heroes, bosses and large props. HIGH quality only.');
 row('VIDEO', 'retro', 'RETRO LOOK', 'Pixel-era colour depth, dithering and vertex wobble.', [0, 1, 0.1]);
 row('VIDEO', 'glow', 'GLOW', 'Brightness of the soft glow around lights and effects.', [0, 1, 0.1]);
 row('VIDEO', 'crt', 'CRT FILTER', 'Adds scanlines and darkens the screen edges.');

@@ -182,6 +182,7 @@ export class Interactives {
 
   constructor(scene: THREE.Scene) {
     this.crates = instanced(scene, new THREE.BoxGeometry(1.2, 1.2, 1.2), createRetroMaterial({ map: textures.crate(), instanceFlash: true }), MAX_CRATES, true);
+    this.crates.castShadow = true;
 
     // Pillar built with its base at the origin so it can tip over around it.
     const pillar = mergeGeometries([
@@ -192,6 +193,7 @@ export class Interactives {
       part(new THREE.BoxGeometry(1.5, 0.35, 1.5).translate(0, PILLAR_H - 0.17, 0), '#fff4c9'),
     ]);
     this.pillars = instanced(scene, pillar, createRetroMaterial({ vertexColors: true, instanceFlash: true }), 8, true);
+    this.pillars.castShadow = true;
 
     // Totem: three goofy stacked heads.
     const eye = (x: number, y: number, z: number) => part(new THREE.BoxGeometry(0.16, 0.16, 0.06).translate(x, y, z), '#1a1c2c');

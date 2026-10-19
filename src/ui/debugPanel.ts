@@ -1,3 +1,5 @@
+import { shadowTuning } from '../render/shadows';
+import { gfx3Tuning } from '../game/fx';
 import { gauntletTuning } from '../game/systems/gauntlet';
 import { addDirector2Debug } from '../game/systems/director2';
 import { mvpTuning } from '../game/systems/mvp';
@@ -135,6 +137,12 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addSoundFolder(gui); // Sound designer: samples, cues, live tuning, export
   addSkyFolder(gui);
   addGraphicsFolder(gui);
+  const gfx3 = gui.addFolder('Sun shadows & reward VFX').close();
+  gfx3.add(shadowTuning, 'strength', 0, 1, 0.01);
+  gfx3.add(shadowTuning, 'bias', 0, 0.005, 0.0001);
+  gfx3.add(shadowTuning, 'normalBias', 0, 0.1, 0.005);
+  gfx3.add(shadowTuning, 'hz', 10, 60, 1);
+  for (const key of ['beamStrength', 'beamLife', 'evolutionLife', 'beamHeight', 'evolutionHeight'] as const) gfx3.add(gfx3Tuning, key, 0.05, key.endsWith('Height') ? 10 : 2, 0.05);
   addBossLaneFolder(gui); // Titan, rematches, boss duel
   addBosses3Folder(gui); // biome bosses (src/ui/debugBosses3.ts)
 

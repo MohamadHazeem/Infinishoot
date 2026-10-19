@@ -1,5 +1,7 @@
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "gfx3.shadows": "DYNAMIC SHADOWS",
+  "gfx3.shadowsHelp": "Real sun shadows for heroes, bosses and large props. HIGH quality only.",
   "content.84fee1b908": "Crosswind Blades",
   "content.21f48f0714": "Paired crescent blades cross outward, then slice back along a curved return path.",
   "content.bceb0fd05d": "Tesla Coils",

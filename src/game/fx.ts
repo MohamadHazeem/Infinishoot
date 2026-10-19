@@ -2,6 +2,7 @@ import { dangerLayer, fadeFriendlyMaterial, noiseFor, type NoiseGovernor } from 
 import * as THREE from 'three';
 import { commit } from '../render/instancing';
 import { retroGlobals } from '../render/retroMaterial';
+import { renderQuality } from '../render/quality';
 
 /**
  * Comic impact effects drawn with additive blending:
@@ -11,6 +12,7 @@ import { retroGlobals } from '../render/retroMaterial';
  * which is invisible under additive blending.
  */
 const MAX = 160;
+export const gfx3Tuning = { beamStrength: 0.28, beamLife: 0.7, evolutionLife: 1.1, beamHeight: 4, evolutionHeight: 6 };
 
 interface FxPool {
   mesh: THREE.InstancedMesh;
@@ -60,10 +62,14 @@ function makePool(scene: THREE.Scene, geo: THREE.BufferGeometry, warning = false
   return { mesh, x: f(), y: f(), z: f(), t: f(), life: f(), size: f(), grow: f(), rot: f(), colors, count: 0 };
 }
 
+const sceneFx = new WeakMap<THREE.Scene, Fx>();
+export const fxFor = (scene: THREE.Scene): Fx | undefined => sceneFx.get(scene);
+
 export class Fx {
   private stars: FxPool;
   private rings: FxPool;
   private warnings: FxPool;
+  private beams: FxPool;
   private pools: FxPool[];
   private groundPools: FxPool[];
   private m4 = new THREE.Matrix4();
@@ -78,16 +84,18 @@ export class Fx {
 
   constructor(scene: THREE.Scene) {
     this.noise = noiseFor(scene);
+    sceneFx.set(scene, this);
+    this.beams = makePool(scene, new THREE.CylinderGeometry(0.2, 0.5, 1, 8, 1, true).translate(0, 0.5, 0));
     this.stars = makePool(scene, starGeometry(5, 0.42));
     this.rings = makePool(scene, new THREE.RingGeometry(0.42, 0.5, 24).rotateX(-Math.PI / 2));
     this.warnings = makePool(scene, new THREE.RingGeometry(0.42, 0.5, 24).rotateX(-Math.PI / 2), true);
-    this.pools = [this.stars, this.rings, this.warnings];
+    this.pools = [this.stars, this.rings, this.warnings, this.beams];
     this.groundPools = [this.rings, this.warnings];
   }
 
   private add(p: FxPool, x: number, y: number, z: number, size: number, life: number, color: THREE.ColorRepresentation, grow = 1) {
     // Shrinking rings are telegraph cues: never spend the friendly-impact budget.
-    if (p.count >= MAX || (grow >= 1 && !this.noise.take('impacts'))) return;
+    if (p.count >= MAX || (p !== this.warnings && !this.noise.take('impacts'))) return;
     const i = p.count++;
     p.x[i] = x;
     p.y[i] = y;
@@ -110,7 +118,16 @@ export class Fx {
     this.add(grow < 1 ? this.warnings : this.rings, x, 0.06, z, size, life, color, grow);
   }
 
+  /** A narrow rising reward column; lower quality keeps just the ground cue. */
+  flourish(x: number, z: number, color: THREE.ColorRepresentation, evolution = false): void {
+    this.ring(x, z, 0.7, evolution ? 6 : 3.5, color, evolution ? 0.8 : 0.55);
+    if (this.noise.calm || !renderQuality.worldEffects) return;
+    this.add(this.beams, x, 0.08, z, evolution ? 1.1 : 0.65, evolution ? gfx3Tuning.evolutionLife : gfx3Tuning.beamLife, color, evolution ? gfx3Tuning.evolutionHeight : gfx3Tuning.beamHeight);
+    if (evolution) for (let i = 0; i < 3; i++) this.add(this.rings, x, 0.5 + i * 0.75, z, 3.2 - i * 0.5, 0.65 + i * 0.12, color, 0.25);
+  }
+
   clear(): void {
+    this.beams.count = 0;
     this.stars.count = this.rings.count = this.warnings.count = 0;
   }
 
@@ -157,8 +174,17 @@ export class Fx {
         rg.mesh.setColorAt(i, this.c.copy(rg.colors[i]).multiplyScalar(1 - k));
       }
     }
+    const bm = this.beams;
+    for (let i = 0; i < bm.count; i++) {
+      const k = bm.t[i] / bm.life[i];
+      const pulse = (0.7 + 0.3 * Math.sin(Math.PI * k)) * (1 - k);
+      const sc = bm.size[i] * (0.7 + pulse * 0.3);
+      this.m4.makeScale(sc, bm.grow[i] * (0.6 + k * 0.4), sc).setPosition(bm.x[i], bm.y[i], bm.z[i]);
+      bm.mesh.setMatrixAt(i, this.m4);
+      bm.mesh.setColorAt(i, this.c.copy(bm.colors[i]).multiplyScalar(pulse * gfx3Tuning.beamStrength));
+    }
     for (const p of this.pools) {
-      p.mesh.count = p.count;
+      p.mesh.count = p === bm && (this.noise.calm || !renderQuality.worldEffects) ? 0 : p.count;
       commit(p.mesh.instanceMatrix, p.mesh.count);
       if (p.mesh.instanceColor) commit(p.mesh.instanceColor, p.mesh.count);
     }
@@ -393,4 +419,32 @@ export function spriteTextures(): NonNullable<typeof spriteArt> {
   });
   spriteArt = { puff, glint, ring, marks };
   return spriteArt;
+}
+
+export type MuzzleFamily = 'ballistic' | 'spread' | 'energy' | 'explosive' | 'arc';
+const MUZZLES = {
+  ballistic: { family: 'ballistic', color: '#ffcd75', width: 0.65, length: 1.1 },
+  spread: { family: 'spread', color: '#ffcd75', width: 1.25, length: 0.75 },
+  energy: { family: 'energy', color: '#73eff7', width: 0.45, length: 1.5 },
+  explosive: { family: 'explosive', color: '#ef7d57', width: 0.85, length: 0.8 },
+  arc: { family: 'arc', color: '#a7f070', width: 0.75, length: 1.05 },
+} as const;
+export function muzzleProfile(id: string, tags: readonly string[]): typeof MUZZLES[MuzzleFamily] {
+  if (id === 'scatter' || id === 'shotgun') return MUZZLES.spread;
+  if (tags.includes('explosive')) return MUZZLES.explosive;
+  if (tags.includes('shock') || tags.includes('chain')) return MUZZLES.arc;
+  if (id === 'laser' || id === 'rail' || id === 'charge' || id === 'plasma' || tags.includes('beam')) return MUZZLES.energy;
+  return MUZZLES.ballistic;
+}
+const muzzleGeometries = new Map<MuzzleFamily, THREE.BufferGeometry>();
+/** Shared geometry, built once per used family. Never dispose it per hero. */
+export function muzzleGeometry(family: MuzzleFamily): THREE.BufferGeometry {
+  let g = muzzleGeometries.get(family);
+  if (g) return g;
+  if (family === 'energy') g = new THREE.OctahedronGeometry(0.4).scale(0.75, 0.75, 1.4);
+  else if (family === 'arc') g = starGeometry(4, 0.2);
+  else if (family === 'spread') g = starGeometry(7, 0.3).scale(1.1, 0.7, 1);
+  else g = new THREE.ConeGeometry(0.32, 0.8, family === 'explosive' ? 5 : 4).rotateX(Math.PI / 2).translate(0, 0, 0.2);
+  muzzleGeometries.set(family, g);
+  return g;
 }

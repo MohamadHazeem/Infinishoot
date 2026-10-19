@@ -1,3 +1,4 @@
+import { RARITY } from '../../data/rarity';
 import { halloweenKill } from './halloween';
 import { gauntletKill } from './gauntlet';
 import { markSeen } from '../save';
@@ -664,8 +665,9 @@ export function openChest(this: Game, i: number, h: Hero): void {
   this.runEvents.onChest();
   h.player.happyT = 1.2;
   this.vfx.sound('chest', c.x, c.z);
-  this.vfx.ring(c.x, c.z, 1, 5, '#ffcd75', 0.35);
-  this.vfx.burst(c.x, 0.8, c.z, { count: 22, color: '#ffcd75', color2: item.color, speed: [3, 7], size: [0.12, 0.28], life: [0.4, 0.8], up: 7, gravity: 12 });
+  const rarityColor = RARITY[item.rarity ?? 'common'].color;
+  this.vfx.ring(c.x, c.z, 1, 5, rarityColor, 0.35);
+  this.vfx.burst(c.x, 0.8, c.z, { flourish: 'chest', count: 22, color: rarityColor, color2: item.color, speed: [3, 7], size: [0.12, 0.28], life: [0.4, 0.8], up: 7, gravity: 12 });
   this.vfx.num(c.x, 2.6, c.z, `${item.name} ${item.text}`, 'crit');
   if (h === this.hero) {
     this.hud.chestReveal(item);

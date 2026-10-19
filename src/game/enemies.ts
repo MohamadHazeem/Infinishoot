@@ -746,6 +746,7 @@ class EnemyBatch {
     geo.setAttribute('instanceFlash', this.flash);
     const mat = this.material = createRetroMaterial({ vertexColors: true, instanceFlash: true });
     this.mesh = new THREE.InstancedMesh(geo, mat, BATCH_CAP);
+    this.mesh.castShadow = !!(def.boss || def.miniboss || def.titanPart);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
