@@ -5,6 +5,7 @@ import { SPECIALS } from '../data/specials';
 import { cleanHeat, type HeatId } from '../data/heat';
 import { CODEX, META_REWARDS, META_KITS, rewardAvailable } from '../data/codex';
 import { WEAPONS } from '../data/weapons';
+import { cleanFriends, type FriendsData } from './lobby';
 
 /**
  * Persistent profile: achievements (weapon unlocks) and lifetime stats.
@@ -51,6 +52,8 @@ export interface SaveData {
   discovered: string[];
   /** The training field: offered once on a fresh save, and finished. */
   training: { offered: boolean; done: boolean };
+  /** EXTRAS > FRIENDS (lobby lane): own friend code, recent teammates, saved codes. */
+  friends: FriendsData;
   lifetime: {
     runs: number;
     kills: number;
@@ -66,7 +69,9 @@ const KEY = 'save';
 // v2 dropped Bolts and Workshop upgrades; older saves keep their achievements and stats.
 // v3 added the enemy guide (`seen`) and run history.
 // v4 adds opt-in heat, weekly records, lore and cosmetic-only Bolts (main), first-time tips (`tips`), the Arsenal (`discovered`) and the training field (`training`). Legacy upgrades stay removed.
-const VERSION = 5; // v5: seasonal candy and permanent cosmetic ownership.
+// v5: seasonal candy and permanent cosmetic ownership (halloween lane); `friends` (lobby lane: friend code, recent teammates, saved codes).
+// v6: both of the above merged (each normalises its own fields).
+const VERSION = 6;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
@@ -80,6 +85,7 @@ function fresh(): SaveData {
     tips: [],
     discovered: [],
     training: { offered: false, done: false },
+    friends: cleanFriends(null),
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
   };
 }
@@ -97,6 +103,7 @@ export function normalize(raw: unknown): SaveData {
   if (Array.isArray(r.tips)) d.tips = r.tips.filter((x): x is string => typeof x === 'string');
   if (Array.isArray(r.discovered)) d.discovered = r.discovered.filter((x): x is string => typeof x === 'string');
   if (r.training && typeof r.training === 'object') d.training = { offered: !!r.training.offered, done: !!r.training.done };
+  d.friends = cleanFriends(r.friends);
   if (Array.isArray(r.history)) d.history = r.history.filter((x) => x && typeof x === 'object' && Number.isFinite((x as RunRecord).score)).slice(0, 30);
   if (r.lifetime && typeof r.lifetime === 'object') {
     for (const k of Object.keys(d.lifetime) as (keyof SaveData['lifetime'])[]) {

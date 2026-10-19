@@ -31,13 +31,17 @@ export class NetHost {
   onMessage: Handler = () => {};
   onError: (msg: string) => void = () => {};
   ready: Promise<void>;
+  /** PeerJS error type of the last error ('unavailable-id' = the code is taken). */
+  errorType = '';
 
-  constructor(private max = 3) {
-    this.code = makeCode();
+  /** `code`: a fixed room code (the player's friend code, lobby lane); random if absent. */
+  constructor(private max = 3, code?: string) {
+    this.code = code ? normalizeCode(code) : makeCode();
     this.peer = new Peer(PREFIX + this.code, { debug: 0, config: iceConfig() });
     this.ready = new Promise((resolve, reject) => {
       this.peer.on('open', () => resolve());
       this.peer.on('error', (e) => {
+        this.errorType = (e as { type?: string }).type ?? '';
         this.onError(friendlyError(e));
         reject(e);
       });

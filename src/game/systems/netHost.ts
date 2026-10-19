@@ -37,6 +37,7 @@ export function heroByPeer(this: Game, id: string): Hero | undefined {
 }
 
 export function onHostMessage(this: Game, from: string, m: Record<string, unknown>): void {
+  if (this.lobbyHostMessage(from, m)) return; // lobby lane: ready, chat, pings, party votes, kicked players (systems/party.ts)
   if (m.t === 'pvpready' && this.pvp) {
     this.pvp.ready.set(from, m.build as HeroBuild);
     this.pvpCheckReady();

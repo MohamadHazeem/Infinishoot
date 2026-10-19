@@ -95,6 +95,7 @@ import * as CineSys from './systems/cinematics';
 import * as VersusSys from './systems/versus';
 import * as LocalCoopSys from './systems/localCoop';
 import * as MpSys from './systems/mp';
+import * as PartySys from './systems/party';
 import type { LobbyKind } from '../ui/screens';
 import { portraits } from '../ui/portraits';
 
@@ -655,6 +656,16 @@ export class Game implements HeroWorld {
   mpLobbyExtra = MpSys.mpLobbyExtra;
   mpClientMessage = MpSys.mpClientMessage;
   mpRunBanked = MpSys.mpRunBanked;
+  // Lobby lane: ready-up, chat, kick, pings, party after game over, friends (systems/party.ts).
+  lobbyReady = PartySys.lobbyReady;
+  lobbyChat = PartySys.lobbyChat;
+  lobbyKick = PartySys.lobbyKick;
+  lobbyHostMessage = PartySys.lobbyHostMessage;
+  lobbyClientMessage = PartySys.lobbyClientMessage;
+  lobbyLeft = PartySys.lobbyLeft;
+  partyVote = PartySys.partyVote;
+  partyForce = PartySys.partyForce;
+  partyTick = PartySys.partyTick;
   /** Versus Swarm match (null outside one) and shared-screen local co-op run (null outside one). */
   versus: VersusSys.VersusRun | null = null;
   localCoop: LocalCoopSys.LocalCoopRun | null = null;
@@ -914,6 +925,7 @@ export class Game implements HeroWorld {
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
     MpSys.installMp(this, hudRoot);
+    PartySys.installParty(this, hudRoot);
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     HalloweenSys.installHalloween.call(this, hudRoot);
     this.goTitle();
@@ -1217,6 +1229,7 @@ export class Game implements HeroWorld {
     this.coopInput();
     this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
     this.mpTick(dt); // MP lane: Versus command view, local co-op menu turns, lobby heartbeat (systems/mp.ts)
+    this.partyTick(dt); // lobby lane: pings, ready-up countdown, party votes (systems/party.ts)
     // Time holds (rewind playback, death replay) stop the world on this machine (systems/time.ts).
     if (this.timeStep(dt)) {
       this.input.endStep();

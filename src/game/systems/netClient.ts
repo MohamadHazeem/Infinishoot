@@ -32,6 +32,7 @@ import { applySoundLaneNet } from './sound2';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
+  if (this.lobbyClientMessage(m)) return; // lobby lane: cards, chat, pings, kick, party (systems/party.ts)
   if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)
   switch (m.t) {
     case 'lobby': {

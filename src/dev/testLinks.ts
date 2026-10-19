@@ -34,6 +34,7 @@ import { bossLinks } from './bossLinks';
 import { worldEventLinks } from './worldEventLinks';
 import { modesLinks } from './modesLinks';
 import { mpLinks } from './mpLinks';
+import { lobbyLinks } from './lobbyLinks';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import type { PhotoMode } from '../ui/photoMode';
@@ -245,6 +246,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   modesLinks(game, q); // rhythm, pacifist, pact=, minigame=, mgt=, ghost=demo, ghostlead=, modescreen=ghosts (src/dev/modesLinks.ts)
   cinematicsLinks(game, q); // skyfall=, ending=, reveal=, jackpot=, flawless=, titleplay=, cine= (src/dev/cinematicsLinks.ts)
   mpLinks(game, q); // MP lane: versus, localcoop, browse, teamboard, lobby= (src/dev/mpLinks.ts)
+  lobbyLinks(game, q); // lobby lane: lobbyx, lobbyx=count, party, friends (src/dev/lobbyLinks.ts)
   sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
