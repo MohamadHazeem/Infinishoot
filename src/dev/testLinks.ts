@@ -1,4 +1,5 @@
 import { trialsTest } from '../game/systems/trials';
+import { pets2Links } from './pets2Links';
 import { biome3Force } from '../game/biome3Brain';
 import { clipsFor, markClip } from '../game/systems/clips';
 import { secretsLinks } from '../game/systems/secrets';
@@ -426,6 +427,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('monkey')) fuzzMonkey(game, Number(q.get('monkey')) || 1); // crash fuzzer: random keys, clicks, pauses on top of the bot
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
+  pets2Links(game, q); // petpose, petwardrobe: quiet model / picker QA
   return true;
 }
 

@@ -1,3 +1,4 @@
+import { pet2Sound } from '../audio/pets2';
 import { sfx } from '../audio/sfx';
 import { threatAt } from '../audio/captions';
 import { threatOf } from '../audio/threats';
@@ -175,6 +176,11 @@ export class Vfx {
   }
 
   private playSound(name: string, x: number, z: number, pitch: number): void {
+    if (name.startsWith('pet2:')) {
+      const mapped = pet2Sound(name.slice(5));
+      if (!mapped) return;
+      name = mapped;
+    }
     const d = this.near(x, z);
     if (d > HEAR_RANGE) return;
     // Pan by the sideways offset from the listener and fade with distance.

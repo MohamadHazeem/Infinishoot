@@ -15,6 +15,7 @@ const CSS = `
 #ingame > #xpbar, #ingame > #hp, #ingame > #runinfo, #ingame > #timer, #ingame > #goals,
 #ingame > #pausebtn, #ingame > #bossbar, #ingame > #toast, #ingame > #chestreveal,
 #ingame > #score, #ingame > #combo, #ingame > #loadout, #ingame > #mods, #ingame > #minimap,
+#ingame > #petpanel, #ingame > #teammeter,
 #ingame > #downed, #ingame > #meters, #ingame > #banner, #ingame > #stylemeter,
 #ha-candy, #hud > #navhint, #ob-tip, #ob-train, #caps, #ingame > #gp-power, #ingame > #gp-cash, #ingame > #gp-comeback,
 .screen:not(.hud-pick-layer):not(#scr-settings) > * {

@@ -1,3 +1,4 @@
+import { PETS2_CSS } from './pets2Hud';
 import { localizeHtml } from '../i18n';
 import { PET_SKILL_INFO, petSkillAt, type PetDef, type PetSkillId } from '../data/pets';
 
@@ -8,7 +9,8 @@ import { PET_SKILL_INFO, petSkillAt, type PetDef, type PetSkillId } from '../dat
  * DOM in the pixel UI style; styles are injected once so the lane needs no
  * edits to style.css. Only touches the DOM when what it shows changes.
  */
-const CSS = `
+const CSS = `${PETS2_CSS}
+
 #petpanel, #teammeter {
   position: absolute;
   --bg: var(--night);
@@ -91,7 +93,7 @@ export interface TeamHudState {
   key: string;
 }
 
-const SKILLS: PetSkillId[] = ['fetch', 'zap', 'taunt', 'shield', 'revive'];
+const SKILLS = Object.keys(PET_SKILL_INFO) as PetSkillId[];
 const SEGS = 12;
 
 export class CompanionHud {

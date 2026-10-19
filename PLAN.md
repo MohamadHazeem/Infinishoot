@@ -390,3 +390,5 @@ RAID adds the Hydra Engine drydock for 1–8 heroes, with autonomous role helper
   - `botRun` turned god mode off for the live loop
 
   After the fixes: 0 errors in 1000 jsdom + 300 browser runs, and memory is flat after loop 1 (heap ~27-28.6 MB from stage 9 on, listeners flat).
+
+- 2026-10-20: pets2 adds six achievement-gated companions with five-stage skill trees: Robo-Pup, Owl-Bot, Slime Buddy, Dragon Hatchling, Cat Drone and Mini Mech. New roles cover scouting/night vision, one-bullet absorption (7/4 s), two temporary helpers, fire with level-5 wings, capped theft (18 gold/stage) plus 5% crit/rank, and one 7 s turret plus co-op bomb carrying. Reuses wardrobe, growth, hats and HUD; English/Arabic copy; host-only simulation and additive `cp.p2` presentation snapshots. See notes/lanes/pets2.md for tuning, verification and integration details.

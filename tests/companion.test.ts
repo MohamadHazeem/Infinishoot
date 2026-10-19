@@ -15,7 +15,7 @@ import { TeamMeter, TEAM_MOVES, teamTuning, linkedCount, segDist2, teamScale, mo
 for (const p of PETS) {
   if (p.id === 'none') continue;
   ok(p.tree.length === PET_MAX_LEVEL, `${p.id}: a skill for every level`);
-  ok(p.tree.includes('revive'), `${p.id}: learns a revive`);
+  if (['bit', 'guardian', 'sparky'].includes(p.id)) ok(p.tree.includes('revive'), `${p.id}: keeps its legacy revive`);
 }
 ok(PET_BY_ID.guardian.tree[0] === 'revive', 'Guardian still revives from level 1');
 ok(PET_BY_ID.bit.tree[0] === 'fetch' && PET_BY_ID.sparky.tree[0] === 'zap', 'Bit fetches and Sparky zaps from level 1');

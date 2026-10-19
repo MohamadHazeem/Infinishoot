@@ -1,3 +1,4 @@
+import { reduceMotion } from '../../ui/hud';
 import { eventBehavior } from '../../data/stageEvents';
 import { renderSecrets } from './secrets';
 import { encounterTrack, updateAudio3 } from './audio3';
@@ -215,9 +216,10 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   for (const h of this.heroes) {
     if (h.left) {
       h.player.rig.root.visible = false;
+      h.petView?.render(0, 0, 0, 0, false);
       continue;
     }
-    h.petView?.render(rdt, h.player.rig.root.position.x, h.player.rig.root.position.z, h.player.rig.root.rotation.y, !h.player.dead && this.mode !== 'transition');
+    h.petView?.render(rdt, h.player.rig.root.position.x, h.player.rig.root.position.z, h.player.rig.root.rotation.y, !h.player.dead && this.mode !== 'transition', reduceMotion());
     h.player.cheer = this.mode === 'cleared';
     h.player.focus = h === local && h.ctx.charging;
     h.player.render(h === local || !client ? a : netA, rdt);
