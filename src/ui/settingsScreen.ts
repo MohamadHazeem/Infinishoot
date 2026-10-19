@@ -3,6 +3,7 @@ import { settings, SETTINGS_DEFAULTS, saveSettings, type Settings } from '../gam
 import { MenuNav } from './menu';
 import type { Screens } from './screens';
 import { promptHtml, promptState } from './prompts';
+import { localize, relocalizeDom, getLanguage } from '../i18n';
 
 export const SETTINGS_TABS = ['VIDEO', 'AUDIO', 'CONTROLS', 'GAMEPLAY', 'ACCESSIBILITY', 'CO-OP'] as const;
 export type SettingsTab = typeof SETTINGS_TABS[number];
@@ -45,6 +46,7 @@ row('CONTROLS', 'rewindMode', 'REWIND MODE', 'HOLD: hold for 0.35 seconds to con
 row('CONTROLS', 'teamMoveMode', 'TEAM MOVE MODE', 'HOLD: hold for 0.35 seconds to confirm. TOGGLE: one press activates the team move or buys a revive.', undefined, ['hold', 'toggle']);
 row('CONTROLS', 'aimAssist', 'AIM ASSIST', 'Gamepad and touch: gently turns aim toward the nearest visible enemy within 12 metres and 25 degrees.');
 row('CONTROLS', 'mouseAimAssist', 'MOUSE AIM ASSIST', 'Optional soft aim correction for mouse. Off by default; independent of gamepad and touch.');
+row('GAMEPLAY', 'language', 'LANGUAGE', 'English or Arabic (العربية). Arabic switches menus to right-to-left.', undefined, ['en', 'ar']);
 row('GAMEPLAY', 'autoFire', 'AUTO-FIRE', 'Automatically fires the primary weapon with keyboard and mouse.');
 row('GAMEPLAY', 'tips', 'FIRST-TIME TIPS', 'Shows help when you encounter a mechanic for the first time.');
 row('GAMEPLAY', 'damageNumbers', 'DAMAGE NUMBERS', 'AUTO: thins out in crowded fights. ALL: every hit. MINE: your hits only. OFF: hides hit numbers; important labels remain.', undefined, ['auto', 'all', 'mine', 'off']);
@@ -125,8 +127,10 @@ export class SettingsScreen {
       const r = SETTINGS_ROWS.find((x) => x.key === b.dataset.setting)!;
       if (r.key === 'tips') e.stopPropagation(); // The legacy onboarding delegate shares this action name.
       const values = settings as unknown as Record<string, unknown>;
+      const before = getLanguage();
       values[r.key] = r.options ? r.options[(r.options.indexOf(String(values[r.key])) + 1) % r.options.length] : !values[r.key];
       saveSettings(); this.sync();
+      if (r.key === 'language') relocalizeDom(this.el, before); // re-translate the open screen right away
     });
     this.el.addEventListener('input', (e) => {
       const inp = e.target as HTMLInputElement;
@@ -163,7 +167,8 @@ export class SettingsScreen {
     this.el.querySelectorAll<HTMLElement>('[data-setting]').forEach((el) => {
       const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting)!;
       const v = settings[r.key];
-      const value = r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' ? '%' : ''}` : String(v).toUpperCase();
+      const raw = r.key === 'language' ? (v === 'ar' ? 'العربية' : 'ENGLISH') : r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' ? '%' : ''}` : String(v).toUpperCase();
+      const value = localize(raw);
       this.el.querySelector(`[data-value="${r.key}"]`)!.textContent = value;
       el.setAttribute('aria-label', `${r.label}: ${value}`);
       if (el instanceof HTMLInputElement) { el.value = String(v); el.setAttribute('aria-valuetext', value); }

@@ -1,4 +1,5 @@
 import { SettingsScreen } from './settingsScreen';
+import { localize, t, localizeHtml, relocalizeDom } from '../i18n';
 import { META_SCREENS, metaScreenHtml, renderMeta, metaAction, applyMetaTheme, type MetaScreen } from './metaScreens';
 import { weeklyChallenge } from '../data/weekly';
 import type { Input } from '../core/input';
@@ -210,7 +211,7 @@ function partnerStrip(o: NonNullable<Offer['partner']>): string {
 /** Warning strip on cards that swap out an owned weapon. "Plasma Orb LV 3" reads "REPLACES PLASMA ORB (LV 3)". */
 function replaceStrip(what: string): string {
   const name = what.replace(/\s+(LV\s*\d+)$/i, ' ($1)').toUpperCase();
-  return `<div class="replaces"><i>!</i><span>REPLACES ${name}<b>OLD WEAPON AND ITS UPGRADES ARE REMOVED</b></span></div>`;
+  return `<div class="replaces"><i>!</i><span>REPLACES ${name}<b>${t("text.old_weapon_and_its_upgrades_are_removed_0d5617")}</b></span></div>`;
 }
 
 /** Hover card: name, rarity and what it does. */
@@ -290,42 +291,42 @@ export class Screens {
     ensureShopCss();
     root.insertAdjacentHTML(
       'beforeend',
-      `
+      localizeHtml(`
 <div id="scr-title" class="screen" hidden>
   <div class="logo">${logoWord('INFINI', 0)}${logoWord('SHOOT', 6)}</div>
-  <div class="tagline">TWIN-STICK ARCADE ROGUELIKE</div>
+  <div class="tagline">${t("text.twin_stick_arcade_roguelike_40bd5d")}</div>
   <div class="menu">
-    <button data-nav data-act="modes">PLAY SOLO</button>
-    <button data-nav data-act="online">PLAY ONLINE</button>
-    <button data-nav data-act="unlocks">UNLOCKS</button>
-    <button data-nav data-act="extras">EXTRAS</button>
-    <button data-nav data-act="settings">SETTINGS</button>
+    <button data-nav data-act="modes">${t("text.play_solo_de1316")}</button>
+    <button data-nav data-act="online">${t("text.play_online_e3b77f")}</button>
+    <button data-nav data-act="unlocks">${t("text.unlocks_88da64")}</button>
+    <button data-nav data-act="extras">${t("text.extras_60d4e6")}</button>
+    <button data-nav data-act="settings">${t("text.settings_ed6f7a")}</button>
   </div>
   <div class="wallet"></div>
   <div class="hiscores"></div>
   <div class="hiscores global" hidden></div>
   <div class="controls" data-prompt="controls">${promptHtml('controls')}</div>
-  <div class="credits">Icons: game-icons.net by Lorc, Delapouite &amp; contributors (CC BY 3.0) &middot; Fonts: Jersey, Silkscreen (OFL) &middot; Palette: Sweetie 16 by GrafxKid</div>
+  <div class="credits">${t("text.icons_game_icons_net_by_lorc_delapouite_amp_cont_801479")}</div>
   <div class="version">v${__APP_VERSION__}</div>
 </div>
 <div id="scr-pause" class="screen dim" hidden>
-  <h1>PAUSED</h1>
+  <h1>${t("text.paused_99b243")}</h1>
   <div class="menu">
-    <button data-nav data-act="resume">RESUME</button>
-    <button data-nav data-act="photo">PHOTO MODE</button>
-    <button data-nav data-act="settings">SETTINGS</button>
-    <button data-nav data-act="quit">QUIT RUN</button>
+    <button data-nav data-act="resume">${t("text.resume_bac2ae")}</button>
+    <button data-nav data-act="photo">${t("text.photo_mode_799b28")}</button>
+    <button data-nav data-act="settings">${t("text.settings_ed6f7a")}</button>
+    <button data-nav data-act="quit">${t("text.quit_run_e6abc8")}</button>
   </div>
   <div class="build"></div>
 </div>
 <div id="scr-controls" class="screen dim" hidden>
-  <h1>CONTROLS</h1>
-  <p class="note">Click a key slot, then press the new key (Esc cancels). Mouse: left fire, right charge, middle bomb. Gamepad layout is fixed:</p>
+  <h1>${t("text.controls_e56516")}</h1>
+  <p class="note">${t("text.click_a_key_slot_then_press_the_new_key_esc_canc_7f55da")}</p>
   <div class="pad-legend" data-prompt="padlegend"></div>
   <div class="bind-list"></div>
   <div class="menu row">
-    <button data-nav data-act="binds-reset">RESET DEFAULTS</button>
-    <button data-nav data-act="binds-back">BACK</button>
+    <button data-nav data-act="binds-reset">${t("text.reset_defaults_cb53b2")}</button>
+    <button data-nav data-act="binds-back">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-levelup" class="screen dim" hidden>
@@ -336,58 +337,58 @@ export class Screens {
   <div class="build"></div>
 </div>
 <div id="scr-online" class="screen dim" hidden>
-  <h1>PLAY ONLINE</h1>
-  <p class="note">Co-op for up to 4 players. One player hosts and shares a code; friends join with it.</p>
-  <label class="field">YOUR NAME <input id="mp-name" type="text" maxlength="12" spellcheck="false" autocomplete="off"></label>
+  <h1>${t("text.play_online_e3b77f")}</h1>
+  <p class="note">${t("text.co_op_for_up_to_4_players_one_player_hosts_and_s_f0eb31")}</p>
+  <label class="field">${t("text.your_name_7801bf")} <input id="mp-name" type="text" maxlength="12" spellcheck="false" autocomplete="off"></label>
   <div class="menu row mp-choice">
-    <button data-nav data-act="mp-host">HOST GAME</button>
+    <button data-nav data-act="mp-host">${t("text.host_game_ee1e1b")}</button>
   </div>
   <div class="join-row">
     <input id="mp-code" type="text" maxlength="5" placeholder="CODE" spellcheck="false" autocomplete="off">
-    <button data-nav data-act="mp-join">JOIN</button>
+    <button data-nav data-act="mp-join">${t("text.join_a6fa1c")}</button>
   </div>
   <div class="lobby" hidden>
-    <div class="code-label">GAME CODE</div>
-    <div class="code-big"></div>
+    <div class="code-label">${t("text.game_code_63f201")}</div>
+    <div class="code-big" translate="no" dir="ltr"></div>
     <div class="players"></div>
-    <div class="section">GAME</div>
+    <div class="section">${t("text.game_4504e1")}</div>
     <div class="menu row diff-row mp-kind-row"></div>
     <div class="note mp-kind-note"></div>
-    <div class="section">DIFFICULTY</div>
+    <div class="section">${t("text.difficulty_5753f4")}</div>
     <div class="menu row diff-row mp-diff-row"></div>
     <div class="note mp-diff-note"></div>
   </div>
   <div class="msg mp-status"></div>
   <div class="menu row">
-    <button data-nav data-act="lo-online">LOADOUT</button>
-    <button data-nav data-act="heat" class="mp-heat" hidden>HOST HEAT</button>
-    <button data-nav data-act="mp-start" hidden>START GAME</button>
-    <button data-nav data-act="mp-leave">BACK</button>
+    <button data-nav data-act="lo-online">${t("text.loadout_dad6c1")}</button>
+    <button data-nav data-act="heat" class="mp-heat" hidden>${t("text.host_heat_eba834")}</button>
+    <button data-nav data-act="mp-start" hidden>${t("text.start_game_d7700f")}</button>
+    <button data-nav data-act="mp-leave">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-loadout" class="screen dim" hidden>
-  <h1>LOADOUT</h1>
-  <p class="note">Pick your left click, right click and special. You keep them all run; level-ups upgrade them.</p>
+  <h1>${t("text.loadout_dad6c1")}</h1>
+  <p class="note">${t("text.pick_your_left_click_right_click_and_special_you_2606ce")}</p>
   <div class="lo-rows"></div>
   <div class="menu row">
     <button data-nav data-act="lo-start" class="continue">START &#9654;</button>
-    <button data-nav data-act="lo-back">BACK</button>
+    <button data-nav data-act="lo-back">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-relic" class="screen dim" hidden>
-  <h1>PICK A RELIC</h1>
-  <p class="note">The secret merchant gives you one for free. Relics are always on and don't use a Mod slot.</p>
+  <h1>${t("text.pick_a_relic_754306")}</h1>
+  <p class="note">${t("text.the_secret_merchant_gives_you_one_for_free_relic_1cdf8d")}</p>
   <div class="relic-offers"></div>
   <div class="section relic-owned-title"></div>
   <div class="relic-owned mod-strip"></div>
 </div>
 <div id="scr-wait" class="screen dim" hidden>
-  <h1>WAITING</h1>
-  <p class="note">Your teammates are still choosing:</p>
+  <h1>${t("text.waiting_1869d5")}</h1>
+  <p class="note">${t("text.your_teammates_are_still_choosing_c955ce")}</p>
   <div class="who"></div>
 </div>
 <div id="scr-shop" class="screen dim" hidden>
-  <h1>SHOP</h1>
+  <h1>${t("text.shop_7e0e61")}</h1>
   <div class="shop-top"></div>
   <div class="shop-offers"></div>
   <div class="menu row shop-extras"></div>
@@ -397,91 +398,91 @@ export class Screens {
   <div class="shop-relics"></div>
 </div>
 <div id="scr-unlocks" class="screen dim" hidden>
-  <h1>UNLOCKS</h1>
-  <p class="note">Achievements carry over between runs. Some add new weapons to your level-up cards.</p>
+  <h1>${t("text.unlocks_88da64")}</h1>
+  <p class="note">${t("text.achievements_carry_over_between_runs_some_add_ne_1611a2")}</p>
   <div class="scroll">
     <div class="ach-list"></div>
   </div>
   <div class="menu row">
-    <button data-nav data-act="savedata">SAVE DATA</button>
-    <button data-nav data-act="ul-back">BACK</button>
+    <button data-nav data-act="savedata">${t("text.save_data_ac3268")}</button>
+    <button data-nav data-act="ul-back">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-savedata" class="screen dim" hidden>
-  <h1>SAVE DATA</h1>
-  <p class="note">Your progress saves by itself. To back it up or move it to another PC, save it to a file, then load that file on the other PC.</p>
+  <h1>${t("text.save_data_ac3268")}</h1>
+  <p class="note">${t("text.your_progress_saves_by_itself_to_back_it_up_or_m_dbc518")}</p>
   <input id="save-file" type="file" accept=".json,.txt,application/json" hidden />
   <div class="msg"></div>
   <div class="menu row wrap">
-    <button data-nav data-act="export">SAVE TO FILE</button>
-    <button data-nav data-act="import">LOAD FROM FILE</button>
-    <button data-nav data-act="wipe">RESET SAVE</button>
-    <button data-nav data-act="sd-back">BACK</button>
+    <button data-nav data-act="export">${t("text.save_to_file_12f46f")}</button>
+    <button data-nav data-act="import">${t("text.load_from_file_56e00a")}</button>
+    <button data-nav data-act="wipe">${t("text.reset_save_0c87fa")}</button>
+    <button data-nav data-act="sd-back">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-modes" class="screen dim" hidden>
-  <h1>PLAY SOLO</h1>
-  <div class="section">HERO</div>
+  <h1>${t("text.play_solo_de1316")}</h1>
+  <div class="section">${t("text.hero_94d8cb")}</div>
   <div class="menu row hero-row"></div>
   <div class="note hero-note"></div>
-  <div class="section">MODE</div>
+  <div class="section">${t("text.mode_b742db")}</div>
   <div class="mode-grid"></div>
-  <div class="section">DIFFICULTY</div>
+  <div class="section">${t("text.difficulty_5753f4")}</div>
   <div class="menu row diff-row"></div>
   <div class="note mode-note"></div>
   <div class="menu row">
-    <button data-nav data-act="heat">HEAT</button>
-    <button data-nav data-act="weekly">WEEKLY RULES</button>
+    <button data-nav data-act="heat">${t("text.heat_0e188d")}</button>
+    <button data-nav data-act="weekly">${t("text.weekly_rules_9b0001")}</button>
     <button data-nav data-act="play" class="continue">NEXT: LOADOUT &#9654;</button>
-    <button data-nav data-act="md-back">BACK</button>
+    <button data-nav data-act="md-back">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-extras" class="screen dim" hidden>
-  <h1>EXTRAS</h1>
+  <h1>${t("text.extras_60d4e6")}</h1>
   <div class="menu">
-    <button data-nav data-act="wardrobe">WARDROBE</button>
-    <button data-nav data-act="rewards">SOUVENIRS</button>
-    <button data-nav data-act="history">RUN HISTORY</button>
-    <button data-nav data-act="bestiary">ENEMY GUIDE</button>
-    <button data-nav data-act="jukebox">JUKEBOX</button>
-    <button data-nav data-act="ex-back">BACK</button>
+    <button data-nav data-act="wardrobe">${t("text.wardrobe_b81c76")}</button>
+    <button data-nav data-act="rewards">${t("text.souvenirs_fd09f5")}</button>
+    <button data-nav data-act="history">${t("text.run_history_f7cf1b")}</button>
+    <button data-nav data-act="bestiary">${t("text.enemy_guide_089bd7")}</button>
+    <button data-nav data-act="jukebox">${t("text.jukebox_fe41c7")}</button>
+    <button data-nav data-act="ex-back">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-history" class="screen dim" hidden>
-  <h1>RUN HISTORY</h1>
+  <h1>${t("text.run_history_f7cf1b")}</h1>
   <div class="scroll"><table class="history"></table></div>
-  <div class="menu row"><button data-nav data-act="ex-sub-back">BACK</button></div>
+  <div class="menu row"><button data-nav data-act="ex-sub-back">${t("text.back_1dd26f")}</button></div>
 </div>
 <div id="scr-bestiary" class="screen dim" hidden>
-  <h1>ENEMY GUIDE</h1>
-  <div class="menu row"><button data-nav data-act="codex">CODEX & LORE</button></div>
+  <h1>${t("text.enemy_guide_089bd7")}</h1>
+  <div class="menu row"><button data-nav data-act="codex">${t("text.codex_lore_bef466")}</button></div>
   <p class="note bst-count"></p>
   <div class="scroll"><div class="bestiary"></div></div>
-  <div class="menu row"><button data-nav data-act="ex-sub-back">BACK</button></div>
+  <div class="menu row"><button data-nav data-act="ex-sub-back">${t("text.back_1dd26f")}</button></div>
 </div>
 <div id="scr-jukebox" class="screen dim" hidden>
-  <h1>JUKEBOX</h1>
-  <p class="note">Every tune is composed on the fly. Reach new areas to unlock their themes.</p>
+  <h1>${t("text.jukebox_fe41c7")}</h1>
+  <p class="note">${t("text.every_tune_is_composed_on_the_fly_reach_new_area_e6de71")}</p>
   <div class="now-playing"></div>
   <div class="menu tracks"></div>
   <div class="menu row">
-    <button data-nav data-act="jb-stop">STOP</button>
-    <button data-nav data-act="jb-back">BACK</button>
+    <button data-nav data-act="jb-stop">${t("text.stop_615a46")}</button>
+    <button data-nav data-act="jb-back">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-wardrobe" class="screen" hidden>
-  <h1>WARDROBE</h1>
-  <p class="note">Skins unlock with achievements. In co-op your armour keeps your player colour.</p>
+  <h1>${t("text.wardrobe_b81c76")}</h1>
+  <p class="note">${t("text.skins_unlock_with_achievements_in_co_op_your_arm_c1a857")}</p>
   <div class="skin-grid"></div>
-  <div class="section">PETS</div>
+  <div class="section">${t("text.pets_22e23a")}</div>
   <div class="skin-grid pet-grid"></div>
   <div class="menu row">
-    <button data-nav data-act="wd-back">BACK</button>
+    <button data-nav data-act="wd-back">${t("text.back_1dd26f")}</button>
   </div>
 </div>
 <div id="scr-gameover" class="screen dim" hidden>
   <h1 class="ko">K.O.!</h1>
-  <div class="newbest" hidden>NEW HIGH SCORE!</div>
+  <div class="newbest" hidden>${t("text.new_high_score_3f07c6")}</div>
   <div class="go-cols">
     <div class="summary"></div>
     <div class="dmg-table"></div>
@@ -489,15 +490,15 @@ export class Screens {
   <div class="build"></div>
   <div class="unlocked"></div>
   <div class="menu row">
-    <button data-nav data-act="retry">RETRY</button>
-    <button data-nav data-act="title">TITLE</button>
+    <button data-nav data-act="retry">${t("text.retry_c0cc02")}</button>
+    <button data-nav data-act="title">${t("text.title_6f9dcc")}</button>
   </div>
   <div class="hiscores"></div>
   <div class="hiscores global" hidden></div>
 </div>
-<div id="scr-route" class="screen dim" hidden></div>`,
+<div id="scr-route" class="screen dim" hidden></div>`),
     );
-    root.insertAdjacentHTML('beforeend', metaScreenHtml);
+    root.insertAdjacentHTML('beforeend', localizeHtml(metaScreenHtml));
     applyMetaTheme();
     const names: Named[] = ['title', 'pause', 'levelup', 'shop', 'unlocks', 'savedata', 'gameover', 'online', 'wait', 'loadout', 'extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'relic', ...META_SCREENS, 'route'];
     for (const n of names) this.els[n] = root.querySelector<HTMLElement>(`#scr-${n}`)!;
@@ -665,7 +666,7 @@ export class Screens {
           return this.renderControls();
         case 'bind': {
           this.capture = { a: btn.dataset.action as Action, slot: Number(btn.dataset.slot) as 0 | 1 };
-          btn.textContent = 'PRESS A KEY';
+          btn.textContent = localize('PRESS A KEY');
           btn.classList.add('wait');
           return;
         }
@@ -772,7 +773,7 @@ export class Screens {
     if (name === 'savedata') {
       this.wipeArmed = false;
       this.msg('');
-      this.els.savedata.querySelector<HTMLElement>('[data-act=wipe]')!.textContent = 'RESET SAVE';
+      this.els.savedata.querySelector<HTMLElement>('[data-act=wipe]')!.textContent = localize('RESET SAVE');
     }
     if (name !== 'none') {
       const el = this.extra[name as ExtraScreen]?.el ?? this.els[name as Named];
@@ -780,6 +781,7 @@ export class Screens {
       el.setAttribute('aria-label', el.querySelector('h1')?.textContent?.trim() || name);
     }
     this.onShow?.(name);
+    if (name !== 'none') relocalizeDom(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named], 'en');
     if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'settings' ? this.settingsScreen.selectedTab : name === 'levelup' ? 1 : 0));
   }
 
@@ -812,7 +814,7 @@ export class Screens {
   showLoadout(forWhat: 'solo' | 'online'): void {
     this.loadoutFor = forWhat;
     const el = this.els.loadout;
-    el.querySelector<HTMLElement>('[data-act=lo-start]')!.innerHTML = forWhat === 'solo' ? 'START &#9654;' : 'DONE';
+    el.querySelector<HTMLElement>('[data-act=lo-start]')!.innerHTML = localizeHtml(forWhat === 'solo' ? 'START &#9654;' : 'DONE');
     el.querySelector<HTMLElement>('[data-act=lo-back]')!.hidden = forWhat === 'online';
     this.renderLoadout();
     this.show('loadout');
@@ -847,7 +849,7 @@ export class Screens {
       ['secondary', 'RIGHT CLICK'],
       ['special', 'SPECIAL (Q/E)'],
     ];
-    this.els.loadout.querySelector('.lo-rows')!.innerHTML = rows
+    this.els.loadout.querySelector('.lo-rows')!.innerHTML = localizeHtml(rows
       .map(([slot, label]) => {
         const cards = loadoutOptions(slot)
           .map((id) => {
@@ -865,13 +867,13 @@ export class Screens {
             return `<button class="lo-card ${on ? 'on' : ''}" data-nav data-act="lo-pick" data-slot="${slot}" data-id="${id}" style="--c:${d.color}">
               <div class="icon">${iconHtml(icon, d.color, d.icon)}</div>
               <div class="name">${d.name}</div>
-              <div class="desc">${d.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')}</div>
+              <div class="desc">${localize(d.desc).replace(/^(LEFT|RIGHT) CLICK: |^الزر (الأيسر|الأيمن): /, '')}</div>
             </button>`;
           })
           .join('');
         return `<div class="lo-row"><div class="lo-label">${label}</div><div class="lo-cards">${cards}</div></div>`;
       })
-      .join('');
+      .join(''));
   }
 
   // ---------------------------------------------------------------- online
@@ -897,42 +899,43 @@ export class Screens {
     el.querySelector<HTMLElement>('.field')!.hidden = inLobby;
     showRelayField(el, !inLobby);
     el.querySelector('.code-big')!.textContent = v.code;
-    el.querySelector('.players')!.innerHTML = v.players
-      .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span>${p.name}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
-      .join('');
+    el.querySelector('.players')!.innerHTML = localizeHtml(v.players
+      .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span><bdi>${p.name}</bdi>${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
+      .join(''));
     el.querySelector<HTMLElement>('.mp-heat')!.hidden = !(v.isHost && v.code && (v.kind ?? 'coop') === 'coop');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
     // Difficulty: the host picks it; everyone else sees the choice.
     const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFFICULTIES[1];
-    el.querySelector('.mp-diff-row')!.innerHTML = DIFFICULTIES.map((d) => {
+    el.querySelector('.mp-diff-row')!.innerHTML = localizeHtml(DIFFICULTIES.map((d) => {
       const open = !d.unlock || save.achievements.includes(d.unlock);
       const lock = v.isHost && !open;
       return `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-diff" data-diff="${d.id}" class="diff ${d.id === pick.id ? 'on' : ''} ${lock ? 'locked' : ''}" ${v.isHost ? '' : 'disabled'}>${lock ? '🔒 ' : ''}${d.name.toUpperCase()}</button>`;
-    }).join('');
-    el.querySelector('.mp-diff-note')!.textContent = `${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`;
+    }).join(''));
+    el.querySelector('.mp-diff-note')!.textContent = localize(`${pick.desc}${v.isHost ? '' : ' The host picks the difficulty.'}`);
     // Game type: co-op, or PvP (everyone plays the same stage alone, then a last-one-standing duel).
     const kind = v.kind ?? 'coop';
     const kindName = { coop: 'CO-OP', pvp: 'PVP', versus: 'VERSUS', weekly: 'WEEKLY' };
-    el.querySelector('.mp-kind-row')!.innerHTML = (['coop', 'pvp', 'versus', 'weekly'] as const)
+    el.querySelector('.mp-kind-row')!.innerHTML = localizeHtml((['coop', 'pvp', 'versus', 'weekly'] as const)
       .map((k) => `<button ${v.isHost ? 'data-nav' : ''} data-act="mp-kind" data-kind="${k}" class="diff ${k === kind ? 'on' : ''}" ${v.isHost ? '' : 'disabled'}>${kindName[k]}</button>`)
-      .join('');
+      .join(''));
     el.querySelector('.mp-kind-note')!.textContent =
-      kind === 'pvp'
+      localize(kind === 'pvp'
         ? 'Everyone plays the same stage alone and builds up, then all of you fight in one arena. Last one standing wins.'
         : kind === 'versus'
           ? 'Versus Swarm: one player is the Overlord and sends the waves from above; the rest survive the timer and beat the boss.'
           : kind === 'weekly'
             ? "Weekly co-op: this week's seed and rules for every team, a Rookie kit each, and a team board."
-            : 'Play the run together. Team XP, your own gold, shop and Mods.';
-    el.querySelector('.mp-status')!.textContent = v.status;
+            : 'Play the run together. Team XP, your own gold, shop and Mods.');
+    el.querySelector('.mp-status')!.textContent = localize(v.status);
     this.onLobby?.(el, v);
+    relocalizeDom(el, 'en');
     if (this.current !== 'online') this.show('online');
     else this.navs.online.refresh(this.navs.online.focus);
   }
 
   showWait(who: string[], note = 'Your teammates are still choosing:'): void {
-    this.els.wait.querySelector('.note')!.textContent = note;
-    this.els.wait.querySelector('.who')!.innerHTML = who.map((n) => `<div class="lobby-player"><span class="dot"></span>${n}</div>`).join('');
+    this.els.wait.querySelector('.note')!.textContent = localize(note);
+    this.els.wait.querySelector('.who')!.innerHTML = localizeHtml(who.map((n) => `<div class="lobby-player"><span class="dot"></span><bdi>${n}</bdi></div>`).join(''));
     this.show('wait');
   }
 
@@ -941,7 +944,7 @@ export class Screens {
   /** Title screen: how many achievements are done. */
   private renderProgress(): void {
     const done = ACHIEVEMENTS.filter((a) => save.achievements.includes(a.id)).length;
-    this.els.title.querySelector('.wallet')!.textContent = `★ ${done} / ${ACHIEVEMENTS.length} UNLOCKED`;
+    this.els.title.querySelector('.wallet')!.textContent = localize(`★ ${done} / ${ACHIEVEMENTS.length} UNLOCKED`);
   }
 
   /** Online top 10 for one board (hidden when offline). */
@@ -953,10 +956,10 @@ export class Screens {
       const rows = list.length
         ? list
             .slice(0, 10)
-            .map((e, i) => `<tr class="${i === highlight ? 'me' : ''}"><td>${i + 1}</td><td>${e.name}</td><td>${fmtScore(e.score)}</td><td>STAGE ${e.stage}</td></tr>`)
+            .map((e, i) => `<tr class="${i === highlight ? 'me' : ''}"><td>${i + 1}</td><td><bdi>${e.name}</bdi></td><td>${fmtScore(e.score)}</td><td>STAGE ${e.stage}</td></tr>`)
             .join('')
         : '<tr><td colspan="4">No scores yet. Be the first!</td></tr>';
-      box.innerHTML = `<div class="hs-title">GLOBAL · ${title}</div><table>${rows}</table>`;
+      box.innerHTML = localizeHtml(`<div class="hs-title">GLOBAL · ${title}</div><table>${rows}</table>`);
     }
   }
 
@@ -967,8 +970,8 @@ export class Screens {
           .map((e, i) => `<tr class="${i === highlight ? 'me' : ''}"><td>${i + 1}</td><td>${fmtScore(e.score)}</td><td>STAGE ${e.stage}${e.label ? `<small> ${e.label}</small>` : ''}</td></tr>`)
           .join('')
       : '<tr><td colspan="3">No scores yet. Go set one!</td></tr>';
-    const html = `<div class="hs-title">HIGH SCORES</div><table>${rows}</table>`;
-    for (const el of [this.els.title, this.els.gameover]) el.querySelector('.hiscores')!.innerHTML = html;
+    const html = `<div class="hs-title">${t("text.high_scores_aaa66f")}</div><table>${rows}</table>`;
+    for (const el of [this.els.title, this.els.gameover]) el.querySelector('.hiscores')!.innerHTML = localizeHtml(html);
   }
 
   // ---------------------------------------------------------------- level-up
@@ -976,7 +979,7 @@ export class Screens {
   /** `banish`: banishes left (-1 hides the button). */
   showLevelUp(offers: Offer[], title: string, rerolls: number, loadout: LoadoutItem[], skipGold = 0, banish = -1): void {
     const el = this.els.levelup;
-    el.querySelector('h1')!.textContent = title;
+    el.querySelector('h1')!.textContent = localize(title);
     // A banish redraw keeps the other cards still; only new cards spin.
     const ids = offers.map((o) => `${o.kind}|${o.id}|${o.pick ?? ''}|${o.tag}`);
     const redraw = this.current === 'levelup' && this.shownOffers.length === ids.length && ids.some((k, i) => k === this.shownOffers[i]);
@@ -991,7 +994,7 @@ export class Screens {
       const legend = o.rarity === 'legendary';
       return reelSteps(0.45 + 0.25 * i + (legend ? 1.5 : 0), legend ? [0.06, 0.08, 0.1, 0.13, 0.17, 0.22, 0.3, 0.4] : [0.07, 0.1]);
     });
-    el.querySelector('.cards')!.innerHTML = offers
+    el.querySelector('.cards')!.innerHTML = localizeHtml(offers
       .map(
         (o, i) => `<button class="card rolling ${o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)} ${canBanish(o) ? 'ban-ok' : 'ban-no'}" data-nav data-act="pick" data-index="${i}">
           <i class="fx"></i><i class="card-shine" aria-hidden="true"></i>
@@ -1012,15 +1015,15 @@ export class Screens {
           ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
           <div class="key" data-prompt="pick:${i + 1}">${promptHtml(`pick:${i + 1}`)}</div>
           <i class="lock"></i>
-          <i class="ban-stamp">BANISH</i>
+          <i class="ban-stamp">${t("text.banish_33c75f")}</i>
         </button>`,
       )
-      .join('');
+      .join(''));
     el.querySelector('.reroll-row')!.innerHTML =
-      (rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} ${prompt('reroll')}</button>` : '') +
+      localizeHtml((rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} ${prompt('reroll')}</button>` : '') +
       (skipGold > 0 ? `<button data-nav data-act="skip" class="skip">SKIP +${skipGold}<span class="gold-dot"></span></button>` : '') +
-      (banish >= 0 ? `<button data-nav data-act="banish" class="banish ${banish > 0 && offers.some(canBanish) ? '' : 'cant'}">BANISH ✕${banish}</button>` : '');
-    el.querySelector('.build')!.innerHTML = loadout.map(badge).join('');
+      (banish >= 0 ? `<button data-nav data-act="banish" class="banish ${banish > 0 && offers.some(canBanish) ? '' : 'cant'}">BANISH ✕${banish}</button>` : ''));
+    el.querySelector('.build')!.innerHTML = localizeHtml(loadout.map(badge).join(''));
     this.show('levelup');
     if (!redraw) {
       el.classList.remove('hud-level-enter');
@@ -1146,10 +1149,10 @@ export class Screens {
     const chip = (x: (typeof extras)[number]) =>
       `<span class="mod-chip ${x.curse ? 'cursed' : ''}" style="--c:${x.color}" title="${x.desc}">${iconHtml(x.id, x.color, x.icon)}${x.name}</span>`;
     this.els.pause.querySelector('.build')!.innerHTML =
-      loadout.map(badge).join('') +
+      localizeHtml(loadout.map(badge).join('') +
       (mods.length ? `<div class="mod-strip">${mods.map(modChip).join('')}</div>` : '') +
-      (relics.length ? `<div class="mod-strip relics"><b class="strip-t">RELICS</b>${relics.map(relicChip).join('')}</div>` : '') +
-      (extras.length ? `<div class="mod-strip">${extras.map(chip).join('')}</div>` : '');
+      (relics.length ? `<div class="mod-strip relics"><b class="strip-t">${t("text.relics_4258f8")}</b>${relics.map(relicChip).join('')}</div>` : '') +
+      (extras.length ? `<div class="mod-strip">${extras.map(chip).join('')}</div>` : ''));
     const recipes = info.recipes
       .map((r) => `<div class="rcp ${r.done ? 'done' : r.have ? 'ready' : ''}">${r.done ? '★' : r.have ? '✓' : '·'} ${r.weapon} + ${r.passive} → <b>${r.evo}</b></div>`)
       .join('');
@@ -1160,28 +1163,28 @@ export class Screens {
       .join('');
     const el = this.els.pause.querySelector('.pause-info') ?? this.els.pause.appendChild(Object.assign(document.createElement('div'), { className: 'pause-info' }));
     el.innerHTML =
-      (recipes ? `<div class="pi-col"><div class="pi-t">EVOLUTIONS</div>${recipes}</div>` : '') +
-      (bars ? `<div class="pi-col"><div class="pi-t">DAMAGE THIS RUN</div>${bars}</div>` : '');
+      localizeHtml((recipes ? `<div class="pi-col"><div class="pi-t">${t("text.evolutions_f392a9")}</div>${recipes}</div>` : '') +
+      (bars ? `<div class="pi-col"><div class="pi-t">${t("text.damage_this_run_7a0587")}</div>${bars}</div>` : ''));
   }
 
   // ---------------------------------------------------------------- shop
 
   private showRelicPick(v: ShopView): void {
     const el = this.els.relic;
-    el.querySelector('.relic-offers')!.innerHTML = v.relicOffers
+    el.querySelector('.relic-offers')!.innerHTML = localizeHtml(v.relicOffers
       .map(
         (r, i) => `<button class="mod-card ${r.rarity} r-${r.rarity} relic-deal" data-nav data-act="buy-relic" data-index="${i}">
           <div class="rarity">${RARITY[r.rarity].label} RELIC</div>
           <div class="icon" style="--c:${r.color}">${iconHtml(r.id, r.color, r.icon)}</div>
           <div class="name">${r.name}</div>
           <div class="desc">${r.desc}</div>
-          <div class="price">TAKE FREE</div>
+          <div class="price">${t("text.take_free_41178a")}</div>
         </button>`,
       )
-      .join('');
+      .join(''));
     const owned = v.relics.filter((id) => RELIC_BY_ID[id]);
-    el.querySelector('.relic-owned-title')!.textContent = owned.length ? `YOUR RELICS ${owned.length}` : '';
-    el.querySelector('.relic-owned')!.innerHTML = owned.map((id) => relicChip(RELIC_BY_ID[id])).join('');
+    el.querySelector('.relic-owned-title')!.textContent = localize(owned.length ? `YOUR RELICS ${owned.length}` : '');
+    el.querySelector('.relic-owned')!.innerHTML = localizeHtml(owned.map((id) => relicChip(RELIC_BY_ID[id])).join(''));
     if (this.current !== 'relic') sfx.shopOpen();
     this.show('relic', 0);
   }
@@ -1193,16 +1196,16 @@ export class Screens {
     const wasOpen = this.current === 'shop';
     const prevKey = wasOpen ? this.shopKey() : '';
     this.shopShown = v;
-    el.querySelector('h1')!.textContent = v.pre ? 'STARTING SHOP' : v.secret ? 'SECRET SHOP' : `STAGE ${v.stage} SHOP`;
+    el.querySelector('h1')!.textContent = localize(v.pre ? 'STARTING SHOP' : v.secret ? 'SECRET SHOP' : `STAGE ${v.stage} SHOP`);
     el.classList.toggle('secret', v.secret);
     el.querySelector('.shop-top')!.innerHTML =
-      `<span class="gold-big"><span class="gold-dot"></span> ${v.gold} GOLD</span>` +
+      localizeHtml(`<span class="gold-big"><span class="gold-dot"></span> ${v.gold} GOLD</span>` +
       (v.pre
-        ? `<span class="interest pre">FREE 15 GOLD: SPEND IT NOW, IT ISN'T KEPT</span>`
-        : `<span class="interest">Interest next clear: +${v.interest} (1 per ${v.interestPer} held, max ${v.interestCap})</span>`);
-    el.querySelector('.shop-offers')!.innerHTML = v.offers
+        ? `<span class="interest pre">${t("text.free_15_gold_spend_it_now_it_isn_t_kept_c48dff")}</span>`
+        : `<span class="interest">Interest next clear: +${v.interest} (1 per ${v.interestPer} held, max ${v.interestCap})</span>`));
+    el.querySelector('.shop-offers')!.innerHTML = localizeHtml(v.offers
       .map((o, i) => {
-        if (!o) return `<div class="offer-slot"><div class="mod-card sold">SOLD</div></div>`;
+        if (!o) return `<div class="offer-slot"><div class="mod-card sold">${t("text.sold_8a563f")}</div></div>`;
         const m = o.def;
         const cant = o.price > v.gold || v.owned.length >= v.slots;
         // Shop lane: each offer sits over its LOCK toggle, and shows its effect on this build.
@@ -1218,31 +1221,31 @@ export class Screens {
           <div class="price"><span class="gold-dot"></span> ${o.price}</div>
         </button><button data-nav data-act="lock" data-index="${i}" class="lock ${o.locked ? 'on' : ''}">${o.locked ? '■ LOCKED' : '□ LOCK'}</button></div>`;
       })
-      .join('');
+      .join(''));
     const c = v.curse;
     const curseCard = c
       ? `<button class="mod-card curse-deal cursed" data-nav data-act="take-curse">
-          <div class="rarity">CURSE DEAL</div>
+          <div class="rarity">${t("text.curse_deal_4cb8be")}</div>
           <div class="icon" style="--c:${c.color}">${iconHtml(c.id, c.color, c.icon)}</div>
           <div class="name">${c.name}</div>
           <div class="desc">${c.desc}</div>
           <div class="hint">For the rest of the run. Score +${Math.round(c.score * 100)}%</div>
-          <div class="price">TAKE +<span class="gold-dot"></span> ${c.gold}</div>
+          <div class="price">${t("text.take_a4babe")}<span class="gold-dot"></span> ${c.gold}</div>
         </button>`
       : '';
-    el.querySelector('.shop-offers')!.insertAdjacentHTML('beforeend', curseCard);
+    el.querySelector('.shop-offers')!.insertAdjacentHTML('beforeend', localizeHtml(curseCard));
     // Owned relics get their own section: always on, and they don't take a Mod slot.
     const owned = v.relics.filter((id) => RELIC_BY_ID[id]).map((id) => relicChip(RELIC_BY_ID[id])).join('');
-    el.querySelector('.relic-title')!.textContent = owned ? `YOUR RELICS ${v.relics.length} — always on, no Mod slot` : '';
-    el.querySelector('.shop-relics')!.innerHTML = owned ? `<div class="mod-strip">${owned}</div>` : '';
+    el.querySelector('.relic-title')!.textContent = localize(owned ? `YOUR RELICS ${v.relics.length} — always on, no Mod slot` : '');
+    el.querySelector('.shop-relics')!.innerHTML = localizeHtml(owned ? `<div class="mod-strip">${owned}</div>` : '');
     el.querySelector('.shop-extras')!.innerHTML =
-      `<button data-nav data-act="shop-reroll" class="${v.rerollCost > v.gold ? 'cant' : ''}">REROLL ${v.rerollCost ? `<span class="gold-dot"></span> ${v.rerollCost}` : 'FREE'}</button>` +
-      `<button data-nav data-act="shop-heal" class="${v.healed || v.healCost > v.gold ? 'cant' : ''}">HEAL 40% <span class="gold-dot"></span> ${v.healCost}</button>` +
-      `<button data-nav data-act="shop-done" class="continue">CONTINUE &#9654;</button>`;
-    el.querySelector('.owned-title')!.textContent = `YOUR MODS ${v.owned.length}/${v.slots} — damage flows left to right`;
+      localizeHtml(`<button data-nav data-act="shop-reroll" class="${v.rerollCost > v.gold ? 'cant' : ''}">REROLL ${v.rerollCost ? `<span class="gold-dot"></span> ${v.rerollCost}` : 'FREE'}</button>` +
+      `<button data-nav data-act="shop-heal" class="${v.healed || v.healCost > v.gold ? 'cant' : ''}">${t("text.heal_40_da23d4")} <span class="gold-dot"></span> ${v.healCost}</button>` +
+      `<button data-nav data-act="shop-done" class="continue">CONTINUE &#9654;</button>`);
+    el.querySelector('.owned-title')!.textContent = localize(`YOUR MODS ${v.owned.length}/${v.slots} — damage flows left to right`);
     const empty = Math.max(0, v.slots - v.owned.length);
     el.querySelector('.owned-mods')!.innerHTML =
-      v.owned
+      localizeHtml(v.owned
         .map(
           (o, i) => `<div class="owned-mod ${o.def.cursed ? 'cursed' : ''}" title="${modDesc(o.def, o.level)}">
           <div class="slot-no">${i + 1}</div>
@@ -1251,7 +1254,7 @@ export class Screens {
           <div class="desc">${modDesc(o.def, o.level)}</div>
           ${o.readout ? `<div class="readout">${o.readout}</div>` : ''}
           ${o.upCost >= 0 ? `<div class="mod-next"><i>NEXT LV ${o.level + 1}:</i> ${nextLevelHtml(o.def, o.level)}</div>` : ''}
-          ${o.upCost >= 0 ? `<button data-nav data-act="mod-up" data-index="${i}" class="mod-up ${o.upCost > v.gold ? 'cant' : ''}">UPGRADE <span class="gold-dot"></span> ${o.upCost}</button>` : o.maxLevel > 1 ? '<div class="mod-max">MAX LEVEL</div>' : ''}
+          ${o.upCost >= 0 ? `<button data-nav data-act="mod-up" data-index="${i}" class="mod-up ${o.upCost > v.gold ? 'cant' : ''}">${t("text.upgrade_7f10b7")} <span class="gold-dot"></span> ${o.upCost}</button>` : o.maxLevel > 1 ? '<div class="mod-max">MAX LEVEL</div>' : ''}
           <div class="ctrl">
             <button data-nav data-act="mod-left" data-index="${i}" ${i === 0 ? 'disabled' : ''}>&#9664;</button>
             <button data-nav data-act="mod-right" data-index="${i}" ${i === v.owned.length - 1 ? 'disabled' : ''}>&#9654;</button>
@@ -1259,7 +1262,7 @@ export class Screens {
           </div>
         </div>`,
         )
-        .join('') + '<div class="owned-mod empty"></div>'.repeat(empty);
+        .join('') + '<div class="owned-mod empty"></div>'.repeat(empty));
     // Mod order preview: lives between the YOUR MODS title and the slots.
     let pv = el.querySelector<HTMLElement>('.mod-preview');
     if (!pv) {
@@ -1338,7 +1341,7 @@ export class Screens {
     } else if (act === 'sell' && owned) {
       f = { title: `SELL ${owned.def.name.toUpperCase()}`, after: p.sell[i] };
     }
-    box.innerHTML = previewPanelHtml(p, f, before);
+    box.innerHTML = localizeHtml(previewPanelHtml(p, f, before));
   }
 
   /** Shop juice: a sound plus pixel particles for each shop action. */
@@ -1418,22 +1421,22 @@ export class Screens {
         <td class="cause">☠ ${r.cause}</td>
       </tr>`,
     );
-    this.els.history.querySelector('.history')!.innerHTML = rows.length ? rows.join('') : '<tr><td>No runs yet. Go play one!</td></tr>';
+    this.els.history.querySelector('.history')!.innerHTML = localizeHtml(rows.length ? rows.join('') : '<tr><td>No runs yet. Go play one!</td></tr>');
   }
 
   private renderBestiary(): void {
     const all = Object.values(ENEMIES);
     const seen = all.filter((d) => save.seen.includes(d.id));
-    this.els.bestiary.querySelector('.bst-count')!.textContent = `${seen.length} / ${all.length} MET`;
-    this.els.bestiary.querySelector('.bestiary')!.innerHTML = all
+    this.els.bestiary.querySelector('.bst-count')!.textContent = localize(`${seen.length} / ${all.length} MET`);
+    this.els.bestiary.querySelector('.bestiary')!.innerHTML = localizeHtml(all
       .map((d) => {
-        if (!save.seen.includes(d.id)) return `<div class="bst unseen"><b>???</b><small>Not met yet.</small></div>`;
+        if (!save.seen.includes(d.id)) return `<div class="bst unseen"><b>???</b><small>${t("text.not_met_yet_e207f6")}</small></div>`;
         const kind = d.boss ? 'BOSS' : d.biomes ? enemyHome(d.biomes, (b) => BIOMES.find((x) => x.id === b)?.name) : d.minStage ? `FROM STAGE ${d.minStage}` : `FROM MINUTE ${Math.max(0, d.minMinute)}`;
         return `<div class="bst" style="--c:${d.bodyColor}"><i class="sw" style="background:${d.bodyColor}"></i><b>${d.name.toUpperCase()}</b>
           <span class="st">LIFE ${d.hp} · SPEED ${d.speed} · HIT ${d.contactDamage} · ${kind}</span>
           <small>${ENEMY_TIPS[d.id] ?? ''}</small></div>`;
       })
-      .join('') + fusionGuide();
+      .join('') + fusionGuide());
   }
 
   /** Waiting for a key to bind. */
@@ -1442,47 +1445,47 @@ export class Screens {
   private renderControls(): void {
     this.capture = null;
     const el = this.els.controls;
-    el.querySelector('.bind-list')!.innerHTML = ACTIONS.map(
+    el.querySelector('.bind-list')!.innerHTML = localizeHtml(ACTIONS.map(
       (a) => `<div class="bind-row"><span>${a.name.toUpperCase()}</span>${[0, 1]
-        .map((slot) => `<button data-nav data-act="bind" data-action="${a.id}" data-slot="${slot}">${keyLabel(binds[a.id][slot])}</button>`)
+        .map((slot) => `<button data-nav data-act="bind" data-action="${a.id}" data-slot="${slot}"><bdi>${keyLabel(binds[a.id][slot])}</bdi></button>`)
         .join('')}</div>`,
-    ).join('');
+    ).join(''));
     this.navs.controls.refresh(this.navs.controls.focus);
   }
 
   private renderModes(): void {
     const el = this.els.modes;
     const mode = MODE_BY_ID[settings.mode as ModeId] ?? MODES[0];
-    el.querySelector('.hero-row')!.innerHTML = HEROES.map((hd) => {
+    el.querySelector('.hero-row')!.innerHTML = localizeHtml(HEROES.map((hd) => {
       const open = !hd.unlock || save.achievements.includes(hd.unlock);
       const ach = hd.unlock ? ACHIEVEMENTS.find((a) => a.id === hd.unlock) : null;
       return `<button data-nav data-act="hero" data-hero="${hd.id}" class="diff ${settings.hero === hd.id ? 'on' : ''} ${open ? '' : 'locked'}" title="${open ? hd.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? hd.name.toUpperCase() : '🔒 ' + hd.name.toUpperCase()}</button>`;
-    }).join('');
+    }).join(''));
     const hero = HEROES.find((x) => x.id === settings.hero) ?? HEROES[0];
     const heroOpen = !hero.unlock || save.achievements.includes(hero.unlock);
-    el.querySelector('.hero-note')!.textContent = heroOpen ? hero.desc.toUpperCase() : `LOCKED: ${ACHIEVEMENTS.find((a) => a.id === hero.unlock)?.desc.toUpperCase() ?? ''}`;
-    el.querySelector('.mode-grid')!.innerHTML = MODES.map(
+    el.querySelector('.hero-note')!.textContent = localize(heroOpen ? hero.desc.toUpperCase() : `LOCKED: ${ACHIEVEMENTS.find((a) => a.id === hero.unlock)?.desc.toUpperCase() ?? ''}`);
+    el.querySelector('.mode-grid')!.innerHTML = localizeHtml(MODES.map(
       (m) => `<button data-nav data-act="mode" data-mode="${m.id}" class="mode ${m.id === mode.id ? 'on' : ''}"><b>${m.name.toUpperCase()}</b><small>${m.desc}</small></button>`,
-    ).join('');
+    ).join(''));
     const daily = mode.id === 'daily' || mode.id === 'weekly';
-    el.querySelector('.diff-row')!.innerHTML = DIFFICULTIES.map((d) => {
+    el.querySelector('.diff-row')!.innerHTML = localizeHtml(DIFFICULTIES.map((d) => {
       const open = !d.unlock || save.achievements.includes(d.unlock);
       const ach = d.unlock ? ACHIEVEMENTS.find((a) => a.id === d.unlock) : null;
       const on = daily ? d.id === 'normal' : settings.difficulty === d.id;
       return `<button data-nav data-act="diff" data-diff="${d.id}" class="diff ${on ? 'on' : ''} ${open ? '' : 'locked'}" ${daily ? 'disabled' : ''} title="${open ? d.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? d.name.toUpperCase() : '🔒 ' + d.name.toUpperCase()}</button>`;
-    }).join('');
+    }).join(''));
     const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty) ?? DIFFICULTIES[1];
     const best = dailyBest(today());
-    el.querySelector('.mode-note')!.textContent = daily
+    el.querySelector('.mode-note')!.textContent = localize(daily
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`
-      : diff.desc.toUpperCase();
-    if (mode.id === 'weekly') el.querySelector('.mode-note')!.textContent = `${weeklyChallenge().week}: ${weeklyChallenge().rules.map(r => r.name).join(' + ')} · FIXED ROOKIE KIT`;
+      : diff.desc.toUpperCase());
+    if (mode.id === 'weekly') el.querySelector('.mode-note')!.textContent = localize(`${weeklyChallenge().week}: ${weeklyChallenge().rules.map(r => r.name).join(' + ')} · FIXED ROOKIE KIT`);
     this.navs.modes.refresh(this.navs.modes.focus);
   }
 
   private renderWardrobe(): void {
     const el = this.els.wardrobe;
-    el.querySelector('.skin-grid')!.innerHTML = SKINS.map((s) => {
+    el.querySelector('.skin-grid')!.innerHTML = localizeHtml(SKINS.map((s) => {
       const open = skinUnlocked(s.id);
       const ach = s.unlock ? ACHIEVEMENTS.find((a) => a.id === s.unlock) : null;
       const sw = (c: string) => `<i style="background:${c}"></i>`;
@@ -1491,8 +1494,8 @@ export class Screens {
         <b>${open ? s.name.toUpperCase() : '???'}</b>
         <small>${open ? (settings.skin === s.id ? 'WEARING' : 'WEAR') : ach ? ach.name.toUpperCase() : ''}</small>
       </button>`;
-    }).join('');
-    el.querySelector('.pet-grid')!.innerHTML = PETS.map((p) => {
+    }).join(''));
+    el.querySelector('.pet-grid')!.innerHTML = localizeHtml(PETS.map((p) => {
       const open = !p.unlock || save.achievements.includes(p.unlock);
       const ach = p.unlock ? ACHIEVEMENTS.find((a) => a.id === p.unlock) : null;
       return `<button data-nav data-act="pet" data-pet="${p.id}" class="skin ${settings.pet === p.id ? 'on' : ''} ${open ? '' : 'locked'}" title="${p.desc}">
@@ -1500,7 +1503,7 @@ export class Screens {
         <b>${open ? p.name.toUpperCase() : '???'}</b>
         <small>${open ? p.desc : ach ? ach.name.toUpperCase() : ''}</small>
       </button>`;
-    }).join('');
+    }).join(''));
     this.navs.wardrobe.refresh(this.navs.wardrobe.focus);
   }
 
@@ -1509,30 +1512,30 @@ export class Screens {
     const L = save.lifetime;
     const unlocked = (id: TrackId) => music.heard.has(id) || trackUnlocked(id, L.bestStage, L.bosses);
     const el = this.els.jukebox;
-    el.querySelector('.tracks')!.innerHTML = TRACKS.map((t) =>
+    el.querySelector('.tracks')!.innerHTML = localizeHtml(TRACKS.map((t) =>
       unlocked(t.id)
         ? `<button data-nav data-act="jb-play" data-track="${t.id}" class="${music.jukebox === t.id ? 'on' : ''}">${music.jukebox === t.id ? '♪ ' : ''}${t.name.toUpperCase()}</button>`
         : `<button data-nav class="locked" disabled>???</button>`,
-    ).join('');
+    ).join(''));
     const now = TRACKS.find((t) => t.id === music.jukebox);
-    el.querySelector('.now-playing')!.textContent = now ? `NOW PLAYING: ${now.name.toUpperCase()}` : 'PICK A TRACK';
+    el.querySelector('.now-playing')!.textContent = localize(now ? `NOW PLAYING: ${now.name.toUpperCase()}` : 'PICK A TRACK');
     this.navs.jukebox.refresh(this.navs.jukebox.focus);
   }
 
   private renderUnlocks(): void {
-    this.els.unlocks.querySelector('.ach-list')!.innerHTML = ACHIEVEMENTS.map((a) => {
+    this.els.unlocks.querySelector('.ach-list')!.innerHTML = localizeHtml(ACHIEVEMENTS.map((a) => {
       const done = save.achievements.includes(a.id);
       const item = a.unlockLoadout ? (WEAPONS[a.unlockLoadout] ?? SPECIALS[a.unlockLoadout]) : null;
       const reward = a.unlockWeapon ? `Unlocks ${WEAPONS[a.unlockWeapon].name}` : item ? `Loadout: ${item.name}` : '';
       return `<div class="ach ${done ? 'done' : ''}"><span class="check">${done ? '★' : '☆'}</span><span class="name">${a.name}</span><span class="desc">${a.desc}</span><span class="reward">${reward}</span></div>`;
-    }).join('');
+    }).join(''));
   }
 
   // ---------------------------------------------------------------- save data
 
   private msg(text: string, ok = true): void {
     const m = this.els.savedata.querySelector<HTMLElement>('.msg')!;
-    m.textContent = text;
+    m.textContent = localize(text);
     m.classList.toggle('err', !ok);
   }
 
@@ -1568,13 +1571,13 @@ export class Screens {
   private doWipe(btn: HTMLElement): void {
     if (!this.wipeArmed) {
       this.wipeArmed = true;
-      btn.textContent = 'REALLY? PRESS AGAIN';
+      btn.textContent = localize('REALLY? PRESS AGAIN');
       this.msg('This deletes your achievements, unlocked weapons and lifetime stats on this device.', false);
       return;
     }
     resetSave();
     this.wipeArmed = false;
-    btn.textContent = 'RESET SAVE';
+    btn.textContent = localize('RESET SAVE');
     this.msg('Save reset.');
   }
 
@@ -1582,33 +1585,33 @@ export class Screens {
 
   showGameOver(sum: RunSummary, rank: number, list: ScoreEntry[], waitingForHost = false): void {
     const el = this.els.gameover;
-    el.querySelector<HTMLElement>('[data-act=retry]')!.textContent = waitingForHost ? 'HOST RESTARTS' : 'RETRY';
+    el.querySelector<HTMLElement>('[data-act=retry]')!.textContent = localize(waitingForHost ? 'HOST RESTARTS' : 'RETRY');
     el.querySelector<HTMLElement>('.newbest')!.hidden = rank !== 0;
-    el.querySelector('.summary')!.innerHTML = `
+    el.querySelector('.summary')!.innerHTML = localizeHtml(`
       <div class="big">${fmtScore(sum.score)}</div>
       <div class="grid">
-        <span>STAGE</span><b>${sum.stage}</b>
-        <span>LEVEL</span><b>${sum.level}</b>
-        <span>KILLS</span><b>${sum.kills.toLocaleString('en-US')}</b>
-        <span>BEST COMBO</span><b>${sum.maxCombo}</b>
-        ${sum.heat ? `<span>HEAT</span><b>${sum.heat}</b>` : ''}
-        ${sum.bolts !== undefined ? `<span>BOLTS EARNED</span><b>+${sum.bolts}</b>` : ''}
-        ${sum.style ? `<span>BEST STYLE</span><b>${sum.style}</b>` : ''}
-        <span>TIME</span><b>${fmtTime(sum.time)}</b>
-      </div>`;
+        <span>${t("text.stage_37e72e")}</span><b>${sum.stage}</b>
+        <span>${t("text.level_ec46cf")}</span><b>${sum.level}</b>
+        <span>${t("text.kills_26daab")}</span><b>${sum.kills.toLocaleString('en-US')}</b>
+        <span>${t("text.best_combo_bd920f")}</span><b>${sum.maxCombo}</b>
+        ${sum.heat ? `<span>${t("text.heat_0e188d")}</span><b>${sum.heat}</b>` : ''}
+        ${sum.bolts !== undefined ? `<span>${t("text.bolts_earned_2ab67d")}</span><b>+${sum.bolts}</b>` : ''}
+        ${sum.style ? `<span>${t("text.best_style_50a72b")}</span><b>${sum.style}</b>` : ''}
+        <span>${t("text.time_346ff3")}</span><b>${fmtTime(sum.time)}</b>
+      </div>`);
     const top = sum.damage.slice(0, 6);
     const max = top[0]?.dmg || 1;
     el.querySelector('.dmg-table')!.innerHTML =
-      `<div class="hs-title">DAMAGE DEALT</div>` +
+      localizeHtml(`<div class="hs-title">${t("text.damage_dealt_63ef6a")}</div>` +
       top
         .map(
           (d) =>
             `<div class="dmg-row"><span>${d.name}</span><div class="bar"><div style="width:${(d.dmg / max) * 100}%;background:${d.color}"></div></div><b>${fmtScore(d.dmg)}</b></div>`,
         )
-        .join('');
+        .join(''));
     el.querySelector('.build')!.innerHTML =
-      sum.loadout.map(badge).join('') + (sum.mods.length ? `<div class="mod-strip">MODS: ${sum.mods.join(' · ')}</div>` : '');
-    el.querySelector('.unlocked')!.innerHTML = sum.achievements.length ? `★ NEW: ${sum.achievements.join(' · ')}` : '';
+      localizeHtml(sum.loadout.map(badge).join('') + (sum.mods.length ? `<div class="mod-strip">MODS: ${sum.mods.join(' · ')}</div>` : ''));
+    el.querySelector('.unlocked')!.innerHTML = localizeHtml(sum.achievements.length ? `★ NEW: ${sum.achievements.join(' · ')}` : '');
     this.setHighScores(list, rank);
     this.show('gameover');
   }
@@ -1672,7 +1675,7 @@ function floatText(el: HTMLElement, text: string, color: string): void {
   const [x, y] = centre(el);
   const t = document.createElement('i');
   t.className = 'px-float';
-  t.textContent = text;
+  t.textContent = localize(text);
   t.style.left = `${x}px`;
   t.style.top = `${y}px`;
   t.style.color = color;

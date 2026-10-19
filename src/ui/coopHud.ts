@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import { ROLES, ROLE_ORDER, bonusText, roleOf, type CoopRole, type RoleBonus } from '../data/coopRoles';
 import { prompt } from './prompts';
 import { poolTuning, type EmoteDef } from '../game/coop2';
@@ -188,7 +189,7 @@ export class CoopHud {
       this.panel.hidden = !v.show;
       if (v.show) {
         const rows: string[] = [];
-        if (v.join) rows.push(`<div class="row join">JOINABLE · <b>${v.join[0]}</b> · ${v.join[1]}/4</div>`);
+        if (v.join) rows.push(`<div class="row join">JOINABLE · <b><bdi>${v.join[0]}</bdi></b> · ${v.join[1]}/4</div>`);
         rows.push(`<div class="row">${v.roles.map((r) => `<span class="role" style="--rc:${ROLES[r.role].color};--hc:${r.color}"><i></i>${ROLES[r.role].name}</span>`).join('')}</div>`);
         const txt = bonusText(v.bonus);
         rows.push(`<div class="row bonus ${txt ? '' : 'none'}">${txt ? `TEAM x${v.bonus.scale}: ${txt}` : 'MIX ROLES FOR A TEAM BONUS'}</div>`);
@@ -197,7 +198,7 @@ export class CoopHud {
           const hearts = Array.from({ length: max }, (_, i) => `<i class="${i < v.pool![0] ? '' : 'off'}"></i>`).join('');
           rows.push(`<div class="row pool">TEAM LIVES <span class="hearts">${hearts}</span></div>`);
         }
-        this.panel.innerHTML = rows.join('');
+        this.panel.innerHTML = localizeHtml(rows.join(''));
       }
     }
     // Downed: buy back.
@@ -210,7 +211,7 @@ export class CoopHud {
         const pips = Array.from({ length: 8 }, (_, i) => `<i class="${i < Math.round(b.wait01 * 8) ? 'on' : ''}"></i>`).join('');
         const t = b.lives <= 0 ? 'THE POOL IS EMPTY' : b.ok ? `${prompt('team')} BUY BACK IN · ${b.cost}●` : b.wait01 < 1 ? 'BUY BACK SOON...' : `BUY BACK: ${b.cost}● (TEAM CAN'T PAY)`;
         this.buy.className = b.ok ? 'ok' : '';
-        this.buy.innerHTML = `<div class="t">${t}</div><div class="s">SHARED POOL · ${b.lives} ${b.lives === 1 ? 'LIFE' : 'LIVES'} · EVERYONE CHIPS IN</div><div class="bar">${pips}</div>`;
+        this.buy.innerHTML = localizeHtml(`<div class="t">${t}</div><div class="s">SHARED POOL · ${b.lives} ${b.lives === 1 ? 'LIFE' : 'LIVES'} · EVERYONE CHIPS IN</div><div class="bar">${pips}</div>`);
       }
     }
     // Bubbles.
@@ -225,7 +226,7 @@ export class CoopHud {
         el.className = `co2-bub${t.glyph ? ' pop' : ' quiet'}`;
         el.dataset.k = key;
         el.style.setProperty('--bc', t.color);
-        el.innerHTML = `${t.glyph ? `<img alt="" src="${glyphUrl(t.glyph)}">` : ''}<span>${t.text}</span>`;
+        el.innerHTML = localizeHtml(`${t.glyph ? `<img alt="" src="${glyphUrl(t.glyph)}">` : ''}<span>${t.text}</span>`);
         this.bubs.appendChild(el);
         this.bubEls.set(t.key, el);
       }
@@ -280,7 +281,7 @@ export class CoopHud {
       [0, 1].map((v) => `<button ${isHost ? 'data-nav' : 'disabled'} data-co2="${k}" data-v="${v}" class="diff ${(v === 1) === on ? 'on' : ''}">${v ? a : b}</button>`).join('');
     const html = `
       <div class="section">ROLES</div>
-      <div class="roles">${roles.map((r, i) => `<span style="--rc:${ROLES[r].color}">${(info.names?.[i] ?? `P${i + 1}`).replace(/[<>&"]/g, '').toUpperCase()} ${ROLES[r].name}</span>`).join('')}</div>
+      <div class="roles">${roles.map((r, i) => `<span style="--rc:${ROLES[r].color}"><bdi>${(info.names?.[i] ?? `P${i + 1}`).replace(/[<>&"]/g, '').toUpperCase()}</bdi> ${ROLES[r].name}</span>`).join('')}</div>
       <div class="bonus">${distinct >= 2 ? `${distinct} ROLES: TEAM BONUS FOR EVERYONE` : 'PICK DIFFERENT HEROES FOR A TEAM BONUS'}</div>
       <div class="section">REVIVE POOL</div>
       <div class="menu row diff-row">${sw('pool', info.pool, 'SHARED LIVES', 'OFF')}</div>
@@ -289,7 +290,7 @@ export class CoopHud {
       <div class="menu row diff-row">${sw('join', info.join, 'OPEN', 'CLOSED')}</div>
       <div class="note">${info.join ? 'Friends can join with the code after the run starts, and come back if they drop.' : 'Only players in the lobby can play this run.'}</div>`;
     if (el.innerHTML === html) return;
-    el.innerHTML = html;
+    el.innerHTML = localizeHtml(html);
     // The host's lobby was laid out before this section: re-scan its menu so the new switches are navigable.
     if (isHost && g.screens.current === 'online') {
       const items = [...document.querySelectorAll('#scr-online [data-nav]')];

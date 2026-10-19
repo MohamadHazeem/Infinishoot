@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import type { Game } from '../game/game';
 import { isOverlord, versusOrder } from '../game/systems/versus';
 import { OVERLORD_CARDS, cardBlock, validateCommand, versusTuning, type VsPoint } from '../game/versus';
@@ -26,7 +27,7 @@ export class VersusUi {
     injectCss();
     root.insertAdjacentHTML(
       'beforeend',
-      `<div id="vs-ui" hidden>
+      localizeHtml(`<div id="vs-ui" hidden>
         <div class="vs-marks"></div>
         <div class="vs-land"></div>
         <div class="vs-cursor"><i></i><b></b></div>
@@ -38,16 +39,16 @@ export class VersusUi {
         </div>
         <div class="vs-note"></div>
       </div>
-      <div id="vs-foe" class="px" hidden><b>OVERLORD</b> <span class="vs-on"></span> <span class="vs-fp"></span></div>`,
+      <div id="vs-foe" class="px" hidden><b>OVERLORD</b> <span class="vs-on"></span> <span class="vs-fp"></span></div>`),
     );
     this.el = root.querySelector<HTMLElement>('#vs-ui')!;
     this.foe = root.querySelector<HTMLElement>('#vs-foe')!;
     this.cursor = this.el.querySelector<HTMLElement>('.vs-cursor')!;
     this.land = this.el.querySelector<HTMLElement>('.vs-land')!;
     const bar = this.el.querySelector<HTMLElement>('.vs-cards')!;
-    bar.innerHTML = OVERLORD_CARDS.map(
+    bar.innerHTML = localizeHtml(OVERLORD_CARDS.map(
       (c, i) => `<button class="vs-card px" data-vs="${i}" style="--c:${c.color}" title="${c.desc}"><span class="k">${i < 9 ? i + 1 : 0}</span><b>${c.name.toUpperCase()}</b><span class="cost">${c.cost}</span><span class="st"></span><i class="cd"></i></button>`,
-    ).join('');
+    ).join(''));
     this.cards = Array.from(bar.querySelectorAll<HTMLElement>('.vs-card'));
     bar.addEventListener('mousedown', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-vs]');
@@ -66,15 +67,15 @@ export class VersusUi {
     this.foe.hidden = !on || ol || g.screens.current !== 'none' || !!v?.winner;
     if (!v || !on) return;
     if (!ol) {
-      this.foe.querySelector('.vs-on')!.textContent = v.overlord < 0 ? '(AI)' : (g.heroes[v.overlord]?.name ?? '').toUpperCase();
-      this.foe.querySelector('.vs-fp')!.textContent = `${Math.floor(v.st.points)} PTS${v.st.bossUsed ? ' · BOSS OUT' : ''}`;
+      this.foe.querySelector('.vs-on')!.textContent = localize(v.overlord < 0 ? '(AI)' : (g.heroes[v.overlord]?.name ?? '').toUpperCase());
+      this.foe.querySelector('.vs-fp')!.textContent = localize(`${Math.floor(v.st.points)} PTS${v.st.bossUsed ? ' · BOSS OUT' : ''}`);
       return;
     }
     const w = g.versusWorld();
     const st = v.st;
     const pts = Math.floor(st.points);
-    this.el.querySelector('.vs-pts')!.textContent = `${pts} PTS`;
-    this.el.querySelector('.vs-time')!.textContent = g.director.bossSpawned || st.bossUsed || (g.role === 'client' && g.netTimeLeft < 0) ? 'BOSS FIGHT' : `${clock(w.duration - w.time)} LEFT`;
+    this.el.querySelector('.vs-pts')!.textContent = localize(`${pts} PTS`);
+    this.el.querySelector('.vs-time')!.textContent = localize(g.director.bossSpawned || st.bossUsed || (g.role === 'client' && g.netTimeLeft < 0) ? 'BOSS FIGHT' : `${clock(w.duration - w.time)} LEFT`);
     this.el.querySelector<HTMLElement>('.vs-meter i')!.style.width = `${Math.round((100 * st.points) / versusTuning.pointsMax)}%`;
     OVERLORD_CARDS.forEach((c, i) => {
       const b = this.cards[i];
@@ -83,7 +84,7 @@ export class VersusUi {
       b.classList.toggle('off', !!why);
       const cd = st.cooldown(c.id);
       b.querySelector<HTMLElement>('.cd')!.style.height = c.cd > 0 && cd > 0 ? `${Math.round((100 * cd) / c.cd)}%` : '0%';
-      b.querySelector('.st')!.textContent = why === 'locked' ? clock(c.unlockAt) : why === 'cooldown' ? `${Math.ceil(cd)}s` : why === 'boss already out' ? 'OUT' : '';
+      b.querySelector('.st')!.textContent = localize(why === 'locked' ? clock(c.unlockAt) : why === 'cooldown' ? `${Math.ceil(cd)}s` : why === 'boss already out' ? 'OUT' : '');
     });
     // Where the drop would land (validated like the host does, without the rate limit).
     const card = OVERLORD_CARDS[v.sel];
@@ -99,7 +100,7 @@ export class VersusUi {
         this.land.style.transform = `translate(${Math.max(8, Math.min(innerWidth - 8, l.x))}px, ${Math.max(8, Math.min(innerHeight - 8, l.y))}px)`;
       }
       this.cursor.classList.toggle('bad', !r.ok);
-      this.cursor.querySelector('b')!.textContent = r.ok ? `${card.name.toUpperCase()}${r.marker >= 0 ? ' · BEACON' : card.kind === 'hazard' ? '' : ' · EDGE'}` : r.reason.toUpperCase();
+      this.cursor.querySelector('b')!.textContent = localize(r.ok ? `${card.name.toUpperCase()}${r.marker >= 0 ? ' · BEACON' : card.kind === 'hazard' ? '' : ' · EDGE'}` : r.reason.toUpperCase());
       this.cursor.hidden = false;
     } else this.cursor.hidden = this.land.hidden = true;
     // Beacons.
@@ -107,7 +108,7 @@ export class VersusUi {
     if (mk !== this.key) {
       this.key = mk;
       const box = this.el.querySelector<HTMLElement>('.vs-marks')!;
-      box.innerHTML = w.markers.map((_, i) => `<i class="vs-mark">${i + 1}</i>`).join('');
+      box.innerHTML = localizeHtml(w.markers.map((_, i) => `<i class="vs-mark">${i + 1}</i>`).join(''));
       this.marks = Array.from(box.children) as HTMLElement[];
     }
     w.markers.forEach((m, i) => {
@@ -117,7 +118,7 @@ export class VersusUi {
       el.classList.toggle('closed', w.heroes.some((h) => Math.hypot(h.x - m.x, h.z - m.z) < versusTuning.markerBlock));
     });
     const note = this.el.querySelector<HTMLElement>('.vs-note')!;
-    note.textContent = v.noteT > 0 ? v.note : '';
+    note.textContent = localize(v.noteT > 0 ? v.note : '');
     note.hidden = !(v.noteT > 0);
   }
 

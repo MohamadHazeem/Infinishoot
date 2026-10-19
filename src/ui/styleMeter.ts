@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import { prompt } from './prompts';
 import { touchHud } from './touch';
 import { STYLE_RANKS, styleTuning, type StyleNote } from '../game/style';
@@ -143,7 +144,7 @@ export class SkillHud {
     this.el.id = 'stylemeter';
     this.el.className = 'r0';
     this.el.hidden = true; // shown from rank C up
-    this.el.innerHTML = `<div class="side"><div class="lbl">STYLE</div><div class="mul">x1</div><div class="bar"><i></i></div></div><div class="rank">D</div><div class="feed"></div>`;
+    this.el.innerHTML = localizeHtml(`<div class="side"><div class="lbl">STYLE</div><div class="mul">x1</div><div class="bar"><i></i></div></div><div class="rank">D</div><div class="feed"></div>`);
     ingame.appendChild(this.el);
     this.rankEl = this.el.querySelector('.rank')!;
     this.mulEl = this.el.querySelector('.mul')!;
@@ -153,7 +154,7 @@ export class SkillHud {
     this.ult = document.createElement('div');
     this.ult.id = 'ultpip';
     this.ult.className = 'pip';
-    this.ult.innerHTML = `${prompt('ult')}<span>ULT</span>`;
+    this.ult.innerHTML = localizeHtml(`${prompt('ult')}<span>ULT</span>`);
     meters.appendChild(this.ult);
     this.ultLbl = this.ult.querySelector(':scope > span')!;
   }
@@ -177,8 +178,8 @@ export class SkillHud {
       const up = r > this.shownRank && this.shownRank >= 0;
       const down = r < this.shownRank;
       this.el.className = `r${r}`;
-      this.rankEl.textContent = STYLE_RANKS[r];
-      this.mulEl.textContent = `SCORE x${styleTuning.scoreMul[r]}`;
+      this.rankEl.textContent = localize(STYLE_RANKS[r]);
+      this.mulEl.textContent = localize(`SCORE x${styleTuning.scoreMul[r]}`);
       if (!reduceMotion() && (up || down)) {
         restartClass(this.el, up ? 'up' : 'down'); // restart the pop/drop animation (no forced layout)
         this.animT = 0.4;
@@ -201,7 +202,7 @@ export class SkillHud {
       for (let i = s.notes.length - fresh; i < s.notes.length; i++) {
         const n = s.notes[i];
         const d = document.createElement('div');
-        d.innerHTML = `${n.text}<b>+${n.pts}</b>`;
+        d.innerHTML = localizeHtml(`${n.text}<b>+${n.pts}</b>`);
         d.addEventListener('animationend', () => d.remove(), { once: true });
         this.feedEl.prepend(d);
       }
@@ -226,7 +227,7 @@ export class SkillHud {
     const label = s.ultActive > 0 ? 'GO!' : 'ULT';
     if (label !== this.lastLabel) {
       this.lastLabel = label;
-      this.ultLbl.textContent = label;
+      this.ultLbl.textContent = localize(label);
     }
   }
 

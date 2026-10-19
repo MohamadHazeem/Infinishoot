@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import type { Game } from '../game/game';
 import { playerName } from '../game/game';
 import { DIFFICULTIES, DIFF_BY_ID, type DifficultyId } from '../data/modes';
@@ -31,16 +32,16 @@ export class LobbyBrowserUi {
     injectCss();
     this.region = regionOf();
     const t = document.createElement('template');
-    t.innerHTML = `<div id="scr-mpbrowse" class="screen dim">
+    t.innerHTML = localizeHtml(`<div id="scr-mpbrowse" class="screen dim">
       <h1>BROWSE GAMES</h1>
       <p class="note lb-note"></p>
       <div class="menu row lb-filters"></div>
       <div class="scroll"><div class="lb-list"></div></div>
       <div class="menu row"><button data-nav data-act="lb-refresh">REFRESH</button><button data-nav data-act="lb-back">BACK</button></div>
-    </div>`;
+    </div>`);
     this.screen = t.content.firstElementChild as HTMLElement;
     game.screens.addScreen('mpbrowse', this.screen, { columns: 3, onBack: () => this.back() });
-    root.querySelector('#scr-online .mp-choice [data-act=mp-host]')?.insertAdjacentHTML('afterend', '<button data-nav data-act="lb-open">BROWSE GAMES</button>');
+    root.querySelector('#scr-online .mp-choice [data-act=mp-host]')?.insertAdjacentHTML('afterend', localizeHtml('<button data-nav data-act="lb-open">BROWSE GAMES</button>'));
     root.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
       switch (b?.dataset.act) {
@@ -107,28 +108,28 @@ export class LobbyBrowserUi {
     const key = `${on}|${this.region}|${this.difficulty}|${this.kind}|${this.loading}|${JSON.stringify(this.rows)}`;
     if (key === this.key) return;
     this.key = key;
-    s.querySelector('.lb-note')!.innerHTML = on
+    s.querySelector('.lb-note')!.innerHTML = localizeHtml(on
       ? 'Public games from hosts who switched PUBLIC on in their lobby. Pick one to join. Your region is guessed from your time zone.'
-      : 'Public games need the online service. Build the game with <b>VITE_LEADERBOARD_URL</b> set (see server/leaderboard/README.md). Until then, join friends with an invite code.';
-    s.querySelector('.lb-filters')!.innerHTML = on
+      : 'Public games need the online service. Build the game with <b>VITE_LEADERBOARD_URL</b> set (see server/leaderboard/README.md). Until then, join friends with an invite code.');
+    s.querySelector('.lb-filters')!.innerHTML = localizeHtml(on
       ? `<button data-nav data-act="lb-region">REGION: ${this.region ? REGION_NAMES[this.region] : 'ANY'}</button>
          <button data-nav data-act="lb-diff">DIFFICULTY: ${this.difficulty ? DIFF_BY_ID[this.difficulty as DifficultyId].name.toUpperCase() : 'ANY'}</button>
          <button data-nav data-act="lb-kind">GAME: ${this.kind ? KIND_NAMES[this.kind] : 'ANY'}</button>`
-      : '';
+      : '');
     const list = s.querySelector('.lb-list')!;
     const v = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '';
     if (!on) list.innerHTML = '';
-    else if (this.loading && !this.rows) list.innerHTML = '<div class="lb-empty">LOOKING FOR GAMES...</div>';
-    else if (!this.rows) list.innerHTML = '<div class="lb-empty">COULD NOT REACH THE SERVICE. TRY REFRESH.</div>';
-    else if (!this.rows.length) list.innerHTML = '<div class="lb-empty">NO OPEN GAMES RIGHT NOW. HOST ONE AND SWITCH PUBLIC ON!</div>';
+    else if (this.loading && !this.rows) list.innerHTML = localizeHtml('<div class="lb-empty">LOOKING FOR GAMES...</div>');
+    else if (!this.rows) list.innerHTML = localizeHtml('<div class="lb-empty">COULD NOT REACH THE SERVICE. TRY REFRESH.</div>');
+    else if (!this.rows.length) list.innerHTML = localizeHtml('<div class="lb-empty">NO OPEN GAMES RIGHT NOW. HOST ONE AND SWITCH PUBLIC ON!</div>');
     else
-      list.innerHTML = this.rows
+      list.innerHTML = localizeHtml(this.rows
         .map((l) => {
           const old = l.version !== v;
           return `<button class="lb-row ${old ? 'locked' : ''}" ${old ? '' : 'data-nav'} data-act="${old ? '' : 'lb-join'}" data-code="${l.code}">
-            <b>${esc(l.name)}</b><span>${KIND_NAMES[l.mode] ?? l.mode}</span><span>${DIFF_BY_ID[l.difficulty as DifficultyId]?.name.toUpperCase() ?? ''}</span><span>${l.region}</span><span>${l.players}/${l.max}</span>${old ? `<small>VERSION ${esc(l.version)}</small>` : ''}</button>`;
+            <b><bdi>${esc(l.name)}</bdi></b><span>${KIND_NAMES[l.mode] ?? l.mode}</span><span>${DIFF_BY_ID[l.difficulty as DifficultyId]?.name.toUpperCase() ?? ''}</span><span>${l.region}</span><span>${l.players}/${l.max}</span>${old ? `<small>VERSION ${esc(l.version)}</small>` : ''}</button>`;
         })
-        .join('');
+        .join(''));
     if (this.game.screens.current === 'mpbrowse') this.game.screens.show('mpbrowse');
   }
 }

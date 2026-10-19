@@ -1,3 +1,4 @@
+import { isRtl, localize } from '../i18n';
 import { PALETTE, pixelIconUrl } from './pixelIcons';
 import type { LoadoutItem } from './hud';
 
@@ -61,6 +62,8 @@ function frame(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: 
 }
 
 function text(c: CanvasRenderingContext2D, s: string, x: number, y: number, size: number, color: string, font = 'Jersey 15', align: CanvasTextAlign = 'left'): void {
+  s = localize(s);
+  if (isRtl()) font = 'Infini Arabic';
   c.font = `${size}px "${font}", monospace`;
   c.textAlign = align;
   c.textBaseline = 'top';
@@ -73,6 +76,8 @@ function text(c: CanvasRenderingContext2D, s: string, x: number, y: number, size
 
 /** Shorten a name to fit a width. */
 function fit(c: CanvasRenderingContext2D, s: string, w: number, size: number, font = 'Jersey 15'): string {
+  s = localize(s);
+  if (isRtl()) font = 'Infini Arabic';
   c.font = `${size}px "${font}", monospace`;
   if (c.measureText(s).width <= w) return s;
   while (s.length > 2 && c.measureText(s + '.').width > w) s = s.slice(0, -1);
@@ -88,7 +93,7 @@ async function icon(c: CanvasRenderingContext2D, id: string, color: string, glyp
 /** Draw the card; returns the canvas (2x scale). */
 export async function drawBuildCard(d: BuildCardData): Promise<HTMLCanvasElement> {
   try {
-    await Promise.all(['24px "Jersey 15"', '24px "Jersey 10"', '8px "Silkscreen"'].map((f) => document.fonts?.load(f)));
+    await Promise.all(['18px "Infini Arabic"', '24px "Jersey 15"', '24px "Jersey 10"', '8px "Silkscreen"'].map((f) => document.fonts?.load(f)));
   } catch {
     // Fonts are bundled; if loading fails the fallback still draws.
   }

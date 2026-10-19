@@ -1,3 +1,4 @@
+import { isRtl, localize } from '../i18n';
 import type { Input } from '../core/input';
 import { sfx } from '../audio/sfx';
 import { navLock } from '../game/titlePlay';
@@ -22,7 +23,7 @@ export class MenuNav {
       if (!el || el.matches('.rolling, input')) return;
       if (el.matches(':disabled, .cant, .locked')) return sfx.deny();
       // Toggles run their own handler first, so the label already shows the new state.
-      if (el.dataset.toggle !== undefined) return sfx.ui('toggle', el.querySelector('b')?.textContent === 'ON' ? 1 : 0);
+      if (el.dataset.toggle !== undefined) return sfx.ui('toggle', el.querySelector('b')?.textContent === localize('ON') ? 1 : 0);
       sfx.menuSelect();
     });
     // Sliders tick up the scale with their value (mouse drags and keys alike).
@@ -102,18 +103,19 @@ export class MenuNav {
     const prevPad = this.opts.horizontal ? 14 : 12;
     const nextPad = this.opts.horizontal ? 15 : 13;
     const cols = this.opts.columns ?? 1;
+    const horizontalDir = isRtl() && !this.items[this.focus]?.closest('.owned-mods') ? -1 : 1;
     if (cols > 1) {
       // Grids: up/down go to the nearest item on screen in that direction, so rows of any length work.
       if (prevKeys.some(k) || pad(prevPad) || stick < 0) this.setFocus(this.nearestVertical(-1));
       if (nextKeys.some(k) || pad(nextPad) || stick > 0) this.setFocus(this.nearestVertical(1));
     } else {
-      if (prevKeys.some(k) || pad(prevPad) || stick < 0) this.setFocus(Math.max(0, this.focus - cols));
-      if (nextKeys.some(k) || pad(nextPad) || stick > 0) this.setFocus(Math.min(this.items.length - 1, this.focus + cols));
+      if (prevKeys.some(k) || pad(prevPad) || stick < 0) this.setFocus(Math.max(0, this.focus - cols * (this.opts.horizontal ? horizontalDir : 1)));
+      if (nextKeys.some(k) || pad(nextPad) || stick > 0) this.setFocus(Math.min(this.items.length - 1, this.focus + cols * (this.opts.horizontal ? horizontalDir : 1)));
     }
     if (cols > 1) {
       // Grid: left/right step one item.
-      if (k('ArrowLeft') || k('KeyA') || pad(14)) this.setFocus(this.focus - 1);
-      if (k('ArrowRight') || k('KeyD') || pad(15)) this.setFocus(this.focus + 1);
+      if (k('ArrowLeft') || k('KeyA') || pad(14)) this.setFocus(this.focus - horizontalDir);
+      if (k('ArrowRight') || k('KeyD') || pad(15)) this.setFocus(this.focus + horizontalDir);
     }
 
     const el = this.items[this.focus];

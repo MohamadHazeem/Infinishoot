@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 /**
  * ROUTE MAP screen: the road taken so far, the 2-3 nodes you can pick next and a couple of
  * layers beyond, plus one choice card per option (the cards are the `data-nav` items, so keyboard,
@@ -164,7 +165,7 @@ export class RouteMapView {
     const next = v.stage + 1;
     const title = v.phase === 'event' ? 'ENCOUNTER' : 'ROUTE MAP';
     const sub = v.phase === 'event' ? `ON THE WAY TO STAGE ${next}` : `CHOOSE THE ROAD TO STAGE ${next}`;
-    this.el.innerHTML = `<h1>${title}</h1><div class="rt-sub">${sub}</div>${this.mapHtml(v)}${v.phase === 'event' ? this.eventHtml(v) : ''}<div class="rt-cards${again ? ' again' : ''}">${this.cardsHtml(v)}</div><div class="rt-status">${this.statusText(v)}</div>`;
+    this.el.innerHTML = localizeHtml(`<h1>${title}</h1><div class="rt-sub">${sub}</div>${this.mapHtml(v)}${v.phase === 'event' ? this.eventHtml(v) : ''}<div class="rt-cards${again ? ' again' : ''}">${this.cardsHtml(v)}</div><div class="rt-status">${this.statusText(v)}</div>`);
   }
 
   /** Only the countdown line changes between votes. */

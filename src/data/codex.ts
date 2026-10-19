@@ -76,7 +76,7 @@ export const CODEX = [
     id: `hero:${h.id}`,
     kind: 'HERO',
     name: h.name,
-    text: `${HERO_LORE[h.id]} ${h.desc}`,
+    text: `${HERO_LORE[h.id] ?? ''} ${h.desc}`.trim(),
   })),
 ];
 export const META_REWARDS = [

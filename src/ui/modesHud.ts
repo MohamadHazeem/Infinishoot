@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import type { Game } from '../game/game';
 import { clock } from '../game/game';
 import { rhythmTuning } from '../game/modes/rhythm';
@@ -155,7 +156,7 @@ export class ModesHud {
     const html = parts.join('');
     if (html !== this.last) {
       this.last = html;
-      this.el!.innerHTML = html;
+      this.el!.innerHTML = localizeHtml(html);
       this.el!.hidden = !html;
     }
     // Crosshair beat frame: closes in toward the beat, flashes in the on-beat window.
@@ -178,7 +179,7 @@ export class ModesHud {
     }
     if (big !== this.lastBig) {
       this.lastBig = big;
-      this.big!.innerHTML = big;
+      this.big!.innerHTML = localizeHtml(big);
       this.big!.hidden = !big;
     }
     // Ghost name tag.
@@ -193,7 +194,7 @@ export class ModesHud {
     }
     if (tag !== this.lastTag) {
       this.lastTag = tag;
-      this.tag!.textContent = tag;
+      this.tag!.textContent = localize(tag);
       this.tag!.hidden = !tag;
     }
     if (tag) this.tag!.style.transform = `translate(${Math.round(this.tmp.x)}px, ${Math.round(this.tmp.y)}px) translate(-50%, -100%)`;

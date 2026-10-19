@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import { PET_SKILL_INFO, petSkillAt, type PetDef, type PetSkillId } from '../data/pets';
 
 /**
@@ -151,7 +152,7 @@ export class CompanionHud {
       const nextSkill = s.level < s.maxLevel ? petSkillAt(s.def, s.level + 1) : null;
       const nx = nextSkill ? `NEXT LV: ${PET_SKILL_INFO[nextSkill].name}${s.ranks[nextSkill] > 0 ? '+' : ''}` : 'MAX LEVEL!';
       el.style.setProperty('--pc', s.def.color);
-      el.innerHTML = `<div class="h"><span class="n">${s.def.name.toUpperCase()}</span><span class="lv">LV ${s.level}</span></div><div class="pips">${pips}</div><div class="sk">${chips}</div><div class="nx">${nx}</div>`;
+      el.innerHTML = localizeHtml(`<div class="h"><span class="n">${s.def.name.toUpperCase()}</span><span class="lv">LV ${s.level}</span></div><div class="pips">${pips}</div><div class="sk">${chips}</div><div class="nx">${nx}</div>`);
     }
     el.hidden = false;
   }
@@ -185,7 +186,7 @@ export class CompanionHud {
       for (let i = 0; i < SEGS; i++) bar += `<i class="${i < on ? 'on' : ''}"></i>`;
       el.className = cls;
       el.style.setProperty('--mc', s.next.color);
-      el.innerHTML = `<div class="h"><span>TEAM</span><span class="mv">${s.next.name}</span></div><div class="bar">${bar}</div><div class="s">${status}</div>`;
+      el.innerHTML = localizeHtml(`<div class="h"><span>TEAM</span><span class="mv">${s.next.name}</span></div><div class="bar">${bar}</div><div class="s">${status}</div>`);
     }
     el.hidden = false;
   }

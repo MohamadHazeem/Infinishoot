@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import type { Objective } from '../game/objectives';
 
 /**
@@ -124,7 +125,7 @@ export class ObjectiveHud {
     this.ptr = document.createElement('div');
     this.ptr.id = 'objptr';
     this.ptr.hidden = true;
-    this.ptr.innerHTML = '<div class="a"></div><div class="m"></div>';
+    this.ptr.innerHTML = localizeHtml('<div class="a"></div><div class="m"></div>');
     // The goals stack (hud.ts): teammates, then the objective, then event / challenge lines.
     const goals = document.getElementById('goals');
     if (goals) goals.insertBefore(this.el, document.getElementById('spice'));
@@ -154,9 +155,9 @@ export class ObjectiveHud {
       let bar = '';
       for (let i = 0; i < segs; i++) bar += `<i class="${i < on ? 'on' : ''}"></i>`;
       el.innerHTML =
-        `<div class="h"><span>★ OBJECTIVE</span><span>${o.count}</span></div>` +
+        localizeHtml(`<div class="h"><span>★ OBJECTIVE</span><span>${o.count}</span></div>` +
         `<div class="t">${o.title}</div><div class="s">${sub}</div><div class="bar">${bar}</div>` +
-        (hp >= 0 ? `<div class="hp"><div style="width:${hp}%"></div></div>` : '');
+        (hp >= 0 ? `<div class="hp"><div style="width:${hp}%"></div></div>` : ''));
       el.className = o.state === 'active' ? '' : o.state;
       if (o.state !== this.lastState && this.lastState) {
         el.classList.add('pop');
@@ -170,7 +171,7 @@ export class ObjectiveHud {
       (p.firstElementChild as HTMLElement).style.transform = `rotate(${ptr.ang}rad)`;
       const m = p.lastElementChild as HTMLElement;
       const txt = `${ptr.dist}M`;
-      if (m.textContent !== txt) m.textContent = txt;
+      if (m.textContent !== txt) m.textContent = localize(txt);
     } else p.hidden = true;
   }
 }

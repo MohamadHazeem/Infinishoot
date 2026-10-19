@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import { prompt } from './prompts';
 import { reduceMotion, restartClass } from './hud';
 
@@ -268,7 +269,7 @@ export class TimeHud {
       document.head.appendChild(st);
     }
     const add = (html: string): HTMLElement => {
-      root.insertAdjacentHTML('beforeend', html);
+      root.insertAdjacentHTML('beforeend', localizeHtml(html));
       return root.lastElementChild as HTMLElement;
     };
     this.vhs = add(`<div id="tm-vhs" class="tm-layer"><div class="lines"></div><div class="track"></div><div class="track b"></div><div class="tag"><span class="ic"></span><span class="tx">REWIND</span></div><div class="ctr"></div><div class="tc"></div></div>`);
@@ -287,7 +288,7 @@ export class TimeHud {
     this.standTtl = this.stand.querySelector('.ttl')!;
     this.standCnt = this.stand.querySelector('.cnt')!;
     this.standBar = this.stand.querySelector('.bar')!;
-    this.standBar.innerHTML = '<i></i>'.repeat(10);
+    this.standBar.innerHTML = localizeHtml('<i></i>'.repeat(10));
     this.revive = add(`<div id="tm-revive" class="tm-layer"><div class="panel px"><div class="hands"></div><div class="ttl">CLUTCH SAVE!</div><div class="who"></div></div></div>`);
     this.vote = add(`<div id="tm-vote" class="px"><div class="ttl">TEAM REWIND?</div><div class="line"></div><div class="bar"><i></i></div></div>`);
     this.voteTtl = this.vote.querySelector('.ttl')!;
@@ -297,8 +298,8 @@ export class TimeHud {
 
   private setTag(play: boolean): void {
     const ic = this.vhsTag.querySelector('.ic')!;
-    ic.innerHTML = pixels(play ? PLAY : REW, 6, (c) => (c === '#' ? (play ? 'var(--lime)' : 'var(--white)') : null));
-    this.vhsTag.querySelector('.tx')!.textContent = play ? 'PLAY' : 'REWIND';
+    ic.innerHTML = localizeHtml(pixels(play ? PLAY : REW, 6, (c) => (c === '#' ? (play ? 'var(--lime)' : 'var(--white)') : null)));
+    this.vhsTag.querySelector('.tx')!.textContent = localize(play ? 'PLAY' : 'REWIND');
   }
 
   /** The REWIND tank in #meters (created on first use, once the HUD exists). */
@@ -309,7 +310,7 @@ export class TimeHud {
     this.pip = document.createElement('div');
     this.pip.id = 'rewindpip';
     this.pip.className = 'pip';
-    this.pip.innerHTML = `${prompt('rewind')}${pixels(REW, 3, (c) => (c === '#' ? 'var(--white)' : null))}<span>REWIND</span>`;
+    this.pip.innerHTML = localizeHtml(`${prompt('rewind')}${pixels(REW, 3, (c) => (c === '#' ? 'var(--white)' : null))}<span>REWIND</span>`);
     meters.appendChild(this.pip);
     return this.pip;
   }
@@ -343,9 +344,9 @@ export class TimeHud {
       const text = `-${(seconds * k).toFixed(1)} S`;
       if (text !== this.ctrText) {
         this.ctrText = text;
-        this.vhsCtr.textContent = text;
+        this.vhsCtr.textContent = localize(text);
         const t = Math.max(0, seconds * (1 - k));
-        this.vhsTc.textContent = `00:00:${String(Math.floor(t)).padStart(2, '0')}:${String(Math.floor((t % 1) * 30)).padStart(2, '0')}`;
+        this.vhsTc.textContent = localize(`00:00:${String(Math.floor(t)).padStart(2, '0')}:${String(Math.floor((t % 1) * 30)).padStart(2, '0')}`);
       }
     }
     this.body('tm-vhs', k >= 0);
@@ -365,7 +366,7 @@ export class TimeHud {
     this.bars.classList.toggle('wide', on && wide);
     const was = this.bars.classList.contains('close');
     if (closeCall && !was) {
-      this.barsText.textContent = text;
+      this.barsText.textContent = localize(text);
       if (!reduceMotion()) restartClass(this.bars, 'close');
       else this.bars.classList.add('close');
     } else if (!closeCall && was) this.bars.classList.remove('close');
@@ -382,10 +383,10 @@ export class TimeHud {
     }
     const spd = this.replay.querySelector('.spd')!;
     const s = `x${r.speed.toFixed(1)}`;
-    if (spd.textContent !== s) spd.textContent = s;
+    if (spd.textContent !== s) spd.textContent = localize(s);
     if (r.card && !this.card.classList.contains('on')) {
-      this.card.querySelector('b')!.textContent = r.title;
-      this.card.querySelector('span')!.textContent = r.text;
+      this.card.querySelector('b')!.textContent = localize(r.title);
+      this.card.querySelector('span')!.textContent = localize(r.text);
       this.card.classList.add('on');
     } else if (!r.card) this.card.classList.remove('on');
   }
@@ -402,20 +403,20 @@ export class TimeHud {
     const key = `${s.kills}/${s.need}/${segs}`;
     if (key === this.standKey) return;
     this.standKey = key;
-    this.standCnt.innerHTML = `${Math.min(s.kills, s.need)}<small>/${s.need}</small>`;
+    this.standCnt.innerHTML = localizeHtml(`${Math.min(s.kills, s.need)}<small>/${s.need}</small>`);
     this.standBar.querySelectorAll('i').forEach((el, i) => el.classList.toggle('off', i >= segs));
   }
 
   standStart(need: number): void {
     this.stand.classList.remove('win', 'fail');
-    this.standTtl.textContent = `LAST STAND · KILL ${need}!`;
+    this.standTtl.textContent = localize(`LAST STAND · KILL ${need}!`);
     this.standKey = '';
     if (!reduceMotion()) restartClass(this.stand, 'go');
   }
 
   standEnd(win: boolean): void {
     this.stand.classList.add(win ? 'win' : 'fail');
-    this.standTtl.textContent = win ? 'SURVIVED!' : 'OUT OF TIME';
+    this.standTtl.textContent = localize(win ? 'SURVIVED!' : 'OUT OF TIME');
     this.standEndT = 1.2;
   }
 
@@ -424,10 +425,10 @@ export class TimeHud {
     const hands = this.revive.querySelector('.hands')!;
     const paint = (sleeve: string) => (c: string) => (c === '#' ? 'var(--ink)' : c === 's' ? sleeve : c === 'c' || c === 'w' ? 'var(--white)' : c === 'h' ? 'var(--mist)' : null);
     hands.innerHTML =
-      `<div class="h l">${pixels(HAND, 5, paint(SLEEVES[ia % 4]))}</div>` +
+      localizeHtml(`<div class="h l">${pixels(HAND, 5, paint(SLEEVES[ia % 4]))}</div>` +
       `<div class="h r">${pixels(HAND, 5, paint(SLEEVES[ib % 4]), true)}</div>` +
-      `<div class="boom">${pixels(BOOM, 6, (c) => (c === '#' ? 'var(--yellow)' : null))}</div>`;
-    this.revive.querySelector('.who')!.textContent = `${rescuer.toUpperCase()} PULLED ${rescued.toUpperCase()} BACK!`;
+      `<div class="boom">${pixels(BOOM, 6, (c) => (c === '#' ? 'var(--yellow)' : null))}</div>`);
+    this.revive.querySelector('.who')!.textContent = localize(`${rescuer.toUpperCase()} PULLED ${rescued.toUpperCase()} BACK!`);
     this.revive.classList.remove('on');
     if (!reduceMotion()) restartClass(this.revive, 'on');
     else this.revive.classList.add('on');
@@ -448,9 +449,9 @@ export class TimeHud {
     const key = `${v.yes}/${v.need}/${v.mine}/${v.caller}`;
     if (key === this.voteKey) return;
     this.voteKey = key;
-    this.voteTtl.textContent = `${v.caller.toUpperCase()} WANTS TO REWIND`;
+    this.voteTtl.textContent = localize(`${v.caller.toUpperCase()} WANTS TO REWIND`);
     this.voteLine.classList.toggle('ok', v.mine);
-    this.voteLine.innerHTML = v.mine ? `READY ${v.yes}/${v.need} · WAITING FOR THE TEAM` : `${v.yes}/${v.need} READY · ${prompt('rewind')} AGREE`;
+    this.voteLine.innerHTML = localizeHtml(v.mine ? `READY ${v.yes}/${v.need} · WAITING FOR THE TEAM` : `${v.yes}/${v.need} READY · ${prompt('rewind')} AGREE`);
   }
 
   /** Hide everything (title, new run). */

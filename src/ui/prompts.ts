@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import { binds, keyLabel, type Action } from '../core/keybinds';
 import type { Input } from '../core/input';
 
@@ -237,7 +238,7 @@ const bindsSig = () => (Object.keys(binds) as Action[]).map((a) => binds[a].join
 /** Re-render every `[data-prompt]` element under `root`. */
 export function refreshPrompts(root: ParentNode = document): void {
   root.querySelectorAll<HTMLElement>('[data-prompt]').forEach((el) => {
-    el.innerHTML = promptHtml(el.dataset.prompt!);
+    el.innerHTML = localizeHtml(promptHtml(el.dataset.prompt!));
   });
 }
 
