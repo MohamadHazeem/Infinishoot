@@ -185,8 +185,8 @@ out.push(`simulation (all steps) ${fmt(stat(upd))}`);
 out.push(`  per sim step         ${(upd.reduce((a, b) => a + b, 0) / Math.max(1, steps)).toFixed(2).padStart(6)}`);
 out.push(`game.render            ${fmt(stat(ren))}`);
 out.push(`renderer.render (GL)   ${fmt(stat(gl))}`);
-out.push(`total CPU              ${fmt(stat(cpu))}`);
-out.push(`CPU at 1 step/frame    ${(upd.reduce((a, b) => a + b, 0) / Math.max(1, steps) + stat(ren).avg + stat(gl).avg).toFixed(2).padStart(6)}   (sim per step + render + GL: a 60 fps frame)`);
+out.push(`frame callback CPU     ${fmt(stat(cpu))}`);
+out.push(`CPU at 1 step/frame    ${(upd.reduce((a, b) => a + b, 0) / Math.max(1, steps) + stat(ren).avg + stat(gl).avg + clipAsyncMs).toFixed(2).padStart(6)}   (sim per step + render + GL + async clips)`);
 out.push(`frame interval         ${fmt(stat(interval))}`);
 out.push(`style+layout (DOM)     ${(styleMs / Math.max(1, frames)).toFixed(2).padStart(6)}   paint ${(paintMs / Math.max(1, frames)).toFixed(2)}   (browser main thread, from the trace)`);
 out.push(`clip callbacks (outside frame timers) ${clipAsyncMs.toFixed(2)} ms/frame; frame + callbacks ${(stat(cpu).avg + clipAsyncMs).toFixed(2)} ms/frame`);
@@ -205,7 +205,7 @@ console.log(out.join('\n'));
 if (jsonOut) {
   writeFileSync(
     jsonOut,
-    JSON.stringify({ link, seconds, frames, steps, quality: res.quality, gpu, update: stat(upd), render: stat(ren), gl: stat(gl), cpu: stat(cpu), interval: stat(interval), calls, tris, phase: Object.fromEntries(phases), gc: { minorMs: gcMs('MinorGC'), majorMs: gcMs('MajorGC'), worst: gcWorst }, allocMBs: alloc / seconds / 1048576, styleLayoutMs: styleMs / frames, paintMs: paintMs / frames, clipAsyncMs, errors }, null, 2),
+    JSON.stringify({ link, seconds, frames, steps, quality: res.quality, gpu, update: stat(upd), render: stat(ren), gl: stat(gl), cpu: stat(cpu), interval: stat(interval), calls, tris, phase: Object.fromEntries(phases), gc: { minorMs: gcMs('MinorGC'), majorMs: gcMs('MajorGC'), worst: gcWorst }, allocMBs: alloc / seconds / 1048576, styleLayoutMs: styleMs / frames, paintMs: paintMs / frames, clipAsyncMs, cpuWithClipsMs: stat(cpu).avg + clipAsyncMs, errors }, null, 2),
   );
 }
 process.exit(errors.length ? 1 : 0);

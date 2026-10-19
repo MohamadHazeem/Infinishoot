@@ -17,7 +17,8 @@ for (const f of files) {
   try {
     // Wrapped import so a crash at load time is reported and fails the run.
     execFileSync('node', ['-e', `import(${JSON.stringify(pathToFileURL(out).href)}).catch((e) => { console.error('FAIL', e); process.exit(1); })`], { cwd: root, stdio: 'inherit' });
-  } catch {
+  } catch (error) {
+    console.error(`FAIL ${f}: ${error.signal ?? `exit ${error.status}`}`);
     failed++;
   }
 }
