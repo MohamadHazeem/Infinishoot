@@ -38,7 +38,7 @@ export const HERO_COLORS = ['#2f7bff', '#22c76a', '#ffb627', '#d8def0'];
 export const economyTuning = {
   clearGold: 5, // flat gold for clearing a stage
   interestPer: 5, // +1 gold per this much held at stage clear
-  interestCap: 10, // max interest per stage (Piggy Bank raises it); holding 50 gold pays 10
+  interestCap: 10, // max interest per stage; holding 50 gold pays 10
   rerollBase: 2, // first paid reroll; +1 each reroll in the same shop
   startGold: 15, // free gold in the starting shop (not kept)
   healCost: 3,
@@ -805,7 +805,7 @@ export class Hero implements SynergyHost {
     return Math.max(1, Math.round(m.price * (this.world.shopPriceMul ?? 1) * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1)));
   }
 
-  /** Half of what you actually paid (purchase + upgrades), or all of it with Pawn Shop. */
+  /** Half of what you actually paid (purchase + upgrades). */
   sellPrice(paid: number): number {
     return this.synergy.flags.sellFull ? paid : Math.floor(paid / 2);
   }

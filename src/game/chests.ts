@@ -20,6 +20,30 @@ export interface WorldChest {
  * Treasure chests placed around each stage. Walk into one to pop it open:
  * it gives an item on the spot (no menu), then stays open as a marker.
  */
+/** Plank-textured wood and gold trim of a chest; the lid is built hinge-at-origin so it can swing open. Shared with elite chest pickups. */
+export function chestParts() {
+  const trim = '#ffd23f';
+  const dark = '#333c57';
+  return {
+    baseWood: new THREE.BoxGeometry(1.0, 0.5, 0.66).translate(0, 0.25, 0),
+    lidWood: new THREE.BoxGeometry(1.02, 0.26, 0.68).translate(0, 0.13, 0.34),
+    baseTrim: mergeGeometries([
+      paint(new THREE.BoxGeometry(1.04, 0.1, 0.7), trim).translate(0, 0.08, 0),
+      paint(new THREE.BoxGeometry(0.12, 0.52, 0.7), trim).translate(-0.3, 0.26, 0),
+      paint(new THREE.BoxGeometry(0.12, 0.52, 0.7), trim).translate(0.3, 0.26, 0),
+      paint(new THREE.BoxGeometry(1.04, 0.05, 0.7), trim).translate(0, 0.48, 0),
+    ]),
+    lidTrim: mergeGeometries([
+      paint(new THREE.BoxGeometry(0.12, 0.28, 0.7), trim).translate(-0.3, 0.14, 0.34),
+      paint(new THREE.BoxGeometry(0.12, 0.28, 0.7), trim).translate(0.3, 0.14, 0.34),
+      paint(new THREE.BoxGeometry(0.22, 0.22, 0.08), trim).translate(0, 0.02, 0.7),
+      paint(new THREE.BoxGeometry(0.07, 0.09, 0.09), dark).translate(0, 0.0, 0.72), // keyhole
+    ]),
+    woodMat: createRetroMaterial({ map: textures.chestWood() }),
+    trimMat: createRetroMaterial({ vertexColors: true, unlit: 0.2 }),
+  };
+}
+
 export class Chests {
   list: WorldChest[] = [];
   // Textured wood and vertex-coloured gold trim, as separate instanced meshes sharing matrices.
@@ -36,27 +60,11 @@ export class Chests {
   private up = new THREE.Vector3(0, 1, 0);
 
   constructor(scene: THREE.Scene) {
-    const trim = '#ffd23f';
-    const dark = '#333c57';
-    const baseTrim = mergeGeometries([
-      paint(new THREE.BoxGeometry(1.04, 0.1, 0.7), trim).translate(0, 0.08, 0),
-      paint(new THREE.BoxGeometry(0.12, 0.52, 0.7), trim).translate(-0.3, 0.26, 0),
-      paint(new THREE.BoxGeometry(0.12, 0.52, 0.7), trim).translate(0.3, 0.26, 0),
-      paint(new THREE.BoxGeometry(1.04, 0.05, 0.7), trim).translate(0, 0.48, 0),
-    ]);
-    // Lid is built with its hinge (back edge) at the origin so it can swing open.
-    const lidTrim = mergeGeometries([
-      paint(new THREE.BoxGeometry(0.12, 0.28, 0.7), trim).translate(-0.3, 0.14, 0.34),
-      paint(new THREE.BoxGeometry(0.12, 0.28, 0.7), trim).translate(0.3, 0.14, 0.34),
-      paint(new THREE.BoxGeometry(0.22, 0.22, 0.08), trim).translate(0, 0.02, 0.7),
-      paint(new THREE.BoxGeometry(0.07, 0.09, 0.09), dark).translate(0, 0.0, 0.72), // keyhole
-    ]);
-    const woodMat = createRetroMaterial({ map: textures.chestWood() });
-    const trimMat = createRetroMaterial({ vertexColors: true, unlit: 0.2 });
-    this.baseWood = new THREE.InstancedMesh(new THREE.BoxGeometry(1.0, 0.5, 0.66).translate(0, 0.25, 0), woodMat, MAX);
-    this.baseTrim = new THREE.InstancedMesh(baseTrim, trimMat, MAX);
-    this.lidWood = new THREE.InstancedMesh(new THREE.BoxGeometry(1.02, 0.26, 0.68).translate(0, 0.13, 0.34), woodMat, MAX);
-    this.lidTrim = new THREE.InstancedMesh(lidTrim, trimMat, MAX);
+    const g = chestParts();
+    this.baseWood = new THREE.InstancedMesh(g.baseWood, g.woodMat, MAX);
+    this.baseTrim = new THREE.InstancedMesh(g.baseTrim, g.trimMat, MAX);
+    this.lidWood = new THREE.InstancedMesh(g.lidWood, g.woodMat, MAX);
+    this.lidTrim = new THREE.InstancedMesh(g.lidTrim, g.trimMat, MAX);
     for (const m of [this.baseWood, this.baseTrim, this.lidWood, this.lidTrim]) {
       m.frustumCulled = false;
       m.count = 0;

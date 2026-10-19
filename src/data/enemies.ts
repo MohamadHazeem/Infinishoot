@@ -100,7 +100,7 @@ export type Material = 'metal' | 'flesh' | 'slime' | 'stone' | 'shield';
 /** Family tuning: bounded summons and copy strength keep crowded co-op readable. */
 export const familyTuning = {
   mirrorDamage: 0.35, mirrorMaxDamage: 12, mirrorMaxShots: 9, mirrorMaxRate: 4,
-  mirrorBonus: 8,
+  mirrorBonus: 4,
   queenFromStage: 2, queenAt: 0.72, queenWindup: 1.4, queenCooldown: 7,
   queenFleeAt: 0.5, queenFleeTime: 3, queenReturnTime: 1.2,
   wallSpacing: 1.5, wallLife: 12, wallCap: 80, summonCap: 560,

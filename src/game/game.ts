@@ -121,7 +121,7 @@ export const OWNED_CHEST = 100;
 
 export const dropTuning = {
   xpMul: 0.45, // XP gem value per enemy XP point (lower = slower levelling)
-  goldChance: 0.005, // (was 0.009: stage 1 paid ~150 gold, user) thinned with the horde like the utility drops, so income stays steady
+  goldChance: 0.003, // (was 0.009, then 0.005: too much gold, user) thinned with the horde like the utility drops, so income stays steady
   heartChance: 0.004,
   magnetChance: 0.0015,
   gearChance: 0.0012, // per kill, x(1 + 0.25 per Luck of the killer)

@@ -20,7 +20,7 @@ import { bossLike } from '../bossRules';
 /** Goldbug reward and spawn numbers. */
 export const treasureTuning = {
   coins: 6, // coin pickups dropped
-  goldBase: 3, // gold per coin: base + perStage x stage
+  goldBase: 1, // gold per coin: base + perStage x stage (was 3: too much gold, user)
   goldPerStage: 1,
   gemPerStage: 12, // extra XP gem value per stage (before dropTuning.xpMul)
   spawnMin: 9, // spawns this close to a hero (on screen) so you can see it run

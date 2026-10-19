@@ -161,7 +161,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     // Bosses drop one chest per hero that only its owner can open (value OWNED_CHEST + hero index); elites drop one for anyone.
     if (isBoss) this.heroes.forEach((h, i) => !h.left && this.pickups.spawn(PickupType.Chest, e.x + i * 0.8, e.z, OWNED_CHEST + i));
     else this.pickups.spawn(PickupType.Chest, e.x, e.z);
-    for (let i = 0; i < (isBoss ? 6 : 2); i++) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
+    for (let i = 0; i < (isBoss ? 3 : 1); i++) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
     for (let i = 0; i < (isBoss ? 2 : 1); i++) this.pickups.spawn(PickupType.Gear, e.x, e.z);
     if (e.elite) {
       this.elitesRun++;

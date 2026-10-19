@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { chestParts } from './chests';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
 import { music } from '../audio/music';
@@ -44,6 +45,11 @@ export class Pickups {
   vacuum = false;
 
   private meshes: THREE.InstancedMesh[] = [];
+  /** Gold trim of chest pickups: drawn with the same matrices as the wood (meshes[Chest]). */
+  private chestTrim: THREE.InstancedMesh;
+  /** Additive beam + ground glow over chest pickups (same matrices). */
+  private chestGlow: THREE.InstancedMesh;
+  private chestGlowMat: THREE.MeshBasicMaterial;
   private m4 = new THREE.Matrix4();
   private q = new THREE.Quaternion();
   private e = new THREE.Euler();
@@ -53,12 +59,8 @@ export class Pickups {
 
   constructor(scene: THREE.Scene) {
     const make = (geo: THREE.BufferGeometry, color: string, unlit: number, cap: number) => {
-      const m = new THREE.InstancedMesh(geo, createRetroMaterial({ color, unlit }), cap);
-      m.frustumCulled = false;
-      m.count = 0;
-      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      const m = this.add(scene, new THREE.InstancedMesh(geo, createRetroMaterial({ color, unlit }), cap));
       if (geo.userData.colored) for (let i = 0; i < cap; i++) m.setColorAt(i, this.c.set('#ffffff'));
-      scene.add(m);
       return m;
     };
     const gemGeo = new THREE.OctahedronGeometry(0.22, 0);
@@ -71,7 +73,6 @@ export class Pickups {
     heart.bezierCurveTo(0.25, 0.4, 0.45, 0.05, 0, -0.3);
     const heartGeo = new THREE.ExtrudeGeometry(heart, { depth: 0.12, bevelEnabled: false });
     const magnetGeo = new THREE.TorusGeometry(0.28, 0.1, 5, 10, Math.PI);
-    const chestGeo = new THREE.BoxGeometry(0.8, 0.55, 0.55);
     // A cog: hub plus eight teeth, standing up like the gold bolts.
     const teeth = Array.from({ length: 8 }, (_, k) => new THREE.BoxGeometry(0.12, 0.1, 0.12).translate(0.3, 0, 0).rotateY((k / 8) * Math.PI * 2));
     const gearGeo = mergeGeometries([new THREE.CylinderGeometry(0.26, 0.26, 0.1, 8), ...teeth]).rotateX(Math.PI / 2);
@@ -79,11 +80,43 @@ export class Pickups {
     this.meshes[PickupType.Bolt] = make(boltGeo, '#ffb627', 0.4, 256);
     this.meshes[PickupType.Heart] = make(heartGeo, '#ff3d5a', 0.4, 64);
     this.meshes[PickupType.Magnet] = make(magnetGeo, '#ff3d5a', 0.3, 32);
-    this.meshes[PickupType.Chest] = make(chestGeo, '#e0a83c', 0.15, 32);
+    // Elite/boss chests look like the map chests (plank texture, gold trim), closed and at 80% size.
+    const cp = chestParts();
+    const shut = (geo: THREE.BufferGeometry) => geo.translate(0, 0.5, -0.34);
+    const chestWood = mergeGeometries([cp.baseWood, shut(cp.lidWood)]).translate(0, -0.38, 0).scale(0.8, 0.8, 0.8);
+    this.chestTrim = this.add(scene, new THREE.InstancedMesh(mergeGeometries([cp.baseTrim, shut(cp.lidTrim)]).translate(0, -0.38, 0).scale(0.8, 0.8, 0.8), cp.trimMat, 32));
+    this.meshes[PickupType.Chest] = this.add(scene, new THREE.InstancedMesh(chestWood, cp.woodMat, 32));
+    // A gold light beam and a ground glow so dropped chests stand out in a crowd (additive: black fades out).
+    const beam = new THREE.CylinderGeometry(0.3, 0.3, 4, 8, 1, true).translate(0, 2.7, 0); // starts a little above the lid so the chest stays readable
+    const disc = new THREE.CircleGeometry(1.1, 12).rotateX(-Math.PI / 2).translate(0, -0.28, 0);
+    const fade = (geo: THREE.BufferGeometry, k: (x: number, y: number, z: number) => number) => {
+      const pos = geo.getAttribute('position');
+      const col = new Float32Array(pos.count * 3);
+      const c = new THREE.Color('#ffd23f');
+      for (let i = 0; i < pos.count; i++) {
+        const f = k(pos.getX(i), pos.getY(i), pos.getZ(i));
+        col.set([c.r * f, c.g * f, c.b * f], i * 3);
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      geo.deleteAttribute('uv');
+      return geo;
+    };
+    const glowGeo = mergeGeometries([fade(beam, (_x, y) => (y < 2 ? 1 : 0)), fade(disc, (x, _y, z) => (Math.hypot(x, z) < 0.01 ? 1 : 0))]);
+    this.chestGlowMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+    this.chestGlow = this.add(scene, new THREE.InstancedMesh(glowGeo, this.chestGlowMat, 32));
+    this.chestGlow.renderOrder = 2;
     this.meshes[PickupType.Gear] = make(gearGeo, '#d8def0', 0.6, 32);
     // Nuke: a fat warhead with fins, glowing hot.
     const nukeGeo = mergeGeometries([new THREE.CapsuleGeometry(0.22, 0.4, 3, 8), new THREE.BoxGeometry(0.62, 0.06, 0.12).translate(0, -0.3, 0), new THREE.BoxGeometry(0.12, 0.06, 0.62).translate(0, -0.3, 0)]).rotateZ(Math.PI / 5);
     this.meshes[PickupType.Nuke] = make(nukeGeo, '#ffcd75', 0.8, 8);
+  }
+
+  private add(scene: THREE.Scene, m: THREE.InstancedMesh): THREE.InstancedMesh {
+    m.frustumCulled = false;
+    m.count = 0;
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    scene.add(m);
+    return m;
   }
 
   spawn(type: PickupType, x: number, z: number, value = 1): void {
@@ -254,8 +287,14 @@ export class Pickups {
       }
       this.m4.compose(this.v.set(this.x[i], y, this.z[i]), this.q, this.s.set(sc, sc, sc));
       m.setMatrixAt(k, this.m4);
+      if (t === PickupType.Chest) {
+        this.chestTrim.setMatrixAt(k, this.m4);
+        this.chestGlow.setMatrixAt(k, this.m4);
+      }
     }
-    for (const m of this.meshes) {
+    this.chestTrim.count = this.chestGlow.count = this.meshes[PickupType.Chest].count;
+    this.chestGlowMat.opacity = 0.4 + 0.2 * Math.sin(time * 4);
+    for (const m of [...this.meshes, this.chestTrim, this.chestGlow]) {
       commit(m.instanceMatrix, m.count);
       if (m.instanceColor) commit(m.instanceColor, m.count);
     }
