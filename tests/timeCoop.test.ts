@@ -191,11 +191,11 @@ for (const h of A.heroes) {
 }
 ok(A.mode === 'dead', 'everyone is down');
 let replayB = false;
-for (let i = 0; i < 60 * 8 && (B.screens as any).current !== 'gameover'; i++) {
+for (let i = 0; i < 60 * 8 && (B.screens as any).current !== 'mvp'; i++) {
   step(1);
   replayB ||= sB.net.hold === 2;
 }
 ok(replayB, 'the client holds for the team-wipe replay');
-ok((A.screens as any).current === 'gameover' && (B.screens as any).current === 'gameover', 'then both reach game over');
+ok((A.screens as any).current === 'mvp' && (B.screens as any).current === 'mvp', 'then both reach the host-authored run awards');
 cheats.god = false;
 console.log('time coop: done');

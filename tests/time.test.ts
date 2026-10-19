@@ -258,7 +258,7 @@ start();
   ok(p.dead && game.mode === 'dead' && ts().heroes[0].standShort > 0, `out of time: the blow lands (${ts().heroes[0].standShort} kills short)`);
   let sawReplay = false;
   let held = false;
-  for (let i = 0; i < 60 * 7 && (game.screens as any).current !== 'gameover'; i++) {
+  for (let i = 0; i < 60 * 7 && (game.screens as any).current !== 'mvp'; i++) {
     game.update(1 / 60);
     if (i % 4 === 0) game.render(1, 1 / 60);
     if (ts().hold?.kind === 'replay') {
@@ -267,7 +267,7 @@ start();
     }
   }
   ok(sawReplay && held, 'the death replay plays before the game-over screen');
-  ok((game.screens as any).current === 'gameover', 'and the game-over flow still follows');
+  ok((game.screens as any).current === 'mvp', 'and the run awards follow the replay');
   ok(ts().so.text.includes('LAST STAND') || ts().so.title.length > 0, `so close: "${ts().so.title} / ${ts().so.text}"`);
 }
 
@@ -288,7 +288,7 @@ start();
   game.update(1 / 60);
   ok(!ts().hold && p.dead, 'any button skips it (the hero stays down)');
   for (let i = 0; i < 120; i++) game.update(1 / 60);
-  ok((game.screens as any).current === 'gameover', 'skipping goes straight on to game over');
+  ok((game.screens as any).current === 'mvp', 'skipping goes straight on to run awards');
   settings.deathReplay = false;
   start();
   step(60 * 2);
@@ -300,7 +300,7 @@ start();
     game.update(1 / 60);
     any ||= !!ts().hold;
   }
-  ok(!any && (game.screens as any).current === 'gameover', 'DEATH REPLAY off: straight to game over');
+  ok(!any && (game.screens as any).current === 'mvp', 'DEATH REPLAY off: straight to run awards');
   settings.deathReplay = true;
 }
 
