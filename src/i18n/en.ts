@@ -1,3 +1,4 @@
+import { followupsEn } from './followups';
 import { storyEn } from '../game/story/strings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
@@ -26,6 +27,7 @@ export const en = {
   "clips.settingDesc": "Keeps the last 15 seconds of silent gameplay for WebM export. Off on LOW/POTATO. Saves last until the next run.",
   "clips.binding": "Save last 15 seconds",
 
+  ...followupsEn,
   "mods.category.weapons": "weapons",
   "mods.category.enemies": "enemies",
   "mods.category.relics": "relics",

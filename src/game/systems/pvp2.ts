@@ -55,7 +55,7 @@ import { samples } from '../../audio/samples';
 import { caption } from '../../audio/captions';
 import { voiceGate } from '../../audio/announcer';
 import { prompt } from '../../ui/prompts';
-import { localize, localizeHtml } from '../../i18n';
+import { t, localize, localizeHtml } from '../../i18n';
 import { playerTuning } from '../player';
 import { resolveCircleVsBoxes } from '../../world/collision';
 import type { LobbyView } from '../../ui/screens';
@@ -705,8 +705,8 @@ function showBoard(g: Game, b: Board | null): void {
   const el = s.boardEl!;
   const team = b.format === 'teams';
   const winTeam = b.over ? b.winner : b.team;
-  const name = (t: number) => (team ? `TEAM ${TEAM_NAMES[t] ?? t + 1}` : (b.rows.find((r) => r.t === t)?.n ?? '').toUpperCase());
-  const title = b.over ? (b.winner >= 0 ? `${name(b.winner)} WINS!` : 'DRAW!') : b.team >= 0 ? `${name(b.team)} TAKES ROUND ${b.round}` : `ROUND ${b.round} · DRAW`;
+  const name = (t: number) => (team ? `TEAM ${TEAM_NAMES[t] ?? t + 1}` : `<bdi>${esc(b.rows.find((r) => r.t === t)?.n ?? '')}</bdi>`);
+  const title = b.over ? (b.winner >= 0 ? t('followups.pvp.wins', { name: name(b.winner) }) : 'DRAW!') : b.team >= 0 ? t('followups.pvp.roundWin', { name: name(b.team), round: b.round }) : `ROUND ${b.round} · DRAW`;
   const sub = b.over ? 'MATCH OVER' : b.team < 0 ? 'NOBODY LEFT STANDING · NO POINT' : b.rounds === 3 ? `FIRST TO ${pvpTuning.roundsToWin} · NEXT ROUND SOON` : '';
   const rows = [...b.rows].sort((a, c) => (b.wins[c.t] ?? 0) - (b.wins[a.t] ?? 0) || c.k - a.k || c.d - a.d);
   const body = rows
@@ -715,7 +715,7 @@ function showBoard(g: Game, b: Board | null): void {
       return `<tr class="${r.t === winTeam ? 'win' : ''} ${r.out ? 'out' : ''}"><td><span class="dot" style="--c:${r.c}"></span><bdi>${esc(r.n)}</bdi>${tb}</td><td>${b.wins[r.t] ?? 0}</td><td>${r.k}</td><td>${r.d}</td></tr>`;
     })
     .join('');
-  el.innerHTML = localizeHtml(`<h2>${esc(title)}</h2><div class="sub">${sub}</div><table><tr><th>PLAYER</th><th>ROUNDS</th><th>KOS</th><th>DAMAGE</th></tr>${body}</table>`);
+  el.innerHTML = localizeHtml(`<h2>${title}</h2><div class="sub">${sub}</div><table><tr><th>PLAYER</th><th>ROUNDS</th><th>KOS</th><th>DAMAGE</th></tr>${body}</table>`);
   el.hidden = false;
   playSample('round_bell', 0.7);
 }
@@ -911,7 +911,7 @@ function spectate(g: Game, s: Pvp2State, frameDt: number): void {
   }
   const who = !s.freeCam && watch ? g.heroes.find((h) => h.player === watch) : null;
   const html = localizeHtml(
-    `YOU'RE OUT · ${who ? `WATCHING <bdi>${esc(who.name.toUpperCase())}</bdi>` : 'FREE CAMERA'}<small>${prompt('fire')} NEXT PLAYER · ${prompt('dash')} FREE CAMERA${s.freeCam ? ` · ${prompt('move')} MOVE` : ''}</small>`,
+    `YOU'RE OUT · ${who ? `WATCHING <bdi>${esc(who.name)}</bdi>` : 'FREE CAMERA'}<small>${prompt('fire')} NEXT PLAYER · ${prompt('dash')} FREE CAMERA${s.freeCam ? ` · ${prompt('move')} MOVE` : ''}</small>`,
   );
   if (spec.innerHTML !== html) spec.innerHTML = html;
   spec.hidden = false;

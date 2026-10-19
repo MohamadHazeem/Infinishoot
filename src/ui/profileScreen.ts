@@ -269,7 +269,7 @@ export class ProfileScreen {
       this.panel.className = 'px';
       this.panel.title = 'PROFILE';
       this.panel.addEventListener('click', onOpen);
-      title.appendChild(this.panel);
+      (title.querySelector('.menu-activity') ?? title).appendChild(this.panel);
     }
     const lv = levelOf(save.profile.xp);
     const qs = questView();

@@ -54,7 +54,7 @@ const q: [any, any][] = [];
 (B as any).client = { send: (m: any) => q.push([A, m]), close() {} };
 const flush = () => { while (q.length) { const [g, m] = q.shift()!; if (g === A) A.onHostMessage('peerB', structuredClone(m)); else B.onClientMessage(structuredClone(m)); } };
 A.setHeroes([A.makeHero(0, 'Host', unlockedWeapons()), A.makeHero(1, 'Guest', [], 'peerB')]);
-A.startRun();
+A.startRun({ seed: 42 });
 flush();
 if (A.mode === 'shop') A.closeShop();
 flush();

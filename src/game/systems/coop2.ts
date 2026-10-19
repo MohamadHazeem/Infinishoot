@@ -40,7 +40,7 @@ import { settings } from '../settings';
 import { WEAPONS } from '../../data/weapons';
 import { validLoadout, type Loadout } from '../../data/loadout';
 import { cleanLook } from '../../data/customise';
-import { heroOf } from '../../data/heroes';
+import { heroOf, heroClicks } from '../../data/heroes';
 import { skinOf } from '../../data/skins';
 import { metaSkin } from '../../data/codex';
 import { unlockedWeapons } from '../save';
@@ -847,7 +847,7 @@ function recordGhosts(g: Game): void {
     level: g.level,
     stage: g.stage,
     boss: bossName,
-    kit: [h.loadoutPick.primary, h.loadoutPick.secondary, h.loadoutPick.special, ...h.weapons.filter((w) => !w.def.slot).slice(0, 4).map((w) => w.def.id)],
+    kit: [heroClicks(h.heroDef, h.loadoutPick).primary, heroClicks(h.heroDef, h.loadoutPick).secondary, h.loadoutPick.special, ...h.weapons.filter((w) => !w.def.slot).slice(0, 4).map((w) => w.def.id)],
     date,
   });
   const mine = cleanGhost(ghostOf(g.hero));

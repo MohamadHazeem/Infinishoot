@@ -1,3 +1,4 @@
+import { followupsAr } from './followups';
 import { storyAr } from '../game/story/strings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
@@ -27,6 +28,7 @@ export const ar = {
   "clips.settingDesc": "يحتفظ بآخر 15 ثانية من اللعب بلا صوت لتصدير WebM. يتوقف على الجودة المنخفضة والبطاطا. تبقى اللقطات حتى الجولة التالية.",
   "clips.binding": "حفظ آخر 15 ثانية",
 
+  ...followupsAr,
   "mods.category.weapons": "الأسلحة",
   "mods.category.enemies": "الأعداء",
   "mods.category.relics": "الآثار",

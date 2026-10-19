@@ -1,3 +1,4 @@
+import { pvpTuning } from '../game/pvp';
 import { secretsTuning } from '../data/secrets';
 import { shadowTuning } from '../render/shadows';
 import { gfx3Tuning } from '../game/fx';
@@ -78,6 +79,11 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Backquote') gui._hidden ? gui.show() : gui.hide();
   });
+
+  const pvp = gui.addFolder('PvP').close();
+  for (const key of Object.keys(pvpTuning) as (keyof typeof pvpTuning)[]) if (key !== 'sourceMul') pvp.add(pvpTuning, key);
+  const sources = pvp.addFolder('Weapon damage').close();
+  for (const key of Object.keys(pvpTuning.sourceMul)) sources.add(pvpTuning.sourceMul, key, 0, 3, 0.05);
 
   const mvp = gui.addFolder('MVP & band').close();
   mvp.add(mvpTuning, 'comboWindow', 0.5, 5, 0.1);

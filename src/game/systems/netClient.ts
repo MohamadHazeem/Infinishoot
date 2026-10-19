@@ -2,6 +2,7 @@ import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
 import { t } from '../../i18n';
+import { applyFollowupsNet } from './followups';
 import { applySecretsNet } from './secrets';
 import { applyGauntletNet } from './gauntlet';
 import { createMvp, type MvpReport } from './mvp';
@@ -436,6 +437,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   this.applyDirector2Net(s.d2);
+  applyFollowupsNet(this, s.fu);
   this.applyWorldEventNet(s.we, s.wt);
   applyGauntletNet(this, s.gl);
   this.applyRaidNet(s.rd);

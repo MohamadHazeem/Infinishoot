@@ -55,6 +55,8 @@ export interface WeaponCtx {
   fx: FxApi;
   /** Index of the hero who owns this weapon. */
   owner: number;
+  /** Whether a pooled shot threatens this hero (including opponents during a duel). */
+  hostileBullet?(index: number): boolean;
   /** Manual fire held (mouse / trigger / auto-fire). */
   firing: boolean;
   /** Charge shot held (right mouse / X). */

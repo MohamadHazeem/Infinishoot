@@ -140,7 +140,7 @@ export function parseInviteCode(text: unknown): string | null {
 // ---------------------------------------------------------------- profile card
 
 export interface ProfileCard {
-  /** Profile level (from lifetime stats and achievements). */
+  /** Profile XP level (legacy clients may send a lifetime-stat estimate). */
   lv: number;
   best: number;
   runs: number;
@@ -161,7 +161,7 @@ export function cleanProfile(raw: unknown): ProfileCard | null {
   const r = raw as Record<string, unknown>;
   const n = (v: unknown, max: number) => Math.max(0, Math.min(max, Math.floor(Number(v) || 0)));
   const fc = typeof r.fc === 'string' && CODE_RE.test(r.fc) ? r.fc : '';
-  return { lv: Math.max(1, n(r.lv, 99)), best: n(r.best, 999), runs: n(r.runs, 1e6), ach: n(r.ach, 999), fc };
+  return { lv: Math.max(1, n(r.lv, 100)), best: n(r.best, 999), runs: n(r.runs, 1e6), ach: n(r.ach, 999), fc };
 }
 
 // ---------------------------------------------------------------- friends (local)

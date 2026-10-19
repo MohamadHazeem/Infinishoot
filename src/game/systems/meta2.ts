@@ -30,7 +30,7 @@ import { worldEventOf } from './worldEvents';
 import { cineState } from './cinematics';
 import { isOverlord } from './versus';
 import { radioEvents } from '../../audio/radio';
-import { samples } from '../../audio/samples';
+import { challengeState } from './gauntlet';
 import { sfx } from '../../audio/sfx';
 import { settings } from '../settings';
 import { localize, localizeHtml, escapeHtml } from '../../i18n';
@@ -195,6 +195,8 @@ export function meta2Kill(this: Game, e: Enemy, source: string, by: Hero | null)
     }
   } else if (def.boss) {
     const base = def.remixOf ?? def.id;
+    if (base === 'omega' && this.role === 'solo' && !this.pvp && ['standard', 'endless'].includes(this.runMode))
+      peak(tallyOf(s, this.hero), 'ascension', challengeState(this).ascension);
     for (const h of this.heroes) if (!h.left) {
       const t = tallyOf(s, h);
       add(t, 'bosses');
@@ -370,7 +372,7 @@ export function checkMeta2Achievements(g: Game | null, run: RunTally = {}): Achi
 /** The unlock toast (shared with the classic achievements in runFlow.checkAchievements). */
 export function achievementToast(g: Game, def: AchievementDef, unlock = ''): void {
   g.hud.toast(`★ ${localize((def.tier ?? 'bronze').toUpperCase())} · ${localize(def.name)}${unlock}`, 4);
-  if (!samples.play('achievement', { bus: 'ui', priority: 12 })) sfx.powerUp();
+  sfx.named('achievement');
 }
 
 /** Make sure today's quests are rolled (and yesterday's left behind). */
@@ -498,11 +500,11 @@ function moments(g: Game, res: BankResult): void {
     if (meta2State(g).questToasted.has(id)) continue;
     g.hud.toast(`${localize('QUEST COMPLETE')}: ${localize(questText(QUEST_BY_ID[id]))} +${QUEST_XP[QUEST_BY_ID[id].tier]} XP`, 4);
   }
-  if (res.quests.length && !samples.play('quest_done', { bus: 'ui', priority: 11 })) sfx.coin();
+  if (res.quests.some((id) => !meta2State(g).questToasted.has(id))) sfx.named('questDone');
   if (res.to > res.from) {
     const names = res.rewards.map((id) => REWARD_BY_ID[id]?.name).filter(Boolean);
     g.hud.toast(`★ ${localize('PROFILE LEVEL')} ${res.to}!${names.length ? ' ' + localize('NEW') + ': ' + names.map((n) => localize(n!)).join(', ') : ''}`, 5);
-    if (!samples.play('profile_level', { bus: 'ui', priority: 13 })) sfx.powerUp();
+    sfx.named('profileLevel');
   }
   renderStrip(res);
 }
@@ -553,7 +555,7 @@ export function meta2Frame(this: Game, dt: number): void {
     if (!q.done || save.quests.done[save.quests.ids.indexOf(q.def.id)] || s.questToasted.has(q.def.id)) continue;
     s.questToasted.add(q.def.id);
     this.hud.toast(`${localize('QUEST COMPLETE')}: ${localize(q.text)} +${q.xp} XP`, 4);
-    samples.play('quest_done', { bus: 'ui', priority: 11 });
+    sfx.named('questDone');
   }
 }
 

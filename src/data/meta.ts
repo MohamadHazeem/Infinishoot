@@ -147,10 +147,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   m('m2_modes', 'Mode Tourist', 'Play all 5 run modes', 'silver', 'modes', 'modes', 5, 'set'),
   m('m2_stage8', 'Second Loop', 'Reach stage 8', 'silver', 'modes', 'stage', 8, 'run'),
   m('m2_loops5', 'Loop Champion', 'Clear 5 loops in total', 'gold', 'modes', 'victories', 5),
-  // Ascension (heat at a loop clear)
-  m('m2_asc1', 'Ascension I', 'Clear a loop at heat 2 or more', 'bronze', 'ascension', 'heat', 2, 'run'),
-  m('m2_asc2', 'Ascension II', 'Clear a loop at heat 6 or more', 'silver', 'ascension', 'heat', 6, 'run'),
-  m('m2_asc3', 'Ascension III', 'Clear a loop at heat 10 or more', 'gold', 'ascension', 'heat', 10, 'run'),
+  // Ascension challenge clears (existing earned medals remain unlocked).
+  m('m2_asc1', 'Ascension I', 'Clear Ascension 2 or higher', 'bronze', 'ascension', 'ascension', 2, 'run'),
+  m('m2_asc2', 'Ascension II', 'Clear Ascension 6 or higher', 'silver', 'ascension', 'ascension', 6, 'run'),
+  m('m2_asc3', 'Ascension III', 'Clear Ascension 10 or higher', 'gold', 'ascension', 'ascension', 10, 'run'),
   // Co-op and PvP
   m('m2_coop', 'Better Together', 'Play a co-op run', 'bronze', 'coop', 'coopRuns', 1),
   m('m2_coopst20', 'Team Players', 'Clear 20 stages in co-op', 'silver', 'coop', 'coopStages', 20),

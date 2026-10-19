@@ -32,6 +32,7 @@ import type { CardNum } from './cardNumbers';
 import { createFieldArena, type Arena } from '../world/fieldArena';
 import { Barrels } from './barrels';
 import { Chests } from './chests';
+import { hostileBullet } from './systems/followups';
 import { BULLET_Y, Bullets, Team } from './bullets';
 import { CameraRig } from './cameraRig';
 import { Director } from './director';
@@ -1118,6 +1119,7 @@ export class Game implements HeroWorld {
       particles: this.vfx,
       fx: this.vfx,
       owner: hero.index,
+      hostileBullet: (i) => hostileBullet(this, hero.index, i),
       firing: false,
       charging: false,
       damage: (e, base, o) => this.damage(e, base, o, hero),

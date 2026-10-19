@@ -142,7 +142,7 @@ const q: [any, any][] = [];
 const flush = () => { while (q.length) { const [g, m] = q.shift()!; if (g === A) A.onHostMessage('peerB', structuredClone(m)); else B.onClientMessage(structuredClone(m)); } };
 A.setHeroes([A.makeHero(0, 'Host', unlockedWeapons()), A.makeHero(1, 'Guest', [], 'peerB')]);
 T.enabled = false; // only the events this test starts
-A.startRun();
+A.startRun({ seed: 42 });
 flush();
 if (A.mode === 'shop') A.closeShop();
 flush();

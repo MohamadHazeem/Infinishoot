@@ -1,3 +1,4 @@
+import { heroOf } from '../data/heroes';
 import { DEFAULT_LOADOUT, loadoutOptions, type Loadout, type LoadoutSlot } from '../data/loadout';
 
 /**
@@ -71,7 +72,7 @@ export class LocalLobby {
     if (!dVal) return;
     const row = SLOT_ROWS[s.row];
     if (row === 'hero') s.hero = cycle(this.heroes(), s.hero, dVal);
-    else s.loadout = { ...s.loadout, [row]: cycle(this.options(row), s.loadout[row], dVal) };
+    else if (row === 'special' || !heroOf(s.hero).clicks?.[row]) s.loadout = { ...s.loadout, [row]: cycle(this.options(row), s.loadout[row], dVal) };
   }
 
   options(row: LoadoutSlot): string[] {

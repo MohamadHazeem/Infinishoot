@@ -184,9 +184,14 @@ await Promise.all(
     [B, heroB],
   ].map(([p, hero]) =>
     p.page.evaluate(async (hero) => {
-      const { settings } = await import('/src/game/settings.ts');
+      const { settings, saveSettings } = await import('/src/game/settings.ts');
+      const { heroOf } = await import('/src/data/heroes.ts');
+      const { grantAchievement } = await import('/src/game/save.ts');
       window.cheats.unlockAll = true; // both heroes unlock through achievements a fresh profile doesn't have
+      const unlock = heroOf(hero).unlock;
+      if (unlock) grantAchievement(unlock); // invite/rejoin reloads must keep the intended hero too
       settings.hero = hero;
+      saveSettings();
       window.game.applyLocalSkin();
     }, hero),
   ),
@@ -534,8 +539,8 @@ async function coopEnd() {
 const SCENARIO = [
   [20, 'heroes3: Tinker bots on both screens, the client Ronin swings', heroes3Check(false)],
   [70, 'heroes3: the client Ronin has dash-struck too', heroes3Check(true)],
-  [8, 'new enemy types, an elite and the Goldbug near the client', () =>
-    host(async () => {
+  [8, 'new enemy types, an elite and the Goldbug near the client', async () => {
+    const spawned = await host(async () => {
       const g = window.game;
       const { ENEMIES } = await import('/src/data/enemies.ts');
       const c = g.heroes[1].player;
@@ -548,8 +553,14 @@ const SCENARIO = [
         }
       g.debugSpawnElite('charger', 'shielded');
       g.spawnEnemy(ENEMIES.golden);
-      return k;
-    })],
+      return { count: k, step: g.stepN };
+    });
+    // Compare only once the injected batch has had a snapshot applied. An
+    // immediate comparison is guaranteed to see the pre-injection client.
+    const applied = await until(B, async step => (await import('/src/game/systems/netcode.ts')).netcodeState(window.game).lastSnapStep > step, spawned.step, 4000);
+    if (!applied) fail('injected enemies never reached a later client snapshot');
+    return spawned.count;
+  }],
   [11, 'client takes a jump pad', async () => {
     // The host notes every jump message it gets and whether a jump started.
     await host(() => {
@@ -1264,10 +1275,13 @@ async function partyPhase() {
   if (!lobbyA || !lobbyB) fail(`party: BACK TO LOBBY host ${lobbyA} client ${lobbyB}`);
   await shot('lobby-again');
   // KICK: the client leaves for the title with a message; the host lobby has just the host.
+  // The title demo can replace a toast before the next 150 ms poll. Observe the
+  // actual notice as well as requiring the final disconnected/title state.
+  await client(() => { window.__kickToasts = []; const toast = window.game.hud.toast; window.game.hud.toast = function (...args) { window.__kickToasts.push(args[0]); return toast.apply(this, args); }; });
   if (!(await click(A, '#scr-online [data-act=lob-kick]'))) fail('kick: no KICK button');
-  const out = await until(B, () => window.game.role === 'solo' && window.game.screens.current === 'title' && (document.querySelector('#toast')?.textContent ?? '').includes('REMOVED'), null, 5000);
+  const out = await until(B, () => window.game.role === 'solo' && window.game.mode === 'title' && window.game.screens.current === 'title' && window.__kickToasts.some(s => s.includes('REMOVED')), null, 5000);
   const hostOne = await until(A, () => window.game.lobby.length === 1, null, 3000);
-  if (!out || !hostOne) fail(`kick: client out ${out}, host lobby down to 1 ${hostOne}`);
+  if (!out || !hostOne) fail(`kick: client out ${out}, host lobby down to 1 ${hostOne}, client ${JSON.stringify(await client(() => ({ role: window.game.role, mode: window.game.mode, screen: window.game.screens.current, toast: document.querySelector('#toast')?.textContent, notices: window.__kickToasts })))}`);
   log(`party: rows ok ${!!rows}, restart ok ${!!again}, back to lobby ${lobbyA && !!lobbyB}, kick ${!!out && !!hostOne}`);
 }
 

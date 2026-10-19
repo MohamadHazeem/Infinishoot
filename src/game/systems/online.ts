@@ -7,6 +7,7 @@ import { modSession } from '../../mods/manager';
 import { profileSummary } from './meta2';
 import { cleanSummary } from '../../data/profile';
 import type { Game } from '../game';
+import { heroOf, heroClicks } from '../../data/heroes';
 import { localHero, kitText } from '../game';
 import { randomSeed } from '../../core/rng';
 import { WEAPONS } from '../../data/weapons';
@@ -66,7 +67,7 @@ export async function hostGame(this: Game, name: string, randomCode = false): Pr
 
 export function refreshLobby(this: Game): void {
   if (!this.host) return;
-  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i % HERO_COLORS.length], kit: kitText(p.loadout), pf: p.pf ?? null, title: this.lobbyTitle(p.peerId) }));
+  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i % HERO_COLORS.length], kit: kitText({ ...p.loadout, ...heroClicks(heroOf(p.hero ?? 'rookie'), p.loadout) }), pf: p.pf ?? null, title: this.lobbyTitle(p.peerId) }));
   const difficulty = this.lobbyDifficulty().id;
   const kind = this.lobbyKind;
   const extra = this.mpLobbyExtra(); // Versus Overlord, weekly team, PUBLIC (systems/mp.ts)
