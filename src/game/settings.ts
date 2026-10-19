@@ -15,7 +15,7 @@ import { fxQuality, weatherSettings } from './ambience';
 import { streaks } from './streaks';
 import { DEFAULT_LOADOUT, validLoadout, type Loadout } from '../data/loadout';
 import { applyUiScale } from '../ui/hudLayout';
-import { AUTO, AUTO_START, MANUAL_LEVELS, QualityGovernor, renderQuality, setRenderQuality } from '../render/quality';
+import { AUTO, AUTO_START, POTATO, qualitySettingLevel, QualityGovernor, renderQuality, setRenderQuality } from '../render/quality';
 
 /** Player-facing settings, persisted between sessions. */
 export interface Settings {
@@ -54,7 +54,7 @@ export interface Settings {
   reduceFlash: boolean;
   /** Legacy manual quality (0 = low, 1 = medium, 2 = high); `graphics` replaced it. */
   quality: number;
-  /** Graphics quality: 0 = low, 1 = medium, 2 = high, 3 = auto (holds 60 fps). */
+  /** Graphics quality: 0 = low, 1 = medium, 2 = high, 3 = auto (holds 60 fps), 4 = Potato. */
   graphics: number;
   /** Screen-space shockwaves and heat shimmer. */
   distortion: boolean;
@@ -245,7 +245,8 @@ export function applySettings(): void {
   weatherSettings.enabled = settings.weather;
   document.body.classList.toggle('reduce-flash', settings.reduceFlash);
   applyUiScale(settings.uiScale);
-  const g = Math.max(0, Math.min(AUTO, Math.round(settings.graphics)));
+  const g = Number.isInteger(settings.graphics) && settings.graphics >= 0 && settings.graphics <= POTATO ? settings.graphics : AUTO;
+  settings.graphics = g;
   if (g === AUTO) {
     // Keep the governor (and its rung) across unrelated settings changes.
     if (!governor || !renderQuality.auto) governor = new QualityGovernor(AUTO_START);
@@ -253,7 +254,7 @@ export function applySettings(): void {
   } else {
     governor = null;
     settings.quality = g;
-    applyQualityLevel(MANUAL_LEVELS[g], false);
+    applyQualityLevel(qualitySettingLevel(g), false);
   }
 }
 

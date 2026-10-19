@@ -574,6 +574,12 @@ export class SkyFx {
   }
 
   update(f: SkyFrame): void {
+    if (f.quality <= 0) {
+      retroGlobals.uCloud.value.w = 0;
+      this.sea.visible = this.ponds.visible = this.haze.visible = false;
+      this.shaftMesh.count = 0;
+      return;
+    }
     const T = skyTuning;
     const P = SKY_PALETTES[f.biomeId] ?? SKY_PALETTES.meadow;
     const k = skyOverrides.tod ?? f.dayK;

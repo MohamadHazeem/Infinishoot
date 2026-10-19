@@ -11,6 +11,7 @@ import { biomeForStage } from '../../data/biomes';
 import { fxQuality } from '../ambience';
 import { worldFxTuning } from '../particles';
 import { access } from '../settings';
+import { renderQuality } from '../../render/quality';
 import { worldRender } from '../../world/worldRender';
 
 export const worldDustTuning = {
@@ -83,12 +84,12 @@ export function worldFx(this: Game, frameDt: number): void {
     s.heroes.clear();
     s.uid.fill(-1);
   }
-  worldFxTuning.amount = fxQuality.ambience < 0.5 ? 0.5 : 1;
+  worldFxTuning.amount = renderQuality.worldEffects ? (fxQuality.ambience < 0.5 ? 0.5 : 1) : 0;
   this.ambience.reduceFlash = access.reduceFlash;
   this.ambience.tintSky();
 
   const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop';
-  if (frozen || frameDt <= 0 || this.mode === 'title') return;
+  if (!renderQuality.worldEffects || frozen || frameDt <= 0 || this.mode === 'title') return;
   // Dust tint and footprint tint come from the biome (no prints on grass, tiles or ash).
   const b = biomeForStage(this.arenaStage);
   const biome = b.id;

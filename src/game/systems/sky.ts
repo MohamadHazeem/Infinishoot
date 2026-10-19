@@ -92,7 +92,7 @@ export function updateSkyFx(this: Game, frameDt: number): void {
     camera: cam,
     focusX: this.playerPos.x,
     focusZ: this.playerPos.z,
-    quality: renderQuality.level,
+    quality: renderQuality.level - 1,
     ponds: this.ambience.surfaces.patches,
   });
   this.scars.ground.magma = biome === 'magma';
@@ -109,7 +109,7 @@ export function updateSkyFx(this: Game, frameDt: number): void {
 
 /** Fire shots shimmer the air behind them: extra heat spots after the look pass's lava ones. */
 function heatHaze(game: Game, st: SkyState, cam: THREE.PerspectiveCamera): void {
-  if (!postfx.distortion || !settings.distortion) return;
+  if (!renderQuality.distortion || !postfx.distortion || !settings.distortion) return;
   const b = game.bullets;
   const T = skyFxTuning;
   let n = postfx.heatCount;

@@ -26,26 +26,37 @@ export interface QualityLevel {
   ambience: number;
   /** Motion streaks behind discs, missiles and charge shots. */
   streaks: boolean;
+  /** Decorative smoke, debris, footprints, ground scars and destruction. */
+  worldEffects: boolean;
 }
 
 export const QUALITY_LEVELS: readonly QualityLevel[] = [
-  { name: 'LOW', resolution: 216, lights: 4, glow: 0, distortion: false, outlines: false, particles: 0.5, ambience: 0.35, streaks: false },
-  { name: 'LOW+', resolution: 240, lights: 6, glow: 1, distortion: true, outlines: true, particles: 0.75, ambience: 0.6, streaks: true },
-  { name: 'MEDIUM', resolution: 270, lights: 10, glow: 2, distortion: true, outlines: true, particles: 1, ambience: 1, streaks: true },
-  { name: 'HIGH', resolution: 360, lights: 16, glow: 2, distortion: true, outlines: true, particles: 1, ambience: 1, streaks: true },
+  { name: 'POTATO', resolution: 216, lights: 0, glow: 0, distortion: false, outlines: false, particles: 0.12, ambience: 0, streaks: false, worldEffects: false },
+  { name: 'LOW', resolution: 216, lights: 2, glow: 0, distortion: false, outlines: false, particles: 0.3, ambience: 0.2, streaks: false, worldEffects: false },
+  { name: 'LOW+', resolution: 240, lights: 6, glow: 1, distortion: true, outlines: true, particles: 0.75, ambience: 0.6, streaks: true, worldEffects: true },
+  { name: 'MEDIUM', resolution: 270, lights: 10, glow: 2, distortion: true, outlines: true, particles: 1, ambience: 1, streaks: true, worldEffects: true },
+  { name: 'HIGH', resolution: 360, lights: 16, glow: 2, distortion: true, outlines: true, particles: 1, ambience: 1, streaks: true, worldEffects: true },
 ];
 
 /** Settings quality 0 / 1 / 2 (low / medium / high) to a ladder rung. 3 is AUTO. */
-export const MANUAL_LEVELS = [0, 2, 3];
+export const MANUAL_LEVELS = [1, 3, 4];
 export const AUTO = 3;
-/** Rung AUTO starts on. */
-export const AUTO_START = 2;
+/** Appended setting value: existing saves retain their preset. */
+export const POTATO = 4;
+/** Start conservatively: avoid compiling expensive shaders before the first frame. */
+export const AUTO_START = 1;
 
-/** The live rung (copied from QUALITY_LEVELS; never reassign, mutate). */
-export const renderQuality: QualityLevel & { level: number; auto: boolean } = { ...QUALITY_LEVELS[AUTO_START], level: AUTO_START, auto: true };
+/** Resolve a persisted preset without changing the meaning of old saves. */
+export function qualitySettingLevel(value: number): number {
+  if (!Number.isInteger(value) || value < 0 || value > POTATO || value === AUTO) return AUTO_START;
+  return value === POTATO ? 0 : MANUAL_LEVELS[value];
+}
+
+/** Live rung. Headless consumers retain MEDIUM until applySettings selects the player preset. */
+export const renderQuality: QualityLevel & { level: number; auto: boolean } = { ...QUALITY_LEVELS[MANUAL_LEVELS[1]], level: MANUAL_LEVELS[1], auto: true };
 
 export function setRenderQuality(level: number, auto: boolean): void {
-  const l = Math.max(0, Math.min(QUALITY_LEVELS.length - 1, Math.round(level)));
+  const l = Math.max(0, Math.min(QUALITY_LEVELS.length - 1, Number.isFinite(level) ? Math.round(level) : AUTO_START));
   Object.assign(renderQuality, QUALITY_LEVELS[l], { level: l, auto });
 }
 
@@ -65,7 +76,10 @@ export const governorTuning = {
   upAfter: 8,
   /** Seconds to ignore after any change (resolution changes hitch) and at start. */
   cooldown: 2,
-  warmup: 3,
+  warmup: 1,
+  /** Sustained frames below 30 fps take the fast descent path. */
+  urgentMs: 33,
+  urgentCooldown: 0.25,
   /** Stepping back down within this many seconds of stepping up marks that rung as too heavy... */
   probation: 10,
   /** ...and blocks retrying it for this long, doubling each failure up to the cap. */
@@ -128,7 +142,7 @@ export class QualityGovernor {
     this.acc = this.n = this.slow = this.winT = 0;
 
     if (avg > t.downMs || slowFrac > t.slowFrac) {
-      this.bad++;
+      this.bad += avg >= t.urgentMs ? t.downWindows : 1;
       this.good = 0;
     } else {
       this.bad = 0;
@@ -143,7 +157,9 @@ export class QualityGovernor {
         this.blockedUntil[from] = this.clock + this.backoff[from];
         this.backoff[from] = Math.min(t.backoffMax, this.backoff[from] * 2);
       }
-      return this.change(from - 1);
+      const level = this.change(from - 1);
+      if (avg >= t.urgentMs) this.cool = t.urgentCooldown;
+      return level;
     }
     if (this.good >= t.upAfter && this.level < this.max && this.clock >= this.blockedUntil[this.level + 1]) {
       this.upAt = this.clock;
