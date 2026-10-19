@@ -26,6 +26,7 @@ import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
 import { bossLinks } from './bossLinks';
 import { worldEventLinks } from './worldEventLinks';
+import { mpLinks } from './mpLinks';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import type { PhotoMode } from '../ui/photoMode';
@@ -99,6 +100,8 @@ import { SCAR_COLORS } from '../game/scars';
  * World events (src/dev/worldEventLinks.ts): &wev=collapse|flood|split|giant|eclipse|flower|volcano|stealth, &wevt=6 (jump its clock), &wevoff.
  * Time lane (src/dev/timeLinks.ts): &rewindgo=3&rewindat=0.5, &standgo=2, &btgo=2&btat=0.5, &replaygo=3&replayat=1,
  *   &mate&clutchgo=2&clutchat=0.5, &mate&votego=2.
+ * MP lane (src/dev/mpLinks.ts): &versus (vs the AI Overlord), &versus=ol&god (you are the Overlord), &vstime=, &vspts=, &vsgo=,
+ *   &localcoop[=run]&lcpads=2, &browse=fake, &teamboard=fake, &lobby=versus|weekly.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -209,6 +212,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
+  mpLinks(game, q); // MP lane: versus, localcoop, browse, teamboard, lobby= (src/dev/mpLinks.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

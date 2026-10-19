@@ -92,6 +92,25 @@ try {
 } catch (e) {
   errors.push('training: ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
 }
+// MP lane: Versus Swarm vs the AI Overlord, then local co-op (the bot on the keyboard plus two fake pads walking in circles).
+try {
+  const { fakePads } = await import('../src/dev/mpLinks');
+  const { KBM } = await import('../src/game/localCoop');
+  game.versusSolo();
+  const vr = botRun(260, true);
+  console.log('versus', JSON.stringify({ mode: vr.mode, kills: vr.kills, level: vr.level, alive: game.enemies.activeCount, purse: Math.round(game.versus?.st.points ?? -1), boss: game.versus?.st.bossUsed, winner: game.versus?.winner, avgMs: vr.avgMs }));
+  if (game.mode !== 'title' && !game.versus) errors.push('versus: the match state went missing');
+  if (vr.kills < 20) errors.push(`versus: the AI Overlord sent almost nothing (${vr.kills} kills)`);
+  game.leaveToTitle();
+  const slot = (pad: number, hero: string, primary: string) => ({ pad, hero, loadout: { ...settings.loadout, primary }, ready: true, row: 0 });
+  game.localCoopStart([slot(KBM, 'rookie', 'buster'), slot(0, 'bulwark', 'scatter'), slot(1, 'ace', 'laser')], 'standard', fakePads(2));
+  const lr = botRun(300, true);
+  console.log('localcoop', JSON.stringify({ mode: lr.mode, stage: lr.stage, level: lr.level, kills: lr.kills, heroes: game.heroes.length, moved: game.heroes.map((h) => Math.round(Math.hypot(h.player.x, h.player.z))), avgMs: lr.avgMs }));
+  if (game.heroes.length !== 3 || !game.localCoop) errors.push('localcoop: the run lost its local heroes');
+  game.leaveToTitle();
+} catch (e) {
+  errors.push('mp: ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
+}
 // A mortal run: die, game over, run history.
 settings.mode = 'standard';
 settings.difficulty = 'nightmare';
