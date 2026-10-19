@@ -127,12 +127,14 @@ Screenshots checked: shots/meta2-title.png, m2-title.png, m2-title-ar.png, m2-pr
 ## Checks
 
 - `npm run typecheck`, `npx vite build`, `npm run smoke`: pass. The smoke run plays every mode and hero, including a mortal game over that banks the profile.
-- `npm test`: everything passes except the existing `i18n.test.ts` failure "data name: Crosswind Blades". That comes from the weapons3 lane's untranslated names and also fails on the base commit 751052c. Not touched here.
+- `npm test`: everything passes except:
+  - `i18n.test.ts` "data name: Crosswind Blades": the weapons3 lane's untranslated names. It fails the same way on the base commit 751052c. Not touched here.
+  - Timing and random checks that failed once each on an overloaded machine (load average over 100) and passed when rerun: `worldGame.test.ts` "demo steps are cheap" (a timing budget; the tracker returns early during the title demo) and `coop2Coop.test.ts` "the joiner's hero is built to the team's level" (7 random level-up picks where it wants 8; three reruns gave 9, 9, 8).
 - `tests/meta2.test.ts`:
   - pure checks: XP curve and levels, rewards, quests (seeding, rotation, banking, all-three bonus, streak), achievement data integrity, v4→v5 migration and round trip, junk cleaning, banking sums and peaks
   - a real `Game`: kills by tag and enemy, events, bosses, flawless polling, the title demo not counting, game-over banking (idempotent), a client merging `m2`, all three screens, cosmetic cycling, the lobby summary and the pet hat
 - `npm run bench`: not meaningful on this machine tonight (other builders saturate it: GL stalls, ~950 ms "CPU" frames, unrelated to this lane). The tracker itself measures about 1 µs per frame in the unit test, with no allocation except on the 1 Hz check.
-- `npm run coop`: see the result below.
+- `npm run coop`: CO-OP TEST PASSED (host and client over the PeerJS broker: lobby with the profile card, run, jump pad, turret, pets; 146 snapshots, average 623 B, max 2,029 B). It was a short run because of the machine load.
 
 ## Unfinished / risky
 

@@ -192,6 +192,14 @@ tick();
 g.stage = 3;
 tick();
 ok(currentTally(g).stages === 2 && currentTally(g).flawless === 1, 'a hit stage is not flawless');
+// Per-frame cost of the tracker (polls at 10 Hz, checks at 1 Hz).
+{
+  const t0 = performance.now();
+  for (let i = 0; i < 6000; i++) g.meta2Frame(1 / 60);
+  const per = (performance.now() - t0) / 6000;
+  console.log(`     meta2Frame: ${(per * 1000).toFixed(1)} us per frame`);
+  ok(per < 0.2, 'tracker stays cheap per frame (generous bound for loaded CI machines)');
+}
 // The attract demo and training never count.
 const before = currentTally(g).kills;
 const { saveLock } = await import('../src/game/save');
