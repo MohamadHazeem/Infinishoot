@@ -60,6 +60,9 @@ import * as BossFightSys from './systems/bossFight';
 import { BossField } from './bossField';
 import { BossIntro } from './bossIntro';
 import type { BossApi } from './bosses';
+import * as ArenaSys from './systems/arena';
+import { Interactives } from './interactives';
+import { ObjectiveHud } from '../ui/objectiveHud';
 
 export { economyTuning } from './hero';
 
@@ -160,6 +163,7 @@ export const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'charge', tags: ['projectile', 'shock'] }, // 9 Lance Shot
   { source: 'pellets' }, // 10 Pellet Turret (auto weapon)
   { source: 'pellets', tags: ['projectile', 'fire'] }, // 11 Scorch Turret
+  { source: 'turret', tags: ['projectile'] }, // 12 arena turrets (src/game/systems/arena.ts)
 ];
 /** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
 export const IMPACT_BLAST = [1, 5, 8];
@@ -410,6 +414,30 @@ export class Game implements HeroWorld {
   renderBossFight = BossFightSys.renderBossFight;
   bossHud = BossFightSys.bossHud;
   debugBoss = BossFightSys.debugBoss;
+  // Arena toys, hazards and objectives (src/game/systems/arena.ts).
+  loadToys = ArenaSys.loadToys;
+  updateArena = ArenaSys.updateArena;
+  arenaMoveHero = ArenaSys.arenaMoveHero;
+  startJump = ArenaSys.startJump;
+  arenaJumpMsg = ArenaSys.arenaJumpMsg;
+  landShock = ArenaSys.landShock;
+  updateTurrets = ArenaSys.updateTurrets;
+  updateEnvHazards = ArenaSys.updateEnvHazards;
+  envHit = ArenaSys.envHit;
+  onEnvKill = ArenaSys.onEnvKill;
+  hitToys = ArenaSys.hitToys;
+  hitToysWhere = ArenaSys.hitToysWhere;
+  blastToys = ArenaSys.blastToys;
+  damageProp = ArenaSys.damageProp;
+  damageTotem = ArenaSys.damageTotem;
+  updatePillars = ArenaSys.updatePillars;
+  updateObjective = ArenaSys.updateObjective;
+  completeObjective = ArenaSys.completeObjective;
+  arenaLocal = ArenaSys.arenaLocal;
+  arenaNet = ArenaSys.arenaNet;
+  arenaSetNet = ArenaSys.arenaSetNet;
+  renderArena = ArenaSys.renderArena;
+  objectiveTarget = ArenaSys.objectiveTarget;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -425,6 +453,9 @@ export class Game implements HeroWorld {
   readonly cam: CameraRig;
   readonly director = new Director();
   readonly vfx: Vfx;
+  /** Arena toys and the stage objective (src/game/interactives.ts). */
+  readonly toys = new Interactives(this.scene);
+  readonly objHud = new ObjectiveHud();
 
   heroes: Hero[] = [];
   /** Index of the hero this machine controls. */
@@ -757,7 +788,10 @@ export class Game implements HeroWorld {
         return out;
       },
       shake: (x, z, amount) => this.vfx.shake(x, z, amount),
-      hitBarrels: (dmg, inside) => this.barrels.hitWhere(dmg, hero.index, inside),
+      hitBarrels: (dmg, inside) => {
+        this.barrels.hitWhere(dmg, hero.index, inside);
+        this.hitToysWhere(dmg, hero.index, inside);
+      },
       blast: (x, z, r, base, color, source, tags) => this.blast(x, z, r, base, color, source, tags ?? hero.tagsOf(source) ?? ['explosive'], false, hero),
       zap: (from, hops, dmg) => this.zap(from, hops, dmg, hero),
       get combos() {
@@ -1011,6 +1045,7 @@ export class Game implements HeroWorld {
     this.enemies.update(dt, this.enemyCtx);
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
+    this.updateArena(dt);
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
     this.updateStrikes(dt);

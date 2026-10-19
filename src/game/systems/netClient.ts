@@ -178,6 +178,7 @@ export function clientUpdate(this: Game, dt: number): void {
     this.client?.send({ t: 'dash' });
     this.juice.shake(0.05);
   }
+  if (moving) this.arenaLocal(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
@@ -316,6 +317,7 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
   unpackPickups(s.pk as ArrayBuffer, this.pickups);
   for (const e of (s.ev as VfxEvent[]) ?? []) this.vfx.apply(e);
 
+  this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();
