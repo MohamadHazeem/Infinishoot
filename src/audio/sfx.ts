@@ -741,6 +741,19 @@ class Sfx {
     this.noise(ctx, 0.5, 0.25, 300, 4000, 2);
   }
 
+  burrow(): void {
+    const ctx = this.begin('burrow', 0.7);
+    if (ctx) this.noise(ctx, 0.35, 0.12, 220, 70);
+  }
+  mirrorCopy(): void {
+    const ctx = this.begin('mirrorCopy', 0.6);
+    if (ctx) this.tone(ctx, 'triangle', 380, 950, 0.3, 0.08);
+  }
+  swarmScreech(): void {
+    const ctx = this.begin('swarmScreech', 1.5);
+    if (ctx) this.tone(ctx, 'triangle', 650, 340, 0.4, 0.1);
+  }
+
   telegraph(): void {
     const ctx = this.begin('tele', 0.08);
     if (!ctx) return;

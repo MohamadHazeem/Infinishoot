@@ -12,6 +12,7 @@ import { OBJECTIVE_KINDS, type ObjectiveKind } from '../game/objectives';
 import { weatherForce } from '../game/ambience';
 import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
+import { PickupType } from '../game/pickups';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
 
@@ -105,7 +106,12 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   }
   h.recomputeStats();
   h.loadoutDirty = true;
-  if (q.has('bench')) game.xpNext = 1e12; // no level-up menus: the load stays steady
+  if (q.has('bench')) {
+    game.xpNext = 1e12; // no level-up menus: the load stays steady
+    // Special/elite stress scenes drop chests too; those must not pause the benchmark for cards.
+    const collect = game.collect;
+    game.collect = (hero, type, value) => { if (type !== PickupType.Chest) collect.call(game, hero, type, value); };
+  }
   if (q.get('gold')) h.gold = Number(q.get('gold'));
   for (const e of list('elite')) {
     const [id, mod] = e.split(':');
