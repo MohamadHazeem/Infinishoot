@@ -5,7 +5,7 @@ import { noiseFor, readableMaterial } from '../../render/noiseGovernor';
 import { gfxPostUniforms } from '../../render/graphicsPost';
 import { reduceMotion } from '../../ui/hud';
 
-interface Markers { hero: THREE.Mesh }
+interface Markers { hero: THREE.Mesh; color: string }
 const markers = new WeakMap<Game, Markers>();
 let styled = false;
 function clarityCss(): void {
@@ -29,7 +29,7 @@ function markersFor(g: Game): Markers {
   hero.renderOrder = 90;
   hero.add(rim);
   g.scene.add(hero);
-  s = { hero };
+  s = { hero, color: '#73eff7' };
   markers.set(g, s);
   return s;
 }
@@ -49,7 +49,11 @@ export function renderReadability(this: Game): void {
   const p = this.hero.player;
   s.hero.visible = this.isCombatMode && !p.dead;
   s.hero.position.set(p.rig.root.position.x, 0.09, p.rig.root.position.z);
-  (s.hero.material as THREE.ShaderMaterial).uniforms.uColor.value.set(this.heroes.length > 1 ? this.hero.color : '#73eff7');
+  const color = this.heroes.length > 1 ? this.hero.color : '#73eff7';
+  if (color !== s.color) {
+    s.color = color; // Avoid Color.setStyle's regex allocations on steady frames.
+    (s.hero.material as THREE.ShaderMaterial).uniforms.uColor.value.set(color);
+  }
   // Anime impact frames share the screen-flash ceiling. Do not spend admission every held frame.
   gfxPostUniforms.uImpact.value.x = Math.min(gfxPostUniforms.uImpact.value.x, noise.calm ? 0 : noise.flashCap);
 }
