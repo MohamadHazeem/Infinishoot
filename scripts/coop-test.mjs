@@ -60,7 +60,7 @@ const base = `http://127.0.0.1:${server.config.server.port ?? server.httpServer.
 const browser = await chromium.launch({
   headless: true,
   executablePath: findChrome(),
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
+  args: ['--use-angle=' + opt('--angle', 'swiftshader'), '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
 });
 
 async function openPage(name) {
@@ -75,8 +75,8 @@ async function openPage(name) {
     if (/favicon|Failed to load resource|AudioContext was not allowed|WebGL: INVALID_OPERATION|GPU stall/i.test(t)) return;
     errors.push(t);
   });
-  await page.goto(base);
-  await page.waitForFunction(() => window.game && window.botAuto && window.game.mode === 'title', null, { timeout: 30000 });
+  await page.goto(base + '?season=' + opt('--season', 'off'), { timeout: Number(opt('--timeout', '30000')) });
+  await page.waitForFunction(() => window.game && window.botAuto && window.game.mode === 'title', null, { timeout: Number(opt('--timeout', '30000')) });
   return { name, page, errors };
 }
 
@@ -590,6 +590,21 @@ const SCENARIO = [
     return { boss: id, playing: [h1, c1], held, after: [h2, c2], gone };
   }],
 ];
+
+// Optional Halloween run: force a shared pickup and verify its receipt travels once.
+if (opt('--season', 'off') === 'halloween') SCENARIO.push([14, 'Halloween shared candy snapshot', async () => {
+  const before = await client(async () => (await import('/src/game/save.ts')).save.seasonal.candy);
+  const earned = await host(async () => {
+    const { dropCandy, halloweenStep } = await import('/src/game/systems/halloween.ts');
+    const g = window.game, p = g.heroes[1].player;
+    dropCandy.call(g, p.x, p.z, 3); halloweenStep.call(g, 1 / 60);
+    return g.halloween.earned;
+  });
+  await pause(700);
+  const result = await client(async () => ({ season: window.game.halloween.season, earned: window.game.halloween.earned, candy: (await import('/src/game/save.ts')).save.seasonal.candy }));
+  if (result.season !== 'halloween' || result.earned < earned || result.candy < before + 3) fail(`Halloween candy: ${JSON.stringify(result)}`);
+  return result;
+}]);
 
 SCENARIO.sort((a, b) => a[0] - b[0]);
 let next = 0;

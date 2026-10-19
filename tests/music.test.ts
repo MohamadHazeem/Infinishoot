@@ -24,7 +24,7 @@ ok(sectionAt(12, 0.1) === 'verse' && sectionAt(8, 0.9) === 'chorus' && sectionAt
 ok(new Set([1, 2, 3, 4, 5, 6].map(stageTranspose)).size === 6 && stageTranspose(7) === 0, 'each stage changes key without drifting out of instrument register');
 ok([1, 2, 3, 4, 5].map(bossTrack).join(',') === 'boss,rex,queen,omega,boss', 'four dedicated boss tracks match the stage rotation');
 ok(biomeTrack(5) === 'neon' && biomeTrack(6) === 'factory' && biomeTrack(7) === 'sky' && biomeTrack(9) === 'meadow' && biomeTrack(0) === 'meadow', 'biomes repeat safely');
-ok(TRACKS.length === 15 && new Set(TRACKS.slice(1, 5).map((t) => t.style.scale.join(','))).size === 4, 'jukebox has fifteen tracks (three for the loop-2 biomes) and four distinct classic area modes');
+ok(TRACKS.length === 16 && new Set(TRACKS.slice(1, 5).map((t) => t.style.scale.join(','))).size === 4, 'jukebox has sixteen tracks (including Halloween) and four distinct classic area modes');
 ok(trackUnlocked('shop', 0, 0) && !trackUnlocked('omega', 3, 10) && trackUnlocked('omega', 4, 1), 'jukebox unlocks use track metadata, not display index');
 const song = makeSong(TRACKS[1].style, 42);
 ok(chordAt(song, 'bridge', 0) === 5 && chordAt(song, 'turnaround', 3) === 4, 'bridge contrasts and turnaround resolves via the dominant');
