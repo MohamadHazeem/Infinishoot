@@ -7,6 +7,28 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "weather2.sandstorm.name": "SANDSTORM!",
+  "weather2.sandstorm.sub": "SHORT SIGHT • GUSTS BEND BULLETS",
+  "weather2.sandstorm.hint": "Stay close. Gusts bend all bullets.",
+  "weather2.blizzard.name": "BLIZZARD!",
+  "weather2.blizzard.sub": "KEEP MOVING • COLLECT BRAZIERS FOR WARMTH",
+  "weather2.blizzard.hint": "Keep moving or find fire. Touch a brazier to carry warmth.",
+  "weather2.lightning.name": "LIGHTNING STORM!",
+  "weather2.lightning.sub": "DODGE THE RINGS • SHOOT RODS TO REDIRECT STRIKES",
+  "weather2.lightning.hint": "Shoot a gold rod: 3 strikes target nearby enemies. Leave the red rings!",
+  "weather2.heatwave.name": "HEAT WAVE!",
+  "weather2.heatwave.sub": "DARK TILES HEAT UP • WATER AND SHADE COOL DOWN",
+  "weather2.heatwave.hint": "Leave dark tiles. Cyan pools and cover shade cool you.",
+  "weather2.warm": "WARM • CHILL MELTING",
+  "weather2.chill": "CHILL ⟪value⟫% · MOVE TO THAW",
+  "weather2.cool": "COOLING • SAFE GROUND",
+  "weather2.heat": "HEAT ⟪value⟫% · FIND WATER OR SHADE",
+  "weather2.charges": "REDIRECTED STRIKES READY: ⟪value⟫",
+  "weather2.setting": "WEATHER EFFECTS",
+  "weather2.settingDesc": "Combat weather events. In co-op, the host decides for everyone.",
+  "weather2.lightning.cause": "Lightning Storm",
+  "weather2.heatwave.cause": "Heat Wave",
+
   ...trialsEn,
   ...pets2En,
   ...biome3En,

@@ -87,6 +87,8 @@ export interface Settings extends DisplayOptions {
   damageNumbers: 'auto' | 'all' | 'mine' | 'off';
   /** Weather: rain, snow and other motes, lightning (off = always clear skies). */
   weather: boolean;
+  /** Host/solo: stage weather that changes combat (independent of particles). */
+  weatherEffects: boolean;
   /** Right click: hold to charge, or press once to start and again to release. */
   chargeMode: 'hold' | 'toggle';
   /** Pet zap sounds (pets zap often at high level). */
@@ -200,6 +202,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   uiScale: 100,
   damageNumbers: 'auto',
   weather: true,
+  weatherEffects: true,
   chargeMode: 'hold',
   petSounds: true,
   finishers: true,
@@ -254,6 +257,7 @@ if (typeof location !== 'undefined') {
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
 settings.weather ??= true;
+settings.weatherEffects ??= true;
 settings.petSounds ??= true;
 settings.finishers ??= true;
 settings.portraitPops ??= true;

@@ -1242,6 +1242,37 @@ if (!args.includes('--no-spectate')) SCENARIO.push([66, 'the spectator seat is f
   return { gone };
 }]);
 
+// weather2: opt-in real WebRTC coverage of the lane snapshot, including late warning reconstruction.
+if (args.includes('--weather2')) SCENARIO.push([6, 'weather2: four combat events reach the client', async () => {
+  if (!await coopFight()) throw new Error('weather2 needs both peers fighting');
+  const results = [];
+  for (const kind of ['sandstorm', 'blizzard', 'lightning', 'heatwave']) {
+    const expected = await host(async kind => {
+      const g = window.game;
+      const { startWeather2, weather2Of, updateWeather2, weather2Net } = await import('/src/game/systems/weather2.ts');
+      const { settings } = await import('/src/game/settings.ts');
+      settings.weatherEffects = true;
+      startWeather2(g, kind);
+      const s = weather2Of(g);
+      if (kind === 'lightning') { s.nextStrike = 0; updateWeather2.call(g, 0); }
+      return weather2Net(g);
+    }, kind);
+    const mirrored = await until(B, async expected => {
+      const { weather2Net } = await import('/src/game/systems/weather2.ts');
+      const s = weather2Net(window.game);
+      return s?.k === expected.k && s.p.length === expected.p.length && s.p.every((p, i) => Math.abs(p[0] - expected.p[i][0]) < 0.02 && Math.abs(p[1] - expected.p[i][1]) < 0.02)
+        && (expected.k !== 'lightning' || s.s.some(p => expected.s.some(q => p[0] === q[0] && p[1] === q[1])));
+    }, expected, 10000);
+    if (!mirrored) fail(`weather2 ${kind} snapshot/telegraph did not arrive`);
+    results.push({ kind, mirrored });
+  }
+  await host(() => { window.game.runEvents.event = null; });
+  const cleared = await until(B, async () => !(await import('/src/game/systems/weather2.ts')).weather2Net(window.game), null, 8000);
+  if (!cleared) fail('weather2 left a stale client event');
+  await coopEnd();
+  return { results, cleared };
+}]);
+
 SCENARIO.sort((a, b) => a[0] - b[0]);
 if (ONLY) for (let i = SCENARIO.length - 1; i >= 0; i--) if (!SCENARIO[i][1].includes(ONLY)) SCENARIO.splice(i, 1);
 let next = 0;

@@ -31,6 +31,7 @@ row('VIDEO', 'crt', 'CRT FILTER', 'Adds scanlines and darkens the screen edges.'
 row('VIDEO', 'distortion', 'SHOCKWAVES', 'Heat shimmer and screen distortion. Reduce screen effects overrides this.');
 row('VIDEO', 'nightStages', 'NIGHT STAGES', 'Allows night lighting on eligible stages.');
 row('VIDEO', 'weather', 'WEATHER', 'Rain, snow and other weather particles.');
+row('GAMEPLAY', 'weatherEffects', 'WEATHER EFFECTS', 'Combat weather events. In co-op, the host decides for everyone.');
 row('VIDEO', 'animeLook', 'ANIME LOOK', 'Ink outlines, cel shading, speed lines and impact frames.');
 row('VIDEO', 'uiScale', 'UI SCALE', 'Scales entire HUD panels and menus; capped to fit your window.', [75, 150, 25]);
 row('VIDEO', 'showFps', 'SHOW FPS', 'Shows the frame-rate counter.');

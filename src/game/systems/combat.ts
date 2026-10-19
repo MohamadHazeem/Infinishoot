@@ -3,6 +3,7 @@
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `nearestEnemy = Combat.nearestEnemy;`.
  */
+import { weather2Hit } from './weather2';
 import { familyCanHit } from './enemyFamilies';
 import { materialHit } from '../particles';
 import type { Game } from '../game';
@@ -117,6 +118,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
     if (crit) by.synergy.crit(ev);
     if (crit && by.hasRelic('r_static') && o.source !== 'zap' && e.active) this.zap(e, 2, Math.max(4, amount * 0.35), by);
   }
+  if (e.active && e.hp > 0 && !o.fixed && o.source !== 'shatter') weather2Hit(this, e, by);
   if (e.def.phases) this.bossHpGate(e); // boss phases: can't skip one or die early
   if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);
   return amount;

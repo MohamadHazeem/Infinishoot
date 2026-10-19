@@ -1,3 +1,4 @@
+import { renderWeather2 } from './weather2';
 import { reduceMotion } from '../../ui/hud';
 import { eventBehavior } from '../../data/stageEvents';
 import { renderSecrets } from './secrets';
@@ -360,6 +361,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.updateSkyFx(frameDt);
   lap('ren.sky');
   this.worldFx(frameDt);
+  renderWeather2(this);
   lap('ren.worldfx');
   updateGraphics(this, frameDt); // graphics lane: destruction, anime look, water, fog, framing, customisation
   renderReadability.call(this);
