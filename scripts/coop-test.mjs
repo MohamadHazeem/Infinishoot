@@ -364,6 +364,8 @@ const clientTo = (kind) =>
     if (!best) return null;
     window.botAuto(false);
     for (const w of g.hero.weapons) if ('predFocus' in w) w.predFocus = 0; // a Ronin client: no dash-strike off the toy when the bot lets go
+    g.input.keys.clear(); // the bot's last keys and buttons would otherwise stay held and walk the hero off the toy
+    g.input.mouseButtons = 0;
     g.toys.jumps[g.local] = null; // not mid-flight from an earlier pad
     p.teleport(best.x, best.z);
     setTimeout(() => window.botAuto(true), kind === 'pad' ? 1200 : 3000);
