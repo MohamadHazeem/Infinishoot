@@ -11,6 +11,8 @@
  * ultimate, rank up) that every machine turns into sounds and, for its own
  * hero, local feedback (dash refund, flash, banner, announcer).
  */
+import { hostileBullet } from './followups';
+import { pvpFriendly } from '../pvp';
 import type { Game } from '../game';
 import { dashKeyPressed } from '../heroMechs';
 import { parryWhiff, parryWindowMul } from './heroMechs';
@@ -134,7 +136,7 @@ function threatened(g: Game, h: Hero, lead: boolean): boolean {
   const T = skillTuning;
   const b = g.bullets;
   for (let i = 0; i < b.count; i++) {
-    if (b.team[i] !== Team.Enemy) continue;
+    if (!hostileBullet(g, h.index, i)) continue;
     const dx = b.x[i] - p.x;
     const dz = b.z[i] - p.z;
     if (dx * dx + dz * dz > 64) continue;
@@ -214,12 +216,13 @@ function predictParry(g: Game, h: Hero): void {
   const b = g.bullets;
   let n = 0;
   for (let i = 0; i < b.count; i++) {
-    if (b.team[i] !== Team.Enemy) continue;
+    if (!hostileBullet(g, h.index, i)) continue;
     const dx = b.x[i] - p.x;
     const dz = b.z[i] - p.z;
     const rr = reach + b.radius[i];
     if (dx * dx + dz * dz > rr * rr) continue;
     b.team[i] = Team.Player;
+    b.owner[i] = h.index;
     b.vx[i] = -b.vx[i];
     b.vz[i] = -b.vz[i];
     b.setColor(i, '#7df9ff');
@@ -265,7 +268,7 @@ function reflectBullet(g: Game, h: Hero, i: number): void {
   const T = skillTuning;
   const b = g.bullets;
   // Back at the nearest enemy (the shooter, usually), else straight back.
-  const t = g.nearestEnemy(b.x[i], b.z[i], 16, (e) => e.pvpOwner === h.index);
+  const t = g.nearestEnemy(b.x[i], b.z[i], 16, (e) => pvpFriendly(g.pvp?.teams, e.pvpOwner, h.index));
   let ux = -b.vx[i];
   let uz = -b.vz[i];
   if (t) {
@@ -297,7 +300,7 @@ function doParry(g: Game, h: Hero, rewind = 0): void {
   const b = g.bullets;
   let n = 0;
   for (let i = 0; i < b.count; i++) {
-    if (b.team[i] !== Team.Enemy) continue;
+    if (!hostileBullet(g, h.index, i)) continue;
     const dx = b.x[i] - p.x;
     const dz = b.z[i] - p.z;
     const rr = reach + b.radius[i];

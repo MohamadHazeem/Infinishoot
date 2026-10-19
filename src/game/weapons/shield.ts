@@ -102,7 +102,7 @@ export class Shield extends Weapon {
     const dmg = p.dmg * ctx.stats.chargeDmg;
     const b = ctx.bullets;
     for (let i = 0; i < b.count && this.hp > 0; i++) {
-      if (b.team[i] !== Team.Enemy) continue;
+      if (!(ctx.hostileBullet ? ctx.hostileBullet(i) : b.team[i] === Team.Enemy)) continue;
       const dx = b.x[i] - pl.x;
       const dz = b.z[i] - pl.z;
       const d = Math.hypot(dx, dz);

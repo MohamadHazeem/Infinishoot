@@ -1,6 +1,7 @@
 /** Host-owned discoveries. `ss` snapshots carry the room and durable run receipts;
  * clients draw the same props, rebuild the ice barrier, and bank their own profile. */
 import * as THREE from 'three';
+import { sfx } from '../../audio/sfx';
 import type { Game } from '../game';
 import type { Hero } from '../hero';
 import type { Enemy } from '../enemies';
@@ -111,7 +112,7 @@ function bank(g: Game, s: SecretsState): void {
   const fresh = s.receipts & ~s.banked;
   if (!fresh) return;
   s.banked |= fresh;
-  const achieve = (id: string) => { if (grantAchievement(id)) g.newAchievements.push(id); };
+  const achieve = (id: string) => { if (grantAchievement(id)) { g.newAchievements.push(id); sfx.named('achievement'); } };
   if (fresh & 1) { achieve('secret_room'); markCodex('secret:relay'); }
   if (fresh & 2) achieve('secret_golden');
   if (fresh & 4) achieve('secret_shadow');
@@ -347,7 +348,7 @@ export function renderSecrets(g: Game): void {
       s.code = konamiStep(s.code, e.code);
       if (s.code === 10) {
         s.code = 0;
-        if (!saveLock.on && grantAchievement('secret_code')) { unlockMeta(); persist(); g.hud.toast(localize('OLD SCHOOL! PIXEL RELAY ARMOUR UNLOCKED'), 4); }
+        if (!saveLock.on && grantAchievement('secret_code')) { sfx.named('achievement'); unlockMeta(); persist(); g.hud.toast(localize('OLD SCHOOL! PIXEL RELAY ARMOUR UNLOCKED'), 4); }
       }
     });
   }

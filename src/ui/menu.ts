@@ -201,7 +201,7 @@ export function menuItemAvailable(el: HTMLElement): boolean {
 
 import type { Screens, ScreenName } from './screens';
 import { save } from '../game/save';
-import { profileLevel } from '../game/lobby';
+import { levelOf } from '../data/profile';
 import { prompt } from './prompts';
 
 /** Cosmetic title earned from the same profile level shown in the online lobby. */
@@ -278,7 +278,7 @@ export class TitleMenu {
         if (el.parentElement !== this.primary) this.primary.append(el);
       }
     }
-    const level = profileLevel(save.lifetime, save.achievements.length);
+    const level = levelOf(save.profile.xp).level;
     this.profile.innerHTML = localizeHtml(`<span class="menu-profile-star" aria-hidden="true">★</span><span><small>${t('menu.profile', { level })}</small><b>${t(profileTitle(level))}</b></span>`);
   }
 }

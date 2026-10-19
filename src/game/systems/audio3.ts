@@ -3,8 +3,6 @@ import type { Hero } from '../hero';
 import { playBanter } from '../../audio/teammateVoice';
 import type { Game } from '../game';
 import type { TrackId } from '../../audio/music/composition';
-import { save } from '../save';
-import { profileLevel } from '../lobby';
 import { sfx } from '../../audio/sfx';
 
 export function encounterTrack(track: TrackId | null, mode: string, boss: boolean, haunted: boolean, pvp: boolean): TrackId | null {
@@ -16,20 +14,15 @@ export function encounterTrack(track: TrackId | null, mode: string, boss: boolea
   if (mode === 'gauntlet' && !boss) return 'gauntlet';
   return track;
 }
-interface State { achievements: number; level: number; mode: string; screen: string }
+interface State { mode: string; screen: string }
 const states = new WeakMap<Game, State>();
 const dead = new WeakMap<Hero, boolean>();
 /** Rewards are local profile events; initializing/loading a save never plays a backlog. */
 export function updateAudio3(g: Game): void {
-  const achievements = save.achievements.length;
-  const level = profileLevel(save.lifetime, achievements);
   let state = states.get(g);
-  if (!state) { states.set(g, { achievements, level, mode: g.mode, screen: g.screens.current }); return; }
-  if (achievements > state.achievements) sfx.named('achievement');
-  else if (level > state.level) sfx.named('profileLevel');
+  if (!state) { states.set(g, { mode: g.mode, screen: g.screens.current }); return; }
   if (g.screens.current === 'mvp' && state.screen !== 'mvp') sfx.named('trophy');
   if (g.mode === 'dead' && state.mode !== 'dead' && !g.pvp) sfx.named('defeatSting');
-  state.achievements = achievements; state.level = level;
   state.mode = g.mode; state.screen = g.screens.current;
   for (const h of g.heroes) {
     const wasDead = dead.get(h);

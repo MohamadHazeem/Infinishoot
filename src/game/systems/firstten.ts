@@ -4,6 +4,7 @@ import { FirstTenUi } from '../../ui/firstten';
 import { promptText } from '../../ui/prompts';
 import type { ScreenName } from '../../ui/screens';
 import { grantAchievement, persist, save, saveLock } from '../save';
+import { sfx } from '../../audio/sfx';
 import { settings } from '../settings';
 import type { Game } from '../game';
 
@@ -178,6 +179,7 @@ export class FirstTen {
       this.game.hud.toast(`FIRST STEPS ${n}/${GOALS.length} · ${label} ✓`, 2.6);
     }
     if (allGoalsDone(save.firstten) && grantAchievement(FIRST_TEN_REWARD.achievement)) {
+      sfx.named('achievement');
       this.game.hud.toast(`★ GRADUATE - ${FIRST_TEN_REWARD.name} armour unlocked!`, 4);
     }
   }

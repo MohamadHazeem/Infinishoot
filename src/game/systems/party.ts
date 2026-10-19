@@ -19,6 +19,7 @@ import { playerName } from '../game';
 import { HERO_COLORS } from '../hero';
 import { persist, save, unlockedWeapons } from '../save';
 import { today } from '../../data/modes';
+import { levelOf } from '../../data/profile';
 import {
   allReady,
   ChatLimiter,
@@ -28,7 +29,6 @@ import {
   lobbyTuning,
   makeFriendCode,
   noteRecent,
-  profileLevel,
   QUICK_CHAT,
   tallyVotes,
   type PartyVote,
@@ -194,7 +194,7 @@ export function ensureFriendCode(): string {
 
 /** This player's card for the lobby (sent in `hello`). */
 export function myProfile(): ProfileCard {
-  return { lv: profileLevel(save.lifetime, save.achievements.length), best: save.lifetime.bestStage, runs: save.lifetime.runs, ach: save.achievements.length, fc: ensureFriendCode() };
+  return { lv: levelOf(save.profile.xp).level, best: save.lifetime.bestStage, runs: save.lifetime.runs, ach: save.achievements.length, fc: ensureFriendCode() };
 }
 
 /** The room code a host uses: the friend code (so saved codes and links keep working), if that's on. */
@@ -247,7 +247,7 @@ function cleanLobbyX(raw: unknown): LobbyXView | null {
   const r = raw as Partial<LobbyXView>;
   if (!Array.isArray(r.p)) return null;
   return {
-    p: r.p.slice(0, 4).map((c) => ({
+    p: r.p.slice(0, 8).map((c) => ({ // PvP lobbies support eight players; co-op still caps its roster at four.
       ready: !!c?.ready,
       ping: Number.isFinite(c?.ping) ? Number(c.ping) : -1,
       hero: String(c?.hero ?? ''),
@@ -467,7 +467,7 @@ function partyStep(g: Game, st: PartyState, force = false): void {
 function lobbyFromHeroes(g: Game): LobbyEntry[] {
   return partyHeroes(g)
     .sort((a, b) => (a === g.hero ? -1 : b === g.hero ? 1 : a.index - b.index))
-    .map((h) => ({ peerId: h === g.hero ? '' : h.peerId, name: h.name, unlocked: h.unlocked, loadout: { ...h.loadoutPick }, skin: h.skin.id, pet: h.pet, hero: h.heroDef.id, look: h.player.look }));
+    .map((h) => ({ peerId: h === g.hero ? '' : h.peerId, name: h.name, unlocked: h.unlocked, loadout: { ...h.loadoutPick }, skin: h.skin.id, pet: h.pet, hero: h.heroDef.id, look: h.player.look, pf: g.lobby.find((p) => p.peerId === h.peerId)?.pf }));
 }
 
 /** Host: same party, new run (everyone keeps hero and loadout). */

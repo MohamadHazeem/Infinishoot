@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Input } from '../core/input';
 import type { HeroDef } from '../data/heroes';
 import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
@@ -435,6 +436,27 @@ export function attachHeroGear(rig: HeroRig, mech: HeroDef['mech'] | undefined):
       put(rig.head, new THREE.OctahedronGeometry(0.08, 0), cyan, -0.2, 0.68, 0);
       break;
     }
+  }
+  // These kits arrived after the layered rigs: merge only static pieces on the
+  // same joint/material to keep their outline/x-ray inside the 40-part budget.
+  // Named animated parts (blade, cog, etc.) retain their own transforms.
+  if (mech === 'ronin' || mech === 'tinker') for (let i = 0; i < out.length; i++) {
+    const first = out[i] as THREE.Mesh;
+    if (first.name) continue;
+    const parts = out.filter((o) => !o.name && o.parent === first.parent && (o as THREE.Mesh).material === first.material) as THREE.Mesh[];
+    if (parts.length < 2) continue;
+    const geometries = parts.map((part) => {
+      part.updateMatrix();
+      return (part.geometry.index ? part.geometry.toNonIndexed() : part.geometry.clone()).applyMatrix4(part.matrix);
+    });
+    const merged = mergeGeometries(geometries)!;
+    for (const geometry of geometries) geometry.dispose();
+    for (const part of parts) part.geometry.dispose();
+    first.geometry = merged;
+    first.position.set(0, 0, 0);
+    first.rotation.set(0, 0, 0);
+    first.scale.set(1, 1, 1);
+    for (const part of parts.slice(1)) { part.removeFromParent(); out.splice(out.indexOf(part), 1); }
   }
   return out;
 }

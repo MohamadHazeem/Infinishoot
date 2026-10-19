@@ -37,6 +37,9 @@ import { validLoadout } from '../../data/loadout';
 import { cleanLook } from '../../data/customise';
 import type { Enemy } from '../enemies';
 import type { NetBytes } from '../../net/bytes';
+import { modSession } from '../../mods/manager';
+import { myProfile } from './party';
+import { profileSummary } from './meta2';
 
 // A simulated bad connection for this machine's client side: `?netsim=90,30,0.03` (latency ms, jitter ms, loss).
 if (typeof location !== 'undefined') {
@@ -165,7 +168,7 @@ function hostStep(g: Game, s: NetState, now: number, frozen: boolean): void {
   // Player ids for lobby players (coop2 only records them for mid-run joiners), so a reconnect matches.
   const pids = coop2Debug(g).pids;
   for (const h of g.heroes) {
-    if (!h.peerId || pids[h.index]) continue;
+    if (!h.peerId) continue; // party restarts can renumber the remaining heroes
     const pid = s.pidByPeer.get(h.peerId);
     if (pid) pids[h.index] = pid;
   }
@@ -281,9 +284,10 @@ export function netcodeClientMsg(g: Game, m: Record<string, unknown>): boolean {
     case 'over':
     case 'end':
     case 'cojoin':
+    case 'lbtolobby':
       // The world changes under the snapshots: show what's waiting first (a new run: drop it).
       if (s.playout) {
-        if (m.t === 'start') {
+        if (m.t === 'start' || m.t === 'lbtolobby') {
           s.playout.reset();
           s.bullets.reset();
         } else s.playout.flush((x) => applySnap(g, s, x));
@@ -292,6 +296,7 @@ export function netcodeClientMsg(g: Game, m: Record<string, unknown>): boolean {
         note(s, `client: back in after ${s.rc.tries} tries`);
         s.rc = null; // back in
         g.hud.toast('RECONNECTED!', 2);
+        g.vfx.sound('reconnect', g.player.x, g.player.z);
       }
       return false;
   }
@@ -488,7 +493,7 @@ function endReconnect(s: NetState): void {
 
 /** The hello a client sends (the same as PLAY ONLINE > JOIN, systems/online.ts). */
 export function helloMsg(name: string): Record<string, unknown> {
-  return { t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) };
+  return { t: 'hello', mods: modSession.hash, pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile(), pf: profileSummary() };
 }
 
 /** Client: reconnecting right now (seconds left), or null. */

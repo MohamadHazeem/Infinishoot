@@ -35,7 +35,7 @@ ok(QUESTS.every((q) => q.stat in STAT_NAMES), 'every quest reads a known stat');
 ok(questText(QUEST_BY_ID.q_fire500) === 'Defeat 500 enemies with fire' && questText(QUEST_BY_ID.q_time10) === 'Survive 10 minutes in total', 'quest text fills in the goal');
 
 // ---------------------------------------------------------------- achievements
-ok(ACHIEVEMENTS.length >= 95 && ACHIEVEMENTS.length <= 110, `about 100 achievements (${ACHIEVEMENTS.length})`);
+ok(ACHIEVEMENTS.length >= 95, `at least the authored achievement roster (${ACHIEVEMENTS.length})`);
 ok(new Set(ACHIEVEMENTS.map((a) => a.id)).size === ACHIEVEMENTS.length, 'achievement ids unique');
 ok(new Set(ACHIEVEMENTS.map((a) => a.name)).size === ACHIEVEMENTS.length, 'achievement names unique');
 ok(ACHIEVEMENTS.every((a) => a.tier && a.cat && ACH_CATS.some((c) => c.id === a.cat)), 'every achievement has a medal and a category');

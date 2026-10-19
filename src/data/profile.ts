@@ -86,6 +86,7 @@ export const STAT_NAMES: Record<string, string> = {
   style: 'Best style rank',
   gold: 'Most gold held',
   heat: 'Highest heat',
+  ascension: 'Highest Ascension cleared',
   wave: 'Best Endless wave',
   rushBosses: 'Most Boss Rush bosses',
   runKills: 'Most kills in a run',
@@ -93,7 +94,7 @@ export const STAT_NAMES: Record<string, string> = {
 };
 
 /** Keys that keep the best single-run value instead of a lifetime sum. */
-export const PEAK_STATS = new Set(['stage', 'level', 'combo', 'style', 'gold', 'heat', 'wave', 'rushBosses', 'runKills', 'runTime']);
+export const PEAK_STATS = new Set(['stage', 'level', 'combo', 'style', 'gold', 'heat', 'ascension', 'wave', 'rushBosses', 'runKills', 'runTime']);
 
 /** Sets of distinct things seen (lifetime): heroes played, biomes visited, world events, boss kinds beaten, kits. */
 export type SetKey = 'heroes' | 'biomes' | 'events' | 'bossKinds' | 'modes' | 'screens';

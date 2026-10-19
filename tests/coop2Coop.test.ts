@@ -43,6 +43,9 @@ const { settings } = await import('../src/game/settings');
 const { ENEMIES } = await import('../src/data/enemies');
 const C2 = await import('../src/game/systems/coop2');
 const { joinTuning, poolTuning, poolCost, splitCost, emoteTuning, addToInbox, ghostInbox, saveInbox } = await import('../src/game/coop2');
+const { Rng } = await import('../src/core/rng');
+const fixtureRng = new Rng(42);
+Math.random = () => fixtureRng.next();
 const { totalRanks } = await import('../src/data/tracks');
 
 settings.deathReplay = false;
@@ -115,7 +118,7 @@ const B = mk();
 connect(B, 'peerB');
 A.setHeroes([A.makeHero(0, 'Host', unlockedWeapons(), '', 'classic', 'none', 'bulwark'), A.makeHero(1, 'Guest', [], 'peerB', 'classic', 'none', 'ace')]);
 A.lobby = [{ peerId: '', name: 'Host', unlocked: [], skin: 'classic', pet: 'none', hero: 'bulwark', loadout: A.hero.loadoutPick }, { peerId: 'peerB', name: 'Guest', unlocked: [], skin: 'classic', pet: 'none', hero: 'ace', loadout: A.hero.loadoutPick }];
-A.startRun();
+A.startRun({ seed: 42 });
 flush();
 if (A.mode === 'shop') A.closeShop();
 flush();

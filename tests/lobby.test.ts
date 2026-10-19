@@ -95,7 +95,7 @@ ok(profileLevel({ kills: 0, bosses: 0, runs: 0 }, 0) === 1, 'profile: fresh save
 }
 {
   const p = cleanProfile({ lv: 1e9, best: -5, runs: 'x', ach: 3.7, fc: 'K7QXP', extra: '<script>' });
-  ok(!!p && p.lv === 99 && p.best === 0 && p.runs === 0 && p.ach === 3 && p.fc === 'K7QXP' && !('extra' in p), 'profile: network card cleaned: ' + JSON.stringify(p));
+  ok(!!p && p.lv === 100 && p.best === 0 && p.runs === 0 && p.ach === 3 && p.fc === 'K7QXP' && !('extra' in p), 'profile: network card cleaned: ' + JSON.stringify(p));
   ok(cleanProfile({ fc: 'bad code!' })?.fc === '' && cleanProfile(null) === null && cleanProfile('x') === null, 'profile: bad friend code dropped, junk refused');
 }
 ok(pingBand(40) === 'good' && pingBand(120) === 'ok' && pingBand(400) === 'bad', 'ping bands');

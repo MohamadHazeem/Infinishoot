@@ -17,6 +17,7 @@ import {
 import { save, persist, saveLock } from '../save';
 import { createRetroMaterial } from '../../render/retroMaterial';
 import { commit } from '../../render/instancing';
+import { localize, localizeHtml } from '../../i18n';
 
 export const halloweenMotion = { calm: false };
 
@@ -436,7 +437,7 @@ export function showHalloweenShop(this: Game): void {
   if (!el) return;
   const wallet = save.seasonal;
   const active = seasonAt(new Date(), typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('season'))?.id === 'halloween';
-  el.innerHTML = `<h1>TRICK-OR-TREAT</h1><p class="note">${wallet.candy} CANDY · OCT 15 – NOV 7</p><p class="note">Collect candy together. Keep your treats forever.</p><div class="ha-treats">${HALLOWEEN_COSMETICS.map(
+  el.innerHTML = localizeHtml(`<h1>TRICK-OR-TREAT</h1><p class="note">${wallet.candy} CANDY · OCT 15 – NOV 7</p><p class="note">Collect candy together. Keep your treats forever.</p><div class="ha-treats">${HALLOWEEN_COSMETICS.map(
     (c) => {
       const owned = wallet.owned.includes(c.id),
         equipped = wallet.equipped.includes(c.id);
@@ -444,7 +445,7 @@ export function showHalloweenShop(this: Game): void {
     },
   ).join(
     '',
-  )}</div><p class="note">Costumes are cosmetic. Earn 1 candy per 5 defeats, 3 per elite, 20 per boss.<br>Every teammate receives collected candy.</p><div class="menu"><button data-nav data-ha-back>BACK</button></div>`;
+  )}</div><p class="note">Costumes are cosmetic. Earn 1 candy per 5 defeats, 3 per elite, 20 per boss.<br>Every teammate receives collected candy.</p><div class="menu"><button data-nav data-ha-back>BACK</button></div>`);
   el.querySelectorAll<HTMLButtonElement>('[data-treat]').forEach(
     (b) =>
       (b.onclick = () => {
@@ -493,13 +494,13 @@ export function installHalloween(this: Game, root: HTMLElement): void {
       title.classList.add('ha-title');
       const banner = document.createElement('p');
       banner.className = 'ha-banner';
-      banner.textContent = 'HALLOWEEN · THE HAUNTED HARVEST · OCT 15 – NOV 7';
+      banner.textContent = localize('HALLOWEEN · THE HAUNTED HARVEST · OCT 15 – NOV 7');
       title.prepend(banner);
     }
     const button = document.createElement('button');
     button.setAttribute('data-nav', '');
     button.className = 'ha-booth';
-    button.innerHTML = `${treatArt('pumpkin_helmet')}<b>TRICK-OR-TREAT</b><small>CANDY &amp; COSTUMES</small>`;
+    button.innerHTML = localizeHtml(`${treatArt('pumpkin_helmet')}<b>TRICK-OR-TREAT</b><small>CANDY &amp; COSTUMES</small>`);
     button.onclick = () => showHalloweenShop.call(this);
     title.appendChild(button);
   }
@@ -528,7 +529,7 @@ export function renderHalloween(this: Game, calm = false): void {
   const s = this.halloween;
   if (s.label) {
     s.label.hidden = !s.season || this.mode === 'title';
-    const text = `${save.seasonal.candy} CANDY · +${s.earned} THIS RUN`;
+    const text = localize(`${save.seasonal.candy} CANDY · +${s.earned} THIS RUN`);
     if (s.label.textContent !== text) s.label.textContent = text;
   }
   if (s.candies) {

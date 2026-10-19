@@ -261,6 +261,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     sk: this.skillNet(forHero),
     cp: this.companionNet(),
     d2: this.director2Net(),
+    fu: [this.elitesRun, this.bossesRun], // team FIRST STEPS goals on guests, including drop-in
     gpw: this.gameplayNet(forHero),
     ss: secretsNet(this),
     we: this.worldEventNet(),

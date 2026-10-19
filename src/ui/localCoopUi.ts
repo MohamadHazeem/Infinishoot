@@ -4,7 +4,7 @@ import { HERO_COLORS } from '../game/hero';
 import { KBM, LocalLobby, SLOT_ROWS, localCoopTuning } from '../game/localCoop';
 import { deviceLabel, unlockedHeroes } from '../game/systems/localCoop';
 import { browserPads, padEdges, type PadSource } from '../core/padInput';
-import { heroOf } from '../data/heroes';
+import { heroOf, heroClicks } from '../data/heroes';
 import { WEAPONS } from '../data/weapons';
 import { SPECIALS } from '../data/specials';
 import { cheats } from '../game/game';
@@ -179,10 +179,13 @@ export class LocalCoopUi {
         cells.push(`<div class="lc-slot px empty" style="--c:${c}"><b>P${i + 1}</b><span>PRESS A TO JOIN${i === 0 ? '<br>OR ENTER' : ''}</span></div>`);
         continue;
       }
-      const val = [heroOf(s.hero).name, WEAPONS[s.loadout.primary]?.name, WEAPONS[s.loadout.secondary]?.name, SPECIALS[s.loadout.special]?.name];
+      const hero = heroOf(s.hero);
+      const clicks = heroClicks(hero, s.loadout);
+      const fixed = (r: number) => (r === 1 && !!hero.clicks?.primary) || (r === 2 && !!hero.clicks?.secondary);
+      const val = [hero.name, WEAPONS[clicks.primary]?.name, WEAPONS[clicks.secondary]?.name, SPECIALS[s.loadout.special]?.name];
       const rows = SLOT_ROWS.map(
         (_, r) =>
-          `<div class="lc-row ${r === s.row && !s.ready ? 'on' : ''}"><small>${ROW_NAMES[r]}</small><button data-act="lc-nav" data-pad="${s.pad}" data-row="${r}" data-dv="-1">&#9664;</button><span>${(val[r] ?? '').toUpperCase()}</span><button data-act="lc-nav" data-pad="${s.pad}" data-row="${r}" data-dv="1">&#9654;</button></div>`,
+          `<div class="lc-row ${r === s.row && !s.ready ? 'on' : ''}"><small>${ROW_NAMES[r]}</small><button ${fixed(r) ? 'disabled' : ''} data-act="lc-nav" data-pad="${s.pad}" data-row="${r}" data-dv="-1">&#9664;</button><span>${(val[r] ?? '').toUpperCase()}</span><button ${fixed(r) ? 'disabled' : ''} data-act="lc-nav" data-pad="${s.pad}" data-row="${r}" data-dv="1">&#9654;</button></div>`,
       ).join('');
       cells.push(`<div class="lc-slot px ${s.ready ? 'ready' : ''}" style="--c:${c}">
         <b>P${i + 1}</b><em>${s.pad === KBM ? 'KEYBOARD + MOUSE' : `GAMEPAD ${s.pad + 1}`}</em>${rows}
