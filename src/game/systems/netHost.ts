@@ -12,9 +12,15 @@ import { Hero } from '../hero';
 import { playerTuning } from '../player';
 import { unlockedWeapons } from '../save';
 import { Vfx, type VfxEvent } from '../vfx';
+import { FxEncoder, fxRelevant } from '../../net/fxCodec';
+import { SnapEncoder } from '../../net/snapCodec';
 import { skinOf } from '../../data/skins';
 import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
+
+/** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
+const snapEncoders = new WeakMap<Hero, SnapEncoder>();
+const fxEncoder = new FxEncoder();
 
 export function heroByPeer(this: Game, id: string): Hero | undefined {
   return this.heroes.find((h) => h.peerId === id);
@@ -141,14 +147,16 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
   for (let i = 0; i < this.bullets.count; i++) if (near(this.bullets.x[i], this.bullets.z[i])) bi.push(i);
   const pi: number[] = [];
   for (let i = 0; i < this.pickups.count && pi.length < 600; i++) if (near(this.pickups.x[i], this.pickups.z[i])) pi.push(i);
-  const ev = events.filter((e) => {
+  const keepFx = (e: VfxEvent) => {
     const [x, z] = Vfx.position(e);
-    return Number.isNaN(x) || near(x, z);
-  });
+    return (Number.isNaN(x) || near(x, z)) && fxRelevant(e, cx, cz);
+  };
   const r2 = (v: number) => Math.round(v * 100) / 100;
   const boss = this.boss && this.boss.active ? { name: this.boss.def.name, hp01: r2(Math.max(0, this.boss.hp / this.boss.maxHp)) } : null;
-  return {
-    t: 's',
+  let enc = snapEncoders.get(forHero);
+  if (!enc) snapEncoders.set(forHero, (enc = new SnapEncoder()));
+  // The body goes through the compact snapshot codec (src/net/snapCodec.ts); records and effects are binary.
+  const body: Record<string, unknown> = {
     mode: this.mode,
     stage: this.stage,
     tl: !this.director.bossSpawned ? r2(this.director.remaining) : this.boss ? -1 : -2,
@@ -195,9 +203,6 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     bx: this.bossNet(),
     ar: this.arenaNet(),
     sk: this.skillNet(forHero),
-    en: packEnemies(en),
-    bu: packBullets(this.bullets, bi),
-    pk: packPickups(this.pickups, pi),
-    ev,
   };
+  return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

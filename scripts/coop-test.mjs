@@ -141,17 +141,23 @@ await Promise.all(
         const vapply = g.vfx.apply.bind(g.vfx);
         g.vfx.apply = (e) => (bump(counts.vfx, Array.isArray(e) ? e[0] : (e?.k ?? e?.t ?? '?')), vapply(e));
       } else {
-        // Snapshot sizes (rough: JSON of the fields plus the binary records).
+        // Snapshot sizes: the real wire bytes (PeerJS binarypack), split by field.
+        let bp = null;
+        try {
+          bp = await import('/src/dev/netSize.ts');
+        } catch {}
+        const size = (v) => (bp ? bp.wireBytes(v) : JSON.stringify(v, (k, x) => (x instanceof ArrayBuffer ? x.byteLength : x)).length);
         const build = g.buildSnapshot;
-        counts.snap = { n: 0, total: 0, max: 0, over16k: 0 };
+        counts.snap = { n: 0, total: 0, max: 0, over16k: 0, wire: !!bp, parts: {} };
         g.buildSnapshot = function (h, ev) {
           const r = build.call(this, h, ev);
-          const bytes = JSON.stringify(r, (k, v) => (v instanceof ArrayBuffer ? v.byteLength : v)).length + r.en.byteLength + r.bu.byteLength + r.pk.byteLength;
+          const bytes = size(r);
           const c = counts.snap;
           c.n++;
           c.total += bytes;
           c.max = Math.max(c.max, bytes);
           if (bytes > 16000) c.over16k++;
+          if (c.n % 4 === 0) for (const k of ['ev', 'b', 'fx', 'en', 'bu', 'pk', 'heroes', 'sk', 'ar', 'bx', 'you']) if (r[k] !== undefined) c.parts[k] = (c.parts[k] ?? 0) + size(r[k]) * 4;
           return r;
         };
         const net = g.skillNet;
@@ -482,7 +488,10 @@ async function done() {
     log(`skill events sent to the client: ${JSON.stringify(ha?.skill)}; received: ${JSON.stringify(cb?.skill)}`);
     log(`effects received by the client: ${JSON.stringify(cb?.vfx)}`);
     const sn = ha?.snap;
-    if (sn?.n) log(`snapshots: ${sn.n}, avg ${Math.round(sn.total / sn.n)} B, max ${sn.max} B, ${sn.over16k} over 16 KB (PeerJS chunks those)`);
+    if (sn?.n) {
+      log(`snapshots${sn.wire ? ' (wire bytes)' : ' (JSON estimate)'}: ${sn.n}, avg ${Math.round(sn.total / sn.n)} B, max ${sn.max} B, ${sn.over16k} over 16 KB (PeerJS chunks those)`);
+      log(`avg bytes per snapshot by field: ${Object.entries(sn.parts).map(([k, v]) => `${k} ${Math.round(v / sn.n)}`).join(', ')}`);
+    }
   } catch {}
   for (const p of [A, B].filter(Boolean)) for (const e of p.errors) fail(`${p.name} page error: ${e}`);
   await browser.close().catch(() => {});
