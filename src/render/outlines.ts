@@ -120,6 +120,8 @@ function hullMaterial(instanced: boolean): THREE.ShaderMaterial {
 
 /** Shared outline uniforms (the merged hero hulls in rigOverlay.ts use them too). */
 export const outlineUniforms = uniforms;
+/** Line width multiplier on top of `outlineTuning` (ANIME LOOK thickens the ink; graphics lane). */
+export const outlineStyle = { scale: 1 };
 /** Whether outlines are on this frame (quality). */
 export const outlineState = { on: true };
 
@@ -136,7 +138,7 @@ const done = new WeakSet<object>();
 export function setOutlines(on: boolean, internalHeight: number): void {
   instancedHull.visible = instancedHullColor.visible = on;
   outlineState.on = on;
-  const k = Math.max(1, internalHeight / 270);
+  const k = Math.max(1, internalHeight / 270) * outlineStyle.scale;
   uniforms.uOutlinePx.value = outlineTuning.px * k;
   uniforms.uElitePx.value = outlineTuning.elitePx * k;
   uniforms.uEliteScale.value = outlineTuning.eliteScale;

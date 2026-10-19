@@ -16,6 +16,7 @@ import { Vfx, type VfxEvent } from '../vfx';
 import { FxEncoder, fxRelevant } from '../../net/fxCodec';
 import { SnapEncoder } from '../../net/snapCodec';
 import { skinOf } from '../../data/skins';
+import { cleanLook } from '../../data/customise';
 import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
@@ -51,6 +52,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       skin: (metaSkin(String(m.skin ?? '')) ?? skinOf(String(m.skin ?? ''))).id,
       pet: String(m.pet ?? 'none'),
       hero: heroOf(String(m.hero ?? '')).id,
+      look: cleanLook(m.look),
     });
     this.refreshLobby();
     return;

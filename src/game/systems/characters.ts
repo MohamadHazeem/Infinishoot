@@ -20,6 +20,7 @@ import type { Hero } from '../hero';
 import { ENEMIES } from '../../data/enemies';
 import { HERO_BY_ID } from '../../data/heroes';
 import { skinOf } from '../../data/skins';
+import { customSkin } from '../heroLooks';
 import { ANNOUNCER_LOOK, bossLook, heroLook, type Expression, type PortraitLook } from '../../ui/portraitArt';
 import { blinkAt, hudExpression, portraits, type HudMood, type Speaker } from '../../ui/portraits';
 import { reduceMotion } from '../../ui/hud';
@@ -97,7 +98,8 @@ function state(g: Game): CharState {
 
 /** A hero's portrait look (co-op armour keeps the player colour, like the 3D model). */
 export function heroPortrait(g: Game, h: Hero): PortraitLook {
-  return heroLook(h.heroDef.id, h.skin, g.heroes.length > 1 ? h.color : h.skin.armor);
+  const skin = customSkin(h.skin, h.player.look); // CUSTOMISE colours (graphics lane)
+  return heroLook(h.heroDef.id, skin, g.heroes.length > 1 ? h.color : skin.armor);
 }
 
 /** 'announcer', 'boss:<enemy id>', 'hero:<player index>' or 'hero:<hero id>' -> who to draw. */
@@ -257,9 +259,9 @@ export function renderCharacters(this: Game, frameDt: number): void {
   mood.tense = !!boss || h.ctx.charging;
   const expr = charDebug.face || hudExpression(mood);
   const armor = this.heroes.length > 1 ? h.color : h.skin.armor;
-  if (h.heroDef.id !== st.faceHero || h.skin.id !== st.faceSkin || armor !== st.faceArmor) {
+  if (h.heroDef.id !== st.faceHero || h.skin.id + h.player.look !== st.faceSkin || armor !== st.faceArmor) {
     st.faceHero = h.heroDef.id;
-    st.faceSkin = h.skin.id;
+    st.faceSkin = h.skin.id + h.player.look;
     st.faceArmor = armor;
     st.lastFace = heroPortrait(this, h);
   }

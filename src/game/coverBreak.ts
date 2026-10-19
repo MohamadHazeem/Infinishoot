@@ -33,6 +33,9 @@ interface CoverState {
 
 const states = new WeakMap<Game, CoverState>();
 
+/** Listeners for cover breaking on this machine (graphics lane: shatters it into pieces), called before its triangles collapse. */
+export const coverHooks: { broke?: (g: Game, box: AABB, ranges: MergedRange[] | undefined) => void } = {};
+
 /** This arena's breakable cover, built lazily in the seeded collider order (same on every machine). */
 function coverOf(g: Game): CoverState {
   let s = states.get(g);
@@ -69,6 +72,7 @@ function breakLocal(g: Game, s: CoverState, i: number): AABB | null {
   s.broken[i] = true;
   const box = s.boxes[i];
   const r = s.ranges[i];
+  coverHooks.broke?.(g, box, r);
   if (r) hideMergedRanges(r);
   const k = g.arena.colliders.indexOf(box);
   if (k >= 0) {

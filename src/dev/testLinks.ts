@@ -21,6 +21,7 @@ import { onboardingLinks } from './onboardingLinks';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
+import { graphicsLinks } from './graphicsLinks';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import type { PhotoMode } from '../ui/photoMode';
@@ -214,6 +215,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     }, 700);
   }
   skyLinks(game, q);
+  graphicsLinks(game, q); // anime, look=, customise, shatter=, impact=, fog=, puddles=, cine= (src/dev/graphicsLinks.ts)
   // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
   if (q.has('nointro')) settings.bossIntros = false;
   game.debugBoss({ now: q.has('bossnow'), mini: q.has('miniboss'), phase: Number(q.get('phase')) || 0 });

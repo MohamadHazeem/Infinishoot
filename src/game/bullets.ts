@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { shotColor } from './heroLooks';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
 import { KIND_SHAPE, SHAPE_COUNT, shapeGeometry, shapeSpin, BulletShape } from './bulletShapes';
@@ -360,6 +361,8 @@ export class Bullets {
       // Shrink out over the last 0.08 s instead of vanishing.
       const fade = Math.min(1, this.life[i] / 0.08);
       const look = this.look[i];
+      // Weapon skins (graphics lane, src/game/heroLooks.ts) recolour a hero's shots as drawn; the real colour stays for looks and the network.
+      const col = this.team[i] === Team.Player ? shotColor(this.owner[i], this.colors[i], Math.round(Math.atan2(this.vz[i], this.vx[i]) * 3) + 64) : this.colors[i];
       let w = this.width[i] * grow * fade;
       // Enemy shots throb so they read as danger at a glance.
       if (look === BulletLook.Enemy) w *= pulse;
@@ -378,13 +381,13 @@ export class Bullets {
         this.m4.compose(this.p.set(x, BULLET_Y, z), this.q3, this.s);
         const k = sm.core.count++;
         sm.core.setMatrixAt(k, this.m4);
-        sm.core.setColorAt(k, this.colors[i]);
+        sm.core.setColorAt(k, col);
         this.mesh.setMatrixAt(i, this.m4.makeScale(0, 0, 0));
       } else {
         this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(w, w, look === BulletLook.Enemy ? len * pulse : len));
         this.mesh.setMatrixAt(i, this.m4);
       }
-      this.mesh.setColorAt(i, this.colors[i]);
+      this.mesh.setColorAt(i, col);
 
       // Tail: grows out of the gun with distance flown, sits behind the bullet.
       const sp = Math.hypot(this.vx[i], this.vz[i]) || 1;
@@ -405,15 +408,15 @@ export class Bullets {
       if (lx !== lx || dt <= 0) continue; // NaN: first frame
       if (look === BulletLook.Fire && fire < F.fire) {
         fire++;
-        trails.seg(lx, BULLET_Y, lz, x, BULLET_Y, z, w * 1.3, w * 1.7, this.colors[i], 0.2, TrailStyle.Fire);
+        trails.seg(lx, BULLET_Y, lz, x, BULLET_Y, z, w * 1.3, w * 1.7, col, 0.2, TrailStyle.Fire);
       } else if (look === BulletLook.Shock && shock < F.shock && Math.random() < 0.35) {
         shock++;
         const a = Math.random() * Math.PI * 2;
         const r = 0.35 + Math.random() * 0.45;
-        trails.arc(x, BULLET_Y, z, x + Math.cos(a) * r - dx * 0.4, BULLET_Y + (Math.random() - 0.5) * 0.4, z + Math.sin(a) * r - dz * 0.4, this.colors[i], 0.05, 0.07, 0.12, false);
+        trails.arc(x, BULLET_Y, z, x + Math.cos(a) * r - dx * 0.4, BULLET_Y + (Math.random() - 0.5) * 0.4, z + Math.sin(a) * r - dz * 0.4, col, 0.05, 0.07, 0.12, false);
       } else if ((look === BulletLook.Ribbon || (this.blast[i] > 0 && this.team[i] === Team.Player)) && ribbon < F.ribbon) {
         ribbon++;
-        trails.seg(lx, BULLET_Y, lz, x, BULLET_Y, z, w * 0.8, w * 0.9, this.colors[i], 0.26, TrailStyle.Glow);
+        trails.seg(lx, BULLET_Y, lz, x, BULLET_Y, z, w * 0.8, w * 0.9, col, 0.26, TrailStyle.Glow);
       }
     }
     this.mesh.count = this.halo.count = this.tail.count = this.count;

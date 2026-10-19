@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { retroGlobals } from '../render/retroMaterial';
 import { camDirTuning, easeZoom, killCamWeight } from './animMath';
+import { cinePose, easeCine } from './cineCam';
 
 /**
  * Fixed-angle 3/4 top-down follow camera. Never rotates (no yaw) so screen
@@ -47,6 +48,9 @@ export class CameraRig {
   private killT = -1;
   private killX = 0;
   private killZ = 0;
+  /** Crowd framing (graphics lane, src/game/cineCam.ts): target tilt 0..1 (lower, closer camera when the screen is calm) and its eased value. */
+  cine = 0;
+  cineShown = 0;
 
   constructor(aspect: number) {
     this.camera = new THREE.PerspectiveCamera(cameraTuning.fov, aspect, 0.5, 120);
@@ -81,6 +85,7 @@ export class CameraRig {
   /** Drop transient camera moves (new stage, back to the title). */
   resetDirector(): void {
     this.killT = -1;
+    this.cine = 0;
     this.auto = this.autoShown = 1;
     this.teamX = this.teamZ = 0;
     this.teamZoom = 1;
@@ -149,8 +154,10 @@ export class CameraRig {
       retroGlobals.uFogNear.value = this.fogNear * fz;
       retroGlobals.uFogFar.value = this.fogFar * fz;
     }
-    const pitch = THREE.MathUtils.degToRad(t.pitchDeg);
-    const dist = t.distance * this.zoomShown;
+    this.cineShown = easeCine(this.cineShown, this.dynamic ? this.cine * (1 - w) : 0, dt);
+    const cine = cinePose(t.pitchDeg, this.cineShown);
+    const pitch = THREE.MathUtils.degToRad(cine.pitch);
+    const dist = t.distance * this.zoomShown * cine.dist;
     this.camera.position.set(
       this.focus.x,
       this.focus.y + Math.sin(pitch) * dist,

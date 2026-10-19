@@ -235,6 +235,8 @@ export interface LobbyEntry {
   pet: string;
   hero: string;
   loadout: Loadout;
+  /** CUSTOMISE code (src/data/customise.ts), checked with cleanLook. */
+  look?: string;
 }
 
 /** "Scattergun / Grenade Lobber / Bomb" for the lobby list. */

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GFX_POST_GLSL } from './graphicsPost';
 
 /**
  * Post-processing state shared between the look system (which fills it from
@@ -168,6 +169,7 @@ uniform vec3 uGain;
 uniform float uNight;
 in vec2 vUv;
 layout(location = 0) out vec4 outColor;
+${GFX_POST_GLSL}
 
 float bayer4(vec2 p) {
   ivec2 i = ivec2(mod(p, 4.0));
@@ -229,6 +231,7 @@ void main() {
     vec2 d = vUv - 0.5;
     col *= 1.0 - uNight * pow(clamp(dot(d * vec2(uAspect * 0.75, 1.0), d * vec2(uAspect * 0.75, 1.0)) * 2.6, 0.0, 1.0), 1.5);
   }
+  col = gfxPost(col, uv, uTexel, uAspect); // graphics lane: ink, speed lines, impact frames, light shafts
   float levels = exp2(uBits) - 1.0;
   col += bayer4(gl_FragCoord.xy) * uDither / levels;
   col = floor(col * levels + 0.5) / levels;

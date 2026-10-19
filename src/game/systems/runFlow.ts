@@ -163,7 +163,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.role === 'host') {
     for (const h of this.heroes) {
       if (!h.peerId) continue;
-      this.host!.send(h.peerId, { t: 'start', meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id })) });
+      this.host!.send(h.peerId, { t: 'start', meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
     }
   }
   this.loadStage(1);

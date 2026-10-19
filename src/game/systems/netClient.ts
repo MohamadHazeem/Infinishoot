@@ -15,6 +15,7 @@ import { type Offer, type RunSummary, type ShopFx, type ShopView } from '../../u
 import { Hero } from '../hero';
 import { markSeen, unlockedWeapons } from '../save';
 import { settings } from '../settings';
+import { cleanLook } from '../../data/customise';
 import { decodeFx } from '../../net/fxCodec';
 import { SnapDecoder } from '../../net/snapCodec';
 import { createWeapon } from '../weapons';
@@ -141,10 +142,14 @@ export function shopFromNet(this: Game, v: NetShop): ShopView {
   };
 }
 
-export function clientStart(this: Game, seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string }[]): void {
+export function clientStart(this: Game, seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string; look?: string }[]): void {
   this.meta = new MetaRun();
   this.seed = seed;
-  const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie'));
+  const heroes = players.map((p, i) => {
+    const h = this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie');
+    h.player.look = cleanLook(p.look); // CUSTOMISE (graphics lane); setHeroes applies it
+    return h;
+  });
   this.setHeroes(heroes);
   this.local = you;
   for (const h of heroes) {
