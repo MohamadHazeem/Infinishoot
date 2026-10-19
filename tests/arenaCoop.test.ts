@@ -42,6 +42,7 @@ const { Game } = await import('../src/game/game');
 const { cheats } = await import('../src/game/game');
 const { unlockedWeapons } = await import('../src/game/save');
 cheats.god = true;
+(await import('../src/game/coopplay')).coopObjTuning.chance = 0; // solo objectives only here (co-op ones: tests/coopplayCoop.test.ts)
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const mk = () => new Game(new Input(canvas), 16 / 9, document.getElementById('hud')!, document.getElementById('reticle')!);
 const A = mk();

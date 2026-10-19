@@ -186,7 +186,7 @@ const SPEAKER_NAMES: Readonly<Record<string, string>> = {
 
 /** CAPTIONS: show what a recorded boss line or bark says (src/audio/voiceText.ts). */
 function captionLine(id: string): void {
-  const text = VOICE_TEXT[id];
+  const text = VOICE_TEXT[id] ?? banterCaption(id); // co-op banter lines (coopplay lane)
   if (!text) return;
   const who = id.split('_')[1] ?? '';
   caption({ who: SPEAKER_NAMES[who] ?? who.toUpperCase(), text, color: id.startsWith('boss_') ? '#ff4d5e' : '#73eff7', kind: 'voice' });
@@ -380,6 +380,41 @@ export class BarkBrain {
   }
 }
 
+// ---------------------------------------------------------------- co-op banter (coopplay lane)
+
+/**
+ * Heroes calling out to each other in co-op: banter_<hero>_<line> samples
+ * (nicesave, behind, thanks, groupup, onmyway, greatshot), decided on the host
+ * (src/game/systems/coopplay.ts) and sent on the effects bus as 'v:t:<hero>:<line>',
+ * so every machine plays the line on the shared voice channel, with a caption.
+ */
+export const BANTER_PRIORITY = 4;
+export const banterTuning = { gain: 0.85, duck: 0.85, wait: 1.6 };
+const BANTER_TEXT: Readonly<Record<string, string>> = {
+  nicesave: 'Nice save!',
+  behind: 'Behind you!',
+  thanks: 'Thanks for the revive!',
+  groupup: 'Group up!',
+  onmyway: 'On my way!',
+  greatshot: 'Great shot!',
+};
+
+function banterCaption(id: string): string | undefined {
+  return id.startsWith('banter_') ? BANTER_TEXT[id.slice(id.lastIndexOf('_') + 1)] : undefined;
+}
+
+/** One-shot co-op samples on the effects bus ('v:s:<id>'): lifting a teammate, the tether hum. */
+const COOP_SAMPLES: ReadonlySet<string> = new Set(['carry_lift', 'tether_hum']);
+export function playCoopSample(id: string, pan: number, gain: number, volume = 0.8): void {
+  if (!samples.play(id, { pan, distance: gain, priority: 3, gain: volume, cooldown: 0.4, limit: 1, variation: 0.03 }) && id === 'carry_lift') sfx.named('powerUp', 0.8);
+}
+
+/** A teammate's banter line (HERO VOICES off: silent, no caption). */
+export function playBanter(hero: string, line: string): void {
+  if (!voiceSettings.heroVoices || !(line in BANTER_TEXT) || !/^[a-z]+$/.test(hero)) return;
+  sayLine(`banter_${hero}_${line}`, BANTER_PRIORITY, banterTuning.gain, banterTuning.duck, 0, banterTuning.wait);
+}
+
 // ---------------------------------------------------------------- material impacts
 
 export const MATERIAL_SAMPLES: Readonly<Record<Material, string>> = {
@@ -447,6 +482,14 @@ export function playVoiceCue(name: string, pitch: number, pan: number, gain: num
   }
   if (name.startsWith('v:')) {
     const [, kind, boss, line] = name.split(':');
+    if (kind === 't' && boss && line) {
+      playBanter(boss, line); // co-op banter 'v:t:<hero>:<line>' (coopplay lane)
+      return true;
+    }
+    if (kind === 's' && boss && COOP_SAMPLES.has(boss)) {
+      playCoopSample(boss, pan, gain); // 'v:s:carry_lift' and friends (coopplay lane)
+      return true;
+    }
     if ((kind === 'b' || kind === 'm') && boss && line in VOICE_PRIORITY.boss) {
       bossMoment(kind === 'm', boss, line as BossLine, pitch, pan, gain);
       return true;

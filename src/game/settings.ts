@@ -108,6 +108,8 @@ export interface Settings extends DisplayOptions {
   helpGhosts: boolean;
   /** Online: the NETWORK panel with everyone's ping, packet loss and snapshot rate (netcode lane). */
   netOverlay: boolean;
+  /** BUDDY TETHER: draw the energy link between nearby teammates (the bonus stays either way; coopplay lane). */
+  tetherVisual: boolean;
   /** CINEMATICS: sky-fall transitions, the ending, legendary reveals, jackpot reels (full, short or off). */
   cinematics: 'full' | 'short' | 'off';
   /** Weekly co-op team name this machine hosts under (MP lane; '' = "<name>'s Team"). */
@@ -189,6 +191,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   coopJoinable: true,
   helpGhosts: true,
   netOverlay: false,
+  tetherVisual: true,
   cinematics: 'full',
   teamName: '',
   lobbyPublic: false,
@@ -231,6 +234,7 @@ settings.coopPool ??= false;
 settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
 settings.netOverlay ??= false;
+settings.tetherVisual ??= true;
 settings.cinematics ??= 'full';
 settings.teamName ??= '';
 settings.lobbyPublic ??= false;

@@ -8,6 +8,7 @@ import { renderGauntlet, challengeState } from './gauntlet';
 import { beginReadability, renderReadability } from './readability2';
 import { pvp2Frame } from './pvp2';
 import { renderHalloween } from './halloween';
+import { renderCoopPlay } from './coopplay';
 import { weeklyChallenge } from '../../data/weekly';
 import { netInterpAlpha, renderNetcode } from './netcode';
 /**
@@ -332,6 +333,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.meta2Frame(rdt); // profile/quest/achievement tracking, pet hat, trail, PROFILE screens (systems/meta2.ts)
   this.renderCoop2(rdt, netA); // emote bubbles, autopilot tags, help ghost, team panel, buy-back (systems/coop2.ts)
   renderNetcode(this); // NETWORK panel, bad-connection warnings, reconnect banner (systems/netcode.ts)
+  renderCoopPlay(this, rdt); // co-op objective pieces, buddy tethers, carried heroes (systems/coopplay.ts)
   this.renderEliteBars(alpha);
   this.renderMinimap();
   this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);

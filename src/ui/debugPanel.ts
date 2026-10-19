@@ -65,6 +65,7 @@ import { addFixesFolder } from './fixesPanel';
 import { addGameplayFolder } from './debugGameplay';
 import { addTimeFolder } from './debugTime';
 import { addCoop2Folder } from './debugCoop2';
+import { addCoopplayFolder } from './debugCoopplay';
 import { addCinematicsFolder } from './debugCinematics';
 import { addMpFolder } from './debugMp';
 import { addSound2Folder } from './debugSound2';
@@ -347,6 +348,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addGameplayFolder(gui, game); // mech suits, crates, mutations, overload, cash-ins (gameplay lane)
   addTimeFolder(gui, game); // time lane: rewind, last stand, bullet time, replay (src/ui/debugTime.ts)
   addCoop2Folder(gui, game); // coop2 lane: drop-in, revive pool, roles, team ultimate, ghosts (src/ui/debugCoop2.ts)
+  addCoopplayFolder(gui, game); // coopplay lane: co-op objectives, carry, tether, banter (src/ui/debugCoopplay.ts)
   addCinematicsFolder(gui, game); // cinematics lane: sky fall, ending, reveals, jackpot, flawless (src/ui/debugCinematics.ts)
   addMpFolder(gui, game); // MP lane: Versus Swarm, local co-op, lobby browser (src/ui/debugMp.ts)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)

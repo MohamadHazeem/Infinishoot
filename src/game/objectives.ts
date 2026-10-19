@@ -1,4 +1,5 @@
 import { Rng } from '../core/rng';
+import { coopCount, coopHint, coopObjectiveMax, coopTitle, isCoopKind, type CoopObjKind } from './coopplay';
 
 /**
  * Optional stage objectives (pure logic, no rendering). Every stage rolls one
@@ -10,7 +11,8 @@ import { Rng } from '../core/rng';
  * Completing one pays gold to everyone, score, and a treasure chest per hero.
  * Progress runs on the host (src/game/systems/arena.ts) and reaches clients in the snapshot.
  */
-export type ObjectiveKind = 'totems' | 'beacon' | 'shards' | 'envkills';
+/** Co-op kinds (door, escort, zones, bomb) only roll with 2+ players (src/game/coopplay.ts). */
+export type ObjectiveKind = 'totems' | 'beacon' | 'shards' | 'envkills' | CoopObjKind;
 export const OBJECTIVE_KINDS: ObjectiveKind[] = ['totems', 'beacon', 'shards', 'envkills'];
 export type ObjectiveState = 'active' | 'done' | 'failed';
 
@@ -52,6 +54,8 @@ export function objectiveMax(kind: ObjectiveKind, stage: number): number {
       return T.shards;
     case 'envkills':
       return Math.min(30, T.envKills + T.envKillsPerStage * (stage - 1));
+    default:
+      return coopObjectiveMax(kind);
   }
 }
 
@@ -127,12 +131,15 @@ export class Objective {
         return 'COLLECT RELIC SHARDS';
       case 'envkills':
         return 'ENVIRONMENTAL KILLS';
+      default:
+        return coopTitle(this.kind);
     }
   }
 
   /** HUD progress text: "1/3", "12 s", ... */
   get count(): string {
     if (this.kind === 'beacon') return `${Math.floor(this.cur)}/${this.max} S`;
+    if (isCoopKind(this.kind)) return coopCount(this.kind, this.cur, this.max);
     return `${Math.floor(this.cur)}/${this.max}`;
   }
 
@@ -146,8 +153,13 @@ export class Objective {
         return 'Walk over them';
       case 'envkills':
         return 'Lava, thorns, barrels, pillars...';
+      default:
+        return coopHint(this.kind, this.cur, this.charging, this.attacked, this.boss);
     }
   }
+
+  /** Co-op bomb: a boss is up, so the bomb can go on it (set by src/game/systems/coopplay.ts on every machine). */
+  boss = false;
 
   net(): number[] {
     return [Math.round(this.cur * 10) / 10, STATES.indexOf(this.state), Math.round(this.hp), this.charging ? 1 : 0, this.attacked ? 1 : 0];

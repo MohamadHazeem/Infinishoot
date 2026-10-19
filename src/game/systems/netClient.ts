@@ -40,6 +40,7 @@ import { onCoverMsg } from '../coverBreak';
 import { applySoundLaneNet } from './sound2';
 import { applyNq, clientViewStep, netcodeBullets, netcodeClientMsg, netcodeSnapshot, netcodeStep, snapIfTeleported } from './netcode';
 import { applyHeroes3Net, heroes3ClientStep } from './heroes3';
+import { applyCoopPlayNet, coopPlayClientInput, coopPlayLocal } from './coopplay';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (netcodeClientMsg(this, m)) return; // probes; flushes the playout buffer before world changes (systems/netcode.ts)
@@ -246,12 +247,14 @@ export function clientUpdate(this: Game, dt: number): void {
   }
   if (moving) applyVineGrab(this, this.hero.index, dt);
   if (moving) this.arenaLocal(dt);
+  if (moving) coopPlayLocal(this); // carrying slows you; carried, you ride along (systems/coopplay.ts)
   if (moving) this.worldEventLocal(dt);
   if (moving) this.modesLocal(dt); // the rhythm stage's beat keeps moving between snapshots (systems/modes.ts)
   this.biomeFoesClient(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
   this.skillClientInput(control);
+  coopPlayClientInput(this, control); // INTERACT: carry a downed teammate (before the team button)
   this.companionClientInput(control);
   this.gameplayClientInput(control);
   heroes3ClientStep(this, dt, control, rightClickHeld(input, control)); // the Ronin's own dash-strike (systems/heroes3.ts)
@@ -436,6 +439,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen
   applyHeroes3Net(this, s.h3); // Tinker bots (systems/heroes3.ts)
   applyPvp2Net(this, s.p2); // PvP rounds, teams and ring (systems/pvp2.ts)
+  applyCoopPlayNet(this, s.cy); // co-op objectives, carried heroes, tethers (systems/coopplay.ts)
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();
