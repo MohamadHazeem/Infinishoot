@@ -43,13 +43,18 @@ export const BIOME_GRADES: Record<string, Grade> = {
   dunes: { lift: [0.03, 0.0, 0.045], gamma: [0.97, 0.97, 0.98], gain: [1.0, 0.99, 0.96], saturation: 1.02 },
   peaks: { lift: [0.0, 0.015, 0.05], gamma: [1, 1, 1.02], gain: [0.96, 1.0, 1.04], saturation: 1.06 },
   magma: { lift: [0.03, 0.0, 0.03], gamma: [1, 0.98, 1], gain: [1.06, 0.99, 0.95], saturation: 1.1 },
+  neon: { lift: [0.025, 0.0, 0.06], gamma: [1, 1.02, 0.97], gain: [1.06, 0.98, 1.08], saturation: 1.12 },
+  sky: { lift: [0.0, 0.012, 0.035], gamma: [0.98, 0.98, 0.97], gain: [1.03, 1.03, 1.05], saturation: 1.08 },
 };
+const DEFAULT_EYES = new THREE.Color('#fff2a8');
 export const NIGHT_GRADE: Grade = { lift: [0.0, 0.012, 0.045], gamma: [1, 1, 1.03], gain: [1.0, 1.0, 1.06], saturation: 1.08 };
 const graded: Grade = { lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], saturation: 1 };
 
 /** Set the shared light and fog uniforms for a biome (every retro material follows). */
 export function applyBiomeLook(b: BiomeDef): void {
   current = b;
+  if (b.eyeColor) retroGlobals.uEyeColor.value.set(b.eyeColor);
+  else retroGlobals.uEyeColor.value.copy(DEFAULT_EYES);
   applyTimeOfDay(0);
 }
 
@@ -62,7 +67,7 @@ export function applyTimeOfDay(k: number): void {
   const b = current;
   if (!b) return;
   dayK = k;
-  const t = Math.max(0, Math.min(1, k)) * 0.75;
+  const t = Math.max(0, Math.min(1, k)) * 0.75 * (b.dusk ?? 1);
   const n = postfx.night;
   retroGlobals.uSunColor.value.setRGB(...b.light.sun).lerp(DUSK_SUN, t);
   retroGlobals.uSkyColor.value.setRGB(...b.light.sky).lerp(DUSK_SKY, t);
@@ -84,6 +89,11 @@ export function applyTimeOfDay(k: number): void {
   }
   retroGlobals.uNight.value = n;
   setGradeTarget(mixGrade(BIOME_GRADES[b.id] ?? NEUTRAL_GRADE, NIGHT_GRADE, n, graded));
+}
+
+/** The biome whose look is applied (null before the first arena). */
+export function currentBiome(): BiomeDef | null {
+  return current;
 }
 
 /** Re-apply the current time of day (after the night factor changed). */

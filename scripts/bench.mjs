@@ -32,9 +32,11 @@ const flag = (k) => {
 
 const WEAPONS = 'weapons=drones:6,missiles:6,lightning:6,fire:6';
 const BASE = `?test&bench&seed=42&god&circle&aim=0.7,0.7&${WEAPONS}`;
-/** Heavy presets. Stage 5 is the meadow again (grass tufts, rain allowed); stage 4 is magma (lava lights, heat). */
+/** Heavy presets. `heavy` is stage 5 forced to the meadow (grass tufts, rain allowed; stage 5 itself is Neon City since the biomes lane); stage 4 is magma (lava lights, heat). */
 const SCENES = {
-  heavy: `${BASE}&stage=5&night&rain&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
+  heavy: `${BASE}&stage=5&biome=meadow&night&rain&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
+  neon: `${BASE}&stage=5&rain&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
+  sky: `${BASE}&stage=7&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
   magma: `${BASE}&stage=4&night&boom&swarm=200&hold=170,24:spinner,12:burster&bullets=500`,
   light: `${BASE}&stage=1&day&dry`,
 };

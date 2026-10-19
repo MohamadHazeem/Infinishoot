@@ -10,8 +10,10 @@ export const roomTuning: Readonly<
   dunes: { seconds: 0.12, decay: 5, wet: 0.025, dark: 0.5 },
   peaks: { seconds: 1.5, decay: 2.5, wet: 0.13, dark: 0.2 },
   magma: { seconds: 0.85, decay: 3, wet: 0.11, dark: 0.85 },
+  neon: { seconds: 1.1, decay: 2.6, wet: 0.12, dark: 0.45 },
+  sky: { seconds: 0.4, decay: 3.5, wet: 0.04, dark: 0.15 },
 };
-const LOOP_IDS = ['amb_meadow', 'amb_dunes', 'amb_peaks', 'amb_magma', 'amb_rain'];
+const LOOP_IDS = ['amb_meadow', 'amb_dunes', 'amb_peaks', 'amb_magma', 'amb_neon', 'amb_sky', 'amb_rain'];
 interface Loop {
   source: AudioBufferSourceNode;
   gain: GainNode;

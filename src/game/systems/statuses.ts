@@ -522,7 +522,7 @@ export function updateBullets(this: Game, dt: number): void {
         continue;
       }
     }
-    if (this.walls.hitCircle(x, z, b.radius[i])) {
+    if (this.walls.hitSolid(x, z, b.radius[i])) {
       if (b.team[i] === Team.Player) this.hitToys(x, z, b.radius[i], b.damage[i], b.owner[i], b.vx[i], b.vz[i]);
       this.vfx.burst(b.px[i], BULLET_Y, b.pz[i], { count: 3, color: '#ffffff', color2: b.team[i] === Team.Enemy ? '#ff3df0' : '#fff36b', speed: [2, 6], size: [0.08, 0.15], life: [0.1, 0.25], up: 2, gravity: 10 });
       this.bulletBlast(i);

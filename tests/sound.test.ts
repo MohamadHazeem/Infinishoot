@@ -16,8 +16,8 @@ import { manifestIds, SampleEngine, samples } from '../src/audio/samples';
 import { announcementCooldown, announcer, announcerSettings } from '../src/audio/announcer';
 
 ok(
-  [1, 2, 3, 4, 5].map(biomeAudio).join() === 'meadow,dunes,peaks,magma,meadow',
-  'biome audio follows stage cycle',
+  [1, 2, 3, 4, 5, 7, 9].map(biomeAudio).join() === 'meadow,dunes,peaks,magma,neon,sky,meadow',
+  'biome audio follows the stage\'s actual biome',
 );
 ok(
   groundAudio('peaks') === 'snow' && groundAudio('magma') === 'metal',
