@@ -5,6 +5,7 @@ import { cheats, type Game } from '../game/game';
 import { settings } from '../game/settings';
 import { ENEMIES } from '../data/enemies';
 import { STYLE_RANKS, styleTuning } from '../game/style';
+import { Team } from '../game/bullets';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -18,6 +19,7 @@ import { STYLE_RANKS, styleTuning } from '../game/style';
  *   ?test&event=meteors&passives=armor:2,magnet:1&gold=200&seed=42
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
+ *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -82,5 +84,17 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('ult') || q.has('ultgo')) h.skill.ult = 1;
   const go = Number(q.get('ultgo'));
   if (go > 0) setTimeout(() => game.tryUlt(game.hero), go * 1000);
+  // `parrygo=<s>`: a ring of enemy bullets closes in and gets parried; `dashgo=<s>`: one flies at you as you dash (perfect).
+  const shootAt = (d: number, n: number) => {
+    const p = game.hero.player;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      game.bullets.spawn({ x: p.x + Math.cos(a) * d, z: p.z + Math.sin(a) * d, dirX: -Math.cos(a), dirZ: -Math.sin(a), speed: 12, life: 3, radius: 0.26, damage: 10, knockback: 6, team: Team.Enemy, color: '#ff3df0', width: 0.5, length: 0.5 });
+    }
+  };
+  const pg = Number(q.get('parrygo'));
+  if (pg > 0) setTimeout(() => (shootAt(1.5, 8), game.tryParry(game.hero)), pg * 1000);
+  const dg = Number(q.get('dashgo'));
+  if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
   return true;
 }
