@@ -6,6 +6,8 @@ import { trails } from '../trails';
 
 const MAX_SEGMENTS = 1600;
 const BOLT_LIFE = 0.16;
+/** Hops per re-roll drawn with branches and a glow (the rest are plain arcs). */
+const ARC_FANCY = 10;
 
 interface Bolt {
   pts: number[]; // x,y,z triples of the jagged path
@@ -120,13 +122,15 @@ export class Lightning extends Weapon {
       const step = trails.arcStep;
       if (trails.clock - this.arcAt >= step || trails.clock < this.arcAt) {
         this.arcAt = trails.clock;
+        // Budget: the first hops get branches and a glow, the rest of a big volley are plain arcs.
+        let fancy = ARC_FANCY;
         for (const b of this.bolts) {
           const p = b.pts;
           const fresh = b.t > BOLT_LIFE * 0.6;
           // Each pair of points is one jagged piece; join each hop end to end (every 6 pieces).
           for (let i = 0; i + 35 < p.length; i += 36) {
             const w = fresh ? 0.2 : 0.13;
-            trails.arc(p[i], p[i + 1], p[i + 2], p[i + 33], p[i + 34], p[i + 35], this.arcColor, w, step * 1.15, 0.5, true);
+            trails.arc(p[i], p[i + 1], p[i + 2], p[i + 33], p[i + 34], p[i + 35], this.arcColor, w, step * 1.15, 0.5, fancy-- > 0);
           }
         }
       }

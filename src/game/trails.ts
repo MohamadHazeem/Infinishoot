@@ -34,7 +34,7 @@ export const trailTuning = {
   /** Glow strength (multiplies colour). */
   intensity: 1,
   /** Branches per arc segment (chance) and how far they reach (fraction of the hop). */
-  branchChance: 0.35,
+  branchChance: 0.3,
   branchReach: 0.4,
   /** How often arcs are re-rolled (per second of game time). */
   arcRate: 30,
@@ -139,12 +139,10 @@ class Trails {
   private aT = new Float32Array(MAX * 2);
   private attrs: THREE.InstancedBufferAttribute[] = [];
   private geo: THREE.InstancedBufferGeometry | null = null;
-  private next = 0;
-  private used = 0;
-  /** Slots written since the last upload: `wn` slots from `w0` on (wrapping), or everything. */
-  private w0 = 0;
-  private wn = 0;
-  private full = false;
+  /** Live segments are packed in [0, n): dead ones are swap-removed, so only live ones are drawn. */
+  private n = 0;
+  /** Lowest slot changed since the last upload (n or more = nothing). */
+  private dirty = MAX;
   private clockU = { value: 0 };
   private steadyU = { value: 0 };
   private intensityU = { value: trailTuning.intensity };
@@ -224,11 +222,9 @@ class Trails {
   /** A segment from (x0, y0, z0) to (x1, y1, z1), widths w0 -> w1, fading over `life` seconds. */
   seg(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, w0: number, w1: number, color: THREE.ColorRepresentation, life: number, style: TrailStyle = TrailStyle.Glow): void {
     if (!this.enabled || !this.mesh) return;
-    const i = this.next;
-    this.next = (i + 1) % MAX;
-    if (this.used < MAX) this.used++;
-    if (this.wn === 0) this.w0 = i;
-    this.wn++;
+    if (this.n >= MAX) return;
+    const i = this.n++;
+    if (i < this.dirty) this.dirty = i;
     const c = this.col(color);
     const o = i * 4;
     this.aA[o] = x0;
@@ -264,7 +260,7 @@ class Trails {
       const o = i * 3;
       this.seg(ARC[o], ARC[o + 1], ARC[o + 2], ARC[o + 3], ARC[o + 4], ARC[o + 5], width, width, color, life, TrailStyle.Electric);
       // A soft coloured halo round the main bolt.
-      if (branches) this.seg(ARC[o], ARC[o + 1], ARC[o + 2], ARC[o + 3], ARC[o + 4], ARC[o + 5], width * 3, width * 3, color, life, TrailStyle.Soft);
+      if (branches) this.seg(ARC[o], ARC[o + 1], ARC[o + 2], ARC[o + 3], ARC[o + 4], ARC[o + 5], width * 2.2, width * 2.2, color, life, TrailStyle.Soft);
     }
     if (!branches) return;
     const len = Math.hypot(x1 - x0, y1 - y0, z1 - z0);
@@ -289,41 +285,48 @@ class Trails {
     }
   }
 
-  /** Advance the fade clock by `dt` (0 while frozen) and upload what changed. */
+  /** Advance the fade clock by `dt` (0 while frozen), drop dead segments and upload what changed. */
   render(dt: number): void {
     this.intensityU.value = trailTuning.intensity;
     this.clock += dt;
     this.clockU.value = this.clock;
+    const T = this.aT;
+    for (let i = 0; i < this.n; i++) {
+      if (T[i * 2] + T[i * 2 + 1] > this.clock) continue;
+      // Dead: move the last live segment into this slot.
+      const j = --this.n;
+      if (j !== i) {
+        this.aA.copyWithin(i * 4, j * 4, j * 4 + 4);
+        this.aB.copyWithin(i * 4, j * 4, j * 4 + 4);
+        this.aC.copyWithin(i * 4, j * 4, j * 4 + 4);
+        T[i * 2] = T[j * 2];
+        T[i * 2 + 1] = T[j * 2 + 1];
+        if (i < this.dirty) this.dirty = i;
+        i--;
+      }
+    }
     this.flush();
   }
 
-  /** Upload the slots written since the last upload (call again late in the frame for pieces added after render()). */
+  /** Upload the slots changed since the last upload (call again late in the frame for pieces added after render()). */
   flush(): void {
     if (!this.geo) return;
-    this.geo.instanceCount = this.used;
-    if (this.wn === 0 && !this.full) return;
-    const all = this.full || this.wn >= MAX;
-    const end = this.w0 + this.wn;
+    this.geo.instanceCount = this.n;
+    if (this.dirty >= this.n) {
+      this.dirty = MAX;
+      return;
+    }
     for (const a of this.attrs) {
       a.clearUpdateRanges();
-      const s = a.itemSize;
-      if (all) a.addUpdateRange(0, MAX * s);
-      else if (end <= MAX) a.addUpdateRange(this.w0 * s, this.wn * s);
-      else {
-        a.addUpdateRange(this.w0 * s, (MAX - this.w0) * s);
-        a.addUpdateRange(0, (end - MAX) * s);
-      }
+      a.addUpdateRange(this.dirty * a.itemSize, (this.n - this.dirty) * a.itemSize);
       a.needsUpdate = true;
     }
-    this.wn = 0;
-    this.full = false;
+    this.dirty = MAX;
   }
 
   clear(): void {
-    for (let i = 0; i < MAX; i++) this.aT[i * 2] = -1e9;
-    this.used = this.next = 0;
-    this.wn = 0;
-    this.full = true;
+    this.n = 0;
+    this.dirty = MAX;
     if (this.geo) this.geo.instanceCount = 0;
   }
 }
