@@ -43,6 +43,56 @@ export const directorTuning = {
   goldenEarliest: 60, // ...but never in stage 1's first minute
 };
 
+/** Pacing changes count/rate only. Damage, HP, rewards and boss time retain difficulty curves. */
+export const adaptiveTuning = {
+  enabled: true, min: 0.78, max: 1.18, breather: 6, cooldown: 28,
+  nearHp: 0.25, cruiseHp: 0.75, cruiseKills: 0.8, cruiseDpm: 0.35,
+  rise: 0.018, fall: 0.22, memory: 15, repay: 0.08,
+};
+
+/** Allocation-free telemetry filter, also used by deterministic pacing tests. */
+export class AdaptivePace {
+  pressure = 1;
+  breather = 0;
+  cooldown = 0;
+  damagePerMinute = 0; // fraction of one hero's max life / minute, team-averaged
+  killsPerSecond = 0;
+  deaths = 0;
+  nearDeaths = 0;
+  debt = 0; // deferred pressure-seconds; repaid only after the weakest hero recovers
+
+  reset(): void {
+    this.pressure = 1;
+    this.breather = this.cooldown = this.damagePerMinute = this.killsPerSecond = 0;
+    this.deaths = this.nearDeaths = this.debt = 0;
+  }
+
+  hurt(fraction: number, hp01: number, died: boolean, players = 1): void {
+    this.damagePerMinute += Math.max(0, fraction) * 60 / adaptiveTuning.memory / Math.max(1, players);
+    if (died) this.deaths++;
+    if (hp01 <= adaptiveTuning.nearHp && this.cooldown <= 0) {
+      this.nearDeaths++;
+      this.breather = adaptiveTuning.breather;
+      this.cooldown = adaptiveTuning.cooldown;
+    }
+  }
+
+  step(dt: number, weakestHp: number, kills: number, players = 1): void {
+    const t = adaptiveTuning;
+    if (!t.enabled) { this.reset(); return; }
+    const decay = Math.exp(-dt / t.memory);
+    this.damagePerMinute *= decay;
+    this.killsPerSecond = this.killsPerSecond * decay + Math.max(0, kills) / Math.max(1, players) / t.memory;
+    this.breather = Math.max(0, this.breather - dt);
+    this.cooldown = Math.max(0, this.cooldown - dt);
+    const cruise = weakestHp >= t.cruiseHp && this.damagePerMinute < t.cruiseDpm && this.killsPerSecond >= t.cruiseKills;
+    const target = this.breather > 0 ? t.min : cruise ? t.max : 1 + (weakestHp > 0.5 && this.debt > 0 ? t.repay : 0);
+    this.pressure += Math.max(-t.fall * dt, Math.min(t.rise * dt, target - this.pressure));
+    this.pressure = Math.max(t.min, Math.min(t.max, this.pressure));
+    this.debt = Math.min(8, Math.max(0, this.debt + (1 - this.pressure) * dt));
+  }
+}
+
 /** When the stage's Goldbug arrives (seconds), from a 0..1 roll. */
 export function goldenTime(stage: number, duration: number, r: number): number {
   const t = directorTuning;
@@ -57,6 +107,7 @@ export type SpawnRequest =
   | { kind: 'boss'; def: EnemyDef };
 
 export class Director {
+  readonly adaptive = new AdaptivePace();
   stage = 1;
   /** Co-op scales enemy count and toughness with the number of players. */
   players = 1;
@@ -82,6 +133,7 @@ export class Director {
   private queue: SpawnRequest[] = [];
 
   start(stage: number): void {
+    this.adaptive.reset();
     this.stage = stage;
     this.time = 0;
     this.bossSpawned = false;
@@ -146,7 +198,7 @@ export class Director {
     const t = directorTuning;
     const k = Math.min(1, this.time / this.duration);
     const n = t.aliveStart + (t.aliveEnd - t.aliveStart) * Math.pow(k, 1.3) + t.alivePerStage * (this.stage - 1);
-    return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1)) * this.coop * this.countMul));
+    return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1)) * this.coop * this.countMul * this.adaptive.pressure));
   }
 
   /** Enemy types the director may send right now (elites pick from these too). */
@@ -187,6 +239,11 @@ export class Director {
       this.queue.push({ kind: 'boss', def: bossForStage(this.stage) });
     }
 
+    // Delay spike arrivals during the breather; do not bank a burst for its end.
+    if (this.adaptive.breather > 0) {
+      this.nextElite = Math.max(this.nextElite, this.time + 2);
+      this.nextRing = Math.max(this.nextRing, this.time + 5);
+    }
     if (this.time >= this.nextElite && !this.bossSpawned) {
       this.nextElite += t.eliteEvery;
       const choices = this.pool().filter((d) => d.behavior !== 'spawner' && d.id !== 'swarmer');
@@ -218,7 +275,7 @@ export class Director {
     // Keep the field topped up toward the target (lighter during the boss).
     const target = this.bossSpawned ? Math.round(this.targetAlive * 0.25) : this.targetAlive;
     if (alive < target && !this.hold) {
-      this.spawnBudget = Math.min(this.spawnBudget + t.spawnPerSecond * dt * (1 + (this.stage - 1) * 0.3), 6);
+      this.spawnBudget = Math.min(this.spawnBudget + t.spawnPerSecond * this.adaptive.pressure * dt * (1 + (this.stage - 1) * 0.3), 6);
       while (this.spawnBudget >= 1) {
         this.spawnBudget -= 1;
         const def = this.vet(this.pick(rng), rng);

@@ -11,6 +11,8 @@ export interface EnemyDef {
   name: string;
   /** Not drawn (PvP stand-ins for heroes). */
   hidden?: boolean;
+  /** Director2 variants: shared base gaits, distinct silhouette and tactics. */
+  director2?: 'bastion' | 'blink' | 'courier';
   behavior: Behavior;
   model: Model;
   hp: number;
@@ -160,6 +162,28 @@ export const ENEMIES: Record<string, EnemyDef> = {
     id: 'swarm_wall', name: 'Wall Swarmer', behavior: 'swarmwall', model: 'swarmer', death: 'goo',
     hp: 12, speed: 3.6, radius: 0.62, bodyColor: '#b13eec', accentColor: '#a7f070',
     contactDamage: 7, knockbackResist: 0.7, xp: 1, score: 30, minMinute: -1, weight: 0,
+  },
+  bastion: {
+    id: 'bastion', name: 'Bastion Porter', director2: 'bastion', behavior: 'shielder', model: 'shielder',
+    death: 'robot', material: 'shield', hp: 110, speed: 1.8, radius: 0.75,
+    bodyColor: '#38b764', accentColor: '#ffcd75', contactDamage: 10, knockbackResist: 0.85,
+    xp: 7, score: 260, minMinute: 3, minStage: 2, weight: 0.9, maxAlive: 3,
+    guard: { arcDeg: 80, frontMul: 0.2, behindMul: 0.5, range: 5.2, turn: 0.9 },
+    lunge: { range: 2.5, windup: 0.85, speed: 8, duration: 0.22, recover: 1.2 },
+  },
+  blinksniper: {
+    id: 'blinksniper', name: 'Blink Ranger', director2: 'blink', behavior: 'shooter', model: 'shooter',
+    death: 'robot', material: 'metal', hp: 38, speed: 2, radius: 0.55,
+    bodyColor: '#5d275d', accentColor: '#73eff7', contactDamage: 5, knockbackResist: 0.1,
+    xp: 6, score: 240, minMinute: 3.7, minStage: 2, weight: 0.8, maxAlive: 3,
+    shoot: { keepDistance: 12, interval: 4.5, bullets: 1, spreadDeg: 0, speed: 22, damage: 18, pattern: 'sniper' },
+  },
+  bombcourier: {
+    id: 'bombcourier', name: 'Bomb Courier', director2: 'courier', behavior: 'exploder', model: 'exploder',
+    death: 'robot', material: 'metal', hp: 24, speed: 5.8, radius: 0.48,
+    bodyColor: '#ef7d57', accentColor: '#ffcd75', contactDamage: 5, knockbackResist: 0,
+    xp: 4, score: 130, minMinute: 2.8, minStage: 2, weight: 1.4, maxAlive: 6,
+    fuse: { range: 2.8, time: 1.25, radius: 3.4, damage: 24 },
   },
   swarmer: {
     id: 'swarmer',

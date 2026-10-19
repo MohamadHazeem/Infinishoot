@@ -1,5 +1,8 @@
 /** Enemy guide tips, by enemy id (shown once you've met the enemy). */
 export const ENEMY_TIPS: Record<string, string> = {
+  bastion: 'Its tall green gate shields a wider crowd than a Shield Bot. It turns slowly; circle behind the gate.',
+  blinksniper: 'A cyan ring marks its next perch. It blinks, then aims a fresh red line. Strafe after it lands.',
+  bombcourier: 'The orange courier carries twin bomb canisters. Its long fuse gives you time to dash clear or shoot the fragile pack.',
   burrower: 'Follow the moving dirt mound. Only explosions reach it underground. Step out of the red ring, then punish it above ground.',
   v_burrower: 'An armoured Dirt Digger. Explosions still reach it underground; wait outside the ring for its punish window.',
   v_mirror: 'An armoured Mirror Bot with the same readable scan. Break its copy attack to claim the bonus coins.',

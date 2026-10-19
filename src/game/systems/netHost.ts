@@ -232,6 +232,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     ar: this.arenaNet(),
     sk: this.skillNet(forHero),
     cp: this.companionNet(),
+    d2: this.director2Net(),
     gpw: this.gameplayNet(forHero),
     we: this.worldEventNet(),
     wt: this.worldEventLive(forHero),

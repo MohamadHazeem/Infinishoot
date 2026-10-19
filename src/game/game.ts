@@ -1,3 +1,4 @@
+import * as Director2Sys from './systems/director2';
 import * as Mods2Sys from './systems/mods2';
 import { accessibilityInput, assistAim } from './systems/aimAssist';
 import { metaSkin } from '../data/codex';
@@ -578,6 +579,14 @@ export class Game implements HeroWorld {
   // Gameplay lane: mech suits, supply crates, rule relics, mutations, overload, cash-ins, finale, comeback (systems/gameplay.ts).
   gameplayPreWeapons = GameplaySys.gameplayPreWeapons;
   updateGameplay = GameplaySys.updateGameplay;
+  director2Live = Director2Sys.director2Live;
+  updateDirector2 = Director2Sys.updateDirector2;
+  renderDirector2 = Director2Sys.renderDirector2;
+  director2Hurt = Director2Sys.director2Hurt;
+  director2Dash = Director2Sys.director2Dash;
+  director2Kill = Director2Sys.director2Kill;
+  director2Net = Director2Sys.director2Net;
+  applyDirector2Net = Director2Sys.applyDirector2Net;
   gpOnDash = GameplaySys.gpOnDash;
   gpOnKill = GameplaySys.gpOnKill;
   gpFinale = GameplaySys.gpFinale;
@@ -803,7 +812,7 @@ export class Game implements HeroWorld {
   readyFlashT = 0;
   /** Telegraphed ground strikes (Hive Queen) counting down. */
   /** Telegraphed ground strikes; `foe` > 0 also blasts enemies (meteors). */
-  strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number; cause?: string }[] = [];
+  strikes: { x: number; z: number; r: number; t: number; dmg: number; foe?: number; cause?: string; by?: number }[] = [];
   /**
    * Boss duel (src/game/bossDuel.ts): non-null on every machine while a stage boss's
    * last phase plays as a one-on-one inside a closing ring of fire; `t` = seconds
@@ -1383,6 +1392,7 @@ export class Game implements HeroWorld {
     if (this.stepN % 30 === 0) for (const e of this.enemies.list) if (e.active) markSeen(e.def.id);
     if (this.mode === 'fight' && anyAlive) {
       this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
+      this.updateDirector2(dt);
       this.updateEliteMods(dt);
       this.updatePets(dt);
     }
@@ -1525,6 +1535,7 @@ export class Game implements HeroWorld {
     h.synergy.dash();
     this.skillDash(h);
     this.gpOnDash(h);
+    this.director2Dash(h);
     if (h.hasRelic('r_dashbomb')) this.blast(p.x, p.z, 2.6, 30 + 8 * this.stage, '#ffb627', 'r_dashbomb', ['explosive'], false, h);
     this.vfx.sound('dash', p.x, p.z);
     if (h === this.hero) {

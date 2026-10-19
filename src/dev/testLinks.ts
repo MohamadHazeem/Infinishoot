@@ -1,3 +1,5 @@
+import { director2Links } from '../game/systems/director2';
+import { adaptiveTuning } from '../game/director';
 import { cleanHeat } from '../data/heat';
 import { save } from '../game/save';
 import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
@@ -345,6 +347,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   mods2Links(game, q);
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
+  if (q.has('adaptive')) adaptiveTuning.enabled = q.get('adaptive') !== 'off';
+  director2Links(game, q);
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }

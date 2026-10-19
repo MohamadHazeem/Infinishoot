@@ -153,7 +153,8 @@ export function updateLook(this: Game, frameDt: number): void {
   // --- Night: every 3rd arena stage (or forced by a test link), faded in. Neon City is always partly dark.
   const wantNight = this.mode !== 'title' && settings.nightStages && (lookOverrides.night ?? isNightStage(this.arenaStage));
   const nt0 = wantNight ? 1 : settings.nightStages && lookOverrides.night !== false ? (biome.night ?? 0) : 0;
-  const nt = this.mode === 'title' ? nt0 : Math.max(nt0, lookOverrides.eventNight);
+  const blackout = (this.role === 'client' ? this.netEvent?.[0] : this.runEvents.event?.id) === 'blackout';
+  const nt = this.mode === 'title' ? nt0 : Math.max(nt0, lookOverrides.eventNight, blackout ? 0.85 : 0);
   st.night = Math.abs(nt - st.night) < 0.002 || lookOverrides.nightSnap ? nt : st.night + (nt - st.night) * Math.min(1, frameDt * lookTuning.nightSpeed);
   lookOverrides.nightSnap = false;
   if (st.night !== postfx.night) {

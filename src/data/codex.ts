@@ -5,6 +5,9 @@ import { HEROES } from './heroes';
 import type { Loadout } from './loadout';
 
 const ENEMY_LORE: Record<string, string> = {
+  bastion: 'A portable shelter that still takes workplace safety very seriously.',
+  blinksniper: 'The relay technician learned to travel by signal. Its rifle is considerably less subtle.',
+  bombcourier: 'Express delivery: two canisters, one destination, no return address.',
   swarmer: 'Once tiny garden helpers, these machines now mistake every boot for a weed.',
   bopper: "The islands' oldest delivery bot still insists that every parcel arrive personally.",
   zippy: 'A courier with no address left to deliver to. Its route ends wherever you are standing.',

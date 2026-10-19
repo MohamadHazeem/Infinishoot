@@ -237,6 +237,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.pickups.render(this.animTime);
   for (const h of this.heroes) for (const w of h.weapons) w.draw(a, h.ctx);
   this.renderHeroMechs(a, rdt);
+  this.renderDirector2();
   this.renderGameplay(a, netA, rdt); // mech bodies, drops, satellites, mutant spikes, HUD (systems/gameplay.ts)
   this.fx.render(this.cam.camera);
   this.portal.render(rdt);
