@@ -16,12 +16,12 @@ import { LOOP_STAGES, TITLE_SEED, xpForLevel, playerName, cheats } from '../game
 import { Rng, randomSeed } from '../../core/rng';
 import { StaticBoxGrid } from '../../core/spatialHash';
 import { ACHIEVEMENTS } from '../../data/meta';
+import { achievementToast, startMeta2 } from './meta2';
 import { MOD_BY_ID } from '../../data/mods';
 import { SPECIALS } from '../../data/specials';
 import { WEAPONS } from '../../data/weapons';
 import { validLoadout } from '../../data/loadout';
 import { resetSpecials } from '../specials';
-import { sfx } from '../../audio/sfx';
 import { disposeObject } from '../../render/dispose';
 import { type RunSummary } from '../../ui/screens';
 import { createFieldArena } from '../../world/fieldArena';
@@ -165,6 +165,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   // Everyone keeps the loadout they picked; this machine's comes from its settings.
   if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, cheats.unlockAll ? undefined : unlockedLoadout());
   startMeta(this);
+  startMeta2(this); // profile/quest tally (systems/meta2.ts)
   this.rng = new Rng(this.seed);
   for (const h of this.heroes) {
     h.left = false;
@@ -294,6 +295,7 @@ export function summary(this: Game, h: Hero): RunSummary {
       .map(([id, dmg]) => ({ name: h.weapons.find((w) => w.def.id === id)?.name ?? this.sourceName(id), color: WEAPONS[id]?.color ?? MOD_BY_ID[id]?.color ?? '#ff3df0', dmg })),
     achievements: h === this.hero ? this.newAchievements.map((id) => ACHIEVEMENTS.find((a) => a.id === id)!.name) : [],
     style: this.bestStyle(h),
+    m2: this.meta2Tally(h), // this hero's host-side profile counters (systems/meta2.ts)
   };
 }
 
@@ -304,6 +306,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   this.modesRunEnd(); // keep this week's ghost (systems/modes.ts)
   const bolts = bankMeta(this, sum);
   sum.bolts = bolts;
+  this.meta2Bank(sum); // profile XP, quests, achievements (systems/meta2.ts)
   this.mpRunBanked(sum); // weekly co-op team best and board (systems/mp.ts)
   const L = save.lifetime;
   L.runs++;
@@ -394,7 +397,6 @@ export function checkAchievements(this: Game): void {
     this.newAchievements.push(id);
     const item = def.unlockWeapon ? WEAPONS[def.unlockWeapon]?.name : def.unlockLoadout ? (WEAPONS[def.unlockLoadout] ?? SPECIALS[def.unlockLoadout])?.name : heroUnlockedBy(id) && `Hero ${heroUnlockedBy(id)}`;
     const unlock = item ? ` - ${item} unlocked${def.unlockLoadout ? ' for your loadout' : ''}!` : '';
-    this.hud.toast(`★ ${def.name}${unlock}`, 4);
-    sfx.powerUp();
+    achievementToast(this, def, unlock); // 'achievement' sample (systems/meta2.ts)
   }
 }

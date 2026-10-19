@@ -260,6 +260,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
   gauntletKill(this, e);
   heroes3OnKill(this, e, by); // Point Blank kills (systems/heroes3.ts)
+  this.meta2Kill(e, source, by); // profile stats: kills by tag/enemy, bosses (systems/meta2.ts)
   this.enemies.kill(e);
   // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
   // (a stale `boss` once became a Chonk: wrong boss bar on clients and a stage that wouldn't clear).

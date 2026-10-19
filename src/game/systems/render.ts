@@ -317,6 +317,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.camera+reticle');
   this.renderTeam();
   this.renderCompanion(rdt);
+  this.meta2Frame(rdt); // profile/quest/achievement tracking, pet hat, trail, PROFILE screens (systems/meta2.ts)
   this.renderCoop2(rdt, netA); // emote bubbles, autopilot tags, help ghost, team panel, buy-back (systems/coop2.ts)
   renderNetcode(this); // NETWORK panel, bad-connection warnings, reconnect banner (systems/netcode.ts)
   this.renderEliteBars(alpha);

@@ -6,6 +6,7 @@ import { metaSkin } from '../../data/codex';
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `heroByPeer = NetHost.heroByPeer;`.
  */
+import { cleanSummary } from '../../data/profile';
 import type { Game } from '../game';
 import { scoreTuning, SNAP_EVERY, INTEREST, REVIVE_TIME } from '../game';
 import { buildKey } from '../../data/tracks';
@@ -66,6 +67,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       pet: String(m.pet ?? 'none'),
       hero: heroOf(String(m.hero ?? '')).id,
       look: cleanLook(m.look),
+      pf: cleanSummary(m.pf), // profile card (meta2)
     });
     this.refreshLobby();
     return;

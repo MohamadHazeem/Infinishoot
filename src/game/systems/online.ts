@@ -3,6 +3,8 @@
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `hostGame = Online.hostGame;`.
  */
+import { profileSummary } from './meta2';
+import { cleanSummary } from '../../data/profile';
 import type { Game } from '../game';
 import { localHero, kitText } from '../game';
 import { randomSeed } from '../../core/rng';
@@ -33,7 +35,7 @@ export async function hostGame(this: Game, name: string, randomCode = false): Pr
   const fixed = randomCode ? undefined : hostCode();
   const host = new NetHost(3, fixed);
   this.host = host;
-  this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) }];
+  this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), pf: cleanSummary(profileSummary()) }];
   this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
   host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
   host.onLeave = (id) => {
@@ -60,7 +62,7 @@ export async function hostGame(this: Game, name: string, randomCode = false): Pr
 
 export function refreshLobby(this: Game): void {
   if (!this.host) return;
-  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout) }));
+  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout), pf: p.pf ?? null }));
   const difficulty = this.lobbyDifficulty().id;
   const kind = this.lobbyKind;
   const extra = this.mpLobbyExtra(); // Versus Overlord, weekly team, PUBLIC (systems/mp.ts)
@@ -136,7 +138,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     return;
   }
   netcodeJoined(this, client); // snapshot playout buffer, ICE watch (systems/netcode.ts)
-  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile() }); // prof: lobby card (systems/party.ts)
+  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile(), pf: profileSummary() }); // prof: lobby card (systems/party.ts), pf: meta2 profile summary
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }
 

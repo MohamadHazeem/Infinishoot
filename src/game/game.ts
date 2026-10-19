@@ -101,6 +101,8 @@ import * as VersusSys from './systems/versus';
 import * as LocalCoopSys from './systems/localCoop';
 import * as MpSys from './systems/mp';
 import * as PartySys from './systems/party';
+import * as Meta2Sys from './systems/meta2';
+import type { ProfileSummary } from '../data/profile';
 import type { LobbyKind } from '../ui/screens';
 import { portraits } from '../ui/portraits';
 
@@ -262,6 +264,8 @@ export interface LobbyEntry {
   loadout: Loadout;
   /** CUSTOMISE code (src/data/customise.ts), checked with cleanLook. */
   look?: string;
+  /** Profile level, title and banner for the lobby card (meta2, src/data/profile.ts). */
+  pf?: ProfileSummary | null;
 }
 
 /** "Scattergun / Grenade Lobber / Bomb" for the lobby list. */
@@ -549,6 +553,13 @@ export class Game implements HeroWorld {
   tryParry = SkillSys.tryParry;
   tryUlt = SkillSys.tryUlt;
   mods2Event = Mods2Sys.mods2Event;
+  // meta2 lane: profile XP, daily quests, measured achievements, cosmetics (systems/meta2.ts).
+  meta2Kill = Meta2Sys.meta2Kill;
+  meta2Event = Meta2Sys.meta2Event;
+  meta2Tally = Meta2Sys.meta2Tally;
+  meta2Bank = Meta2Sys.meta2Bank;
+  meta2PvpOver = Meta2Sys.meta2PvpOver;
+  meta2Frame = Meta2Sys.meta2Frame;
   mods2Position = Mods2Sys.mods2Position;
   mods2Auras = Mods2Sys.mods2Auras;
   mods2Crit = Mods2Sys.mods2Crit;
