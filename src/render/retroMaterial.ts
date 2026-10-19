@@ -31,6 +31,10 @@ export const retroGlobals = {
   /** 0..1 night: enemy eyes (white vertex colours on instance-flash meshes) glow, faint self-glow dims. */
   uNight: { value: 0 },
   uEyeColor: { value: new THREE.Color('#fff2a8') },
+  /** Night readability (instance-flash meshes: enemies, barrels): moonlit rim strength, rim colour, and a floor on how dark lit colours get. */
+  uNightRim: { value: 0.55 },
+  uNightRimColor: { value: new THREE.Color('#94b0c2') },
+  uNightLift: { value: 0.5 },
   /** Drifting cloud shadows (src/render/sky.ts): tileable noise map, (offset x, offset z, scale, strength), (cut, softness, height). */
   uCloudMap: { value: null as THREE.Texture | null },
   uCloud: { value: new THREE.Vector4(0, 0, 0.012, 0) },
@@ -118,6 +122,9 @@ uniform int uLightCount;
 uniform float uLightMax;
 uniform float uNight;
 uniform vec3 uEyeColor;
+uniform float uNightRim;
+uniform vec3 uNightRimColor;
+uniform float uNightLift;
 uniform sampler2D uCloudMap;
 uniform vec4 uCloud;
 uniform vec3 uCloudCut;
@@ -186,6 +193,15 @@ void main() {
   // At night faint self-glow (water, ice, belts) dims; real glow (>= 0.5: lava, bullets, sparks) stays.
   float unlit = uUnlit < 0.5 ? uUnlit * (1.0 - 0.75 * uNight) : uUnlit;
   vec3 col = mix(lit, base.rgb, unlit);
+  #ifdef RETRO_INSTANCE_FLASH
+    // Night: enemies keep a floor of their own colour and a hard moonlit rim, so dark
+    // (veteran) bodies still read against dark ground.
+    if (uNight > 0.0 && uUnlit < 0.5) {
+      col = max(col, base.rgb * (uNightLift * uNight));
+      float rim = 1.0 - max(dot(normalize(vNormal), normalize(cameraPosition - vWorld)), 0.0);
+      col += uNightRimColor * (step(0.6, rim) * uNightRim * uNight);
+    }
+  #endif
   col = mix(col, uFlash.rgb, uFlash.a);
   #ifdef RETRO_INSTANCE_FLASH
     col = mix(col, vFlash.rgb, vFlash.a);

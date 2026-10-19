@@ -30,6 +30,11 @@ export class Shield extends Weapon {
   /** Curved wall above the ground arc; reads as a shield from the top-down camera. */
   private wall: THREE.Mesh;
   private dome: THREE.Mesh;
+  /** Pyre Aegis: flame tongues standing on the wall. */
+  private flames = new THREE.Group();
+  private flameMats: THREE.MeshBasicMaterial[] = [];
+  private flameGeo = new THREE.ConeGeometry(0.1, 1, 4).translate(0, 0.5, 0);
+  private flameArc = -1;
   private arcMat: THREE.MeshBasicMaterial;
   private domeMat: THREE.MeshBasicMaterial;
   private builtArc = -1;
@@ -44,7 +49,9 @@ export class Shield extends Weapon {
     this.arcMesh = new THREE.Mesh(new THREE.BufferGeometry(), this.arcMat);
     this.wall = new THREE.Mesh(new THREE.BufferGeometry(), this.arcMat);
     this.dome = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), this.domeMat);
-    this.group.add(this.arcMesh, this.wall, this.dome);
+    // Solid colours (not additive) so the flame shapes survive the glow pass on bright ground.
+    for (const c of ['#ff7a2f', '#ffcd75']) this.flameMats.push(new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.95, depthWrite: false, side: THREE.DoubleSide }));
+    this.group.add(this.arcMesh, this.wall, this.dome, this.flames);
     this.group.renderOrder = 2;
     this.group.visible = false;
     scene.add(this.group);
@@ -208,11 +215,44 @@ export class Shield extends Weapon {
     this.arcMat.opacity = Math.min(1, pulse * 1.4 * (0.4 + 0.6 * this.energy)) * crack;
     this.dome.visible = evo;
     this.dome.position.y = -BULLET_Y * 0.6;
+    this.renderFlames(r, ctx.time);
     this.dome.rotation.y = ctx.time * 1.5;
     this.domeMat.opacity = pulse * (0.3 + 0.5 * this.energy);
   }
 
+  /** Pyre Aegis: a fringe of flickering flame tongues licking outward from the shield's edge. */
+  private renderFlames(r: number, time: number): void {
+    const pyre = this.evoId === 'pyre';
+    this.flames.visible = pyre;
+    if (!pyre) return;
+    if (this.flameArc !== this.arc) {
+      this.flameArc = this.arc;
+      this.flames.clear();
+      const arc = (Math.min(360, this.arc) * Math.PI) / 180;
+      const n = Math.max(5, Math.round(arc * 5));
+      const up = new THREE.Vector3(0, 1, 0);
+      const dir = new THREE.Vector3();
+      for (let k = 0; k < n; k++) {
+        // Ring angles map to (cos t, -sin t) once the ring is laid flat; match that.
+        const t = n > 1 ? (k / (n - 1) - 0.5) * arc : 0;
+        const m = new THREE.Mesh(this.flameGeo, this.flameMats[k % 2]);
+        m.position.set(Math.cos(t) * 0.95, 0, -Math.sin(t) * 0.95);
+        // Cones point along +Y: turn each one to point outward and a little up.
+        m.quaternion.setFromUnitVectors(up, dir.set(Math.cos(t), 0.35, -Math.sin(t)).normalize());
+        this.flames.add(m);
+      }
+    }
+    this.flames.rotation.y = this.arcMesh.rotation.y;
+    this.flames.children.forEach((m, k) => {
+      const f = 0.55 + 0.45 * Math.abs(Math.sin(time * 13 + k * 1.7)) + 0.12 * Math.sin(time * 31 + k);
+      const w = (k % 2 ? 1.6 : 2.2) / r;
+      m.scale.set(w, (f * (k % 2 ? 0.6 : 0.9)) / r, w);
+    });
+  }
+
   dispose(): void {
+    this.flameGeo.dispose();
+    for (const m of this.flameMats) m.dispose();
     this.scene.remove(this.group);
     this.arcMesh.geometry.dispose();
     this.wall.geometry.dispose();

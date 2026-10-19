@@ -43,6 +43,12 @@ export interface SaveData {
   seen: string[];
   /** Last runs (max 30). */
   history: RunRecord[];
+  /** First-time tips already shown (src/game/tips.ts). */
+  tips: string[];
+  /** Codex entries met: owned, picked or offered (src/data/codex.ts keys). */
+  discovered: string[];
+  /** The training field: offered once on a fresh save, and finished. */
+  training: { offered: boolean; done: boolean };
   lifetime: {
     runs: number;
     kills: number;
@@ -57,7 +63,7 @@ export interface SaveData {
 const KEY = 'save';
 // v2 dropped Bolts and Workshop upgrades; older saves keep their achievements and stats.
 // v3 added the enemy guide (`seen`) and run history.
-// v4 adds opt-in heat, weekly records, lore and cosmetic-only Bolts. Legacy upgrades stay removed.
+// v4 adds opt-in heat, weekly records, lore and cosmetic-only Bolts (main), first-time tips (`tips`), the Arsenal (`discovered`) and the training field (`training`). Legacy upgrades stay removed.
 const VERSION = 4;
 const CODE_PREFIX = 'ISAVE1:';
 
@@ -68,6 +74,9 @@ function fresh(): SaveData {
     achievements: [],
     seen: [],
     history: [],
+    tips: [],
+    discovered: [],
+    training: { offered: false, done: false },
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
   };
 }
@@ -81,6 +90,9 @@ export function normalize(raw: unknown): SaveData {
     d.achievements = r.achievements.filter((a) => ACHIEVEMENTS.some((x) => x.id === a));
   }
   if (Array.isArray(r.seen)) d.seen = r.seen.filter((x): x is string => typeof x === 'string');
+  if (Array.isArray(r.tips)) d.tips = r.tips.filter((x): x is string => typeof x === 'string');
+  if (Array.isArray(r.discovered)) d.discovered = r.discovered.filter((x): x is string => typeof x === 'string');
+  if (r.training && typeof r.training === 'object') d.training = { offered: !!r.training.offered, done: !!r.training.done };
   if (Array.isArray(r.history)) d.history = r.history.filter((x) => x && typeof x === 'object' && Number.isFinite((x as RunRecord).score)).slice(0, 30);
   if (r.lifetime && typeof r.lifetime === 'object') {
     for (const k of Object.keys(d.lifetime) as (keyof SaveData['lifetime'])[]) {
@@ -117,17 +129,23 @@ function grantFromLifetime(d: SaveData): void {
 export const save: SaveData = normalize(loadJson<unknown>(KEY, null));
 grantFromLifetime(save);
 
+/** While on (the title screen's attract demo), nothing touches the profile: no saves, achievements, enemies met or run records. */
+export const saveLock = { on: false };
+
 export function persist(): void {
+  if (saveLock.on) return;
   saveJson(KEY, save);
 }
 
 /** Note an enemy type as met (saved with the next persist). */
 export function markSeen(id: string): void {
+  if (saveLock.on) return;
   if (!save.seen.includes(id)) save.seen.push(id);
   markCodex(`enemy:${id}`);
 }
 
 export function addRunRecord(r: RunRecord): void {
+  if (saveLock.on) return;
   save.history.unshift(r);
   save.history.length = Math.min(save.history.length, 30);
 }
@@ -186,6 +204,7 @@ export function loadoutUnlockBy(id: string) {
 
 /** Grant an achievement once. Returns its def if newly earned. */
 export function grantAchievement(id: string) {
+  if (saveLock.on) return null;
   if (save.achievements.includes(id)) return null;
   const def = ACHIEVEMENTS.find((a) => a.id === id);
   if (!def) return null;

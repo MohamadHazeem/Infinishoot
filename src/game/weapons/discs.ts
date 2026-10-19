@@ -52,6 +52,17 @@ export class Discs extends Weapon {
       parts.push(part(new THREE.ConeGeometry(0.09, 0.22, 3).rotateZ(-Math.PI / 2).rotateY(-a).translate(Math.cos(a) * 0.52, 0, Math.sin(a) * 0.52), '#ffd23f'));
     }
     const merged = mergeGeometries(parts)!;
+    // Buzzsaw Halo: a red blade ringed with 12 big hooked white teeth and a dark hub.
+    const saw = [
+      part(new THREE.CylinderGeometry(0.46, 0.46, 0.08, 16), '#ff5d3a'),
+      part(new THREE.TorusGeometry(0.3, 0.04, 4, 12).rotateX(Math.PI / 2), '#ffcd75'),
+      part(new THREE.CylinderGeometry(0.14, 0.14, 0.18, 6), '#333c57'),
+    ];
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      saw.push(part(new THREE.ConeGeometry(0.11, 0.3, 3).rotateZ(-Math.PI / 2).rotateY(-a - 0.5).translate(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55), '#f4f4f4'));
+    }
+    this.geos = [merged, mergeGeometries(saw)!];
     this.mesh = new THREE.InstancedMesh(merged, createRetroMaterial({ vertexColors: true, unlit: 0.45 }), MAX);
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
@@ -126,8 +137,13 @@ export class Discs extends Weapon {
     }
   }
 
+  /** Plain blade and the Buzzsaw Halo blade. */
+  private geos: THREE.BufferGeometry[];
+
   protected applyLook(c: string | null): void {
-    (this.mesh.material as RetroMaterial).uniforms.uColor.value.set(c ? new THREE.Color(c).lerp(new THREE.Color('#ffffff'), 0.35) : '#ffffff');
+    // The evolved blade has its own colours; the tint stays white.
+    (this.mesh.material as RetroMaterial).uniforms.uColor.value.set('#ffffff');
+    this.mesh.geometry = this.geos[c ? 1 : 0];
   }
 
   render(alpha: number, ctx: WeaponCtx): void {
@@ -153,7 +169,7 @@ export class Discs extends Weapon {
 
   dispose(): void {
     this.scene.remove(this.mesh);
-    this.mesh.geometry.dispose();
+    for (const g of this.geos) g.dispose();
     (this.mesh.material as THREE.Material).dispose();
   }
 }

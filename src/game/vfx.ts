@@ -1,4 +1,6 @@
 import { sfx } from '../audio/sfx';
+import { threatAt } from '../audio/captions';
+import { threatOf } from '../audio/threats';
 import { playVoiceCue } from '../audio/voices';
 import type { DamageNumbers } from '../ui/damageNumbers';
 import type { Hud } from '../ui/hud';
@@ -16,7 +18,7 @@ export type VfxEvent =
   | ['b', number, number, number, BurstOptions]
   | ['r', number, number, number, number, string, number]
   | ['s', number, number, number, number, string, number]
-  | ['n', number, number, number, string | number, NumKind]
+  | ['n', number, number, number, string | number, NumKind, number?]
   | ['a', number, number, string, number]
   | ['k', number, number, number]
   | ['h', 'banner' | 'toast' | 'flash', string, string, number]
@@ -89,9 +91,11 @@ export class Vfx {
     this.rec(['s', x, y, z, size, color, life]);
   }
 
-  num(x: number, y: number, z: number, value: string | number, kind: NumKind = 'hit'): void {
-    this.t.dmg.spawn(x, y, z, value, kind);
-    this.rec(['n', x, y, z, value, kind]);
+  /** Floating number or label. `by`: index of the hero whose hit it is (DAMAGE NUMBERS: MINE / OFF); left off for messages. */
+  num(x: number, y: number, z: number, value: string | number, kind: NumKind = 'hit', by?: number): void {
+    this.t.dmg.spawn(x, y, z, value, kind, by);
+    // Older clients ignore the extra element; events without it always show.
+    this.rec(by === undefined ? ['n', x, y, z, value, kind] : ['n', x, y, z, value, kind, by]);
   }
 
   /** Positional sound: plays if the local player is in earshot. `name` is an sfx method or "w:<weapon sound>". */
@@ -161,15 +165,13 @@ export class Vfx {
     const d = this.near(x, z);
     if (d > HEAR_RANGE) return;
     // Pan by the sideways offset from the listener and fade with distance.
-    if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7, x, z);
-    if (name.startsWith('w:')) sfx.weapon(name.slice(2));
-    else if (name[1] === ':' && playVoiceCue(name, pitch, Number.isNaN(x) ? 0 : (x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7)) {
-      // 'v:' boss voices and 'm:' material impacts (src/audio/voices.ts).
-    } else {
-      const fn = (sfx as unknown as Record<string, (p?: number) => void>)[name];
-      if (typeof fn === 'function') fn.call(sfx, pitch);
-    }
+    const gain = d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7;
+    if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, gain, x, z);
+    // 'v:' boss voices and 'm:' material impacts (src/audio/voices.ts); the rest by name (weapon cues with
+    // evolution layers, enemy family calls, telegraphs: sfx.named).
+    if (!(name[1] === ':' && playVoiceCue(name, pitch, Number.isNaN(x) ? 0 : (x - this.t.listener().x) / 14, gain))) sfx.named(name, pitch);
     sfx.at(0, 1);
+    if (threatOf(name)) threatAt(name, x, z); // SOUND ARROWS (off-screen telegraphs)
   }
 
   private playShake(x: number, z: number, amount: number): void {
@@ -197,7 +199,7 @@ export class Vfx {
         this.t.fx.star(e[1], e[2], e[3], e[4], e[5], e[6]);
         break;
       case 'n':
-        this.t.dmg.spawn(e[1], e[2], e[3], e[4], e[5]);
+        this.t.dmg.spawn(e[1], e[2], e[3], e[4], e[5], e[6]);
         break;
       case 'a':
         this.playSound(e[3], e[1], e[2], e[4]);

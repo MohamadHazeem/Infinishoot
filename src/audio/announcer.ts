@@ -1,4 +1,5 @@
 import { samples, type SampleVoice } from './samples';
+import { ANNOUNCER_LINES, caption } from './captions';
 
 export const announcerSettings = { enabled: true };
 /**
@@ -71,16 +72,23 @@ class Announcer {
       variation: 0,
       limit: 1,
     });
-    if (!voice) return false;
+    // Muted or silent buses still caption the line (CAPTIONS is for people who can't hear it).
+    const silent = !voice && !samples.canPlay('ui');
+    if (!voice && !silent) return false;
     this.active?.stop();
     this.active = voice;
     this.priority = priority;
-    this.activeUntil = now + voice.duration;
+    const duration = voice?.duration ?? 1.2;
+    this.activeUntil = now + duration;
     this.next = this.activeUntil + 2.5;
     this.last.set(id, now);
-    voiceGate.claim(10 + priority, voice.duration, () => voice.stop());
-    this.duck(voice.duration);
-    this.onSay?.(id, voice.duration);
+    if (voice) {
+      voiceGate.claim(10 + priority, duration, () => voice.stop());
+      this.duck(duration);
+    }
+    this.onSay?.(id, duration);
+    const line = ANNOUNCER_LINES[id];
+    if (line) caption({ who: 'ANNOUNCER', text: line, color: '#ffcd75', kind: 'announcer' });
     return true;
   }
   reset(): void {

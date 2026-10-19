@@ -14,6 +14,7 @@ import { Hero } from '../hero';
 import { type DamageOpts } from '../weapons';
 import { SCAR_COLORS } from '../scars';
 import { damageNumberLabel } from '../../ui/damageNumbers';
+import { updateWorldHazards } from './worldHazards';
 import { impactCue } from '../../audio/voices';
 
 export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null {
@@ -77,13 +78,13 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   const hx = o.hx ?? e.x;
   const hz = o.hz ?? e.z;
   if (crit) {
-    this.vfx.num(e.x, 1.9 * e.scale, e.z, `${amount}!`, 'crit');
+    this.vfx.num(e.x, 1.9 * e.scale, e.z, `${amount}!`, 'crit', by.index);
     this.vfx.sound(impactCue(e.def.material, true, shielded), e.x, e.z); // crit + material (src/audio/voices.ts)
     this.vfx.star(hx, BULLET_Y, hz, 1.5, '#fff35c', 0.12);
   } else if (o.loud) {
     // Cosmetic labels travel through the existing number event on hosts and clients.
     const accent = shielded ? 'shield' : tags.includes('fire') ? 'fire' : tags.includes('shock') ? 'shock' : tags.includes('frost') ? 'frost' : undefined;
-    this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, accent));
+    this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, accent), 'hit', by.index);
     this.vfx.sound(impactCue(e.def.material, false, shielded), e.x, e.z, this.pitch);
     this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
   }
@@ -143,8 +144,8 @@ export function groundAt(this: Game, x: number, z: number, out: { slip: number; 
   for (const h of this.arena.hazards) if (h.kind === 'ice' && (x - h.x) ** 2 + (z - h.z) ** 2 < h.r * h.r) out.slip = 1;
   for (const c of this.arena.conveyors) {
     if (Math.abs(x - c.x) < c.w / 2 && Math.abs(z - c.z) < c.d / 2) {
-      out.pushX = c.dx * CONVEYOR_SPEED;
-      out.pushZ = c.dz * CONVEYOR_SPEED;
+      out.pushX = c.dx * (c.speed ?? CONVEYOR_SPEED);
+      out.pushZ = c.dz * (c.speed ?? CONVEYOR_SPEED);
     }
   }
 }
@@ -175,12 +176,14 @@ export function updateHazards(this: Game, dt: number): void {
       if (!e.alive || e.def.boss || e.hopY > 0) continue;
       for (const c of this.arena.conveyors) {
         if (Math.abs(e.x - c.x) < c.w / 2 && Math.abs(e.z - c.z) < c.d / 2) {
-          e.x += c.dx * CONVEYOR_SPEED * dt;
-          e.z += c.dz * CONVEYOR_SPEED * dt;
+          e.x += c.dx * (c.speed ?? CONVEYOR_SPEED) * dt;
+          e.z += c.dz * (c.speed ?? CONVEYOR_SPEED) * dt;
         }
       }
     }
   }
+  // Toy Factory crushers (src/game/systems/worldHazards.ts).
+  updateWorldHazards.call(this, dt);
 }
 
 /** Death flavour by enemy kind. Swarm kills only sometimes get the extras, so mass kills stay light. */

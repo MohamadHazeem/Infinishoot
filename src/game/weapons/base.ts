@@ -74,6 +74,8 @@ export interface WeaponCtx {
   sound(
     name: 'scatter' | 'pellets' | 'laser' | 'sweeper' | 'nova' | 'aura' | 'orb' | 'bouncer' | 'drone' | 'meteor' | 'zap' | 'disc' | 'missile' | 'mine' | 'freeze' | 'explode' | 'shoot' | 'flame' | 'charge' | 'chargeFull' | 'chargeShot' | 'lob' | 'vortex' | 'shieldUp' | 'block' | 'uplink' | 'beam' | 'rail',
   ): void;
+  /** The weapon updating right now: its evolution adds a sound layer to `sound()` (src/audio/evoLayers.ts). */
+  soundSource?: Weapon | null;
   /** Screen shake at a world point (scaled by distance to each player). */
   shake(x: number, z: number, amount: number): void;
   /** Weapon combos this hero has unlocked (src/data/weaponCombos.ts). */

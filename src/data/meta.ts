@@ -32,4 +32,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'hard_stage3', name: 'Hard Boiled', desc: 'Reach stage 3 on Hard or Nightmare' },
   { id: 'endless_5', name: 'Marathon', desc: 'Reach wave 5 in Endless' },
   { id: 'rush_3', name: 'Boss Buster', desc: 'Beat 3 bosses in the Boss Rush mode' },
+  // Hero unlocks (src/data/heroes.ts; checked in src/game/systems/heroMechs.ts).
+  { id: 'riposte', name: 'Riposte', desc: 'Parry 25 times in one run' },
+  { id: 'immovable', name: 'Immovable', desc: 'Stand still for 20 seconds straight during a stage' },
+  { id: 'double_trouble', name: 'Double Trouble', desc: 'Evolve both your left and right click in one run' },
 ];

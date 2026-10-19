@@ -18,6 +18,7 @@ import { SnapEncoder } from '../../net/snapCodec';
 import { skinOf } from '../../data/skins';
 import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
+import { noteParryLag } from '../netFeel';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -80,7 +81,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       dashing: !!m.d,
     };
   } else if (m.t === 'ping') {
-    if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z));
+    if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z), typeof m.k === 'string' ? m.k : undefined);
   } else if (m.t === 'dash') {
     if (!h.player.dead && this.isCombatMode) {
       h.player.invuln = Math.max(h.player.invuln, playerTuning.dashTime + playerTuning.dashIframesExtra);
@@ -90,7 +91,10 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     this.arenaJumpMsg(h, Number(m.i));
   } else if (m.t === 'bomb') {
     if (this.isCombatMode) this.tryBomb(h);
+  } else if (m.t === 'hb') {
+    this.host?.send(from, { t: 'hb', c: m.c }); // round-trip echo (src/game/netFeel.ts)
   } else if (m.t === 'parry' || m.t === 'ult') {
+    if (m.t === 'parry') noteParryLag(this, h, Number(m.rtt) || 0);
     this.skillMessage(h, m.t);
   } else if (m.t === 'team') {
     this.tryTeamMove(h);
@@ -193,6 +197,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
         area: r2(h.stats.areaMul),
         w: h.weapons.map((w) => [w.def.id, w.level, Math.round(w.ready * 20) / 20, w.buildKey, ...w.net()]),
         rl: h.relics,
+        tw: this.heroMechNet(h),
       };
     }),
     you: {

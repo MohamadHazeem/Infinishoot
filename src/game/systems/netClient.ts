@@ -18,9 +18,13 @@ import { settings } from '../settings';
 import { decodeFx } from '../../net/fxCodec';
 import { SnapDecoder } from '../../net/snapCodec';
 import { createWeapon } from '../weapons';
+import { syncSub } from '../biomeFoes';
 import { FUSION_BY_ID } from '../../data/fusions';
 import { showFusionMerge } from '../../ui/fusionUi';
 import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
+import { rightClickHeld } from '../chargeMode';
+import { onHeartbeat } from '../netFeel';
+import { onCoverMsg } from '../coverBreak';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   switch (m.t) {
@@ -79,7 +83,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.applySnapshot(m);
       break;
     case 'lv':
-      this.screens.showLevelUp(m.offers as Offer[], String(m.title), Number(m.rerolls), m.loadout as LoadoutItem[], Number(m.skip));
+      this.screens.showLevelUp(m.offers as Offer[], String(m.title), Number(m.rerolls), m.loadout as LoadoutItem[], Number(m.skip), Number(m.banish ?? -1));
       break;
     case 'shop':
       this.screens.showShop(this.shopFromNet(m.view as NetShop), m.focus === undefined ? undefined : Number(m.focus));
@@ -108,9 +112,19 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.juice.kick(Number(m.dx), Number(m.dz), 6);
       sfx.playerHurt();
       break;
+    case 'shove':
+      this.player.shove(Number(m.dx), Number(m.dz), Number(m.f));
+      this.juice.kick(Number(m.dx), Number(m.dz), 4);
+      break;
     case 'over':
       this.mode = 'dead';
       this.bankAndShow(m.sum as RunSummary);
+      break;
+    case 'cover':
+      onCoverMsg(this, m);
+      break;
+    case 'hb':
+      onHeartbeat(this, m);
       break;
     case 'end':
       this.leaveToTitle();
@@ -122,7 +136,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
 export function shopFromNet(this: Game, v: NetShop): ShopView {
   return {
     ...v,
-    offers: v.offers.map((o) => (o && MOD_BY_ID[o.id] ? { def: MOD_BY_ID[o.id], price: o.price, hint: o.hint } : null)),
+    offers: v.offers.map((o) => (o && MOD_BY_ID[o.id] ? { def: MOD_BY_ID[o.id], price: o.price, hint: o.hint, locked: o.locked, nums: o.nums } : null)),
     owned: v.owned.filter((o) => MOD_BY_ID[o.id]).map((o) => ({ def: MOD_BY_ID[o.id], sell: o.sell, readout: o.readout, level: o.level, maxLevel: o.maxLevel, upCost: o.upCost })),
   };
 }
@@ -193,13 +207,14 @@ export function clientUpdate(this: Game, dt: number): void {
     this.juice.shake(0.05);
   }
   if (moving) this.arenaLocal(dt);
+  this.biomeFoesClient(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
   this.skillClientInput(control);
   this.companionClientInput(control);
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
   const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
-  const charging = control && (input.mouseDown(2) || input.padButton(2));
+  const charging = rightClickHeld(input, control);
   if (this.stepN % INPUT_EVERY === 0 && this.client) {
     const r2 = (v: number) => Math.round(v * 100) / 100;
     this.client.send({ t: 'i', x: r2(p.x), z: r2(p.z), vx: r2(p.vel.x), vz: r2(p.vel.z), ax: r2(p.aim.x), az: r2(p.aim.z), ad: Number.isFinite(p.aimDist) ? r2(p.aimDist) : -1, f: firing, c: charging, d: p.dashing });
@@ -270,6 +285,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     }
     this.syncWeapons(h, hs.w as (string | number)[][]);
     h.relics = (hs.rl as string[]) ?? [];
+    this.applyHeroMechNet(h, hs.tw);
   }
 
   // Private info for this machine's hero
@@ -331,6 +347,10 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     e.shockT = r.shock ? 1 : 0;
     e.flash = r.flash ? 0.07 : 0;
     e.action = r.action;
+    if (e.def.biomes && e.sub !== r.sub) {
+      e.sub = r.sub;
+      syncSub(e);
+    }
     e.lungeX = Math.sin(r.lunge);
     e.lungeZ = Math.cos(r.lunge);
     e.targetX = r.targetX;

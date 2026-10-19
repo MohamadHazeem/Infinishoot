@@ -5,6 +5,7 @@ import { markSeen } from '../save';
  * installed on the class as fields, e.g. `ignite = Statuses.ignite;`.
  */
 import { ARENA_SOURCE_NAMES } from './arena';
+import { MECH_SOURCE_NAMES } from './heroMechs';
 import { copyOrbPulse } from './enemyAi';
 import type { Game } from '../game';
 import { scoreTuning, bombTuning, dropTuning, chestTuning, nukeTuning, statusTuning, cheats, BULLET_KINDS, IMPACT_BLAST } from '../game';
@@ -15,6 +16,7 @@ import { PASSIVES } from '../../data/passives';
 import { SPECIALS } from '../../data/specials';
 import { WEAPONS } from '../../data/weapons';
 import { startSpecial, type SpecialApi } from '../specials';
+import { specialEvoCue } from './sound';
 import { barrelTuning, type Barrel } from '../barrels';
 import { BULLET_Y, Team } from '../bullets';
 import { type Enemy } from '../enemies';
@@ -23,6 +25,10 @@ import { PickupType } from '../pickups';
 import { playerTuning } from '../player';
 import { SCAR_COLORS } from '../scars';
 import { CURSE_BY_ID } from '../../data/curses';
+import { bossLike } from '../bossRules';
+import { noteBulletHit } from '../netFeel';
+import { vampHeal } from '../lifesteal';
+import { noteShock, overloadPartner, teamCombo, teamGame, teamTuning } from '../teamPlay';
 import { bossVoiceCue } from '../../audio/voices';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
@@ -30,7 +36,12 @@ export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   e.burnT = statusTuning.burnTime;
   e.burnDps = Math.max(e.burnDps, dps);
   e.burnOwner = by.index;
-  if (e.shockT > 0) this.overload(e, by);
+  if (e.shockT > 0) {
+    // My Burn on your Shock: a team combo (src/game/teamPlay.ts).
+    const mate = overloadPartner(this, e, by, 'burn');
+    this.overload(e, by, mate >= 0 ? teamTuning.overloadMul : 1);
+    if (mate >= 0) teamCombo(this, e, by, this.heroes[mate], 'OVERLOAD');
+  }
 }
 
 /** Right-click hit: the enemy takes more damage from everyone for a few seconds. */
@@ -47,16 +58,21 @@ export function expose(this: Game, e: Enemy): void {
 
 export function shock(this: Game, e: Enemy, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
+  const mate = e.burnT > 0 ? overloadPartner(this, e, by, 'shock') : -1;
   e.shockT = statusTuning.shockTime + by.synergy.flags.shockTime;
-  if (e.burnT > 0) this.overload(e, by);
+  noteShock(this, e, by);
+  if (e.burnT > 0) {
+    this.overload(e, by, mate >= 0 ? teamTuning.overloadMul : 1);
+    if (mate >= 0) teamCombo(this, e, by, this.heroes[mate], 'OVERLOAD');
+  }
 }
 
 /** Burn + Shock on the same enemy: consume both for a blast. */
-export function overload(this: Game, e: Enemy, by: Hero): void {
+export function overload(this: Game, e: Enemy, by: Hero, teamMul = 1): void {
   e.burnT = e.shockT = 0;
   e.burnDps = 0;
   this.overloads++;
-  const m = 1 + by.synergy.flags.overloadMult;
+  const m = (1 + by.synergy.flags.overloadMult) * teamMul;
   if (this.overloads % 3 === 1) this.vfx.num(e.x, 2.2, e.z, 'OVERLOAD!', 'crit');
   this.blast(e.x, e.z, 1.8 * Math.sqrt(m), (statusTuning.overloadDamage + statusTuning.overloadPerLevel * this.level) * m, '#ffe14d', 'overload', ['explosive'], true, by);
 }
@@ -119,6 +135,7 @@ export function sourceName(this: Game, id: string): string {
   if (ARENA_SOURCE_NAMES[id]) return ARENA_SOURCE_NAMES[id];
   if (PASSIVES[id]) return PASSIVES[id].name;
   if (id === 'parry' || id === 'ult') return id === 'parry' ? 'Parry' : 'Ultimate'; // skill layer
+  if (MECH_SOURCE_NAMES[id]) return MECH_SOURCE_NAMES[id]; // hero mechanics, biome foes
   if (id === 'pet' || id === 'team') return id === 'pet' ? 'Pet' : 'Team Moves'; // companion lane
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
@@ -159,8 +176,8 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     if (this.rng.chance(dropTuning.gearChance * thin * (1 + 0.25 * (by?.stats.luck ?? 0)))) this.pickups.spawn(PickupType.Gear, e.x, e.z);
     if (this.rng.chance(dropTuning.nukeChance * thin)) this.pickups.spawn(PickupType.Nuke, e.x, e.z);
   }
-  // Vampire Fang: life per kill (small per kill: hordes add up).
-  if (by && by.stats.killHeal > 0 && !by.player.dead) by.player.heal(by.stats.killHeal);
+  // Vampire Fang: life per kill, scaled by max life and budgeted per second (src/game/lifesteal.ts).
+  if (by && by.stats.killHeal > 0 && !by.player.dead) by.player.heal(vampHeal(by, by.stats.killHeal, this.runTime));
 
   // Feedback scales with importance; swarm kills stay light so hundreds don't stutter.
   const r = e.radius;
@@ -261,7 +278,15 @@ export function blast(this: Game, x: number, z: number, r: number, base: number,
   const targets = this.enemiesInRadius(x, z, r, this.scratch).slice();
   // Napalm: an explosion that catches a burning enemy sets the whole blast alight.
   const napalm = explosive && !noStatus && targets.some((e) => e.burnT > 0);
-  if (napalm) this.vfx.ring(x, z, 1, r * 2.2, '#ff5e3a', 0.35);
+  if (napalm) {
+    this.vfx.ring(x, z, 1, r * 2.2, '#ff5e3a', 0.35);
+    this.onboarding.napalms++; // first-combo tip and the Codex
+  }
+  // My blast catching your Burn: a team combo.
+  if (napalm && teamGame(this)) {
+    const lit = targets.find((e) => e.burnT > 0 && e.burnOwner !== by.index && this.heroes[e.burnOwner] && !this.heroes[e.burnOwner].left);
+    if (lit) teamCombo(this, lit, by, this.heroes[lit.burnOwner], 'NAPALM');
+  }
   let n = 0;
   for (const e of targets) {
     const d = Math.hypot(e.x - x, e.z - z) || 1;
@@ -385,7 +410,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   if (!this.meta.rule('glass') && dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
     h.phoenixUsed = true;
     dmg = Math.max(0, Math.ceil(p.hp) - 1);
-    for (const e of this.enemiesInRadius(p.x, p.z, 7, this.scratch)) e.frozen = Math.max(e.frozen, e.def.boss ? 0.4 : 2.5);
+    for (const e of this.enemiesInRadius(p.x, p.z, 7, this.scratch)) e.frozen = Math.max(e.frozen, bossLike(e) ? 0.4 : 2.5);
     this.vfx.ring(p.x, p.z, 1, 14, '#ff7a2f', 0.5);
     this.vfx.burst(p.x, 1, p.z, { count: 30, color: '#ff7a2f', color2: '#ffd23f', speed: [4, 10], size: [0.15, 0.3], life: [0.4, 0.8], up: 6, gravity: 10 });
     this.vfx.banner('PHOENIX!', `${h.name.toUpperCase()} RISES`, 1.4);
@@ -538,7 +563,9 @@ export function updateBullets(this: Game, dt: number): void {
         if (p.dead || h.left || p.invuln > 0) continue;
         const rr = b.radius[i] + p.radius * 0.8;
         if ((p.x - x) ** 2 + (p.z - z) ** 2 < rr * rr) {
+          const hp0 = p.hp;
           this.hurtHero(h, b.damage[i], b.px[i], b.pz[i], null, 'Enemy fire');
+          if (h.remote) noteBulletHit(this, h, hp0 - p.hp, b.vx[i], b.vz[i]); // a late parry can undo it
           b.kill(i--);
           break;
         }
@@ -665,6 +692,7 @@ export function tryBomb(this: Game, h: Hero): void {
   if (h.special.id !== 'bomb') {
     h.bombCharge = 0;
     startSpecial(h, h.specialDef, h.specialP, this.specialApi);
+    specialEvoCue(this, h);
     return;
   }
   if (h.bombT >= 0 || h.bombNext > 0) return;
@@ -673,6 +701,7 @@ export function tryBomb(this: Game, h: Hero): void {
   h.bombNuke = false;
   h.bombWave = 1;
   this.startBombWave(h, p.x, p.z);
+  specialEvoCue(this, h);
   p.invuln = Math.max(p.invuln, 0.6);
   if (h === this.hero) {
     this.hud.flash(0.9);
@@ -766,7 +795,7 @@ export function updateBomb(this: Game, h: Hero, dt: number): void {
     e.bombStamp = stamp;
     const n = d || 1;
     // The nuke over-kills normal enemies and takes a big bite out of bosses.
-    const tough = e.def.boss || e.def.id === 'reaper';
+    const tough = bossLike(e) || e.def.id === 'reaper';
     const dmg = !nuke ? sp.dmg * dmgMul : tough ? e.maxHp * nukeTuning.bossHpFrac : e.maxHp * 20;
     // Implosion's first wave drags enemies toward the centre instead of blasting them away.
     const dir = pull ? -Math.min(1, d / Math.max(1, sp.radius)) : 1;

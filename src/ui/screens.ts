@@ -25,12 +25,21 @@ import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/mod
 import { dailyBest } from '../game/highscores';
 import { HEROES } from '../data/heroes';
 import { ACTIONS, binds, keyLabel, rebind, resetBinds, type Action } from '../core/keybinds';
+import { prompt, promptHtml } from './prompts';
 import { ENEMIES } from '../data/enemies';
-import { ENEMY_TIPS } from '../data/bestiary';
+import { ENEMY_TIPS, enemyHome } from '../data/bestiary';
+import { BIOMES } from '../data/biomes';
+import type { CardNum } from '../game/cardNumbers';
+import { canBanish } from '../game/banish';
+import type { PreviewRow, ShopPreview } from '../game/shopPreview';
+import { buyDamageNums, ensureShopCss, numsHtml, previewPanelHtml, type PreviewFocus } from './shopUi';
+import { mountRelayField, showRelayField } from './relayField';
 import { RouteMapView, type RouteView } from './routeMap';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | MetaScreen | 'route';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | MetaScreen | 'route' | ExtraScreen;
+/** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
+export type ExtraScreen = 'arsenal' | 'training';
 
 export interface ScreenActions {
   start(): void;
@@ -63,6 +72,8 @@ export interface ScreenActions {
   skinChanged(): void;
   takeCurse(): void;
   buyRelic(): void;
+  /** Lock / unlock shop offer i (kept through rerolls and into the next shop). */
+  lockOffer(index: number): void;
 }
 
 export interface LobbyView {
@@ -83,9 +94,12 @@ export interface ShopView {
   interest: number;
   interestCap: number;
   interestPer: number;
-  offers: ({ def: ModDef; price: number; hint: string } | null)[];
+  /** `locked`: kept through rerolls; `nums`: non-damage effects on this build (shop lane). */
+  offers: ({ def: ModDef; price: number; hint: string; locked?: boolean; nums?: CardNum[] } | null)[];
   owned: { def: ModDef; sell: number; readout: string; level: number; maxLevel: number; upCost: number }[];
   slots: number;
+  /** Mod order preview (src/game/shopPreview.ts). */
+  preview?: ShopPreview;
   rerollCost: number;
   healCost: number;
   healed: boolean;
@@ -126,6 +140,8 @@ export interface Offer {
   replaces?: string;
   /** Auto-weapon partner evolution this card leads to: weapon id, partner item id, and what you already have. */
   partner?: { weapon: string; passive: string; haveWeapon: boolean; haveItem: boolean };
+  /** Key numbers before -> after for this hero (src/game/cardNumbers.ts). */
+  nums?: CardNum[];
   /** Fusion cards: the two weapon ids that fuse (src/data/fusions.ts), shown as A + B. */
   fuses?: [string, string];
 }
@@ -155,9 +171,12 @@ function rangeLabel(inp: HTMLInputElement): void {
   const names = inp.dataset.labels?.split(',');
   const out = inp.closest('label')?.querySelector('.set-val');
   if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
+  else if (inp.dataset.unit && out) out.textContent = `${inp.value}${inp.dataset.unit}`;
 }
 
-type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops';
+type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'captions' | 'soundArrows' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops';
+/** Settings switched by buttons that cycle through `data-opts` (DAMAGE NUMBERS: ALL / MINE / OFF). */
+type CycleKey = 'damageNumbers' | 'chargeMode';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -230,7 +249,7 @@ function nextLevelHtml(def: ModDef, level: number): string {
   return next.map((w, i) => (w === now[i] ? w : `<b>${w}</b>`)).join(' ');
 }
 
-type Named = Exclude<ScreenName, 'none'>;
+type Named = Exclude<ScreenName, 'none' | ExtraScreen>;
 
 /** Level-up pick lock: seconds after the cards appear (or a reroll) before any pick or skip counts. */
 export const pickTuning = { lock: 0.6 };
@@ -253,9 +272,26 @@ export class Screens {
   private lockCards: HTMLElement[] = [];
 
   private root: HTMLElement;
+  /** Screens other modules add (addScreen): shown and navigated like the built-in ones. */
+  private extra: Partial<Record<ExtraScreen, { el: HTMLElement; nav: MenuNav }>> = {};
+  /** Called on every show(), before the menu's focus is set (other modules fill or extend screens here). */
+  onShow: ((name: ScreenName) => void) | null = null;
+
+  // Shop lane: banish, card numbers and the Mod order preview.
+  /** The next level-up pick banishes the card instead (BANISH button; numbers keys too). */
+  banishArmed = false;
+  /** Offers on screen, so a banish redraw only spins the new card. */
+  private shownOffers: string[] = [];
+  private shopShown: ShopView | null = null;
+  /** Focused shop control the preview panel describes. */
+  private pvKey = '';
+  /** After moving a Mod: focus follows it, and the panel compares the old order. */
+  private shopFollow: { act: string; index: number } | null = null;
+  private movedFrom: PreviewRow[] | null = null;
 
   constructor(root: HTMLElement, private readonly actions: ScreenActions) {
     this.root = root;
+    ensureShopCss();
     root.insertAdjacentHTML(
       'beforeend',
       `
@@ -272,7 +308,7 @@ export class Screens {
   <div class="wallet"></div>
   <div class="hiscores"></div>
   <div class="hiscores global" hidden></div>
-  <div class="controls">WASD / L-stick move &middot; Mouse / R-stick aim &amp; shoot &middot; Hold right click / X right-click weapon &middot; Space / LB dash &middot; Q / RB special &middot; C / B parry &middot; V / R3 ultimate &middot; G ping &middot; Esc / Start pause</div>
+  <div class="controls" data-prompt="controls">${promptHtml('controls')}</div>
   <div class="credits">Icons: game-icons.net by Lorc, Delapouite &amp; contributors (CC BY 3.0) &middot; Fonts: Jersey, Silkscreen (OFL) &middot; Palette: Sweetie 16 by GrafxKid</div>
   <div class="version">v${__APP_VERSION__}</div>
 </div>
@@ -299,6 +335,9 @@ export class Screens {
     <button data-nav data-toggle="headphones3d">HEADPHONES 3D AUDIO <b></b></button>
     <button data-nav data-toggle="announcer">ANNOUNCER <b></b></button>
     <button data-nav data-toggle="heroVoices">HERO VOICES <b></b></button>
+    <label>VOICE <input data-nav type="range" min="0" max="1" step="0.1" data-set="voiceVolume"></label>
+    <button data-nav data-toggle="captions">CAPTIONS <b></b></button>
+    <button data-nav data-toggle="soundArrows">SOUND ARROWS <b></b></button>
     <label>MENU SOUNDS <input data-nav type="range" min="0" max="1" step="0.1" data-set="uiVolume"></label>
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>
@@ -314,6 +353,9 @@ export class Screens {
     <button data-nav data-toggle="dynamicCamera">DYNAMIC CAMERA <b></b></button>
     <button data-nav data-toggle="bossIntros">BOSS INTROS <b></b></button>
     <button data-nav data-toggle="slowMo">SKILL SLOW-MO <b></b></button>
+    <label><span>UI SCALE <b class="set-val"></b></span><input data-nav type="range" min="75" max="150" step="25" data-set="uiScale" data-unit="%"></label>
+    <button data-nav data-cycle="damageNumbers" data-opts="all,mine,off">DAMAGE NUMBERS <b></b></button>
+    <button data-nav data-cycle="chargeMode" data-opts="hold,toggle">CHARGE MODE <b></b></button>
     <button data-nav data-toggle="petSounds">PET SOUNDS <b></b></button>
     <button data-nav data-toggle="finishers">BOSS FINISHERS <b></b></button>
     <button data-nav data-toggle="portraitPops">CHARACTER POP-INS <b></b></button>
@@ -325,7 +367,8 @@ export class Screens {
 </div>
 <div id="scr-controls" class="screen dim" hidden>
   <h1>CONTROLS</h1>
-  <p class="note">Click a key slot, then press the new key (Esc cancels). Mouse: left fire, right charge, middle bomb. Gamepad layout is fixed.</p>
+  <p class="note">Click a key slot, then press the new key (Esc cancels). Mouse: left fire, right charge, middle bomb. Gamepad layout is fixed:</p>
+  <div class="pad-legend" data-prompt="padlegend"></div>
   <div class="bind-list"></div>
   <div class="menu row">
     <button data-nav data-act="binds-reset">RESET DEFAULTS</button>
@@ -583,7 +626,12 @@ export class Screens {
         case 'ul-back':
           return actions.title();
         case 'pick':
+          if (this.banishArmed && btn.classList.contains('ban-no')) return sfx.deny();
           return this.canPick(Number(btn.dataset.index)) ? actions.pick(Number(btn.dataset.index)) : undefined;
+        case 'banish':
+          return this.toggleBanish(btn);
+        case 'lock':
+          return actions.lockOffer(Number(btn.dataset.index));
         case 'reroll':
           return actions.reroll();
         case 'skip':
@@ -595,9 +643,14 @@ export class Screens {
         case 'mod-up':
           return actions.upgradeMod(Number(btn.dataset.index));
         case 'mod-left':
-          return actions.moveMod(Number(btn.dataset.index), -1);
-        case 'mod-right':
-          return actions.moveMod(Number(btn.dataset.index), 1);
+        case 'mod-right': {
+          const i = Number(btn.dataset.index);
+          const d = btn.dataset.act === 'mod-left' ? -1 : 1;
+          // Focus follows the Mod, and the preview compares against the order before the move.
+          this.shopFollow = { act: btn.dataset.act, index: i + d };
+          this.movedFrom = this.shopShown?.preview?.now ?? null;
+          return actions.moveMod(i, d);
+        }
         case 'shop-reroll':
           return actions.shopReroll();
         case 'shop-heal':
@@ -740,6 +793,26 @@ export class Screens {
         this.syncSettings();
       });
     });
+    setEl.querySelectorAll<HTMLElement>('[data-cycle]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const opts = b.dataset.opts!.split(',');
+        const key = b.dataset.cycle as CycleKey;
+        (settings as unknown as Record<string, string>)[key] = opts[(opts.indexOf(settings[key]) + 1) % opts.length];
+        saveSettings();
+        this.syncSettings();
+      });
+    });
+  }
+
+  /** Register a screen built elsewhere (its element is added to the menu root). */
+  addScreen(name: ExtraScreen, el: HTMLElement, opts: ConstructorParameters<typeof MenuNav>[1] = {}): void {
+    el.hidden = true;
+    this.root.appendChild(el);
+    this.extra[name] = { el, nav: new MenuNav(el, opts) };
+  }
+
+  private nav(name: Exclude<ScreenName, 'none'>): MenuNav {
+    return this.extra[name as ExtraScreen]?.nav ?? this.navs[name as Named];
   }
 
   private metaReturn: ScreenName = 'modes';
@@ -747,6 +820,7 @@ export class Screens {
   show(name: ScreenName, focus?: number): void {
     this.current = name;
     for (const [k, el] of Object.entries(this.els)) el.hidden = k !== name;
+    for (const [k, x] of Object.entries(this.extra)) x.el.hidden = k !== name;
     // Hide in-game banners and toasts behind menus.
     this.root.classList.toggle('menu-open', name !== 'none');
     if (META_SCREENS.includes(name as MetaScreen)) renderMeta(this.els[name as MetaScreen], name as MetaScreen);
@@ -765,7 +839,8 @@ export class Screens {
       this.msg('');
       this.els.savedata.querySelector<HTMLElement>('[data-act=wipe]')!.textContent = 'RESET SAVE';
     }
-    if (name !== 'none') this.navs[name].refresh(focus ?? (name === 'levelup' ? 1 : 0));
+    this.onShow?.(name);
+    if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'levelup' ? 1 : 0));
   }
 
   /** Route map between stages (src/ui/routeMap.ts); `statusOnly` just refreshes the countdown. */
@@ -779,9 +854,13 @@ export class Screens {
   }
 
   update(input: Input, dt: number): void {
-    if (this.current !== 'none') this.navs[this.current].update(input, dt);
+    if (this.current !== 'none') this.nav(this.current).update(input, dt);
     this.tickReels(dt);
     this.tickLock();
+    if (this.current === 'shop' && this.shopKey() !== this.pvKey) {
+      this.movedFrom = null;
+      this.renderShopPreview();
+    }
   }
 
   // ---------------------------------------------------------------- loadout
@@ -862,6 +941,7 @@ export class Screens {
 
   showOnline(name: string): void {
     this.nameField.value = name;
+    mountRelayField(this.els.online); // CUSTOM RELAY (TURN), src/ui/relayField.ts
     this.setLobby({ code: '', players: [], isHost: false, status: '' });
     this.show('online');
   }
@@ -874,6 +954,7 @@ export class Screens {
     el.querySelector<HTMLElement>('.mp-choice')!.hidden = inLobby;
     el.querySelector<HTMLElement>('.join-row')!.hidden = inLobby;
     el.querySelector<HTMLElement>('.field')!.hidden = inLobby;
+    showRelayField(el, !inLobby);
     el.querySelector('.code-big')!.textContent = v.code;
     el.querySelector('.players')!.innerHTML = v.players
       .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span>${p.name}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
@@ -920,6 +1001,9 @@ export class Screens {
       const on = settings[b.dataset.toggle as ToggleKey];
       b.querySelector('b')!.textContent = on ? 'ON' : 'OFF';
     });
+    el.querySelectorAll<HTMLElement>('[data-cycle]').forEach((b) => {
+      b.querySelector('b')!.textContent = String(settings[b.dataset.cycle as CycleKey]).toUpperCase();
+    });
   }
 
   // ---------------------------------------------------------------- title / scores
@@ -959,19 +1043,27 @@ export class Screens {
 
   // ---------------------------------------------------------------- level-up
 
-  showLevelUp(offers: Offer[], title: string, rerolls: number, loadout: LoadoutItem[], skipGold = 0): void {
+  /** `banish`: banishes left (-1 hides the button). */
+  showLevelUp(offers: Offer[], title: string, rerolls: number, loadout: LoadoutItem[], skipGold = 0, banish = -1): void {
     const el = this.els.levelup;
     el.querySelector('h1')!.textContent = title;
+    // A banish redraw keeps the other cards still; only new cards spin.
+    const ids = offers.map((o) => `${o.kind}|${o.id}|${o.pick ?? ''}|${o.tag}`);
+    const redraw = this.current === 'levelup' && this.shownOffers.length === ids.length && ids.some((k, i) => k === this.shownOffers[i]);
+    const kept = ids.map((k, i) => redraw && k === this.shownOffers[i]);
+    this.shownOffers = ids;
+    this.banishArmed = false;
+    el.classList.remove('banishing');
     // Each icon rolls like a slot reel; cards land left to right, a legendary spins longer and slows right down.
     const still = reduceMotion();
     const steps = offers.map((o, i) => {
-      if (still) return [];
+      if (still || kept[i]) return [];
       const legend = o.rarity === 'legendary';
       return reelSteps(0.45 + 0.25 * i + (legend ? 1.5 : 0), legend ? [0.06, 0.08, 0.1, 0.13, 0.17, 0.22, 0.3, 0.4] : [0.07, 0.1]);
     });
     el.querySelector('.cards')!.innerHTML = offers
       .map(
-        (o, i) => `<button class="card rolling ${o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)}" data-nav data-act="pick" data-index="${i}">
+        (o, i) => `<button class="card rolling ${o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)} ${canBanish(o) ? 'ban-ok' : 'ban-no'}" data-nav data-act="pick" data-index="${i}">
           <i class="fx"></i><i class="card-shine" aria-hidden="true"></i>
           <div class="tag ${cardMode(o)}">${cardMode(o) === 'upgrade' ? '▲ UPGRADE' : o.tag}</div>
           ${cardMode(o) === 'new' ? '<div class="ribbon">NEW</div>' : ''}
@@ -981,25 +1073,30 @@ export class Screens {
           <div class="name">${o.name}</div>
           ${levelPips(o)}
           <div class="desc">${o.text}</div>
+          ${numsHtml(o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
           ${o.replaces ? replaceStrip(o.replaces) : ''}
           ${o.partner ? partnerStrip(o.partner) : ''}
           ${o.fuses ? fuseStrip(o.fuses) : ''}
           <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? ` · ${o.label}` : ''}</div>
           ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
-          <div class="key">${i + 1}</div>
+          <div class="key" data-prompt="pick:${i + 1}">${promptHtml(`pick:${i + 1}`)}</div>
           <i class="lock"></i>
+          <i class="ban-stamp">BANISH</i>
         </button>`,
       )
       .join('');
     el.querySelector('.reroll-row')!.innerHTML =
-      (rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} [R]</button>` : '') +
-      (skipGold > 0 ? `<button data-nav data-act="skip" class="skip">SKIP +${skipGold}<span class="gold-dot"></span></button>` : '');
+      (rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} ${prompt('reroll')}</button>` : '') +
+      (skipGold > 0 ? `<button data-nav data-act="skip" class="skip">SKIP +${skipGold}<span class="gold-dot"></span></button>` : '') +
+      (banish >= 0 ? `<button data-nav data-act="banish" class="banish ${banish > 0 && offers.some(canBanish) ? '' : 'cant'}">BANISH ✕${banish}</button>` : '');
     el.querySelector('.build')!.innerHTML = loadout.map(badge).join('');
     this.show('levelup');
-    el.classList.remove('hud-level-enter');
-    void el.offsetWidth;
-    el.classList.add('hud-level-enter');
+    if (!redraw) {
+      el.classList.remove('hud-level-enter');
+      void el.offsetWidth;
+      el.classList.add('hud-level-enter');
+    }
     const cards = el.querySelectorAll<HTMLElement>('.card');
     // Each card's lock bar fills until it can be picked: the shared lock or its own reel landing, whichever is later.
     this.lockUntil = performance.now() + pickTuning.lock * 1000;
@@ -1012,6 +1109,15 @@ export class Screens {
     this.reels = offers.map((o, i) => ({ card: cards[i], strip: cards[i].querySelector<HTMLElement>('.strip')!, steps: steps[i], passed: 0, rarity: o.rarity }));
     this.reelT = 0;
     this.tickReels(0);
+  }
+
+  /** BANISH: arm (the next card picked is banished) or disarm. */
+  private toggleBanish(btn: HTMLElement): void {
+    if (btn.classList.contains('cant') && !this.banishArmed) return sfx.deny();
+    this.banishArmed = !this.banishArmed;
+    this.els.levelup.classList.toggle('banishing', this.banishArmed);
+    btn.classList.toggle('armed', this.banishArmed);
+    if (this.banishArmed) sfx.reroll();
   }
 
   /** A detached visual keeps the pick satisfying without delaying gameplay or network messages. */
@@ -1133,6 +1239,8 @@ export class Screens {
   showShop(v: ShopView, focus?: number): void {
     const el = this.els.shop;
     const wasOpen = this.current === 'shop';
+    const prevKey = wasOpen ? this.shopKey() : '';
+    this.shopShown = v;
     el.querySelector('h1')!.textContent = v.pre ? 'STARTING SHOP' : v.secret ? 'SECRET SHOP' : `STAGE ${v.stage} SHOP`;
     el.classList.toggle('secret', v.secret);
     el.querySelector('.shop-top')!.innerHTML =
@@ -1142,10 +1250,11 @@ export class Screens {
         : `<span class="interest">Interest next clear: +${v.interest} (1 per ${v.interestPer} held, max ${v.interestCap})</span>`);
     el.querySelector('.shop-offers')!.innerHTML = v.offers
       .map((o, i) => {
-        if (!o) return `<div class="mod-card sold">SOLD</div>`;
+        if (!o) return `<div class="offer-slot"><div class="mod-card sold">SOLD</div></div>`;
         const m = o.def;
         const cant = o.price > v.gold || v.owned.length >= v.slots;
-        return `<button class="mod-card ${m.rarity} r-${m.rarity} ${m.cursed ? 'cursed' : ''} ${cant ? 'cant' : ''}" data-nav data-act="buy" data-index="${i}">
+        // Shop lane: each offer sits over its LOCK toggle, and shows its effect on this build.
+        return `<div class="offer-slot ${o.locked ? 'locked' : ''}"><button class="mod-card ${m.rarity} r-${m.rarity} ${m.cursed ? 'cursed' : ''} ${cant ? 'cant' : ''}" data-nav data-act="buy" data-index="${i}">
           <div class="rarity">${m.cursed ? 'CURSED' : m.rarity.toUpperCase()}</div>
           <div class="icon" style="--c:${m.color}">${iconHtml(m.id, m.color, m.icon)}</div>
           <div class="name">${m.name}</div>
@@ -1153,8 +1262,9 @@ export class Screens {
           ${modMaxLevel(m) > 1 ? `<div class="mod-ups">UPGRADES IN SHOP TO LV ${modMaxLevel(m)}</div>` : ''}
           ${m.synergy ? `<div class="chips">${tagChips(m.synergy)}</div>` : ''}
           ${o.hint ? `<div class="hint">${o.hint}</div>` : ''}
+          ${numsHtml([...buyDamageNums(v.preview, i), ...(o.nums ?? [])].slice(0, 3))}
           <div class="price"><span class="gold-dot"></span> ${o.price}</div>
-        </button>`;
+        </button><button data-nav data-act="lock" data-index="${i}" class="lock ${o.locked ? 'on' : ''}">${o.locked ? '■ LOCKED' : '□ LOCK'}</button></div>`;
       })
       .join('');
     const c = v.curse;
@@ -1208,7 +1318,17 @@ export class Screens {
         </div>`,
         )
         .join('') + '<div class="owned-mod empty"></div>'.repeat(empty);
-    this.show('shop', focus);
+    // Mod order preview: lives between the YOUR MODS title and the slots.
+    let pv = el.querySelector<HTMLElement>('.mod-preview');
+    if (!pv) {
+      pv = Object.assign(document.createElement('div'), { className: 'mod-preview px' });
+      el.querySelector('.owned-mods')!.before(pv);
+    }
+    pv.hidden = !v.preview;
+    this.show('shop', this.shopFocus(prevKey, focus));
+    this.shopFollow = null;
+    this.pvKey = '';
+    this.renderShopPreview();
     // Gold changes pop a +/- number over the counter.
     const delta = wasOpen && this.shopGold >= 0 ? v.gold - this.shopGold : 0;
     this.shopGold = v.gold;
@@ -1217,6 +1337,66 @@ export class Screens {
       replay(gold, 'bump');
       floatText(gold, `${delta > 0 ? '+' : ''}${delta}`, delta > 0 ? 'var(--yellow)' : 'var(--orange)');
     }
+  }
+
+  /** Which shop control has focus: "act:index". */
+  private shopKey(): string {
+    const f = this.els.shop.querySelectorAll<HTMLElement>('[data-nav]')[this.navs.shop.focus];
+    return f ? `${f.dataset.act}:${f.dataset.index ?? ''}` : '';
+  }
+
+  /**
+   * Nav index to focus after the shop re-renders: the moved Mod's arrow, the
+   * same control as before, or (after a buy) the next offer still for sale.
+   */
+  private shopFocus(prevKey: string, buyIndex?: number): number {
+    const items = [...this.els.shop.querySelectorAll<HTMLElement>('[data-nav]')];
+    const find = (act: string, i: number) => items.findIndex((b) => b.dataset.act === act && Number(b.dataset.index) === i);
+    if (this.shopFollow) {
+      const k = find(this.shopFollow.act, this.shopFollow.index);
+      if (k >= 0) return k;
+      const other = find(this.shopFollow.act === 'mod-left' ? 'mod-right' : 'mod-left', this.shopFollow.index);
+      if (other >= 0) return other;
+    }
+    if (buyIndex !== undefined) {
+      const k = items.findIndex((b) => b.dataset.act === 'buy' && Number(b.dataset.index) >= buyIndex);
+      return k >= 0 ? k : Math.max(0, items.findIndex((b) => b.dataset.act === 'buy'));
+    }
+    if (prevKey) {
+      const [act, i] = prevKey.split(':');
+      const k = items.findIndex((b) => b.dataset.act === act && (b.dataset.index ?? '') === i);
+      if (k >= 0) return k;
+    }
+    return 0;
+  }
+
+  /** The order preview for whatever has focus: the current order, or what a buy / move / upgrade / sell would do. */
+  private renderShopPreview(): void {
+    const el = this.els.shop;
+    const box = el.querySelector<HTMLElement>('.mod-preview');
+    this.pvKey = this.shopKey();
+    const v = this.shopShown;
+    const p = v?.preview;
+    if (!box || !v || !p) return;
+    const [act, si] = this.pvKey.split(':');
+    const i = Number(si);
+    const owned = v.owned[i];
+    let f: PreviewFocus = { title: v.owned.length ? 'YOUR MODS NOW: WHAT A HIT BECOMES' : 'NO MODS YET: HITS DEAL x1.00' };
+    let before: PreviewRow[] | undefined;
+    if (this.movedFrom) {
+      f = { title: 'NEW ORDER', after: p.now };
+      before = this.movedFrom;
+    } else if ((act === 'buy' || act === 'lock') && v.offers[i]) {
+      f = { title: `IF YOU BUY ${v.offers[i]!.def.name.toUpperCase()}`, after: p.buy[i], note: p.buy[i] ? '' : 'MOD SLOTS FULL: SELL ONE FIRST' };
+    } else if ((act === 'mod-left' || act === 'mod-right') && owned) {
+      const after = (act === 'mod-left' ? p.left : p.right)[i];
+      f = { title: `MOVE ${owned.def.name.toUpperCase()} ${act === 'mod-left' ? 'LEFT' : 'RIGHT'}`, after, note: after ? '' : 'CAN\'T MOVE FURTHER' };
+    } else if (act === 'mod-up' && owned) {
+      f = { title: `UPGRADE ${owned.def.name.toUpperCase()} TO LV ${owned.level + 1}`, after: p.up[i] };
+    } else if (act === 'sell' && owned) {
+      f = { title: `SELL ${owned.def.name.toUpperCase()}`, after: p.sell[i] };
+    }
+    box.innerHTML = previewPanelHtml(p, f, before);
   }
 
   /** Shop juice: a sound plus pixel particles for each shop action. */
@@ -1306,7 +1486,7 @@ export class Screens {
     this.els.bestiary.querySelector('.bestiary')!.innerHTML = all
       .map((d) => {
         if (!save.seen.includes(d.id)) return `<div class="bst unseen"><b>???</b><small>Not met yet.</small></div>`;
-        const kind = d.boss ? 'BOSS' : d.minStage ? `FROM STAGE ${d.minStage}` : `FROM MINUTE ${Math.max(0, d.minMinute)}`;
+        const kind = d.boss ? 'BOSS' : d.biomes ? enemyHome(d.biomes, (b) => BIOMES.find((x) => x.id === b)?.name) : d.minStage ? `FROM STAGE ${d.minStage}` : `FROM MINUTE ${Math.max(0, d.minMinute)}`;
         return `<div class="bst" style="--c:${d.bodyColor}"><i class="sw" style="background:${d.bodyColor}"></i><b>${d.name.toUpperCase()}</b>
           <span class="st">LIFE ${d.hp} · SPEED ${d.speed} · HIT ${d.contactDamage} · ${kind}</span>
           <small>${ENEMY_TIPS[d.id] ?? ''}</small></div>`;

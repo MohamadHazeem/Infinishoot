@@ -12,6 +12,8 @@ import { samples } from './samples';
 import { sfx } from './sfx';
 import { swarmGap } from './mix';
 import { voiceGate } from './announcer';
+import { caption } from './captions';
+import { VOICE_TEXT } from './voiceText';
 import type { EnemyDef, Material } from '../data/enemies';
 
 export const voiceSettings = {
@@ -168,7 +170,21 @@ function speak(id: string, priority: number, gain: number, duck: number): boolea
   if (!voice) return false;
   voiceChannel.claim(priority, now, voice.duration, () => voice.stop());
   if (duck < 1) sfx.duck(voice.duration, duck);
+  captionLine(id);
   return true;
+}
+
+const SPEAKER_NAMES: Readonly<Record<string, string>> = {
+  king: 'KING BOPPER', rex: 'RAMPAGE REX', queen: 'HIVE QUEEN', omega: 'OMEGA OVERLORD',
+  rookie: 'ROOKIE', bulwark: 'BULWARK', dash: 'DASH', ace: 'ACE',
+};
+
+/** CAPTIONS: show what a recorded boss line or bark says (src/audio/voiceText.ts). */
+function captionLine(id: string): void {
+  const text = VOICE_TEXT[id];
+  if (!text) return;
+  const who = id.split('_')[1] ?? '';
+  caption({ who: SPEAKER_NAMES[who] ?? who.toUpperCase(), text, color: id.startsWith('boss_') ? '#ff4d5e' : '#73eff7', kind: 'voice' });
 }
 
 /** Say a line now, or within `wait` seconds when the channel frees up (after `delay`). */
@@ -212,15 +228,23 @@ function bossMoment(mini: boolean, boss: string, line: BossLine, pitch: number, 
 
 // ---------------------------------------------------------------- hero barks
 
+/** Is a boss line or the announcer talking right now? (Synth barks wait for them: src/audio/heroVoice.ts.) */
+export function speechBusy(): boolean {
+  return voiceChannel.current > VOICE_PRIORITY.bark.lowhp && voiceChannel.remaining(clock()) > 0;
+}
+
+/** Heroes with recorded barks; the others speak with the synthesized voice (src/audio/heroVoice.ts). */
+export const RECORDED_VOICES: ReadonlySet<string> = new Set(['rookie', 'bulwark', 'dash', 'ace']);
+
 /** The sample for a hero bark; skins keep the hero's voice, unknown heroes use the Rookie's. */
 export function barkSample(heroId: string, kind: BarkKind): string {
-  const voice = heroId === 'bulwark' || heroId === 'dash' || heroId === 'ace' ? heroId : 'rookie';
+  const voice = RECORDED_VOICES.has(heroId) ? heroId : 'rookie';
   return `bark_${voice}_${kind}`;
 }
 
 /** The local hero says a line (if hero voices are on). Barks queue briefly behind other speech. */
 export function heroBark(heroId: string, kind: BarkKind, delay = 0, wait = 1.5): void {
-  if (!voiceSettings.heroVoices) return;
+  if (!voiceSettings.heroVoices || !RECORDED_VOICES.has(heroId)) return;
   sayLine(barkSample(heroId, kind), VOICE_PRIORITY.bark[kind], voiceTuning.barkGain, voiceTuning.barkDuck, delay, wait);
 }
 

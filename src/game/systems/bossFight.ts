@@ -15,6 +15,7 @@ import { PHASE_LINES, bossMoveTuning, bossTuning, phaseGate, startIntro, startPh
 import type { BossNet } from '../bossField';
 import { introTuning } from '../bossIntro';
 import type { Enemy } from '../enemies';
+import { smashCover } from '../coverBreak';
 import { bossVoiceCue } from '../../audio/voices';
 
 /** Mid-stage mini-bosses. */
@@ -44,6 +45,10 @@ export function makeBossApi(this: Game): BossApi {
       if (delay <= 0) this.vfx.ring(x, z, e.radius, 3, '#ffcd75', 0.35);
     },
     rampage: (e, fire) => {
+      // Cover it charges into really breaks (src/game/coverBreak.ts); crates and pillars take a hit too.
+      smashCover(this, e.x, e.z, e.radius);
+      const prop = this.toys.propAt(e.x, e.z, e.radius * 0.9);
+      if (prop >= 0) this.damageProp(this.toys.props[prop], 1e6, this.hero.index, e.lungeX, e.lungeZ);
       // Smash props it runs through: debris, shake, and barrels go up.
       if (this.walls.hitCircle(e.x, e.z, e.radius * 0.9) && this.stepN % 4 === 0) {
         this.vfx.burst(e.x + e.lungeX * e.radius, 0.8, e.z + e.lungeZ * e.radius, { count: 10, color: '#94b0c2', color2: '#566c86', speed: [4, 10], size: [0.2, 0.45], life: [0.4, 0.8], up: 6, gravity: 16 });

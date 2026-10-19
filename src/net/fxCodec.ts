@@ -280,12 +280,15 @@ export class FxEncoder {
           else type = 2;
         } else if ((m = NUM_LABEL.exec(v))) type = 4 + NUM_SUFFIXES.indexOf(m[2]);
         if (kind !== 0) w.u8(kind);
-        w.u8(type);
+        // Bit 7 of the type byte: the hitting hero's index follows (DAMAGE NUMBERS: MINE).
+        const by = e[6];
+        w.u8(by === undefined ? type : type | 0x80);
         if (type === 0) w.uv(v as number);
         else if (type === 1) w.uv(-(v as number));
         else if (type === 2) w.f64(v as number);
         else if (type === 3) w.uv(this.str(v as string));
         else w.uv(Number(m![1]));
+        if (by !== undefined) w.u8(by);
         break;
       }
       case 'a': {
@@ -430,12 +433,16 @@ export function decodeFx(buf: NetBytes, each: (e: VfxEvent) => void): void {
         e[2] = r.i16() / 100;
         e[3] = z;
         e[5] = NUM_KINDS[extra ? r.u8() : 0] ?? 'hit';
-        const type = r.u8();
+        const tb = r.u8();
+        const type = tb & 0x7f;
         if (type === 0) e[4] = r.uv();
         else if (type === 1) e[4] = -r.uv();
         else if (type === 2) e[4] = r.f64();
         else if (type === 3) e[4] = s(r.uv());
         else e[4] = `${r.uv()}${NUM_SUFFIXES[type - 4] ?? ''}`;
+        // The template is reused: drop a hero index left over from the previous number.
+        if (tb & 0x80) e[6] = r.u8();
+        else e.length = 6;
         each(e);
         break;
       }

@@ -16,11 +16,11 @@ import { manifestIds, SampleEngine, samples } from '../src/audio/samples';
 import { announcementCooldown, announcer, announcerSettings } from '../src/audio/announcer';
 
 ok(
-  [1, 2, 3, 4, 5, 7, 9].map(biomeAudio).join() === 'meadow,dunes,peaks,magma,neon,sky,meadow',
-  'biome audio follows the stage\'s actual biome',
+  [1, 2, 3, 4, 5, 6, 7].map(biomeAudio).join() === 'meadow,dunes,peaks,magma,neon,magma,sky',
+  'biome audio follows the stage\'s actual biome (the Toy Factory reuses the magma bed)',
 );
 ok(
-  groundAudio('peaks') === 'snow' && groundAudio('magma') === 'metal',
+  groundAudio('peaks') === 'snow' && groundAudio('magma') === 'metal' && groundAudio('factory') === 'metal',
   'biome footsteps match ground',
 );
 ok(

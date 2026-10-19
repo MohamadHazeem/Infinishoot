@@ -13,12 +13,15 @@ import { HERO_COLORS } from '../hero';
 import { save, unlockedLoadout, unlockedWeapons } from '../save';
 import { settings } from '../settings';
 import { DIFF_BY_ID, type DifficultyDef, type DifficultyId } from '../../data/modes';
+import { prefetchIce } from '../../net/ice';
 
 export async function hostGame(this: Game, name: string): Promise<void> {
   this.saveName(name);
   this.netName = name.trim().slice(0, 12) || 'Player';
   this.leaveToTitle();
   this.role = 'host';
+  await prefetchIce(); // time-limited relay credentials, if the build has a credential URL (src/net/ice.ts)
+  if (this.role !== 'host' || this.host) return;
   const host = new NetHost(3);
   this.host = host;
   this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero() }];
@@ -80,6 +83,8 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
   this.netName = name.trim().slice(0, 12) || 'Player';
   this.leaveToTitle();
   this.role = 'client';
+  await prefetchIce();
+  if (this.role !== 'client' || this.client) return;
   const client = new NetClient(code);
   this.client = client;
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connecting...' });

@@ -22,6 +22,9 @@ import { ELITE_MOD_IDS } from '../data/eliteMods';
 import { ENEMIES, familyTuning } from '../data/enemies';
 import { audioSettings } from '../audio/sfx';
 import { addLookFolder } from './debugLook';
+import { addReadabilityFolder } from './debugReadability';
+import { addAudioFolder } from './debugAudio';
+import { addContentFolder } from './debugContent';
 import { addSoundFolder } from './debugSound';
 import { addSkyFolder } from './debugSky';
 import { rainTuning, weatherForce } from '../game/ambience';
@@ -30,12 +33,19 @@ import { debrisTuning } from '../game/debris';
 import { decalTuning } from '../game/decals';
 import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
+import { worldDebugFolder } from '../world/worldDebug';
 import { finisherTuning } from '../game/finisher';
 import { portraitTuning } from './portraits';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
 import { petTuning } from '../data/pets';
 import { teamTuning } from '../game/teamMoves';
+import { banishTuning } from '../game/banish';
+import { cardNumTuning } from '../game/cardNumbers';
+import { previewTuning } from '../game/shopPreview';
+import { trainingTuning } from '../game/training';
+import { addHudFolder } from './debugHud';
+import { addFixesFolder } from './fixesPanel';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -88,6 +98,9 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   light.add(retroGlobals.uFogFar, 'value', 1, 200, 1).name('Fog far');
 
   addLookFolder(gui);
+  addReadabilityFolder(gui);
+  addAudioFolder(gui, game);
+  addContentFolder(gui);
   addSoundFolder(gui); // Sound designer: samples, cues, live tuning, export
   addSkyFolder(gui);
 
@@ -153,6 +166,17 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   run.add({ boss: () => game.debugSkipToBoss() }, 'boss').name('Skip to boss');
   run.add({ fill: () => (game.hero.bombCharge = 1) }, 'fill').name('Fill bomb');
   run.add({ restart: () => game.restart() }, 'restart').name('New run');
+
+  // Shop lane: banish charges, card number lines, order preview sample hits.
+  const shop = gui.addFolder('Shop & cards').close();
+  shop.add(banishTuning, 'start', 0, 10, 1).name('Banishes per run');
+  shop.add(banishTuning, 'perShop', 0, 5, 1).name('Banishes per shop');
+  shop.add(banishTuning, 'max', 0, 20, 1).name('Banish cap');
+  shop.add({ b: () => (game.hero.banishLeft += 1) }, 'b').name('+1 banish');
+  shop.add(cardNumTuning, 'maxLines', 1, 6, 1).name('Number lines per card');
+  shop.add(previewTuning, 'dist', 0, 20, 0.5).name('Preview hit distance');
+  shop.add(previewTuning, 'near', 0, 3.5, 0.1).name('Preview near distance');
+  shop.add(previewTuning, 'far', 8, 30, 0.5).name('Preview far distance');
 
   const dir = gui.addFolder('Director').close();
   dir.add(directorTuning, 'stageSeconds', 30, 900, 10);
@@ -248,6 +272,18 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   world.add(surfaceTuning, 'rippleEvery', 0.1, 3, 0.05);
   world.add(surfaceTuning, 'bubbleEvery', 0.05, 2, 0.05);
   world.add(surfaceTuning, 'glintsPerM2', 0, 1, 0.01);
+  addHudFolder(gui);
+
+  // Onboarding: training field (src/game/training.ts) and first-time tips.
+  const ob = gui.addFolder('Onboarding').close();
+  ob.add({ go: () => game.onboarding.startTraining() }, 'go').name('Start training');
+  ob.add({ skip: () => game.onboarding.advance() }, 'skip').name('Skip training step');
+  ob.add(trainingTuning, 'moveDist', 2, 30, 1);
+  ob.add(trainingTuning, 'shotEvery', 0.6, 4, 0.1).name('Shot every (s)');
+  ob.add(trainingTuning, 'shotSpeed', 2, 20, 0.5);
+  ob.add(trainingTuning, 'skipAfter', 0, 60, 1).name('SKIP shows after (s)');
+  addFixesFolder(gui);
+  worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
 
   // Companion lane: pets and co-op team moves.
   const comp = gui.addFolder('Pets & team moves').close();

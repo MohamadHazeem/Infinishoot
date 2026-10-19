@@ -18,17 +18,20 @@ function createWindow() {
   });
   win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
 
-  // "Save to file" asks where to put the save, starting in Documents; photo mode PNGs start in Pictures.
+  // "Save to file" asks where to put the save, starting in Documents; photo mode PNGs and build cards start in Pictures.
   // INFINISHOOT_SAVE_DIR skips the dialog (used for automated checks).
   win.webContents.session.on('will-download', (_event, item) => {
     const dir = process.env.INFINISHOOT_SAVE_DIR;
     const photo = item.getFilename().toLowerCase().endsWith('.png');
     if (dir) item.setSavePath(path.join(dir, item.getFilename()));
-    else
+    else {
+      // PNGs are photo-mode shots or the game-over BUILD CARD (InfiniShoot-build-...png); everything else is the save file.
+      const card = photo && item.getFilename().startsWith('InfiniShoot-build-');
       item.setSaveDialogOptions({
-        title: photo ? 'Save InfiniShoot photo' : 'Save InfiniShoot progress',
+        title: card ? 'Save InfiniShoot build card' : photo ? 'Save InfiniShoot photo' : 'Save InfiniShoot progress',
         defaultPath: path.join(app.getPath(photo ? 'pictures' : 'documents'), item.getFilename()),
       });
+    }
   });
 
   // F11 (or Ctrl+Cmd+F on a Mac) toggles fullscreen.

@@ -9,15 +9,40 @@ import type { Input } from '../core/input';
  */
 const RADIUS = 56;
 
+/** HUD state the touch buttons show (written by the skill HUD every frame): the ULT button fills and glows when ready. */
+export const touchHud = { ult01: 0, ultReady: false };
+
+const TOUCH_CSS = `
+#touch .parry { --bg: var(--teal); --hi: var(--green); }
+#touch .ult {
+  --c: var(--yellow);
+  --bg: var(--plum);
+  --hi: var(--red);
+  background: linear-gradient(to top, var(--orange) calc(var(--k, 0) * 100%), var(--bg) 0);
+}
+#touch .ult.ready { --ring: var(--yellow); color: var(--yellow); animation: hop 0.5s steps(2) infinite; }
+.reduce-flash #touch .ult.ready { animation: none; }
+`;
+
 export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolean): void {
   let built = false;
   const v = input.virtual;
   let layer: HTMLElement;
   const sticks: Record<'move' | 'aim', { id: number; ox: number; oy: number; base: HTMLElement; knob: HTMLElement }> = {} as never;
 
+  let ultBtn: HTMLElement | null = null;
+  let shownK = -1;
+  let shownReady = false;
+
   const build = () => {
     built = true;
     v.active = true;
+    if (!document.getElementById('touch-css')) {
+      const st = document.createElement('style');
+      st.id = 'touch-css';
+      st.textContent = TOUCH_CSS;
+      document.head.appendChild(st);
+    }
     root.insertAdjacentHTML(
       'beforeend',
       `<div id="touch">
@@ -31,6 +56,7 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
       </div>`,
     );
     layer = root.querySelector('#touch')!;
+    ultBtn = layer.querySelector<HTMLElement>('.ult');
     for (const k of ['move', 'aim'] as const) {
       const base = layer.querySelector<HTMLElement>(`.tstick.${k}`)!;
       sticks[k] = { id: -1, ox: 0, oy: 0, base, knob: base.querySelector('i')! };
@@ -116,6 +142,10 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
   // Hide the controls behind menus.
   const tick = () => {
     if (built) layer.hidden = !inGame();
+    if (ultBtn && !layer.hidden) {
+      if (touchHud.ult01 !== shownK) ultBtn.style.setProperty('--k', String((shownK = touchHud.ult01)));
+      if (touchHud.ultReady !== shownReady) ultBtn.classList.toggle('ready', (shownReady = touchHud.ultReady));
+    }
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);

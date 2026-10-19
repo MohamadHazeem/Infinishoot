@@ -17,6 +17,7 @@ import { NetClient, NetHost } from '../net/peer';
 import { DamageNumbers } from '../ui/damageNumbers';
 import { Hud, type LoadoutItem } from '../ui/hud';
 import { Screens, type ShopView } from '../ui/screens';
+import type { CardNum } from './cardNumbers';
 import { createFieldArena, type Arena } from '../world/fieldArena';
 import { Barrels } from './barrels';
 import { Chests } from './chests';
@@ -70,6 +71,12 @@ import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
 import * as SkySys from './systems/sky';
 import * as SkillSys from './systems/skill';
+import { Onboarding } from './onboarding';
+import { weaponCue, windupCue } from './systems/sound';
+import { rightClickHeld } from './chargeMode';
+import * as BiomeFoesSys from './systems/biomeFoes';
+import * as HeroMechsSys from './systems/heroMechs';
+import * as AttractSys from './systems/attract';
 import * as RouteSys from './systems/route';
 import * as WindSys from './wind';
 import * as CompanionSys from './systems/companion';
@@ -242,9 +249,10 @@ export interface NetShop {
   interest: number;
   interestCap: number;
   interestPer: number;
-  offers: ({ id: string; price: number; hint: string } | null)[];
+  offers: ({ id: string; price: number; hint: string; locked?: boolean; nums?: CardNum[] } | null)[];
   owned: { id: string; sell: number; readout: string; level: number; maxLevel: number; upCost: number }[];
   slots: number;
+  preview?: ShopView['preview'];
   rerollCost: number;
   healCost: number;
   healed: boolean;
@@ -509,7 +517,19 @@ export class Game implements HeroWorld {
   skillNet = SkillSys.skillNet;
   applySkillNet = SkillSys.applySkillNet;
   renderSkill = SkillSys.renderSkill;
+  snowballCrash = BiomeFoesSys.snowballCrash;
+  kiteGust = BiomeFoesSys.kiteGust;
+  updateBiomeFoes = BiomeFoesSys.updateBiomeFoes;
+  biomeFoesClient = BiomeFoesSys.biomeFoesClient;
+  updateHeroMechs = HeroMechsSys.updateHeroMechs;
+  onParryLanded = HeroMechsSys.onParryLanded;
+  heroMechNet = HeroMechsSys.heroMechNet;
+  applyHeroMechNet = HeroMechsSys.applyHeroMechNet;
+  renderHeroMechs = HeroMechsSys.renderHeroMechs;
+  heroMechAchievements = HeroMechsSys.heroMechAchievements;
   bestStyle = SkillSys.bestStyle;
+  // Title attract mode (src/game/systems/attract.ts).
+  attractTick = AttractSys.attractTick;
   // Companion: growing pets, TEAM meter and team moves, high-five revives (src/game/systems/companion.ts).
   companionState = CompanionSys.companionState;
   companionTargets = CompanionSys.companionTargets;
@@ -629,6 +649,8 @@ export class Game implements HeroWorld {
   dmg: DamageNumbers;
   hud: Hud;
   readonly screens: Screens;
+  /** Training field, first-time tips, codex discovery, run recap (src/game/onboarding.ts). */
+  readonly onboarding: Onboarding;
   flashes: THREE.Mesh[] = [];
   enemyCtx: EnemyCtx;
   targets: { x: number; z: number; radius: number; alive: boolean }[] = [];
@@ -695,6 +717,7 @@ export class Game implements HeroWorld {
     this.pickups = new Pickups(this.scene);
     this.cam = new CameraRig(aspect);
     this.dmg = new DamageNumbers(hudRoot);
+    this.dmg.localHero = () => this.hero?.index ?? 0;
     this.hud = new Hud(hudRoot);
     this.bossField = new BossField(this.scene);
     this.bossIntro = new BossIntro(hudRoot);
@@ -745,6 +768,7 @@ export class Game implements HeroWorld {
       },
       skinChanged: () => this.applyLocalSkin(),
       takeCurse: () => this.ui('curse'),
+      lockOffer: (i) => this.ui('slock', i),
       buyRelic: () => this.ui('relic'),
     });
     window.addEventListener('keydown', (e) => {
@@ -763,6 +787,7 @@ export class Game implements HeroWorld {
       { passive: true },
     );
     this.hud.onPause = () => this.pause();
+    this.onboarding = new Onboarding(this, hudRoot);
     this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
@@ -847,7 +872,7 @@ export class Game implements HeroWorld {
 
   makeCtx(hero: Hero): WeaponCtx {
     const game = this;
-    return {
+    const ctx: WeaponCtx = {
       scene: this.scene,
       get player() {
         return hero.player;
@@ -890,8 +915,10 @@ export class Game implements HeroWorld {
       get combos() {
         return hero.combos;
       },
-      sound: (name) => this.vfx.sound('w:' + name, hero.player.x, hero.player.z),
+      soundSource: null,
+      sound: (name) => this.vfx.sound(weaponCue(name, ctx.soundSource), hero.player.x, hero.player.z),
     };
+    return ctx;
   }
 
   makeEnemyCtx(): EnemyCtx {
@@ -911,12 +938,7 @@ export class Game implements HeroWorld {
         this.vfx.shake(e.x, e.z, 0.8);
         this.vfx.sound('bossPhase', e.x, e.z);
       },
-      onWindup: (e) => {
-        if (e.def.boss) this.vfx.sound('bossWindup', e.x, e.z);
-        else if (e.def.behavior === 'charger') this.vfx.sound('chargerWindup', e.x, e.z);
-        else if (e.def.behavior === 'exploder') e.tickT = 0;
-        else if (e.def.behavior !== 'spawner') this.vfx.sound('telegraph', e.x, e.z);
-      },
+      onWindup: (e) => windupCue(this, e), // telegraph, threat cue and family call (systems/sound.ts)
       fireBullet: (e, dx, dz, speed, damage) => {
         this.bullets.spawn({
           x: e.x + dx * (e.radius + 0.2),
@@ -948,6 +970,7 @@ export class Game implements HeroWorld {
         this.vfx.zone(x, z, r, delay);
       },
       ...EnemyAiSys.enemyCtxExtras.call(this),
+      foe: BiomeFoesSys.biomeFoeApi.call(this),
     };
   }
 
@@ -1062,6 +1085,7 @@ export class Game implements HeroWorld {
       this.input.endStep();
       return;
     }
+    this.onboarding.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
     if (this.role === 'client') {
@@ -1093,6 +1117,7 @@ export class Game implements HeroWorld {
       for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
       if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
     }
+    if (this.mode === 'title' && !switched) this.attractTick(dt);
     if (frozen || switched) {
       input.endStep();
       this.hostTick(true);
@@ -1147,10 +1172,13 @@ export class Game implements HeroWorld {
       if (h.player.dead || h.left) continue;
       for (const w of h.weapons) {
         if (this.meta.rule('right') && w.def.slot === 'primary') continue;
+        h.ctx.soundSource = w; // evolved weapons layer their sound (systems/sound.ts weaponCue)
         w.update(dt, h.ctx);
       }
+      h.ctx.soundSource = null;
       this.weaponFeel(h);
     }
+    this.updateHeroMechs(dt);
     for (const h of this.heroes) this.updateBomb(h, dt);
     updateSpecials(this.heroes, dt, this.specialApi);
     // Q/E specials recharge over time; the meter waits while the special (or bomb wave) still runs.
@@ -1168,6 +1196,7 @@ export class Game implements HeroWorld {
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
+    this.updateBiomeFoes(dt);
     this.updateArena(dt);
     this.updateWind(dt);
     lap('sim.hazards+arena');
@@ -1274,7 +1303,7 @@ export class Game implements HeroWorld {
       if (p.update(dt, control ? input : null, this.arena.colliders, wantDash)) this.onDash(h);
       const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
       h.ctx.firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
-      h.ctx.charging = control && (input.mouseDown(2) || input.padButton(2));
+      h.ctx.charging = rightClickHeld(input, control);
       const wantBomb =
         control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
       if (wantBomb) this.tryBomb(h);

@@ -6,6 +6,7 @@ import { weeklyChallenge } from '../../data/weekly';
  * installed on the class as fields, e.g. `clearWorld = RunFlow.clearWorld;`.
  */
 import type { Game } from '../game';
+import { heroUnlockedBy } from './heroMechs';
 import { LOOP_STAGES, TITLE_SEED, xpForLevel, playerName, cheats } from '../game';
 import { Rng, randomSeed } from '../../core/rng';
 import { StaticBoxGrid } from '../../core/spatialHash';
@@ -66,7 +67,7 @@ export function loadArena(this: Game, seed: number, stage = 1): void {
   this.barrels.load(this.arena);
   this.loadToys();
   this.chests.clear();
-  this.ambience.load(biome.id, seed, this.arena.halfSize, (x, z) => this.walls.hitCircle(x, z, 0.5));
+  this.ambience.load(biome, seed, this.arena.halfSize, (x, z) => this.walls.hitCircle(x, z, 0.5));
   this.scars.clear();
   streaks.clear();
 }
@@ -245,7 +246,7 @@ export function resume(this: Game): void {
 }
 
 export function quitRun(this: Game): void {
-  if (this.pvp) this.leaveToTitle();
+  if (this.pvp || this.onboarding.training) this.leaveToTitle(); // training banks nothing
   else if (this.role === 'solo') this.endRun(true);
   else this.leaveToTitle();
 }
@@ -352,13 +353,14 @@ export function checkAchievements(this: Game): void {
     ['boss_rush', L.bosses + this.bossesRun >= 5],
     ['elite_slayer', L.elites + this.elitesRun >= 25],
     ['victory', this.victories > 0 || this.stage > LOOP_STAGES],
+    ...this.heroMechAchievements(),
   ];
   for (const [id, ok] of want) {
     if (!ok) continue;
     const def = grantAchievement(id);
     if (!def) continue;
     this.newAchievements.push(id);
-    const item = def.unlockWeapon ? WEAPONS[def.unlockWeapon]?.name : def.unlockLoadout ? (WEAPONS[def.unlockLoadout] ?? SPECIALS[def.unlockLoadout])?.name : '';
+    const item = def.unlockWeapon ? WEAPONS[def.unlockWeapon]?.name : def.unlockLoadout ? (WEAPONS[def.unlockLoadout] ?? SPECIALS[def.unlockLoadout])?.name : heroUnlockedBy(id) && `Hero ${heroUnlockedBy(id)}`;
     const unlock = item ? ` - ${item} unlocked${def.unlockLoadout ? ' for your loadout' : ''}!` : '';
     this.hud.toast(`★ ${def.name}${unlock}`, 4);
     sfx.powerUp();

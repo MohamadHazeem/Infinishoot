@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { BiomeDef } from '../data/biomes';
+import { biomeForStage, type BiomeDef } from '../data/biomes';
 import { retroGlobals } from './retroMaterial';
 import { mixGrade, NEUTRAL_GRADE, postfx, setGradeTarget, type Grade } from './postfx';
 import { SUNSET_GRADE, sunsetWeights, timeOfDay } from './sky';
@@ -29,9 +29,17 @@ export const nightTuning = {
   moonDir: new THREE.Vector3(-0.35, 0.85, 0.4).normalize(),
 };
 
-/** Is this arena stage a night stage? Derived from the stage number, so every co-op machine agrees. */
+/**
+ * Is this arena stage a night stage? Derived from the stage number, so every
+ * co-op machine agrees: every Nth stage, unless its biome says otherwise
+ * (Night Dunes is always night).
+ */
 export function isNightStage(arenaStage: number): boolean {
-  return nightTuning.every > 0 && arenaStage > 0 && arenaStage % nightTuning.every === 0;
+  if (arenaStage <= 0) return false;
+  // A biome that is always fully dark (Night Dunes) counts as a night stage; partly dark ones
+  // (Neon City) only darken the look (src/game/systems/look.ts) on their non-night stages.
+  if ((biomeForStage(arenaStage).night ?? 0) >= 1) return true;
+  return nightTuning.every > 0 && arenaStage % nightTuning.every === 0;
 }
 
 /** Colour grade per area: cheerful, a touch of contrast and an identity tint. */
@@ -40,6 +48,7 @@ export const BIOME_GRADES: Record<string, Grade> = {
   dunes: { lift: [0.03, 0.0, 0.045], gamma: [0.97, 0.97, 0.98], gain: [1.0, 0.99, 0.96], saturation: 1.02 },
   peaks: { lift: [0.0, 0.015, 0.05], gamma: [1, 1, 1.02], gain: [0.96, 1.0, 1.04], saturation: 1.06 },
   magma: { lift: [0.03, 0.0, 0.03], gamma: [1, 0.98, 1], gain: [1.06, 0.99, 0.95], saturation: 1.1 },
+  factory: { lift: [0.02, 0.01, 0.03], gamma: [1, 1, 1], gain: [1.03, 1.01, 0.99], saturation: 1.08 },
   neon: { lift: [0.025, 0.0, 0.06], gamma: [1, 1.02, 0.97], gain: [1.06, 0.98, 1.08], saturation: 1.12 },
   sky: { lift: [0.0, 0.012, 0.035], gamma: [0.98, 0.98, 0.97], gain: [1.03, 1.03, 1.05], saturation: 1.08 },
 };
@@ -56,6 +65,11 @@ export function applyBiomeLook(b: BiomeDef): void {
   applyTimeOfDay(0);
 }
 
+/** The biome whose look is applied (null before the first arena). */
+export function currentBiome(): BiomeDef | null {
+  return current;
+}
+
 /**
  * Day to dusk over a stage: `k` 0 = midday, 1 = sunset (the final minute and
  * the boss). The sun drops and warms, the sky purples and the fog turns pink.
@@ -65,7 +79,8 @@ export function applyTimeOfDay(k: number): void {
   const b = current;
   if (!b) return;
   dayK = k;
-  const t = Math.max(0, Math.min(1, k)) * 0.75 * (b.dusk ?? 1);
+  // Twilight remixes (Ashen Magma) never get brighter than their dusk; `dusk` scales how far the shift goes.
+  const t = Math.max(b.duskFrom ?? 0, Math.min(1, k)) * 0.75 * (b.dusk ?? 1);
   const n = postfx.night;
   // Midday -> golden hour -> sunset, per biome (src/render/sky.ts).
   timeOfDay(b.id, b.light, b.fog, k, todOut);
@@ -84,13 +99,8 @@ export function applyTimeOfDay(k: number): void {
     retroGlobals.uSunDir.value.lerp(N.moonDir, n).normalize();
   }
   retroGlobals.uNight.value = n;
-  mixGrade(BIOME_GRADES[b.id] ?? NEUTRAL_GRADE, SUNSET_GRADE, sunsetWeights(k).dusk * 0.85, sunsetGraded);
+  mixGrade(b.grade ?? BIOME_GRADES[b.id] ?? NEUTRAL_GRADE, SUNSET_GRADE, sunsetWeights(k).dusk * 0.85, sunsetGraded);
   setGradeTarget(mixGrade(sunsetGraded, NIGHT_GRADE, n, graded));
-}
-
-/** The biome whose look is applied (null before the first arena). */
-export function currentBiome(): BiomeDef | null {
-  return current;
 }
 
 /** Re-apply the current time of day (after the night factor changed). */

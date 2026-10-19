@@ -30,4 +30,19 @@ export const ENEMY_TIPS: Record<string, string> = {
   king: 'Rings of bullets, summons and a jump slam you can see coming. Stay out of the red circle.',
   rex: 'Charges three times in a row, then spirals. Watch the charge lines.',
   queen: 'Flies at range, fires fans and marks ground strikes. Keep moving between the red zones.',
+  bee: 'Circles you, then dives along the orange line, and its friends follow in a column. Step off the line.',
+  shark: 'Swims under the sand where nothing can hit it: watch for the fin. It bursts out of the red ring, then lies exposed.',
+  roller: 'Rolls in wide arcs and grows as it rolls. It can barely turn, so sidestep; big ones shatter on walls and on you.',
+  slug: 'Leaves burning puddles behind it and swells up to spill a big one. Kill it before it paints the floor.',
+  soldier: 'Rewinds (its path lights up), then marches straight in rank with its squad. Winding down, it takes extra damage.',
+  kite: 'Keeps its distance and blows a cone of wind that shoves you around. Get out of the pale cone or dash through.',
 };
+
+/** Fallback names for biomes this build might not define yet. */
+const BIOME_NAMES: Record<string, string> = { meadow: 'Bright Meadow', dunes: 'Sunset Dunes', peaks: 'Frosty Peaks', magma: 'Magma Isle', neon: 'Neon City', factory: 'Toy Factory', sky: 'Sky Fortress' };
+
+/** Where a biome-native enemy lives, for the Enemy Guide ('' for everyone else). */
+export function enemyHome(biomes: string[] | undefined, name: (id: string) => string | undefined = () => undefined): string {
+  if (!biomes?.length) return '';
+  return biomes.map((b) => (name(b) ?? BIOME_NAMES[b] ?? b).toUpperCase()).join(' / ') + ' ONLY';
+}

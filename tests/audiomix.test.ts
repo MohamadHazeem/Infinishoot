@@ -127,7 +127,7 @@ const internal = sfx as any;
 internal.ctx = ac;
 internal.musicBed = new Node(); internal.ambienceBed = new Node();
 internal.healthFilter = new Node();
-internal.buses = { sfx: dest, music: new Node(), ui: new Node() };
+internal.buses = { sfx: dest, music: new Node(), ui: new Node(), threat: new Node(), voice: new Node() };
 internal.master = new Node();
 internal.duckGain = new Node();
 sfx.silenceBeds(0.5);

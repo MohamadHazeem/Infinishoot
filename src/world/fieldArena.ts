@@ -3,12 +3,13 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Rng } from '../core/rng';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { textures } from '../render/textures';
-import { biomeTex } from '../render/biomeTextures';
+import { biomeTex, biomeTextures } from '../render/biomeTextures';
 import { paint, tiledBox } from '../render/geometry';
 import { mergeStatic } from '../render/mergeStatic';
 import { aabbFromCenter, overlapsAny, type AABB } from './collision';
 import { BIOMES, type BiomeDef } from '../data/biomes';
-import { biomeHazard, type HazardZone } from '../game/hazards';
+import { biomeHazard, crusherTuning, type HazardZone } from '../game/hazards';
+import { buildBlockWall, buildDecor, buildRock, buildToyTree, edgeGeometry, tileTint, type ArenaAnim } from './biomeProps';
 
 /** Breakable cover: shoot it down. Solid until destroyed; pillars topple and crush what's under them. */
 export interface ArenaProp {
@@ -39,8 +40,8 @@ export interface Arena {
   chests: { x: number; z: number; facing: number }[];
   /** Ground hazards: lava burns, ice is slippery, quicksand slows and swallows, thorns scratch (src/game/hazards.ts). */
   hazards: HazardZone[];
-  /** Conveyor belts: axis-aligned strips that carry anything on them along (dx, dz). */
-  conveyors: { x: number; z: number; w: number; d: number; dx: number; dz: number }[];
+  /** Conveyor belts: axis-aligned strips that carry anything on them along (dx, dz) at `speed` m/s (default CONVEYOR_SPEED). */
+  conveyors: { x: number; z: number; w: number; d: number; dx: number; dz: number; speed?: number; kind?: 'belt' | 'wind' }[];
   /** The seed this arena was built from (interactives and objectives derive from it). */
   seed: number;
   /** Breakable cover (crates, crate stacks, toppling pillars); drawn by src/game/interactives.ts. */
@@ -53,6 +54,8 @@ export interface Arena {
   spots: { x: number; z: number }[];
   /** Animated and lit decoration of the Neon City / Sky Fortress biomes (drawn by src/render/biomeFx.ts). */
   deco?: ArenaDeco;
+  /** Cosmetic scenery animated locally each frame (Toy Factory gears): src/world/worldRender.ts. */
+  anim: ArenaAnim[];
 }
 
 /** Decoration data the biome effects animate; plain data, the same on every machine for a seed. */
@@ -142,13 +145,14 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
       g.rotateX(-Math.PI / 2);
       g.translate(-HALF + tx * TILE + TILE / 2, 0, -HALF + tz * TILE + TILE / 2);
       const v = ((tx + tz) % 2 === 0 ? 1 : 0.94) * rng.range(0.96, 1.04);
-      paint(g, new THREE.Color(v, v, v));
+      // Play-mat floors pick a colour per tile from a hash (no rng: the seeded layout stays the same).
+      paint(g, biome.tileColors && !isPath[tz * n + tx] ? tileTint(biome.tileColors, tx, tz, v) : new THREE.Color(v, v, v));
       (isPath[tz * n + tx] ? pathTiles : grassTiles).push(g);
     }
   }
   group.add(
-    new THREE.Mesh(mergeGeometries(grassTiles), createRetroMaterial({ map: tex.grass, vertexColors: true })),
-    new THREE.Mesh(mergeGeometries(pathTiles), createRetroMaterial({ map: tex.path, vertexColors: true })),
+    new THREE.Mesh(mergeGeometries(grassTiles), createRetroMaterial({ map: tex.grass, vertexColors: true, color: biome.groundTint })),
+    new THREE.Mesh(mergeGeometries(pathTiles), createRetroMaterial({ map: tex.path, vertexColors: true, color: biome.pathTint })),
   );
 
   // --- Island base and sea ---
@@ -162,7 +166,7 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   seaGeo.rotateX(-Math.PI / 2);
   const seaUv = seaGeo.getAttribute('uv') as THREE.BufferAttribute;
   for (let i = 0; i < seaUv.count; i++) seaUv.setXY(i, seaUv.getX(i) * 100, seaUv.getY(i) * 100);
-  const sea = new THREE.Mesh(seaGeo, createRetroMaterial({ map: tex.water, uvScroll: biome.sea.scroll, unlit: biome.sea.unlit }));
+  const sea = new THREE.Mesh(seaGeo, createRetroMaterial({ map: tex.water, uvScroll: biome.sea.scroll, unlit: biome.sea.unlit, color: biome.sea.tint }));
   sea.position.y = biome.sea.y ?? -0.4;
   group.add(sea);
 
@@ -189,7 +193,7 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
       if (gapMask[tz * n + tx] === GAP_VOID) hedge.splice(i, 1);
     }
   }
-  const bushes = new THREE.InstancedMesh(blockEdge ? new THREE.BoxGeometry(1.5, 1, 1.5) : new THREE.IcosahedronGeometry(0.9, 0), createRetroMaterial({ map: tex.edge }), hedge.length);
+  const bushes = new THREE.InstancedMesh(blockEdge ? new THREE.BoxGeometry(1.5, 1, 1.5) : edgeGeometry(biome.edge.shape === 'ball' ? 'ball' : 'bush'), createRetroMaterial({ map: tex.edge }), hedge.length);
   const m4 = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const e = new THREE.Euler();
@@ -234,7 +238,9 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   };
   const solid = (mesh: THREE.Object3D, x: number, z: number, w: number, d: number) => {
     group.add(mesh);
-    colliders.push(aabbFromCenter(x, z, w, d));
+    const box = aabbFromCenter(x, z, w, d);
+    mesh.userData.cover = box; // Rex can smash it (src/game/coverBreak.ts)
+    colliders.push(box);
   };
 
   const brickMat = createRetroMaterial({ map: tex.brick, color: biome.wallTint });
@@ -243,8 +249,12 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   const trunkMat = createRetroMaterial({ color: biome.trunk });
   const snowMat = createRetroMaterial({ color: '#ffffff' });
   const flowerMat = createRetroMaterial({ color: '#ff7eb6' });
-  const rockMats = biome.rockColors.map((c) => createRetroMaterial({ color: c }));
-  const leafMat = createRetroMaterial({ map: tex.leaves });
+  const rockTex = biome.rock === 'block' ? biomeTextures.abcBlock() : null;
+  // Crystals glow faintly (they light up night remixes).
+  const rockMats = biome.rockColors.map((c) => createRetroMaterial({ color: c, map: rockTex, unlit: biome.rock === 'crystal' ? 0.55 : 0 }));
+  const leafMat = createRetroMaterial({ map: tex.leaves, color: biome.leafTint });
+  const blockTex = biome.wallStyle === 'blocks' || biome.tree === 'toy' ? biomeTextures.blockFace() : null;
+  const blockMats = (biome.blockColors ?? []).map((c) => createRetroMaterial({ map: blockTex, color: c }));
   // Neon City: glowing trims, sign faces and their streaky reflections on the wet roof.
   const neonMats = neon ? NEON.map((c) => createRetroMaterial({ color: c, unlit: 1 })) : [];
   const signTex = neon ? biomeTex('neonSign') : null;
@@ -303,6 +313,13 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
       const h = rng.pick([1.2, 1.6, 2.2]);
       const p = spot(w, d, 0.6, cx, cz, 4);
       if (!p) continue;
+      if (biome.wallStyle === 'blocks' && blockMats.length) {
+        // Toy Factory: a wall of stacked building blocks with studs on top.
+        const wall = buildBlockWall(rng, w, h, d, blockMats);
+        wall.position.set(p[0], 0, p[1]);
+        solid(wall, p[0], p[1], w, d);
+        continue;
+      }
       const wall = new THREE.Mesh(tiledBox(w, h, d, 2), brickMat);
       wall.position.set(p[0], h / 2, p[1]);
       const cap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.2, 0.2, d + 0.2), capMat);
@@ -392,6 +409,8 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
         add(new THREE.CylinderGeometry(0.18, 0.18, 0.7, 6), leafMat, -0.62 * side, h * 0.35 + 0.3, 0);
       }
       add(new THREE.IcosahedronGeometry(0.18, 0), flowerMat, 0, h + 0.38, 0);
+    } else if (biome.tree === 'toy') {
+      buildToyTree(g, rng, s, blockMats.length ? blockMats : [leafMat], trunkMat);
     } else if (biome.tree === 'pine') {
       add(new THREE.CylinderGeometry(0.2, 0.28, 1.0, 6), trunkMat, 0, 0.5, 0);
       for (let k = 0; k < 3; k++) {
@@ -466,6 +485,10 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
         solid(m, p[0], p[1], r * 1.2, r * 1.2);
         continue;
       }
+      if (biome.rock && biome.rock !== 'stone') {
+        solid(buildRock(biome.rock, rng, r, p[0], p[1], rockMats, capMat, trunkMat), p[0], p[1], r * 1.5, r * 1.5);
+        continue;
+      }
       const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), rng.pick(rockMats));
       m.position.set(p[0], r * 0.6, p[1]);
       m.rotation.set(rng.range(0, 1), rng.range(0, Math.PI), 0);
@@ -500,9 +523,10 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   }
 
   // Conveyor belts (later stages): scrolling strips that carry players and enemies.
-  if (opts.conveyors) {
+  const belts = biome.belts ?? opts.conveyors ?? 0;
+  if (belts) {
     const beltTex = textures.conveyor();
-    for (let i = 0; i < opts.conveyors; i++) {
+    for (let i = 0; i < belts; i++) {
       const alongX = rng.chance(0.5);
       const len = rng.range(9, 14);
       const wid = 2.4;
@@ -609,6 +633,20 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
         }
       }
       hazards.push({ x: c[0], z: c[1], r: r * 0.95, kind: 'thorns' });
+    }
+  } else if (extra === 'crusher') {
+    // Toy Factory crusher stamps: striped pads; the press itself is drawn by src/world/worldRender.ts.
+    const padMat = createRetroMaterial({ map: biomeTextures.stampPad(), unlit: 0.15 });
+    const R = crusherTuning.radius;
+    for (let i = 0; i < crusherTuning.count; i++) {
+      const c = spot(R * 2 + 1, R * 2 + 1, 2);
+      if (!c || Math.hypot(c[0], c[1]) < 13) continue;
+      const geo = new THREE.PlaneGeometry(R * 2.1, R * 2.1);
+      geo.rotateX(-Math.PI / 2);
+      const m = new THREE.Mesh(geo, padMat);
+      m.position.set(c[0], 0.03, c[1]);
+      group.add(m);
+      hazards.push({ x: c[0], z: c[1], r: R, kind: 'crusher' });
     }
   }
   const inHazard = (x: number, z: number, pad: number) => hazards.some((h) => (x - h.x) ** 2 + (z - h.z) ** 2 < (h.r + pad) ** 2);
@@ -755,7 +793,9 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
 
   // Hundreds of props -> one draw call per material.
   mergeStatic(group);
-  return { group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors, seed, props, pads, turrets, spots, deco };
+  // Animated scenery stays out of the merge (and off the layout rng).
+  const anim = biome.decor ? buildDecor(biome.decor, group, new Rng(seed ^ 0xdec0), HALF) : [];
+  return { group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors, seed, props, pads, turrets, spots, deco, anim };
 }
 
 /** Flat disc with a wobbly edge (hazard patches); uvScale tiles its texture. */

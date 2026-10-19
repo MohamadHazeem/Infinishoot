@@ -15,6 +15,7 @@ import type { Hero } from '../hero';
 import { PickupType } from '../pickups';
 import { SCAR_COLORS } from '../scars';
 import type { DamageOpts } from '../weapons';
+import { bossLike } from '../bossRules';
 
 /** Goldbug reward and spawn numbers. */
 export const treasureTuning = {
@@ -42,7 +43,7 @@ export function enemyCtxExtras(this: Game): Pick<EnemyCtx, 'land' | 'heal' | 'ra
     heal: (e, r, frac) => {
       let n = 0;
       for (const o of this.enemies.list) {
-        if (o === e || !o.alive || o.def.boss || o.def.behavior === 'reaper' || o.pvpOwner >= 0 || o.hp >= o.maxHp) continue;
+        if (o === e || !o.alive || bossLike(o) || o.def.behavior === 'reaper' || o.pvpOwner >= 0 || o.hp >= o.maxHp) continue;
         if ((o.x - e.x) ** 2 + (o.z - e.z) ** 2 > r * r) continue;
         // Elites heal at half rate so a medic can't make one unkillable.
         const amt = Math.min(o.maxHp - o.hp, o.maxHp * frac * (o.elite ? 0.5 : 1));

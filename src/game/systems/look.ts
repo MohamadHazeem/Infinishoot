@@ -12,7 +12,8 @@ import { Team } from '../bullets';
 import { access, settings } from '../settings';
 import { isNightStage, refreshLook } from '../../render/biomeLook';
 import { LightPicker, lightTuning, lightUniforms } from '../../render/lights';
-import { outlineInstanced, outlineRig } from '../../render/outlines';
+import { outlineInstanced } from '../../render/outlines';
+import { updateHeroMarkers } from './readability';
 import { easeGrade, MAX_HEAT, MAX_WAVES, postfx } from '../../render/postfx';
 import { renderQuality } from '../../render/quality';
 import { biomeForStage } from '../../data/biomes';
@@ -160,7 +161,7 @@ export function updateLook(this: Game, frameDt: number): void {
       if (m.isInstancedMesh && m.geometry.attributes.instanceFlash) outlineInstanced(m);
     }
   }
-  for (const h of this.heroes) outlineRig(h.player.rig.root);
+  updateHeroMarkers(this); // merged hero outlines, x-ray and ground ring (readability lane)
 
   // --- Lights.
   const p = this.playerPos;

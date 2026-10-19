@@ -4,6 +4,7 @@ import type { WeaponDef } from '../../data/weapons';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
 import { commit } from '../../render/instancing';
+import { bossLike } from '../bossRules';
 
 const MAX = 40;
 const ARM_TIME = 0.4;
@@ -68,7 +69,7 @@ export class Mines extends Weapon {
         const r = p.radius * ctx.stats.areaMul;
         ctx.blast(m.x, m.z, r, p.dmg, '#ff9f3d', 'mines', ctx.combos.has('napalm_mines') ? ['explosive', 'trail', 'fire'] : undefined);
         if (ctx.combos.has('cryo_mines')) {
-          for (const e of ctx.inRadius(m.x, m.z, r, this.chill)) if (e.active && !e.def.boss) e.frozen = Math.max(e.frozen, 1.2);
+          for (const e of ctx.inRadius(m.x, m.z, r, this.chill)) if (e.active && !bossLike(e)) e.frozen = Math.max(e.frozen, 1.2);
           ctx.fx.ring(m.x, m.z, 1, r * 2, '#9fe8ff', 0.3);
         }
         this.list.splice(i--, 1);

@@ -6,6 +6,7 @@ import { createRetroMaterial, type RetroMaterial } from '../../render/retroMater
 import { BULLET_Y } from '../bullets';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
+import { bossLike } from '../bossRules';
 
 const MAX = 12;
 const STORM_TAGS: Tag[] = ['projectile', 'area', 'shock'];
@@ -36,6 +37,7 @@ export class PlasmaOrb extends Weapon {
   private coreMat: RetroMaterial;
   private glowMat: THREE.MeshBasicMaterial;
   private ringMat: THREE.MeshBasicMaterial;
+  private iceMat: RetroMaterial;
   private geos: THREE.BufferGeometry[];
 
   constructor(def: WeaponDef, private scene: THREE.Scene) {
@@ -47,13 +49,22 @@ export class PlasmaOrb extends Weapon {
     const core = new THREE.IcosahedronGeometry(0.22, 0);
     const glow = new THREE.IcosahedronGeometry(0.5, 1);
     const ring = new THREE.TorusGeometry(0.75, 0.06, 4, 12).rotateX(Math.PI / 2);
-    this.geos = [core, glow, ring];
+    // Cryo Sphere: six long ice crystals sticking out of the orb like a snowflake.
+    const spike = new THREE.OctahedronGeometry(0.15, 0).scale(1, 3, 1).translate(0, 0.42, 0);
+    this.iceMat = createRetroMaterial({ color: '#e8fbff', unlit: 0.8 });
+    this.geos = [core, glow, ring, spike];
     for (let i = 0; i < MAX; i++) {
       const g = new THREE.Group();
       const ringA = new THREE.Mesh(ring, this.ringMat);
       const ringB = new THREE.Mesh(ring, this.ringMat);
       ringB.rotation.x = Math.PI / 2;
-      g.add(new THREE.Mesh(core, this.coreMat), new THREE.Mesh(glow, this.glowMat), ringA, ringB);
+      const ice = new THREE.Group();
+      for (let k = 0; k < 6; k++) {
+        const m = new THREE.Mesh(spike, this.iceMat);
+        m.rotation.set(k % 2 ? 0.5 : -0.5, 0, (k / 6) * Math.PI * 2);
+        ice.add(m);
+      }
+      g.add(new THREE.Mesh(core, this.coreMat), new THREE.Mesh(glow, this.glowMat), ringA, ringB, ice);
       g.visible = false;
       g.renderOrder = 2;
       scene.add(g);
@@ -93,7 +104,7 @@ export class PlasmaOrb extends Weapon {
         for (const e of near) {
           ctx.damage(e, p.dmg * (o.mega ? 4 : 1), { source: 'orb', tags: evo ? STORM_TAGS : undefined, knockback: 0, canCrit: true, loud: n < 3 });
           // Cryo Sphere: a short freeze on whatever it zaps (not bosses), opening the Frost combos.
-          if (p.chill > 0 && e.hp > 0 && !e.def.boss) e.frozen = Math.max(e.frozen, p.chill);
+          if (p.chill > 0 && e.hp > 0 && !bossLike(e)) e.frozen = Math.max(e.frozen, p.chill);
           if (n++ < 4) ctx.fx.star(e.x, 0.9, e.z, 0.7, this.color, 0.08);
         }
         if (n) ctx.sound('zap');
@@ -138,7 +149,12 @@ export class PlasmaOrb extends Weapon {
       g.position.set(o.x + o.vx * (alpha - 1) * SIM_DT, BULLET_Y, o.z + o.vz * (alpha - 1) * SIM_DT);
       const s = (evo ? (cryo ? 1.8 : 1.5) : 1) * (o.mega ? 1.8 : 1) * (1 + Math.sin(ctx.time * 30 + i) * 0.08);
       g.scale.setScalar(s);
-      g.children[2].visible = g.children[3].visible = evo;
+      // Cryo: the rings give way to ice crystals.
+      g.children[2].visible = g.children[3].visible = evo && !cryo;
+      g.children[4].visible = cryo;
+      // A smaller glow for Cryo so the crystals read; spin them like a slow snowflake.
+      g.children[1].scale.setScalar(cryo ? 0.6 : 1);
+      if (cryo) g.children[4].rotation.set(-1.0, 0, ctx.time * 1.5 + i); // tilted toward the camera
       // Storm rings spin fast; Cryo rings turn slowly like a snowflake.
       g.rotation.set(cryo ? 0 : ctx.time * 3 + i, ctx.time * (cryo ? 1 : 5), 0);
     });
@@ -150,5 +166,6 @@ export class PlasmaOrb extends Weapon {
     this.coreMat.dispose();
     this.glowMat.dispose();
     this.ringMat.dispose();
+    this.iceMat.dispose();
   }
 }

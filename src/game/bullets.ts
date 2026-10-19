@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
+import { KIND_SHAPE, SHAPE_COUNT, shapeGeometry, shapeSpin, BulletShape } from './bulletShapes';
 import { trails, TrailStyle } from './trails';
 
 /**
@@ -80,7 +81,12 @@ export interface BulletSpawn {
   kind?: number;
   /** Explodes with this radius when it dies (0 = no blast). */
   blast?: number;
+  /** Silhouette (src/game/bulletShapes.ts); defaults from the player bullet's kind. */
+  shape?: number;
 }
+
+/** Instances per non-gem shape mesh. */
+const SHAPE_MAX = 256;
 
 export class Bullets {
   readonly mesh: THREE.InstancedMesh;
@@ -109,6 +115,10 @@ export class Bullets {
   readonly owner = new Uint8Array(MAX);
   readonly kind = new Uint8Array(MAX);
   readonly blast = new Float32Array(MAX);
+  /** Silhouette per bullet (0 = gem). */
+  readonly shape = new Uint8Array(MAX);
+  /** Core + halo meshes for the other silhouettes (index = shape - 1). */
+  private shapeMeshes: { core: THREE.InstancedMesh; halo: THREE.InstancedMesh }[] = [];
   /** Visual identity (BulletLook) and where the bullet was drawn last frame (NaN = not yet). */
   readonly look = new Uint8Array(MAX);
   private rx = new Float32Array(MAX);
@@ -116,12 +126,14 @@ export class Bullets {
   private tail: THREE.InstancedMesh;
   private tailAlpha: THREE.InstancedBufferAttribute;
   private time = 0;
+  private q3 = new THREE.Quaternion();
   private colors: THREE.Color[] = [];
   private m4 = new THREE.Matrix4();
   private q = new THREE.Quaternion();
   private p = new THREE.Vector3();
   private s = new THREE.Vector3();
   private up = new THREE.Vector3(0, 1, 0);
+  private q2 = new THREE.Quaternion();
 
   constructor(scene: THREE.Scene) {
     // Elongated gem along +Z; reads well from the top-down camera.
@@ -149,6 +161,19 @@ export class Bullets {
     this.halo.count = 0;
     scene.add(this.halo);
 
+    // Evolved shots: stars, flames, bolts and lances, each its own core + halo pair.
+    for (let k = 1; k < SHAPE_COUNT; k++) {
+      const core = new THREE.InstancedMesh(shapeGeometry(k as BulletShape), createRetroMaterial({ unlit: 1, side: THREE.DoubleSide }), SHAPE_MAX);
+      const halo = new THREE.InstancedMesh(shapeGeometry(k as BulletShape, true), haloMat, SHAPE_MAX);
+      core.setColorAt(0, new THREE.Color());
+      halo.instanceMatrix = core.instanceMatrix;
+      halo.instanceColor = core.instanceColor;
+      core.frustumCulled = halo.frustumCulled = false;
+      halo.renderOrder = 2;
+      core.count = halo.count = 0;
+      scene.add(core, halo);
+      this.shapeMeshes.push({ core, halo });
+    }
     // Tails: a flat streak behind every bullet, fading toward the back (shape and length per look).
     const tg = new THREE.PlaneGeometry(1, 1).rotateX(Math.PI / 2); // uv.y: 0 at the back, 1 at the head (local +z)
     this.tailAlpha = new THREE.InstancedBufferAttribute(new Float32Array(MAX), 1).setUsage(THREE.DynamicDrawUsage);
@@ -223,6 +248,7 @@ export class Bullets {
     this.owner[i] = b.owner ?? 0;
     this.kind[i] = b.kind ?? 0;
     this.blast[i] = b.blast ?? 0;
+    this.shape[i] = b.shape ?? (b.team === Team.Player ? (KIND_SHAPE[b.kind ?? 0] ?? 0) : 0);
     this.colors[i].set(b.color);
     this.look[i] = bulletLook(b.team, this.colors[i].getHex(), b.width, b.length);
     this.rx[i] = this.rz[i] = NaN;
@@ -270,6 +296,7 @@ export class Bullets {
     this.owner[i] = this.owner[j];
     this.kind[i] = this.kind[j];
     this.blast[i] = this.blast[j];
+    this.shape[i] = this.shape[j];
     this.look[i] = this.look[j];
     this.rx[i] = this.rx[j];
     this.rz[i] = this.rz[j];
@@ -322,6 +349,7 @@ export class Bullets {
     let ribbon = 0;
     const F = bulletFxTuning;
     const pulse = 1 + F.enemyPulse * Math.sin(this.time * 18);
+    for (const sm of this.shapeMeshes) sm.core.count = 0;
     for (let i = 0; i < this.count; i++) {
       const x = this.px[i] + (this.x[i] - this.px[i]) * alpha;
       const z = this.pz[i] + (this.z[i] - this.pz[i]) * alpha;
@@ -336,8 +364,26 @@ export class Bullets {
       // Enemy shots throb so they read as danger at a glance.
       if (look === BulletLook.Enemy) w *= pulse;
       const len = this.length[i] * grow * fade;
-      this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(w, w, look === BulletLook.Enemy ? len * pulse : len));
-      this.mesh.setMatrixAt(i, this.m4);
+      const sh = this.shape[i];
+      const sm = sh ? this.shapeMeshes[sh - 1] : null;
+      if (sm && sm.core.count < SHAPE_MAX) {
+        // Evolved shots (stars, flames, bolts, lances) draw in their own mesh; the gem slot hides.
+        // Stars spin and stay round; flames flicker; bolts jitter.
+        this.q3.copy(this.q);
+        const spin = shapeSpin(sh, this.age[i], i);
+        if (spin) this.q3.multiply(this.q2.setFromAxisAngle(this.up, spin));
+        const flick = sh === BulletShape.Flame ? 1 + 0.18 * Math.sin(this.age[i] * 40 + i) : 1;
+        if (sh === BulletShape.Star) this.s.set(Math.max(w, len) * 1.25, w, Math.max(w, len) * 1.25);
+        else this.s.set(w * (sh === BulletShape.Flame ? 1.15 : sh === BulletShape.Bolt ? 2.4 : 1.4) * flick, w, len * (sh === BulletShape.Flame ? 1.1 * (2 - flick) : 1));
+        this.m4.compose(this.p.set(x, BULLET_Y, z), this.q3, this.s);
+        const k = sm.core.count++;
+        sm.core.setMatrixAt(k, this.m4);
+        sm.core.setColorAt(k, this.colors[i]);
+        this.mesh.setMatrixAt(i, this.m4.makeScale(0, 0, 0));
+      } else {
+        this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(w, w, look === BulletLook.Enemy ? len * pulse : len));
+        this.mesh.setMatrixAt(i, this.m4);
+      }
       this.mesh.setColorAt(i, this.colors[i]);
 
       // Tail: grows out of the gun with distance flown, sits behind the bullet.
@@ -375,5 +421,10 @@ export class Bullets {
     commit(this.tail.instanceMatrix, this.count);
     commit(this.tailAlpha, this.count);
     if (this.mesh.instanceColor) commit(this.mesh.instanceColor, this.mesh.count);
+    for (const sm of this.shapeMeshes) {
+      sm.halo.count = sm.core.count;
+      commit(sm.core.instanceMatrix, sm.core.count);
+      if (sm.core.instanceColor) commit(sm.core.instanceColor, sm.core.count);
+    }
   }
 }

@@ -24,6 +24,7 @@ Open the game straight into a situation: `http://localhost:5173/?test&...` (also
 - `hero=ace`, `mode=endless`, `difficulty=hard`, `loadout=laser,well,meteor` (left, right, special)
 - `weapons=drones:6,aura:5` (6 levels = evolved), `passives=armor:2`, `gold=200`
 - `elite=charger:shielded`, `event=meteors`
+- Cover: `smash=2` (stand by the nearest ruin wall, rock or tree and smash it after 2 s, like Rex does)
 - Areas: `biome=neon` / `biome=sky` (any biome id, whatever the stage); `at=holo`, `at=vent`, `at=sign`, `at=flag`, `at=gap` start next to that piece
 - Bosses: `bossnow` (the stage boss right away), `phase=2` (push it into a phase once its entrance ends), `miniboss` (this stage's mini-boss now), `nointro` (skip entrances)
 

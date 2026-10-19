@@ -32,7 +32,8 @@ process.on('unhandledRejection', (e) => {
 const errors: string[] = [];
 process.on('uncaughtException', (e) => errors.push('uncaught ' + e.stack));
 
-const { BIOMES, BIOME_BY_ID, biomeIdForStage, biomeForStage, biomeOverride, FIRST_LOOP, LATER_ROTATION } = await import('../src/data/biomes');
+const { BIOMES, BIOME_BY_ID, BIOME_ORDER, biomeForStage, biomeForce } = await import('../src/data/biomes');
+const biomeIdForStage = (s: number) => biomeForStage(s).id;
 const { BIOME_GRADES } = await import('../src/render/biomeLook');
 const { biomeAudio, groundAudio } = await import('../src/audio/mix');
 const { biomeTrack, TRACKS } = await import('../src/audio/music/composition');
@@ -48,16 +49,16 @@ const loop2 = [5, 6, 7, 8].map(biomeIdForStage);
 ok(loop2.includes('neon') && loop2.includes('sky') && loop2[3] === 'magma', `loop 2 brings Neon City and Sky Fortress, Omega back on magma (${loop2.join()})`);
 const seen = new Set<string>();
 for (let s = 5; s < 5 + 12; s++) seen.add(biomeIdForStage(s));
-ok(seen.size === 6, 'every area shows up within three later loops');
-ok(biomeIdForStage(5) === biomeIdForStage(5 + LATER_ROTATION.length) && biomeIdForStage(0) === 'meadow' && biomeIdForStage(NaN) === 'meadow', 'rotation repeats; bad stages fall back to the meadow');
-ok([...FIRST_LOOP, ...LATER_ROTATION].every((id) => BIOME_BY_ID[id]), 'every rotation id has a def');
-biomeOverride.id = 'sky';
+ok(seen.size === 7, 'every area shows up within three later loops');
+ok(biomeIdForStage(5) === biomeIdForStage(5 + 8) && biomeIdForStage(0) === 'meadow' && biomeIdForStage(NaN) === 'meadow', 'rotation repeats; bad stages fall back to the meadow');
+ok(BIOME_ORDER.flat().every((k) => BIOME_BY_ID[k.split(':')[0]]), 'every rotation id has a def');
+biomeForce.key = 'sky';
 ok(biomeForStage(1).id === 'sky', 'test-link override wins');
-biomeOverride.id = null;
+biomeForce.key = null;
 ok(biomeForStage(1).id === 'meadow', 'override off follows the stage');
 
 // --- Every biome is complete: grade, track, room, footsteps ---
-for (const b of BIOMES) ok(!!BIOME_GRADES[b.id] && !!roomTuning[b.id] && ['grass', 'sand', 'snow', 'metal'].includes(groundAudio(b.id)), `${b.id}: grade, reverb room and footsteps`);
+for (const b of BIOMES) ok(!!BIOME_GRADES[b.id] && !!roomTuning[b.ambience] && ['grass', 'sand', 'snow', 'metal'].includes(groundAudio(b.id)), `${b.id}: grade, reverb room and footsteps`);
 ok(biomeAudio(5) === 'neon' && biomeAudio(7) === 'sky', 'ambience/footsteps use the actual biome id');
 ok(biomeTrack(5) === 'neon' && biomeTrack(7) === 'sky' && TRACKS.some((t) => t.id === 'neon') && TRACKS.some((t) => t.id === 'sky'), 'music: Neon City and Sky Fortress tracks');
 

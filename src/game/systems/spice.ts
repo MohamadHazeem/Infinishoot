@@ -4,6 +4,7 @@ import { recordHeatClear } from './meta';
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `curseSum = Spice.curseSum;`.
  */
+import { promptText } from '../../ui/prompts';
 import type { Game } from '../game';
 import { LOOP_STAGES, scoreTuning, dropTuning, xpForLevel } from '../game';
 import { ENEMIES } from '../../data/enemies';
@@ -122,7 +123,7 @@ export function spiceLines(this: Game): { text: string; kind: 'event' | 'challen
   if (this.hero.player.dead && this.heroes.length > 1) {
     const t = this.spectateTarget();
     const who = this.heroes.find((x) => x.player === t);
-    if (who) out.push({ text: `WATCHING ${who.name.toUpperCase()} · CLICK TO SWITCH`, kind: 'challenge' });
+    if (who) out.push({ text: `WATCHING ${who.name.toUpperCase()} · ${promptText('switch')} TO SWITCH`, kind: 'challenge' });
   }
   const [fz, od] = client ? this.netBuffs : [this.runEvents.frenzyT, this.runEvents.overdriveT];
   if (fz > 0) out.push({ text: `FRENZY ${Math.ceil(fz)}`, kind: 'buff' });

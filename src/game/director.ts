@@ -1,5 +1,5 @@
 import type { Rng } from '../core/rng';
-import { ENEMIES, familyTuning, VETERAN_OF, bossForStage, type EnemyDef } from '../data/enemies';
+import { ENEMIES, familyTuning, VETERAN_OF, biomeAllows, bossForStage, type EnemyDef } from '../data/enemies';
 import { bossTuning } from './enemies';
 
 /**
@@ -64,6 +64,8 @@ export class Director {
   countMul = 1;
   /** Team level, set by the game every step; summons Reapers at directorTuning.reaperLevel. */
   teamLevel = 1;
+  /** Current arena's biome id (set by the game): biome-native enemies only spawn at home. */
+  biome = '';
   time = 0;
   bossSpawned = false;
   private spawnBudget = 0;
@@ -141,9 +143,10 @@ export class Director {
     return Math.min(t.aliveCap, Math.round(n * (1 + 0.5 * (this.players - 1)) * this.coop * this.countMul));
   }
 
-  private pool(): EnemyDef[] {
+  /** Enemy types the director may send right now (elites pick from these too). */
+  pool(): EnemyDef[] {
     const minute = this.paceMinute + (this.stage - 1) * directorTuning.minuteHead;
-    return Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= minute && (d.minStage ?? 1) <= this.stage && d.weight > 0);
+    return Object.values(ENEMIES).filter((d) => d.minMinute >= 0 && d.minMinute <= minute && (d.minStage ?? 1) <= this.stage && d.weight > 0 && biomeAllows(d, this.biome));
   }
 
   /** Chance a spawn is swapped for its veteran: 15% on stage 3, 30% on 4... up to 60%. */

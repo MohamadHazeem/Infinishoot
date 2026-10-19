@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { reduceMotion } from './hud';
+import { settings } from '../game/settings';
 
 export type DamageNumberKind = 'hit' | 'crit' | 'player' | 'heal' | 'score' | 'fire' | 'shock' | 'frost' | 'shield';
 export type DamageAccent = 'fire' | 'shock' | 'frost' | 'shield';
@@ -32,6 +33,19 @@ export function damageNumberScale(value: number): number {
   return Number.isFinite(value) ? Math.min(damageNumberTuning.maxScale, 1 + Math.log2(1 + Math.max(0, value) / 25) * 0.16) : 1;
 }
 
+export type DamageNumberMode = 'all' | 'mine' | 'off';
+
+/**
+ * SETTINGS > DAMAGE NUMBERS. `by` is the hero index that dealt the hit
+ * (undefined for messages, heals, hits on heroes and events from older hosts,
+ * which always show). MINE keeps only the local hero's hits.
+ */
+export function showDamageNumber(mode: DamageNumberMode, by: number | undefined, me: number): boolean {
+  if (by === undefined || by < 0) return true;
+  if (mode === 'off') return false;
+  return mode !== 'mine' || by === me;
+}
+
 interface Num {
   el: HTMLDivElement;
   x: number;
@@ -51,6 +65,8 @@ export class DamageNumbers {
   private pool: Num[] = [];
   private next = 0;
   private v = new THREE.Vector3();
+  /** Index of this machine's hero (MINE filter); Game sets it. */
+  localHero: () => number = () => 0;
 
   constructor(parent: HTMLElement) {
     for (let i = 0; i < damageNumberTuning.pool; i++) {
@@ -63,7 +79,8 @@ export class DamageNumbers {
     }
   }
 
-  spawn(x: number, y: number, z: number, value: number | string, kind: DamageNumberKind = 'hit'): void {
+  spawn(x: number, y: number, z: number, value: number | string, kind: DamageNumberKind = 'hit', by?: number): void {
+    if (!showDamageNumber(settings.damageNumbers, by, this.localHero())) return;
     kind = damageNumberKind(value, kind);
     const amount = damageNumberValue(value);
     let n: Num | undefined;

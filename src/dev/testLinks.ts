@@ -16,8 +16,13 @@ import { Team } from '../game/bullets';
 import { PickupType } from '../game/pickups';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
+import { shopLinks } from './shopLinks';
+import { onboardingLinks } from './onboardingLinks';
+import { hudLinks } from '../ui/hudLinks';
+import { smashCover } from '../game/coverBreak';
+import { contentLinks } from './contentLinks';
+import { allBiomeKeys, biomeForce } from '../data/biomes';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
-import { BIOME_BY_ID, biomeOverride } from '../data/biomes';
 import type { PhotoMode } from '../ui/photoMode';
 import { charDebug } from '../game/systems/characters';
 import { portraits, type Expression } from '../ui/portraits';
@@ -51,13 +56,16 @@ import { SCAR_COLORS } from '../game/scars';
  *   ?test&objective=totems&near=totem   force the stage objective, start next to an arena toy
  *     near: pad, turret, pillar, crate, totem, shard, beacon, lava, ice, quicksand, thorns
  *   ?test&stage=4&topple                topple the pillar nearest the hero
+ *   ?test&stage=2&smash=2              stand by the nearest ruin wall/rock/tree and smash it after 2 s (Rex's cover break)
  *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
- *   ?test&biome=neon / &biome=sky     force an area (meadow, dunes, peaks, magma, neon, sky) whatever the stage
+ *   ?test&biome=neon&day               pin the biome: meadow, dunes, peaks, magma, neon, factory, sky,
+ *     or a remix: meadow:autumn, dunes:night, peaks:aurora, magma:ashen (src/data/biomes.ts)
  *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
  *     Neon City / Sky Fortress: at=holo, at=vent, at=sign, at=flag, at=gap (a chasm)
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
+ *   ?test&captions&arrows&spawn=sniper:2&spawnr=26&hurt=1   caption strip and sound arrows on (off-screen snipers)
  *   ?test&stage=3&route                the route map opens now (choice for stage 4); &path=1,0 picks those roads first
  *   ?test&stage=2&node=treasure        this stage plays as a route node (elite, shop, treasure, event, rest, hard)
  *   ?test&encounter=altar              a route encounter right away (altar, gambler, idol, spring, dojo, shrine)
@@ -74,6 +82,12 @@ import { SCAR_COLORS } from '../game/scars';
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
+ *   ?test&pad=ps&ui=125&levelup        HUD: button prompts (pad=xbox|ps|kbm|touch), UI scale %, open a level-up;
+ *     &dmgnums=mine|off, &charge=toggle, &noweather (settings for this session)
+ *
+ * Onboarding (src/dev/onboardingLinks.ts): &training=4, &trainingdone, &tip=boss, &discover=all, &recap, &offer, &screen=codex
+ *
+ * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -94,6 +108,12 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     applySettings();
   }
   if (q.has('fps')) settings.showFps = true;
+  // Audio accessibility overlays: &captions (caption strip), &arrows (sound arrows).
+  if (q.has('captions') || q.has('arrows')) {
+    settings.captions ||= q.has('captions');
+    settings.soundArrows ||= q.has('arrows');
+    applySettings();
+  }
   if (q.has('bench')) {
     prof.on = true;
     Object.assign(window, { __prof: prof, __profReset: profReset, __game: game, __quality: renderQuality });
@@ -112,8 +132,9 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   game.toys.force = OBJECTIVE_KINDS.includes(obj as ObjectiveKind) ? (obj as ObjectiveKind) : null;
   weatherForce.mode = q.has('rain') ? 'rain' : q.has('dry') ? 'clear' : null;
   if (q.has('heat')) save.meta.heat = cleanHeat(list('heat'));
-  const bio = q.get('biome');
-  biomeOverride.id = bio && BIOME_BY_ID[bio] ? bio : null;
+  // &biome=factory or &biome=meadow:autumn: pin the stage's biome (or remix); see BIOME_ORDER.
+  const bk = q.get('biome');
+  biomeForce.key = bk && allBiomeKeys().includes(bk) ? bk : null;
   game.startSolo();
   if (q.get('seed')) game.rng = new Rng(Number(q.get('seed')));
   // Skip the starting shop.
@@ -172,6 +193,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('boss')) game.debugSkipToBoss();
   routeLinks(game, q);
   animLinks(game, q);
+  hudLinks(game, q);
+  contentLinks(game, q);
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
@@ -262,6 +285,9 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (pg > 0) setTimeout(() => (shootAt(1.5, 8), game.tryParry(game.hero)), pg * 1000);
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
+  shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
+  // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
+  onboardingLinks(game, q);
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   return true;
@@ -372,6 +398,22 @@ function animLinks(game: Game, q: URLSearchParams): void {
     if (b) game.killEnemy(b, 'buster', game.hero);
   });
   later('clear', () => game.stageClear());
+  // `smash=<s>`: stand next to the nearest smashable cover and break it after s seconds (fixes lane).
+  if (q.get('smash')) {
+    const map = game.arena.group.userData.coverRanges as Map<unknown, unknown> | undefined;
+    const p = game.hero.player;
+    let best = null as null | { x: number; z: number };
+    for (const b of game.arena.colliders) {
+      if (!map?.has(b)) continue;
+      const c = { x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2 };
+      if (!best || Math.hypot(c.x - p.x, c.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z)) best = c;
+    }
+    if (best) {
+      const c = best;
+      p.teleport(c.x + 1, c.z + 3.5);
+      later('smash', () => smashCover(game, c.x, c.z, 1));
+    }
+  }
   later('photo', () => {
     const ph = game.photo as PhotoMode | null;
     if (!ph) return;

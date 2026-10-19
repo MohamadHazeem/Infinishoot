@@ -5,6 +5,7 @@ import { emptyFlags, modMaxLevel, type DamageEvent, type ModApi, type ModDef, ty
 import type { Player } from './player';
 import { passiveTuning, type Stats } from './stats';
 import type { Weapon } from './weapons';
+import { freezeMul } from './bossRules';
 
 /** What the synergy engine needs from the game. */
 export interface SynergyHost {
@@ -49,6 +50,19 @@ export class Synergy implements ModApi {
   private dmgEff: { s: Slot; n: number }[] = [];
 
   constructor(private host: SynergyHost) {}
+
+  /**
+   * Read-only preview (shop): a throwaway engine running these slots through
+   * the real Echo resolution, flag sums and damage pipeline. Slot state is
+   * copied, so hooks run on it (and on `host`, a sandbox) never touch the
+   * hero's real Mods.
+   */
+  static sandbox(slots: readonly Slot[], host: SynergyHost): Synergy {
+    const s = new Synergy(host);
+    s.slots = slots.map((sl) => ({ ...sl, st: { ...sl.st } }));
+    s.rebuild();
+    return s;
+  }
 
   // ---------------------------------------------------------------- ModApi
   get player(): Player {
@@ -216,7 +230,7 @@ export class Synergy implements ModApi {
     // Cryo Rounds: a frozen enemy that dies shatters, so this opens the Frost combos.
     const fc = this.host.stats.freezeChance;
     if (fc > 0 && ev.e.hp > 0 && this.chance(fc)) {
-      ev.e.frozen = Math.max(ev.e.frozen, passiveTuning.freezeTime * (ev.e.def.boss ? 0.15 : 1));
+      ev.e.frozen = Math.max(ev.e.frozen, passiveTuning.freezeTime * freezeMul(ev.e));
     }
   }
   crit(ev: DamageEvent): void {

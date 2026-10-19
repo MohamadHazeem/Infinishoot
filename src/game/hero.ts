@@ -24,6 +24,8 @@ import { PetState, PetView } from './pet';
 import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { HEROES, heroOf, type HeroDef } from '../data/heroes';
 import { HeroSkill } from './style';
+import { banishTuning, canBanish, offerKey } from './banish';
+import { HeroMech, attachHeroGear, detachHeroGear } from './heroMechs';
 import { fuseWeapons, fusionOfferFor, placeFusion } from './fusion';
 
 /** Auto-weapon slots (the loadout's clicks don't use them). */
@@ -143,6 +145,11 @@ export class Hero implements SynergyHost {
   shopRerolls = 0;
   shopHealed = false;
   shopDone = true;
+  /** Shop lane: shop offers kept through rerolls and into the next shop (aligned with shopOffers). */
+  shopLocked: boolean[] = [];
+  /** Shop lane: level-up items banished from this hero's pool this run, and banishes left. */
+  banished = new Set<string>();
+  banishLeft = 0;
   /** Left click, right click and special picked before the run. */
   loadoutPick: Loadout = { ...DEFAULT_LOADOUT };
   // Special (Q/E)
@@ -173,6 +180,9 @@ export class Hero implements SynergyHost {
   loadoutDirty = true;
   /** Skill layer: style meter, perfect dash, parry and ultimate (src/game/style.ts). */
   readonly skill = new HeroSkill();
+  /** Hero mechanic state: Furnace heat, Duelist chain, Twin clone (src/game/heroMechs.ts). */
+  readonly mech = new HeroMech();
+  private gear: THREE.Object3D[] = [];
 
   constructor(
     private world: HeroWorld,
@@ -282,12 +292,18 @@ export class Hero implements SynergyHost {
     this.bomblets.length = 0;
     this.reviveT = 0;
     this.shopDone = true;
+    this.shopOffers = [];
+    this.shopLocked = [];
+    this.banished.clear();
+    this.banishLeft = banishTuning.start;
     this.skill.reset();
+    this.mech.reset();
     this.petState.reset();
     this.recomputeStats();
     this.rerollsLeft = Math.min(MAX_GEARS, this.stats.rerolls);
     this.revivesLeft = this.stats.revives;
     this.player.reset(this.stats);
+    this.mech.twin?.snap();
     this.loadoutDirty = true;
   }
 
@@ -298,6 +314,8 @@ export class Hero implements SynergyHost {
 
   dispose(): void {
     this.disposeWeapons();
+    this.mech.twin?.dispose();
+    this.mech.twin = null;
     this.player.dispose();
     this.petView?.dispose();
   }
@@ -310,6 +328,18 @@ export class Hero implements SynergyHost {
     const [w, h] = this.heroDef.build;
     this.player.rig.body.scale.set(w, h, w);
     this.player.buildScale = [w, h];
+    // Mechanic heroes: their gear (silhouette), no dash for the Duelist, and the Twin's clone (made on first use).
+    const mech = this.heroDef.mech ?? '';
+    if (mech !== this.mech.id || !this.gear.length) {
+      detachHeroGear(this.player.rig, this.gear);
+      this.gear = attachHeroGear(this.player.rig, this.heroDef.mech);
+    }
+    this.mech.id = mech;
+    this.player.noDash = mech === 'duelist';
+    if (mech !== 'twin' && this.mech.twin) {
+      this.mech.twin.dispose();
+      this.mech.twin = null;
+    }
   }
 
   /** Companion (src/data/pets.ts); its body is drawn by PetView. */
@@ -335,16 +365,22 @@ export class Hero implements SynergyHost {
 
   /** Rebuild static stats (passives + Mods) and the live copy. */
   recomputeStats(): void {
-    this.statBase = computeStats(
-      this.passives,
-      this.heroDef.add,
-      this.relics.map((id) => RELIC_BY_ID[id]?.add ?? {}),
-    );
-    this.statBase.magnet += this.petState.magnetBonus;
-    this.synergy.applyStatic(this.statBase);
+    this.statBase = this.statsWithPassives(this.passives);
     this.refreshLive();
     this.player.stats = this.stats;
     this.player.hp = Math.min(this.player.hp, this.stats.maxHp);
+  }
+
+  /** Static stats for these passive levels (and Mods): what recomputeStats builds, without applying it (card previews). */
+  statsWithPassives(passives: Record<string, number>, syn: Pick<Synergy, 'applyStatic'> = this.synergy): Stats {
+    const s = computeStats(
+      passives,
+      this.heroDef.add,
+      this.relics.map((id) => RELIC_BY_ID[id]?.add ?? {}),
+    );
+    s.magnet += this.petState.magnetBonus;
+    syn.applyStatic(s);
+    return s;
   }
 
   /** Live stats = static stats + per-step Mod effects (moving, timers). */
@@ -355,6 +391,7 @@ export class Hero implements SynergyHost {
     this.stats.cooldownMul *= this.world.fireRateBuff;
     this.stats.damageMul *= this.world.damageBuff;
     this.stats.damageMul *= this.skill.damageMul;
+    this.stats.damageMul *= this.mech.damageMul;
   }
 
   get specialDef(): SpecialDef {
@@ -485,7 +522,11 @@ export class Hero implements SynergyHost {
     return { weapon: weaponId, passive: evo.passive, haveWeapon: !!w?.maxed, haveItem: (this.passives[evo.passive] ?? 0) > 0 };
   }
 
-  buildOffers(): Offer[] {
+  /**
+   * Draw level-up cards. `keep` (banish): those cards stay in place and only
+   * the null slots are redrawn, never repeating a kept card.
+   */
+  buildOffers(keep?: (Offer | null)[]): Offer[] {
     type Cand = Offer & { w: number };
     const cands: Cand[] = [];
     // Everything, new or an upgrade, shows up at its own rarity's rate: a
@@ -560,6 +601,21 @@ export class Hero implements SynergyHost {
       const partnerOf = lv === 0 ? this.unlocked.find((wid) => WEAPONS[wid]?.evolution?.passive === id) : undefined;
       cands.push({ kind: 'passive', id, name: d.name, icon: d.icon, color: d.color, tag: lv ? `LV ${lv + 1}` : 'NEW!', text: d.desc, partner: partnerOf ? this.partnerOf(partnerOf) : undefined, rarity: d.rarity, level: lv, maxLevel: d.maxLevel, slot: 'item', w: lv ? 1.8 * upgrade(d.rarity) : 0.8 * fresh(d.rarity) });
     }
+    // Banished items never come back this run.
+    if (this.banished.size) for (let i = cands.length - 1; i >= 0; i--) if (this.banished.has(offerKey(cands[i]))) cands.splice(i, 1);
+    if (keep) {
+      const shown = new Set(keep.filter((o): o is Offer => !!o).map(offerKey));
+      const pool = cands.filter((c) => !shown.has(offerKey(c)));
+      return keep.map((o) => {
+        if (o) return o;
+        if (!pool.length) return { kind: 'gold', id: 'gold', name: 'Gold Bag', icon: '●', color: '#ffb627', tag: 'BONUS', text: `+${2 * this.skipGold} gold`, slot: 'bonus' } as Offer;
+        let r = this.rng.next() * pool.reduce((a, c) => a + c.w, 0);
+        let i = 0;
+        while (i < pool.length - 1 && (r -= pool[i].w) > 0) i++;
+        const { w: _w, ...offer } = pool.splice(i, 1)[0];
+        return offer;
+      });
+    }
     // Late runs: when the pool runs dry, mix in gold and healing.
     if (cands.length + fork.length < 3) {
       cands.push(
@@ -624,6 +680,18 @@ export class Hero implements SynergyHost {
     return o.color;
   }
 
+  /** Banish level-up card i: its item leaves this hero's pool for the run and the card is redrawn. '' on success. */
+  banish(i: number): string {
+    const o = this.offers[i];
+    if (!o) return 'NOTHING TO BANISH';
+    if (!canBanish(o)) return "CAN'T BANISH THIS CARD";
+    if (this.banishLeft <= 0) return 'NO BANISHES LEFT';
+    this.banishLeft--;
+    this.banished.add(offerKey(o));
+    this.offers = this.buildOffers(this.offers.map((x, j) => (j === i ? null : x)));
+    return '';
+  }
+
   /** One level-up or chest resolved. */
   consumePick(): void {
     if (this.chestsPending > 0) this.chestsPending--;
@@ -683,22 +751,40 @@ export class Hero implements SynergyHost {
     this.shopDone = false;
     this.secretShop = secret;
     this.relicOffer = secret ? (rollRelic(this.relics, this.stats.luck, () => this.rng.next())?.id ?? null) : null;
+    if (!pre) this.banishLeft = Math.min(banishTuning.max, this.banishLeft + banishTuning.perShop);
     this.rollShop();
     const left = CURSES.filter((c) => !this.world.activeCurses.includes(c.id));
     this.curseOffer = !pre && left.length && this.rng.chance(0.85) ? left[Math.floor(this.rng.next() * left.length)].id : null;
   }
 
   rollShop(): void {
-    const pool = MODS.filter((m) => !this.synergy.owns(m.id) && (!this.secretShop || m.rarity === 'rare' || m.rarity === 'legendary' || m.cursed));
+    // Locked offers stay on their card (rerolls and the next shop) until bought or unlocked.
+    const kept = this.shopOffers.map((m, i) => (m && this.shopLocked[i] && !this.synergy.owns(m.id) ? m : null));
+    const pool = MODS.filter((m) => !this.synergy.owns(m.id) && !kept.includes(m) && (!this.secretShop || m.rarity === 'rare' || m.rarity === 'legendary' || m.cursed));
     // Luck lifts the rarer Mods, like level-up cards.
     const w = (m: ModDef) => MOD_RARITY_WEIGHT[m.rarity] * (1 + this.stats.luck * RARITY[m.rarity].luck);
     this.shopOffers = [];
-    for (let k = 0; k < economyTuning.shopOffers && pool.length; k++) {
+    this.shopLocked = [];
+    for (let k = 0; k < Math.max(economyTuning.shopOffers, kept.length); k++) {
+      if (kept[k]) {
+        this.shopOffers.push(kept[k]);
+        this.shopLocked.push(true);
+        continue;
+      }
+      if (!pool.length) continue;
       let r = this.rng.next() * pool.reduce((a, m) => a + w(m), 0);
       let i = 0;
       while (i < pool.length - 1 && (r -= w(pool[i])) > 0) i++;
       this.shopOffers.push(pool.splice(i, 1)[0]);
+      this.shopLocked.push(false);
     }
+  }
+
+  /** Lock or unlock shop offer i. '' on success. */
+  toggleLock(i: number): string {
+    if (!this.shopOffers[i]) return 'SOLD OUT';
+    this.shopLocked[i] = !this.shopLocked[i];
+    return '';
   }
 
   /** Take the secret merchant's relic: relics are free (user), the merchant just has one to give. */
@@ -749,7 +835,7 @@ export class Hero implements SynergyHost {
       interest: this.interest,
       interestCap: this.interestCap,
       interestPer: this.interestPer,
-      offers: this.shopOffers.map((m) => (m ? { def: m, price: this.price(m), hint: this.synergyHint(m) } : null)),
+      offers: this.shopOffers.map((m, i) => (m ? { def: m, price: this.price(m), hint: this.synergyHint(m), locked: !!this.shopLocked[i] } : null)),
       owned: this.synergy.slots.map((sl, i) => ({
         def: sl.def,
         sell: this.sellPrice(sl.paid),
@@ -791,6 +877,7 @@ export class Hero implements SynergyHost {
     this.gold -= cost;
     this.synergy.add(m, cost);
     this.shopOffers[i] = null;
+    this.shopLocked[i] = false;
     this.recomputeStats();
     return '';
   }

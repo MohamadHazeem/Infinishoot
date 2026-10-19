@@ -1,4 +1,4 @@
-import { biomeForStage } from '../data/biomes';
+import { BIOME_BY_ID, biomeForStage } from '../data/biomes';
 /** Pure mix policy shared by samples and synth voices. */
 export const soundTuning = {
   voices: 32,
@@ -74,7 +74,16 @@ export const cueSamples: Readonly<Record<string, string>> = {
   teamCharge: 'team_charge',
   highFive: 'high_five',
 };
+/**
+ * 0 swarm noise .. 4 big moments, then the sound lane's bands: 6 = off-screen
+ * threat telegraphs (outrank everything but the announcer, which plays at 10+),
+ * 5 = hero voice, 1 = enemy family calls (just above swarm hits and deaths).
+ */
 export function cuePriority(name: string): number {
+  if (/^(threat|cwind|bwind)/.test(name)) return 6;
+  if (name.startsWith('voice:')) return 5;
+  if (name.startsWith('call:')) return 1;
+  if (name.startsWith('evo:')) return 3;
   if (/^(boss|bomb|elite|chest|lvl|evolve|legendary|clear|pdie|hurt|parry|perfect)/.test(name))
     return 4;
   if (name.startsWith('w:') || /^(dash|gem|coin|gear|menu)/.test(name)) return 3;
@@ -87,20 +96,13 @@ export function swarmGap(enemies: number): number {
 export function distanceCutoff(gain: number): number {
   return 2800 + 17200 * Math.max(0, Math.min(1, gain)) ** 2;
 }
-const GROUND_AUDIO: Readonly<Record<string, string>> = {
-  meadow: 'grass',
-  dunes: 'sand',
-  peaks: 'snow',
-  magma: 'metal',
-  neon: 'metal',
-  sky: 'grass',
-};
-/** The area id for a stage (ambience 'amb_<id>', room reverb, footsteps): the stage's actual biome. */
+/** The area id for a stage (ambience 'amb_<id>', room reverb): the stage's biome's ambience bed. */
 export function biomeAudio(stage: number): string {
-  return biomeForStage(stage).id;
+  return biomeForStage(stage).ambience;
 }
+/** Footstep surface for a biome id (from its data). */
 export function groundAudio(biome: string): string {
-  return GROUND_AUDIO[biome] ?? 'grass';
+  return BIOME_BY_ID[biome]?.footstep ?? 'grass';
 }
 export function comboLine(combo: number): string | null {
   return combo >= 150 ? 'unstoppable' : combo >= 100 ? 'awesome' : combo >= 50 ? 'great' : null;

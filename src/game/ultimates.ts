@@ -3,6 +3,8 @@ import type { Enemy } from './enemies';
 import type { Game } from './game';
 import type { Hero } from './hero';
 import { SCAR_COLORS } from './scars';
+import { bossLike } from './bossRules';
+import { bladeDance, meltdown, mirrorStorm } from './heroUlts';
 
 /**
  * Hero ultimates: one per hero (src/data/heroes.ts `ult`), charged by damage
@@ -61,6 +63,34 @@ export const ULTS: Record<string, UltDef> = {
     color2: '#7df9ff',
     duration: 1.4,
     invuln: false,
+  },
+  // Mechanic heroes (src/game/heroUlts.ts).
+  dance: {
+    id: 'dance',
+    name: 'BLADE DANCE',
+    desc: 'For 2.5 s every bullet near you flies back, the closest enemies get slashed again and again, and your parry chain is full.',
+    color: '#b13e53',
+    color2: '#f4f4f4',
+    duration: 2.5,
+    invuln: true,
+  },
+  meltdown: {
+    id: 'meltdown',
+    name: 'MELTDOWN',
+    desc: 'Full heat at once, then four growing fire novas that set everything on fire.',
+    color: '#ff7a2f',
+    color2: '#ffcd75',
+    duration: 1.9,
+    invuln: true,
+  },
+  mirror: {
+    id: 'mirror',
+    name: 'MIRROR STORM',
+    desc: 'You and your twin spin crossfire rings and aimed fans for 3 s.',
+    color: '#73eff7',
+    color2: '#f4f4f4',
+    duration: 3,
+    invuln: true,
   },
 };
 
@@ -198,6 +228,15 @@ export function updateUlt(g: Game, h: Hero, dt: number): void {
     case 'storm':
       while (sk.ultStep < ultTuning.stormAt.length && age >= ultTuning.stormAt[sk.ultStep]) strike(g, h, sk.ultStep++, pw);
       break;
+    case 'dance':
+      bladeDance(g, h, dt, pw);
+      break;
+    case 'meltdown':
+      meltdown(g, h, age, pw);
+      break;
+    case 'mirror':
+      mirrorStorm(g, h, dt, pw);
+      break;
   }
   if (sk.ultT <= 0) endUlt(g, h);
 }
@@ -272,7 +311,7 @@ function stomp(g: Game, h: Hero, i: number, pw: number): void {
     const dz = e.z - p.z;
     const d = Math.hypot(dx, dz) || 1;
     hitUlt(g, h, e, U.stompDmg[i] * T * pw, dx / d, dz / d, U.stompKnock);
-    if (e.active && !e.def.boss && e.def.behavior !== 'reaper') e.frozen = Math.max(e.frozen, U.stompStun);
+    if (e.active && !bossLike(e) && e.def.behavior !== 'reaper') e.frozen = Math.max(e.frozen, U.stompStun);
   }
   const b = g.bullets;
   for (let k = 0; k < b.count; k++) if (b.team[k] === Team.Enemy && Math.hypot(b.x[k] - p.x, b.z[k] - p.z) < r) b.kill(k--);

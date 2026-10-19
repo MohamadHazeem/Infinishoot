@@ -3,6 +3,8 @@ import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
 import { ambienceSettings } from '../audio/ambienceAudio';
 import { announcerSettings, announcer } from '../audio/announcer';
+import { voiceSettings as synthVoiceSettings } from '../audio/heroVoice';
+import { a11yAudio } from '../audio/captions';
 import { voiceSettings } from '../audio/voices';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
@@ -10,6 +12,7 @@ import { juiceTuning } from './juice';
 import { fxQuality, weatherSettings } from './ambience';
 import { streaks } from './streaks';
 import { DEFAULT_LOADOUT, validLoadout, type Loadout } from '../data/loadout';
+import { applyUiScale } from '../ui/hudLayout';
 import { AUTO, AUTO_START, MANUAL_LEVELS, QualityGovernor, renderQuality, setRenderQuality } from '../render/quality';
 
 /** Player-facing settings, persisted between sessions. */
@@ -24,8 +27,14 @@ export interface Settings {
   adaptiveSilence: boolean;
   lowHealthAudio: boolean;
   headphones3d: boolean;
-  /** The local hero's voice lines (src/audio/voices.ts). */
+  /** HERO VOICES: hero barks (recorded for the original heroes, synthesized for the rest; src/audio/voices.ts, heroVoice.ts). */
   heroVoices: boolean;
+  /** VOICE volume for hero barks. */
+  voiceVolume: number;
+  /** Caption strip for the announcer and voice lines. */
+  captions: boolean;
+  /** Screen-edge arrows toward off-screen threat sounds. */
+  soundArrows: boolean;
   retro: number;
   shake: number;
   autoFire: boolean;
@@ -57,8 +66,16 @@ export interface Settings {
   bossIntros: boolean;
   /** Slow-motion on perfect dashes and Mega Barrage (solo only). */
   slowMo: boolean;
+  /** First-time tip panels during runs (src/game/tips.ts). */
+  tips: boolean;
+  /** UI SCALE in percent (75-150): zooms the HUD panels and menus. */
+  uiScale: number;
+  /** DAMAGE NUMBERS: all, only your hero's hits (co-op), or none. */
+  damageNumbers: 'all' | 'mine' | 'off';
   /** Weather: rain, snow and other motes, lightning (off = always clear skies). */
   weather: boolean;
+  /** Right click: hold to charge, or press once to start and again to release. */
+  chargeMode: 'hold' | 'toggle';
   /** Pet zap sounds (pets zap often at high level). */
   petSounds: boolean;
   /** Comic finisher on a stage boss's killing blow. */
@@ -81,6 +98,9 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   lowHealthAudio: true,
   headphones3d: false,
   heroVoices: true,
+  voiceVolume: 0.8,
+  captions: false,
+  soundArrows: false,
   retro: 0.5,
   shake: 1,
   autoFire: false,
@@ -103,12 +123,17 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   dynamicCamera: true,
   bossIntros: true,
   slowMo: true,
+  tips: true,
+  uiScale: 100,
+  damageNumbers: 'all',
   weather: true,
+  chargeMode: 'hold',
   petSounds: true,
   finishers: true,
   portraitPops: true,
 });
 settings.dynamicCamera ??= true;
+settings.tips ??= true;
 settings.weather ??= true;
 settings.petSounds ??= true;
 settings.finishers ??= true;
@@ -157,6 +182,10 @@ export function applySettings(): void {
   sfx.applyVolumes();
   ambienceSettings.volume = settings.ambienceVolume;
   announcerSettings.enabled = settings.announcer;
+  audioSettings.voice = settings.voiceVolume;
+  synthVoiceSettings.enabled = settings.heroVoices !== false;
+  a11yAudio.captions = settings.captions;
+  a11yAudio.arrows = settings.soundArrows;
   announcer.update();
   voiceSettings.heroVoices = settings.heroVoices !== false;
   applyRetroStrength(settings.retro);
@@ -167,6 +196,7 @@ export function applySettings(): void {
   access.reduceFlash = settings.reduceFlash;
   weatherSettings.enabled = settings.weather;
   document.body.classList.toggle('reduce-flash', settings.reduceFlash);
+  applyUiScale(settings.uiScale);
   const g = Math.max(0, Math.min(AUTO, Math.round(settings.graphics)));
   if (g === AUTO) {
     // Keep the governor (and its rung) across unrelated settings changes.
