@@ -39,7 +39,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'arsenal' | 'training' | 'customise';
+export type ExtraScreen = 'arsenal' | 'training' | 'customise' | 'ghosts';
 
 export interface ScreenActions {
   start(): void;

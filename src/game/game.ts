@@ -85,6 +85,7 @@ import * as CharSys from './systems/characters';
 import * as GameplaySys from './systems/gameplay';
 import * as WorldEventsSys from './systems/worldEvents';
 import * as TimeSys from './systems/time';
+import * as ModesSys from './systems/modes';
 import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
@@ -580,6 +581,22 @@ export class Game implements HeroWorld {
   timeNet = TimeSys.timeNet;
   applyTimeNet = TimeSys.applyTimeNet;
   renderTime = TimeSys.renderTime;
+  // Modes lane: rhythm stages, the Pacifist road, bonus mini-games, weekly ghost races (src/game/systems/modes.ts).
+  modes: ModesSys.ModesRun = ModesSys.newModesRun();
+  modesStageStart = ModesSys.modesStageStart;
+  modesTick = ModesSys.modesTick;
+  modesPreWeapons = ModesSys.modesPreWeapons;
+  updateModes = ModesSys.updateModes;
+  modesOnKill = ModesSys.modesOnKill;
+  modesOffers = ModesSys.modesOffers;
+  modesHolster = ModesSys.modesHolster;
+  modesArcade = ModesSys.modesArcade;
+  startMiniGame = ModesSys.startMiniGame;
+  modesNet = ModesSys.modesNet;
+  applyModesNet = ModesSys.applyModesNet;
+  modesLocal = ModesSys.modesLocal;
+  modesRunEnd = ModesSys.modesRunEnd;
+  renderModes = ModesSys.renderModes;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -1171,6 +1188,7 @@ export class Game implements HeroWorld {
       this.hostTick(true);
       return;
     }
+    this.modesTick(dt); // the rhythm stage's beat clock runs in real time (systems/modes.ts)
     if (this.juice.hitStop > 0) {
       this.juice.hitStop -= dt;
       this.hostTick(false);
@@ -1217,6 +1235,7 @@ export class Game implements HeroWorld {
     lap('sim.hash');
 
     this.gameplayPreWeapons(dt); // mech suit, super weapon, overload; idles the clicks they replace (systems/gameplay.ts)
+    this.modesPreWeapons(dt); // enemy beat pulse, holstered weapons (systems/modes.ts)
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
       for (const w of h.weapons) {
@@ -1250,6 +1269,7 @@ export class Game implements HeroWorld {
     this.updateArena(dt);
     this.updateWind(dt);
     this.updateWorldEvent(dt);
+    this.updateModes(dt); // pacifist timer and rewards, mini-games, ghost recording (systems/modes.ts)
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);

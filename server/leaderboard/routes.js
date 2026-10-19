@@ -2,4 +2,7 @@
 // `async (req, env, url, { json, cors, clean }) => Response | null`: return null when the path isn't yours.
 // Add a feature by importing its handler and appending it to ROUTES (one line each, so features don't collide).
 
+import { ghostsRoute } from './ghosts.js';
+
 export const ROUTES = [];
+ROUTES.push(ghostsRoute); // weekly ghost board (modes lane): /ghosts

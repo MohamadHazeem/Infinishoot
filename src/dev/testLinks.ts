@@ -26,6 +26,7 @@ import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
 import { bossLinks } from './bossLinks';
 import { worldEventLinks } from './worldEventLinks';
+import { modesLinks } from './modesLinks';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import type { PhotoMode } from '../ui/photoMode';
@@ -95,6 +96,8 @@ import { SCAR_COLORS } from '../game/scars';
  * Bosses lane (src/dev/bossLinks.ts): &titan, &titanphase=3, &titanmove=beam, &remix, &duel.
  *
  * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
+ *
+ * Modes lane (src/dev/modesLinks.ts): &rhythm, &pacifist&pact=40, &minigame=gallery|coins|whack&mgt=6, &ghost=demo&ghostlead=3, &modescreen=ghosts.
  *
  * World events (src/dev/worldEventLinks.ts): &wev=collapse|flood|split|giant|eclipse|flower|volcano|stealth, &wevt=6 (jump its clock), &wevoff.
  * Time lane (src/dev/timeLinks.ts): &rewindgo=3&rewindat=0.5, &standgo=2, &btgo=2&btat=0.5, &replaygo=3&replayat=1,
@@ -209,6 +212,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
+  modesLinks(game, q); // rhythm, pacifist, pact=, minigame=, mgt=, ghost=demo, ghostlead=, modescreen=ghosts (src/dev/modesLinks.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

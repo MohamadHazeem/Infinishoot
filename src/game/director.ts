@@ -68,6 +68,8 @@ export class Director {
   biome = '';
   time = 0;
   bossSpawned = false;
+  /** Stage length x this (the Pacifist road's shorter stage, src/game/systems/modes.ts); reset by start(). */
+  lengthMul = 1;
   /** Boss duel (src/game/systems/bossLane.ts): no more spawns while it plays. */
   hold = false;
   private spawnBudget = 0;
@@ -83,6 +85,7 @@ export class Director {
     this.stage = stage;
     this.time = 0;
     this.bossSpawned = false;
+    this.lengthMul = 1;
     this.hold = false;
     this.spawnBudget = 0;
     this.nextElite = directorTuning.eliteEvery;
@@ -94,7 +97,7 @@ export class Director {
   }
 
   get duration(): number {
-    return directorTuning.stageSeconds;
+    return directorTuning.stageSeconds * this.lengthMul;
   }
 
   /**

@@ -19,6 +19,7 @@ import { impactCue } from '../../audio/voices';
 import { worldHooks } from '../worldEvents';
 
 export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null {
+  if (this.modes.holster) return null; // Pacifist road / mini-games: auto weapons, pets and turrets hold fire (systems/modes.ts)
   let best: Enemy | null = null;
   let bd = r * r;
   this.hash.query(x, z, r, (e) => {
@@ -47,6 +48,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (!e.active || e.hp <= 0) return 0;
   if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
   if (e.roarT > 0) return 0; // bosses are invulnerable while they roar or make their entrance
+  if (this.modes.holster) return 0; // Pacifist road / mini-games: heroes deal no damage (systems/modes.ts)
   const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
   if (!familyCanHit(e, tags.includes('explosive') || o.source === 'nuke')) return 0;
   const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);

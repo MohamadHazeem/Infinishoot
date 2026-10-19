@@ -138,6 +138,25 @@ export class Music {
     return this.lastBeat >= 0 && inBeatWindow(now, this.lastBeat, this.beatDuration, ms);
   }
 
+  /**
+   * Rhythm stages (modes lane, src/game/systems/modes.ts): pull the beat grid toward the game's own
+   * deterministic beat clock. `phase` is where that clock's beat is now, in [0, 1). Moves future
+   * scheduling by at most `maxShift` seconds per call (call once per frame), so the tempo bends
+   * slightly while it locks on. No-op without a playing song. Gameplay never reads the audio.
+   */
+  alignBeat(phase: number, maxShift = 0.002): void {
+    const p = this.cur;
+    const ctx = this.synth?.ctx;
+    if (!p || !ctx || ctx.state !== 'running' || TRACK_BY_ID[p.id].bars || !Number.isFinite(phase)) return;
+    const beat = 60 / p.song.style.bpm;
+    const now = ctx.currentTime;
+    const audio = ((((p.step % 4) / 4 - (p.nextTime - now) / beat) % 1) + 1) % 1;
+    let err = phase - audio;
+    err -= Math.round(err);
+    const shift = Math.max(-maxShift, Math.min(maxShift, err * beat));
+    p.nextTime = Math.max(now + 0.005, p.nextTime - shift);
+  }
+
   private clockActive(now: number): boolean {
     return this.synth?.ctx.state === 'running' && now <= this.beatEnd && (this.lastBeat >= 0 || this.beatTimes.length > 0);
   }
