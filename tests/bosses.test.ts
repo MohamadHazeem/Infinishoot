@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { ok } from './check';
 import { BOSS_ORDER, ENEMIES, MINI_BOSSES, bossForStage, miniBossForStage } from '../src/data/enemies';
 import { Enemy, type EnemyCtx } from '../src/game/enemies';
+import { StaticBoxGrid } from '../src/core/spatialHash';
 import { bossMoveTuning, bossTuning, breathAngle, eightPoint, phaseFor, phaseGate, startIntro, startPhase, updateBoss, type BossApi } from '../src/game/bosses';
 import { BossField } from '../src/game/bossField';
 import { introEnvelope, introTuning } from '../src/game/bossIntro';
@@ -77,6 +78,7 @@ function fakeCtx(calls: Record<string, number>): EnemyCtx {
     targetAlive: true,
     hash: null as never,
     colliders: [],
+    walls: new StaticBoxGrid([]),
     onWindup: () => count('windup'),
     onEnrage: () => {},
     fireBullet: () => count('bullet'),

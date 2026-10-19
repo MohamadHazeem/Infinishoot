@@ -827,12 +827,16 @@ export class Game implements HeroWorld {
   }
 
   makeEnemyCtx(): EnemyCtx {
+    const game = this;
     return {
       targets: this.targets,
       target: { x: 0, z: 0, radius: 0 },
       targetAlive: true,
       hash: this.hash,
       colliders: this.arena.colliders,
+      get walls() {
+        return game.walls;
+      },
       onEnrage: (e) => {
         this.vfx.num(e.x, 4, e.z, 'ENRAGED!', 'crit');
         this.vfx.ring(e.x, e.z, e.radius, 8, '#ff3d5e', 0.5);
