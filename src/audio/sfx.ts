@@ -1,4 +1,7 @@
 /** Recorded layers with immediate synthesized attacks and offline fallback. */
+import { limiterCurve, synthMasterGain } from './loudness';
+import { playBanter } from './teammateVoice';
+import { FEATURE_CUES } from './featureSamples';
 import { healthCutoff } from './lowHealth';
 import { spatialRoute, spatialTuning, updateListener } from './spatial';
 import type { Rarity } from '../data/rarity';
@@ -84,12 +87,11 @@ class Sfx {
     }
     const ctx = this.ctx;
     this.master = ctx.createGain();
-    const limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -12;
-    limiter.knee.value = 9;
-    limiter.ratio.value = 12;
-    limiter.attack.value = 0.003;
-    limiter.release.value = 0.18;
+    // Real WebAudio uses a memoryless ceiling. The compressor fallback is for
+    // older embedded audio hosts without WaveShaper support.
+    const limiter = ctx.createWaveShaper ? ctx.createWaveShaper() : ctx.createDynamicsCompressor();
+    if ('curve' in limiter) { limiter.curve = limiterCurve(); limiter.oversample = '4x'; }
+    else { limiter.threshold.value = -1; limiter.knee.value = 0; limiter.ratio.value = 20; limiter.attack.value = 0; limiter.release.value = 0.05; }
     this.master.connect(limiter).connect(ctx.destination);
     this.muffler = ctx.createBiquadFilter();
     this.muffler.type = 'lowpass';
@@ -187,10 +189,10 @@ class Sfx {
     if (!release) return null;
     this.applyVolumes();
     let node: AudioNode = this.buses[bus];
-    // Effects get the 3D route (HRTF headphones mode); hero voices and threat telegraphs a plain stereo pan.
+    // Effects and hero voices share the bounded HRTF route; threat telegraphs keep stereo pan.
     const placed = bus !== 'ui' && bus !== 'music';
     if (placed) {
-      if (bus === 'sfx') {
+      if (bus === 'sfx' || bus === 'voice') {
         spatial = spatialRoute(ctx, node, this.pan, this.sourceX, this.sourceZ);
         node = spatial.node;
       } else {
@@ -215,7 +217,7 @@ class Sfx {
       distance: posGain, x: this.sourceX, z: this.sourceZ, priority, cooldown: minGap, limit: priority === 0 ? 2 : 3 }) : null;
     const g = ctx.createGain();
     // A telegraph's synth stays at full level: its sample rides the (duckable) effects bus.
-    g.gain.value = (placed ? posGain : 1) * (layered && bus !== 'threat' ? soundTuning.synthLayer : 1);
+    g.gain.value = synthMasterGain(name) * (placed ? posGain : 1) * (layered && bus !== 'threat' ? soundTuning.synthLayer : 1);
     g.connect(node);
     nodes.push(g);
     this.route = g;
@@ -406,6 +408,9 @@ class Sfx {
 
   /** Any cue by name: an sfx method, `w:<weapon>[|<evo key>]`, `evo:<key>` or `call:<family>`. Used by the effects bus. */
   named(name: string, pitch = 1): void {
+    if (name.startsWith('banter:')) { playBanter(name, this.sourceX, this.sourceZ, this.pan, this.posGain); return; }
+    const feature = FEATURE_CUES[name];
+    if (feature) { this.play(name, feature.gap, feature.bus, feature.recipe); return; }
     if (name.startsWith('w:')) return this.weapon(name.slice(2));
     if (name.startsWith('s2:')) return this.laneCue(name, pitch);
     if (name.startsWith('evo:')) return this.evoLayer(name.slice(4));

@@ -2,8 +2,8 @@ import { Rng } from '../../core/rng';
 import { biomeForStage } from '../../data/biomes';
 import { BIOME_BOSSES, DJ_BPM } from '../../data/bosses3';
 
-export type TrackId = 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover' | 'glitch' | 'boxer' | 'gale';
-export type Patch = OscillatorType | 'pluck' | 'bell' | 'wide';
+export type TrackId = 'raid' | 'pvp' | 'gauntlet' | 'titleRemix' | 'pumpking' | 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover' | 'glitch' | 'boxer' | 'gale';
+export type Patch = OscillatorType | 'pluck' | 'bell' | 'wide' | 'organ';
 export type Section = 'intro' | 'verse' | 'chorus' | 'bridge' | 'final' | 'turnaround';
 
 export interface Style {
@@ -87,6 +87,19 @@ export function themeSteps(theme: Theme): (ThemeNote | null)[] {
   return out;
 }
 
+/** Four-bar hooks for the new encounters; bridges still use the seeded generator. */
+export const AUDIO3_THEMES: Readonly<Record<string, Theme>> = {
+  raid: { chords: [0, 0, 5, 4], notes: [[0, 0, 3], [3, 0, 1], [4, 4, 4], [8, 7, 4], [12, 6, 4], [16, 7, 6], [22, 4, 2], [24, 2, 4], [28, 4, 4], [32, 5, 3], [35, 6, 1], [36, 7, 4], [40, 9, 4], [44, 7, 4], [48, 6, 4], [52, 4, 4], [56, 1, 4], [60, 4, 4]] },
+  pvp: { chords: [0, 3, 6, 4], notes: [[0, 7, 1], [3, 4, 1], [6, 7, 2], [10, 9, 2], [14, 7, 2], [16, 8, 2], [20, 5, 2], [23, 8, 1], [26, 10, 2], [30, 8, 2], [32, 6, 2], [35, 9, 1], [38, 6, 2], [42, 4, 2], [46, 2, 2], [48, 4, 2], [52, 6, 2], [56, 8, 2], [60, 7, 4]] },
+  gauntlet: { chords: [0, 5, 3, 4], notes: [[0, 0, 2], [2, 4, 2], [4, 7, 2], [8, 6, 2], [10, 4, 2], [12, 2, 4], [16, 5, 2], [18, 7, 2], [20, 9, 4], [26, 7, 2], [28, 5, 4], [32, 3, 2], [34, 5, 2], [36, 7, 4], [42, 8, 2], [44, 7, 4], [48, 4, 2], [50, 6, 2], [52, 8, 2], [56, 7, 6], [62, 4, 2]] },
+  glitch: { chords: [0, 0, 5, 6], notes: [[0, 7, 1], [3, 7, 1], [6, 4, 1], [8, 7, 2], [12, 9, 1], [15, 7, 1], [16, 7, 1], [19, 4, 1], [22, 7, 2], [26, 2, 1], [30, 4, 2], [32, 5, 1], [35, 7, 1], [38, 9, 2], [42, 7, 1], [46, 5, 2], [48, 6, 1], [51, 8, 1], [54, 10, 2], [58, 8, 2], [62, 6, 2]] },
+  boxer: { chords: [0, 4, 0, 4], notes: [[0, 7, 2], [2, 4, 2], [4, 2, 4], [8, 0, 2], [10, 2, 2], [12, 4, 4], [16, 6, 3], [19, 8, 1], [20, 6, 4], [24, 4, 6], [30, 6, 2], [32, 7, 2], [34, 9, 2], [36, 7, 4], [40, 4, 2], [42, 2, 2], [44, 0, 4], [48, 4, 2], [50, 6, 2], [52, 8, 4], [56, 7, 6], [62, 4, 2]] },
+  gale: { chords: [0, 6, 3, 0], notes: [[0, 0, 3], [3, 2, 1], [4, 4, 4], [8, 4, 3], [11, 5, 1], [12, 4, 4], [16, 6, 3], [19, 8, 1], [20, 6, 4], [24, 3, 4], [28, 2, 4], [32, 3, 3], [35, 4, 1], [36, 5, 4], [40, 7, 4], [44, 5, 4], [48, 4, 3], [51, 2, 1], [52, 0, 4], [56, 0, 8]] },
+  pumpking: { chords: [0, 5, 3, 4], notes: [[0, 7, 6], [6, 6, 2], [8, 7, 4], [12, 4, 4], [16, 5, 6], [22, 7, 2], [24, 9, 4], [28, 8, 4], [32, 7, 4], [36, 5, 2], [38, 3, 2], [40, 5, 8], [48, 8, 4], [52, 6, 4], [56, 4, 6], [62, 6, 2]] },
+  halloween: { chords: [0, 5, 1, 4], notes: [[0, 7, 3], [3, 6, 1], [4, 7, 4], [10, 4, 2], [12, 2, 4], [16, 5, 3], [19, 7, 1], [20, 9, 4], [26, 7, 2], [28, 5, 4], [32, 8, 3], [35, 7, 1], [36, 8, 4], [42, 5, 2], [44, 3, 4], [48, 6, 3], [51, 4, 1], [52, 1, 4], [56, 0, 8]] },
+  titleRemix: { chords: [0, 6, 3, 4], notes: HERO_THEME.notes.map(([step, degree, len]) => [step, degree + (step >= 32 ? 7 : 0), len] as const) },
+};
+
 export const TRACKS: { id: TrackId; name: string; stage: number; boss?: boolean; bars?: number; theme?: Theme; style: Style }[] = [
   { id: 'title', stage: 0, name: 'Insert Coin', theme: HERO_THEME, style: { name: 'title', bpm: 104, root: 43, scale: MIXO, lead: 'square', arp: 'triangle', bass: 'triangle', padCut: 1400, swing: 0.12, drums: 'half', density: 5 } },
   { id: 'meadow', stage: 1, name: 'Bright Meadow', style: { name: 'meadow', bpm: 128, root: 48, scale: MAJOR, lead: 'pluck', arp: 'bell', bass: 'square', padCut: 1800, swing: 0, drums: 'four', density: 6 } },
@@ -102,13 +115,18 @@ export const TRACKS: { id: TrackId; name: string; stage: number; boss?: boolean;
   { id: 'queen', stage: 3, boss: true, name: 'Hive Queen · Royal Flight', style: { name: 'queen', bpm: 146, root: 41, scale: HARM_MINOR, lead: 'bell', arp: 'pluck', bass: 'square', padCut: 2200, swing: 0.08, drums: 'break', density: 6 } },
   { id: 'omega', stage: 4, boss: true, name: 'Omega · Last Light', theme: OMEGA_THEME, style: { name: 'omega', bpm: 168, root: 36, scale: PHRYG_DOM, lead: 'wide', arp: 'bell', bass: 'sawtooth', padCut: 1200, swing: 0, drums: 'gallop', density: 8 } },
   // Biome bosses (src/data/bosses3.ts): Glitch DJ plays at DJ_BPM, the tempo its attacks keep.
-  { id: 'glitch', stage: 5, boss: true, name: 'Glitch DJ · Bass Drop', style: { name: 'glitch', bpm: DJ_BPM, root: 37, scale: MINOR, lead: 'square', arp: 'pluck', bass: 'sawtooth', padCut: 1100, swing: 0, drums: 'four', density: 8 } },
-  { id: 'boxer', stage: 6, boss: true, name: 'Boxer Jack · Pop Goes the Beat', style: { name: 'boxer', bpm: 150, root: 43, scale: MIXO, lead: 'square', arp: 'bell', bass: 'square', padCut: 1500, swing: 0.12, drums: 'gallop', density: 7 } },
-  { id: 'gale', stage: 7, boss: true, name: 'Admiral Gale · Stormy Seas', style: { name: 'gale', bpm: 144, root: 38, scale: DORIAN, lead: 'wide', arp: 'triangle', bass: 'sawtooth', padCut: 1400, swing: 0, drums: 'gallop', density: 7 } },
+  { id: 'glitch', theme: AUDIO3_THEMES.glitch, stage: 5, boss: true, name: 'Glitch DJ · Bass Drop', style: { name: 'glitch', bpm: DJ_BPM, root: 37, scale: MINOR, lead: 'square', arp: 'pluck', bass: 'sawtooth', padCut: 1100, swing: 0, drums: 'four', density: 8 } },
+  { id: 'boxer', theme: AUDIO3_THEMES.boxer, stage: 6, boss: true, name: 'Boxer Jack · Pop Goes the Beat', style: { name: 'boxer', bpm: 150, root: 43, scale: MIXO, lead: 'bell', arp: 'bell', bass: 'square', padCut: 1500, swing: 0.12, drums: 'gallop', density: 7 } },
+  { id: 'gale', theme: AUDIO3_THEMES.gale, stage: 7, boss: true, name: 'Admiral Gale · Stormy Seas', style: { name: 'gale', bpm: 132, root: 38, scale: DORIAN, lead: 'organ', arp: 'triangle', bass: 'sawtooth', padCut: 1400, swing: 0.22, drums: 'break', density: 5 } },
+  { id: 'raid', stage: 1, boss: true, name: 'Raid · All Hands', theme: AUDIO3_THEMES.raid, style: { name: 'raid', bpm: 138, root: 33, scale: HARM_MINOR, lead: 'wide', arp: 'bell', bass: 'sawtooth', padCut: 1300, swing: 0, drums: 'half', density: 6 } },
+  { id: 'pvp', stage: 0, name: 'Arena · Face Off', theme: AUDIO3_THEMES.pvp, style: { name: 'pvp', bpm: 156, root: 38, scale: DORIAN, lead: 'square', arp: 'pluck', bass: 'sawtooth', padCut: 1600, swing: 0.06, drums: 'break', density: 8 } },
+  { id: 'gauntlet', stage: 0, name: 'Gauntlet · Never Yield', theme: AUDIO3_THEMES.gauntlet, style: { name: 'gauntlet', bpm: 148, root: 40, scale: MINOR, lead: 'pluck', arp: 'square', bass: 'sawtooth', padCut: 1500, swing: 0, drums: 'four', density: 7 } },
+  { id: 'titleRemix', stage: 0, name: 'Insert Coin · After Hours', theme: AUDIO3_THEMES.titleRemix, style: { name: 'titleRemix', bpm: 112, root: 43, scale: MIXO, lead: 'bell', arp: 'pluck', bass: 'triangle', padCut: 1500, swing: 0.18, drums: 'break', density: 5 } },
+  { id: 'pumpking', stage: 2, boss: true, name: 'Pumpking · Pipe Fright', theme: AUDIO3_THEMES.pumpking, style: { name: 'pumpking', bpm: 124, root: 38, scale: HARM_MINOR, lead: 'organ', arp: 'bell', bass: 'triangle', padCut: 950, swing: 0, drums: 'half', density: 5 } },
   { id: 'shop', stage: 0, name: 'Pocket Change', style: { name: 'shop', bpm: 96, root: 43, scale: MAJOR, lead: 'bell', arp: 'pluck', bass: 'triangle', padCut: 1000, swing: 0.2, drums: 'half', density: 4 } },
   { id: 'victory', stage: 1, bars: 2, name: 'Stage Clear!', theme: VICTORY_THEME, style: { name: 'victory', bpm: 132, root: 48, scale: MAJOR, lead: 'square', arp: 'bell', bass: 'triangle', padCut: 2400, swing: 0, drums: 'four', density: 6 } },
   { id: 'gameover', stage: 0, bars: 2, name: 'One More Coin', style: { name: 'gameover', bpm: 88, root: 48, scale: MINOR, lead: 'bell', arp: 'triangle', bass: 'triangle', padCut: 900, swing: 0, drums: 'half', density: 4 } },
-  { id: 'halloween', stage: 2, name: 'Midnight Candy Parade', style: { name: 'halloween', bpm: 116, root: 38, scale: HARM_MINOR, lead: 'sine', arp: 'square', bass: 'triangle', padCut: 750, swing: 0.12, drums: 'half', density: 4 } },
+  { id: 'halloween', theme: AUDIO3_THEMES.halloween, stage: 2, name: 'Midnight Candy Parade', style: { name: 'halloween', bpm: 116, root: 38, scale: HARM_MINOR, lead: 'sine', arp: 'square', bass: 'triangle', padCut: 750, swing: 0.12, drums: 'half', density: 4 } },
 ];
 
 export const TRACK_BY_ID = Object.fromEntries(TRACKS.map((t) => [t.id, t])) as Record<TrackId, (typeof TRACKS)[number]>;

@@ -8,6 +8,7 @@
  * the radio DJ). Local to each machine: systems/sound2.ts derives the moments
  * from synced state. SETTINGS > CROWD turns it off.
  */
+import { synthMasterGain } from './loudness';
 import { samples } from './samples';
 import { sfx } from './sfx';
 import { LaneVoice, noiseBuffer } from './synthGraph';
@@ -186,7 +187,7 @@ export class Crowd {
     this.lastReaction = kind;
     const k = Math.max(0.3, Math.min(1, strength));
     const g = ctx.createGain();
-    g.gain.value = crowdTuning.gain * (0.6 + 0.4 * k);
+    g.gain.value = synthMasterGain('crowd:' + kind) * crowdTuning.gain * (0.6 + 0.4 * k);
     g.connect(node);
     this.playing++;
     voice = new LaneVoice(ctx, g, () => {

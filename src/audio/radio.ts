@@ -12,6 +12,7 @@
  * WebAudio. Playback waits its turn on the shared voice channel.
  */
 import { samples } from './samples';
+import { synthMasterGain } from './loudness';
 import { sfx, type SynthKit } from './sfx';
 import { LaneVoice } from './synthGraph';
 import { VOWELS, speakSyllables, type Syllable, type Utterance } from './voice';
@@ -322,7 +323,7 @@ export class RadioDj {
     const ws = softClip(ctx);
     const outGain = ctx.createGain();
     // The soft clip lifts quiet syllables (x2.4 at small levels), so the output is trimmed back.
-    outGain.gain.value = radioTuning.out;
+    outGain.gain.value = radioTuning.out * synthMasterGain('radio');
     // Crunch first, then the band limit, so the clipping's harmonics stay inside the radio band.
     hp.connect(peak);
     if (ws) peak.connect(ws).connect(lp);

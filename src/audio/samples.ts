@@ -1,5 +1,6 @@
 import { spatialRoute, spatialTuning } from './spatial';
 import { distanceCutoff, soundTuning, VoiceBudget } from './mix';
+import { sampleMasterGain } from './loudness';
 import { sampleTune } from './soundTuning';
 
 /** Twelve short, common cues; the rest must not compete with the first stage. */
@@ -14,7 +15,7 @@ export function sampleLoadOrder(ids: readonly string[], wanted: readonly string[
 const pauseLoading = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 export interface SampleOptions {
-  bus?: 'sfx' | 'ui';
+  bus?: 'sfx' | 'ui' | 'voice';
   gain?: number;
   pan?: number;
   x?: number;
@@ -34,7 +35,7 @@ export interface SampleVoice {
 export class SampleEngine {
   readonly budget = new VoiceBudget();
   private ctx: AudioContext | null = null;
-  private outputs!: { sfx: AudioNode; ui: AudioNode };
+  private outputs!: { sfx: AudioNode; ui: AudioNode; voice?: AudioNode };
   private buffers = new Map<string, AudioBuffer>();
   private last = new Map<string, number>();
   private started = false;
@@ -45,12 +46,12 @@ export class SampleEngine {
   coreReady: Promise<void> = Promise.resolve();
   private coreDone: () => void = () => {};
   ready: Promise<void> = Promise.resolve();
-  private enabled: (bus: 'sfx' | 'ui') => boolean = () => true;
+  private enabled: (bus: 'sfx' | 'ui' | 'voice') => boolean = () => true;
 
   init(
     ctx: AudioContext,
-    outputs: { sfx: AudioNode; ui: AudioNode },
-    enabled: (bus: 'sfx' | 'ui') => boolean,
+    outputs: { sfx: AudioNode; ui: AudioNode; voice?: AudioNode },
+    enabled: (bus: 'sfx' | 'ui' | 'voice') => boolean,
   ): void {
     if (this.started) return;
     this.started = true;
@@ -73,6 +74,11 @@ export class SampleEngine {
           const file = await fetch(base + id + '.mp3');
           if (!file.ok) return;
           const buffer = await this.ctx!.decodeAudioData(await file.arrayBuffer());
+          const gain = sampleMasterGain(id);
+          for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+            const pcm = buffer.getChannelData(channel);
+            for (let i = 0; i < pcm.length; i++) pcm[i] *= gain;
+          }
           this.buffers.set(id, buffer);
         } catch {
           /* Missing/offline/unsupported audio leaves the synth fully usable. */
@@ -97,7 +103,7 @@ export class SampleEngine {
   }
 
   /** Would a sample on this bus be heard (unlocked, not muted, volume up)? */
-  canPlay(bus: 'sfx' | 'ui'): boolean {
+  canPlay(bus: 'sfx' | 'ui' | 'voice'): boolean {
     return !!this.ctx && this.ctx.state === 'running' && this.enabled(bus);
   }
 
@@ -151,7 +157,7 @@ export class SampleEngine {
     if (!release) return null;
     const src = ctx.createBufferSource();
     const gain = ctx.createGain();
-    const spatial = spatialRoute(ctx, this.outputs[options.bus ?? 'sfx'], options.pan ?? 0, options.bus === 'ui' ? NaN : options.x, options.bus === 'ui' ? NaN : options.z);
+    const spatial = spatialRoute(ctx, this.outputs[options.bus ?? 'sfx'] ?? this.outputs.sfx, options.pan ?? 0, options.bus === 'ui' ? NaN : options.x, options.bus === 'ui' ? NaN : options.z);
     const filter = ctx.createBiquadFilter();
     this.last.set(id, now);
     const variation = tune.variation ?? options.variation ?? 0.07;

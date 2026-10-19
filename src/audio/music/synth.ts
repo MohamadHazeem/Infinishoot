@@ -68,7 +68,7 @@ export class MusicSynth {
     const osc = ctx.createOscillator();
     const env = ctx.createGain();
     const hz = midiHz(midi);
-    osc.type = patch === 'bell' ? 'sine' : patch === 'wide' || patch === 'pluck' ? 'sawtooth' : patch;
+    osc.type = patch === 'bell' || patch === 'organ' ? 'sine' : patch === 'wide' || patch === 'pluck' ? 'sawtooth' : patch;
     osc.frequency.value = hz;
     const attack = Math.min(patch === 'wide' ? 0.025 : 0.008, dur / 4);
     env.gain.setValueAtTime(0.0001, t);
@@ -85,6 +85,15 @@ export class MusicSynth {
       env.connect(filter).connect(dest);
       voice.nodes.push(filter);
     } else env.connect(dest);
+    if (patch === 'organ') {
+      // Quiet upper pipes keep a hollow, sustained organ tone without doubling gain.
+      for (const [multiple, level] of [[2, 0.22], [3, 0.12], [4, 0.06]]) {
+        const pipe = ctx.createOscillator(), gain = ctx.createGain();
+        pipe.type = 'sine'; pipe.frequency.value = hz * multiple; gain.gain.value = level;
+        pipe.connect(gain).connect(env); pipe.start(t); pipe.stop(t + dur);
+        voice.nodes.push(pipe, gain);
+      }
+    }
     if (patch === 'wide' || patch === 'bell') {
       const second = ctx.createOscillator();
       second.type = patch === 'bell' ? 'sine' : 'sawtooth';

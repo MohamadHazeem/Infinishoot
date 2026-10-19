@@ -1,3 +1,4 @@
+import { FEATURE_CUES } from './featureSamples';
 import { BIOME_BY_ID, biomeForStage } from '../data/biomes';
 import { laneCuePriority } from './featureCues';
 /** Pure mix policy shared by samples and synth voices. */
@@ -42,6 +43,8 @@ export const weaponSamples: Readonly<Record<string, string>> = {
   explode: 'explode_small',
 };
 export const cueSamples: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(Object.entries(FEATURE_CUES).map(([cue, def]) => [cue, def.sample])),
+  'menu:flip': 'page_turn',
   pumpkinSquish: 'pumpkin_squish', witchCackle: 'witch_cackle', ghostWail: 'ghost_wail', halloweenBats: 'bats',
   spookySting: 'spooky_sting', halloweenVoice: 'vo_halloween', pumpkingRoar: 'roar_pumpking',
   pumpkingIntro: 'boss_pumpking_intro', pumpkingPhase: 'boss_pumpking_phase', pumpkingDefeat: 'boss_pumpking_defeat',
