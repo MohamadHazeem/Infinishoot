@@ -2,7 +2,7 @@ import { readableMaterial, noiseFor, type NoiseGovernor } from '../render/noiseG
 import * as THREE from 'three';
 import { shotColor } from './heroLooks';
 import { createRetroMaterial } from '../render/retroMaterial';
-import { commit } from '../render/instancing';
+import { commit, instanceMatrix } from '../render/instancing';
 import { KIND_SHAPE, SHAPE_COUNT, shapeGeometry, shapeSpin, BulletShape } from './bulletShapes';
 import { trails, TrailStyle } from './trails';
 
@@ -238,7 +238,8 @@ export class Bullets {
       blendDstAlpha: THREE.OneFactor,
     });
     this.tail = new THREE.InstancedMesh(tg, tailMat, MAX);
-    this.tail.instanceColor = this.mesh.instanceColor;
+    // Tails include shaped shots, while the plain core has its own packed slots.
+    this.tail.setColorAt(0, new THREE.Color());
     this.tail.frustumCulled = false;
     this.tail.renderOrder = 1;
     this.tail.count = 0;
@@ -377,12 +378,23 @@ export class Bullets {
     const F = bulletFxTuning;
     const pulse = this.noise.calm ? 1 : 1 + Math.min(0.06, F.enemyPulse) * Math.sin(this.time * Math.PI * 4);
     let enemyCount = 0;
+    let plainCount = 0;
+    let tailCount = 0;
     for (const sm of this.shapeMeshes) sm.core.count = 0;
     for (let i = 0; i < this.count; i++) {
       const x = this.px[i] + (this.x[i] - this.px[i]) * alpha;
       const z = this.pz[i] + (this.z[i] - this.pz[i]) * alpha;
       const yaw = Math.atan2(this.vx[i], this.vz[i]);
       this.q.setFromAxisAngle(this.up, yaw);
+      if (this.team[i] === Team.Enemy) {
+        // Enemy cores/rims already replace the old gem and transparent tail.
+        // Do not compose/upload hundreds of invisible instances as well.
+        this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(this.width[i] * pulse, this.width[i] * pulse, this.length[i] * pulse));
+        instanceMatrix(this.enemyCore, enemyCount++, this.m4);
+        this.rx[i] = x;
+        this.rz[i] = z;
+        continue;
+      }
       // Pop in over the first few frames so shots don't appear inside the gun.
       const grow = Math.min(1, 0.4 + this.age[i] * 12);
       // Shrink out over the last 0.08 s instead of vanishing.
@@ -396,12 +408,7 @@ export class Bullets {
       const len = this.length[i] * grow * fade;
       const sh = this.shape[i];
       const sm = sh ? this.shapeMeshes[sh - 1] : null;
-      if (this.team[i] === Team.Enemy) {
-        // Danger never shrinks to an unreadable point at spawn/expiry and has no white additive halo.
-        this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(this.width[i] * pulse, this.width[i] * pulse, this.length[i] * pulse));
-        this.enemyCore.setMatrixAt(enemyCount++, this.m4);
-        this.mesh.setMatrixAt(i, this.m4.makeScale(0, 0, 0));
-      } else if (sm && sm.core.count < SHAPE_MAX) {
+      if (sm && sm.core.count < SHAPE_MAX) {
         // Evolved shots (stars, flames, bolts, lances) draw in their own mesh; the gem slot hides.
         // Stars spin and stay round; flames flicker; bolts jitter.
         this.q3.copy(this.q);
@@ -412,14 +419,13 @@ export class Bullets {
         else this.s.set(w * (sh === BulletShape.Flame ? 1.15 : sh === BulletShape.Bolt ? 2.4 : 1.4) * flick, w, len * (sh === BulletShape.Flame ? 1.1 * (2 - flick) : 1));
         this.m4.compose(this.p.set(x, BULLET_Y, z), this.q3, this.s);
         const k = sm.core.count++;
-        sm.core.setMatrixAt(k, this.m4);
+        instanceMatrix(sm.core, k, this.m4);
         sm.core.setColorAt(k, col);
-        this.mesh.setMatrixAt(i, this.m4.makeScale(0, 0, 0));
       } else {
         this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(w, w, look === BulletLook.Enemy ? len * pulse : len));
-        this.mesh.setMatrixAt(i, this.m4);
+        instanceMatrix(this.mesh, plainCount, this.m4);
+        this.mesh.setColorAt(plainCount++, col);
       }
-      this.mesh.setColorAt(i, col);
 
       // Tail: grows out of the gun with distance flown, sits behind the bullet.
       const sp = Math.hypot(this.vx[i], this.vz[i]) || 1;
@@ -429,8 +435,9 @@ export class Bullets {
       const dz = this.vz[i] / sp;
       const back = len * 0.35 + tl * 0.5;
       this.m4.compose(this.p.set(x - dx * back, BULLET_Y - 0.02, z - dz * back), this.q, this.s.set(Math.max(0.06, w * T.width * 1.6), 1, Math.max(0.01, tl)));
-      this.tail.setMatrixAt(i, this.m4);
-      ta[i] = tl > 0.05 && this.team[i] === Team.Player ? T.alpha * this.noise.alpha(x, z) : 0;
+      instanceMatrix(this.tail, tailCount, this.m4);
+      this.tail.setColorAt(tailCount, col);
+      ta[tailCount++] = tl > 0.05 ? T.alpha * this.noise.alpha(x, z) : 0;
 
       // Extra trail pieces from where it was drawn last frame (cosmetic, capped per frame).
       const lx = this.rx[i];
@@ -453,10 +460,12 @@ export class Bullets {
     }
     this.enemyCore.count = this.enemyRim.count = enemyCount;
     commit(this.enemyCore.instanceMatrix, enemyCount);
-    this.mesh.count = this.halo.count = this.tail.count = this.count;
+    this.mesh.count = this.halo.count = plainCount;
+    this.tail.count = tailCount;
     commit(this.mesh.instanceMatrix, this.mesh.count);
-    commit(this.tail.instanceMatrix, this.count);
-    commit(this.tailAlpha, this.count);
+    commit(this.tail.instanceMatrix, tailCount);
+    commit(this.tailAlpha, tailCount);
+    if (this.tail.instanceColor) commit(this.tail.instanceColor, tailCount);
     if (this.mesh.instanceColor) commit(this.mesh.instanceColor, this.mesh.count);
     for (const sm of this.shapeMeshes) {
       sm.halo.count = sm.core.count;

@@ -15,13 +15,17 @@ export const prof = {
   t: 0,
 };
 
+// Replay scopes replace performance.now with the simulation clock. Profiling must
+// retain the native monotonic clock, including inside update/render callbacks.
+const wallNow = performance.now.bind(performance);
+
 export function lapStart(): void {
-  if (prof.on) prof.t = performance.now();
+  if (prof.on) prof.t = wallNow();
 }
 
 export function lap(name: string): void {
   if (!prof.on) return;
-  const now = performance.now();
+  const now = wallNow();
   prof.phase[name] = (prof.phase[name] ?? 0) + (now - prof.t);
   prof.t = now;
 }

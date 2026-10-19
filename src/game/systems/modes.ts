@@ -523,12 +523,18 @@ export function modesRunEnd(this: Game): void {
 // ------------------------------------------------------------------ render
 
 /** Drawing and HUD for everything above (every machine, every frame). */
+const idleViews = new WeakSet<Game>();
 export function renderModes(this: Game, dt: number): void {
   const M = this.modes;
-  M.view ??= new ModesView(this.scene);
-  M.hud ??= new ModesHud(this.reticle);
   M.screen ??= new GhostScreen(this);
   const combat = this.isCombatMode && this.mode !== 'title';
+  const active = !!M.mg || combat && (M.rhythm || M.pacifist || !!M.rival && ghostRun(this));
+  if (!active) {
+    if (!M.view || idleViews.has(this)) return;
+    idleViews.add(this); // draw once to clear the previous mode's floor, ghost and HUD
+  } else idleViews.delete(this);
+  M.view ??= new ModesView(this.scene);
+  M.hud ??= new ModesHud(this.reticle);
   const phase = beatPhase(M.beat);
   const rhythmOn = M.rhythm && combat;
   // Pull the music onto the game's beat (only while the stage song or boss theme the clock follows plays).

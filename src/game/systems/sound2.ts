@@ -203,9 +203,16 @@ function hear(g: Game, L: LaneState, e: Enemy): typeof lureOut | null {
     const d = (t.x - e.x) ** 2 + (t.z - e.z) ** 2;
     if (d < hd) hd = d;
   }
+  // Inside engagement distance the decision is always normal chase, regardless
+  // of sound. Avoid scanning all noise blobs for every nearby swarmer.
+  if (hd < hearingTuning.engage * hearingTuning.engage) {
+    L.anchors.delete(e.uid);
+    return null;
+  }
   hd = Math.sqrt(hd);
   const heard = L.noise.loudest(e.x, e.z, hearingTuning.range * ears, spot);
-  const dec = hearDecision(heard, hd, heard > 0 ? Math.hypot(spot.x - e.x, spot.z - e.z) : 0);
+  const dx = spot.x - e.x, dz = spot.z - e.z;
+  const dec = hearDecision(heard, hd, heard > 0 ? Math.sqrt(dx * dx + dz * dz) : 0);
   if (dec === HEARD.None) {
     L.anchors.delete(e.uid);
     return null;

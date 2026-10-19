@@ -140,7 +140,9 @@ const loop = new GameLoop({
     renderer.gl.setClearColor(retroGlobals.uFogColor.value); // follows the biome
     renderer.render(game.scene, game.cam.camera);
     photo?.afterRender();
+    const clipStart = prof.on ? performance.now() : 0;
     captureClips(game, canvas, frameDt);
+    if (prof.on) prof.phase['ren.clipCapture'] = (prof.phase['ren.clipCapture'] ?? 0) + performance.now() - clipStart;
     // Startup milestones: a submitted WebGL frame, not just constructed DOM.
     if (!titleMeasured && game.mode === 'title') {
       titleMeasured = true;

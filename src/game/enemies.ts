@@ -9,7 +9,7 @@ import { paint } from '../render/geometry';
 import { textures } from '../render/textures';
 import type { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
 import type { AABB } from '../world/collision';
-import { commit } from '../render/instancing';
+import { commit, instanceMatrix } from '../render/instancing';
 import { viewCull } from '../render/viewCull';
 import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
 import { Corpses, EnemyAnim, poseEnemy, type EnemyPose } from './enemyAnim';
@@ -952,7 +952,7 @@ export class Enemies {
     const bt = this.batch(def);
     if (bt.mesh.count >= BATCH_CAP) return;
     const i = bt.mesh.count++;
-    bt.mesh.setMatrixAt(i, m);
+    instanceMatrix(bt.mesh, i, m);
     bt.flash.setXYZW(i, r, g, b, a);
     bt.health?.setX(i, 0);
   };
@@ -960,7 +960,7 @@ export class Enemies {
     const d = this.decals;
     if (d.shadows.count >= 2048) return;
     this.m4.makeScale(size, 1, size).setPosition(x, 0.02, z);
-    d.shadows.setMatrixAt(d.shadows.count++, this.m4);
+    instanceMatrix(d.shadows, d.shadows.count++, this.m4);
   };
 
   constructor(private scene: THREE.Scene) {
@@ -1761,7 +1761,7 @@ export class Enemies {
         const k = 1 - e.t / SPAWN_TIME;
         const ring = (1.6 - k * 0.6) * e.radius * 1.6;
         this.m4.makeScale(ring, 1, ring).setPosition(x, 0.03, z);
-        d.markers.setMatrixAt(d.markers.count++, this.m4);
+        instanceMatrix(d.markers, d.markers.count++, this.m4);
         const pop = Math.max(0, (k - 0.4) / 0.6);
         if (pop <= 0) continue;
         sx *= pop;
@@ -1772,11 +1772,11 @@ export class Enemies {
         if (d.mounds.count < 64) {
           const rumble = 1 + (this.familyReduceFlash ? 0 : 0.045) * Math.sin(time * 16 + e.uid);
           this.m4.makeScale(e.radius * 1.6, e.radius * 0.42 * rumble, e.radius * 1.3).setPosition(x, 0.13, z);
-          d.mounds.setMatrixAt(d.mounds.count++, this.m4);
+          instanceMatrix(d.mounds, d.mounds.count++, this.m4);
         }
         if (e.familyState === 2 && d.zones.count < d.zones.instanceMatrix.count - 2) {
           this.m4.makeScale(e.def.burrow!.radius * e.scale, 1, e.def.burrow!.radius * e.scale).setPosition(e.targetX, 0.055, e.targetZ);
-          if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
+          if (d.zones.count < d.zones.instanceMatrix.count) instanceMatrix(d.zones, d.zones.count++, this.m4);
         }
         continue;
       }
@@ -1787,17 +1787,17 @@ export class Enemies {
           const reach = beamReach(x, z, Math.sin(angle), Math.cos(angle), e.copyRange, this.renderWalls);
           this.q.setFromAxisAngle(this.up, angle);
           this.m4.compose(this.v.set(x, e.state === 'windup' ? 0.08 : 0.85, z), this.q, this.s.set(e.state === 'windup' ? 0.07 : e.copyWidth * 2, 1, reach));
-          d.copyBeams.setMatrixAt(d.copyBeams.count++, this.m4);
+          instanceMatrix(d.copyBeams, d.copyBeams.count++, this.m4);
         }
       }
       if (e.def.special && e.state === 'windup' && e.familyState === 1 && d.lines.count < d.lines.instanceMatrix.count) {
         this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
         this.m4.compose(this.v.set(Math.abs(e.lungeX) > 0.5 ? -this.renderBounds : e.targetX, 0.055, Math.abs(e.lungeZ) > 0.5 ? -this.renderBounds : e.targetZ), this.q, this.s.set(1.2, 1, this.renderBounds * 2));
-        d.lines.setMatrixAt(d.lines.count++, this.m4);
+        instanceMatrix(d.lines, d.lines.count++, this.m4);
       }
       if (e.def.behavior === 'egg' && d.heals.count < 32) {
         this.m4.makeScale(e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch), 1, e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch)).setPosition(x, 0.06, z);
-        d.heals.setMatrixAt(d.heals.count++, this.m4);
+        instanceMatrix(d.heals, d.heals.count++, this.m4);
       }
       // Body language: gait, lean, wind-up pose, hit wobble (cosmetic, src/game/enemyAnim.ts).
       poseEnemy(e, e.anim, x, z, fdt, time, P);
@@ -1811,40 +1811,40 @@ export class Enemies {
           this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
           const w = e.t < 0.3 ? 0.3 : 0.12;
           this.m4.compose(this.v.set(x, 0.05, z), this.q, this.s.set(w, 1, 20));
-          if (d.lines.count < d.lines.instanceMatrix.count) d.lines.setMatrixAt(d.lines.count++, this.m4);
+          if (d.lines.count < d.lines.instanceMatrix.count) instanceMatrix(d.lines, d.lines.count++, this.m4);
         } else if (e.def.behavior === 'charger' || ((e.def.behavior === 'rex' || e.def.behavior === 'omega') && e.action === 'charge')) {
           const C = e.def.charge ?? { speed: 24, duration: 0.5 };
           const len = C.speed * C.duration + 1;
           this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
           this.m4.compose(this.v.set(x, 0.04, z), this.q, this.s.set(e.radius * 1.6, 1, len));
-          if (d.lines.count < d.lines.instanceMatrix.count) d.lines.setMatrixAt(d.lines.count++, this.m4);
+          if (d.lines.count < d.lines.instanceMatrix.count) instanceMatrix(d.lines, d.lines.count++, this.m4);
         } else if (e.def.behavior === 'exploder') {
           const F = e.def.fuse!;
           const k = 1 - e.t / aggro(e, F.time, true);
           sx *= 1 + k * 0.35;
           sy *= 1 + k * 0.35;
           this.m4.makeScale(F.radius, 1, F.radius).setPosition(x, 0.05, z);
-          if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
+          if (d.zones.count < d.zones.instanceMatrix.count) instanceMatrix(d.zones, d.zones.count++, this.m4);
         }
       }
       // Leaper landing ring (filled while it's in the air) and the medic's heal pulse.
       if (e.def.leap && (e.state === 'windup' || e.state === 'attack') && d.discs.count < d.discs.instanceMatrix.count && d.zones.count < d.zones.instanceMatrix.count - 2) {
         const lr = e.def.leap.radius * e.scale;
         this.m4.makeScale(lr, 1, lr).setPosition(e.targetX, 0.05, e.targetZ);
-        if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
+        if (d.zones.count < d.zones.instanceMatrix.count) instanceMatrix(d.zones, d.zones.count++, this.m4);
         if (e.state === 'attack') {
           this.m4.setPosition(e.targetX, 0.045, e.targetZ);
-          d.discs.setMatrixAt(d.discs.count++, this.m4);
+          instanceMatrix(d.discs, d.discs.count++, this.m4);
         }
       }
       if (e.def.heal && e.state === 'windup' && d.heals.count < 32) {
         const hr = e.def.heal.radius * e.scale * (0.7 + 0.3 * Math.min(1, Math.max(0, 1 - e.t / e.def.heal.windup)));
         this.m4.makeScale(hr, 1, hr).setPosition(x, 0.05, z);
-        d.heals.setMatrixAt(d.heals.count++, this.m4);
+        instanceMatrix(d.heals, d.heals.count++, this.m4);
       }
       if ((e.def.behavior === 'boss' || e.def.behavior === 'omega' || e.def.behavior === 'boxer') && e.action === 'slam' && (e.state === 'windup' || e.state === 'attack')) {
         this.m4.makeScale(3.8, 1, 3.8).setPosition(e.targetX, 0.05, e.targetZ);
-        if (d.zones.count < d.zones.instanceMatrix.count) d.zones.setMatrixAt(d.zones.count++, this.m4);
+        if (d.zones.count < d.zones.instanceMatrix.count) instanceMatrix(d.zones, d.zones.count++, this.m4);
       }
 
       // Off screen: no body, shadow or aura (telegraphs above still draw; they can be long).
@@ -1855,7 +1855,7 @@ export class Enemies {
       const i = b.mesh.count++;
       this.q.setFromEuler(this.euler.set(P.pitch, e.facing + P.yaw, P.roll));
       this.m4.compose(this.v.set(x + P.ox, y, z + P.oz), this.q, this.s.set(sx * P.sx, sy * P.sy, sx * P.sz));
-      b.mesh.setMatrixAt(i, this.m4);
+      instanceMatrix(b.mesh, i, this.m4);
       b.health?.setX(i, Math.max(0, Math.min(1, e.hp / Math.max(1, e.maxHp))));
 
       // Flash priority: hit > frozen > telegraph > elite glow.
@@ -1886,7 +1886,7 @@ export class Enemies {
         const ar = e.radius * 1.35;
         this.q.setFromAxisAngle(this.up, -time * 2);
         this.m4.compose(this.v.set(x, 0.034, z), this.q, this.s.set(ar, 1, ar));
-        d.auras.setMatrixAt(d.auras.count, this.m4);
+        instanceMatrix(d.auras, d.auras.count, this.m4);
         d.auras.setColorAt(d.auras.count++, this.col.set('#ffcd75'));
       }
 
@@ -1895,18 +1895,18 @@ export class Enemies {
         const ar = e.radius * (1.7 + 0.08 * Math.sin(time * 8 + e.uid));
         this.q.setFromAxisAngle(this.up, time * 1.5);
         this.m4.compose(this.v.set(x, 0.035, z), this.q, this.s.set(ar, 1, ar));
-        d.auras.setMatrixAt(d.auras.count, this.m4);
+        instanceMatrix(d.auras, d.auras.count, this.m4);
         d.auras.setColorAt(d.auras.count++, this.col.set(e.mod.color));
         if (e.shield > 0) {
           const br = e.radius * 1.45;
           this.m4.compose(this.v.set(x, y + e.radius * 0.9, z), this.q, this.s.set(br, br, br));
-          d.bubbles.setMatrixAt(d.bubbles.count++, this.m4);
+          instanceMatrix(d.bubbles, d.bubbles.count++, this.m4);
         }
       }
 
       const ss = e.radius * 2.6 * Math.min(1, sx / e.scale) * (1 - Math.min(0.6, e.hopY * 0.1));
       this.m4.makeScale(ss, 1, ss).setPosition(x, 0.02, z);
-      d.shadows.setMatrixAt(d.shadows.count++, this.m4);
+      instanceMatrix(d.shadows, d.shadows.count++, this.m4);
     }
 
     this.corpses.render(fdt, time, this.m4, this.putCorpse, this.putShadow);
@@ -1915,12 +1915,12 @@ export class Enemies {
     for (const zn of this.zones) {
       if (d.zones.count >= d.zones.instanceMatrix.count - 2 || d.discs.count >= d.discs.instanceMatrix.count) break;
       this.m4.makeScale(zn.r, 1, zn.r).setPosition(zn.x, 0.045, zn.z);
-      d.discs.setMatrixAt(d.discs.count++, this.m4);
+      instanceMatrix(d.discs, d.discs.count++, this.m4);
       this.m4.makeScale(zn.r, 1, zn.r).setPosition(zn.x, 0.05, zn.z);
-      d.zones.setMatrixAt(d.zones.count++, this.m4);
+      instanceMatrix(d.zones, d.zones.count++, this.m4);
       const k = Math.max(0.05, zn.t / zn.life) * zn.r;
       this.m4.makeScale(k, 1, k).setPosition(zn.x, 0.05, zn.z);
-      d.zones.setMatrixAt(d.zones.count++, this.m4);
+      instanceMatrix(d.zones, d.zones.count++, this.m4);
     }
     for (const b of this.batches.values()) {
       commit(b.mesh.instanceMatrix, b.mesh.count);
