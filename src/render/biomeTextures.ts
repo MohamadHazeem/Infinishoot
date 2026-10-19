@@ -210,10 +210,10 @@ export const biomeTextures = {
   cloudPuffs: () =>
     makeTexture(64, (ctx, s, rng) => {
       ctx.clearRect(0, 0, s, s);
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < 4; i++) {
         const x = rng.int(0, s - 1);
         const y = rng.int(0, s - 1);
-        const r = rng.int(4, 9);
+        const r = rng.int(4, 8);
         for (let dy = -r; dy <= r; dy++)
           for (let dx = -r * 2; dx <= r * 2; dx++) {
             if (dx * dx * 0.25 + dy * dy * 1.6 > r * r) continue;

@@ -21,7 +21,7 @@ export const worldDustTuning = {
 };
 
 /** Dust tint and footprint tint per biome (no prints on grass or ash). */
-const DUST: Record<string, string> = { meadow: '#e6d9a8', dunes: '#ffcf95', peaks: '#ffffff', magma: '#8d7aa3' };
+const DUST: Record<string, string> = { meadow: '#e6d9a8', dunes: '#ffcf95', peaks: '#ffffff', magma: '#8d7aa3', neon: '#7a7ab8', sky: '#f2f0ff' };
 const PRINT: Record<string, string> = { dunes: '#8a4a2a', peaks: '#5d7fbf' };
 
 interface HeroFx {

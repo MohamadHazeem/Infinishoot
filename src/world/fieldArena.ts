@@ -746,7 +746,7 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
     puffGeo.rotateX(-Math.PI / 2);
     const puv = puffGeo.getAttribute('uv') as THREE.BufferAttribute;
     for (let k = 0; k < puv.count; k++) puv.setXY(k, puv.getX(k) * 20, puv.getY(k) * 20);
-    const puffs = new THREE.Mesh(puffGeo, createRetroMaterial({ map: biomeTex('cloudPuffs'), unlit: 0.6, transparent: true, alphaTest: 0.5, uvScroll: [0.03, 0.012] }));
+    const puffs = new THREE.Mesh(puffGeo, createRetroMaterial({ map: biomeTex('cloudPuffs'), color: '#eef6ff', unlit: 0.6, transparent: true, alphaTest: 0.5, uvScroll: [0.03, 0.012] }));
     puffs.position.y = -6.5;
     group.add(puffs);
     skyIslets(group, rng, HALF, tex.sand, tex.grass, leafMat, trunkMat);

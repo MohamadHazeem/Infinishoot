@@ -190,5 +190,41 @@ if (v) {
 g.loadStage(5);
 ok(biomeForStage(g.arenaStage).id === 'neon' && sampleWind(g, 0).s === 0, 'stage 5 is Neon City, no wind there');
 for (let i = 0; i < 120; i++) g.update(1 / 60);
+
+// --- Co-op: a host and a client in-process; the client rebuilds the same chasms and feels the same wind ---
+const { unlockedWeapons } = await import('../src/game/save');
+const mk = () => new Game(new Input(canvas), 16 / 9, document.getElementById('hud')!, document.getElementById('reticle')!);
+const A = mk();
+const B = mk();
+const q: [any, any][] = [];
+(A as any).role = 'host';
+(A as any).host = { send: (_id: string, m: any) => q.push([B, m]), broadcast: (m: any) => q.push([B, m]), close() {} };
+(B as any).role = 'client';
+(B as any).client = { send: (m: any) => q.push([A, m]), close() {} };
+const flush = () => {
+  while (q.length) {
+    const [to, m] = q.shift()!;
+    if (to === A) A.onHostMessage('peerB', structuredClone(m));
+    else B.onClientMessage(structuredClone(m));
+  }
+};
+A.setHeroes([A.makeHero(0, 'Host', unlockedWeapons()), A.makeHero(1, 'Guest', [], 'peerB')]);
+A.startRun();
+flush();
+if (A.mode === 'shop') A.closeShop();
+flush();
+A.loadStage(7);
+flush();
+for (let i = 0; i < 90; i++) {
+  A.update(1 / 60);
+  flush();
+  B.update(1 / 60);
+  flush();
+}
+const gapsA = JSON.stringify(A.arena.deco?.gaps);
+ok(biomeForStage(B.arenaStage).id === 'sky' && gapsA === JSON.stringify(B.arena.deco?.gaps) && A.arena.colliders.filter((c) => c.gap).length === B.arena.colliders.filter((c) => c.gap).length, 'client builds the same Sky Fortress chasms');
+const wa = { ...sampleWind(A, 0) };
+const wb = { ...sampleWind(B, 0) };
+ok(Math.abs(wa.t - wb.t) < 0.6 && Math.abs(wa.x * wb.x + wa.z * wb.z - 1) < 0.01, `client wind matches the host (clock ${wa.t.toFixed(2)} vs ${wb.t.toFixed(2)})`);
 ok(errors.length === 0, 'no runtime errors' + (errors.length ? ':\n' + errors.slice(0, 3).join('\n') : ''));
 process.exit(process.exitCode ?? 0);

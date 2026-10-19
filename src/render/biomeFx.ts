@@ -16,7 +16,7 @@ export const biomeFxTuning = {
   /** Steam: seconds a vent puffs, then rests (min, max). */
   ventOn: 2.6,
   ventOff: [2.5, 6] as [number, number],
-  puffEvery: 0.09,
+  puffEvery: 0.06,
   puffLife: 1.5,
   puffRise: 2.4,
   /** Holograms: base brightness and how often they glitch (per second). */
@@ -27,6 +27,7 @@ export const biomeFxTuning = {
 };
 
 const MAX_PUFFS = 160;
+const FLAG_W = 2;
 
 interface Holo {
   mesh: THREE.Mesh;
@@ -102,7 +103,7 @@ export class BiomeFx {
       this.holos.push({ mesh, mat, base: new THREE.Color(h.color), x: h.x, glitch: 0, ph: Math.random() * 10 });
     }
     if (deco.vents.length) {
-      const mat = createRetroMaterial({ color: '#d8d0ff', unlit: 0.45 });
+      const mat = createRetroMaterial({ color: '#f4f0ff', unlit: 0.7 });
       this.puffs = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.22, 0), mat, MAX_PUFFS);
       this.puffs.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       this.puffs.frustumCulled = false;
@@ -113,11 +114,11 @@ export class BiomeFx {
     if (deco.flags.length) {
       const cloth = biomeTex('cloth');
       for (const f of deco.flags) {
-        const geo = new THREE.PlaneGeometry(1.5, 0.95, 6, 2);
-        geo.translate(0.75, 0, 0); // hinge on the pole
-        const mat = createRetroMaterial({ map: cloth, color: f.color, unlit: 0.25, side: THREE.DoubleSide });
+        const geo = new THREE.PlaneGeometry(FLAG_W, 1.25, 6, 2);
+        geo.translate(FLAG_W / 2, 0, 0); // hinge on the pole
+        const mat = createRetroMaterial({ map: cloth, color: f.color, unlit: 0.4, side: THREE.DoubleSide });
         const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(f.x, f.h - 0.4, f.z);
+        mesh.position.set(f.x, f.h - 0.55, f.z);
         group.add(mesh);
         const pos = geo.getAttribute('position') as THREE.BufferAttribute;
         pos.setUsage(THREE.DynamicDrawUsage);
@@ -178,7 +179,7 @@ export class BiomeFx {
         this.pl[n] = this.pl[i];
         this.pvx[n] = this.pvx[i];
         this.pvz[n] = this.pvz[i];
-        const sc = (0.5 + k * 1.6) * (k > 0.65 ? (1 - k) / 0.35 : 1);
+        const sc = (0.45 + k * 1.2) * (k > 0.65 ? (1 - k) / 0.35 : 1);
         this.q.setFromEuler(this.e.set(k * 2, i * 0.7, 0));
         this.m4.compose(this.v.set(this.px[n], this.py[n], this.pz[n]), this.q, this.s.set(sc, sc * 0.8, sc));
         pm.setMatrixAt(n, this.m4);
@@ -200,7 +201,7 @@ export class BiomeFx {
         const a = f.pos.array as Float32Array;
         const r = f.rest;
         for (let k = 0; k < a.length; k += 3) {
-          const u = r[k] / 1.5;
+          const u = r[k] / FLAG_W;
           a[k + 2] = Math.sin(t * freq - u * 5 + f.ph) * amp * 3 * u;
           a[k + 1] = r[k + 1] - u * u * 0.25 * (1 - wind.gust) + Math.sin(t * freq * 0.5 - u * 3) * 0.04 * u;
         }
