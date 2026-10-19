@@ -87,9 +87,7 @@ export function spawnBoss(this: Game, def: EnemyDef): void {
   const p = (this.aliveHeroes[0] ?? this.hero).player;
   const pos = this.ringPoint(13, 16, def.radius + 0.5) ?? { x: p.x + 12, z: p.z };
   this.boss = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ hpMul: this.director.bossHpMul }));
-  this.vfx.banner('WARNING!', `${def.name.toUpperCase()} APPROACHES`, 2.2);
-  this.vfx.sound('boss', NaN, NaN);
-  this.vfx.shake(NaN, NaN, 0.6);
+  this.startBossIntro(this.boss); // entrance cinematic (or the WARNING banner), see systems/bossFight.ts
 }
 
 /** Keep the action near the heroes: enemies far from everyone re-enter ahead. */

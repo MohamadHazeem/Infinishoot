@@ -75,7 +75,8 @@ export interface HudState {
   gold: number;
   /** Level-up rerolls held (max MAX_GEARS). */
   gears: number;
-  boss: { name: string; hp01: number } | null;
+  /** Boss (or mini-boss) bar; `ticks` = HP fractions where phases change, `phase` = current phase. */
+  boss: { name: string; hp01: number; ticks?: number[]; phase?: number; mini?: boolean } | null;
   /** Event, challenge and power-up lines under the timer. */
   spice: { text: string; kind: 'event' | 'challenge' | 'done' | 'buff' }[];
   lowHp: boolean;
@@ -194,7 +195,7 @@ export class Hud {
          <div id="timer"><div class="clock"></div><div class="stage"></div></div>
          <div id="spice"></div>
          <button id="pausebtn" title="Pause (Esc)" aria-label="Pause">II</button>
-         <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div></div></div>
+         <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div><div class="ticks"></div></div><div class="ph"></div></div>
          <div id="toast"></div>
          <div id="chestreveal" hidden></div>
          <div id="score">0</div>
@@ -580,8 +581,18 @@ export class Hud {
     const bb = this.el('#bossbar');
     bb.hidden = !s.boss;
     if (s.boss) {
-      this.text('#bossbar .name', s.boss.name.toUpperCase());
+      this.text('#bossbar .name', (s.boss.mini ? 'MINI-BOSS · ' : '') + s.boss.name.toUpperCase());
       this.el('#bossbar .fill').style.transform = `scaleX(${s.boss.hp01})`;
+      // Phase ticks on the bar and pips for the phases reached.
+      const ticks = (s.boss.ticks ?? []).map((t) => `<i style="left:${(t * 100).toFixed(1)}%"></i>`).join('');
+      if (this.lastText['#bossbar .ticks'] !== ticks) {
+        this.lastText['#bossbar .ticks'] = ticks;
+        this.el('#bossbar .ticks').innerHTML = ticks;
+      }
+      const n = (s.boss.ticks?.length ?? 0) + 1;
+      const ph = s.boss.phase ?? 1;
+      this.text('#bossbar .ph', n > 1 ? `PHASE ${ph} / ${n}` : '');
+      bb.classList.toggle('mini', !!s.boss.mini);
     }
 
     const spice = s.spice.map((l) => `<div class="${l.kind}">${l.text}</div>`).join('');

@@ -211,6 +211,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     this.lead.set(this.aimHit.x - this.playerPos.x, 0, this.aimHit.z - this.playerPos.z).multiplyScalar(cameraTuning.lookAhead);
     if (this.lead.length() > cameraTuning.lookAheadMax) this.lead.setLength(cameraTuning.lookAheadMax);
   }
+  this.renderBossFight(frameDt, frozen || this.paused);
   this.juice.shakeOffset(this.shake);
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
 
@@ -290,7 +291,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
       kills: this.kills,
       gold: local.gold,
       gears: local.rerollsLeft,
-      boss,
+      boss: this.bossHud(boss),
       lowHp: !p.dead && p.hp / p.maxHp <= 0.3 && this.mode !== 'title',
       spice: this.spiceLines(),
     },

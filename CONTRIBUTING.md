@@ -24,6 +24,7 @@ Open the game straight into a situation: `http://localhost:5173/?test&...` (also
 - `hero=ace`, `mode=endless`, `difficulty=hard`, `loadout=laser,well,meteor` (left, right, special)
 - `weapons=drones:6,aura:5` (6 levels = evolved), `passives=armor:2`, `gold=200`
 - `elite=charger:shielded`, `event=meteors`
+- Bosses: `bossnow` (the stage boss right away), `phase=2` (push it into a phase once its entrance ends), `miniboss` (this stage's mini-boss now), `nointro` (skip entrances)
 
 ## Rules of thumb
 - Gameplay runs in `update()` and on the host; anything clients need goes through snapshots or the effects bus (`game.vfx`). Cosmetic-only things can be derived locally in render.

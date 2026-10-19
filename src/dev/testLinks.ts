@@ -14,6 +14,8 @@ import { settings } from '../game/settings';
  *   ?test&hero=ace&mode=endless&god    hero, mode, no damage
  *   ?test&elite=charger:shielded       spawn an elite with a modifier
  *   ?test&event=meteors&passives=armor:2,magnet:1&gold=200&seed=42
+ *   ?test&stage=2&bossnow&phase=2&god  boss right away, pushed into phase 2 (nointro skips the entrance)
+ *   ?test&stage=3&miniboss             the stage's mini-boss lands now
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -57,5 +59,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
+  // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
+  if (q.has('nointro')) settings.bossIntros = false;
+  game.debugBoss({ now: q.has('bossnow'), mini: q.has('miniboss'), phase: Number(q.get('phase')) || 0 });
   return true;
 }

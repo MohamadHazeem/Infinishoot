@@ -32,6 +32,8 @@ export interface Settings {
   quality: number;
   /** Last loadout picked (left click, right click, special). */
   loadout: Loadout;
+  /** Boss entrance cinematics (letterbox, camera pan, title card). */
+  bossIntros: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -57,6 +59,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   reduceFlash: false,
   quality: 1,
   loadout: { ...DEFAULT_LOADOUT },
+  bossIntros: true,
 });
 settings.loadout = validLoadout(settings.loadout);
 

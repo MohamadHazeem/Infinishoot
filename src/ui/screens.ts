@@ -138,7 +138,7 @@ export interface RunSummary {
 }
 
 /** Settings switched by ON/OFF buttons. */
-type ToggleKey = 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash';
+type ToggleKey = 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'bossIntros';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -280,6 +280,7 @@ export class Screens {
     <button data-nav data-toggle="rumble">CONTROLLER RUMBLE <b></b></button>
     <button data-nav data-toggle="colorblind">COLOUR-BLIND BULLETS <b></b></button>
     <button data-nav data-toggle="reduceFlash">REDUCE FLASHING <b></b></button>
+    <button data-nav data-toggle="bossIntros">BOSS INTROS <b></b></button>
     <button data-nav data-act="controls">CONTROLS...</button>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
     <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>
