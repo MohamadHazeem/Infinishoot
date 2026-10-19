@@ -11,6 +11,7 @@ import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
+import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -44,6 +45,9 @@ import { renderQuality } from '../render/quality';
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
+ *   ?test&stage=3&route                the route map opens now (choice for stage 4); &path=1,0 picks those roads first
+ *   ?test&stage=2&node=treasure        this stage plays as a route node (elite, shop, treasure, event, rest, hard)
+ *   ?test&encounter=altar              a route encounter right away (altar, gambler, idol, spring, dojo, shrine)
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
@@ -125,6 +129,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
+  routeLinks(game, q);
   animLinks(game, q);
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
@@ -314,4 +319,22 @@ function animLinks(game: Game, q: URLSearchParams): void {
       p.hurt(1, -p.aim.x, -p.aim.z);
     }, every);
   }
+}
+
+/** Route map links: &route (open the map now, &path=1,0 for the roads taken so far), &node=<kind>, &encounter=<id>. */
+function routeLinks(game: Game, q: URLSearchParams): void {
+  const node = q.get('node');
+  if (node && node in ROUTE_NODES) {
+    game.route.force = node as NodeKind;
+    game.routeStageStart();
+  }
+  const path = (q.get('path') ?? '').split(',').filter(Boolean).map(Number);
+  path.forEach((p, i) => (game.route.path[i + 2] = p));
+  if (q.has('route')) {
+    game.route.on = true;
+    game.mode = 'shop';
+    game.openRoute();
+  }
+  const enc = q.get('encounter');
+  if (enc) game.routeTestEvent(enc);
 }

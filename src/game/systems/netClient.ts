@@ -82,6 +82,9 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
     case 'wait':
       this.screens.showWait((m.who as string[]) ?? []);
       break;
+    case 'route':
+      this.routeFromNet(m);
+      break;
     case 'go':
       if (['levelup', 'shop', 'wait'].includes(this.screens.current)) this.screens.show('none');
       break;

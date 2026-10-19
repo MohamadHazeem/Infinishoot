@@ -66,6 +66,7 @@ import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
 import * as SkillSys from './systems/skill';
+import * as RouteSys from './systems/route';
 
 export { economyTuning } from './hero';
 
@@ -418,6 +419,33 @@ export class Game implements HeroWorld {
   applyBossNet = BossFightSys.applyBossNet;
   renderBossFight = BossFightSys.renderBossFight;
   bossHud = BossFightSys.bossHud;
+  routeReset = RouteSys.routeReset;
+  routeKind = RouteSys.routeKind;
+  routeMod = RouteSys.routeMod;
+  routeSecretShop = RouteSys.routeSecretShop;
+  routeStageStart = RouteSys.routeStageStart;
+  routeChest = RouteSys.routeChest;
+  routeGears = RouteSys.routeGears;
+  updateRoute = RouteSys.updateRoute;
+  routeClearRewards = RouteSys.routeClearRewards;
+  openRoute = RouteSys.openRoute;
+  routeBeginVote = RouteSys.routeBeginVote;
+  routePick = RouteSys.routePick;
+  routeVote = RouteSys.routeVote;
+  routeOptionCount = RouteSys.routeOptionCount;
+  routeDecide = RouteSys.routeDecide;
+  routeAdvance = RouteSys.routeAdvance;
+  closeRoute = RouteSys.closeRoute;
+  routeRest = RouteSys.routeRest;
+  routeEventEffect = RouteSys.routeEventEffect;
+  routeShow = RouteSys.routeShow;
+  routeViewFrom = RouteSys.routeViewFrom;
+  routeFromNet = RouteSys.routeFromNet;
+  routeTestEvent = RouteSys.routeTestEvent;
+  /** Route map between stages (systems/route.ts); clients keep their own pending vote and the last phase seen. */
+  route: RouteSys.RouteRun = RouteSys.newRouteRun();
+  routeLocalVote = -1;
+  routeNetPhase = '';
   debugBoss = BossFightSys.debugBoss;
   // Arena toys, hazards and objectives (src/game/systems/arena.ts).
   loadToys = ArenaSys.loadToys;
@@ -696,6 +724,7 @@ export class Game implements HeroWorld {
       { passive: true },
     );
     this.hud.onPause = () => this.pause();
+    this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
@@ -1011,6 +1040,7 @@ export class Game implements HeroWorld {
     if (this.paused && input.padButtonPressed(9)) this.resume();
     // Solo pauses the world; online the game keeps running behind the menu.
     const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop' || this.mode === 'title';
+    this.updateRoute(dt);
     if (this.mode === 'levelup' && !switched) {
       for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
       if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');

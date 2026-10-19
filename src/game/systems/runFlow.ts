@@ -140,6 +140,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.newAchievements = [];
   this.curses = [];
   this.runEvents.reset();
+  this.routeReset();
   this.director.players = this.heroes.length;
   // Everyone keeps the loadout they picked; this machine's comes from its settings.
   if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, cheats.unlockAll ? undefined : unlockedLoadout());
@@ -214,6 +215,7 @@ export function loadStage(this: Game, stage: number): void {
   if (this.role === 'host') this.host!.broadcast({ t: 'stage', stage, seed: this.seed });
   this.vfx.banner(`STAGE ${stage}`, this.stageSub(stage), 2.2);
   this.vfx.sound('wave', NaN, NaN);
+  this.routeStageStart();
   this.checkAchievements();
 }
 
