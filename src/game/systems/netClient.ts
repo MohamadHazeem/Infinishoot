@@ -371,7 +371,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyCompanionNet(s.cp);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
-  this.applyWorldEventNet(s.we);
+  this.applyWorldEventNet(s.we, s.wt);
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

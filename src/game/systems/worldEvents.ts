@@ -726,11 +726,20 @@ function nearestHero(g: Game, x: number, z: number): Hero {
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
-/** Snapshot payload for one client (null = no event this stage). */
-export function worldEventNet(this: Game, forHero: Hero): Record<string, unknown> | null {
+/**
+ * Snapshot: `we` holds what rarely changes (kind, plan, done), so the compact snapshot codec
+ * leaves it out of most snapshots; `wt` (worldEventLive) the clock and the moving parts.
+ */
+export function worldEventNet(this: Game): Record<string, unknown> | null {
+  const ev = worldRun(this).ev;
+  return ev ? { k: WORLD_EVENT_KINDS.indexOf(ev.kind), p: ev.p, d: ev.done ? 1 : 0 } : null;
+}
+
+/** Snapshot `wt` for one client: event clock, lava bombs and puddles, Night Raid state near their hero. */
+export function worldEventLive(this: Game, forHero: Hero): Record<string, unknown> | null {
   const ev = worldRun(this).ev;
   if (!ev) return null;
-  const out: Record<string, unknown> = { k: WORLD_EVENT_KINDS.indexOf(ev.kind), t: r2(ev.t), p: ev.p, d: ev.done ? 1 : 0 };
+  const out: Record<string, unknown> = { t: r2(ev.t) };
   if (ev.kind === 'volcano') {
     const b: number[] = [];
     for (const x of ev.bombs) b.push(r2(x.x), r2(x.z), r2(x.t), r2(x.flight));
@@ -744,7 +753,7 @@ export function worldEventNet(this: Game, forHero: Hero): Record<string, unknown
 }
 
 /** Client: mirror the host's event from the snapshot. */
-export function applyWorldEventNet(this: Game, raw: unknown): void {
+export function applyWorldEventNet(this: Game, raw: unknown, live?: unknown): void {
   const W = worldRun(this);
   if (W.arena !== this.arena) {
     W.arena = this.arena;
@@ -752,7 +761,7 @@ export function applyWorldEventNet(this: Game, raw: unknown): void {
     W.netKey = '';
   }
   W.stage = this.stage;
-  const m = raw as Record<string, unknown> | null | undefined;
+  const m = raw ? { ...(raw as Record<string, unknown>), ...((live as Record<string, unknown> | null) ?? {}) } : null;
   if (!m) {
     if (W.ev) clearEvent(this, W);
     return;

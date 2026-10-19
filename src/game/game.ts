@@ -282,6 +282,7 @@ export class Game implements HeroWorld {
   // Mid-stage world events and Night Raid stealth stages (src/game/systems/worldEvents.ts).
   updateWorldEvent = WorldEventsSys.updateWorldEvent;
   worldEventNet = WorldEventsSys.worldEventNet;
+  worldEventLive = WorldEventsSys.worldEventLive;
   applyWorldEventNet = WorldEventsSys.applyWorldEventNet;
   worldEventLocal = WorldEventsSys.worldEventLocal;
   renderWorldEvent = WorldEventsSys.renderWorldEvent;
