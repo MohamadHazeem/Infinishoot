@@ -174,6 +174,7 @@ const BY_BEHAVIOR: Record<string, TipFn> = {
   rex: (k) => `Rex charges in lines it shows first: sidestep, or dash through (${k.dash}) at the last moment.`,
   queen: () => 'Break the Queen\'s hives first: each one heals her. Then keep moving between her fans.',
   titan: (k) => `The Titan's arms sweep where it glows: dash (${k.dash}) through the sweep, then hit the glowing weak points.`,
+  pumpking: (k) => `Pumpking's vines grab where the ground cracks: keep moving, and dash (${k.dash}) through his carving spin.`,
   omega: (k) => `Omega mixes every boss's moves: watch for the red telegraphs and save a dash (${k.dash}) for them.`,
 };
 
@@ -213,6 +214,10 @@ export function nextTryFor(d: DeathInfo): NextTry {
   const fn = BY_CAUSE[d.cause] ?? (behavior ? BY_BEHAVIOR[behavior] : undefined);
   if (fn) return { cheer, tip: fn(k), why: BY_CAUSE[d.cause] ? `cause:${d.cause}` : `behavior:${behavior}` };
   if (d.boss) return { cheer, tip: BY_BEHAVIOR.boss(k), why: 'boss' };
+  // Enemies added after this table (new bosses, seasonal foes): still give useful advice.
+  const def = behavior ? Object.values(ENEMIES).find((e) => e.name === d.cause) : undefined;
+  if (def?.boss) return { cheer, tip: BY_BEHAVIOR.boss(k), why: 'boss-generic' };
+  if (def) return { cheer, tip: `${def.name} shows its attacks first: watch for the wind-up flash and dash (${k.dash}) through the hit.`, why: 'enemy-generic' };
   if (d.level < 6 && d.stageTime > 90) return { cheer, tip: 'Grab the blue XP gems: more levels mean more weapons. Walk through them as you kite.', why: 'low-level' };
   return { cheer, tip: `Surrounded? Your special (${k.special}) blasts the whole crowd. Use it, it recharges.`, why: 'default' };
 }

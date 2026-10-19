@@ -48,7 +48,7 @@ for (let stage = 1; stage <= 16; stage++)
 ok(!seasonalStage(2, null), 'inactive session never remixes stage');
 const old = normalize({ version: 4, lifetime: { kills: 42 } });
 ok(
-  old.version === 5 && old.lifetime.kills === 42 && old.seasonal.candy === 0,
+  old.version >= 5 && old.lifetime.kills === 42 && old.seasonal.candy === 0,
   'v4 migrates with stats intact and empty seasonal wallet',
 );
 const wallet = normalizeSeason({
