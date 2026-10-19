@@ -153,7 +153,7 @@ function rangeLabel(inp: HTMLInputElement): void {
   if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
 }
 
-type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo';
+type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -293,6 +293,7 @@ export class Screens {
     <button data-nav data-toggle="lowHealthAudio">LOW HEALTH AUDIO <b></b></button>
     <button data-nav data-toggle="headphones3d">HEADPHONES 3D AUDIO <b></b></button>
     <button data-nav data-toggle="announcer">ANNOUNCER <b></b></button>
+    <button data-nav data-toggle="heroVoices">HERO VOICES <b></b></button>
     <label>MENU SOUNDS <input data-nav type="range" min="0" max="1" step="0.1" data-set="uiVolume"></label>
     <label>RETRO LOOK <input data-nav type="range" min="0" max="1" step="0.1" data-set="retro"></label>
     <label>SCREEN SHAKE <input data-nav type="range" min="0" max="1.5" step="0.25" data-set="shake"></label>

@@ -1,5 +1,6 @@
 import { spatialRoute, spatialTuning } from './spatial';
 import { distanceCutoff, soundTuning, VoiceBudget } from './mix';
+import { sampleTune } from './soundTuning';
 
 export interface SampleOptions {
   bus?: 'sfx' | 'ui';
@@ -80,7 +81,8 @@ export class SampleEngine {
     if (!ctx || ctx.state !== 'running' || !buffer || !this.enabled(options.bus ?? 'sfx'))
       return null;
     const now = ctx.currentTime;
-    if (now - (this.last.get(id) ?? -Infinity) < (options.cooldown ?? 0.08)) return null;
+    const tune = sampleTune(id); // per-sample tuning (src/audio/soundTuning.ts, debug panel)
+    if (now - (this.last.get(id) ?? -Infinity) < (tune.cooldown ?? options.cooldown ?? 0.08)) return null;
     let stopped = false;
     const cleanup = () => {
       src.disconnect();
@@ -102,15 +104,16 @@ export class SampleEngine {
     const spatial = spatialRoute(ctx, this.outputs[options.bus ?? 'sfx'], options.pan ?? 0, options.bus === 'ui' ? NaN : options.x, options.bus === 'ui' ? NaN : options.z);
     const filter = ctx.createBiquadFilter();
     this.last.set(id, now);
-    const variation = options.variation ?? 0.07;
+    const variation = tune.variation ?? options.variation ?? 0.07;
     const rate = Math.max(
       0.5,
-      Math.min(2, (options.pitch ?? 1) * (1 + (Math.random() * 2 - 1) * variation)),
+      Math.min(2, (options.pitch ?? 1) * (tune.pitch ?? 1) * (1 + (Math.random() * 2 - 1) * variation)),
     );
     src.buffer = buffer;
     src.playbackRate.value = rate;
     gain.gain.value =
       (options.gain ?? soundTuning.sampleGain) *
+      (tune.gain ?? 1) *
       (options.distance ?? 1) *
       (1 - Math.random() * variation);
     filter.type = 'lowpass';

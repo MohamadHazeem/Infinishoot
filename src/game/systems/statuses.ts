@@ -22,6 +22,7 @@ import { PickupType } from '../pickups';
 import { playerTuning } from '../player';
 import { SCAR_COLORS } from '../scars';
 import { CURSE_BY_ID } from '../../data/curses';
+import { bossVoiceCue } from '../../audio/voices';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
@@ -179,6 +180,8 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     this.vfx.corpse(def.id, e.x, e.hopY, e.z, e.scale, e.facing, fl > 0.01 ? fx / fl : 0, fl > 0.01 ? fz / fl : 0);
   }
   if (isBoss) {
+    const voice = bossVoiceCue(def, 'defeat'); // the boss's last words (src/audio/voices.ts)
+    if (voice) this.vfx.sound(voice, NaN, NaN);
     this.slowMoT = 1.4;
     this.bossBoom = { x: e.x, z: e.z, r: r * 2.2, n: 7, t: 0, color: def.bodyColor };
   }

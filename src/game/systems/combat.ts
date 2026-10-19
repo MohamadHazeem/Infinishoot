@@ -13,6 +13,7 @@ import { Hero } from '../hero';
 import { type DamageOpts } from '../weapons';
 import { SCAR_COLORS } from '../scars';
 import { damageNumberLabel } from '../../ui/damageNumbers';
+import { impactCue } from '../../audio/voices';
 
 export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null {
   let best: Enemy | null = null;
@@ -75,13 +76,13 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   const hz = o.hz ?? e.z;
   if (crit) {
     this.vfx.num(e.x, 1.9 * e.scale, e.z, `${amount}!`, 'crit');
-    this.vfx.sound('crit', e.x, e.z);
+    this.vfx.sound(impactCue(e.def.material, true, shielded), e.x, e.z); // crit + material (src/audio/voices.ts)
     this.vfx.star(hx, BULLET_Y, hz, 1.5, '#fff35c', 0.12);
   } else if (o.loud) {
     // Cosmetic labels travel through the existing number event on hosts and clients.
     const accent = shielded ? 'shield' : tags.includes('fire') ? 'fire' : tags.includes('shock') ? 'shock' : tags.includes('frost') ? 'frost' : undefined;
     this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, accent));
-    this.vfx.sound(shielded ? 'hitMetal' : 'hit', e.x, e.z, this.pitch);
+    this.vfx.sound(impactCue(e.def.material, false, shielded), e.x, e.z, this.pitch);
     this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
   }
   // Heavy hits get a low thump under the hit sound.

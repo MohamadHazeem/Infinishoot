@@ -7,6 +7,7 @@ import { weeklyChallenge } from '../../data/weekly';
 import type { Game } from '../game';
 import { updateSound } from './sound';
 import { updateAudioMix } from './audiomix';
+import { updateVoiceLines } from './voiceLines';
 import { scoreTuning, AIM_HEIGHT, REVIVE_TIME } from '../game';
 import * as THREE from 'three';
 import { MOD_BY_ID } from '../../data/mods';
@@ -169,6 +170,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const rdt = frozen ? 0 : frameDt * (this.slowMoT > 0 ? 0.35 : 1);
   this.localAudio(frameDt, frozen);
   updateSound.call(this, frameDt, frozen);
+  updateVoiceLines.call(this, frozen); // voice channel + local hero barks
   this.input.rumbleOn = settings.rumble;
   // Boss-kill slow motion (host/solo sim runs at 35%): cosmetic animation slows with it.
   const slow = this.slowMoT > 0 ? 0.35 : 1;

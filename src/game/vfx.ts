@@ -1,4 +1,5 @@
 import { sfx } from '../audio/sfx';
+import { playVoiceCue } from '../audio/voices';
 import type { DamageNumbers } from '../ui/damageNumbers';
 import type { Hud } from '../ui/hud';
 import type { Fx } from './fx';
@@ -144,7 +145,9 @@ export class Vfx {
     // Pan by the sideways offset from the listener and fade with distance.
     if (!Number.isNaN(x)) sfx.at((x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7, x, z);
     if (name.startsWith('w:')) sfx.weapon(name.slice(2));
-    else {
+    else if (name[1] === ':' && playVoiceCue(name, pitch, Number.isNaN(x) ? 0 : (x - this.t.listener().x) / 14, d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7)) {
+      // 'v:' boss voices and 'm:' material impacts (src/audio/voices.ts).
+    } else {
       const fn = (sfx as unknown as Record<string, (p?: number) => void>)[name];
       if (typeof fn === 'function') fn.call(sfx, pitch);
     }

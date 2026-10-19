@@ -3,6 +3,7 @@ import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
 import { ambienceSettings } from '../audio/ambienceAudio';
 import { announcerSettings, announcer } from '../audio/announcer';
+import { voiceSettings } from '../audio/voices';
 import { applyRetroStrength } from '../render/retroSettings';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
@@ -23,6 +24,8 @@ export interface Settings {
   adaptiveSilence: boolean;
   lowHealthAudio: boolean;
   headphones3d: boolean;
+  /** The local hero's voice lines (src/audio/voices.ts). */
+  heroVoices: boolean;
   retro: number;
   shake: number;
   autoFire: boolean;
@@ -69,6 +72,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   adaptiveSilence: true,
   lowHealthAudio: true,
   headphones3d: false,
+  heroVoices: true,
   retro: 0.5,
   shake: 1,
   autoFire: false,
@@ -138,6 +142,7 @@ export function applySettings(): void {
   ambienceSettings.volume = settings.ambienceVolume;
   announcerSettings.enabled = settings.announcer;
   announcer.update();
+  voiceSettings.heroVoices = settings.heroVoices !== false;
   applyRetroStrength(settings.retro);
   juiceTuning.shakeScale = settings.shake;
   postSettings.glow = settings.glow;

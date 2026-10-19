@@ -1,6 +1,14 @@
 import { samples, type SampleVoice } from './samples';
 
 export const announcerSettings = { enabled: true };
+/**
+ * Shared voice channel (src/audio/voices.ts installs it): boss lines, hero barks and
+ * the announcer never talk over each other. `blocks` may keep `retry` to say it later.
+ */
+export const voiceGate = {
+  blocks: (_priority: number, _retry?: () => boolean): boolean => false,
+  claim: (_priority: number, _seconds: number, _stop: () => void): void => {},
+};
 const priorities: Readonly<Record<string, number>> = {
   game_over: 10,
   boss: 9,
@@ -53,6 +61,7 @@ class Announcer {
     if (now < this.activeUntil && priority <= this.priority) return false;
     // Check availability before interrupting the line already playing.
     if (!samples.buffer('vo_' + id)) return false;
+    if (voiceGate.blocks(10 + priority, priority >= 5 ? () => this.say(id) : undefined)) return false; // big lines wait their turn
     const voice = samples.play('vo_' + id, {
       bus: 'ui',
       priority: 10 + priority,
@@ -67,6 +76,7 @@ class Announcer {
     this.activeUntil = now + voice.duration;
     this.next = this.activeUntil + 2.5;
     this.last.set(id, now);
+    voiceGate.claim(10 + priority, voice.duration, () => voice.stop());
     this.duck(voice.duration);
     return true;
   }
