@@ -5,7 +5,7 @@ import { loadJson, saveJson } from './storage';
  * and the gamepad keep their fixed layout. Escape always pauses and backs out
  * of menus, whatever is bound.
  */
-export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping' | 'parry' | 'ult';
 
 export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'up', name: 'Move up' },
@@ -14,6 +14,8 @@ export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'right', name: 'Move right' },
   { id: 'dash', name: 'Dash' },
   { id: 'bomb', name: 'Special' },
+  { id: 'parry', name: 'Parry' },
+  { id: 'ult', name: 'Ultimate' },
   { id: 'pause', name: 'Pause' },
   { id: 'autofire', name: 'Auto-fire' },
   { id: 'reroll', name: 'Reroll cards' },
@@ -27,11 +29,17 @@ const DEFAULTS: Record<Action, [string, string]> = {
   right: ['KeyD', 'ArrowRight'],
   dash: ['Space', 'ShiftLeft'],
   bomb: ['KeyQ', 'KeyE'],
+  parry: ['KeyC', ''],
+  ult: ['KeyV', ''],
   pause: ['KeyP', ''],
   autofire: ['KeyF', ''],
   reroll: ['KeyR', ''],
   ping: ['KeyG', ''],
 };
+
+/** Gamepad buttons (standard mapping) for the skill actions: B parries; L3, R3 or D-pad up fires the ultimate. */
+export const PAD_PARRY = [1];
+export const PAD_ULT = [10, 11, 12];
 
 const KEY = 'keys.v1';
 

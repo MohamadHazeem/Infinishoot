@@ -253,6 +253,7 @@ export function summary(this: Game, h: Hero): RunSummary {
       .sort((a, b) => b[1] - a[1])
       .map(([id, dmg]) => ({ name: h.weapons.find((w) => w.def.id === id)?.name ?? this.sourceName(id), color: WEAPONS[id]?.color ?? MOD_BY_ID[id]?.color ?? '#ff3df0', dmg })),
     achievements: h === this.hero ? this.newAchievements.map((id) => ACHIEVEMENTS.find((a) => a.id === id)!.name) : [],
+    style: this.bestStyle(h),
   };
 }
 

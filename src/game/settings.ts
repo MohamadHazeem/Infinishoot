@@ -32,6 +32,8 @@ export interface Settings {
   quality: number;
   /** Last loadout picked (left click, right click, special). */
   loadout: Loadout;
+  /** Slow-motion on perfect dashes and Mega Barrage (solo only). */
+  slowMo: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -57,6 +59,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   reduceFlash: false,
   quality: 1,
   loadout: { ...DEFAULT_LOADOUT },
+  slowMo: true,
 });
 settings.loadout = validLoadout(settings.loadout);
 

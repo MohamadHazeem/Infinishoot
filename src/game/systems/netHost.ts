@@ -80,6 +80,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     }
   } else if (m.t === 'bomb') {
     if (this.isCombatMode) this.tryBomb(h);
+  } else if (m.t === 'parry' || m.t === 'ult') {
+    this.skillMessage(h, m.t);
   } else if (m.t === 'ui') {
     const d = m.d === -1 ? -1 : 1;
     this.heroAction(h, String(m.a), Number(m.i) || 0, d);
@@ -188,6 +190,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
       stats: { moveSpeedMul: forHero.stats.moveSpeedMul, dashCooldownMul: forHero.stats.dashCooldownMul, dashCharges: forHero.stats.dashCharges, maxHp: forHero.stats.maxHp, magnet: forHero.stats.magnet, areaMul: forHero.stats.areaMul },
     },
     portal: this.portal.active ? [r2(this.portal.x), r2(this.portal.z)] : null,
+    sk: this.skillNet(forHero),
     en: packEnemies(en),
     bu: packBullets(this.bullets, bi),
     pk: packPickups(this.pickups, pi),

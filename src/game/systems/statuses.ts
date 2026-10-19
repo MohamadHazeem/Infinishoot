@@ -115,6 +115,7 @@ export function updateStatuses(this: Game, dt: number): void {
 export function sourceName(this: Game, id: string): string {
   if (SPECIALS[id]) return SPECIALS[id].name;
   if (PASSIVES[id]) return PASSIVES[id].name;
+  if (id === 'parry' || id === 'ult') return id === 'parry' ? 'Parry' : 'Ultimate'; // skill layer
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
 }
@@ -126,11 +127,11 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.combo++;
   this.comboT = scoreTuning.comboWindow + (this.heroes.some((h) => h.hasRelic('r_hourglass')) ? 1 : 0);
   this.maxCombo = Math.max(this.maxCombo, this.combo);
-  this.score += def.score * this.multiplier * (e.elite ? 5 : 1) * (1 + this.curseSum('score')) * this.difficulty.score;
+  this.score += def.score * this.multiplier * (e.elite ? 5 : 1) * (1 + this.curseSum('score')) * this.difficulty.score * this.styleScoreMul(by);
   const xp = def.xp * (e.elite ? 10 : 1);
 
   // Drops
-  this.pickups.spawn(PickupType.Gem, e.x, e.z, xp * dropTuning.xpMul);
+  this.pickups.spawn(PickupType.Gem, e.x, e.z, xp * dropTuning.xpMul * this.styleXpMul(by));
   const isBoss = !!def.boss;
   const big = e.elite || isBoss || def.id === 'reaper';
   if (big) {
@@ -212,6 +213,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     if (healed > 0) this.vfx.num(by.player.x, 2.4, by.player.z, `+${Math.round(healed)}`, 'heal');
   }
   this.runEvents.onKill(source, this.combo);
+  this.skillKill(e, source, by);
   if (isBoss) this.grantRelics();
   // Combos and Mod triggers after the kill is resolved (they may kill more).
   if (by) {
@@ -376,6 +378,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   const d = Math.hypot(dx, dz) || 1;
   if (!p.hurt(dmg, dx / d, dz / d)) return;
   this.damagedThisStage = true;
+  this.skillHurt(h);
   h.synergy.hurt();
   if (this.combo >= 25) this.vfx.num(p.x, 3, p.z, 'COMBO BREAK', 'player');
   this.combo = 0;

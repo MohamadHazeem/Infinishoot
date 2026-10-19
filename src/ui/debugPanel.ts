@@ -15,6 +15,8 @@ import { MODS } from '../data/mods';
 import { ELITE_MOD_IDS } from '../data/eliteMods';
 import { ENEMIES } from '../data/enemies';
 import { audioSettings } from '../audio/sfx';
+import { skillTuning, styleTuning } from '../game/style';
+import { ultTuning } from '../game/ultimates';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -136,6 +138,21 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   fx.add(juiceTuning, 'shakeScale', 0, 3, 0.1).name('Shake x');
   fx.add(juiceTuning, 'shakeMax', 0, 2, 0.05);
   fx.add(juiceTuning, 'shakeDecay', 0.2, 5, 0.1);
+  // Skill layer: perfect dash, parry, style meter and ultimates.
+  const skill = gui.addFolder('Skill').close();
+  skill.add(skillTuning, 'perfectLead', 0, 0.6, 0.02).name('Perfect lead (s)');
+  skill.add(skillTuning, 'perfectSlowMo', 0, 1, 0.05).name('Perfect slow-mo (s)');
+  skill.add(skillTuning, 'buffDamage', 0, 1, 0.05).name('Buff damage +');
+  skill.add(skillTuning, 'parryWindow', 0.05, 0.5, 0.01).name('Parry window (s)');
+  skill.add(skillTuning, 'parryWindowRemote', 0.05, 0.6, 0.01).name('Parry window online');
+  skill.add(skillTuning, 'parryCooldown', 0, 2, 0.05).name('Parry cooldown');
+  skill.add(styleTuning, 'killPerSec', 0, 30, 1).name('Style kill pts/s');
+  skill.add(styleTuning, 'perfectDash', 0, 300, 5).name('Style perfect');
+  skill.add(styleTuning, 'parry', 0, 300, 5).name('Style parry');
+  skill.add(ultTuning, 'killGain', 0, 0.01, 0.0001).name('Ult per kill');
+  skill.add(ultTuning, 'hitGain', 0, 0.01, 0.0001).name('Ult per hit');
+  skill.add(ultTuning, 'bossMul', 0, 1, 0.05).name('Ult vs bosses');
+  skill.add({ fill: () => (game.hero.skill.ult = 1) }, 'fill').name('Fill ultimate');
   fx.add(audioSettings, 'volume', 0, 1, 0.05);
   fx.add(audioSettings, 'muted');
 

@@ -64,6 +64,10 @@ export class Player {
   showWhenDead = false;
   private sq = 0;
   private sqV = 0;
+  /** Ultimate speed multiplier (Sonic Blitz); 1 = normal. */
+  ultSpeed = 1;
+  /** Seconds of golden skill glow (perfect dash, parry, ultimate); presentation only. */
+  skillGlow = 0;
 
   readonly rig: HeroRig;
   private shadow: THREE.Mesh;
@@ -137,6 +141,17 @@ export class Player {
     this.sq += this.sqV * dt;
   }
 
+  /** Give back one dash charge (perfect dash); `all` refills every charge (Sonic Blitz). */
+  refundDash(all = false): void {
+    this.dashStock = all ? this.dashMax : Math.min(this.dashMax, this.dashStock + 1);
+    if (this.dashStock >= this.dashMax) this.dashCd = 0;
+  }
+
+  /** Squash-and-stretch kick (negative squashes down). */
+  bounce(v: number): void {
+    this.sqV += v;
+  }
+
   /** Knockback impulse (client: host told us we got hit). */
   knock(dirX: number, dirZ: number): void {
     this.kx = dirX * playerTuning.hurtKnockback;
@@ -191,6 +206,8 @@ export class Player {
     this.invuln = 1;
     this.dashT = this.dashCd = 0;
     this.dashStock = this.dashMax;
+    this.ultSpeed = 1;
+    this.skillGlow = 0;
     this.rig.root.visible = true;
   }
 
@@ -260,7 +277,7 @@ export class Player {
     this.sqV += (-260 * this.sq - 16 * this.sqV) * dt;
     this.sq += this.sqV * dt;
 
-    const maxSpeed = t.maxSpeed * this.stats.moveSpeedMul;
+    const maxSpeed = t.maxSpeed * this.stats.moveSpeedMul * this.ultSpeed;
     const mx = input ? input.move.x : 0;
     const mz = input ? input.move.y : 0; // screen-down = world +Z (camera has no yaw)
     const hasInput = mx !== 0 || mz !== 0;
@@ -382,8 +399,11 @@ export class Player {
     const blinking = this.invuln > 0 && !this.dashing && this.hurtFlash <= 0 && this.invuln > playerTuning.dashIframesExtra;
     this.blinkT += frameDt;
     this.rig.root.visible = !blinking || Math.floor(this.blinkT * 16) % 2 === 0;
-    const fa = this.hurtFlash > 0 ? 0.85 : this.dashing ? 0.35 : 0;
-    const [r, g, b] = this.hurtFlash > 0 ? [1, 0.2, 0.3] : [0.6, 0.9, 1];
+    this.skillGlow = Math.max(0, this.skillGlow - frameDt);
+    // Skill glow: a golden shimmer after a perfect dash or parry, and while an ultimate runs.
+    const glow = this.hurtFlash <= 0 && !this.dashing && this.skillGlow > 0 ? 0.25 + 0.2 * Math.sin(this.blinkT * 30) : 0;
+    const fa = this.hurtFlash > 0 ? 0.85 : this.dashing ? 0.35 : glow;
+    const [r, g, b] = this.hurtFlash > 0 ? [1, 0.2, 0.3] : glow > 0 ? [1, 0.85, 0.3] : [0.6, 0.9, 1];
     for (const m of this.rig.materials) m.uniforms.uFlash.value.set(r, g, b, fa);
   }
 
