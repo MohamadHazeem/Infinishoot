@@ -3,6 +3,7 @@ import type { WeaponDef } from '../../data/weapons';
 import { createRetroMaterial, type RetroMaterial } from '../../render/retroMaterial';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
+import { freezeMul } from '../bossRules';
 
 const MAX = 9;
 const THROW = 0.35;
@@ -126,7 +127,7 @@ export class GravityWell extends Weapon {
         // Cryo Well: everything still inside freezes solid (bosses only briefly).
         if (p.freeze > 0) {
           for (const e of ctx.inRadius(w.x, w.z, r, this.hits)) {
-            e.frozen = Math.max(e.frozen, p.freeze * (e.def.boss ? 0.15 : 1));
+            e.frozen = Math.max(e.frozen, p.freeze * freezeMul(e));
             e.shatter = Math.max(e.shatter, 0.3);
           }
           ctx.fx.ring(w.x, w.z, r * 0.3, r * 1.2, '#ffffff', 0.35);

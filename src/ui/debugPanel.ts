@@ -40,6 +40,7 @@ import { routeTuning } from '../data/routes';
 import { heatTuning } from '../data/heat';
 import { mutatorTuning } from '../data/mutators';
 import { addHudFolder } from './debugHud';
+import { addFixesFolder } from './fixesPanel';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -262,6 +263,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   ob.add(trainingTuning, 'shotEvery', 0.6, 4, 0.1).name('Shot every (s)');
   ob.add(trainingTuning, 'shotSpeed', 2, 20, 0.5);
   ob.add(trainingTuning, 'skipAfter', 0, 60, 1).name('SKIP shows after (s)');
+  addFixesFolder(gui);
 
   return gui;
 }

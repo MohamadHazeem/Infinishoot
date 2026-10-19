@@ -1,4 +1,5 @@
 import Peer, { type DataConnection } from 'peerjs';
+import { hasRelay, iceConfig } from './ice';
 
 /**
  * WebRTC transport via PeerJS. The host registers a peer id derived from a
@@ -33,7 +34,7 @@ export class NetHost {
 
   constructor(private max = 3) {
     this.code = makeCode();
-    this.peer = new Peer(PREFIX + this.code, { debug: 0 });
+    this.peer = new Peer(PREFIX + this.code, { debug: 0, config: iceConfig() });
     this.ready = new Promise((resolve, reject) => {
       this.peer.on('open', () => resolve());
       this.peer.on('error', (e) => {
@@ -94,9 +95,11 @@ export class NetClient {
   ready: Promise<void>;
 
   constructor(code: string) {
-    this.peer = new Peer({ debug: 0 });
+    this.peer = new Peer({ debug: 0, config: iceConfig() });
     this.ready = new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('Could not reach that game. Check the code and try again.')), 12000);
+      // Signalling worked but no direct route was found: say so (and point at a relay) instead of a vague timeout.
+      let signalled = false;
+      const timer = setTimeout(() => reject(new Error(signalled ? noRouteError() : 'Could not reach that game. Check the code and try again.')), 12000);
       this.peer.on('error', (e) => {
         clearTimeout(timer);
         reject(new Error(friendlyError(e)));
@@ -104,6 +107,12 @@ export class NetClient {
       this.peer.on('open', () => {
         const conn = this.peer.connect(PREFIX + normalizeCode(code), { reliable: true });
         this.conn = conn;
+        signalled = true;
+        (conn as unknown as { on(ev: 'iceStateChanged', fn: (s: string) => void): void }).on('iceStateChanged', (s) => {
+          if (s !== 'failed') return;
+          clearTimeout(timer);
+          reject(new Error(noRouteError()));
+        });
         conn.on('open', () => {
           clearTimeout(timer);
           resolve();
@@ -125,11 +134,19 @@ export class NetClient {
   }
 }
 
+/** The host was found but no network path worked (strict NAT or firewall on one side). */
+export function noRouteError(relay = hasRelay()): string {
+  return relay
+    ? 'Found the game but could not connect, even through the relay. Check the relay settings or try another network.'
+    : 'Found the game but could not connect: one of your networks blocks direct connections. Set a CUSTOM RELAY (TURN server) below, or try another network.';
+}
+
 function friendlyError(e: unknown): string {
   const type = (e as { type?: string }).type;
   if (type === 'peer-unavailable') return 'No game found with that code.';
   if (type === 'unavailable-id') return 'That code is taken, try hosting again.';
   if (type === 'network' || type === 'server-error' || type === 'socket-error') return 'Could not reach the matchmaking server. Check your internet connection.';
   if (type === 'browser-incompatible') return 'This browser does not support online play.';
+  if (type === 'webrtc' || type === 'negotiation-failed') return noRouteError();
   return 'Connection problem. Please try again.';
 }

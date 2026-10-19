@@ -15,6 +15,7 @@ import { Vfx, type VfxEvent } from '../vfx';
 import { skinOf } from '../../data/skins';
 import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
+import { noteParryLag } from '../netFeel';
 
 export function heroByPeer(this: Game, id: string): Hero | undefined {
   return this.heroes.find((h) => h.peerId === id);
@@ -72,7 +73,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       dashing: !!m.d,
     };
   } else if (m.t === 'ping') {
-    if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z));
+    if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z), typeof m.k === 'string' ? m.k : undefined);
   } else if (m.t === 'dash') {
     if (!h.player.dead && this.isCombatMode) {
       h.player.invuln = Math.max(h.player.invuln, playerTuning.dashTime + playerTuning.dashIframesExtra);
@@ -82,7 +83,10 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     this.arenaJumpMsg(h, Number(m.i));
   } else if (m.t === 'bomb') {
     if (this.isCombatMode) this.tryBomb(h);
+  } else if (m.t === 'hb') {
+    this.host?.send(from, { t: 'hb', c: m.c }); // round-trip echo (src/game/netFeel.ts)
   } else if (m.t === 'parry' || m.t === 'ult') {
+    if (m.t === 'parry') noteParryLag(this, h, Number(m.rtt) || 0);
     this.skillMessage(h, m.t);
   } else if (m.t === 'ui') {
     const d = m.d === -1 ? -1 : 1;

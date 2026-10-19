@@ -96,6 +96,33 @@ export class SpatialHash<T> {
 }
 
 /** Static grid of wall boxes for fast point/circle queries (bullets). Built once per arena. */
+/** Does the segment from (x, z) along unit (dx, dz) for `len` metres touch box `b` grown by `pad`? (slab test) */
+export function segmentHitsAabb(x: number, z: number, dx: number, dz: number, len: number, pad: number, b: AABB): boolean {
+  let t0 = 0;
+  let t1 = len;
+  for (let axis = 0; axis < 2; axis++) {
+    const o = axis ? z : x;
+    const d = axis ? dz : dx;
+    const lo = (axis ? b.minZ : b.minX) - pad;
+    const hi = (axis ? b.maxZ : b.maxX) + pad;
+    if (Math.abs(d) < 1e-9) {
+      if (o < lo || o > hi) return false;
+      continue;
+    }
+    let ta = (lo - o) / d;
+    let tb = (hi - o) / d;
+    if (ta > tb) {
+      const s = ta;
+      ta = tb;
+      tb = s;
+    }
+    if (ta > t0) t0 = ta;
+    if (tb < t1) t1 = tb;
+    if (t0 > t1) return false;
+  }
+  return true;
+}
+
 export class StaticBoxGrid {
   private cells = new Map<number, AABB[]>();
   private inv: number;
@@ -136,6 +163,58 @@ export class StaticBoxGrid {
   }
 
   private near: AABB[] = [];
+  private losStamp = new WeakMap<AABB, number>();
+  private losN = 0;
+
+  /**
+   * Line of sight: true if the segment (x0, z0) -> (x1, z1), fattened by `pad`,
+   * touches no box. Walks only the grid cells the segment crosses (DDA), so a
+   * check costs a few map lookups. Boxes are tested once each.
+   */
+  segmentClear(x0: number, z0: number, x1: number, z1: number, pad = 0): boolean {
+    const dx = x1 - x0;
+    const dz = z1 - z0;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-6) return !this.hitCircle(x0, z0, Math.max(pad, 1e-3));
+    const ux = dx / len;
+    const uz = dz / len;
+    const inv = this.inv;
+    const stamp = ++this.losN;
+    let cx = Math.floor(x0 * inv);
+    let cz = Math.floor(z0 * inv);
+    const ex = Math.floor(x1 * inv);
+    const ez = Math.floor(z1 * inv);
+    const sx = ux > 0 ? 1 : -1;
+    const sz = uz > 0 ? 1 : -1;
+    const cs = this.cellSize;
+    // Distance along the segment to the next cell edge on each axis, and per cell.
+    let tx = Math.abs(ux) < 1e-9 ? Infinity : ((ux > 0 ? (cx + 1) * cs : cx * cs) - x0) / ux;
+    let tz = Math.abs(uz) < 1e-9 ? Infinity : ((uz > 0 ? (cz + 1) * cs : cz * cs) - z0) / uz;
+    const stepX = Math.abs(ux) < 1e-9 ? Infinity : cs / Math.abs(ux);
+    const stepZ = Math.abs(uz) < 1e-9 ? Infinity : cs / Math.abs(uz);
+    for (let guard = 0; guard < 4096; guard++) {
+      const list = this.cells.get(cellKey(cx, cz));
+      if (list) {
+        for (let i = 0; i < list.length; i++) {
+          const b = list[i];
+          if (this.losStamp.get(b) === stamp) continue;
+          this.losStamp.set(b, stamp);
+          if (segmentHitsAabb(x0, z0, ux, uz, len, pad, b)) return false;
+        }
+      }
+      if (cx === ex && cz === ez) break;
+      if (tx < tz) {
+        if (tx > len) break;
+        cx += sx;
+        tx += stepX;
+      } else {
+        if (tz > len) break;
+        cz += sz;
+        tz += stepZ;
+      }
+    }
+    return true;
+  }
 
   /**
    * Push a circle out of the boxes near it (same result as resolveCircleVsBoxes

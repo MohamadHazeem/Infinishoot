@@ -18,6 +18,8 @@ import { type VfxEvent } from '../vfx';
 import { createWeapon } from '../weapons';
 import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
 import { rightClickHeld } from '../chargeMode';
+import { onHeartbeat } from '../netFeel';
+import { onCoverMsg } from '../coverBreak';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   switch (m.t) {
@@ -103,6 +105,12 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
     case 'over':
       this.mode = 'dead';
       this.bankAndShow(m.sum as RunSummary);
+      break;
+    case 'cover':
+      onCoverMsg(this, m);
+      break;
+    case 'hb':
+      onHeartbeat(this, m);
       break;
     case 'end':
       this.leaveToTitle();

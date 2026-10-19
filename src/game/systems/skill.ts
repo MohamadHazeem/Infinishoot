@@ -25,9 +25,11 @@ import { bulletThreat, rankName, skillTuning, styleTuning, type StyleNote } from
 import { endUlt, power, startUlt, ultHitGain, ultKillGain, ultOf, ultTuning, updateUlt } from '../ultimates';
 import { preloadSkillAudio, skillSound } from '../skillAudio';
 import { SkillHud } from '../../ui/styleMeter';
+import { bossLike } from '../bossRules';
+import { bulletWasInReach, clientHeartbeat, clientRtt, heroParryLag, markParryPredicted, onlineStop, parryPredicted, refundRewoundHits, remoteParry } from '../netFeel';
 
-/** Skill events: [seq, kind, hero index, x, z, extra]. pd = perfect dash, pa = parry, ul = ultimate, rk = rank up (extra = rank). */
-type SkillEvent = [number, 'pd' | 'pa' | 'ul' | 'rk', number, number, number, number];
+/** Skill events: [seq, kind, hero index, x, z, extra]. pd = perfect dash, pa = parry, ul = ultimate, rk = rank up (extra = rank), hs = online hit-stop (extra = seconds). */
+type SkillEvent = [number, 'pd' | 'pa' | 'ul' | 'rk' | 'hs', number, number, number, number];
 
 interface SkillWorld {
   seq: number;
@@ -43,13 +45,15 @@ interface SkillWorld {
   preloaded: boolean;
   /** Last rank each hero announced (index -> rank). */
   ranks: number[];
+  /** Online: no new hit-stop for hero i before this sim step. */
+  heroStop: number[];
 }
 
 const worlds = new WeakMap<Game, SkillWorld>();
 function world(g: Game): SkillWorld {
   let w = worlds.get(g);
   if (!w) {
-    w = { seq: 0, events: [], stopStep: 0, beats: -1, beatAt: -9, beatPeriod: 0.5, hud: null, preloaded: false, ranks: [] };
+    w = { seq: 0, events: [], stopStep: 0, beats: -1, beatAt: -9, beatPeriod: 0.5, hud: null, preloaded: false, ranks: [], heroStop: [] };
     worlds.set(g, w);
   }
   return w;
@@ -87,12 +91,15 @@ export function skillClientInput(this: Game, control: boolean): void {
   const h = this.hero;
   const sk = h.skill;
   sk.parryCd = Math.max(0, sk.parryCd - 1 / 60);
+  clientHeartbeat(this);
   if (!control || !this.client) return;
   const input = this.input;
   if ((input.actionPressed('parry') || PAD_PARRY.some((b) => input.padButtonPressed(b))) && sk.parryCd <= 0) {
     sk.parryCd = skillTuning.parryCooldown;
-    this.client.send({ t: 'parry' });
+    // The round trip lets the host rewind the judgement (src/game/netFeel.ts).
+    this.client.send({ t: 'parry', rtt: clientRtt(this) });
     parrySwing(this, h);
+    predictParry(this, h);
   }
   if ((input.actionPressed('ult') || PAD_ULT.some((b) => input.padButtonPressed(b))) && sk.ult >= 1 && sk.ultT <= 0) this.client.send({ t: 'ult' });
 }
@@ -170,12 +177,57 @@ export function perfectDash(this: Game, h: Hero): void {
 export function tryParry(this: Game, h: Hero): void {
   const sk = h.skill;
   if (sk.parryCd > 0 || h.player.dead || !this.isCombatMode) return;
-  sk.parryT = h.remote ? skillTuning.parryWindowRemote : skillTuning.parryWindow;
+  // Remote parries: with a measured ping the host rewinds (src/game/netFeel.ts), else the old fixed allowance.
+  const lag = heroParryLag(this, h);
+  sk.parryT = lag > 0 ? remoteParry(lag, skillTuning.parryReach, skillTuning.parryWindow).window : h.remote ? skillTuning.parryWindowRemote : skillTuning.parryWindow;
   sk.parryCd = skillTuning.parryCooldown;
   sk.parried = 0;
   // The client already drew its own swing.
   if (!h.remote) parrySwing(this, h);
-  doParry(this, h);
+  doParry(this, h, lag);
+  if (lag > 0) {
+    // Bullets that hit in the last `lag` seconds would have been parried on the client's screen: undo and reflect them.
+    const p = h.player;
+    const n = refundRewoundHits(this, h, lag, (vx, vz) => {
+      const l = Math.hypot(vx, vz) || 1;
+      const before = this.bullets.count;
+      this.bullets.spawn({ x: p.x - (vx / l) * 0.6, z: p.z - (vz / l) * 0.6, dirX: -vx / l, dirZ: -vz / l, speed: 10, life: 1, radius: 0.26, damage: 0, knockback: 0, team: Team.Enemy, color: '#ff3df0', width: 0.5, length: 0.5 });
+      if (this.bullets.count > before) reflectBullet(this, h, this.bullets.count - 1);
+    });
+    if (n > 0) parried(this, h, n);
+  }
+}
+
+/**
+ * Client: judge the parry on our own screen for instant feedback. Bullets in
+ * reach flip locally (cosmetic: the next snapshot brings the host's verdict).
+ */
+function predictParry(g: Game, h: Hero): void {
+  const p = h.player;
+  const T = skillTuning;
+  const reach = p.radius + T.parryReach;
+  const b = g.bullets;
+  let n = 0;
+  for (let i = 0; i < b.count; i++) {
+    if (b.team[i] !== Team.Enemy) continue;
+    const dx = b.x[i] - p.x;
+    const dz = b.z[i] - p.z;
+    const rr = reach + b.radius[i];
+    if (dx * dx + dz * dz > rr * rr) continue;
+    b.team[i] = Team.Player;
+    b.vx[i] = -b.vx[i];
+    b.vz[i] = -b.vz[i];
+    b.setColor(i, '#7df9ff');
+    n++;
+  }
+  if (!n) return;
+  markParryPredicted(g, true);
+  skillSound('parry', true, 1);
+  p.skillGlow = Math.max(p.skillGlow, 0.5);
+  g.hud.flash(0.22);
+  g.juice.shake(0.2);
+  g.input.rumble(0.7, 0.5, 140);
+  onlineStop(g, T.parryFreeze);
 }
 
 /** The swing itself (cosmetic): a quick ring at the hand. */
@@ -191,11 +243,40 @@ function parrySwing(g: Game, h: Hero): void {
 /** Enemies already handled by this parry check (reused, no allocation). */
 const parrySeen = new Set<Enemy>();
 
-/** While the window is open: reflect bullets and stun attackers in reach. */
-function doParry(g: Game, h: Hero): void {
+/** Turn enemy bullet i into hero h's reflected shot, back at the nearest enemy. */
+function reflectBullet(g: Game, h: Hero, i: number): void {
+  const T = skillTuning;
+  const b = g.bullets;
+  // Back at the nearest enemy (the shooter, usually), else straight back.
+  const t = g.nearestEnemy(b.x[i], b.z[i], 16, (e) => e.pvpOwner === h.index);
+  let ux = -b.vx[i];
+  let uz = -b.vz[i];
+  if (t) {
+    ux = t.x - b.x[i];
+    uz = t.z - b.z[i];
+  }
+  const l = Math.hypot(ux, uz) || 1;
+  b.team[i] = Team.Player;
+  b.vx[i] = (ux / l) * T.reflectSpeed;
+  b.vz[i] = (uz / l) * T.reflectSpeed;
+  b.damage[i] = T.reflectDmg * 30 * power(g);
+  b.knockback[i] = 8;
+  b.life[i] = 1.2;
+  b.owner[i] = h.index;
+  b.kind[i] = 13;
+  b.pierce[i] = 2;
+  b.blast[i] = 0;
+  b.clearHits(i);
+  b.setColor(i, '#7df9ff');
+  g.vfx.star(b.x[i], BULLET_Y, b.z[i], 1, '#ffffff', 0.08);
+}
+
+/** While the window is open: reflect bullets and stun attackers in reach. `rewind` > 0: judge bullets over the last `rewind` s (remote parry). */
+function doParry(g: Game, h: Hero, rewind = 0): void {
   const p = h.player;
   const T = skillTuning;
-  const reach = p.radius + (h.remote ? T.parryReachRemote : T.parryReach);
+  const lag = heroParryLag(g, h);
+  const reach = p.radius + (lag > 0 ? remoteParry(lag, T.parryReach, T.parryWindow).reach : h.remote ? T.parryReachRemote : T.parryReach);
   const b = g.bullets;
   let n = 0;
   for (let i = 0; i < b.count; i++) {
@@ -203,29 +284,8 @@ function doParry(g: Game, h: Hero): void {
     const dx = b.x[i] - p.x;
     const dz = b.z[i] - p.z;
     const rr = reach + b.radius[i];
-    if (dx * dx + dz * dz > rr * rr) continue;
-    // Back at the nearest enemy (the shooter, usually), else straight back.
-    const t = g.nearestEnemy(b.x[i], b.z[i], 16, (e) => e.pvpOwner === h.index);
-    let ux = -b.vx[i];
-    let uz = -b.vz[i];
-    if (t) {
-      ux = t.x - b.x[i];
-      uz = t.z - b.z[i];
-    }
-    const l = Math.hypot(ux, uz) || 1;
-    b.team[i] = Team.Player;
-    b.vx[i] = (ux / l) * T.reflectSpeed;
-    b.vz[i] = (uz / l) * T.reflectSpeed;
-    b.damage[i] = T.reflectDmg * 30 * power(g);
-    b.knockback[i] = 8;
-    b.life[i] = 1.2;
-    b.owner[i] = h.index;
-    b.kind[i] = 13;
-    b.pierce[i] = 2;
-    b.blast[i] = 0;
-    b.clearHits(i);
-    b.setColor(i, '#7df9ff');
-    g.vfx.star(b.x[i], BULLET_Y, b.z[i], 1, '#ffffff', 0.08);
+    if (dx * dx + dz * dz > rr * rr && !(rewind > 0 && bulletWasInReach(p.x, p.z, b.x[i], b.z[i], b.vx[i], b.vz[i], b.radius[i], reach, rewind))) continue;
+    reflectBullet(g, h, i);
     n++;
   }
   parrySeen.clear();
@@ -245,7 +305,7 @@ function doParry(g: Game, h: Hero): void {
     e.kx += (dx / d) * k;
     e.kz += (dz / d) * k;
     e.squash(-8);
-    if (!e.def.boss && e.def.behavior !== 'reaper') {
+    if (!bossLike(e) && e.def.behavior !== 'reaper') {
       e.frozen = Math.max(e.frozen, T.parryStun);
       e.state = 'move';
     }
@@ -269,6 +329,7 @@ function parried(g: Game, h: Hero, n: number): void {
   sk.style.add(first ? styleTuning.parry + styleTuning.parryExtra * (n - 1) : styleTuning.parryExtra * n, first ? (n > 1 ? `PARRY x${n}` : 'PARRY!') : undefined);
   if (!first) return;
   if (!g.online && h === g.hero) g.juice.freeze(T.parryFreeze);
+  else if (h === g.hero) onlineStop(g, T.parryFreeze); // host's own parry; clients get theirs from the `pa` event
   g.vfx.ring(p.x, p.z, 0.8, 4.5, '#73eff7', 0.25);
   g.vfx.star(p.x, 1.2, p.z, 2.6, '#ffffff', 0.14);
   g.vfx.burst(p.x, 1.1, p.z, { count: 18, color: '#73eff7', color2: '#ffffff', speed: [4, 10], size: [0.12, 0.24], life: [0.15, 0.35], up: 2, gravity: 6 });
@@ -376,6 +437,14 @@ export function skillHit(this: Game, e: Enemy, o: DamageOpts, dealt: number, cri
       this.juice.freeze(stop);
       w.stopStep = this.stepN + 10;
     }
+  } else if (this.online && stop > 0 && !by.left) {
+    // Online: hold the picture on the hitter's own screen only (render-side, src/game/netFeel.ts).
+    const w = world(this);
+    if (this.stepN >= (w.heroStop[by.index] ?? 0)) {
+      w.heroStop[by.index] = this.stepN + 10;
+      if (by === this.hero) onlineStop(this, stop);
+      else if (by.remote) emit(this, 'hs', by, Math.round(stop * 1000) / 1000);
+    }
   }
 }
 
@@ -436,13 +505,21 @@ function playEvent(g: Game, ev: SkillEvent): void {
     }
   } else if (kind === 'pa') {
     p.skillGlow = Math.max(p.skillGlow, 0.5);
-    skillSound('parry', mine, gain);
+    // A client that predicted this parry already played its feedback.
+    const predicted = mine && g.role === 'client' && parryPredicted(g);
+    if (!predicted) skillSound('parry', mine, gain);
     if (mine) {
       g.hero.skill.parryCd = 0;
-      g.hud.flash(0.22);
-      g.juice.shake(0.2);
-      g.input.rumble(0.7, 0.5, 140);
+      markParryPredicted(g, false);
+      if (!predicted) {
+        g.hud.flash(0.22);
+        g.juice.shake(0.2);
+        g.input.rumble(0.7, 0.5, 140);
+        if (g.role === 'client') onlineStop(g, skillTuning.parryFreeze);
+      }
     }
+  } else if (kind === 'hs') {
+    if (mine && g.role === 'client') onlineStop(g, extra);
   } else if (kind === 'ul') {
     const def = ultOf(h);
     p.skillGlow = Math.max(p.skillGlow, def.duration);

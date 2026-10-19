@@ -18,6 +18,7 @@ import { cleanHeat } from '../data/heat';
 import { isMutatorId } from '../data/mutators';
 import { isRouteId, type RouteId } from '../data/routes';
 import { hudLinks } from '../ui/hudLinks';
+import { smashCover } from '../game/coverBreak';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -46,6 +47,7 @@ import { hudLinks } from '../ui/hudLinks';
  *   ?test&objective=totems&near=totem   force the stage objective, start next to an arena toy
  *     near: pad, turret, pillar, crate, totem, shard, beacon, lava, ice, quicksand, thorns
  *   ?test&stage=4&topple                topple the pillar nearest the hero
+ *   ?test&stage=2&smash=2              stand by the nearest ruin wall/rock/tree and smash it after 2 s (Rex's cover break)
  *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
  *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
@@ -349,6 +351,22 @@ function animLinks(game: Game, q: URLSearchParams): void {
     if (b) game.killEnemy(b, 'buster', game.hero);
   });
   later('clear', () => game.stageClear());
+  // `smash=<s>`: stand next to the nearest smashable cover and break it after s seconds (fixes lane).
+  if (q.get('smash')) {
+    const map = game.arena.group.userData.coverRanges as Map<unknown, unknown> | undefined;
+    const p = game.hero.player;
+    let best = null as null | { x: number; z: number };
+    for (const b of game.arena.colliders) {
+      if (!map?.has(b)) continue;
+      const c = { x: (b.minX + b.maxX) / 2, z: (b.minZ + b.maxZ) / 2 };
+      if (!best || Math.hypot(c.x - p.x, c.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z)) best = c;
+    }
+    if (best) {
+      const c = best;
+      p.teleport(c.x + 1, c.z + 3.5);
+      later('smash', () => smashCover(game, c.x, c.z, 1));
+    }
+  }
   later('die', () => {
     cheats.god = false;
     const p = game.hero.player;

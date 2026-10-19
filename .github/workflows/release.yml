@@ -21,6 +21,11 @@ jobs:
     runs-on: windows-latest
     env:
       VITE_LEADERBOARD_URL: ${{ vars.VITE_LEADERBOARD_URL }}
+      # Optional TURN relay for online play (docs/TURN.md).
+      VITE_TURN_URLS: ${{ vars.VITE_TURN_URLS }}
+      VITE_TURN_USERNAME: ${{ vars.VITE_TURN_USERNAME }}
+      VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
+      VITE_TURN_CREDENTIAL_URL: ${{ vars.VITE_TURN_CREDENTIAL_URL }}
       CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
     steps:
@@ -46,6 +51,10 @@ jobs:
     runs-on: macos-latest
     env:
       VITE_LEADERBOARD_URL: ${{ vars.VITE_LEADERBOARD_URL }}
+      VITE_TURN_URLS: ${{ vars.VITE_TURN_URLS }}
+      VITE_TURN_USERNAME: ${{ vars.VITE_TURN_USERNAME }}
+      VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
+      VITE_TURN_CREDENTIAL_URL: ${{ vars.VITE_TURN_CREDENTIAL_URL }}
       CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
       APPLE_ID: ${{ secrets.APPLE_ID }}

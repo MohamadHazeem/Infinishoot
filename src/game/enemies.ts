@@ -42,6 +42,8 @@ export const aiTuning = {
   coverRange: 9, // cover boxes this close to the shooter count
   coverPeek: 0.8, // shooters leave cover this long before their next shot
   rerouteTime: 0.45, // chargers sidestep this long when a wall blocks the charge line
+  losPad: 0.3, // shooters only fire when a bullet this fat would reach the target past the walls
+  losRetry: 0.25, // seconds before a blocked shooter checks its line again (it strafes meanwhile)
 };
 
 /** Elite squads: the escort that follows an elite in formation (src/game/systems/enemyAi.ts spawns it). */
@@ -1014,7 +1016,11 @@ export class Enemies {
           wantZ = this.az;
           e.timerA -= dt;
           const reach = S.pattern === 'sniper' ? 20 : 15;
-          if (e.timerA <= 0 && dist < reach && ctx.targetAlive) {
+          if (e.timerA <= 0 && dist < reach && ctx.targetAlive && S.pattern !== 'spiral' && !this.canSee(e, ctx)) {
+            // A wall is in the way: keep strafing out of cover and look again shortly.
+            e.timerA = aiTuning.losRetry;
+            e.hasCover = false;
+          } else if (e.timerA <= 0 && dist < reach && ctx.targetAlive) {
             if (S.pattern === 'sniper') {
               // Long aim: the line tracks you, then locks just before the shot.
               this.lockOn(e, nx, nz, dx, dz);
@@ -1376,13 +1382,24 @@ export class Enemies {
       const px = cx + (vx / vd) * off;
       const pz = cz + (vz / vd) * off;
       const d = (px - e.x) ** 2 + (pz - e.z) ** 2;
-      if (d < best) {
+      if (d >= best) continue;
+      // The peek spot (a sidestep in the shooter's strafe direction) must see the target.
+      const sx = (-vz / vd) * e.strafe * off;
+      const sz = (vx / vd) * e.strafe * off;
+      if (!ctx.walls.segmentClear(px + sx, pz + sz, tgt.x, tgt.z, aiTuning.losPad)) continue;
+      {
         best = d;
         e.coverX = px;
         e.coverZ = pz;
         e.hasCover = true;
       }
     }
+  }
+
+  /** Line of sight from a shooter to its target past the static walls (for bullets of `aiTuning.losPad`). */
+  private canSee(e: Enemy, ctx: EnemyCtx): boolean {
+    const t = ctx.target;
+    return ctx.walls.segmentClear(e.x, e.z, t.x, t.z, aiTuning.losPad);
   }
 
   /** Is a charge from (x, z) along (dx, dz) for `len` metres blocked by a wall? */

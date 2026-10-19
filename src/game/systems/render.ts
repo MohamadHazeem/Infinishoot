@@ -24,6 +24,8 @@ import { lap, lapStart } from '../../core/prof';
 import { viewCull } from '../../render/viewCull';
 import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
+import { tickOnlineStop } from '../netFeel';
+import { closePingWheel, pingInput, pingKind } from '../teamPlay';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -50,6 +52,7 @@ export function coopInput(this: Game): void {
   const input = this.input;
   const h = this.hero;
   const p = h.player;
+  if (!this.isCombatMode || this.screens.current !== 'none' || this.heroes.length < 2 || p.dead) closePingWheel(this);
   if (!this.isCombatMode || this.screens.current !== 'none' || this.heroes.length < 2) return;
   if (p.dead) {
     if (input.mousePressed(0) || input.padButtonPressed(0) || input.actionPressed('ping')) {
@@ -61,21 +64,24 @@ export function coopInput(this: Game): void {
     }
     return;
   }
-  if (!(input.actionPressed('ping') || input.padButtonPressed(8))) return;
-  let x = p.x + p.aim.x * 6;
-  let z = p.z + p.aim.z * 6;
-  if (input.device === 'kbm' && this.mouseAimPoint()) {
-    x = this.aimHit.x;
-    z = this.aimHit.z;
-  }
-  if (this.role === 'client') this.client?.send({ t: 'ping', x, z });
-  else this.ping(h, x, z);
+  // Tap: contextual ping; hold: the ping wheel (src/game/teamPlay.ts).
+  pingInput(this);
 }
 
 /** A teammate pings a spot: a marker and a label everyone sees. */
-export function ping(this: Game, h: Hero, x: number, z: number): void {
+export function ping(this: Game, h: Hero, x: number, z: number, kind?: string): void {
   if (performance.now() - h.pingAt < 700) return;
   h.pingAt = performance.now();
+  // Ping wheel picks (GO HERE, DANGER, ...): their own label and colour.
+  const k = pingKind(kind);
+  if (k) {
+    this.vfx.ring(x, z, 0.5, 4, k.color, 0.6);
+    this.vfx.ring(x, z, 0.5, 2.5, h.color, 0.45);
+    this.vfx.star(x, 2, z, 1.6, k.color, 0.5);
+    this.vfx.num(x, 3, z, `${h.name.toUpperCase()}: ${k.label}`, 'score');
+    this.vfx.sound('telegraph', x, z);
+    return;
+  }
   let label = 'HERE!';
   const near = (ax: number, az: number, r: number) => Math.hypot(ax - x, az - z) < r;
   if (this.chests.list.some((c) => c.openT < 0 && near(c.x, c.z, 4))) label = 'CHEST!';
@@ -171,7 +177,9 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const a = this.juice.hitStop > 0 || frozen ? 1 : alpha;
   // Clients draw remote things between the last two snapshots.
   const netA = client ? Math.min(1, (performance.now() - this.snapTime) / Math.max(16, this.snapInterval)) : a;
-  const rdt = frozen ? 0 : frameDt * (this.slowMoT > 0 ? 0.35 : 1);
+  // Online hit-stop: hold the picture (not the simulation) for the local hero's heavy hits.
+  const held = tickOnlineStop(this, frameDt);
+  const rdt = frozen || held ? 0 : frameDt * (this.slowMoT > 0 ? 0.35 : 1);
   this.localAudio(frameDt, frozen);
   updateSound.call(this, frameDt, frozen);
   this.input.rumbleOn = settings.rumble;
@@ -179,7 +187,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const slow = this.slowMoT > 0 ? 0.35 : 1;
   if (!frozen) {
     this.juice.tick(frameDt);
-    this.animTime += frameDt * slow;
+    if (!held) this.animTime += frameDt * slow;
   }
 
   for (const h of this.heroes) {
@@ -200,16 +208,16 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   if (!this.paused && this.mode !== 'levelup' && this.mode !== 'shop') {
     for (let i = zones.length - 1; i >= 0; i--) if ((zones[i].t -= frameDt) <= 0) zones.splice(i, 1);
   }
-  this.enemies.render(client ? netA : a, this.animTime);
+  if (!held) this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
   this.eliteTrails(frameDt);
-  this.bullets.render(a);
+  if (!held) this.bullets.render(a);
   lap('ren.bullets');
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
   lap('ren.barrels+arena+chests');
-  this.particles.render();
+  if (!held) this.particles.render();
   this.scars.render(rdt);
   streaks.render(rdt);
   lap('ren.particles+scars');

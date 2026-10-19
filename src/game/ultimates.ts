@@ -3,6 +3,7 @@ import type { Enemy } from './enemies';
 import type { Game } from './game';
 import type { Hero } from './hero';
 import { SCAR_COLORS } from './scars';
+import { bossLike } from './bossRules';
 
 /**
  * Hero ultimates: one per hero (src/data/heroes.ts `ult`), charged by damage
@@ -272,7 +273,7 @@ function stomp(g: Game, h: Hero, i: number, pw: number): void {
     const dz = e.z - p.z;
     const d = Math.hypot(dx, dz) || 1;
     hitUlt(g, h, e, U.stompDmg[i] * T * pw, dx / d, dz / d, U.stompKnock);
-    if (e.active && !e.def.boss && e.def.behavior !== 'reaper') e.frozen = Math.max(e.frozen, U.stompStun);
+    if (e.active && !bossLike(e) && e.def.behavior !== 'reaper') e.frozen = Math.max(e.frozen, U.stompStun);
   }
   const b = g.bullets;
   for (let k = 0; k < b.count; k++) if (b.team[k] === Team.Enemy && Math.hypot(b.x[k] - p.x, b.z[k] - p.z) < r) b.kill(k--);
