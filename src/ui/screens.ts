@@ -11,7 +11,7 @@ import type { ScoreEntry } from '../game/highscores';
 import { exportFile, importFile, loadoutUnlockBy, resetSave, save, unlockedLoadout } from '../game/save';
 import { settings, saveSettings } from '../game/settings';
 import { sfx } from '../audio/sfx';
-import { music, TRACKS, type TrackId } from '../audio/music';
+import { music, TRACKS, trackUnlocked, type TrackId } from '../audio/music';
 import { RARITY, type Rarity } from '../data/rarity';
 import { SLOT_LABEL, decoys, fmtScore, reduceMotion, reelAt, reelSteps, slotPicto, type LoadoutItem, type Slot } from './hud';
 import { MenuNav } from './menu';
@@ -467,7 +467,7 @@ export class Screens {
       wait: new MenuNav(this.els.wait),
       loadout: new MenuNav(this.els.loadout, { columns: 5, onBack: () => this.loadoutBack() }),
       extras: new MenuNav(this.els.extras, { onBack: () => actions.title() }),
-      jukebox: new MenuNav(this.els.jukebox, { onBack: () => this.show('extras') }),
+      jukebox: new MenuNav(this.els.jukebox, { columns: 2, onBack: () => this.show('extras') }),
       wardrobe: new MenuNav(this.els.wardrobe, { columns: 3, onBack: () => this.show('extras') }),
       modes: new MenuNav(this.els.modes, { columns: 4, onBack: () => actions.title() }),
       controls: new MenuNav(this.els.controls, { columns: 2, onBack: () => this.show('settings') }),
@@ -1305,11 +1305,10 @@ export class Screens {
   /** Tracks unlock as you reach their area (or hear them). */
   private renderJukebox(): void {
     const L = save.lifetime;
-    const unlocked = (id: TrackId, i: number) =>
-      music.heard.has(id) || id === 'title' || (id === 'boss' ? L.bosses > 0 : L.bestStage >= i);
+    const unlocked = (id: TrackId) => music.heard.has(id) || trackUnlocked(id, L.bestStage, L.bosses);
     const el = this.els.jukebox;
-    el.querySelector('.tracks')!.innerHTML = TRACKS.map((t, i) =>
-      unlocked(t.id, i)
+    el.querySelector('.tracks')!.innerHTML = TRACKS.map((t) =>
+      unlocked(t.id)
         ? `<button data-nav data-act="jb-play" data-track="${t.id}" class="${music.jukebox === t.id ? 'on' : ''}">${music.jukebox === t.id ? '♪ ' : ''}${t.name.toUpperCase()}</button>`
         : `<button data-nav class="locked" disabled>???</button>`,
     ).join('');
