@@ -3,11 +3,34 @@ import type { Rarity } from '../data/rarity';
 import { samples } from './samples';
 import { announcer } from './announcer';
 import { cuePriority, cueSamples, distanceCutoff, soundTuning, swarmGap, weaponSamples } from './mix';
+import { playEvoLayer } from './evoLayers';
+import { playCall, type Family } from './families';
+import { playThreat, threatTuning, type ThreatId } from './threats';
+import { speakSyllables, type Utterance } from './voice';
+import { playUi, type UiCue } from './uiKit';
 
-export const audioSettings = { volume: 0.5, sfx: 1, music: 0.7, ui: 0.8, muted: false };
+/** `voice` is the hero-voice volume (VOICE setting). */
+export const audioSettings = { volume: 0.5, sfx: 1, music: 0.7, ui: 0.8, voice: 0.8, muted: false };
 
 type Wave = OscillatorType;
-export type Bus = 'sfx' | 'music' | 'ui';
+/**
+ * `threat`: off-screen danger telegraphs. Follows the Effects volume but skips
+ * the announcer duck and the hit-stop muffle, so it is never buried.
+ * `voice`: hero barks (VOICE volume), ducked under the announcer like effects.
+ */
+export type Bus = 'sfx' | 'music' | 'ui' | 'threat' | 'voice';
+
+/** Building blocks the cue recipes (evolution layers, calls, telegraphs, voice, UI) play with. */
+export interface SynthKit {
+  tone(wave: Wave, f0: number, f1: number, dur: number, vol: number, delay?: number): void;
+  noise(dur: number, vol: number, hz: number, hzEnd?: number, q?: number, delay?: number): void;
+  /** A sung vowel: glottal wave at f0a -> f0b through two formant band-passes (F1, F2) gliding from `from` to `to`. */
+  vowel(wave: Wave, f0a: number, f0b: number, dur: number, from: readonly [number, number], to: readonly [number, number], vol: number, delay?: number): void;
+}
+
+function busLevel(bus: Bus): number {
+  return bus === 'threat' ? audioSettings.sfx : audioSettings[bus];
+}
 
 class Sfx {
   private ctx: AudioContext | null = null;
@@ -59,17 +82,20 @@ class Sfx {
     this.muffler.type = 'lowpass';
     this.muffler.frequency.value = 20000;
     this.muffler.connect(this.master);
-    this.buses = { sfx: ctx.createGain(), music: ctx.createGain(), ui: ctx.createGain() };
+    this.buses = { sfx: ctx.createGain(), music: ctx.createGain(), ui: ctx.createGain(), threat: ctx.createGain(), voice: ctx.createGain() };
     this.duckGain = ctx.createGain();
     this.buses.sfx.connect(this.duckGain).connect(this.muffler);
+    this.buses.voice.connect(this.duckGain);
     this.buses.music.connect(this.muffler);
     this.buses.ui.connect(this.master);
+    // Reserved band: telegraphs bypass the duck and the muffle (straight into the limiter).
+    this.buses.threat.connect(this.master);
     this.applyVolumes();
     // 1 s of white noise, reused by every noisy sound.
     this.noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const d = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    samples.init(ctx, this.buses, (bus) => !audioSettings.muted && audioSettings.volume > 0 && audioSettings[bus] > 0);
+    samples.init(ctx, this.buses, (bus) => !audioSettings.muted && audioSettings.volume > 0 && busLevel(bus) > 0);
     announcer.configure(() => ctx.currentTime, (seconds) => this.duck(seconds, 0.4, true));
     return ctx;
   }
@@ -81,6 +107,8 @@ class Sfx {
     this.buses.sfx.gain.value = audioSettings.sfx;
     this.buses.music.gain.value = audioSettings.music;
     this.buses.ui.gain.value = audioSettings.ui;
+    this.buses.threat.gain.value = audioSettings.sfx * threatTuning.gain;
+    this.buses.voice.gain.value = audioSettings.voice;
   }
 
   /** The running context and a bus input, for the music player. */
@@ -119,8 +147,10 @@ class Sfx {
     this.lastPlay.set(name, now);
     const line = ({ boss: 'boss', elite: 'elite', evolve: 'evolution', legendaryPick: 'legendary', lvl: 'level_up' } as Record<string, string>)[name];
     if (line) announcer.say(line);
-    if (audioSettings.volume <= 0 || audioSettings[bus] <= 0) return null;
-    const priority = cuePriority(name) - (name.startsWith('w:') && this.posGain < 0.7 ? 1 : 0);
+    if (audioSettings.volume <= 0 || busLevel(bus) <= 0) return null;
+    // Telegraphs stay audible off-screen: their distance fade has a floor.
+    const posGain = bus === 'threat' ? Math.max(this.posGain, threatTuning.minGain) : this.posGain;
+    const priority = cuePriority(name) - (name.startsWith('w:') && posGain < 0.7 ? 1 : 0);
     const nodes: AudioNode[] = [];
     const sources: AudioScheduledSourceNode[] = [];
     const cleanup = () => { for (const node of nodes) node.disconnect(); };
@@ -131,16 +161,17 @@ class Sfx {
     if (!release) return null;
     this.applyVolumes();
     let node: AudioNode = this.buses[bus];
-    if (bus === 'sfx') {
+    const placed = bus !== 'ui' && bus !== 'music';
+    if (placed) {
       const p = ctx.createStereoPanner();
       p.pan.value = this.pan;
       p.connect(node);
       nodes.push(p);
       node = p;
-      if (this.posGain < 0.95) {
+      if (posGain < 0.95) {
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = distanceCutoff(this.posGain);
+        filter.frequency.value = distanceCutoff(posGain);
         filter.connect(node);
         nodes.push(filter);
         node = filter;
@@ -148,9 +179,10 @@ class Sfx {
     }
     const sample = name.startsWith('w:') ? weaponSamples[name.slice(2)] : cueSamples[name];
     const layered = sample ? samples.play(sample, { bus: bus === 'ui' ? 'ui' : 'sfx', pan: this.pan,
-      distance: this.posGain, priority, cooldown: minGap, limit: priority === 0 ? 2 : 3 }) : null;
+      distance: posGain, priority, cooldown: minGap, limit: priority === 0 ? 2 : 3 }) : null;
     const g = ctx.createGain();
-    g.gain.value = (bus === 'sfx' ? this.posGain : 1) * (layered ? soundTuning.synthLayer : 1);
+    // A telegraph's synth stays at full level: its sample rides the (duckable) effects bus.
+    g.gain.value = (placed ? posGain : 1) * (layered && bus !== 'threat' ? soundTuning.synthLayer : 1);
     g.connect(node);
     nodes.push(g);
     this.route = g;
@@ -221,6 +253,109 @@ class Sfx {
     src.stop(t + dur + 0.02);
   }
 
+  private vowel(ctx: AudioContext, wave: Wave, f0a: number, f0b: number, dur: number, from: readonly [number, number], to: readonly [number, number], vol: number, delay = 0) {
+    const t = ctx.currentTime + delay;
+    const o = ctx.createOscillator();
+    o.type = wave;
+    o.frequency.setValueAtTime(f0a, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, f0b), t + dur);
+    const f1 = ctx.createBiquadFilter();
+    const f2 = ctx.createBiquadFilter();
+    f1.type = f2.type = 'bandpass';
+    f1.Q.value = 4;
+    f2.Q.value = 7;
+    f1.frequency.setValueAtTime(from[0], t);
+    f1.frequency.linearRampToValueAtTime(to[0], t + dur);
+    f2.frequency.setValueAtTime(from[1], t);
+    f2.frequency.linearRampToValueAtTime(to[1], t + dur);
+    const g2 = ctx.createGain();
+    g2.gain.value = 0.6;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.015, dur / 4));
+    env.gain.setValueAtTime(vol, t + dur * 0.62);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f1).connect(env);
+    o.connect(f2).connect(g2).connect(env);
+    env.connect(this.route);
+    this.track(o, [o, f1, f2, g2, env]);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  }
+
+  /** The recipe kit, bound to whatever voice `begin` opened last. */
+  private readonly kit: SynthKit = {
+    tone: (wave, f0, f1, dur, vol, delay = 0) => {
+      if (this.ctx) this.tone(this.ctx, wave, f0, f1, dur, vol, delay);
+    },
+    noise: (dur, vol, hz, hzEnd = hz, q = 1, delay = 0) => {
+      if (this.ctx) this.noise(this.ctx, dur, vol, hz, hzEnd, q, delay);
+    },
+    vowel: (wave, f0a, f0b, dur, from, to, vol, delay = 0) => {
+      if (this.ctx) this.vowel(this.ctx, wave, f0a, f0b, dur, from, to, vol, delay);
+    },
+  };
+
+  /**
+   * Play a recipe as one rate-limited, budgeted voice group. `name` drives
+   * priority (src/audio/mix.ts cuePriority) and the per-name rate limit.
+   */
+  play(name: string, minGap: number, bus: Bus, recipe: (k: SynthKit) => void): boolean {
+    const ctx = this.begin(name, minGap, bus);
+    if (!ctx) return false;
+    recipe(this.kit);
+    return true;
+  }
+
+  /** Any cue by name: an sfx method, `w:<weapon>[|<evo key>]`, `evo:<key>` or `call:<family>`. Used by the effects bus. */
+  named(name: string, pitch = 1): void {
+    if (name.startsWith('w:')) return this.weapon(name.slice(2));
+    if (name.startsWith('evo:')) return this.evoLayer(name.slice(4));
+    if (name.startsWith('call:')) return this.call(name.slice(5) as Family, pitch);
+    const fn = (this as unknown as Record<string, unknown>)[name];
+    if (typeof fn === 'function') (fn as (p?: number) => void).call(this, pitch);
+  }
+
+  /** An evolved item's extra layer on its own (specials, the Bomb). */
+  evoLayer(key: string): void {
+    this.play('evo:' + key, 0.08, 'sfx', (k) => playEvoLayer(k, key, 1));
+  }
+
+  /** Enemy family call (robots beep, slimes squelch, frogs croak, bugs buzz, bosses roar). */
+  call(family: Family, pitch = 1): void {
+    this.play('call:' + family, 0.12, 'sfx', (k) => playCall(k, family, pitch));
+  }
+
+  /** Off-screen danger telegraph on the reserved band. */
+  threat(id: ThreatId): void {
+    this.play('threat:' + id, 0.12, 'threat', (k) => playThreat(k, id));
+  }
+  threatSniper(): void {
+    this.threat('sniper');
+  }
+  threatMortar(): void {
+    this.threat('mortar');
+  }
+  threatLeap(): void {
+    this.threat('leap');
+  }
+  threatElite(): void {
+    this.threat('elite');
+  }
+  threatReaper(): void {
+    this.threat('reaper');
+  }
+
+  /** Hero voice bark (already composed into syllables by src/audio/voice.ts). */
+  speak(u: Utterance): boolean {
+    return this.play('voice:' + u.speaker, 0.05, 'voice', (k) => speakSyllables(k, u));
+  }
+
+  /** The shared UI kit (menu bus). `value` is 0..1 (slider position, toggle state). */
+  ui(cue: UiCue, value = 0): void {
+    this.play('menu:' + cue, cue === 'tick' ? 0.03 : cue === 'move' || cue === 'hover' ? 0.035 : 0.07, 'ui', (k) => playUi(k, cue, value));
+  }
+
   /** Hit-stop: close the low-pass on effects and music, then open it again. */
   muffle(seconds: number): void {
     const ctx = this.ctx;
@@ -278,7 +413,7 @@ class Sfx {
 
   /** Rising whine while a charger lines up its charge. */
   chargerWindup(): void {
-    const ctx = this.begin('cwind', 0.15);
+    const ctx = this.begin('cwind', 0.15, 'threat');
     if (!ctx) return;
     this.tone(ctx, 'sawtooth', 180, 900, 0.5, 0.07);
     this.tone(ctx, 'square', 360, 1800, 0.5, 0.03);
@@ -392,18 +527,17 @@ class Sfx {
     this.tone(ctx, 'triangle', 660, 990, 0.12, 0.08);
   }
 
-  /** Short UI blips. */
+  /** UI kit (src/audio/uiKit.ts): one palette for every menu. */
   menuMove(): void {
-    const ctx = this.begin('menuMove', 0.04, 'ui');
-    if (!ctx) return;
-    this.tone(ctx, 'square', 660, 660, 0.04, 0.06);
+    this.ui('move');
   }
 
   menuSelect(): void {
-    const ctx = this.begin('menuSelect', 0.08, 'ui');
-    if (!ctx) return;
-    this.tone(ctx, 'square', 523, 523, 0.06, 0.1);
-    this.tone(ctx, 'square', 784, 784, 0.1, 0.1, 0.06);
+    this.ui('confirm');
+  }
+
+  menuBack(): void {
+    this.ui('back');
   }
 
   powerUp(): void {
@@ -471,12 +605,7 @@ class Sfx {
   }
 
   buy(): void {
-    const ctx = this.begin('buy', 0.08);
-    if (!ctx) return;
-    this.noise(ctx, 0.04, 0.3, 3500);
-    this.tone(ctx, 'square', 1319, 1319, 0.06, 0.1, 0.04);
-    this.tone(ctx, 'triangle', 1760, 1760, 0.35, 0.14, 0.1);
-    this.tone(ctx, 'triangle', 2637, 2637, 0.3, 0.06, 0.12);
+    this.ui('purchase');
   }
 
   sell(): void {
@@ -487,17 +616,11 @@ class Sfx {
   }
 
   reroll(): void {
-    const ctx = this.begin('reroll', 0.1);
-    if (!ctx) return;
-    for (let i = 0; i < 4; i++) this.noise(ctx, 0.05, 0.25, 2400 - i * 300, 900, 2, i * 0.045);
-    this.tone(ctx, 'square', 440, 1320, 0.2, 0.07, 0.05);
+    this.ui('flip');
   }
 
   deny(): void {
-    const ctx = this.begin('deny', 0.15);
-    if (!ctx) return;
-    this.tone(ctx, 'square', 150, 140, 0.08, 0.12);
-    this.tone(ctx, 'square', 150, 120, 0.12, 0.12, 0.1);
+    this.ui('error');
   }
 
   stageClear(): void {
@@ -515,10 +638,16 @@ class Sfx {
     this.tone(ctx, 'sawtooth', 330, 660, 0.25, 0.08, 0.05);
   }
 
-  /** Weapon sounds, routed by name from the weapon context. */
-  weapon(name: string): void {
+  /**
+   * Weapon sounds, routed by name from the weapon context. `name|<evo key>`
+   * (an evolved weapon's cue) adds that evolution's layer on top.
+   */
+  weapon(full: string): void {
+    const bar = full.indexOf('|');
+    const name = bar < 0 ? full : full.slice(0, bar);
     const ctx = this.begin('w:' + name, name === 'shoot' ? 0.03 : 0.06);
     if (!ctx) return;
+    if (bar >= 0) playEvoLayer(this.kit, full.slice(bar + 1), 0.8);
     const p = 1 + (Math.random() - 0.5) * 0.1;
     switch (name) {
       case 'scatter':
@@ -668,7 +797,7 @@ class Sfx {
   }
 
   bossWindup(): void {
-    const ctx = this.begin('bwind', 0.3);
+    const ctx = this.begin('bwind', 0.3, 'threat');
     if (!ctx) return;
     this.tone(ctx, 'sawtooth', 120, 260, 0.4, 0.12);
   }

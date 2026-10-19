@@ -67,6 +67,11 @@ export class SampleEngine {
     }
   }
 
+  /** Would a sample on this bus be heard (unlocked, not muted, volume up)? */
+  canPlay(bus: 'sfx' | 'ui'): boolean {
+    return !!this.ctx && this.ctx.state === 'running' && this.enabled(bus);
+  }
+
   buffer(id: string): AudioBuffer | undefined {
     return this.buffers.get(id);
   }

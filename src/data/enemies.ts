@@ -68,6 +68,8 @@ export interface EnemyDef {
   title?: string;
   /** How it dies: robots scatter bolts and springs, goo splashes, shards shatter. */
   death?: 'robot' | 'goo' | 'shards';
+  /** Family call on spawn / wind-up (src/audio/families.ts); defaults from model, behaviour and death type. */
+  voice?: 'robot' | 'slime' | 'frog' | 'bug' | 'boss' | 'ghost';
 }
 
 export const ENEMIES: Record<string, EnemyDef> = {

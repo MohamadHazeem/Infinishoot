@@ -1,0 +1,78 @@
+/**
+ * When heroes speak: per-hero and per-kind cooldowns, chance rolls, priority
+ * interrupts and a global gap, then the bark plays on the voice bus and its
+ * caption goes to the caption strip. Local to each machine (src/game/systems/
+ * sound.ts derives the moments from synced state), so co-op needs no messages.
+ */
+import { sfx } from './sfx';
+import { caption } from './captions';
+import { BARKS, compose, voiceProfile, voiceTuning, type BarkKind, type Utterance } from './voice';
+
+/** VOICE setting (the volume is audioSettings.voice). */
+export const voiceSettings = { enabled: true };
+
+export interface Speaker {
+  heroId: string;
+  /** Player slot (co-op voice shift and the rate-limit key). */
+  index: number;
+  /** Caption name: the hero (solo) or the player's name (co-op). */
+  name: string;
+  color: string;
+}
+
+export interface BarkOptions {
+  pan?: number;
+  gain?: number;
+  /** Caption it (default yes). */
+  caption?: boolean;
+  /** Skip the chance roll. */
+  force?: boolean;
+}
+
+export class HeroVoice {
+  private last = new Map<string, number>();
+  private busy = new Map<number, { until: number; priority: number }>();
+  private any = -Infinity;
+  constructor(
+    private clock: () => number = () => performance.now() / 1000,
+    private rand: () => number = Math.random,
+  ) {}
+
+  /** Try to bark; returns the utterance if the moment passed every gate. */
+  bark(kind: BarkKind, sp: Speaker, o: BarkOptions = {}): Utterance | null {
+    if (!voiceSettings.enabled) return null;
+    const b = BARKS[kind];
+    const now = this.clock();
+    const key = sp.index + ':' + kind;
+    if (now - (this.last.get(key) ?? -Infinity) < b.cooldown) return null;
+    const busy = this.busy.get(sp.index);
+    if (busy && now < busy.until && b.priority <= busy.priority) return null;
+    if (b.priority <= 1 && now - this.any < voiceTuning.globalGap) return null;
+    if (!o.force && this.rand() > b.chance) return null;
+    const u = compose(kind, voiceProfile(sp.heroId, sp.index), 'p' + sp.index, this.rand);
+    this.last.set(key, now);
+    this.busy.set(sp.index, { until: now + u.length + voiceTuning.gap, priority: b.priority });
+    this.any = now;
+    sfx.at(o.pan ?? 0, o.gain ?? 1);
+    sfx.speak(u);
+    sfx.at(0, 1);
+    if (o.caption !== false) caption({ who: sp.name.toUpperCase(), text: u.caption, color: sp.color, kind: 'voice' });
+    return u;
+  }
+
+  /** This machine's hero while a run is on (set every frame by src/game/systems/sound.ts). */
+  local: Speaker | null = null;
+
+  /** Bark as this machine's hero (skill moments: parry, perfect dodge). */
+  barkLocal(kind: BarkKind, o: BarkOptions = {}): Utterance | null {
+    return this.local ? this.bark(kind, this.local, o) : null;
+  }
+
+  reset(): void {
+    this.last.clear();
+    this.busy.clear();
+    this.any = -Infinity;
+  }
+}
+
+export const heroVoice = new HeroVoice();

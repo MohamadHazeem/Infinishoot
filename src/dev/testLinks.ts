@@ -44,6 +44,7 @@ import { renderQuality } from '../render/quality';
  *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
  *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
  *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
+ *   ?test&captions&arrows&spawn=sniper:2&spawnr=26&hurt=1   caption strip and sound arrows on (off-screen snipers)
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
@@ -67,6 +68,12 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     applySettings();
   }
   if (q.has('fps')) settings.showFps = true;
+  // Audio accessibility overlays: &captions (caption strip), &arrows (sound arrows).
+  if (q.has('captions') || q.has('arrows')) {
+    settings.captions ||= q.has('captions');
+    settings.soundArrows ||= q.has('arrows');
+    applySettings();
+  }
   if (q.has('bench')) {
     prof.on = true;
     Object.assign(window, { __prof: prof, __profReset: profReset, __game: game, __quality: renderQuality });

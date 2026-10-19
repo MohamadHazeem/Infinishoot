@@ -19,10 +19,17 @@ export interface MusicWant {
   cue?: 'victory' | 'gameover';
 }
 
-type LayerId = 'pad' | 'hat' | 'bass' | 'drums' | 'lead' | 'arp' | 'counter';
-const LAYERS: readonly LayerId[] = ['pad', 'hat', 'bass', 'drums', 'lead', 'arp', 'counter'];
-const VOLUME: Record<LayerId, number> = { pad: 0.028, hat: 0.065, bass: 0.1, drums: 0.22, lead: 0.075, arp: 0.035, counter: 0.038 };
-const PAN: Record<LayerId, number> = { pad: -0.18, hat: 0.18, bass: 0, drums: 0, lead: -0.12, arp: 0.32, counter: -0.32 };
+type LayerId = 'pad' | 'hat' | 'bass' | 'drums' | 'lead' | 'arp' | 'counter' | 'style';
+const LAYERS: readonly LayerId[] = ['pad', 'hat', 'bass', 'drums', 'lead', 'arp', 'counter', 'style'];
+const VOLUME: Record<LayerId, number> = { pad: 0.028, hat: 0.065, bass: 0.1, drums: 0.22, lead: 0.075, arp: 0.035, counter: 0.038, style: 0.05 };
+const PAN: Record<LayerId, number> = { pad: -0.18, hat: 0.18, bass: 0, drums: 0, lead: -0.12, arp: 0.32, counter: -0.32, style: 0.24 };
+/**
+ * Style-rank layer (playing well sounds better). Ranks are the style meter's
+ * 0 = D .. 5 = SS; it changes on the next bar.
+ *   B: off-beat shaker. A: a harmony a third over the lead. S: drum fills every
+ *   two bars and a high octave arp. SS: crash on every bar and a doubled bass.
+ */
+export const styleLayerTuning = { shakerAt: 2, harmonyAt: 3, fillsAt: 4, crashAt: 5, gain: 1 };
 const TONES = [0, 2, 4, 7];
 const HOOK = [4, 4, 5, 4, 2, 0, 2, 4];
 const VICTORY = [0, 2, 4, 7, 6, 7];
@@ -47,6 +54,8 @@ interface Playing {
   energy: number;
   end: number;
   finished: boolean;
+  /** Style rank in effect this bar (set by arrange). */
+  rank: number;
 }
 
 /** Procedural songs with bar-quantized transitions and an audio-clock beat API. */
@@ -67,6 +76,7 @@ export class Music {
   private synth: MusicSynth | null = null;
   private intensity = 0;
   private bossPhase = 1;
+  private styleRank = 0;
   private desiredTrack: TrackId | null = null;
   private desiredSeed = 0;
   private desiredStage = 1;
@@ -84,6 +94,15 @@ export class Music {
   /** Phases 2/3 add counterpoint/arps and raise the key by 2/4 semitones next bar. */
   setBossPhase(phase: number): void {
     this.bossPhase = Number.isFinite(phase) ? Math.max(1, Math.min(3, Math.floor(phase))) : 1;
+  }
+
+  /** The local hero's style rank (0 = D .. 5 = SS); the style layer follows on the next bar. */
+  setStyleRank(rank: number): void {
+    this.styleRank = Number.isFinite(rank) ? Math.max(0, Math.min(5, Math.floor(rank))) : 0;
+  }
+
+  get style(): number {
+    return this.cur?.rank ?? 0;
   }
 
   beatPhase(): number {
@@ -240,8 +259,8 @@ export class Music {
       layers[layer] = gain;
       nodes.push(gain, pan);
     }
-    return { id, seed, stage, song: makeSong(TRACK_BY_ID[id].style, seed), out, filter, menu, layers, nodes, padDuck,
-      step: 0, nextTime: t, section: 'intro', transpose: 0, phase: 1, energy: 0, end: Infinity, finished: false };
+    return { id, seed, stage, song: makeSong(TRACK_BY_ID[id].style, seed, TRACK_BY_ID[id].theme), out, filter, menu, layers, nodes, padDuck,
+      step: 0, nextTime: t, section: 'intro', transpose: 0, phase: 1, energy: 0, end: Infinity, finished: false, rank: 0 };
   }
 
   private fadeOut(p: Playing, t: number): void {
@@ -262,6 +281,7 @@ export class Music {
     const boss = TRACK_BY_ID[p.id].boss;
     p.phase = boss && !this.jukebox ? Math.max(this.bossPhase, legacyKeyUp ? 2 : 1) : 1;
     p.energy = Math.max(0, Math.min(1, this.intensity));
+    p.rank = this.jukebox || TRACK_BY_ID[p.id].bars ? 0 : this.styleRank;
     if (bar % 4 === 0) p.section = sectionAt(bar, p.energy);
     p.transpose = stageTranspose(p.stage) + (p.phase - 1) * 2 + (p.section === 'final' ? 2 : 0);
     const full = !!TRACK_BY_ID[p.id].bars || p.section === 'chorus' || p.section === 'final';
@@ -278,6 +298,7 @@ export class Music {
       if (layer === 'counter') k = full ? 0.85 : bridge ? 0.7 : 0;
       if (boss && layer === 'counter') k = p.phase >= 2 ? 0.85 : 0;
       if (boss && layer === 'arp') k = p.phase >= 3 ? 1 : p.phase >= 2 ? 0.65 : 0.25;
+      if (layer === 'style') k = p.rank >= styleLayerTuning.shakerAt ? (0.55 + 0.09 * p.rank) * styleLayerTuning.gain : 0;
       p.layers[layer].gain.setTargetAtTime(VOLUME[layer] * k, t, 0.06);
     }
   }
@@ -320,12 +341,23 @@ export class Music {
       if (s === 15) synth.noiseHit(L.hat, t, 0.25, 0.5, 6200, true);
     }
     const n = song.melody[p.step % 64];
-    if (full && s % 2 === 0) {
-      synth.note(L.lead, st.lead, degreeMidi(st, chord + HOOK[s / 2], p.transpose) + 24, t, d * (s === 14 ? 1.9 : 1.5), 0.72);
+    let leadDeg: number | null = null;
+    if (song.themeAt && !bridge) {
+      // Authored leitmotif; the intro saves it for its last two bars, choruses add a third below.
+      const th = song.themeAt[p.step % 64];
+      if (th && (!intro || bar % 4 >= 2)) {
+        leadDeg = th[1];
+        synth.note(L.lead, st.lead, degreeMidi(st, th[1], p.transpose) + 24, t, d * th[2] * 0.92, 0.72);
+        if (full) synth.note(L.counter, 'bell', degreeMidi(st, th[1] - 2, p.transpose) + 24, t, d * th[2] * 0.9, 0.42);
+      }
+    } else if (full && s % 2 === 0) {
+      leadDeg = chord + HOOK[s / 2];
+      synth.note(L.lead, st.lead, degreeMidi(st, leadDeg, p.transpose) + 24, t, d * (s === 14 ? 1.9 : 1.5), 0.72);
     } else if (!full && n && (!intro || s % 8 === 0) && (!bridge || s < 8)) {
-      const degree = n.deg - song.chords[bar % 4] + chord;
-      synth.note(L.lead, st.lead, degreeMidi(st, degree, p.transpose) + 24, t, d * Math.min(n.len, 3.8), 0.7);
+      leadDeg = n.deg - song.chords[bar % 4] + chord;
+      synth.note(L.lead, st.lead, degreeMidi(st, leadDeg, p.transpose) + 24, t, d * Math.min(n.len, 3.8), 0.7);
     }
+    if (p.rank >= styleLayerTuning.shakerAt) this.playStyle(p, t, d, s, bar, chord, leadDeg, b);
     if ((!intro && !bridge && (full || p.energy > 0.45)) && (s % 2 === 0 || p.phase === 3)) {
       synth.note(L.arp, st.arp, degreeMidi(st, chord + TONES[song.arp[s]], p.transpose) + 24, t, d * 0.85, 0.55);
     }
@@ -337,16 +369,43 @@ export class Music {
     if (p.phase === 3 && s % 4 === 3) synth.note(L.bass, 'triangle', root + 12, t, d * 0.8, 0.4);
   }
 
+  /** The style-rank layer for one step (see styleLayerTuning). */
+  private playStyle(p: Playing, t: number, d: number, s: number, bar: number, chord: number, leadDeg: number | null, bass: number | null): void {
+    const synth = this.synth!;
+    const st = p.song.style;
+    const L = p.layers.style;
+    const T = styleLayerTuning;
+    if (s % 2 === 1) synth.noiseHit(L, t, 0.03, 0.28, 9000, true);
+    if (p.rank >= T.harmonyAt && leadDeg !== null) synth.note(L, 'pluck', degreeMidi(st, leadDeg + 2, p.transpose) + 24, t, d * 1.3, 0.4);
+    if (p.rank >= T.fillsAt) {
+      if (bar % 2 === 1 && s >= 12) synth.snare(L, t, 0.3 + (s - 12) * 0.1);
+      else if (s % 4 === 2) synth.note(L, 'bell', degreeMidi(st, chord + TONES[p.song.arp[s]], p.transpose) + 36, t, d * 0.7, 0.3);
+    }
+    if (p.rank >= T.crashAt) {
+      if (s === 0) synth.noiseHit(L, t, 0.6, 0.45, 5200, true);
+      if (bass !== null && s % 4 === 0) synth.note(L, 'triangle', degreeMidi(st, chord + bass, p.transpose) + 12, t, d * 1.4, 0.45);
+    }
+  }
+
   private playStinger(p: Playing, t: number, d: number): void {
     const synth = this.synth!;
     const win = p.id === 'victory';
-    const notes = win ? VICTORY : GAMEOVER;
     const s = p.step;
-    const index = s / 2;
-    if (s % 2 === 0 && index < notes.length) {
-      const last = index === notes.length - 1;
-      synth.note(p.layers.lead, win ? 'square' : 'bell', degreeMidi(p.song.style, notes[index], p.transpose) + 24, t, last ? d * 12 : d * 1.7, 0.7);
-      if (win) synth.note(p.layers.counter, 'bell', degreeMidi(p.song.style, notes[index], p.transpose) + 36, t, d * 3, 0.4);
+    if (win && p.song.themeAt) {
+      // Authored fanfare (quotes the title's leitmotif).
+      const th = p.song.themeAt[s % 64];
+      if (th) {
+        synth.note(p.layers.lead, 'square', degreeMidi(p.song.style, th[1], p.transpose) + 24, t, d * th[2] * 0.95, 0.7);
+        synth.note(p.layers.counter, 'bell', degreeMidi(p.song.style, th[1], p.transpose) + 36, t, d * Math.min(3, th[2]), 0.4);
+      }
+    } else {
+      const notes = win ? VICTORY : GAMEOVER;
+      const index = s / 2;
+      if (s % 2 === 0 && index < notes.length) {
+        const last = index === notes.length - 1;
+        synth.note(p.layers.lead, win ? 'square' : 'bell', degreeMidi(p.song.style, notes[index], p.transpose) + 24, t, last ? d * 12 : d * 1.7, 0.7);
+        if (win) synth.note(p.layers.counter, 'bell', degreeMidi(p.song.style, notes[index], p.transpose) + 36, t, d * 3, 0.4);
+      }
     }
     if (s === 0 || s === 8) {
       for (let k = 0; k < 3; k++) synth.note(p.layers.pad, 'wide', degreeMidi(p.song.style, k * 2, p.transpose) + 12, t, d * 14, 0.5);

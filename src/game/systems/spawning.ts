@@ -7,6 +7,7 @@ import type { Game } from '../game';
 import { RECYCLE_DIST } from '../game';
 import { ELITE_MOD_IDS, ELITE_MODS, type EliteModId } from '../../data/eliteMods';
 import { type EnemyDef } from '../../data/enemies';
+import { spawnCue } from './sound';
 
 /** A point on a ring just off-screen around a living hero, inside the arena and not in a wall. */
 export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x: number; z: number } | null {
@@ -42,6 +43,7 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
   const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
   const spawned = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
   if (elite) this.spawnSquad(spawned); // escort in formation
+  spawnCue(this, def, pos.x, pos.z, elite); // family call, elite arrival telegraph (systems/sound.ts)
   if (def.id === 'reaper') {
     this.vfx.banner('THE REAPER COMES', 'RUN. OR TRY YOUR LUCK.', 2.4);
     this.vfx.sound('boss', NaN, NaN);
