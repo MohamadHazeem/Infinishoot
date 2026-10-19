@@ -1,5 +1,7 @@
+import { storyEn } from '../game/story/strings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  ...storyEn,
   "text.showdown_stay_in_the_ring_3b2966": "SHOWDOWN · STAY IN THE RING",
   "text.infinishoot_3c78cb": "INFINISHOOT",
   "text.build_card_f5687c": "BUILD CARD",

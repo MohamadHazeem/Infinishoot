@@ -1,3 +1,5 @@
+import * as StorySys from './systems/story';
+import type { Story } from './story/controller';
 import * as Mods2Sys from './systems/mods2';
 import { accessibilityInput, assistAim } from './systems/aimAssist';
 import { metaSkin } from '../data/codex';
@@ -779,6 +781,9 @@ export class Game implements HeroWorld {
   readonly screens: Screens;
   /** Training field, first-time tips, codex discovery, run recap (src/game/onboarding.ts). */
   readonly onboarding: Onboarding;
+  readonly story: Story;
+  storyStep = StorySys.storyStep;
+  renderStory = StorySys.renderStory;
   /** A new player's first ten minutes: FIRST STEPS, stage-1 moments, helpers, next-try advice (src/game/systems/firstten.ts). */
   readonly firstten: FirstTen;
   flashes: THREE.Mesh[] = [];
@@ -933,6 +938,7 @@ export class Game implements HeroWorld {
     PartySys.installParty(this, hudRoot);
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
     HalloweenSys.installHalloween.call(this, hudRoot);
+    this.story = StorySys.installStory.call(this, hudRoot);
     this.goTitle();
   }
 
@@ -1229,6 +1235,7 @@ export class Game implements HeroWorld {
       this.input.endStep();
       return;
     }
+    if (this.storyStep(dt)) { this.input.endStep(); this.hostTick(false); return; }
     this.onboarding.step(dt);
     this.firstten.step(dt);
     if (this.pvp) this.pvpTick();

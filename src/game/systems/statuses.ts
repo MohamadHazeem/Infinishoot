@@ -1,3 +1,4 @@
+import { saveLock } from '../save';
 import { halloweenKill } from './halloween';
 import { markSeen } from '../save';
 /**
@@ -152,6 +153,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   halloweenKill.call(this, e);
   const def = e.def;
   markSeen(def.id);
+  if ((def.boss || def.miniboss) && !saveLock.on) this.vfx.cine('story-chapter', 0, 0, 0, def.id);
   const wasFrozen = e.frozen > 0;
   this.kills++;
   this.combo++;

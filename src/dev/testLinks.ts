@@ -1,3 +1,4 @@
+import { storyLinks } from '../game/systems/story';
 import { halloweenLinks } from '../game/systems/halloween';
 import { cleanHeat } from '../data/heat';
 import { save } from '../game/save';
@@ -246,6 +247,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
   halloweenLinks(game, q);
   modesLinks(game, q); // rhythm, pacifist, pact=, minigame=, mgt=, ghost=demo, ghostlead=, modescreen=ghosts (src/dev/modesLinks.ts)
+  storyLinks(game, q);
   cinematicsLinks(game, q); // skyfall=, ending=, reveal=, jackpot=, flawless=, titleplay=, cine= (src/dev/cinematicsLinks.ts)
   mpLinks(game, q); // MP lane: versus, localcoop, browse, teamboard, lobby= (src/dev/mpLinks.ts)
   lobbyLinks(game, q); // lobby lane: lobbyx, lobbyx=count, party, friends (src/dev/lobbyLinks.ts)

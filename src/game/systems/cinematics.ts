@@ -221,6 +221,7 @@ export function cineStep(this: Game, dt: number): boolean {
     if (s.end.t >= len) {
       s.end = null;
       view?.endingStop();
+      this.story?.finishEnding(pressed);
     } else {
       hold ||= solo;
       block = true;
@@ -555,6 +556,7 @@ function revealLand(g: Game, s: CineState): void {
 
 /** A cinematics event from the effects bus (host locally, clients from the snapshot). */
 export function onCine(this: Game, kind: string, hero: number, x: number, z: number, data: string): void {
+  if (this.story?.event(kind, data)) return;
   const s = cineState(this);
   const view = ui(this, s);
   const level = cineLevel();

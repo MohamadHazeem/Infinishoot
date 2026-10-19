@@ -1,6 +1,8 @@
+import { storyAr } from '../game/story/strings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...storyAr,
   "text.showdown_stay_in_the_ring_3b2966": "المواجهة الحاسمة · ابق داخل الحلبة",
   "text.infinishoot_3c78cb": "INFINISHOOT",
   "text.build_card_f5687c": "بطاقة التجهيزات",
