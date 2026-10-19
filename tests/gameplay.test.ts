@@ -32,6 +32,13 @@ process.on('unhandledRejection', (e) => {
   process.exit(1);
 });
 
+// Deterministic Math.random (crits, drop and spawn rolls): without it a few checks flaked (a cash-in BOMB with no
+// enemy in reach, a kill that didn't roll its blast). The game's own seeded RNG already covers the rest.
+let rs = 0x9e3779b9;
+Math.random = () => {
+  rs = (Math.imul(rs ^ (rs >>> 15), 1 | rs) + 0x6d2b79f5) | 0;
+  return ((rs ^ (rs >>> 14)) >>> 0) / 4294967296;
+};
 const GP = await import('../src/game/gameplay');
 const SYS = await import('../src/game/systems/gameplay');
 const { Input } = await import('../src/core/input');

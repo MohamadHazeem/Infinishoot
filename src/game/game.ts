@@ -84,6 +84,7 @@ import * as CompanionSys from './systems/companion';
 import * as CharSys from './systems/characters';
 import * as GameplaySys from './systems/gameplay';
 import * as WorldEventsSys from './systems/worldEvents';
+import * as TimeSys from './systems/time';
 import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
@@ -569,6 +570,16 @@ export class Game implements HeroWorld {
   applyGameplayNet = GameplaySys.applyGameplayNet;
   gameplayClientInput = GameplaySys.gameplayClientInput;
   renderGameplay = GameplaySys.renderGameplay;
+  // Time: rewind, last stand, bullet-time dodges, death replay, clutch revives (src/game/systems/time.ts).
+  timeStep = TimeSys.timeStep;
+  requestRewind = TimeSys.requestRewind;
+  lastStand = TimeSys.lastStand;
+  timeKill = TimeSys.timeKill;
+  clutchRevive = TimeSys.clutchRevive;
+  timeMessage = TimeSys.timeMessage;
+  timeNet = TimeSys.timeNet;
+  applyTimeNet = TimeSys.applyTimeNet;
+  renderTime = TimeSys.renderTime;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -1119,6 +1130,12 @@ export class Game implements HeroWorld {
     this.onboarding.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
+    // Time holds (rewind playback, death replay) stop the world on this machine (systems/time.ts).
+    if (this.timeStep(dt)) {
+      this.input.endStep();
+      this.hostTick(false);
+      return;
+    }
     if (this.role === 'client') {
       this.clientUpdate(dt);
       return;

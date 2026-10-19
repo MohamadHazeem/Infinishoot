@@ -86,6 +86,8 @@ export interface Settings {
   animeLook: boolean;
   /** CUSTOMISE: hero colours, accessory and weapon skin as a 5-character code (src/data/customise.ts). */
   look: string;
+  /** Slow-motion replay of the hit that ended the run, before the game-over screen. */
+  deathReplay: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -137,6 +139,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   portraitPops: true,
   animeLook: false,
   look: '---00',
+  deathReplay: true,
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -146,6 +149,7 @@ settings.finishers ??= true;
 settings.portraitPops ??= true;
 settings.animeLook ??= false;
 settings.look ??= '---00';
+settings.deathReplay ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

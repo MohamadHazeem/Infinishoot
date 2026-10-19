@@ -243,7 +243,7 @@ cheats.god = false;
 p.invuln = 0;
 h.revivesLeft = 0;
 if (p.hurt(p.hp + 1, 0, 1)) game.onHeroDown(h);
-step(200);
+step(360); // the death replay (time lane, ~5 s) plays before the game-over screen
 ok(game.screens.current === 'gameover', 'the run ends on the game-over screen');
 ok(!!$('#scr-gameover .ob-unlocks') && $('#scr-gameover .ob-unlocks')!.querySelectorAll('.ob-ul').length === 3, 'game over shows the 3 closest unlocks');
 ok($('#scr-gameover .ob-recap tr:nth-child(2) .st')?.textContent === 'ST 1', 'game over shows the stage timeline');

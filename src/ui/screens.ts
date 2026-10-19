@@ -174,7 +174,7 @@ function rangeLabel(inp: HTMLInputElement): void {
   else if (inp.dataset.unit && out) out.textContent = `${inp.value}${inp.dataset.unit}`;
 }
 
-type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'captions' | 'soundArrows' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops';
+type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'captions' | 'soundArrows' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather' | 'finishers' | 'portraitPops' | 'deathReplay';
 /** Settings switched by buttons that cycle through `data-opts` (DAMAGE NUMBERS: ALL / MINE / OFF). */
 type CycleKey = 'damageNumbers' | 'chargeMode';
 
@@ -353,6 +353,7 @@ export class Screens {
     <button data-nav data-toggle="dynamicCamera">DYNAMIC CAMERA <b></b></button>
     <button data-nav data-toggle="bossIntros">BOSS INTROS <b></b></button>
     <button data-nav data-toggle="slowMo">SKILL SLOW-MO <b></b></button>
+    <button data-nav data-toggle="deathReplay">DEATH REPLAY <b></b></button>
     <label><span>UI SCALE <b class="set-val"></b></span><input data-nav type="range" min="75" max="150" step="25" data-set="uiScale" data-unit="%"></label>
     <button data-nav data-cycle="damageNumbers" data-opts="all,mine,off">DAMAGE NUMBERS <b></b></button>
     <button data-nav data-cycle="chargeMode" data-opts="hold,toggle">CHARGE MODE <b></b></button>

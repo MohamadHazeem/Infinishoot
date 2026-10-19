@@ -377,6 +377,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   if (s.fx) decodeFx(s.fx as NetBytes, (e) => this.vfx.apply(e));
   this.applySkillNet(s.sk);
   this.applyCompanionNet(s.cp);
+  this.applyTimeNet(s.tm);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   this.applyWorldEventNet(s.we, s.wt);

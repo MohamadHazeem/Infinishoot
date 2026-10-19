@@ -5,7 +5,7 @@ import { loadJson, saveJson } from './storage';
  * and the gamepad keep their fixed layout. Escape always pauses and backs out
  * of menus, whatever is bound.
  */
-export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping' | 'parry' | 'ult' | 'team' | 'cash' | 'cashpick';
+export type Action = 'up' | 'down' | 'left' | 'right' | 'dash' | 'bomb' | 'pause' | 'autofire' | 'reroll' | 'ping' | 'parry' | 'ult' | 'team' | 'cash' | 'cashpick' | 'rewind';
 
 export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'up', name: 'Move up' },
@@ -16,6 +16,7 @@ export const ACTIONS: { id: Action; name: string }[] = [
   { id: 'bomb', name: 'Special' },
   { id: 'parry', name: 'Parry' },
   { id: 'ult', name: 'Ultimate' },
+  { id: 'rewind', name: 'Rewind time' },
   { id: 'pause', name: 'Pause' },
   { id: 'autofire', name: 'Auto-fire' },
   { id: 'reroll', name: 'Reroll cards' },
@@ -34,6 +35,7 @@ const DEFAULTS: Record<Action, [string, string]> = {
   bomb: ['KeyQ', 'KeyE'],
   parry: ['KeyC', ''],
   ult: ['KeyV', ''],
+  rewind: ['KeyB', ''],
   pause: ['KeyP', ''],
   autofire: ['KeyF', ''],
   reroll: ['KeyR', ''],
@@ -43,14 +45,16 @@ const DEFAULTS: Record<Action, [string, string]> = {
   cashpick: ['KeyZ', ''],
 };
 
-/** Gamepad buttons (standard mapping) for the skill actions: B parries; L3, R3 or D-pad up fires the ultimate. */
+/** Gamepad buttons (standard mapping) for the skill actions: B parries; L3 or R3 fires the ultimate. */
 export const PAD_PARRY = [1];
-export const PAD_ULT = [10, 11, 12];
+export const PAD_ULT = [10, 11];
 /** Gamepad: D-pad down fires the co-op team move. */
 export const PAD_TEAM = [13];
 /** Gamepad: D-pad right cashes in the combo, D-pad left switches the cash-in choice (src/game/systems/gameplay.ts). */
 export const PAD_CASH = [15];
 export const PAD_CASHPICK = [14];
+/** Gamepad: D-pad up rewinds time (src/game/systems/time.ts). */
+export const PAD_REWIND = [12];
 
 const KEY = 'keys.v1';
 

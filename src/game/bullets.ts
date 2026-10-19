@@ -318,6 +318,11 @@ export class Bullets {
     return '#' + this.colors[i].getHexString();
   }
 
+  /** Bullet colour as a number (no allocation; the time lane's recorder). */
+  colorHex(i: number): number {
+    return this.colors[i].getHex();
+  }
+
   /** Integrate motion. Collision is resolved by the game (needs enemies/walls). */
   integrate(dt: number): void {
     for (let i = 0; i < this.count; i++) {

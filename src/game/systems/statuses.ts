@@ -260,6 +260,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.runEvents.onKill(source, this.combo);
   this.onEnvKill(e, source);
   this.skillKill(e, source, by);
+  this.timeKill(e, by);
   if (isBoss) this.grantRelics();
   // Combos and Mod triggers after the kill is resolved (they may kill more).
   if (by) {
@@ -450,7 +451,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   this.vfx.num(p.x, 2.2, p.z, dmg, 'player');
   this.vfx.star(p.x, 1.1, p.z, 2, '#ff3d5a', 0.15);
   this.vfx.burst(p.x, 1, p.z, { count: 10, color: '#ff3d5a', color2: '#ffffff', speed: [3, 8], size: [0.12, 0.25], life: [0.2, 0.4], up: 3, gravity: 12 });
-  if (p.dead) this.onHeroDown(h);
+  if (p.dead && !this.lastStand(h)) this.onHeroDown(h); // a big combo can turn a killing blow into a last stand (systems/time.ts)
 }
 
 export function onHeroDown(this: Game, h: Hero): void {

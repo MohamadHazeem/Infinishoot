@@ -90,6 +90,7 @@ export function padGlyph(fam: PadFamily, b: PadBtn): string {
     return `<span class="pad-face" title="${NAMES[fam][b]}">${svg(ROUND, (ch) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? f.body[b] : null), marks)}</span>`;
   }
   if (b === 12) return svg(DPAD, (ch, x, y) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? (y < 4 && x === 4 ? '#ffcd75' : '#566c86') : null));
+  if (b === 14) return svg(DPAD, (ch, x, y) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? (x < 4 && y === 4 ? '#ffcd75' : '#566c86') : null));
   return `<span class="kc pad">${NAMES[fam][b]}</span>`;
 }
 
@@ -109,6 +110,7 @@ const PAD_OF: Partial<Record<PromptId, PadBtn>> = {
   bomb: 5,
   parry: 1,
   ult: 11,
+  rewind: 12,
   pause: 9,
   reroll: 3,
   ping: 8,
@@ -175,6 +177,7 @@ function controlsLine(mode: PromptMode): string {
     ['bomb', 'special'],
     ['parry', 'parry'],
     ['ult', 'ultimate'],
+    ['rewind', 'rewind'],
     ['ping', 'ping'],
     ['pause', 'pause'],
   ];
@@ -190,7 +193,11 @@ function padLegend(fam: PadFamily): string {
     [[4, 6, 0], 'Dash'],
     [[5, 3], 'Special'],
     [[1], 'Parry'],
-    [[11, 10, 12], 'Ultimate'],
+    [[11, 10], 'Ultimate'],
+    [[12], 'Rewind time'],
+    [[13], 'Team move (co-op)'],
+    [[15], 'Cash in combo'],
+    [[14], 'Cash-in choice'],
     [[8], 'Ping'],
     [[9], 'Pause'],
   ];

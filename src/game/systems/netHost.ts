@@ -98,6 +98,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   } else if (m.t === 'parry' || m.t === 'ult') {
     if (m.t === 'parry') noteParryLag(this, h, Number(m.rtt) || 0);
     this.skillMessage(h, m.t);
+  } else if (m.t === 'rw') {
+    this.timeMessage(h, m); // time lane: the rewind button
   } else if (m.t === 'team') {
     this.tryTeamMove(h);
   } else if (m.t === 'cash') {
@@ -222,6 +224,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     gpw: this.gameplayNet(forHero),
     we: this.worldEventNet(),
     wt: this.worldEventLive(forHero),
+    tm: this.timeNet(forHero),
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }
