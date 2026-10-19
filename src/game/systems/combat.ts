@@ -74,13 +74,13 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   const hx = o.hx ?? e.x;
   const hz = o.hz ?? e.z;
   if (crit) {
-    this.vfx.num(e.x, 1.9 * e.scale, e.z, `${amount}!`, 'crit');
+    this.vfx.num(e.x, 1.9 * e.scale, e.z, `${amount}!`, 'crit', by.index);
     this.vfx.sound('crit', e.x, e.z);
     this.vfx.star(hx, BULLET_Y, hz, 1.5, '#fff35c', 0.12);
   } else if (o.loud) {
     // Cosmetic labels travel through the existing number event on hosts and clients.
     const accent = shielded ? 'shield' : tags.includes('fire') ? 'fire' : tags.includes('shock') ? 'shock' : tags.includes('frost') ? 'frost' : undefined;
-    this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, accent));
+    this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, accent), 'hit', by.index);
     this.vfx.sound(shielded ? 'hitMetal' : 'hit', e.x, e.z, this.pitch);
     this.vfx.star(hx, BULLET_Y, hz, 0.85, '#ffffff', 0.08);
   }

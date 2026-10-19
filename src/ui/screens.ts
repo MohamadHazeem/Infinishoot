@@ -22,6 +22,7 @@ import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/mod
 import { dailyBest } from '../game/highscores';
 import { HEROES } from '../data/heroes';
 import { ACTIONS, binds, keyLabel, rebind, resetBinds, type Action } from '../core/keybinds';
+import { prompt, promptHtml } from './prompts';
 import { ENEMIES } from '../data/enemies';
 import { ENEMY_TIPS } from '../data/bestiary';
 
@@ -145,9 +146,12 @@ function rangeLabel(inp: HTMLInputElement): void {
   const names = inp.dataset.labels?.split(',');
   const out = inp.closest('label')?.querySelector('.set-val');
   if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
+  else if (inp.dataset.unit && out) out.textContent = `${inp.value}${inp.dataset.unit}`;
 }
 
-type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo';
+type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'weather';
+/** Settings switched by buttons that cycle through `data-opts` (DAMAGE NUMBERS: ALL / MINE / OFF). */
+type CycleKey = 'damageNumbers' | 'chargeMode';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -262,7 +266,7 @@ export class Screens {
   <div class="wallet"></div>
   <div class="hiscores"></div>
   <div class="hiscores global" hidden></div>
-  <div class="controls">WASD / L-stick move &middot; Mouse / R-stick aim &amp; shoot &middot; Hold right click / X right-click weapon &middot; Space / LB dash &middot; Q / RB special &middot; C / B parry &middot; V / R3 ultimate &middot; G ping &middot; Esc / Start pause</div>
+  <div class="controls" data-prompt="controls">${promptHtml('controls')}</div>
   <div class="credits">Icons: game-icons.net by Lorc, Delapouite &amp; contributors (CC BY 3.0) &middot; Fonts: Jersey, Silkscreen (OFL) &middot; Palette: Sweetie 16 by GrafxKid</div>
   <div class="version">v${__APP_VERSION__}</div>
 </div>
@@ -291,12 +295,16 @@ export class Screens {
     <button data-nav data-toggle="crt">CRT FILTER <b></b></button>
     <button data-nav data-toggle="distortion">SHOCKWAVES <b></b></button>
     <button data-nav data-toggle="nightStages">NIGHT STAGES <b></b></button>
+    <button data-nav data-toggle="weather">WEATHER <b></b></button>
     <button data-nav data-toggle="rumble">CONTROLLER RUMBLE <b></b></button>
     <button data-nav data-toggle="colorblind">COLOUR-BLIND BULLETS <b></b></button>
     <button data-nav data-toggle="reduceFlash">REDUCE FLASHING <b></b></button>
     <button data-nav data-toggle="dynamicCamera">DYNAMIC CAMERA <b></b></button>
     <button data-nav data-toggle="bossIntros">BOSS INTROS <b></b></button>
     <button data-nav data-toggle="slowMo">SKILL SLOW-MO <b></b></button>
+    <label><span>UI SCALE <b class="set-val"></b></span><input data-nav type="range" min="75" max="150" step="25" data-set="uiScale" data-unit="%"></label>
+    <button data-nav data-cycle="damageNumbers" data-opts="all,mine,off">DAMAGE NUMBERS <b></b></button>
+    <button data-nav data-cycle="chargeMode" data-opts="hold,toggle">CHARGE MODE <b></b></button>
     <button data-nav data-act="controls">CONTROLS...</button>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
     <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>
@@ -305,7 +313,8 @@ export class Screens {
 </div>
 <div id="scr-controls" class="screen dim" hidden>
   <h1>CONTROLS</h1>
-  <p class="note">Click a key slot, then press the new key (Esc cancels). Mouse: left fire, right charge, middle bomb. Gamepad layout is fixed.</p>
+  <p class="note">Click a key slot, then press the new key (Esc cancels). Mouse: left fire, right charge, middle bomb. Gamepad layout is fixed:</p>
+  <div class="pad-legend" data-prompt="padlegend"></div>
   <div class="bind-list"></div>
   <div class="menu row">
     <button data-nav data-act="binds-reset">RESET DEFAULTS</button>
@@ -694,6 +703,15 @@ export class Screens {
         this.syncSettings();
       });
     });
+    setEl.querySelectorAll<HTMLElement>('[data-cycle]').forEach((b) => {
+      b.addEventListener('click', () => {
+        const opts = b.dataset.opts!.split(',');
+        const key = b.dataset.cycle as CycleKey;
+        (settings as unknown as Record<string, string>)[key] = opts[(opts.indexOf(settings[key]) + 1) % opts.length];
+        saveSettings();
+        this.syncSettings();
+      });
+    });
   }
 
   show(name: ScreenName, focus?: number): void {
@@ -860,6 +878,9 @@ export class Screens {
       const on = settings[b.dataset.toggle as ToggleKey];
       b.querySelector('b')!.textContent = on ? 'ON' : 'OFF';
     });
+    el.querySelectorAll<HTMLElement>('[data-cycle]').forEach((b) => {
+      b.querySelector('b')!.textContent = String(settings[b.dataset.cycle as CycleKey]).toUpperCase();
+    });
   }
 
   // ---------------------------------------------------------------- title / scores
@@ -926,13 +947,13 @@ export class Screens {
           ${o.partner ? partnerStrip(o.partner) : ''}
           <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? ` · ${o.label}` : ''}</div>
           ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
-          <div class="key">${i + 1}</div>
+          <div class="key" data-prompt="pick:${i + 1}">${promptHtml(`pick:${i + 1}`)}</div>
           <i class="lock"></i>
         </button>`,
       )
       .join('');
     el.querySelector('.reroll-row')!.innerHTML =
-      (rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} [R]</button>` : '') +
+      (rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} ${prompt('reroll')}</button>` : '') +
       (skipGold > 0 ? `<button data-nav data-act="skip" class="skip">SKIP +${skipGold}<span class="gold-dot"></span></button>` : '');
     el.querySelector('.build')!.innerHTML = loadout.map(badge).join('');
     this.show('levelup');

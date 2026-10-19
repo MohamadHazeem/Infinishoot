@@ -1,4 +1,5 @@
-import { binds, keyLabel } from '../core/keybinds';
+import { prompt } from './prompts';
+import { touchHud } from './touch';
 import { STYLE_RANKS, styleTuning, type StyleNote } from '../game/style';
 import { reduceMotion, restartClass } from './hud';
 
@@ -20,6 +21,7 @@ const CSS = `
   column-gap: 10px;
   justify-items: end;
 }
+#stylemeter[hidden] { display: none; }
 #stylemeter .side { text-align: right; }
 #stylemeter .lbl { font: 10px var(--label); letter-spacing: 2px; color: var(--mist); }
 #stylemeter .mul { font: 12px var(--label); color: var(--white); margin-top: 2px; }
@@ -48,6 +50,12 @@ const CSS = `
 #stylemeter.r5 { --rc: var(--red); }
 #stylemeter .rank { color: var(--rc); }
 #stylemeter.r0 .rank { opacity: 0.55; }
+#stylemeter.enter { animation: styleEnter 0.4s steps(4); }
+@keyframes styleEnter {
+  0% { transform: translateX(calc(30 * var(--p))); opacity: 0; }
+  50% { transform: translateX(calc(-3 * var(--p))); opacity: 1; }
+  100% { transform: none; }
+}
 #stylemeter.r5 .rank { animation: tiercycle 0.4s steps(1) infinite; font-size: 88px; letter-spacing: -6px; }
 #stylemeter.up .rank { animation: stylePop 0.36s steps(3); }
 #stylemeter.r5.up .rank { animation: stylePop 0.36s steps(3), tiercycle 0.4s steps(1) infinite; }
@@ -88,8 +96,11 @@ const CSS = `
 #ultpip { --c: var(--yellow); }
 #ultpip.ready { --ring: var(--yellow); animation: hop 0.5s steps(2) infinite; }
 #ultpip.active { --c: var(--white); --ring: var(--orange); }
-.reduce-flash #stylemeter .rank, .reduce-flash #ultpip { animation: none !important; }
+.reduce-flash #stylemeter .rank, .reduce-flash #ultpip, .reduce-flash #stylemeter.enter { animation: none !important; }
 `;
+
+/** Seconds the meter stays up after dropping back to D (so the drop shake reads). */
+export const styleHudTuning = { linger: 0.6 };
 
 export interface SkillHudState {
   points: number;
@@ -116,6 +127,9 @@ export class SkillHud {
   private lastBar = -1;
   private lastUlt = -1;
   private animT = 0;
+  /** Shown at all (hidden at rank D); `lingerT` keeps a drop to D on screen long enough to read. */
+  private shown = false;
+  private lingerT = 0;
 
   constructor(hudRoot: HTMLElement) {
     if (!document.getElementById('skill-css')) {
@@ -128,6 +142,7 @@ export class SkillHud {
     this.el = document.createElement('div');
     this.el.id = 'stylemeter';
     this.el.className = 'r0';
+    this.el.hidden = true; // shown from rank C up
     this.el.innerHTML = `<div class="side"><div class="lbl">STYLE</div><div class="mul">x1</div><div class="bar"><i></i></div></div><div class="rank">D</div><div class="feed"></div>`;
     ingame.appendChild(this.el);
     this.rankEl = this.el.querySelector('.rank')!;
@@ -138,14 +153,24 @@ export class SkillHud {
     this.ult = document.createElement('div');
     this.ult.id = 'ultpip';
     this.ult.className = 'pip';
-    this.ult.innerHTML = '<span>ULT</span>';
+    this.ult.innerHTML = `${prompt('ult')}<span>ULT</span>`;
     meters.appendChild(this.ult);
-    this.ultLbl = this.ult.querySelector('span')!;
+    this.ultLbl = this.ult.querySelector(':scope > span')!;
   }
 
   /** Called every render frame. */
   update(s: SkillHudState, dt: number): void {
-    this.el.hidden = !s.visible;
+    // Rank D is the resting state: the meter only takes screen space from C up, and slides in when it gets there.
+    if (s.visible && s.rank === 0 && this.shownRank > 0) this.lingerT = styleHudTuning.linger;
+    this.lingerT = Math.max(0, this.lingerT - dt);
+    const show = s.visible && (s.rank > 0 || this.lingerT > 0);
+    if (show !== this.shown) {
+      this.shown = show;
+      this.el.hidden = !show;
+      if (show && !reduceMotion()) restartClass(this.el, 'enter');
+      if (!show) this.feedEl.textContent = '';
+    }
+    this.updateUlt(s);
     if (!s.visible) return;
     const r = s.rank;
     if (r !== this.shownRank) {
@@ -170,6 +195,7 @@ export class SkillHud {
       this.barEl.style.transform = `scaleX(${kq})`;
     }
     // New feed notes (newest on top, at most 3 on screen).
+    if (s.seq !== this.shownSeq && !this.shown) this.shownSeq = s.seq; // hidden at D: notes earned there aren't queued up
     if (s.seq !== this.shownSeq) {
       const fresh = Math.min(s.notes.length, Math.max(0, s.seq - this.shownSeq));
       for (let i = s.notes.length - fresh; i < s.notes.length; i++) {
@@ -182,6 +208,9 @@ export class SkillHud {
       while (this.feedEl.children.length > 3) this.feedEl.lastElementChild!.remove();
       this.shownSeq = s.seq;
     }
+  }
+
+  private updateUlt(s: SkillHudState): void {
     // Ultimate tank.
     const ready = s.ult01 >= 1 && s.ultActive <= 0;
     const fill = s.ultActive > 0 ? s.ultActive : s.ult01;
@@ -192,8 +221,9 @@ export class SkillHud {
     }
     this.ult.classList.toggle('ready', ready);
     this.ult.classList.toggle('active', s.ultActive > 0);
-    const key = keyLabel(binds.ult[0] || binds.ult[1]);
-    const label = s.ultActive > 0 ? 'GO!' : ready ? `ULT ${key}` : 'ULT';
+    touchHud.ult01 = fq;
+    touchHud.ultReady = ready;
+    const label = s.ultActive > 0 ? 'GO!' : 'ULT';
     if (label !== this.lastLabel) {
       this.lastLabel = label;
       this.ultLbl.textContent = label;
@@ -204,6 +234,7 @@ export class SkillHud {
   reset(): void {
     this.shownSeq = 0;
     this.shownRank = -1;
+    this.lingerT = 0;
     this.feedEl.textContent = '';
   }
 }

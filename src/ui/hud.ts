@@ -9,6 +9,8 @@ import { MAX_GEARS } from '../game/hero';
 import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
 import { sfx } from '../audio/sfx';
+import { injectHudCss } from './hudLayout';
+import { prompt, promptText } from './prompts';
 
 // ---------------------------------------------------------------- slot reels
 // Shared by the level-up cards (screens.ts) and the chest reveal below. A reel
@@ -107,7 +109,10 @@ export type Slot = 'left' | 'right' | 'special' | 'auto' | 'item' | 'bonus';
 export const SLOT_LABEL: Record<Slot, string> = {
   left: 'LEFT CLICK',
   right: 'RIGHT CLICK',
-  special: 'SPECIAL Q/E',
+  /** Follows the rebinds and the last used device (Q/E, RB, R1). */
+  get special() {
+    return `SPECIAL ${promptText('bomb')}`;
+  },
   auto: 'AUTO WEAPON',
   item: 'ITEM',
   bonus: 'BONUS',
@@ -186,6 +191,9 @@ const MM_SKULL = ['.###.', '#k#k#', '#####', '.#.#.'];
 const MM_RING = ['.###.', '#...#', '#...#', '#...#', '.###.'];
 const MM_DOT = ['##', '##'];
 
+/** Small heading over goal-stack lines (challenges carry their own star / tick). */
+const SPICE_LABEL: Record<HudState['spice'][number]['kind'], string> = { event: 'STAGE EVENT', challenge: '', done: '', buff: 'POWER-UP' };
+
 export const fmtScore = (n: number) => Math.floor(n).toLocaleString('en-US');
 const fmtClock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
@@ -217,11 +225,11 @@ export class Hud {
     root.insertAdjacentHTML(
       'beforeend',
       `<div id="ingame">
-         <div id="xpbar"><div class="fill"></div><i class="spark" aria-hidden="true"></i><div class="lv"></div></div>
+         <div id="xpbar"><div class="fill"></div><i class="spark" aria-hidden="true"></i><div class="lv px"><span>LV</span><b></b></div></div>
          <div id="hp"><div class="bar"><div class="chunk"></div><div class="fill"></div></div><div class="num"></div></div>
          <div id="runinfo"><span class="kills"></span><span class="gold"></span><span class="gears"></span></div>
          <div id="timer"><div class="clock"></div><div class="stage"></div></div>
-         <div id="spice"></div>
+         <div id="goals"><div id="team"></div><div id="spice"></div></div>
          <button id="pausebtn" title="Pause (Esc)" aria-label="Pause">II</button>
          <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div><div class="ticks"></div></div><div class="ph"></div></div>
          <div id="toast"></div>
@@ -230,22 +238,23 @@ export class Hud {
          <div id="combo"><div class="mult">x1</div><div class="num"></div><div class="cbar"><div></div></div></div>
          <div id="loadout"><div class="row weapons"></div><div class="row passives"></div></div>
          <div id="mods"></div>
-         <div id="team"></div>
          <div id="ebars"></div>
          <div id="tags"></div>
          <canvas id="minimap" width="${MM}" height="${MM}" hidden></canvas>
          <div id="downed" hidden><div class="t">YOU'RE DOWN</div><div class="bar"></div><div class="s"></div><div class="h">A TEAMMATE MUST STAND NEXT TO YOU</div></div>
          <div id="meters">
-           <div id="dashpip" class="pip"><span>DASH</span></div>
-           <div id="bombpip" class="pip"><span>BOMB</span></div>
+           <div id="dashpip" class="pip">${prompt('dash')}<span>DASH</span></div>
+           <div id="bombpip" class="pip">${prompt('bomb')}<span>BOMB</span></div>
          </div>
          <div id="banner"><div class="t"></div><div class="s"></div></div>
          <div id="chestptr" hidden><i class="arrow"></i>${iconHtml('world_chest', '#ffcd75', '')}<span class="m"></span></div>
        </div>
        <div id="vignette"></div>
        <div id="flash"></div>
-       <div id="fade"></div>`,
+       <div id="fade"></div>
+       <div id="navhint" aria-hidden="true"><span>${prompt('confirm')} SELECT</span><span>${prompt('back')} BACK</span></div>`,
     );
+    injectHudCss();
     this.q = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
     this.root = this.q('#ingame');
     const pause = this.q('#pausebtn');
@@ -565,6 +574,29 @@ export class Hud {
     this.el('#mods').innerHTML = html;
   }
 
+  private spiceEls: { el: HTMLElement; txt: HTMLElement; kind: string; text: string }[] = [];
+
+  /**
+   * Goals-stack lines (event, challenge, power-ups). A line is only rebuilt
+   * (and slides in) when it is new or changes kind; countdowns just change text.
+   */
+  private updateSpice(lines: HudState['spice']): void {
+    const root = this.el('#spice');
+    lines.forEach((l, i) => {
+      let d = this.spiceEls[i];
+      if (!d || d.kind !== l.kind) {
+        const el = document.createElement('div');
+        el.className = `px ${l.kind}`;
+        el.innerHTML = `${SPICE_LABEL[l.kind] ? `<i>${SPICE_LABEL[l.kind]}</i>` : ''}<span></span>`;
+        if (d) d.el.replaceWith(el);
+        else root.appendChild(el);
+        d = this.spiceEls[i] = { el, txt: el.querySelector('span')!, kind: l.kind, text: '' };
+      }
+      if (d.text !== l.text) d.txt.textContent = d.text = l.text;
+    });
+    while (this.spiceEls.length > lines.length) this.spiceEls.pop()!.el.remove();
+  }
+
   update(s: HudState, dt: number): void {
     const still = reduceMotion();
     // XP: snap on level changes, otherwise ease the fill and its pixel sparkle together.
@@ -576,7 +608,7 @@ export class Hud {
     this.el('#xpbar .spark').style.left = `${this.shownXp * 100}%`;
     this.el('#xpbar .spark').hidden = still || this.xpSparkT <= 0 || this.shownXp <= 0;
     if (s.level !== this.lastLevel) {
-      this.text('#xpbar .lv', `LV ${s.level}`);
+      this.text('#xpbar .lv b', String(s.level));
       if (this.lastLevel > 0) {
         const bar = this.el('#xpbar');
         restartClass(bar, 'up');
@@ -640,11 +672,7 @@ export class Hud {
       bb.classList.toggle('mini', !!s.boss.mini);
     }
 
-    const spice = s.spice.map((l) => `<div class="${l.kind}">${l.text}</div>`).join('');
-    if (this.lastText['#spice'] !== spice) {
-      this.lastText['#spice'] = spice;
-      this.el('#spice').innerHTML = spice;
-    }
+    this.updateSpice(s.spice);
 
     // Score counts up quickly toward the real value.
     this.shownScore += (s.score - this.shownScore) * Math.min(1, dt * 12);
@@ -688,11 +716,11 @@ export class Hud {
     const dash = this.el('#dashpip');
     dash.style.setProperty('--k', String(s.dash01));
     dash.classList.toggle('ready', s.dash01 >= 1);
-    this.text('#dashpip span', s.dashMax > 1 ? `DASH ${s.dashStock}` : 'DASH');
+    this.text('#dashpip > span', s.dashMax > 1 ? `DASH ${s.dashStock}` : 'DASH');
     const bomb = this.el('#bombpip');
     bomb.style.setProperty('--k', String(s.bomb01));
     bomb.classList.toggle('ready', s.bomb01 >= 1);
-    this.text('#bombpip span', s.special);
+    this.text('#bombpip > span', s.special);
 
     if (this.bannerT > 0) {
       this.bannerT -= dt;

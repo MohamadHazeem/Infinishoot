@@ -11,6 +11,7 @@ import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
+import { hudLinks } from '../ui/hudLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -47,6 +48,8 @@ import { renderQuality } from '../render/quality';
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
+ *   ?test&pad=ps&ui=125&levelup        HUD: button prompts (pad=xbox|ps|kbm|touch), UI scale %, open a level-up;
+ *     &dmgnums=mine|off, &charge=toggle, &noweather (settings for this session)
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -126,6 +129,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
   animLinks(game, q);
+  hudLinks(game, q);
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

@@ -1,15 +1,13 @@
 import type { Objective } from '../game/objectives';
 
 /**
- * Stage objective tracker (top left, under the gold) plus an edge-of-screen
+ * Stage objective tracker (top left, in the HUD's goals stack under the gold) plus an edge-of-screen
  * arrow toward the nearest objective target. Plain DOM in the pixel UI style;
  * its styles are injected once so the lane needs no edits to style.css.
  */
 const CSS = `
 #objective {
-  position: absolute;
-  top: calc(19 * var(--p) + 30px);
-  left: 18px;
+  position: relative;
   min-width: 190px;
   padding: calc(2 * var(--p)) calc(3 * var(--p));
   --bg: var(--night);
@@ -127,7 +125,11 @@ export class ObjectiveHud {
     this.ptr.id = 'objptr';
     this.ptr.hidden = true;
     this.ptr.innerHTML = '<div class="a"></div><div class="m"></div>';
-    root.append(this.el, this.ptr);
+    // The goals stack (hud.ts): teammates, then the objective, then event / challenge lines.
+    const goals = document.getElementById('goals');
+    if (goals) goals.insertBefore(this.el, document.getElementById('spice'));
+    else root.append(this.el);
+    root.append(this.ptr);
     return true;
   }
 
