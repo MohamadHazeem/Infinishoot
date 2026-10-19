@@ -15,6 +15,7 @@ import { PHASE_LINES, bossMoveTuning, bossTuning, phaseGate, startIntro, startPh
 import type { BossNet } from '../bossField';
 import { introTuning } from '../bossIntro';
 import type { Enemy } from '../enemies';
+import { bossVoiceCue } from '../../audio/voices';
 
 /** Mid-stage mini-bosses. */
 export const miniTuning = {
@@ -114,7 +115,8 @@ export function bossHpGate(this: Game, e: Enemy): void {
   const last = phase > (e.def.phases?.length ?? 0);
   this.vfx.banner(mini ? `${e.def.name.toUpperCase()} ENRAGED!` : last ? 'FINAL PHASE!' : `PHASE ${phase}!`, mini ? 'LOOK OUT' : (lines[phase - 1] ?? ''), mini ? 1.4 : 2);
   this.vfx.sound(cue('bossPhase', 'boss'), e.x, e.z);
-  this.vfx.sound(cue('bossRoar', 'bossWindup'), e.x, e.z, 0.7);
+  const voice = bossVoiceCue(e.def, 'phase'); // own roar, choir stab, phase line (src/audio/voices.ts)
+  this.vfx.sound(voice || cue('bossRoar', 'bossWindup'), voice ? NaN : e.x, voice ? NaN : e.z, 0.7);
   this.vfx.shake(NaN, NaN, mini ? 0.5 : 0.9);
   if (!mini) this.vfx.flash(0.35);
   this.vfx.ring(e.x, e.z, e.radius, 10, '#ffcd75', 0.6);
@@ -133,7 +135,8 @@ export function startBossIntro(this: Game, e: Enemy): void {
   startIntro(e, on ? bossTuning.intro : 0.6);
   this.introUid = e.uid;
   this.introLeft = introTuning.length;
-  this.vfx.sound(cue('bossRoar', 'boss'), e.x, e.z);
+  const voice = bossVoiceCue(e.def, 'intro'); // own roar, then the intro line (src/audio/voices.ts)
+  this.vfx.sound(voice || cue('bossRoar', 'boss'), voice ? NaN : e.x, voice ? NaN : e.z);
   this.vfx.shake(NaN, NaN, 0.6);
   if (on) {
     this.slowMoT = Math.max(this.slowMoT, 0.9);

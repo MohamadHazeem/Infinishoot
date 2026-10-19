@@ -68,7 +68,12 @@ export interface EnemyDef {
   title?: string;
   /** How it dies: robots scatter bolts and springs, goo splashes, shards shatter. */
   death?: 'robot' | 'goo' | 'shards';
+  /** What hits sound like (src/audio/voices.ts); set for every enemy from ENEMY_MATERIALS below. */
+  material?: Material;
 }
+
+/** Hit-sound materials: each maps to a recorded impact (hit_metal, hit_flesh, hit_slime, hit_stone, hit_shield). */
+export type Material = 'metal' | 'flesh' | 'slime' | 'stone' | 'shield';
 
 export const ENEMIES: Record<string, EnemyDef> = {
   swarmer: {
@@ -730,4 +735,38 @@ export function miniBossForStage(stage: number): EnemyDef {
   const boss = bossForStage(stage).id;
   const pool = MINI_BOSSES.filter((m) => m.of !== boss);
   return ENEMIES[pool[Math.max(0, stage) % pool.length].id];
+}
+
+/** Every enemy's hit material (veterans use their base enemy's). Unlisted enemies sound like flesh. */
+export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {
+  swarmer: 'flesh',
+  bopper: 'metal',
+  zippy: 'metal',
+  shooter: 'metal',
+  spinner: 'metal',
+  burster: 'metal',
+  sniper: 'metal',
+  charger: 'stone',
+  chonk: 'stone',
+  exploder: 'metal',
+  splitter: 'slime',
+  jellet: 'slime',
+  spawner: 'stone',
+  shielder: 'shield',
+  medic: 'metal',
+  leaper: 'flesh',
+  mortar: 'flesh',
+  golden: 'metal',
+  king: 'metal',
+  rex: 'stone',
+  queen: 'flesh',
+  omega: 'metal',
+  prince: 'metal',
+  rexling: 'stone',
+  princess: 'flesh',
+  hive: 'slime',
+  reaper: 'stone',
+};
+for (const def of Object.values(ENEMIES)) {
+  def.material ??= ENEMY_MATERIALS[def.id] ?? ENEMY_MATERIALS[def.id.replace(/^v_/, '')] ?? 'flesh';
 }
