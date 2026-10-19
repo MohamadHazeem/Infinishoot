@@ -70,6 +70,8 @@ export interface EnemyDef {
   treasure?: { life: number };
   /** Stage boss (boss bar, bounty, no crowd separation). */
   boss?: boolean;
+  /** Discovery-only boss; excluded from the public Boss Rush roster. */
+  secret?: boolean;
   /**
    * Bosses and mini-bosses: HP fractions where the next phase starts (src/game/bosses.ts).
    * Crossing one triggers an invulnerable roar and a new attack set; damage can't skip a phase.

@@ -29,6 +29,7 @@ interface SecretsState extends SecretsNet {
   stageTime: number; beat: number; pendingShadow: boolean; activeBoss: number; hold: boolean;
   banked: number; blocker: AABB | null; view: SecretView | null; code: number; wired: boolean;
 }
+export const NO_SECRET_REQUESTS: never[] = [];
 const states = new WeakMap<Game, SecretsState>();
 export function secretsState(g: Game): SecretsState {
   let s = states.get(g);
@@ -56,12 +57,15 @@ export function clearSecrets(g: Game): void {
 function findRoom(g: Game, kind: SecretPuzzle | null): SecretRoom | null {
   // Entire footprint must be walkable. Never clear another lane's props or terrain.
   const lim = g.arena.halfSize - 10;
-  for (let n = 0; n < 100; n++) {
+  for (let n = 0; n < 200; n++) {
     const a = (n * 2.39996 + (g.seed % 100) * 0.1);
     const d = 17 + (n % 5) * 6;
     const x = Math.round(Math.cos(a) * d), z = Math.round(Math.sin(a) * d);
     if (Math.abs(x) > lim || Math.abs(z) > lim) continue;
     if (g.arena.hazards.some(h => Math.hypot(x - h.x, z - h.z) < h.r + 9)) continue;
+    const occupied = (p: { x: number; z: number }) => Math.abs(p.x - x) < 8.5 && Math.abs(p.z - z) < 7.5;
+    if (g.arena.pads.some(occupied) || g.arena.turrets.some(occupied) || g.arena.spots.some(occupied) || g.arena.chests.some(occupied)) continue;
+    if (g.arena.conveyors.some(c => Math.abs(c.x - x) < 7 + c.w / 2 && Math.abs(c.z - z) < 6 + c.d / 2)) continue;
     let clear = true;
     for (let dx = -7; dx <= 7 && clear; dx += 2) for (let dz = -6; dz <= 6; dz += 2) if (g.walls.hitCircle(x + dx, z + dz, 1.5)) { clear = false; break; }
     if (clear) return { x, z, kind, open: false, done: false, progress: 0, mask: 0, occupied: 0, clock: 0, ice: 0, blocked: false };
@@ -93,7 +97,7 @@ function barrier(g: Game, s: SecretsState, closed: boolean): void {
 /** Uses the host's accepted input and aim; all click weapons can operate switches.
  * No projectile scan, and a wall between the player and switch blocks the interaction. */
 function aimed(g: Game, h: Hero, x: number, z: number): boolean {
-  if (!h.ctx.firing && !h.ctx.charging) return false;
+  if (!h.ctx.firing && (h.ctx.charging || h.player.recoil <= 0.05)) return false;
   const p = h.player, dx = x - p.x, dz = z - p.z;
   const d = Math.hypot(dx, dz);
   return d > 0.1 && d <= T.reach && (dx * p.aim.x + dz * p.aim.z) / d > 0.982 && beamReach(p.x, p.z, dx / d, dz / d, d, g.arena.colliders) >= d - 0.2;
@@ -218,7 +222,7 @@ export function updateSecrets(g: Game, dt: number): void {
       } else if (s.cooldown[i] <= 0 && aimed(g, h, x, z)) {
         s.cooldown[i] = T.shotCooldown;
         if (r.kind === 'braziers') { if (!(r.mask & (1 << j))) { r.mask |= 1 << j; cue(g, r); } }
-        else if (secretBeat(r.clock)) { r.progress = secretSequence(r.progress, j); cue(g, r, r.progress > 0); }
+        else if (secretBeat(r.clock)) { r.progress = secretSequence(r.progress, j); cue(g, r, r.progress > 0); if (r.progress >= 3) reward(g, s); }
         else cue(g, r, false);
         break;
       }
@@ -290,6 +294,9 @@ class SecretView {
         this.box(0.2, 1.1, 4.4, 0.15, 0.6, 0.05, '#73eff7');
       } else {
         this.box(0, 0.04, 0, 11, 0.08, 10, '#29366f');
+        for (let x = -4; x <= 4; x += 2) for (let z = -4; z <= 4; z += 2) {
+          if ((x + z) % 4 === 0) this.box(x, 0.09, z, 1.85, 0.04, 1.85, '#3b5dc9');
+        }
         for (let i = -5; i <= 5; i += 2) {
           this.box(i, 0.12, -4.8, 0.7, 0.18, 0.4, '#73eff7');
           this.box(-5.4, 0.35, i * 0.85, 0.35, 0.7, 0.7, '#94b0c2');

@@ -664,6 +664,33 @@ const SCENARIO = [
   }],
 ];
 
+// Optional secrets lane: real data-channel receipts, relics and a client room screenshot.
+if (args.includes('--secrets')) SCENARIO.push([56, 'secret relay reward reaches the client once', async () => {
+  if (!await until(A, () => window.game.mode === 'fight', null, 10000)) throw new Error('No fight window for secret relay');
+  await Promise.all([host(() => window.botAuto(false)), client(() => window.botAuto(false))]);
+  try {
+    const result = await host(async () => {
+      const S = await import('/src/game/systems/secrets.ts');
+      const g = window.game, before = g.heroes[1].relics.length;
+      S.secretsLinks(g, new URLSearchParams('secret=plates'));
+      const r = S.secretsState(g).room;
+      if (!r) throw new Error('No clear secret room');
+      for (const j of [0, 2, 1]) { g.hero.player.teleport(r.x + (j - 1) * 3, r.z); S.updateSecrets(g, 1 / 60); }
+      g.hero.player.teleport(r.x, r.z + 3);
+      return { x: r.x + 1, z: r.z + 3, count: before + 1, done: r.done };
+    });
+    await client(({ x, z }) => { window.game.hero.player.teleport(x, z); window.game.cam.zoom = 1.3; }, result);
+    const synced = await until(B, async () => {
+      const S = await import('/src/game/systems/secrets.ts');
+      return S.secretsState(window.game).room?.done && !!(S.secretsState(window.game).receipts & 1);
+    }, null, 6000);
+    const count = await client(() => window.game.hero.relics.length);
+    if (!synced || !result.done || count !== result.count) fail(`secret relay: completed ${synced}, client relics ${count}, expected ${result.count}`);
+    await shot('secrets');
+    return { synced, relics: count };
+  } finally { await Promise.all([host(() => window.botAuto(true)), client(() => window.botAuto(true))]); }
+}]);
+
 // Optional Halloween run: force a shared pickup and verify its receipt travels once.
 if (opt('--season', 'off') === 'halloween') SCENARIO.push([14, 'Halloween shared candy snapshot', async () => {
   const before = await client(async () => (await import('/src/game/save.ts')).save.seasonal.candy);

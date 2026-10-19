@@ -22,8 +22,8 @@ export function secretBeat(time: number): boolean {
 }
 export function secretBossDefs(base: Record<string, EnemyDef>): Record<SecretBoss, EnemyDef> {
   return {
-    golden_king: { ...base.king, id: 'golden_king', name: 'Golden King', title: 'SECRET · THE COLLECTOR OF COLLECTORS', hp: 3300, bodyColor: '#ffcd75', accentColor: '#ef7d57', minMinute: -1, weight: 0, material: 'metal', remix: { landRing: 12, shockFrom: 1 } },
-    shadow_hero: { ...base.mirror, id: 'shadow_hero', name: 'Shadow Hero', title: 'SECRET · YOUR REFLECTION REMEMBERS', boss: true, special: false, hp: 2900, radius: 1, speed: 3.8, contactDamage: 18, knockbackResist: 0.95, xp: 160, score: 18000, bodyColor: '#5d275d', accentColor: '#73eff7', phases: [0.66, 0.33], minMinute: -1, weight: 0, mirror: { scan: 1.15, copy: 4, cooldown: 1, keepDistance: 8 } },
+    golden_king: { ...base.king, id: 'golden_king', secret: true, name: 'Golden King', title: 'SECRET · THE COLLECTOR OF COLLECTORS', hp: 3300, bodyColor: '#ffcd75', accentColor: '#ef7d57', minMinute: -1, weight: 0, material: 'metal', remix: { landRing: 12, shockFrom: 1 } },
+    shadow_hero: { ...base.mirror, id: 'shadow_hero', secret: true, name: 'Shadow Hero', title: 'SECRET · YOUR REFLECTION REMEMBERS', boss: true, special: false, hp: 2900, radius: 1, speed: 3.8, contactDamage: 18, knockbackResist: 0.95, xp: 160, score: 18000, bodyColor: '#5d275d', accentColor: '#73eff7', phases: [0.66, 0.33], minMinute: -1, weight: 0, mirror: { scan: 1.15, copy: 4, cooldown: 1, keepDistance: 8 } },
   };
 }
 export const SECRET_LORE = [

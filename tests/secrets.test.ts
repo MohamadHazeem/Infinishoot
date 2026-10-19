@@ -36,6 +36,7 @@ const { save, normalize, unlockedWeapons } = await import('../src/game/save');
 const { settings } = await import('../src/game/settings');
 const { nightTuning } = await import('../src/render/biomeLook');
 const { RELIC_BY_ID } = await import('../src/data/relics');
+const { rushRoster } = await import('../src/game/systems/gauntlet');
 const { updateFamily } = await import('../src/game/systems/enemyFamilies');
 
 let count = 0, deterministic = true;
@@ -51,6 +52,7 @@ ok(D.secretSequence(0, 0) === 1 && D.secretSequence(1, 2) === 2 && D.secretSeque
 ok(D.secretSequence(2, 2) === 0 && D.secretSequence(2, 0) === 1, 'wrong order resets, first plate restarts');
 ok(D.secretBeat(0) && D.secretBeat(0.75) && !D.secretBeat(0.375) && D.secretBeat(-0.01), 'beat windows wrap and reject off-beat shots');
 ok(D.KONAMI.reduce((n, k) => D.konamiStep(n, k), 0) === 10 && D.konamiStep(5, 'KeyX') === 0, 'full cosmetic code and wrong-input reset');
+ok(!rushRoster().some(d => d.secret), 'Boss Rush cannot reveal discovery-only bosses');
 ok(D.SECRET_BOSSES.every(id => ENEMIES[id].boss && ENEMIES[id].minMinute === -1 && !BOSS_ORDER.includes(id)), 'hidden bosses never enter ordinary rotation');
 ok(D.SECRET_BOSSES.every(id => CODEX.some(c => c.id === `enemy:${id}` && c.kind === 'SECRET')), 'both bosses have SECRET codex entries');
 ok(rewardAvailable('secret_skin', { achievements: ['secret_code'], bestHeat: {}, weekly: [] }), 'old code unlocks cosmetic only');
@@ -108,8 +110,12 @@ r = room('runes');
 A.hero.player.teleport(r.x, r.z + 5);
 r.clock = 0.375; fire(r.x - 3, r.z);
 ok(r.progress === 0, 'off-beat rune shots cannot advance');
-for (const j of D.SECRET_ORDER) { r.clock = 0; fire(r.x + (j - 1) * 3, r.z); }
-ok(r.done, 'on-beat ordered rune shots solve');
+for (const j of [0, 2]) { r.clock = 0; fire(r.x + (j - 1) * 3, r.z); }
+const mate = A.heroes[1]; mate.player.teleport(r.x, r.z + 5);
+mate.player.aim.x = -3 / Math.hypot(3, 5); mate.player.aim.z = -5 / Math.hypot(3, 5);
+mate.ctx.firing = true; S.secretsState(A).cooldown[1] = 0;
+r.clock = 0; fire(r.x, r.z); mate.ctx.firing = false;
+ok(r.done, 'final rune succeeds even if a teammate shoots a wrong rune in the same step');
 
 r = room('braziers'); A.hero.player.teleport(r.x, r.z + 5);
 fire(r.x - 3, r.z); ok(r.mask === 0, 'ordinary shots need elemental attunement');
@@ -167,10 +173,24 @@ step(12); ok(B.netBoss?.name === 'Shadow Hero', 'reflection is mirrored as a rea
 settings.finishers = true;
 A.killEnemy(shadow, 'buster', A.hero);
 ok(shadow.active && A.finisherHold(0.01), 'secret boss killing blow plays the shared finisher first');
-A.finisherHold(4); step(65);
+A.finisherHold(4);
+for (let i = 0; i < 600 && A.mode === 'fight'; i++) step();
 settings.finishers = false;
-ok(A.mode === 'cleared' && save.achievements.includes('secret_shadow'), 'reflection defeat awards achievement then allows stage clear');
+ok(A.mode === 'cleared' && save.achievements.includes('secret_shadow'), `reflection defeat awards achievement then allows stage clear (${A.mode})`);
 S.resetSecrets(A);
 ok(S.secretsState(A).bugs === 0 && S.secretsState(A).bosses === 0 && S.secretsState(A).receipts === 0, 'new run resets all run-only secrets');
+A.loadStage(1); flush(); S.updateSecrets(A, 0.01);
+const gates = S.secretsState(A);
+A.boss = A.enemies.spawn(ENEMIES.king, 9, 0, { instant: true });
+A.killEnemy(A.boss, 'buster', A.hero);
+ok(!gates.pendingShadow, 'skipping directly to a night boss is not a full flawless stage');
+gates.stageTime = A.director.duration; A.damagedThisStage = true;
+A.boss = A.enemies.spawn(ENEMIES.king, 9, 0, { instant: true });
+A.killEnemy(A.boss, 'buster', A.hero);
+ok(!gates.pendingShadow, 'a damaged night stage cannot summon the reflection');
+A.mode = 'title'; S.renderSecrets(A);
+const beforeCode = A.hero.weapons.length;
+for (const code of D.KONAMI) window.dispatchEvent(new KeyboardEvent('keydown', { code }));
+ok(save.achievements.includes('secret_code') && A.hero.weapons.length === beforeCode, 'title keyboard sequence unlocks its cosmetic without changing the build');
 console.log('Secret discoveries, rewards, bosses and co-op snapshots passed.');
 process.exit(process.exitCode ?? 0);

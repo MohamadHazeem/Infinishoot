@@ -1,4 +1,4 @@
-import { updateSecrets, secretsHolding } from './systems/secrets';
+import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
 import * as GauntletSys from './systems/gauntlet';
 import * as Director2Sys from './systems/director2';
 import * as MvpSys from './systems/mvp';
@@ -1443,7 +1443,7 @@ export class Game implements HeroWorld {
     }
     if (this.mode === 'fight' && anyAlive && this.pvp?.phase !== 'duel' && this.pvp?.phase !== 'over') {
       this.director.teamLevel = this.level; // the Reaper comes for high-level teams
-      const reqs = secretsHolding(this) ? [] : this.runMode === 'gauntlet' ? GauntletSys.gauntletRequests(this, dt) : this.runMode === 'bossrush' ? GauntletSys.rushRequests(this, dt) : this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
+      const reqs = secretsHolding(this) ? NO_SECRET_REQUESTS : this.runMode === 'gauntlet' ? GauntletSys.gauntletRequests(this, dt) : this.runMode === 'bossrush' ? GauntletSys.rushRequests(this, dt) : this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
       for (const r of reqs) {
         if (r.kind === 'boss') this.spawnBoss(r.def);
