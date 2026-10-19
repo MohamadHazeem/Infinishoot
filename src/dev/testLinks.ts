@@ -24,6 +24,7 @@ import { contentLinks } from './contentLinks';
 import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
 import { bossLinks } from './bossLinks';
+import { worldEventLinks } from './worldEventLinks';
 import { allBiomeKeys, biomeForce } from '../data/biomes';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import type { PhotoMode } from '../ui/photoMode';
@@ -93,6 +94,8 @@ import { SCAR_COLORS } from '../game/scars';
  * Bosses lane (src/dev/bossLinks.ts): &titan, &titanphase=3, &titanmove=beam, &remix, &duel.
  *
  * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
+ *
+ * World events (src/dev/worldEventLinks.ts): &wev=collapse|flood|split|giant|eclipse|flower|volcano|stealth, &wevt=6 (jump its clock), &wevoff.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -201,6 +204,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   hudLinks(game, q);
   contentLinks(game, q);
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
+  worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

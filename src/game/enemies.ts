@@ -701,6 +701,11 @@ export interface EnemyCtx {
   boss?: BossApi;
   /** Biome foes: shark dust, snowball crashes, kite gusts (src/game/biomeFoes.ts). */
   foe?: BiomeFoeApi;
+  /**
+   * Stealth stages (src/game/systems/worldEvents.ts): a spot an unaware enemy walks to instead of
+   * chasing (patrol or investigate), at `speed` x its own; null = chase as usual. It doesn't attack.
+   */
+  lure?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
 }
 
 // ------------------------------------------------------------------ rendering helpers
@@ -944,7 +949,7 @@ export class Enemies {
         continue;
       }
 
-      // Chase the nearest living player.
+      // Chase the nearest living player (an unaware enemy on a stealth stage patrols instead: ctx.lure).
       let best: EnemyCtx['target'] | null = null;
       let bd = Infinity;
       for (const t of ctx.targets) {
@@ -955,15 +960,16 @@ export class Enemies {
           best = t;
         }
       }
-      ctx.target = best ?? away;
-      ctx.targetAlive = !!best;
+      const lure = ctx.lure?.(e) ?? null;
+      ctx.target = lure ?? best ?? away;
+      ctx.targetAlive = !lure && !!best;
       const tgt = ctx.target;
       const dx = tgt.x - e.x;
       const dz = tgt.z - e.z;
       const dist = Math.sqrt(dx * dx + dz * dz) || 1;
       const nx = dx / dist;
       const nz = dz / dist;
-      const speed = e.def.speed * e.speedMul * (e.slowT > 0 ? 1 - e.slowAmt : 1) * (e.rallyT > 0 ? squadTuning.rallySpeed : 1);
+      const speed = e.def.speed * e.speedMul * (e.slowT > 0 ? 1 - e.slowAmt : 1) * (e.rallyT > 0 ? squadTuning.rallySpeed : 1) * (lure ? lure.speed : 1);
       let wantX = 0;
       let wantZ = 0;
       let rigid = false; // attack movement ignores steering smoothing

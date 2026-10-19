@@ -4,7 +4,7 @@
  * (spawns, rewards, an event); the biome and boss order stay as they are.
  */
 
-export type NodeKind = 'start' | 'elite' | 'shop' | 'treasure' | 'event' | 'rest' | 'hard';
+export type NodeKind = 'start' | 'elite' | 'shop' | 'treasure' | 'event' | 'rest' | 'hard' | 'stealth';
 
 export interface RouteNodeDef {
   id: NodeKind;
@@ -111,6 +111,17 @@ export const ROUTE_NODES: Record<NodeKind, RouteNodeDef> = {
     icon: 'route_hard',
     glyph: '!',
     color: '#5d275d',
+    weight: 2,
+  },
+  // World-events lane: a stealth stage (src/game/systems/worldEvents.ts). Glyph fallback: no icon art yet.
+  stealth: {
+    id: 'stealth',
+    name: 'Night Raid',
+    short: 'Sneak through a dark stage',
+    lines: ['Enemies only see you in light or hear you when you go loud', 'Grab 3 intel caches: gold and score, double if unseen', 'All 3: a treasure chest for everyone'],
+    icon: 'route_stealth',
+    glyph: '◐',
+    color: '#3b5dc9',
     weight: 2,
   },
 };

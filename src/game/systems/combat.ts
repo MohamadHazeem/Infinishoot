@@ -16,12 +16,13 @@ import { SCAR_COLORS } from '../scars';
 import { damageNumberLabel } from '../../ui/damageNumbers';
 import { updateWorldHazards } from './worldHazards';
 import { impactCue } from '../../audio/voices';
+import { worldHooks } from '../worldEvents';
 
 export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null {
   let best: Enemy | null = null;
   let bd = r * r;
   this.hash.query(x, z, r, (e) => {
-    if (!e.targetable || e.hp <= 0 || (skip && skip(e))) return;
+    if (!e.targetable || e.hp <= 0 || (skip && skip(e)) || worldHooks.hidden?.(e)) return;
     const d = (e.x - x) ** 2 + (e.z - z) ** 2;
     if (d < bd) {
       bd = d;

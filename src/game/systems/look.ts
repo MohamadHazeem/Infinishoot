@@ -21,8 +21,14 @@ import { BiomeFx } from '../../render/biomeFx';
 import { sampleWind } from '../wind';
 import { samples } from '../../audio/samples';
 
-/** Test-link / debug overrides: force night on or off (null = follow the stage). */
-export const lookOverrides: { night: boolean | null } = { night: null };
+/**
+ * Test-link / debug overrides: force night on or off (null = follow the stage). World events
+ * (src/game/systems/worldEvents.ts) set `eventNight` (extra darkness 0..1: eclipse, Night Raid),
+ * `nightSnap` (jump to the target this frame: the eclipse's sun burst) and `lantern` (hero lantern scale).
+ */
+export const lookOverrides: { night: boolean | null; eventNight: number; nightSnap: boolean; lantern: number } = { night: null, eventNight: 0, nightSnap: false, lantern: 1 };
+/** Extra light sources added every frame (world events: lamps, searchlights, lava bombs, the giant flower). */
+export const lookHooks: ((pk: LightPicker, night: number) => void)[] = [];
 
 export const lookTuning = {
   /** Hero lantern on night stages. */
@@ -143,8 +149,10 @@ export function updateLook(this: Game, frameDt: number): void {
 
   // --- Night: every 3rd arena stage (or forced by a test link), faded in. Neon City is always partly dark.
   const wantNight = this.mode !== 'title' && settings.nightStages && (lookOverrides.night ?? isNightStage(this.arenaStage));
-  const nt = wantNight ? 1 : settings.nightStages && lookOverrides.night !== false ? (biome.night ?? 0) : 0;
-  st.night = Math.abs(nt - st.night) < 0.002 ? nt : st.night + (nt - st.night) * Math.min(1, frameDt * lookTuning.nightSpeed);
+  const nt0 = wantNight ? 1 : settings.nightStages && lookOverrides.night !== false ? (biome.night ?? 0) : 0;
+  const nt = this.mode === 'title' ? nt0 : Math.max(nt0, lookOverrides.eventNight);
+  st.night = Math.abs(nt - st.night) < 0.002 || lookOverrides.nightSnap ? nt : st.night + (nt - st.night) * Math.min(1, frameDt * lookTuning.nightSpeed);
+  lookOverrides.nightSnap = false;
   if (st.night !== postfx.night) {
     postfx.night = st.night;
     refreshLook();
@@ -176,7 +184,7 @@ export function updateLook(this: Game, frameDt: number): void {
       if (h.left) continue;
       const r = h.player.rig.root.position;
       const down = h.player.dead;
-      pk.add(r.x, 2.4, r.z, T.lanternRadius * (down ? 0.55 : 1), c.r, c.g, c.b, T.lanternIntensity * night * (down ? 0.6 : 1), 1000);
+      pk.add(r.x, 2.4, r.z, T.lanternRadius * (down ? 0.55 : 1) * Math.max(0.5, lookOverrides.lantern), c.r, c.g, c.b, T.lanternIntensity * night * (down ? 0.6 : 1) * lookOverrides.lantern, 1000);
     }
   }
   for (const m of this.flashes) {
@@ -238,6 +246,7 @@ export function updateLook(this: Game, frameDt: number): void {
   st.gust = wind.gust;
   st.biomeFx.reduceFlash = access.reduceFlash;
   st.biomeFx.render(dt, p.x, p.z, wind);
+  for (const f of lookHooks) f(pk, night);
   for (const ch of this.chests.list) if (ch.openT < 0) pk.add(ch.x, 1, ch.z, 3.5, 1, 0.8, 0.35, 0.35 + 0.35 * night, 0);
   if (this.portal.active) pk.add(this.portal.x, 1.5, this.portal.z, 8, 1, 0.35, 0.95, 0.8, 4);
 
