@@ -27,6 +27,10 @@ export const SKINS: SkinDef[] = [
   { id: 'candy', name: 'Candy Pop', unlock: 'arsenal', armor: '#ff7eb6', accent: '#73eff7', suit: '#5d275d', hair: '#ffcd75', gem: '#a7f070', iris: '#d43d8f' },
   { id: 'prism', name: 'Prism', unlock: 'evolved', armor: '#f4f4f4', accent: '#ff3df0', suit: '#3b5dc9', hair: '#73eff7', gem: '#ffd23f', iris: '#7d3dff' },
   { id: 'magma', name: 'Magma Core', unlock: 'stage_3', armor: '#ff5d3a', accent: '#ffd23f', suit: '#1a1c2c', hair: '#b13e53', gem: '#ffcd75', iris: '#ff7a2f' },
+  // Heat milestones (src/data/heat.ts).
+  { id: 'ember', name: 'Ember', unlock: 'heat_4', armor: '#ef7d57', accent: '#333c57', suit: '#5d275d', hair: '#ffcd75', gem: '#73eff7', iris: '#ef7d57' },
+  { id: 'inferno', name: 'Inferno', unlock: 'heat_10', armor: '#b13e53', accent: '#ffcd75', suit: '#1a1c2c', hair: '#ef7d57', gem: '#ffcd75', iris: '#ffcd75' },
+  { id: 'solar', name: 'Solar', unlock: 'heat_20', armor: '#ffcd75', accent: '#ef7d57', suit: '#f4f4f4', hair: '#b13e53', gem: '#3b5dc9', iris: '#b13e53' },
 ];
 
 export const SKIN_BY_ID = Object.fromEntries(SKINS.map((s) => [s.id, s])) as Record<string, SkinDef>;

@@ -148,9 +148,9 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     }
   } else {
     const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive));
-    const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 4 : 1);
+    const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 4 : 1) * this.runMods.goldMul;
     if (this.rng.chance(dropTuning.goldChance * thin * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
-    if (!this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
+    if (!this.curses.some((c) => CURSE_BY_ID[c]?.noHearts) && !this.runMods.noHearts && this.rng.chance(dropTuning.heartChance * thin)) this.pickups.spawn(PickupType.Heart, e.x, e.z);
     if (this.rng.chance(dropTuning.magnetChance * thin)) this.pickups.spawn(PickupType.Magnet, e.x, e.z);
     if (this.rng.chance(dropTuning.gearChance * thin * (1 + 0.25 * (by?.stats.luck ?? 0)))) this.pickups.spawn(PickupType.Gear, e.x, e.z);
     if (this.rng.chance(dropTuning.nukeChance * thin)) this.pickups.spawn(PickupType.Nuke, e.x, e.z);
@@ -221,6 +221,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     }
   }
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
+  this.runModsKill(e); // routes, heat and mutators (systems/runMods.ts)
   this.enemies.kill(e);
   // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
   // (a stale `boss` once became a Chonk: wrong boss bar on clients and a stage that wouldn't clear).
@@ -397,6 +398,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   const dz = p.z - fromZ;
   const d = Math.hypot(dx, dz) || 1;
   if (!p.hurt(dmg, dx / d, dz / d)) return;
+  p.invuln *= this.runMods.iframeMul; // Thin Skin heat
   this.damagedThisStage = true;
   this.skillHurt(h);
   h.synergy.hurt();
@@ -578,9 +580,10 @@ export function updateChests(this: Game): void {
 /** Host/solo: a new chest every chestTuning.every seconds at a random clear spot. */
 export function updateChestSpawns(this: Game, dt: number): void {
   this.chestT += dt;
-  if (this.chestT < chestTuning.every) return;
-  this.chestT -= chestTuning.every;
-  if (this.chests.closedCount >= chestTuning.maxClosed) return;
+  const every = chestTuning.every * this.runMods.chestEveryMul; // TREASURE route
+  if (this.chestT < every) return;
+  this.chestT -= every;
+  if (this.chests.closedCount >= chestTuning.maxClosed + this.runMods.chestMaxAdd) return;
   const lim = this.arena.halfSize - 5;
   for (let tries = 0; tries < 30; tries++) {
     const x = this.rng.range(-lim, lim);

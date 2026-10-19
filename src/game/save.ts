@@ -38,12 +38,15 @@ export interface SaveData {
     bestLevel: number;
     playTime: number;
   };
+  /** Best heat a run was cleared with (final boss beaten), per hero id (src/data/heat.ts). */
+  heat: Record<string, number>;
 }
 
 const KEY = 'save';
 // v2 dropped Bolts and Workshop upgrades; older saves keep their achievements and stats.
 // v3 added the enemy guide (`seen`) and run history.
-const VERSION = 3;
+// v4 added the best heat cleared per hero (`heat`).
+const VERSION = 4;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
@@ -53,6 +56,7 @@ function fresh(): SaveData {
     seen: [],
     history: [],
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
+    heat: {},
   };
 }
 
@@ -71,6 +75,9 @@ function normalize(raw: unknown): SaveData {
       const v = Number((r.lifetime as Record<string, unknown>)[k]);
       if (Number.isFinite(v) && v >= 0) d.lifetime[k] = v;
     }
+  }
+  if (r.heat && typeof r.heat === 'object') {
+    for (const [hero, v] of Object.entries(r.heat)) if (Number.isFinite(Number(v)) && Number(v) > 0) d.heat[hero.slice(0, 24)] = Math.floor(Number(v));
   }
   return d;
 }
@@ -94,6 +101,14 @@ export function persist(): void {
 /** Note an enemy type as met (saved with the next persist). */
 export function markSeen(id: string): void {
   if (!save.seen.includes(id)) save.seen.push(id);
+}
+
+/** A run was cleared at `heat` with `hero`: keep the best. True if it's a new best. */
+export function recordHeat(hero: string, heat: number): boolean {
+  if (heat <= (save.heat[hero] ?? 0)) return false;
+  save.heat[hero] = heat;
+  persist();
+  return true;
 }
 
 export function addRunRecord(r: RunRecord): void {

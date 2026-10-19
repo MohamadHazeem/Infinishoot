@@ -96,6 +96,8 @@ export interface HeroWorld {
   readonly dashCurse: number;
   /** Curse ids already in effect (not offered again). */
   readonly activeCurses: readonly string[];
+  /** Shop Mod prices x this (routes and heat, src/game/runMods.ts). */
+  readonly priceMul?: number;
 }
 
 /** Latest input from a remote player (host side). */
@@ -705,7 +707,7 @@ export class Hero implements SynergyHost {
   }
 
   price(m: ModDef): number {
-    return Math.max(1, Math.round(m.price * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1)));
+    return Math.max(1, Math.round(m.price * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1) * (this.world.priceMul ?? 1)));
   }
 
   /** Half of what you actually paid (purchase + upgrades), or all of it with Pawn Shop. */

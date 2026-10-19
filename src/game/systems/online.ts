@@ -13,6 +13,14 @@ import { HERO_COLORS } from '../hero';
 import { save, unlockedLoadout, unlockedWeapons } from '../save';
 import { settings } from '../settings';
 import { DIFF_BY_ID, type DifficultyDef, type DifficultyId } from '../../data/modes';
+import { heatScoreMul, heatTotal } from '../../data/heat';
+import { loadHeatPick } from '../runMods';
+
+/** "HEAT 7 · SCORE x1.35" for the lobby ('' at heat 0). */
+function lobbyHeat(): string {
+  const t = heatTotal(loadHeatPick());
+  return t > 0 ? `HEAT ${t} · SCORE x${heatScoreMul(t).toFixed(2)}` : '';
+}
 
 export async function hostGame(this: Game, name: string): Promise<void> {
   this.saveName(name);
@@ -40,8 +48,9 @@ export function refreshLobby(this: Game): void {
   const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout) }));
   const difficulty = this.lobbyDifficulty().id;
   const kind = this.lobbyKind;
-  this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind });
-  this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind });
+  const heat = lobbyHeat(); // the host's heat applies to co-op (src/data/heat.ts)
+  this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind, heat });
+  this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind, heat });
 }
 
 /** Co-op difficulty: the host's pick, if their save has it unlocked. */
