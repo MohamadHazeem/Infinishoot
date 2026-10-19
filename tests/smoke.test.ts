@@ -75,6 +75,15 @@ for (const [mode, diff, hero, secs] of runs) {
     errors.push(mode + ': ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
   }
 }
+// The training field with the bot at the controls (onboarding lane): runs without errors and leaves cleanly.
+try {
+  game.onboarding.startTraining();
+  const tr = botRun(40, false);
+  console.log('training', JSON.stringify({ step: game.onboarding.training?.step, mode: tr.mode, screen: (game.screens as any).current }));
+  game.onboarding.endTraining(false);
+} catch (e) {
+  errors.push('training: ' + (e as Error).stack?.split('\n').slice(0, 14).join('\n'));
+}
 // A mortal run: die, game over, run history.
 settings.mode = 'standard';
 settings.difficulty = 'nightmare';
@@ -91,7 +100,7 @@ if (game.mode !== 'dead') {
 for (let i = 0; i < 400; i++) game.update(1 / 60);
 const goScreen = (game.screens as any).current;
 console.log('after death: screen', goScreen, 'last cause', save.history[0]?.cause, 'label', save.history[0]?.label);
-for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'settings']) {
+for (const s of ['extras', 'jukebox', 'wardrobe', 'modes', 'controls', 'history', 'bestiary', 'settings', 'codex']) {
   try { (game.screens as any).show(s); } catch (e) { errors.push('screen ' + s + ': ' + (e as Error).stack); }
 }
 console.log('history', save.history.length, 'seen', save.seen.length);

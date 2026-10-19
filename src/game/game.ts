@@ -67,6 +67,7 @@ import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
 import * as SkillSys from './systems/skill';
+import { Onboarding } from './onboarding';
 
 export { economyTuning } from './hero';
 
@@ -566,6 +567,8 @@ export class Game implements HeroWorld {
   dmg: DamageNumbers;
   hud: Hud;
   readonly screens: Screens;
+  /** Training field, first-time tips, codex discovery, run recap (src/game/onboarding.ts). */
+  readonly onboarding: Onboarding;
   flashes: THREE.Mesh[] = [];
   enemyCtx: EnemyCtx;
   targets: { x: number; z: number; radius: number; alive: boolean }[] = [];
@@ -699,6 +702,7 @@ export class Game implements HeroWorld {
       { passive: true },
     );
     this.hud.onPause = () => this.pause();
+    this.onboarding = new Onboarding(this, hudRoot);
     this.enemyCtx = this.makeEnemyCtx();
     this.runEvents = new RunEvents(this.makeEventHost());
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
@@ -988,6 +992,7 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    this.onboarding.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
     if (this.role === 'client') {

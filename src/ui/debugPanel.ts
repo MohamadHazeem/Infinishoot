@@ -34,6 +34,7 @@ import { ultTuning } from '../game/ultimates';
 import { banishTuning } from '../game/banish';
 import { cardNumTuning } from '../game/cardNumbers';
 import { previewTuning } from '../game/shopPreview';
+import { trainingTuning } from '../game/training';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -239,6 +240,15 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   world.add(surfaceTuning, 'rippleEvery', 0.1, 3, 0.05);
   world.add(surfaceTuning, 'bubbleEvery', 0.05, 2, 0.05);
   world.add(surfaceTuning, 'glintsPerM2', 0, 1, 0.01);
+
+  // Onboarding: training field (src/game/training.ts) and first-time tips.
+  const ob = gui.addFolder('Onboarding').close();
+  ob.add({ go: () => game.onboarding.startTraining() }, 'go').name('Start training');
+  ob.add({ skip: () => game.onboarding.advance() }, 'skip').name('Skip training step');
+  ob.add(trainingTuning, 'moveDist', 2, 30, 1);
+  ob.add(trainingTuning, 'shotEvery', 0.6, 4, 0.1).name('Shot every (s)');
+  ob.add(trainingTuning, 'shotSpeed', 2, 20, 0.5);
+  ob.add(trainingTuning, 'skipAfter', 0, 60, 1).name('SKIP shows after (s)');
 
   return gui;
 }

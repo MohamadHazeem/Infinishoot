@@ -255,7 +255,10 @@ export function blast(this: Game, x: number, z: number, r: number, base: number,
   const targets = this.enemiesInRadius(x, z, r, this.scratch).slice();
   // Napalm: an explosion that catches a burning enemy sets the whole blast alight.
   const napalm = explosive && !noStatus && targets.some((e) => e.burnT > 0);
-  if (napalm) this.vfx.ring(x, z, 1, r * 2.2, '#ff5e3a', 0.35);
+  if (napalm) {
+    this.vfx.ring(x, z, 1, r * 2.2, '#ff5e3a', 0.35);
+    this.onboarding.napalms++; // first-combo tip and the Codex
+  }
   let n = 0;
   for (const e of targets) {
     const d = Math.hypot(e.x - x, e.z - z) || 1;
