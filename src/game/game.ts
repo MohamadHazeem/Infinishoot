@@ -64,6 +64,7 @@ import * as ArenaSys from './systems/arena';
 import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
+import * as SkillSys from './systems/skill';
 
 export { economyTuning } from './hero';
 
@@ -92,7 +93,7 @@ export const bombTuning = {
 /** This machine's chosen hero, if unlocked. */
 export function localHero(): string {
   const d = heroOf(settings.hero);
-  return !d.unlock || save.achievements.includes(d.unlock) ? d.id : 'rookie';
+  return !d.unlock || save.achievements.includes(d.unlock) || cheats.unlockAll ? d.id : 'rookie';
 }
 
 /** Conveyor belt speed (m/s). */
@@ -165,6 +166,8 @@ export const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'pellets' }, // 10 Pellet Turret (auto weapon)
   { source: 'pellets', tags: ['projectile', 'fire'] }, // 11 Scorch Turret
   { source: 'turret', tags: ['projectile'] }, // 12 arena turrets (src/game/systems/arena.ts)
+  { source: 'parry', tags: ['projectile'] }, // 13 bullets reflected by a parry
+  { source: 'ult', tags: [] }, // 14 Mega Barrage shots
 ];
 /** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
 export const IMPACT_BLAST = [1, 5, 8];
@@ -440,6 +443,25 @@ export class Game implements HeroWorld {
   renderArena = ArenaSys.renderArena;
   objectiveTarget = ArenaSys.objectiveTarget;
   worldFx = WorldFxSys.worldFx;
+  skillInput = SkillSys.skillInput;
+  skillClientInput = SkillSys.skillClientInput;
+  skillMessage = SkillSys.skillMessage;
+  skillDash = SkillSys.skillDash;
+  perfectDash = SkillSys.perfectDash;
+  tryParry = SkillSys.tryParry;
+  tryUlt = SkillSys.tryUlt;
+  updateSkill = SkillSys.updateSkill;
+  weaponFeel = SkillSys.weaponFeel;
+  muzzleScale = SkillSys.muzzleScale;
+  skillHit = SkillSys.skillHit;
+  skillKill = SkillSys.skillKill;
+  skillHurt = SkillSys.skillHurt;
+  styleScoreMul = SkillSys.styleScoreMul;
+  styleXpMul = SkillSys.styleXpMul;
+  skillNet = SkillSys.skillNet;
+  applySkillNet = SkillSys.applySkillNet;
+  renderSkill = SkillSys.renderSkill;
+  bestStyle = SkillSys.bestStyle;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -1023,6 +1045,7 @@ export class Game implements HeroWorld {
     if (anyAlive) this.runTime += dt;
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
+    this.updateSkill(dt);
 
     // Spatial hash first: weapons and enemies query it.
     this.hash.clear();
@@ -1031,7 +1054,7 @@ export class Game implements HeroWorld {
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
       for (const w of h.weapons) w.update(dt, h.ctx);
-      if (h === this.hero && h.weapons.some((w) => w.muzzleT > 0.045)) this.juice.kick(-h.player.aim.x, -h.player.aim.z, 2);
+      this.weaponFeel(h);
     }
     for (const h of this.heroes) this.updateBomb(h, dt);
     updateSpecials(this.heroes, dt, this.specialApi);
@@ -1148,6 +1171,7 @@ export class Game implements HeroWorld {
       const wantBomb =
         control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
       if (wantBomb) this.tryBomb(h);
+      this.skillInput(h, control);
     } else if (h.remote) {
       // Smoothly follow the client's own (authoritative) movement.
       const r = h.remote;
@@ -1214,6 +1238,7 @@ export class Game implements HeroWorld {
     const p = h.player;
     h.dashes++;
     h.synergy.dash();
+    this.skillDash(h);
     if (h.hasRelic('r_dashbomb')) this.blast(p.x, p.z, 2.6, 30 + 8 * this.stage, '#ffb627', 'r_dashbomb', ['explosive'], false, h);
     this.vfx.sound('dash', p.x, p.z);
     if (h === this.hero) {

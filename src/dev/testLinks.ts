@@ -7,6 +7,8 @@ import { applySettings, settings } from '../game/settings';
 import { lookOverrides } from '../game/systems/look';
 import { OBJECTIVE_KINDS, type ObjectiveKind } from '../game/objectives';
 import { weatherForce } from '../game/ambience';
+import { STYLE_RANKS, styleTuning } from '../game/style';
+import { Team } from '../game/bullets';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -37,6 +39,9 @@ import { weatherForce } from '../game/ambience';
  *   ?test&stage=4&topple                topple the pillar nearest the hero
  *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
  *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
+ *   ?test&hero=bulwark&ultgo=2&god      ultimate charged, fired after 2 s (`ult` only charges it)
+ *   ?test&style=S&spawn=shooter:6       style rank; enemies in a ring 7 m around you
+ *   ?test&parrygo=2 / &dashgo=2         a parry / a perfect dash after 2 s (for screenshots)
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -59,7 +64,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('fps')) settings.showFps = true;
   if (q.has('night')) lookOverrides.night = true;
   else if (q.has('day')) lookOverrides.night = false;
-  if (q.get('hero')) settings.hero = q.get('hero')!;
+  if (q.get('hero')) {
+    settings.hero = q.get('hero')!;
+    game.applyLocalSkin(); // the hero was made before the link was read
+  }
   if (q.get('mode')) settings.mode = q.get('mode')!;
   if (q.get('difficulty')) settings.difficulty = q.get('difficulty')!;
   const lo = list('loadout');
@@ -152,6 +160,27 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       pl.pos.z = pl.prev.z = z;
     }
   }
+  // Skill layer (src/game/systems/skill.ts).
+  const rank = STYLE_RANKS.indexOf((q.get('style') ?? '').toUpperCase() as (typeof STYLE_RANKS)[number]);
+  if (rank >= 0) {
+    const t = styleTuning.thresholds;
+    h.skill.style.add(t[rank] + ((t[rank + 1] ?? styleTuning.cap) - t[rank]) * 0.9, 'TEST LINK');
+  }
+  if (q.has('ult') || q.has('ultgo')) h.skill.ult = 1;
+  const go = Number(q.get('ultgo'));
+  if (go > 0) setTimeout(() => game.tryUlt(game.hero), go * 1000);
+  // `parrygo=<s>`: a ring of enemy bullets closes in and gets parried; `dashgo=<s>`: one flies at you as you dash (perfect).
+  const shootAt = (d: number, n: number) => {
+    const p = game.hero.player;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      game.bullets.spawn({ x: p.x + Math.cos(a) * d, z: p.z + Math.sin(a) * d, dirX: -Math.cos(a), dirZ: -Math.sin(a), speed: 12, life: 3, radius: 0.26, damage: 10, knockback: 6, team: Team.Enemy, color: '#ff3df0', width: 0.5, length: 0.5 });
+    }
+  };
+  const pg = Number(q.get('parrygo'));
+  if (pg > 0) setTimeout(() => (shootAt(1.5, 8), game.tryParry(game.hero)), pg * 1000);
+  const dg = Number(q.get('dashgo'));
+  if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
   return true;
 }
 

@@ -23,6 +23,7 @@ import { PET_BY_ID } from '../data/pets';
 import { PetView } from './pet';
 import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { HEROES, heroOf, type HeroDef } from '../data/heroes';
+import { HeroSkill } from './style';
 
 /** Auto-weapon slots (the loadout's clicks don't use them). */
 export const MAX_WEAPONS = 4;
@@ -168,6 +169,8 @@ export class Hero implements SynergyHost {
   remote: RemoteInput | null = null;
   lastSeen = 0;
   loadoutDirty = true;
+  /** Skill layer: style meter, perfect dash, parry and ultimate (src/game/style.ts). */
+  readonly skill = new HeroSkill();
 
   constructor(
     private world: HeroWorld,
@@ -277,6 +280,7 @@ export class Hero implements SynergyHost {
     this.bomblets.length = 0;
     this.reviveT = 0;
     this.shopDone = true;
+    this.skill.reset();
     this.recomputeStats();
     this.rerollsLeft = Math.min(MAX_GEARS, this.stats.rerolls);
     this.revivesLeft = this.stats.revives + (this.pet === 'guardian' ? 1 : 0);
@@ -346,6 +350,7 @@ export class Hero implements SynergyHost {
     this.stats.dashCooldownMul *= dashLevelMul(this.world.level) * this.world.dashCurse;
     this.stats.cooldownMul *= this.world.fireRateBuff;
     this.stats.damageMul *= this.world.damageBuff;
+    this.stats.damageMul *= this.skill.damageMul;
   }
 
   get specialDef(): SpecialDef {

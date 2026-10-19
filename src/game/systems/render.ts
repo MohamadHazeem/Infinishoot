@@ -309,6 +309,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     },
     frameDt,
   );
+  this.renderSkill(frameDt, frozen);
 }
 
 export function renderMuzzleFlashes(this: Game): void {
@@ -324,7 +325,7 @@ export function renderMuzzleFlashes(this: Game): void {
     if (!m.visible) return;
     h.player.muzzle(this.mz);
     m.position.set(this.mz.x, BULLET_Y, this.mz.z);
-    m.scale.setScalar(0.8 + Math.random() * 0.6);
+    m.scale.setScalar((0.8 + Math.random() * 0.6) * this.muzzleScale(h));
   });
 }
 

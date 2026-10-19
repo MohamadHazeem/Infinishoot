@@ -47,6 +47,8 @@ export interface Settings {
   dynamicCamera: boolean;
   /** Boss entrance cinematics (letterbox, camera pan, title card). */
   bossIntros: boolean;
+  /** Slow-motion on perfect dashes and Mega Barrage (solo only). */
+  slowMo: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -79,6 +81,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   loadout: { ...DEFAULT_LOADOUT },
   dynamicCamera: true,
   bossIntros: true,
+  slowMo: true,
 });
 settings.dynamicCamera ??= true;
 settings.loadout = validLoadout(settings.loadout);

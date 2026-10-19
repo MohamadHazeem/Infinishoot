@@ -135,6 +135,8 @@ export interface RunSummary {
   mods: string[];
   damage: { name: string; color: string; dmg: number }[];
   achievements: string[];
+  /** Best style rank this run (D..SS). */
+  style?: string;
 }
 
 /** Settings switched by ON/OFF buttons. */
@@ -145,7 +147,7 @@ function rangeLabel(inp: HTMLInputElement): void {
   if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
 }
 
-type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros';
+type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -260,7 +262,7 @@ export class Screens {
   <div class="wallet"></div>
   <div class="hiscores"></div>
   <div class="hiscores global" hidden></div>
-  <div class="controls">WASD / L-stick move &middot; Mouse / R-stick aim &amp; shoot &middot; Hold right click / X right-click weapon &middot; Space / LB dash &middot; Q / RB special &middot; G ping &middot; Esc / Start pause</div>
+  <div class="controls">WASD / L-stick move &middot; Mouse / R-stick aim &amp; shoot &middot; Hold right click / X right-click weapon &middot; Space / LB dash &middot; Q / RB special &middot; C / B parry &middot; V / R3 ultimate &middot; G ping &middot; Esc / Start pause</div>
   <div class="credits">Icons: game-icons.net by Lorc, Delapouite &amp; contributors (CC BY 3.0) &middot; Fonts: Jersey, Silkscreen (OFL) &middot; Palette: Sweetie 16 by GrafxKid</div>
   <div class="version">v${__APP_VERSION__}</div>
 </div>
@@ -294,6 +296,7 @@ export class Screens {
     <button data-nav data-toggle="reduceFlash">REDUCE FLASHING <b></b></button>
     <button data-nav data-toggle="dynamicCamera">DYNAMIC CAMERA <b></b></button>
     <button data-nav data-toggle="bossIntros">BOSS INTROS <b></b></button>
+    <button data-nav data-toggle="slowMo">SKILL SLOW-MO <b></b></button>
     <button data-nav data-act="controls">CONTROLS...</button>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
     <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>
@@ -1404,6 +1407,7 @@ export class Screens {
         <span>LEVEL</span><b>${sum.level}</b>
         <span>KILLS</span><b>${sum.kills.toLocaleString('en-US')}</b>
         <span>BEST COMBO</span><b>${sum.maxCombo}</b>
+        ${sum.style ? `<span>BEST STYLE</span><b>${sum.style}</b>` : ''}
         <span>TIME</span><b>${fmtTime(sum.time)}</b>
       </div>`;
     const top = sum.damage.slice(0, 6);

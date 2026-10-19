@@ -141,6 +141,19 @@ Plan agreed with the user on 2026-10-17: pick left click, right click and specia
 
 ---
 
+## Milestone 8: The big update: gameplay, sound and graphics (done, v1.5.0)
+Built by 10 parallel lanes (details, tuning and test links in notes/lanes/*.md):
+- [x] Enemies: Shield Bot, Medi Bot, Hop Frog, Mortar Toad, the Goldbug treasure enemy; flanking crowds, shooters in cover, wall-aware chargers, elite squads
+- [x] Bosses: 3 phases with transitions, arena twists, mid-stage mini-bosses, entrance cinematics
+- [x] Arena: turrets, jump pads, breakable cover, toppling pillars, hazards per biome, environmental kills, stage objectives
+- [x] Skill: perfect dash, parry, style meter D-SS, hero ultimates, per-weapon feel data
+- [x] Sound: ElevenLabs sample pack layered on the synths, positional audio, voice budget and limiter, area ambience and reverb, footsteps, rain and thunder, announcer
+- [x] Music: song structure, per-area arrangements, key change per stage, boss themes with phases, stingers, beat API
+- [x] Look: dynamic lights, night stages, outlines, shockwaves and heat, glow, colour grading, auto quality
+- [x] World: animated water/lava/ice, rain and lightning, smoke, dust, debris, footprints and scorch marks
+- [x] Animation and camera: walk cycles, wind-ups, hit reactions, flung corpses, victory and death poses, swarm zoom, co-op framing, boss kill-cam
+- [x] HUD: animated combo, styled damage numbers, level-up flourish, bar animations, menu transitions
+
 ## Proposed folder structure
 ```
 src/
@@ -289,3 +302,4 @@ public/assets/         # models (glb), textures (png), audio
 
 - 2026-10-18: Tuning (user). Spin Bot (the bullet-spiral "sprinkler") first spawns in the last minute of stage 2 (minMinute 2.2 -> 5.25; with the per-stage head start it joins stage 3 at 1:48 and stage 4 at 0:36). New `EnemyDef.minStage` (2 here) is honoured by the director pool and elite picks, and the Enemy Guide says FROM STAGE 2. Less gold (user: 158 gold after stage 1, enough to buy the whole shop): kill gold chance 0.009 -> 0.005, chest gold 10 -> 5, Gold Rush drops x10 -> x4, challenge reward 10 + 2/stage -> 5 + 2/stage. Stage-clear gold and interest are unchanged. Expected stage-1 income for a player who grabs chests drops by about 45%, to roughly 80-90 gold. The dev bot (which skips chests) earned 64 before and 11-57 after. Relics are free (the secret merchant's relic cost 30) and get their own RELICS section in the shop (the offer plus owned relics, under YOUR MODS) and in the pause build, so they no longer read as Mods.
 - 2026-10-19: Boss fights (bosses lane, notes/lanes/bosses.md). King, Rex and Queen have 3 phases (66% / 33%; Omega keeps 60% / 25%): crossing one clamps HP at the threshold (a burst can't skip a phase) and the boss roars for 1.4 s (invulnerable, banner, shake, flash, nearby enemy bullets cleared) before its new attack set. New moves: King shockwave ring walls (dash through), Rex figure-eight rampage, fire breath and charges through cover, Queen hives (hatch Swarmers, heal her 0.2%/s each) and swarm walls with one gap. Arena twists while a boss lives: tremors, burning ground, hive link, Omega's orbital strike grid. Mini-bosses (Prince Bopper, Rex Jr., Hive Princess) land halfway through stages from 2 with their own bar and a chest. Bosses enter with a skippable ~2 s cinematic (SETTINGS > BOSS INTROS). Boss state reaches clients in the snapshot's `bx`; the music lane gets `music.setBossPhase?.(n)`. God bot (Scattergun/Grenade/Thunderstorm): King 24 s, Rex 23 s, Queen 46 s, Omega 64 s.
+- 2026-10-19: The big update (Milestone 8) was built by 10 parallel lanes, each in its own git worktree with owned files (3 on Codex, 3 on a second Claude account, 4 on Claude sub-agents), then merged here, with typecheck, unit tests, the smoke test and headless screenshots after every merge. Merge rules: new Game behaviour lives in its own src/game/systems/<lane>.ts; settings toggles were unioned; bullet kinds were renumbered on merge (12 turret, 13 parry reflect, 14 Mega Barrage); the skill lane's own sample loader was switched to the shared sample engine and announcer; the smoke test's mortal run now finishes the hero off if the (parrying) bot survives. Sounds come from scripts/audio/generate.mjs (ElevenLabs, key only in .env.local, 940 KB of mono mp3s). Each lane's decisions and numbers are in notes/lanes/<lane>.md.

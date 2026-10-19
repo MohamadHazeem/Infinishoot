@@ -50,6 +50,32 @@ export interface WeaponDef extends Upgradable {
   levels: WeaponLevel[];
   /** Auto weapons: partner-item evolution (see WeaponEvolution). */
   evolution?: WeaponEvolution;
+  /** Game feel: recoil, camera kick, muzzle flash, hit-stop, knockback and crits (filled from WEAPON_FEEL below). */
+  feel?: WeaponFeel;
+}
+
+/**
+ * Per-weapon game feel, tuned in data. Kick and recoil fire once per shot
+ * (when the weapon's muzzle flash starts); hit-stop and crit stops only play
+ * for your own hits in solo (online they would freeze everyone's world).
+ */
+export interface WeaponFeel {
+  /** Camera kick opposite the aim per shot (world units of spring impulse). */
+  kick: number;
+  /** Arm recoil per shot (hero pose). */
+  recoil: number;
+  /** Muzzle flash size multiplier. */
+  flash: number;
+  /** Hit-stop (s) when one of its loud hits lands. */
+  hitStop: number;
+  /** Knockback multiplier on its hits. */
+  knock: number;
+  /** Crit spark size multiplier. */
+  critFlash: number;
+  /** Pitch of the sharp layer on its crits (higher = sharper). */
+  critPitch: number;
+  /** Hit-stop (s) on its crits. */
+  critStop: number;
 }
 
 /** Damage from the right-click slot: the Buster's charge shot or a secondary arm weapon. */
@@ -767,3 +793,41 @@ export const WEAPONS: Record<string, WeaponDef> = {
     evolution: { name: 'Nova Hail', color: '#fff35c', passive: 'focus_lens', text: '5 stars that each burst into 3 more on impact.', p: { cd: 2.0, count: 5, dmg: 240, radius: 3.4, range: 17, split: 3 } },
   },
 };
+
+export const DEFAULT_FEEL: WeaponFeel = { kick: 0, recoil: 0, flash: 1, hitStop: 0, knock: 1, critFlash: 1, critPitch: 1.5, critStop: 0 };
+
+/** Feel per weapon id (missing fields use DEFAULT_FEEL). Heavy, slow weapons kick and stop; fast ones stay light. */
+export const WEAPON_FEEL: Record<string, Partial<WeaponFeel>> = {
+  // Left click
+  buster: { kick: 2, recoil: 1, flash: 1, knock: 1, critFlash: 1.15, critPitch: 1.7 },
+  scatter: { kick: 6, recoil: 2.4, flash: 1.7, knock: 1.4, critFlash: 1.25, critPitch: 1.35, critStop: 0.012 },
+  laser: { kick: 0.6, recoil: 0.5, flash: 0.75, knock: 0.6, critFlash: 1, critPitch: 2.3 },
+  orb: { kick: 3, recoil: 1.3, flash: 1.3, knock: 1, critFlash: 1.3, critPitch: 1.9 },
+  rail: { kick: 10, recoil: 3, flash: 2.2, hitStop: 0.05, knock: 1.6, critFlash: 1.8, critPitch: 1.1, critStop: 0.05 },
+  // Right click
+  charge: { kick: 9, recoil: 2.6, flash: 1.9, hitStop: 0.045, knock: 1.35, critFlash: 1.7, critPitch: 1.2, critStop: 0.04 },
+  grenade: { kick: 5, recoil: 2, flash: 1.4, hitStop: 0.03, knock: 1.3, critFlash: 1.5, critPitch: 1.25, critStop: 0.025 },
+  well: { kick: 3, recoil: 1.5, flash: 1.2, knock: 0.5, critFlash: 1.3, critPitch: 1.5 },
+  shield: { kick: 4, recoil: 1.8, flash: 1.3, hitStop: 0.02, knock: 1.25, critFlash: 1.3, critPitch: 1.3, critStop: 0.02 },
+  orbital: { kick: 4, recoil: 1.8, flash: 1.4, hitStop: 0.05, knock: 1.2, critFlash: 1.7, critPitch: 1.15, critStop: 0.04 },
+  // Auto weapons
+  drones: { knock: 0.8, critPitch: 2.1 },
+  aura: { knock: 0.7, critPitch: 2.2 },
+  lightning: { knock: 0.6, critFlash: 1.3, critPitch: 2.4 },
+  discs: { knock: 1.1, critFlash: 1.2, critPitch: 1.8 },
+  missiles: { knock: 1.25, critFlash: 1.4, critPitch: 1.3 },
+  mines: { knock: 1.4, critFlash: 1.4, critPitch: 1.25 },
+  nova: { knock: 0.6, critPitch: 2 },
+  fire: { knock: 0.5, critPitch: 1.6 },
+  sweeper: { knock: 0.6, critPitch: 2.2 },
+  pellets: { kick: 0, knock: 0.9, critPitch: 1.8 },
+  bouncer: { knock: 1, critPitch: 1.9 },
+  starfall: { knock: 1.5, critFlash: 1.6, critPitch: 1.1, critStop: 0.02 },
+};
+
+for (const [id, f] of Object.entries(WEAPON_FEEL)) if (WEAPONS[id]) WEAPONS[id].feel = { ...DEFAULT_FEEL, ...f };
+
+/** Feel for a damage source: its weapon's, else the defaults (specials, Mods, statuses). */
+export function feelOf(source: string): WeaponFeel {
+  return WEAPONS[source]?.feel ?? DEFAULT_FEEL;
+}

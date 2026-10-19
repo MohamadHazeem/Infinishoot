@@ -81,6 +81,13 @@ settings.difficulty = 'nightmare';
 game.startSolo();
 const rr = botRun(900, false);
 console.log('mortal', JSON.stringify({ stage: rr.stage, mode: rr.mode, t: rr.t, kills: rr.kills }));
+// The bot can outlive the time budget (it parries well), so finish the run off deterministically.
+if (game.mode !== 'dead') {
+  const p = game.hero.player;
+  game.hero.revivesLeft = 0;
+  p.invuln = 0;
+  if (p.hurt(p.hp + 1, 0, 1)) game.onHeroDown(game.hero);
+}
 for (let i = 0; i < 400; i++) game.update(1 / 60);
 const goScreen = (game.screens as any).current;
 console.log('after death: screen', goScreen, 'last cause', save.history[0]?.cause, 'label', save.history[0]?.label);

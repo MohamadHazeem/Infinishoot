@@ -6,7 +6,7 @@
 import type { Game } from '../game';
 import { CONVEYOR_SPEED, statusTuning } from '../game';
 import type { Tag } from '../../data/tags';
-import { isRightClick } from '../../data/weapons';
+import { feelOf, isRightClick } from '../../data/weapons';
 import { BULLET_Y } from '../bullets';
 import { type Enemy } from '../enemies';
 import { Hero } from '../hero';
@@ -65,7 +65,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   } else e.hp -= amount;
   by.damageBy[o.source] = (by.damageBy[o.source] ?? 0) + dealt;
   e.flash = 0.07;
-  const k = (o.knockback ?? 0) * by.stats.knockbackMul * (1 - e.def.knockbackResist) * (crit ? 1.5 : 1);
+  const k = (o.knockback ?? 0) * by.stats.knockbackMul * (1 - e.def.knockbackResist) * (crit ? 1.5 : 1) * feelOf(o.source).knock;
   if (k > 0) {
     e.kx += (o.dirX ?? 0) * k;
     e.kz += (o.dirZ ?? 0) * k;
@@ -89,6 +89,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (o.loud || crit) {
     this.vfx.burst(hx, BULLET_Y, hz, { count: 3, color: '#ffffff', color2: e.def.bodyColor, speed: [3, 7], size: [0.1, 0.18], life: [0.12, 0.25], dir: { x: -(o.dirX ?? 0), z: -(o.dirZ ?? 0), spread: 2.4 } });
   }
+  this.skillHit(e, o, dealt, crit, by);
   // Statuses from the weapon's own tags, then Mod triggers.
   if (!o.noStatus && e.hp > 0 && !shielded) {
     if (tags.includes('fire')) this.ignite(e, Math.max(3, amount * 0.15), by);

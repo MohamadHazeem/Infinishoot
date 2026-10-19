@@ -67,9 +67,15 @@ Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to
 - **12 weapons**, each with an evolution, plus **weapon combos** when you hold the right pair.
 - **Shop between stages**: Mods, optional **curse deals**, and now and then a **secret merchant**. Bosses drop **relics**.
 - **Every stage**: a random event (meteor shower, gold rush, fog bank, elite parade, stampede), a side challenge, and combo power-ups (FRENZY, MAGNET BURST, OVERDRIVE).
+- **Skill**: perfect dashes (dash through an attack at the last moment), parries that send bullets back, a style meter from D to SS that multiplies your score, and an ultimate per hero.
+- **Enemies that think**: crowds surround and flank, shooters hide behind cover, elites lead squads. Shield Bots, Medi Bots, Hop Frogs, Mortar Toads, and the rare Goldbug that runs off with treasure.
+- **Bosses** with three phases, arena twists and entrance cinematics, plus a mini-boss mid-stage.
+- **Arena toys**: turrets to switch on, jump pads, breakable cover, pillars to topple, hazards to knock enemies into, and an optional objective every stage.
+- **Night stages and rain**, dynamic lights, outlines, shockwaves, smoke and debris, with automatic quality to hold 60 fps.
+- **Sound**: recorded effects layered on the synths, positional audio, ambience per area, footsteps, and an announcer.
 - **Elites** roll a modifier (Shielded, Fast, Splitting, Vampiric, Blinking, Volatile); bosses enrage as they lose life.
 - **Arenas**: four biomes with weather, swaying grass, lava that burns, slippery ice and conveyor belts, going from midday to sunset over each stage.
-- **Music** composed on the fly per area, that builds up with the fight; a jukebox in EXTRAS.
+- **Music** composed on the fly per area, with verses, choruses and boss themes that build with the fight; a jukebox in EXTRAS.
 - **Extras**: run history, enemy guide, rebindable keys, controller rumble, touch controls, colour-blind and reduced-flashing options, quality presets.
 - **Online co-op** for up to 4 players, with pings, spectating and revive bonuses. An optional **online leaderboard** can be switched on (see [server/leaderboard](server/leaderboard/README.md)).
 
@@ -82,6 +88,8 @@ Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to
 | Right-click weapon (Charge Shot, Grenade Lobber, ...) | Right click | X |
 | Dash | Space, Shift | LB / LT / A |
 | Special (Bomb, Thunderstorm, Blizzard, Meteor Shower) | Q, E, middle click | RB / Y |
+| Parry (just as a bullet or attack lands) | C | B |
+| Hero ultimate (when the ULT meter is full) | V | L3 / R3 / D-pad up |
 | Ping (co-op) | G | View / Back |
 | Pause | Esc / P / pause button | Start |
 | Auto-fire | F | |
@@ -101,3 +109,4 @@ Keys can be changed in SETTINGS > CONTROLS. On a touch screen, on-screen sticks 
 - Item icons: [game-icons.net](https://game-icons.net) by Lorc, Delapouite and contributors, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). The game redraws them as pixel sprites (src/ui/pixelIcons.ts).
 - Fonts: Jersey 10 and Jersey 15 (Sarah Cadigan-Fried), Silkscreen (Jason Kottke), all SIL Open Font License, bundled via Fontsource.
 - Palette: Sweetie 16 by GrafxKid.
+- Recorded sound effects and announcer voice generated with [ElevenLabs](https://elevenlabs.io) (scripts/audio/generate.mjs).

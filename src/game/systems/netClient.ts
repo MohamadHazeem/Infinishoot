@@ -181,6 +181,7 @@ export function clientUpdate(this: Game, dt: number): void {
   if (moving) this.arenaLocal(dt);
   const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
   if (wantBomb) this.client?.send({ t: 'bomb' });
+  this.skillClientInput(control);
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
   const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
   const charging = control && (input.mouseDown(2) || input.padButton(2));
@@ -316,6 +317,7 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
   unpackBullets(s.bu as ArrayBuffer, this.bullets);
   unpackPickups(s.pk as ArrayBuffer, this.pickups);
   for (const e of (s.ev as VfxEvent[]) ?? []) this.vfx.apply(e);
+  this.applySkillNet(s.sk);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   const portal = s.portal as [number, number] | null;
