@@ -24,6 +24,7 @@ import { PetView } from './pet';
 import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { HEROES, heroOf, type HeroDef } from '../data/heroes';
 import { HeroSkill } from './style';
+import { fuseWeapons, fusionOfferFor, placeFusion } from './fusion';
 
 /** Auto-weapon slots (the loadout's clicks don't use them). */
 export const MAX_WEAPONS = 4;
@@ -532,7 +533,7 @@ export class Hero implements SynergyHost {
     const autoCount = this.weapons.filter((w) => !w.def.slot).length;
     for (const id of this.unlocked) {
       const d = WEAPONS[id];
-      if (!d || d.slot || autoCount >= MAX_WEAPONS || this.weapons.some((w) => w.def.id === id)) continue;
+      if (!d || d.slot || d.fusion || autoCount >= MAX_WEAPONS || this.weapons.some((w) => w.def.id === id)) continue;
       // Say which weapon combo it completes (src/data/weaponCombos.ts), and weigh it up a little.
       const owned = this.weapons.map((w) => w.def.id);
       const made = WEAPON_COMBOS.filter((c) => c.weapons.includes(id) && owned.includes(c.weapons[0] === id ? c.weapons[1] : c.weapons[0]));
@@ -574,7 +575,8 @@ export class Hero implements SynergyHost {
       const { w: _w, ...offer } = cands.splice(i, 1)[0];
       out.push(offer);
     }
-    return out;
+    // Two maxed auto weapons that fuse: a FUSION card (src/game/fusion.ts).
+    return placeFusion(out, fusionOfferFor(this.weapons, () => this.rng.next()));
   }
 
   /** Apply a level-up card. Returns its color (for the pickup burst). */
@@ -601,6 +603,8 @@ export class Hero implements SynergyHost {
       const w = this.weapons.find((x) => x.def.id === id);
       if (w) w.levelUp();
       else this.weapons.push(createWeapon(id, this.world.scene));
+    } else if (o.kind === 'fusion') {
+      fuseWeapons(this.weapons, o.id, this.world.scene);
     } else if (o.kind === 'evolve') {
       this.weapons.find((x) => x.def.id === o.id)?.evolve();
     } else if (o.kind === 'special') {

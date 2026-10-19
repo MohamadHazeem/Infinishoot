@@ -23,6 +23,8 @@ import { Sweeper } from './sweeper';
 import { Pellets } from './pellets';
 import { Bouncer } from './bouncer';
 import { Starfall } from './starfall';
+import { FusionWeapon } from './fusion';
+import type { WeaponDef } from '../../data/weapons';
 
 export { Weapon } from './base';
 export type { WeaponCtx, DamageOpts } from './base';
@@ -30,8 +32,9 @@ export { Buster } from './buster';
 export { ChargeShot } from './charge';
 
 /** Create a weapon instance by id. */
-export function createWeapon(id: string, scene: THREE.Scene): Weapon {
-  const def = WEAPONS[id];
+export function createWeapon(id: string, scene: THREE.Scene, def: WeaponDef = WEAPONS[id]): Weapon {
+  // Fusions (src/data/fusions.ts) build their two parts through this same factory.
+  if (def?.fusion) return new FusionWeapon(def, scene, createWeapon);
   switch (id) {
     case 'buster':
       return new Buster(def);
