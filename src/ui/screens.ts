@@ -1,3 +1,4 @@
+import { gauntletOption, renderGauntletOptions } from '../game/systems/gauntlet';
 import { SettingsScreen } from './settingsScreen';
 import { localize, t, localizeHtml, relocalizeDom } from '../i18n';
 import { META_SCREENS, metaScreenHtml, renderMeta, metaAction, applyMetaTheme, type MetaScreen } from './metaScreens';
@@ -42,6 +43,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
 export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends';
+export type ExtraScreen = 'gauntlet' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly';
 
@@ -672,6 +674,10 @@ export class Screens {
         }
         case 'md-back':
           return actions.title();
+        case 'g-up': case 'g-down': case 'g-ng': case 'g-title': case 'g-records':
+          gauntletOption(btn.dataset.act!, this);
+          if (this.current === 'modes') this.renderModes();
+          return;
         case 'mode':
           settings.mode = btn.dataset.mode!;
           saveSettings();
@@ -1480,6 +1486,7 @@ export class Screens {
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`
       : diff.desc.toUpperCase());
     if (mode.id === 'weekly') el.querySelector('.mode-note')!.textContent = localize(`${weeklyChallenge().week}: ${weeklyChallenge().rules.map(r => r.name).join(' + ')} · FIXED ROOKIE KIT`);
+    renderGauntletOptions(el);
     this.navs.modes.refresh(this.navs.modes.focus);
   }
 

@@ -1,4 +1,5 @@
 import { halloweenKill } from './halloween';
+import { gauntletKill } from './gauntlet';
 import { markSeen } from '../save';
 /**
  * Statuses and combos, hazards, strikes, specials, pickups and other per-step systems.
@@ -164,7 +165,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.pickups.spawn(PickupType.Gem, e.x, e.z, xp * dropTuning.xpMul * this.styleXpMul(by));
   const isBoss = !!def.boss;
   const big = e.elite || isBoss || def.id === 'reaper' || !!def.miniboss;
-  if (big) {
+  if (big && this.runMode !== 'gauntlet') {
     // Bosses drop one chest per hero that only its owner can open (value OWNED_CHEST + hero index); elites drop one for anyone.
     if (isBoss) this.heroes.forEach((h, i) => !h.left && this.pickups.spawn(PickupType.Chest, e.x + i * 0.8, e.z, OWNED_CHEST + i));
     else this.pickups.spawn(PickupType.Chest, e.x, e.z);
@@ -174,7 +175,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
       this.elitesRun++;
       this.runEvents.onElite();
     }
-  } else {
+  } else if (this.runMode !== 'gauntlet') {
     const thin = Math.min(1, dropTuning.dropRef / Math.max(1, this.director.targetAlive));
     const goldMul = (by?.hasRelic('r_midas') ? 3 : 1) * (this.runEvents.goldRush ? 4 : 1);
     if (this.rng.chance(dropTuning.goldChance * thin * goldMul)) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
@@ -253,6 +254,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
   this.gpOnKill(e, source, by); // mutant rewards, mech drops, finale spots, Nova Heart, Powder Keg (systems/gameplay.ts)
   this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
+  gauntletKill(this, e);
   this.enemies.kill(e);
   // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
   // (a stale `boss` once became a Chonk: wrong boss bar on clients and a stage that wouldn't clear).

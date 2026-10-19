@@ -1,4 +1,5 @@
 import { halloweenLinks } from '../game/systems/halloween';
+import { gauntletTest } from '../game/systems/gauntlet';
 import { cleanHeat } from '../data/heat';
 import { save } from '../game/save';
 import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
@@ -175,6 +176,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     const [id, n] = pair(w);
     for (let i = 0; i < n; i++) game.debugGiveWeapon(id);
   }
+  gauntletTest(game, q);
   const h = game.hero;
   for (const p of list('passives')) {
     const [id, n] = pair(p);

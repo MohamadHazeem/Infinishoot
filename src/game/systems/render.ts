@@ -1,3 +1,5 @@
+import { gauntletScore } from '../../data/ascension';
+import { renderGauntlet, challengeState } from './gauntlet';
 import { beginReadability, renderReadability } from './readability2';
 import { renderHalloween } from './halloween';
 import { weeklyChallenge } from '../../data/weekly';
@@ -227,6 +229,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.renderArena(rdt);
   this.renderWorldEvent(rdt);
   this.renderModes(rdt); // rhythm floor, mini-games, race ghost, their HUD (systems/modes.ts)
+  renderGauntlet(this);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
   lap('ren.barrels+arena+chests');
   if (!held) this.particles.render();
@@ -344,7 +347,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
       dashLabel: p.noDash ? 'PARRY' : undefined,
       bomb01: local.bombCharge,
       special: local.specialDef.short,
-      score: this.score * this.meta.multiplier,
+      score: this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : this.score * this.meta.multiplier,
       metaLabel: this.meta.label,
       combo: this.combo,
       multiplier: this.multiplier,

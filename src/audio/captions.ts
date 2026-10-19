@@ -31,6 +31,8 @@ export const ANNOUNCER_LINES: Readonly<Record<string, string>> = {
   rank_a: 'A rank!',
   ultimate: 'Ultimate!',
   game_over: 'Game over.',
+  gauntlet: 'Gauntlet mode!',
+  ascension: 'Ascension!',
   go: 'Ready... Go!',
   overdrive: 'Overdrive!',
 };

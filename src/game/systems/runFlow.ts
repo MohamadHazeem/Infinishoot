@@ -1,5 +1,7 @@
 import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
 import { seasonAt, seasonalStage } from '../../data/seasons';
+import { gauntletScore } from '../../data/ascension';
+import { startGauntlet, gauntletStage, gauntletSub, bankGauntlet, loadGauntletScores, challengeState } from './gauntlet';
 import { startMeta, visitMeta, bankMeta } from './meta';
 import { weeklyChallenge } from '../../data/weekly';
 /**
@@ -167,6 +169,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
     h.startRun();
     h.player.showWhenDead = this.heroes.length > 1;
   }
+  startGauntlet(this);
   this.clearWorld();
   this.hud.resetScore();
   this.hud.setVisible(true);
@@ -180,7 +183,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   }
   this.loadStage(1);
   // Starting shop: free gold to spend before stage 1, not carried into the run.
-  if (this.role !== 'client') {
+  if (this.role !== 'client' && this.runMode !== 'gauntlet') {
     this.preShop = true;
     for (const h of this.heroes) h.gold = economyTuning.startGold;
     this.openShop();
@@ -203,9 +206,11 @@ export function retry(this: Game): void {
 
 /** Stage banner subtitle: biome, loop and what the stage ends with. */
 export function stageSub(this: Game, stage: number): string {
+  const challenge = gauntletSub(this);
+  if (this.runMode === 'gauntlet' || this.runMode === 'bossrush') return challenge;
   const loop = Math.ceil(stage / LOOP_STAGES);
   const final = stage % LOOP_STAGES === 0 ? '<br>FINAL BOSS STAGE' : '';
-  return `${biomeForStage(stage).name.toUpperCase()}${loop > 1 ? ` · LOOP ${loop}` : ''}<br>SURVIVE ${Math.round(this.director.duration / 60)} MINUTES${final}`;
+  return `${biomeForStage(stage).name.toUpperCase()}${loop > 1 ? ` · LOOP ${loop}` : ''}<br>SURVIVE ${Math.round(this.director.duration / 60)} MINUTES${final}${challenge ? `<br>${challenge}` : ''}`;
 }
 
 export function loadStage(this: Game, stage: number): void {
@@ -233,10 +238,12 @@ export function loadStage(this: Game, stage: number): void {
   visitMeta(this);
   this.modeT = 0;
   if (this.role === 'host') this.host!.broadcast({ t: 'stage', season: this.halloween.season, stage, seed: this.seed });
+  gauntletStage(this);
   this.vfx.banner(`STAGE ${stage}`, this.stageSub(stage), 2.2);
   this.vfx.sound('wave', NaN, NaN);
   this.routeStageStart();
   this.modesStageStart(); // rhythm stage / Pacifist road rules, weekly ghost (systems/modes.ts)
+  if (this.runMode === 'gauntlet') { this.modes.rhythm = false; this.modes.pacifist = false; this.modes.holster = false; }
   this.checkAchievements();
 }
 
@@ -267,7 +274,7 @@ export function quitRun(this: Game): void {
 
 export function summary(this: Game, h: Hero): RunSummary {
   return {
-    score: Math.floor(this.score * this.meta.multiplier),
+    score: this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : Math.floor(this.score * this.meta.multiplier),
     heat: this.meta.points,
     clears: this.victories,
     bosses: this.bossesRun,
@@ -289,6 +296,7 @@ export function summary(this: Game, h: Hero): RunSummary {
 /** Bank lifetime stats into this machine's save, then show game over. */
 export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   if (this.meta.banked) return;
+  bankGauntlet(this, sum);
   this.modesRunEnd(); // keep this week's ghost (systems/modes.ts)
   const bolts = bankMeta(this, sum);
   sum.bolts = bolts;
@@ -297,7 +305,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   L.runs++;
   L.kills += sum.kills;
   L.elites += this.elitesRun;
-  L.bosses += Math.max(0, sum.stage - 1);
+  L.bosses += sum.bosses ?? Math.max(0, sum.stage - 1);
   L.bestStage = Math.max(L.bestStage, sum.stage);
   L.bestLevel = Math.max(L.bestLevel, sum.level);
   L.playTime += sum.time;
@@ -316,7 +324,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
     kills: sum.kills,
     time: sum.time,
     level: sum.level,
-    cause: h.player.dead ? h.lastHitBy || 'Unknown' : 'Quit',
+    cause: h.player.dead ? h.lastHitBy || 'Unknown' : this.runMode === 'bossrush' && this.victories > 0 ? 'Boss Rush complete' : 'Quit',
     weapons: h.weapons.map((w) => ({ id: w.def.id, level: w.level, evo: w.evolved })),
   });
   persist();
@@ -329,9 +337,9 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
       this.refreshGlobal(board, r ? r - 1 : -1);
     });
   }
-  const rank = this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
+  const rank = this.runMode === 'gauntlet' ? challengeState(this).bankRank : this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
   if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
-  this.screens.showGameOver(sum, rank, loadHighScores(), this.role === 'client');
+  this.screens.showGameOver(sum, rank, this.runMode === 'gauntlet' ? loadGauntletScores() : loadHighScores(), this.role === 'client');
 }
 
 export function endRun(this: Game, quit = false): void {
