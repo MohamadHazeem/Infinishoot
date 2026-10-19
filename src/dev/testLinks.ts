@@ -64,6 +64,7 @@ import { portraits, type Expression } from '../ui/portraits';
 import { skyOverrides, skyTuning } from '../render/sky';
 import { SCAR_COLORS } from '../game/scars';
 import { voiceLinks } from './voiceLinks';
+import { fuzzMonkey } from './fuzzLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -145,6 +146,7 @@ import { voiceLinks } from './voiceLinks';
  *   &localcoop[=run]&lcpads=2, &browse=fake, &teamboard=fake, &lobby=versus|weekly.
  *
  * Trading lane (src/dev/tradingLinks.ts): &mate&tradedemo&trade=1, &traderelic, &mate&shop&gold=40&tradepool, &tradelobby.
+ * Crash fuzzer (src/dev/fuzzLinks.ts, scripts/fuzz.mjs): &monkey=<seed> random keys, clicks, pauses, tab hides and resizes.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -421,6 +423,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     game.screens.showGameOver(game.summary(game.hero), -1, [], false);
     game.showMvp(report);
   }
+  if (q.has('monkey')) fuzzMonkey(game, Number(q.get('monkey')) || 1); // crash fuzzer: random keys, clicks, pauses on top of the bot
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   return true;

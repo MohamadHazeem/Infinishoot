@@ -22,6 +22,8 @@
     "visual": "node scripts/visual.mjs",
     "balance": "node scripts/replay.mjs --balance",
     "loadtime": "node scripts/loadtime.mjs",
+    "fuzz": "node scripts/fuzz.mjs",
+    "soak": "node scripts/soak.mjs",
     "icons": "node scripts/icons.mjs",
     "format": "prettier --write \"src/**/*.{ts,css}\"",
     "app": "npm run build && electron .",

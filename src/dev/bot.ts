@@ -125,6 +125,7 @@ export function installBot(game: Game, input: Input): void {
   };
 
   const run = (seconds: number, god = false) => {
+    const godBefore = cheats.god; // restored after: a live loop between runs (soak, co-op tests) keeps the link's god mode
     cheats.god = god;
     const g = game;
     // A hidden tab pauses the game; the bot keeps going.
@@ -147,7 +148,7 @@ export function installBot(game: Game, input: Input): void {
       if (i % 10 === 0) g.render(1, 1 / 6);
       if (i % 1800 === 0) log.push(`st${g.stage} t=${g.director.time.toFixed(0)} lv=${g.level} kills=${g.kills} alive=${g.enemies.activeCount} hp=${g.player.hp.toFixed(0)}`);
     }
-    cheats.god = false;
+    cheats.god = godBefore;
     return {
       log,
       mode: g.mode,
