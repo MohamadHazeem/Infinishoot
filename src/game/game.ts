@@ -15,6 +15,7 @@ import { NetClient, NetHost } from '../net/peer';
 import { DamageNumbers } from '../ui/damageNumbers';
 import { Hud, type LoadoutItem } from '../ui/hud';
 import { Screens, type ShopView } from '../ui/screens';
+import type { CardNum } from './cardNumbers';
 import { createFieldArena, type Arena } from '../world/fieldArena';
 import { Barrels } from './barrels';
 import { Chests } from './chests';
@@ -232,9 +233,10 @@ export interface NetShop {
   interest: number;
   interestCap: number;
   interestPer: number;
-  offers: ({ id: string; price: number; hint: string } | null)[];
+  offers: ({ id: string; price: number; hint: string; locked?: boolean; nums?: CardNum[] } | null)[];
   owned: { id: string; sell: number; readout: string; level: number; maxLevel: number; upCost: number }[];
   slots: number;
+  preview?: ShopView['preview'];
   rerollCost: number;
   healCost: number;
   healed: boolean;
@@ -678,6 +680,7 @@ export class Game implements HeroWorld {
       },
       skinChanged: () => this.applyLocalSkin(),
       takeCurse: () => this.ui('curse'),
+      lockOffer: (i) => this.ui('slock', i),
       buyRelic: () => this.ui('relic'),
     });
     window.addEventListener('keydown', (e) => {

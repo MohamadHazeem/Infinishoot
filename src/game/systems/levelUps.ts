@@ -4,10 +4,12 @@
  * installed on the class as fields, e.g. `gainXp = LevelUps.gainXp;`.
  */
 import type { Game } from '../game';
-import { scoreTuning, xpForLevel, NetShop } from '../game';
-import { type ShopFx } from '../../ui/screens';
+import { scoreTuning, statusTuning, xpForLevel, NetShop } from '../game';
+import { type ShopFx, type ShopView } from '../../ui/screens';
 import { Hero } from '../hero';
 import { activeCombos } from '../../data/weaponCombos';
+import { offerNumbers } from '../cardNumbers';
+import { modOfferNumbers, shopPreview } from '../shopPreview';
 
 export function gainXp(this: Game, v: number): void {
   this.xp += v;
@@ -42,8 +44,10 @@ export function openLevelUp(this: Game): void {
 }
 
 export function presentLevelUp(this: Game, h: Hero): void {
-  const view = { offers: h.offers, title: h.levelUpTitle(this.level), rerolls: h.rerollsLeft, loadout: h.loadout(), skip: h.skipGold };
-  if (h === this.hero) this.screens.showLevelUp(view.offers, view.title, view.rerolls, view.loadout, view.skip);
+  // Shop lane: each card carries its before -> after numbers for this hero.
+  for (const o of h.offers) o.nums ??= offerNumbers(h, o);
+  const view = { offers: h.offers, title: h.levelUpTitle(this.level), rerolls: h.rerollsLeft, loadout: h.loadout(), skip: h.skipGold, banish: h.banishLeft };
+  if (h === this.hero) this.screens.showLevelUp(view.offers, view.title, view.rerolls, view.loadout, view.skip, view.banish);
   else this.tell(h, { t: 'lv', ...view });
 }
 
@@ -53,15 +57,23 @@ export function presentWait(this: Game, h: Hero): void {
   else this.tell(h, { t: 'wait', who });
 }
 
+/** The shop view plus the shop lane's extras: the Mod order preview and each offer's effect on this build. */
+export function fullShopView(this: Game, h: Hero): ShopView {
+  const v = h.shopView(this.stage, this.preShop);
+  v.preview = shopPreview(h, statusTuning.shockMult);
+  for (const o of v.offers) if (o) o.nums = modOfferNumbers(h, o.def);
+  return v;
+}
+
 export function presentShop(this: Game, h: Hero, focus?: number): void {
+  const v = fullShopView.call(this, h);
   if (h === this.hero) {
-    this.screens.showShop(h.shopView(this.stage, this.preShop), focus);
+    this.screens.showShop(v, focus);
     return;
   }
-  const v = h.shopView(this.stage, this.preShop);
   const net: NetShop = {
     ...v,
-    offers: v.offers.map((o) => (o ? { id: o.def.id, price: o.price, hint: o.hint } : null)),
+    offers: v.offers.map((o) => (o ? { id: o.def.id, price: o.price, hint: o.hint, locked: o.locked, nums: o.nums } : null)),
     owned: v.owned.map((o) => ({ id: o.def.id, sell: o.sell, readout: o.readout, level: o.level, maxLevel: o.maxLevel, upCost: o.upCost })),
   };
   this.tell(h, { t: 'shop', view: net, focus });
@@ -74,6 +86,8 @@ export function tell(this: Game, h: Hero, msg: unknown): void {
 
 /** Menu actions from this machine: applied directly, or sent to the host. */
 export function ui(this: Game, a: string, i = 0, d: -1 | 1 = 1): void {
+  // BANISH armed: the next card picked (click or number key) is banished instead.
+  if (a === 'pick' && this.screens.banishArmed && this.screens.current === 'levelup') a = 'banish';
   if (a === 'pick') this.screens.pickFx(i);
   if (this.role === 'client') {
     this.client?.send({ t: 'ui', a, i, d });
@@ -106,6 +120,13 @@ export function heroAction(this: Game, h: Hero, a: string, i: number, d: -1 | 1)
       h.rerollsLeft--;
       h.offers = h.buildOffers();
       this.presentLevelUp(h);
+    } else if (a === 'banish') {
+      const err = h.banish(i);
+      if (err) {
+        if (h === this.hero) this.hud.toast(err);
+        else this.tell(h, { t: 'toast', msg: err });
+      } else this.vfx.sound('reroll', h.player.x, h.player.z);
+      this.presentLevelUp(h);
     }
     return;
   }
@@ -118,6 +139,7 @@ export function heroAction(this: Game, h: Hero, a: string, i: number, d: -1 | 1)
     else if (a === 'sreroll') err = h.reroll();
     else if (a === 'heal') err = h.heal();
     else if (a === 'curse') err = this.takeCurse(h);
+    else if (a === 'slock') err = h.toggleLock(i);
     else if (a === 'relic') {
       err = h.buyRelic();
       if (!err) this.vfx.sound('chest', h.player.x, h.player.z);
