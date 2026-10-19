@@ -1,3 +1,5 @@
+import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
+import { seasonAt, seasonalStage } from '../../data/seasons';
 import { startMeta, visitMeta, bankMeta } from './meta';
 import { weeklyChallenge } from '../../data/weekly';
 /**
@@ -36,6 +38,7 @@ import { boardId, leaderboardEnabled, submitGlobal } from '../../net/leaderboard
 import { clearBossLane } from './bossLane';
 
 export function clearWorld(this: Game): void {
+  clearHalloween.call(this);
   this.enemies.clear();
   this.netEnemies.clear();
   this.bullets.clear();
@@ -62,6 +65,7 @@ export function loadArena(this: Game, seed: number, stage = 1): void {
   const biome = biomeForStage(stage);
   this.arenaStage = stage;
   this.arena = createFieldArena(seed, biome, { conveyors: stage >= 2 ? 3 : 0 });
+  dressHalloween.call(this);
   applyBiomeLook(biome);
   this.scene.add(this.arena.group);
   this.walls = new StaticBoxGrid(this.arena.colliders);
@@ -147,6 +151,8 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.elitesRun = this.bossesRun = this.overloads = this.victories = 0;
   this.newAchievements = [];
   this.curses = [];
+  resetHalloween.call(this);
+  selectSeason.call(this, typeof location === 'undefined' || ['daily', 'weekly'].includes(this.runMode) || this.pvp || this.versus ? null : seasonAt(new Date(), typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('season'))?.id);
   this.runEvents.reset();
   this.routeReset();
   this.director.players = this.heroes.length;
@@ -167,7 +173,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.role === 'host') {
     for (const h of this.heroes) {
       if (!h.peerId) continue;
-      this.host!.send(h.peerId, { t: 'start', meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
+      this.host!.send(h.peerId, { t: 'start', season: this.halloween.season, meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
     }
   }
   this.loadStage(1);
@@ -212,6 +218,7 @@ export function loadStage(this: Game, stage: number): void {
   this.director.start(stage);
   this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount * (this.meta.has('crowds') ? 1.25 : 1);
   this.runEvents.startStage(this.director.duration);
+  if (seasonalStage(stage, this.halloween.season)) { this.vfx.sound('spookySting', NaN, NaN); this.vfx.sound('halloweenVoice', NaN, NaN); }
   if (this.runMode === 'bossrush') this.bossRushStage();
   for (const h of this.heroes) {
     h.phoenixUsed = false;
@@ -223,7 +230,7 @@ export function loadStage(this: Game, stage: number): void {
   this.mode = 'fight';
   visitMeta(this);
   this.modeT = 0;
-  if (this.role === 'host') this.host!.broadcast({ t: 'stage', stage, seed: this.seed });
+  if (this.role === 'host') this.host!.broadcast({ t: 'stage', season: this.halloween.season, stage, seed: this.seed });
   this.vfx.banner(`STAGE ${stage}`, this.stageSub(stage), 2.2);
   this.vfx.sound('wave', NaN, NaN);
   this.routeStageStart();

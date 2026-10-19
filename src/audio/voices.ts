@@ -200,7 +200,7 @@ export function sayLine(id: string, priority: number, gain: number, duck: number
 export function bossVoiceId(def: Pick<EnemyDef, 'model' | 'boss' | 'miniboss'>): string {
   if (!def.boss && !def.miniboss) return '';
   const m = def.model;
-  return m === 'king' || m === 'rex' || m === 'queen' || m === 'omega' ? m : '';
+  return m === 'pumpking' || m === 'king' || m === 'rex' || m === 'queen' || m === 'omega' ? m : '';
 }
 
 /**

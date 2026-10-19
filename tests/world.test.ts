@@ -27,7 +27,7 @@ ok(biomeByKey('meadow').variant === '' && biomeByKey('nope').id === 'meadow' && 
 for (const k of allBiomeKeys()) {
   const b = biomeByKey(k);
   ok(!!b.music && !!TRACK_BY_ID[b.music], `${k}: music track exists`);
-  ok(['grass', 'sand', 'snow', 'metal'].includes(b.footstep) && ['meadow', 'dunes', 'peaks', 'magma', 'neon', 'sky'].includes(b.ambience), `${k}: footsteps and ambience reuse existing samples`);
+  ok(['grass', 'sand', 'snow', 'metal'].includes(b.footstep) && ['meadow', 'dunes', 'peaks', 'magma', 'neon', 'sky', 'halloween'].includes(b.ambience), `${k}: footsteps and ambience reuse existing samples`);
   ok(!!(b.grade ?? BIOME_GRADES[b.id]), `${k}: has a colour grade`);
   // Enemy bullets are magenta (#ff3df0): keep floors, fog and the backdrop well away from it.
   for (const c of [b.fog, ...(b.tileColors ?? []), ...(b.edge.colors ?? [])]) {

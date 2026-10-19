@@ -1,4 +1,5 @@
 import { beginReadability, renderReadability } from './readability2';
+import { renderHalloween } from './halloween';
 import { weeklyChallenge } from '../../data/weekly';
 /**
  * Rendering: per-frame presentation, HUD, music and sky.
@@ -147,7 +148,7 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
   let intensity = 0.6;
   if (!inRun) track = m === 'title' ? 'title' : null;
   else if (boss) {
-    track = bossTrack(this.stage);
+    track = biomeForStage(this.arenaStage).variant === 'haunted' ? 'halloween' : bossTrack(this.stage);
     intensity = 1;
   } else {
     track = biomeForStage(this.arenaStage).music;
@@ -364,6 +365,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.hud');
   this.renderSkill(frameDt, frozen);
   this.renderCharacters(frameDt);
+  renderHalloween.call(this, settings.reduceFlash);
   lap('ren.skill');
 }
 

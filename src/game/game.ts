@@ -2,6 +2,7 @@ import * as Mods2Sys from './systems/mods2';
 import { accessibilityInput, assistAim } from './systems/aimAssist';
 import { metaSkin } from '../data/codex';
 import { MetaRun } from './systems/meta';
+import * as HalloweenSys from './systems/halloween';
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { Rng, randomSeed } from '../core/rng';
@@ -684,6 +685,7 @@ export class Game implements HeroWorld {
   client: NetClient | null = null;
   lobby: LobbyEntry[] = [];
 
+  halloween = new HalloweenSys.HalloweenState();
   mode: Mode = 'title';
   paused = false;
   /** Photo mode (src/ui/photoMode.ts, set by main.ts): while active it gets the input instead of the game. */
@@ -913,6 +915,7 @@ export class Game implements HeroWorld {
     this.runEvents = new RunEvents(this.makeEventHost());
     MpSys.installMp(this, hudRoot);
     this.heroes = [this.makeHero(0, playerName(), unlockedWeapons())];
+    HalloweenSys.installHalloween.call(this, hudRoot);
     this.goTitle();
   }
 
@@ -1079,6 +1082,7 @@ export class Game implements HeroWorld {
         this.vfx.sound('enemyShoot', e.x, e.z);
       },
       spawnChild: (id, x, z) => {
+        if (this.bossDuel && id === 'pumpkin') return;
         if (this.enemies.activeCount >= 480) return;
         if (this.walls.hitCircle(x, z, 0.5)) return;
         this.enemies.spawn(ENEMIES[id], x, z, this.spawnOpts());
@@ -1090,6 +1094,7 @@ export class Game implements HeroWorld {
         this.strikes.push({ x, z, r, t: delay, dmg: damage * this.director.dmgMul });
         this.vfx.zone(x, z, r, delay);
       },
+      halloweenVine: (x, z) => HalloweenSys.addHalloweenVine.call(this, x, z),
       ...EnemyAiSys.enemyCtxExtras.call(this),
       foe: BiomeFoesSys.biomeFoeApi.call(this),
     };
@@ -1333,6 +1338,7 @@ export class Game implements HeroWorld {
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
     this.companionTargets();
     this.enemies.update(dt, this.enemyCtx);
+    HalloweenSys.halloweenStep.call(this, dt);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     if (this.versus) this.versusStep(dt);

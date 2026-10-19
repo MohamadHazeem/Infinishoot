@@ -5,6 +5,11 @@ import { HEROES } from './heroes';
 import type { Loadout } from './loadout';
 
 const ENEMY_LORE: Record<string, string> = {
+  pumpking: 'Every October, the harvest clock crowns its largest pumpkin. Dodge the seed fans, leave the marked vines, and keep outside the carving knives. At two-thirds and one-third life the royal recipe gets faster.',
+  pumpkin: 'A festival decoration with seeds of rebellion. Its last surprise is a burst of seeds.',
+  ghost: 'A shy spirit that slips through walls and fades on a four-second cycle.',
+  bat: 'A candy courier travelling with its entire extended family.',
+  witch: 'The cauldron is bubbling. Leave the marked circles before the brew lands.',
   swarmer: 'Once tiny garden helpers, these machines now mistake every boot for a weed.',
   bopper: "The islands' oldest delivery bot still insists that every parcel arrive personally.",
   zippy: 'A courier with no address left to deliver to. Its route ends wherever you are standing.',

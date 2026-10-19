@@ -80,6 +80,7 @@ export type BossMove = (typeof BOSS_MOVES)[number];
 
 /** Short line shown with each phase change. */
 export const PHASE_LINES: Record<string, string[]> = {
+  pumpking: ['', 'VINE GRABS: LEAVE THE MARKED PATCHES', 'CARVING KNIVES: KEEP YOUR DISTANCE'],
   boss: ['', 'SHOCKWAVE SLAMS: DASH THROUGH THE RINGS', 'ROYAL FURY'],
   rex: ['', 'FIGURE-EIGHT RAMPAGE', 'FIRE BREATH'],
   queen: ['', 'HIVES: DESTROY THEM BEFORE THEY HATCH', 'SWARM WALLS: FIND THE GAP'],

@@ -1,7 +1,7 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
 import { bossLaneDefs, type RemixFlags } from './bossRemix';
-export type Behavior = 'titan' | 'titanpart' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
-export type Model = 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel;
+export type Behavior = 'pumpking' | 'ghost' | 'titan' | 'titanpart' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'swarmwall' | 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
+export type Model = 'pumpkin' | 'pumpking' | 'ghost' | 'bat' | 'witch' | 'burrower' | 'mirror' | 'swarmqueen' | 'egg' | 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel;
 /** Biome-native enemies (src/game/biomeFoes.ts): one per biome. */
 export type BiomeBehavior = 'diver' | 'shark' | 'roller' | 'slug' | 'marcher' | 'kite';
 export type BiomeModel = 'bee' | 'shark' | 'snowball' | 'slug' | 'soldier' | 'kite';
@@ -117,6 +117,12 @@ export const familyTuning = {
 };
 
 export const ENEMIES: Record<string, EnemyDef> = {
+  pumpkin: { id: 'pumpkin', name: 'Pumpkin Head', behavior: 'chase', model: 'pumpkin', hp: 28, speed: 3.2, radius: 0.65, bodyColor: '#ef7d57', accentColor: '#ffcd75', contactDamage: 9, knockbackResist: 0.2, xp: 3, score: 100, minMinute: -1, weight: 0, death: 'goo' },
+  ghost: { id: 'ghost', name: 'Phantom', behavior: 'ghost', model: 'ghost', hp: 24, speed: 3.5, radius: 0.6, bodyColor: '#f4f4f4', accentColor: '#73eff7', contactDamage: 8, knockbackResist: 0.6, xp: 3, score: 120, minMinute: -1, weight: 0, voice: 'ghost' },
+  bat: { id: 'bat', name: 'Candy Bat', behavior: 'chase', model: 'bat', hp: 9, speed: 5.2, radius: 0.35, bodyColor: '#5d275d', accentColor: '#ef7d57', contactDamage: 5, knockbackResist: 0, xp: 1, score: 45, minMinute: -1, weight: 0 },
+  witch: { id: 'witch', name: 'Cauldron Witch', behavior: 'mortar', model: 'witch', hp: 95, speed: 2.2, radius: 0.65, bodyColor: '#5d275d', accentColor: '#a7f070', contactDamage: 10, knockbackResist: 0.4, xp: 10, score: 450, minMinute: -1, weight: 0, mortar: { keepDistance: 11, interval: 3.8, shells: 3, radius: 2.4, delay: 1.3, damage: 14 } },
+  pumpking: { id: 'pumpking', name: 'PUMPKING', title: 'SOVEREIGN OF THE PUMPKIN PATCH', behavior: 'pumpking', model: 'pumpking', boss: true, phases: [0.66, 0.33], hp: 2500, speed: 2.2, radius: 2.25, bodyColor: '#ef7d57', accentColor: '#ffcd75', contactDamage: 22, knockbackResist: 0.98, xp: 150, score: 15000, minMinute: -1, weight: 0, death: 'goo' },
+
   burrower: {
     id: 'burrower', name: 'Dirt Digger', behavior: 'burrower', model: 'burrower', death: 'robot',
     hp: 32, speed: 4.8, radius: 0.48, bodyColor: '#ef7d57', accentColor: '#ffcd75',

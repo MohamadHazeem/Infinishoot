@@ -1,3 +1,4 @@
+import { normalizeSeason, type SeasonSave } from '../data/seasons';
 import { loadJson, saveJson } from '../core/storage';
 import { ACHIEVEMENTS } from '../data/meta';
 import { SPECIALS } from '../data/specials';
@@ -29,6 +30,7 @@ export interface RunRecord {
 
 export interface SaveData {
   version: number;
+  seasonal: SeasonSave;
   meta: {
     heat: HeatId[];
     bolts: number;
@@ -64,12 +66,13 @@ const KEY = 'save';
 // v2 dropped Bolts and Workshop upgrades; older saves keep their achievements and stats.
 // v3 added the enemy guide (`seen`) and run history.
 // v4 adds opt-in heat, weekly records, lore and cosmetic-only Bolts (main), first-time tips (`tips`), the Arsenal (`discovered`) and the training field (`training`). Legacy upgrades stay removed.
-const VERSION = 4;
+const VERSION = 5; // v5: seasonal candy and permanent cosmetic ownership.
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
   return {
     version: VERSION,
+    seasonal: normalizeSeason(null),
     meta: { heat: [], bolts: 0, bestHeat: {}, weekly: [], codex: [], rewards: [], theme: '' },
     achievements: [],
     seen: [],
@@ -86,6 +89,7 @@ export function normalize(raw: unknown): SaveData {
   const d = fresh();
   if (!raw || typeof raw !== 'object') return d;
   const r = raw as Partial<SaveData>;
+  d.seasonal = normalizeSeason(r.seasonal);
   if (Array.isArray(r.achievements)) {
     d.achievements = r.achievements.filter((a) => ACHIEVEMENTS.some((x) => x.id === a));
   }

@@ -1,4 +1,5 @@
 import { dangerLayer, dangerLineMaterial } from '../render/noiseGovernor';
+import { halloweenModel, pumpkinBrain, ghostMaterial, halloweenMotion } from './systems/halloween';
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ENEMIES, familyTuning, type EnemyDef } from '../data/enemies';
@@ -136,6 +137,7 @@ type Part = (g: THREE.BufferGeometry, color: string, x: number, y: number, z: nu
  * authored around its def's radius so variants (e.g. Zippy vs Bopper) scale.
  */
 function buildModel(def: EnemyDef, add: Part): void {
+  if (halloweenModel(def, add)) return;
   const r = def.radius;
   const B = def.bodyColor;
   const A = def.accentColor;
@@ -678,6 +680,7 @@ export interface EnemyCtx {
   colliders: AABB[];
   /** Grid over `colliders` (rebuilt whenever they change). */
   readonly walls: StaticBoxGrid;
+  halloweenVine?(x: number, z: number): void;
   onWindup(e: Enemy): void;
   onEnrage(e: Enemy): void;
   fireBullet(e: Enemy, dirX: number, dirZ: number, speed: number, damage: number): void;
@@ -719,6 +722,7 @@ export interface EnemyCtx {
 
 /** One InstancedMesh per enemy type, with a per-instance hit-flash attribute. */
 class EnemyBatch {
+  readonly material: RetroMaterial;
   readonly mesh: THREE.InstancedMesh;
   readonly flash: THREE.InstancedBufferAttribute;
 
@@ -727,7 +731,7 @@ class EnemyBatch {
     this.flash = new THREE.InstancedBufferAttribute(new Float32Array(BATCH_CAP * 4), 4);
     this.flash.setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('instanceFlash', this.flash);
-    const mat = createRetroMaterial({ vertexColors: true, instanceFlash: true });
+    const mat = this.material = createRetroMaterial({ vertexColors: true, instanceFlash: true });
     this.mesh = new THREE.InstancedMesh(geo, mat, BATCH_CAP);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.mesh.frustumCulled = false;
@@ -865,6 +869,7 @@ export class Enemies {
     if (!b) {
       this.batches.set(def.id, (b = new EnemyBatch(def, this.scene)));
       tintBatch(b.mesh, this.tint);
+      if (def.id === 'ghost') ghostMaterial(b.material);
     }
     return b;
   }
@@ -1081,7 +1086,7 @@ export class Enemies {
         e.z = Math.max(-58, Math.min(58, e.z));
       }
       // Rex smashes straight through cover while it charges.
-      const walled = e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && e.def.behavior === 'rex') && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
+      const walled = e.def.behavior !== 'ghost' && e.def.id !== 'bat' && e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && e.def.behavior === 'rex') && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
       if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
       if (walled && rigid && e.def.behavior === 'charger') {
         // Rhinos stop (and wobble) when they hit a wall mid-charge.
@@ -1107,6 +1112,13 @@ export class Enemies {
     let wantZ = 0;
     let rigid = false;
     switch (e.def.behavior) {
+      case 'pumpking':
+        pumpkinBrain(e, dt, ctx, nx, nz, dist, speed);
+        wantX = e.vx; wantZ = e.vz; rigid = true;
+        break;
+      case 'ghost':
+        wantX = nx * speed; wantZ = nz * speed; e.facing = Math.atan2(nx, nz);
+        break;
       case 'burrower':
       case 'mirror':
       case 'swarmqueen':
@@ -1714,6 +1726,7 @@ export class Enemies {
       if (!viewCull.sphere(x, y + e.radius, z, e.radius * 2)) continue;
       const b = this.batches.get(e.def.id)!;
       if (b.mesh.count >= BATCH_CAP) continue;
+      if (e.def.id === 'ghost') b.material.uniforms.haCalm.value = (this.familyReduceFlash || halloweenMotion.calm) ? 1 : 0;
       const i = b.mesh.count++;
       this.q.setFromEuler(this.euler.set(P.pitch, e.facing + P.yaw, P.roll));
       this.m4.compose(this.v.set(x + P.ox, y, z + P.oz), this.q, this.s.set(sx * P.sx, sy * P.sy, sx * P.sz));
@@ -1723,7 +1736,7 @@ export class Enemies {
       if (e.flash > 0) b.flash.setXYZW(i, 1, 1, 1, 0.9);
       else if (e.frozen > 0) b.flash.setXYZW(i, 0.6, 0.95, 1, 0.6);
       else if (e.state === 'windup') {
-        const family = !!(e.def.burrow || e.def.mirror || e.def.special);
+        const family = !!(e.def.id === 'pumpking' || e.def.id === 'witch' || e.def.burrow || e.def.mirror || e.def.special);
         const fast = family ? 6 : e.def.behavior === 'exploder' ? 70 : 40;
         b.flash.setXYZW(i, 1, 0.25, 0.3, family && this.familyReduceFlash ? 0.3 : 0.35 + 0.35 * Math.sin(time * fast));
       } else if (e.burnT > 0 && e.shockT > 0) b.flash.setXYZW(i, 1, 0.9, 0.3, 0.5);

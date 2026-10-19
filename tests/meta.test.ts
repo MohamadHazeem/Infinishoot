@@ -63,7 +63,7 @@ const old = normalize({
   lifetime: { kills: 400 },
 });
 ok(
-  old.version === 4 && old.lifetime.kills === 400 && old.achievements.includes('first_steps'),
+  old.version === 5 && old.lifetime.kills === 400 && old.achievements.includes('first_steps'),
   'v1 stats and achievements migrate',
 );
 ok(
@@ -217,6 +217,7 @@ const { ENEMIES } = await import('../src/data/enemies');
 const { MOD_BY_ID } = await import('../src/data/mods');
 const { PickupType } = await import('../src/game/pickups');
 const { bankMeta } = await import('../src/game/systems/meta');
+const { cineState } = await import('../src/game/systems/cinematics');
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const mk = () =>
   new Game(
@@ -259,9 +260,9 @@ ok(host.hero.player.hp === 50, 'no-snacks ignores hearts from any source');
 // A spawn can roll into a golden jackpot chest (seeded per run); keep these plain so the count is exact.
 jackpotTuning.chance = 0;
 host.updateChestSpawns(30);
-ok(host.chests.closedCount === 0, 'lost cargo does not spawn a chest at normal cadence');
+ok(host.chests.closedCount + cineState(host).chests.length === 0, 'lost cargo does not spawn a chest at normal cadence');
 host.updateChestSpawns(30);
-ok(host.chests.closedCount === 1, `lost cargo spawns a chest at twice normal cadence (${host.chests.closedCount} closed, chestT ${host.chestT}, seed ${host.seed})`);
+ok(host.chests.closedCount + cineState(host).chests.length === 1, 'lost cargo spawns a normal or golden chest at twice normal cadence');
 host.score = 1000;
 ok(host.summary(host.hero).score === 2400, 'all accumulated score is multiplied once at summary');
 client.role = 'client';

@@ -3,6 +3,7 @@
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `ringPoint = Spawning.ringPoint;`.
  */
+import { halloweenBoss } from './halloween';
 import type { Game } from '../game';
 import { RECYCLE_DIST } from '../game';
 import { ELITE_MOD_IDS, ELITE_MODS, type EliteModId } from '../../data/eliteMods';
@@ -96,6 +97,7 @@ export function spawnRing(this: Game, def: EnemyDef, count: number): void {
 }
 
 export function spawnBoss(this: Game, def: EnemyDef): void {
+  def = halloweenBoss.call(this, def);
   def = stageBossDef.call(this, def); // rematches and the Titan (systems/bossLane.ts)
   if (def.behavior === 'titan') return spawnTitan.call(this, def);
   const p = (this.aliveHeroes[0] ?? this.hero).player;
