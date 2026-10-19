@@ -72,6 +72,7 @@ export class PetState {
   /** New stage: the shield comes back. */
   stageRefresh(): void {
     this.shieldReady = this.ranks.shield > 0;
+    this.tauntT = 0;
   }
 
   /** Snapshot record: [level, flags, tauntX, tauntZ, zaps, fetches, zapX, zapZ]. */

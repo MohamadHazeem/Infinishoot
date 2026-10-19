@@ -35,9 +35,10 @@ export const teamTuning = {
   highFiveBonus: 0.25,
   /** Heroes within this range of the one who fires join the move. */
   groupRange: 12,
-  /** Base damage: dmg x (1 + dmgPerStage x (stage - 1)) x teamScale(n), then the hero's own stats. */
+  /** Base damage: dmg x (1 + dmgPerStage x (s - 1) + dmgPerStage2 x (s - 1)^2) x teamScale(n), then the hero's own stats. */
   dmg: 90,
-  dmgPerStage: 0.7,
+  dmgPerStage: 0.8,
+  dmgPerStage2: 0.2,
   /** Each hero past two adds this much to the move's power. */
   perHero: 0.4,
   // Unity Beam
@@ -53,7 +54,7 @@ export const teamTuning = {
   novaGap: 0.28,
   novaRadius: 8,
   novaPerHero: 2,
-  novaMul: 1.3,
+  novaMul: 2.4,
   novaKnock: 14,
   // Meteor Call
   meteorTime: 1.8,
@@ -218,7 +219,7 @@ export class TeamMoveView {
       this.cores.push(c);
       this.group.add(b, c);
     }
-    this.orb = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), createRetroMaterial({ color: '#f4f4f4', unlit: 1 }));
+    this.orb = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), createRetroMaterial({ color: '#73eff7', unlit: 1 }));
     this.group.add(this.orb);
     this.scene.add(this.group);
   }
@@ -234,7 +235,7 @@ export class TeamMoveView {
     this.group.visible = true;
     const grow = Math.min(1, k01 * 6);
     const fade = k01 > 0.85 ? (1 - k01) / 0.15 : 1;
-    const w = (0.5 + 0.12 * Math.sin(time * 40)) * grow * fade;
+    const w = (0.38 + 0.1 * Math.sin(time * 40)) * grow * fade;
     for (let i = 0; i < MAX_BEAMS; i++) {
       const b = this.beams[i];
       const c = this.cores[i];
@@ -255,7 +256,7 @@ export class TeamMoveView {
     }
     const orb = this.orb!;
     orb.position.set(x, 1, z);
-    orb.scale.setScalar((0.4 + k01 * 1.6) * fade + 0.15 * Math.sin(time * 30));
+    orb.scale.setScalar((0.3 + k01 * 0.8) * fade * (1 + 0.12 * Math.sin(time * 30)));
     orb.rotation.y = time * 5;
   }
 }

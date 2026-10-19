@@ -1,7 +1,7 @@
 import { PET_SKILL_INFO, petSkillAt, type PetDef, type PetSkillId } from '../data/pets';
 
 /**
- * Companion HUD: the pet panel (right side, above the minimap: name, level
+ * Companion HUD: the pet panel (bottom right, left of the minimap: name, level
  * pips, learned skills with shield/revive state, next skill) and, in co-op,
  * the TEAM meter (bottom centre, above the dash/special/ult tanks). Plain
  * DOM in the pixel UI style; styles are injected once so the lane needs no
@@ -26,8 +26,8 @@ const CSS = `
   text-shadow: var(--outline);
 }
 #petpanel {
-  right: 20px;
-  bottom: calc(100px + 50 * var(--p) + 18px);
+  right: calc(20px + 50 * var(--p) + 14px);
+  bottom: 100px;
   width: calc(50 * var(--p));
   box-sizing: border-box;
   padding: calc(2 * var(--p)) calc(3 * var(--p));
@@ -49,9 +49,8 @@ const CSS = `
   100% { transform: none; }
 }
 #teammeter {
-  left: 50%;
+  left: calc(50% - 132px);
   bottom: calc(22px + 62px + 4 * var(--p) + 10px);
-  transform: translateX(-50%);
   width: 264px;
   box-sizing: border-box;
   padding: calc(2 * var(--p)) calc(3 * var(--p));

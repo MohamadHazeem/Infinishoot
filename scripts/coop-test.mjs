@@ -85,6 +85,19 @@ const B = await openPage('client');
 log('pages loaded');
 
 // ---------------------------------------------------------------- lobby
+// Pets: Sparky for the host, Bit for the client (companion lane checks pet levels and team moves).
+await Promise.all(
+  [
+    [A, 'sparky'],
+    [B, 'bit'],
+  ].map(([p, pet]) =>
+    p.page.evaluate(async (pet) => {
+      const { settings } = await import('/src/game/settings.ts');
+      settings.pet = pet;
+      window.game.applyLocalSkin(); // what the wardrobe does: the title hero gets the pet
+    }, pet),
+  ),
+);
 await A.page.evaluate(() => {
   window.cheats.god = true; // keep the run going; the client hero is protected by the host's god cheat too
   void window.game.hostGame('HOSTBOT');
@@ -202,6 +215,9 @@ const hostProbe = () =>
       arenaStage: g.arenaStage,
       heroes: g.heroes.map((h) => ({ x: h.player.x, z: h.player.z, hp: Math.ceil(h.player.hp), dead: h.player.dead, style: Math.round(h.skill.style.points), ult: +h.skill.ult.toFixed(2), ultT: +h.skill.ultT.toFixed(2), weapons: h.weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' ') })),
       sample: act.filter(near).slice(0, 6).map((e) => ({ uid: e.uid, id: e.def.id, x: e.x, z: e.z })),
+      pets: g.heroes.map((h) => [h.pet, h.petState.level, h.petState.shieldReady, h.petState.reviveUsed]),
+      team: +g.companionState().meter.charge.toFixed(2),
+      move: g.companionState().move?.id ?? null,
     };
   });
 /** Client: its mirror. */
@@ -232,6 +248,9 @@ const clientProbe = () =>
       heroes: g.heroes.map((h) => ({ x: h.player.x, z: h.player.z, hp: Math.ceil(h.player.hp), dead: h.player.dead, style: Math.round(h.skill.style.points), ult: +h.skill.ult.toFixed(2), ultT: +h.skill.ultT.toFixed(2), weapons: h.weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' ') })),
       byUid,
       screen: g.screens.current,
+      pets: g.heroes.map((h) => [h.pet, h.petState.level, h.petState.shieldReady, h.petState.reviveUsed]),
+      team: +g.companionState().meter.charge.toFixed(2),
+      move: g.companionState().move?.id ?? null,
     };
   });
 
@@ -296,6 +315,9 @@ async function compare(tag) {
     check(`ult${i}`, Math.abs(a.ult - b.ult) <= 0.15 && !(a.ultT > 0.3 && b.ultT <= 0), `hero ${i} ult host ${a.ult}/${a.ultT} vs client ${b.ult}/${b.ultT}`);
     check(`weap${i}`, a.weapons === b.weapons, `hero ${i} weapons host [${a.weapons}] vs client [${b.weapons}]`);
   }
+  // Companion lane: pets (id, level, shield, revive) and the TEAM meter mirror the host.
+  check('pets', JSON.stringify(h.pets) === JSON.stringify(c.pets), `pets host ${JSON.stringify(h.pets)} vs client ${JSON.stringify(c.pets)}`);
+  check('team', Math.abs(h.team - c.team) <= 0.15, `team meter host ${h.team} vs client ${c.team}`);
   return { h, c };
 }
 
@@ -418,6 +440,8 @@ const SCENARIO = [
       window.cheats.god = false;
       h.revivesLeft = 0;
       h.phoenixUsed = true; // a boss relic (Frost Totem) would save it
+      h.petState.reviveUsed = true; // and so would the pet (companion lane)
+      h.petState.shieldReady = false;
       for (let k = 0; k < 4 && !h.player.dead; k++) {
         h.player.invuln = 0;
         h.player.hp = 1;
@@ -443,6 +467,40 @@ const SCENARIO = [
     return { down: [h1, c1], up: [!h2, !c2[0], c2[1]] };
   }],
   [50, 'ultimates again', () => host(() => window.game.heroes.forEach((h) => (h.skill.ult = 1)))],
+  [16, 'pets grow to level 4 (as after three stage clears)', async () => {
+    await host(() => {
+      for (const h of window.game.heroes) for (let i = 0; i < 3; i++) h.petState.levelUp();
+    });
+    await pause(600);
+    const [h, c] = await Promise.all([
+      host(() => window.game.heroes.map((h) => [h.pet, h.petState.level, h.petState.reviveUsed])),
+      client(() => window.game.heroes.map((h) => [h.pet, h.petState.level, h.petState.reviveUsed])),
+    ]);
+    if (JSON.stringify(h) !== JSON.stringify(c) || h.some((p) => p[1] !== 4)) fail(`pet levels: host ${JSON.stringify(h)} vs client ${JSON.stringify(c)}`);
+    return { host: h, client: c };
+  }],
+  [28, 'the client fires a team move next to the host', async () => {
+    // The host's hero steps next to the client's (each machine moves its own hero), the meter is full.
+    await host(() => {
+      const g = window.game;
+      const c = g.heroes[1].player;
+      g.hero.player.teleport(c.x + 1.5, c.z);
+      g.companionState().meter.charge = 1;
+    });
+    let r = null;
+    for (let k = 0; k < 12 && !r?.host; k++) {
+      await pause(150);
+      await client(() => window.game.client.send({ t: 'team' }));
+      await pause(150);
+      r = { host: await host(() => window.game.companionState().move?.id ?? null) };
+    }
+    await pause(200);
+    r.client = await client(() => window.game.companionState().move?.id ?? null);
+    r.hostMeter = await host(() => window.game.companionState().meter.charge);
+    if (!r.host || r.client !== r.host || r.hostMeter !== 0) fail(`team move: host ${r.host} (meter ${r.hostMeter}), client ${r.client}`);
+    await shot('teammove');
+    return r;
+  }],
 ];
 
 SCENARIO.sort((a, b) => a[0] - b[0]);

@@ -15,10 +15,10 @@
  */
 import type { Game } from '../game';
 import type { Hero } from '../hero';
-import { PET_SKILL_INFO, petTuning, rankOf } from '../../data/pets';
+import { PET_BY_ID, PET_SKILL_INFO, petTuning, rankOf } from '../../data/pets';
 import { PickupType } from '../pickups';
 import { TeamMeter, TeamMoveView, TEAM_MOVES, teamTuning, teamScale, linkedCount, segDist2, moveTime, type ActiveMove, type TeamMoveId } from '../teamMoves';
-import { CompanionHud } from '../../ui/companionHud';
+import { CompanionHud, type PetHudState, type TeamHudState } from '../../ui/companionHud';
 import { binds, keyLabel, PAD_TEAM } from '../../core/keybinds';
 import { settings } from '../settings';
 import { sfx } from '../../audio/sfx';
@@ -169,9 +169,11 @@ export function updatePets(this: Game, dt: number): void {
           const d = Math.hypot(cx, cz);
           const dx = d > 0.5 ? cx / d : p.aim.x;
           const dz = d > 0.5 ? cz / d : p.aim.z;
+          // Just past the crowd's middle, so the crowd is closer to the pet than to you.
+          const out = Math.max(petTuning.tauntDist, Math.min(petTuning.tauntCheck + 1, d + 2));
           const lim = this.arena.halfSize - 2;
-          st.tauntX = Math.max(-lim, Math.min(lim, p.x + dx * petTuning.tauntDist));
-          st.tauntZ = Math.max(-lim, Math.min(lim, p.z + dz * petTuning.tauntDist));
+          st.tauntX = Math.max(-lim, Math.min(lim, p.x + dx * out));
+          st.tauntZ = Math.max(-lim, Math.min(lim, p.z + dz * out));
           st.tauntT = rankOf(petTuning.tauntTime, r.taunt);
           st.tauntCd = rankOf(petTuning.tauntEvery, r.taunt);
           this.vfx.ring(st.tauntX, st.tauntZ, 1, 9, '#ef7d57', 0.45);
@@ -287,7 +289,9 @@ export function highFive(this: Game, h: Hero, helpers: Hero[]): void {
     this.vfx.star(mx, 2.2, mz, 2.6, '#ffcd75', 0.22);
     this.vfx.burst(mx, 2.2, mz, { count: 30, color: '#ffcd75', color2: '#73eff7', speed: [3, 8], size: [0.12, 0.26], life: [0.6, 1.1], up: 8, gravity: 12 });
     this.vfx.burst(mx, 2.2, mz, { count: 14, color: '#b13e53', color2: '#a7f070', speed: [2, 6], size: [0.1, 0.2], life: [0.6, 1.0], up: 9, gravity: 12 });
-    this.vfx.num(mx, 3.6, mz, 'HIGH FIVE!', 'score');
+    this.vfx.star(mx, 2.2, mz, 1.4, '#f4f4f4', 0.3);
+    this.vfx.ring(mx, mz, 0.5, 6, '#ffcd75', 0.4);
+    this.vfx.num(mx, 4.3, mz, 'HIGH FIVE!', 'score');
     this.vfx.sound('highFive', mx, mz);
   }
   if (helpers.length && teamOn(this)) {
@@ -417,7 +421,8 @@ export function tryTeamMove(this: Game, h: Hero): boolean {
 
 /** Base damage of a team move made by n heroes. */
 export function teamDamage(stage: number, n: number): number {
-  return teamTuning.dmg * (1 + teamTuning.dmgPerStage * Math.max(0, stage - 1)) * teamScale(n);
+  const k = Math.max(0, stage - 1);
+  return teamTuning.dmg * (1 + teamTuning.dmgPerStage * k + teamTuning.dmgPerStage2 * k * k) * teamScale(n);
 }
 
 function heroesIn(g: Game, mask: number, out: Hero[]): Hero[] {
@@ -563,6 +568,8 @@ export function applyCompanionNet(this: Game, d: unknown): void {
 
 // ------------------------------------------------------------------ presentation (every machine)
 
+const petHud: PetHudState = { def: PET_BY_ID.none, level: 1, maxLevel: 1, ranks: { fetch: 0, zap: 0, taunt: 0, shield: 0, revive: 0 }, shieldReady: false, reviveReady: false };
+const teamHud: TeamHudState = { charge: 0, linked: 0, link01: 0, next: TEAM_MOVES[0], firing: '', key: 'T' };
 const beamSources: { x: number; z: number; color: string }[] = [];
 const srcPool = Array.from({ length: 4 }, () => ({ x: 0, z: 0, color: '#ffffff' }));
 
@@ -572,26 +579,26 @@ export function renderCompanion(this: Game, rdt: number): void {
   const local = this.hero;
   const playing = this.mode !== 'title' && !!local;
   const st = local?.petState;
-  // HUD
-  s.hud.setPet(
-    playing && st?.has && !local.left
-      ? { def: st.def, level: st.level, maxLevel: st.maxLevel, ranks: st.ranks, shieldReady: st.shieldReady, reviveReady: st.reviveReady }
-      : null,
-  );
+  // HUD (reused objects: no per-frame allocation)
+  if (playing && st?.has && !local.left) {
+    petHud.def = st.def;
+    petHud.level = st.level;
+    petHud.maxLevel = st.maxLevel;
+    petHud.ranks = st.ranks;
+    petHud.shieldReady = st.shieldReady;
+    petHud.reviveReady = st.reviveReady;
+    s.hud.setPet(petHud);
+  } else s.hud.setPet(null);
   const on = playing && teamOn(this);
-  const firing = s.move ? (TEAM_MOVES.find((m) => m.id === s.move!.id)?.name ?? '') : '';
-  s.hud.setTeam(
-    on
-      ? {
-          charge: s.meter.charge,
-          linked: s.meter.linked,
-          link01: s.meter.linkT / teamTuning.linkTime,
-          next: TEAM_MOVES[s.meter.next],
-          firing,
-          key: keyLabel(binds.team[0] || binds.team[1]),
-        }
-      : null,
-  );
+  if (on) {
+    teamHud.charge = s.meter.charge;
+    teamHud.linked = s.meter.linked;
+    teamHud.link01 = s.meter.linkT / teamTuning.linkTime;
+    teamHud.next = TEAM_MOVES[s.meter.next];
+    teamHud.firing = s.move ? (TEAM_MOVES.find((m) => m.id === s.move!.id)?.name ?? '') : '';
+    teamHud.key = keyLabel(binds.team[0] || binds.team[1]);
+    s.hud.setTeam(teamHud);
+  } else s.hud.setTeam(null);
   if (!playing) {
     s.seen.clear();
     s.view?.hide();

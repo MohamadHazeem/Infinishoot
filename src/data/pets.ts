@@ -72,7 +72,7 @@ export const petTuning = {
   zapRange: 9,
   zapDmg: 10,
   zapPerLevel: 3,
-  /** Taunt: cooldown, how long the decoy holds, how far the pet flies out, enemies needed nearby. */
+  /** Taunt: cooldown, how long the decoy holds, the least it flies out (it goes 2 m past the crowd's middle), the crowd check radius and size. */
   tauntEvery: [12, 9],
   tauntTime: [2.5, 3.5],
   tauntDist: 5,

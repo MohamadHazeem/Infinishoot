@@ -275,5 +275,24 @@ for (let i = 0; i < 30; i++) S.update(1 / 60);
 ok(S.companionState().meter.linked === 0 && !S.tryTeamMove(S.hero), 'solo: no team meter or moves');
 ok(S.hero.petState.reviveReady, 'solo Guardian has its revive from the start');
 
+// Fetch: Bit pulls gems from beyond the magnet's reach.
+const F = mk();
+F.setHeroes([F.makeHero(0, 'Fetch', unlockedWeapons(), '', 'classic', 'bit')]);
+F.startRun();
+if (F.mode === 'shop') F.closeShop();
+F.xpNext = 1e12;
+for (const e of F.enemies.list) if (e.active) F.enemies.kill(e);
+const fp = F.hero.player;
+fp.teleport(0, 0);
+const { PickupType } = await import('../src/game/pickups');
+F.pickups.clear();
+for (let i = 0; i < 4; i++) F.pickups.spawn(PickupType.Gem, Math.cos(i) * 8, Math.sin(i) * 8, 1);
+ok(F.hero.stats.magnet * 3.2 < 7, 'gems start beyond the magnet range');
+for (let i = 0; i < 60 * 4; i++) {
+  for (const e of F.enemies.list) if (e.active) F.enemies.kill(e);
+  F.update(1 / 60);
+}
+ok(F.pickups.count === 0 && F.hero.petState.fetches > 0, `Bit fetched the far gems (${F.pickups.count} left)`);
+
 ok(errors.length === 0, 'no runtime errors' + (errors.length ? ':\n' + errors.slice(0, 3).join('\n') : ''));
 process.exit(process.exitCode ?? 0);
