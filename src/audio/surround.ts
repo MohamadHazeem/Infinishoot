@@ -9,6 +9,7 @@
  * Angles: 0 = in front of the hero (the way it faces), +PI/2 = to its right.
  * Local to each machine; triggered from systems/sound2.ts and sfx cues.
  */
+import { synthMasterGain } from './loudness';
 import { samples } from './samples';
 import { sfx } from './sfx';
 import { LaneVoice } from './synthGraph';
@@ -171,7 +172,7 @@ export function playSurround(id: SurroundId, force = false): boolean {
   if (!release) return false;
   lastAt.set(id, now);
   const gain = ctx.createGain();
-  gain.gain.value = p.gain * surroundTuning.gain;
+  gain.gain.value = synthMasterGain('surround:' + id) * p.gain * surroundTuning.gain;
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';
   filter.frequency.value = 18000;

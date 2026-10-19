@@ -337,7 +337,7 @@ function addLine(g: Game, st: PartyState, line: ChatLine, broadcast = false): vo
   if (broadcast && g.role === 'host') g.host?.broadcast({ t: 'lbchat', ...line });
   st.lobbyUi.renderChat();
   st.partyUi.renderChat();
-  if (!line.sys) sfx.ui('tick', 0.6);
+  if (!line.sys) sfx.named('chatPop');
 }
 
 function hostChat(g: Game, st: PartyState, from: string, m: { s?: unknown; q?: unknown }): void {
@@ -532,7 +532,7 @@ export function partyTick(this: Game, dt: number): void {
         return;
       }
       if (Math.ceil(st.cd) !== before) {
-        if (before < 0) sfx.ui('confirm', 1);
+        if (before < 0) sfx.named('readyDing');
         sendLobbyX(this, st);
       }
     } else if (st.cd >= 0) {

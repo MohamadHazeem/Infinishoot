@@ -95,6 +95,7 @@ function speakerOf(g: Game, h: Hero): Speaker {
   s.index = h.index;
   s.name = g.heroes.length > 1 ? h.name : h.heroDef.name;
   s.color = h.color;
+  s.x = h.player.x; s.z = h.player.z;
   return s;
 }
 

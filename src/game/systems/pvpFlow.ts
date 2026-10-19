@@ -226,7 +226,7 @@ export function pvpOver(this: Game, winner: string, team = -2): void {
   pvp.phase = 'over';
   this.vfx.banner(winner ? `${winner.toUpperCase()} WINS!` : 'DRAW!', pvp.rules.rounds === 1 ? 'LAST ONE STANDING' : `MATCH OVER · ${pvp.wins.join(' - ')}`, 4);
   this.vfx.flash(0.8);
-  this.vfx.sound('legendaryPick', NaN, NaN);
+  this.vfx.sound('victoryFanfare', NaN, NaN);
   pvpMatchEndFx(this, team);
   window.setTimeout(() => {
     if (this.pvp !== pvp) return;

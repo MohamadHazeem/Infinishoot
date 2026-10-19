@@ -1,4 +1,5 @@
 import { sfx, audioSettings } from './sfx';
+import { MUSIC_GAINS } from './loudness';
 import { silenceDuration } from './mix';
 import { WeaponStems, type StemWeapon } from './stems';
 import {
@@ -223,8 +224,8 @@ export class Music {
     }
     // Level-up can temporarily interrupt `cleared`; don't replay its victory on return.
     if (want.cue) { this.lastCue = want.cue; this.lastCueSeed = want.seed; }
-    if (want.track === 'title') this.lastCue = undefined;
-    if (this.jukebox || want.track === 'title') this.cue = null;
+    if (want.track === 'title' || want.track === 'titleRemix') this.lastCue = undefined;
+    if (this.jukebox || want.track === 'title' || want.track === 'titleRemix') this.cue = null;
     // Clicking another jukebox entry should also interrupt an auditioned stinger.
     if (this.jukebox !== this.lastJukebox && this.cur?.finished) this.cur.seed = -1;
     this.lastJukebox = this.jukebox;
@@ -232,7 +233,7 @@ export class Music {
     let p = this.cur;
     if (!p) { this.consumeBeats(ctx.currentTime); return; }
     this.accent *= Math.exp(-Math.max(0, dt) * 1.2);
-    const tenseNow = this.tension && !this.jukebox && p.id !== 'title' && !TRACK_BY_ID[p.id].bars;
+    const tenseNow = this.tension && !this.jukebox && p.id !== 'title' && p.id !== 'titleRemix' && !TRACK_BY_ID[p.id].bars;
     p.filter.frequency.setTargetAtTime(this.duck ? 900 : tenseNow ? tensionTuning.cutoff : 16000, ctx.currentTime, tenseNow ? 0.4 : 0.15);
     p.menu.gain.setTargetAtTime((this.duck ? 0.45 : 1) * (this.talk ? 0.5 : 1), ctx.currentTime, 0.12);
     if (p.nextTime < ctx.currentTime - 0.25) {
@@ -309,7 +310,7 @@ export class Music {
     const ctx = this.synth!.ctx;
     const out = ctx.createGain();
     out.gain.setValueAtTime(0, t);
-    out.gain.linearRampToValueAtTime(1, t + musicTuning.crossfade);
+    out.gain.linearRampToValueAtTime(MUSIC_GAINS[id] ?? 1, t + musicTuning.crossfade);
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.value = 16000;
@@ -355,7 +356,7 @@ export class Music {
   private arrange(p: Playing, t: number, legacyKeyUp: boolean): void {
     const bar = Math.floor(p.step / 16);
     const boss = TRACK_BY_ID[p.id].boss;
-    const inRun = !this.jukebox && p.id !== 'title' && !TRACK_BY_ID[p.id].bars;
+    const inRun = !this.jukebox && p.id !== 'title' && p.id !== 'titleRemix' && !TRACK_BY_ID[p.id].bars;
     p.duel = boss && inRun && this.duelOn ? duelTurnAt(bar) : 0;
     p.tense = this.tension && inRun;
     const stemMul = p.duel === 1 ? duelTuning.bossStems : p.duel === 2 ? duelTuning.heroStems : 1;

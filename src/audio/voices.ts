@@ -8,7 +8,7 @@
  * - Material impacts: 'm:<material>' / 'm:<material>:c' (crit) sounds pick the material sample.
  * Everything falls back to silence (voices) or the existing synth (impacts) without samples.
  */
-import { samples } from './samples';
+import { samples, type SampleOptions } from './samples';
 import { sfx } from './sfx';
 import { swarmGap } from './mix';
 import { voiceGate } from './announcer';
@@ -163,10 +163,10 @@ voiceGate.blocks = (priority, retry) => voiceChannel.blocks(priority, clock(), r
 voiceGate.claim = (priority, seconds, stop) => voiceChannel.claim(priority, clock(), seconds, stop);
 
 /** Play a voice sample on the channel; returns false if it can't play (busy, missing, muted). */
-function speak(id: string, priority: number, gain: number, duck: number): boolean {
+function speak(id: string, priority: number, gain: number, duck: number, position?: Pick<SampleOptions, 'x' | 'z' | 'pan'>): boolean {
   const now = clock();
-  if (!voiceChannel.canStart(priority, now) || !samples.buffer(id)) return false;
-  const voice = samples.play(id, { bus: 'ui', priority: 10 + priority, gain, variation: 0, limit: 1, cooldown: 0.5 });
+  if ((position && !voiceSettings.heroVoices) || !voiceChannel.canStart(priority, now) || !samples.buffer(id)) return false;
+  const voice = samples.play(id, { ...position, bus: position ? 'voice' : 'ui', priority: 10 + priority, gain, variation: 0, limit: 1, cooldown: 0.5 });
   if (!voice) return false;
   voiceChannel.claim(priority, now, voice.duration, () => voice.stop());
   if (duck < 1) sfx.duck(voice.duration, duck);
@@ -193,10 +193,10 @@ function captionLine(id: string): void {
 }
 
 /** Say a line now, or within `wait` seconds when the channel frees up (after `delay`). */
-export function sayLine(id: string, priority: number, gain: number, duck: number, delay = 0, wait = 3): void {
+export function sayLine(id: string, priority: number, gain: number, duck: number, delay = 0, wait = 3, position?: Pick<SampleOptions, 'x' | 'z' | 'pan'>): void {
   const now = clock();
-  if (delay <= 0 && speak(id, priority, gain, duck)) return;
-  voiceChannel.enqueue(priority, now + Math.max(0, delay), now + Math.max(0, delay) + wait, () => speak(id, priority, gain, duck));
+  if (delay <= 0 && speak(id, priority, gain, duck, position)) return;
+  voiceChannel.enqueue(priority, now + Math.max(0, delay), now + Math.max(0, delay) + wait, () => speak(id, priority, gain, duck, position));
 }
 
 // ---------------------------------------------------------------- boss voices

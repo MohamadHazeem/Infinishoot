@@ -1,0 +1,80 @@
+import { readFileSync } from 'node:fs';
+import { ok } from './check';
+import { limitSample, limiterCurve, masteringGain, MASTER_TARGETS, SAMPLE_GAINS, SYNTH_GAINS, MUSIC_GAINS, sampleMasterGain, synthMasterGain, cueLoudness } from '../src/audio/loudness';
+import { TRACKS, TRACK_BY_ID, makeSong, AUDIO3_THEMES } from '../src/audio/music/composition';
+(globalThis as any).window = { addEventListener() {} };
+const { FEATURE_CUES } = await import('../src/audio/featureSamples');
+const { cueSamples } = await import('../src/audio/mix');
+const { banterSample } = await import('../src/audio/teammateVoice');
+const { encounterTrack } = await import('../src/game/systems/audio3');
+const pack = JSON.parse(readFileSync('public/audio/manifest.json', 'utf8'));
+const ids: string[] = [...pack.sfx, ...pack.voice];
+ok(ids.every(id => Number.isFinite(SAMPLE_GAINS[id]) && SAMPLE_GAINS[id] > 0 && SAMPLE_GAINS[id] <= 4), 'every manifest sample has a bounded measured correction');
+ok(Object.keys(SYNTH_GAINS).length > 120 && Object.values(SYNTH_GAINS).every(g => Number.isFinite(g) && g > 0 && g <= 2), 'synth audit covers the core, UI, weapon, evolution, feature and voice cues');
+ok(sampleMasterGain('future_lane') === 1 && synthMasterGain('future_lane') === 1, 'unknown future cues retain their authored gain');
+ok(synthMasterGain('voice:p2') === SYNTH_GAINS.voice, 'synth speech uses a shared measured correction across speaker slots');
+ok(masteringGain(-12, -1, -23) < 1 && masteringGain(-40, -1, -23) < 1, 'normalization attenuates loud cues and gives peak headroom precedence over boosting');
+ok(masteringGain(-80, -90, -23) === 1 && masteringGain(NaN, -3, -23) === 1, 'silence and invalid measurements are never amplified');
+ok(MASTER_TARGETS.voice > MASTER_TARGETS.weapons && MASTER_TARGETS.ambience < MASTER_TARGETS.ui, 'voices stay readable and beds remain below active effects');
+const curve = limiterCurve();
+ok(curve.length === 8193 && curve.every((x, i) => Number.isFinite(x) && Math.abs(x) <= 10 ** (-1 / 20) && (!i || x >= curve[i - 1])), 'ceiling curve is finite, monotone and bounded below full scale');
+ok(limitSample(0.1) === 0.1 && limitSample(0.5) === 0.5 && limitSample(-0.8) === -limitSample(0.8), 'quiet signals pass at unity with a symmetric continuous shoulder');
+const quiet = limitSample(0.1); limitSample(500);
+ok(limitSample(0.1) === quiet, 'a loud hit cannot change the gain of the following quiet signal');
+ok(cueLoudness('w:shoot') === 1 && cueLoudness('achievement') === 0, 'mastering never changes authoritative enemy hearing');
+
+ok(TRACKS.every(t => MUSIC_GAINS[t.id] > 0 && MUSIC_GAINS[t.id] <= 2), 'every jukebox arrangement has a measured music correction');
+ok(new Set(TRACKS.map(t => t.id)).size === TRACKS.length, 'jukebox track IDs remain unique');
+for (const id of ['raid', 'pvp', 'gauntlet', 'titleRemix', 'pumpking', 'glitch', 'boxer', 'gale', 'halloween'] as const) {
+  const track = TRACK_BY_ID[id], theme = AUDIO3_THEMES[id];
+  const song = makeSong(track.style, 42, track.theme);
+  ok(track.theme === theme && theme.notes.every(([s, d, l]) => s >= 0 && s < 64 && Number.isFinite(d) && l > 0 && s + l <= 64) && song.themeAt!.filter(Boolean).length === theme.notes.length, `${id}: distinct authored hook is used by procedural playback`);
+}
+ok(TRACK_BY_ID.boxer.style.lead === 'bell' && TRACK_BY_ID.pumpking.style.lead === 'organ' && TRACK_BY_ID.gale.style.swing > 0.15, 'music-box, organ and shanty styles use distinct timbres and rhythm');
+ok(encounterTrack('title', 'standard', false, false, false) === 'titleRemix' && encounterTrack('halloween', 'standard', true, true, false) === 'pumpking', 'menu remix and seasonal boss select automatically');
+ok(encounterTrack('meadow', 'gauntlet', false, false, false) === 'gauntlet' && encounterTrack('boss', 'gauntlet', true, false, false) === 'boss', 'Gauntlet horde keeps its own theme and bosses keep theirs');
+ok(encounterTrack('meadow', 'standard', false, false, true) === 'pvp' && encounterTrack('boss', 'raid', true, false, false) === 'raid', 'arena and raid encounter routing');
+ok(encounterTrack('shop', 'gauntlet', false, false, true) === 'shop' && encounterTrack(null, 'raid', true, false, false) === null, 'shop and silent/game-over transitions keep their priority');
+ok(Object.entries(FEATURE_CUES).every(([name, cue]) => ids.includes(cue.sample) && cueSamples[name] === cue.sample), 'feature recordings are all real manifest assets mapped to playable bus cues');
+ok(banterSample('banter:rookie:groupup') === 'banter_rookie_groupup' && banterSample('banter:../../secret:groupup') === null && banterSample('banter:rookie:unknown') === null, 'banter validates hero and line IDs');
+
+const { samples, SampleEngine } = await import('../src/audio/samples');
+const { sayLine, setVoiceClock, voiceChannel, voiceSettings } = await import('../src/audio/voices');
+const { playEmoteVoice } = await import('../src/audio/emoteVoice');
+const { spatialSettings } = await import('../src/audio/spatial');
+const { sfx } = await import('../src/audio/sfx');
+let played: any = null;
+const oldPlay = samples.play, oldBuffer = samples.buffer;
+samples.buffer = () => ({ duration: 1 } as AudioBuffer);
+samples.play = (id, options) => { played = { id, ...options }; return { duration: 1, stop() {} }; };
+setVoiceClock(() => 100);
+voiceChannel.reset(); voiceSettings.heroVoices = true;
+playEmoteVoice({ id: 'wave', rec: 'start' } as any, { heroId: 'rookie', index: 1, name: 'Teammate', color: '#fff', x: 12, z: -4 }, false, 0.8, 0.5);
+ok(played.bus === 'voice' && played.x === 12 && played.z === -4 && played.pan === 0.8 && played.gain === 0.4, 'recorded emote retains speaker position, distance gain, and VOICE bus');
+voiceChannel.reset();
+sayLine('banter_rookie_thanks', 5, 0.5, 1, 1, 2, { x: -8, z: 9, pan: -0.5 });
+setVoiceClock(() => 101.2); voiceChannel.update(101.2);
+ok(played.id === 'banter_rookie_thanks' && played.x === -8 && played.z === 9, 'queued banter retains its source instead of borrowing a later cue position');
+voiceChannel.reset(); voiceSettings.heroVoices = false; played = null;
+playEmoteVoice({ id: 'thumbs' } as any, { heroId: 'rookie', index: 1, name: 'Teammate', color: '#fff' }, false, 0, 1);
+ok(played === null, 'banter and emotes respect HERO VOICES off');
+voiceSettings.heroVoices = true; samples.play = oldPlay; samples.buffer = oldBuffer;
+
+class Param { value = 0; setTargetAtTime(v: number) { this.value = v; } }
+class Node { gain = new Param(); pan = new Param(); frequency = new Param(); positionX = new Param(); positionY = new Param(); positionZ = new Param(); playbackRate = new Param(); connect(n: any) { return n; } disconnect() {} start() {} stop() {} }
+let hrtf: any = null, stereo: any = null;
+const ctx: any = { currentTime: 10, state: 'running', createBufferSource: () => new Node(), createGain: () => new Node(), createBiquadFilter: () => new Node(), createPanner: () => hrtf = new Node(), createStereoPanner: () => stereo = new Node() };
+const engine = new SampleEngine(), internal = engine as any;
+internal.ctx = ctx; internal.outputs = { sfx: new Node(), ui: new Node(), voice: new Node() };
+internal.buffers.set('test', { duration: 0.2 });
+spatialSettings.headphones = true;
+let sound = engine.play('test', { bus: 'voice', x: 9, z: -7, pan: 0.6, variation: 0 });
+ok(hrtf?.panningModel === 'HRTF' && hrtf.positionX.value === 9 && hrtf.positionZ.value === -7 && hrtf.rolloffFactor === 0, 'recorded voice uses bounded HRTF with no double distance attenuation');
+sound?.stop(); ctx.currentTime++;
+spatialSettings.headphones = false; sound = engine.play('test', { bus: 'voice', x: 9, z: -7, pan: 0.6, variation: 0 });
+ok(stereo.pan.value === 0.6, 'stereo mode preserves teammate pan'); sound?.stop();
+let named = '';
+const oldSfxPlay = sfx.play;
+sfx.play = (id) => { named = id; return true; };
+sfx.named('raidAlarm'); ok(named === 'raidAlarm', 'recorded feature name is reachable through the same named dispatcher as effects replay');
+sfx.play = oldSfxPlay;

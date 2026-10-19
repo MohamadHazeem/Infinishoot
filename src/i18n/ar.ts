@@ -64,6 +64,12 @@ export const ar = {
   "secrets.a_shadow_desc": "سر: اهزم انعكاسك بعد مرحلة ليلية بلا إصابة.",
   "secrets.a_code": "من الزمن الجميل",
   "secrets.a_code_desc": "اكتشف شفرة الاتجاهات القديمة في شاشة العنوان.",
+  "audio3.banter.nicesave": "إنقاذ رائع!",
+  "audio3.banter.behind": "خلفك!",
+  "audio3.banter.thanks": "شكرًا على إنعاشي!",
+  "audio3.banter.groupup": "تجمّعوا!",
+  "audio3.banter.onmyway": "أنا في الطريق!",
+  "audio3.banter.greatshot": "تسديدة رائعة!",
 
   "content.84fee1b908": "شفرات الرياح المتقاطعة",
   "content.21f48f0714": "شفرتان هلاليتان تتقاطعان إلى الخارج، ثم تقطعان الأعداء في مسار عودة منحني.",

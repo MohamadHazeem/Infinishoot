@@ -21,6 +21,8 @@ export interface Speaker {
   /** Caption name: the hero (solo) or the player's name (co-op). */
   name: string;
   color: string;
+  x?: number;
+  z?: number;
 }
 
 export interface BarkOptions {
@@ -75,7 +77,7 @@ export class HeroVoice {
     this.busy.set(sp.index, { until: now + u.length + voiceTuning.gap, priority: b.priority });
     this.any = now;
     voiceGate.claim(channel, u.length, () => {});
-    sfx.at(o.pan ?? 0, o.gain ?? 1);
+    sfx.at(o.pan ?? 0, o.gain ?? 1, sp.x, sp.z);
     sfx.speak(u);
     sfx.at(0, 1);
     if (o.caption !== false) caption({ who: sp.name.toUpperCase(), text: u.caption, color: sp.color, kind: 'voice' });

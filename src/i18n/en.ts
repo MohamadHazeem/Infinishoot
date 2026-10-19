@@ -63,6 +63,12 @@ export const en = {
   "secrets.a_shadow_desc": "SECRET: defeat your reflection after a flawless night stage.",
   "secrets.a_code": "Old School",
   "secrets.a_code_desc": "Discover the old directional code on the title screen.",
+  "audio3.banter.nicesave": "Nice save!",
+  "audio3.banter.behind": "Behind you!",
+  "audio3.banter.thanks": "Thanks for the revive!",
+  "audio3.banter.groupup": "Group up!",
+  "audio3.banter.onmyway": "On my way!",
+  "audio3.banter.greatshot": "Great shot!",
 
   "content.84fee1b908": "Crosswind Blades",
   "content.21f48f0714": "Paired crescent blades cross outward, then slice back along a curved return path.",
