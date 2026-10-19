@@ -1,6 +1,7 @@
 import type { Game } from './game';
 import { Team } from './bullets';
 import { pilotGameplay } from './systems/gameplay';
+import { pilotModes } from './systems/modes';
 
 /**
  * The autoplay brain: what a bot-driven hero wants to do this step. Shared by
@@ -99,6 +100,8 @@ export class Autopilot {
     // Supply crates and mech suits nearby, and combo cash-ins (gameplay lane).
     const mv = { mx, mz };
     o.cash = pilotGameplay(g, mv, Math.hypot(ax, az) > 1);
+    const aim = pilotModes(g, mv); // mini-games, the Pacifist road (modes lane)
+    if (aim !== undefined) best = aim;
     o.mx = mv.mx;
     o.mz = mv.mz;
     o.target = best;

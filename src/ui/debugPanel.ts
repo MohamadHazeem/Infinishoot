@@ -37,6 +37,7 @@ import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
 import { worldDebugFolder } from '../world/worldDebug';
 import { addWorldEventsFolder } from './debugWorldEvents';
+import { addModesFolder } from './debugModes';
 import { finisherTuning } from '../game/finisher';
 import { portraitTuning } from './portraits';
 import { skillTuning, styleTuning } from '../game/style';
@@ -296,6 +297,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addCoop2Folder(gui, game); // coop2 lane: drop-in, revive pool, roles, team ultimate, ghosts (src/ui/debugCoop2.ts)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
   addWorldEventsFolder(gui, game); // world events: start any now, force one, knobs (src/ui/debugWorldEvents.ts)
+  addModesFolder(gui, game); // rhythm stages, pacifist road, mini-games, ghosts (src/ui/debugModes.ts)
 
   // Companion lane: pets and co-op team moves.
   const comp = gui.addFolder('Pets & team moves').close();

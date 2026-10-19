@@ -359,7 +359,7 @@ function parried(g: Game, h: Hero, n: number): void {
 
 export function tryUlt(this: Game, h: Hero): void {
   const sk = h.skill;
-  if (sk.ult < 1 || sk.ultT > 0 || h.player.dead || !this.isCombatMode || this.pvp?.phase === 'duel') return;
+  if (sk.ult < 1 || sk.ultT > 0 || h.player.dead || !this.isCombatMode || this.pvp?.phase === 'duel' || this.modesHolster(h)) return;
   sk.ult = 0;
   sk.style.add(styleTuning.ult, ultOf(h).name);
   startUlt(this, h);

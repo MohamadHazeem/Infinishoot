@@ -706,6 +706,10 @@ export interface EnemyCtx {
    * chasing (patrol or investigate), at `speed` x its own; null = chase as usual. It doesn't attack.
    */
   lure?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
+  /** Rhythm stages (src/game/systems/modes.ts): move speed x this, a pulse that peaks on the beat (unset = x1). */
+  beatStep?: number;
+  /** Rhythm stages: true on steps between beats, so wind-ups that end then wait for the next beat. */
+  beatHold?: boolean;
 }
 
 // ------------------------------------------------------------------ rendering helpers
@@ -969,11 +973,13 @@ export class Enemies {
       const dist = Math.sqrt(dx * dx + dz * dz) || 1;
       const nx = dx / dist;
       const nz = dz / dist;
-      const speed = e.def.speed * e.speedMul * (e.slowT > 0 ? 1 - e.slowAmt : 1) * (e.rallyT > 0 ? squadTuning.rallySpeed : 1) * (lure ? lure.speed : 1);
+      const speed = e.def.speed * e.speedMul * (e.slowT > 0 ? 1 - e.slowAmt : 1) * (e.rallyT > 0 ? squadTuning.rallySpeed : 1) * (lure ? lure.speed : 1) * (ctx.beatStep ?? 1);
       let wantX = 0;
       let wantZ = 0;
       let rigid = false; // attack movement ignores steering smoothing
       e.t -= dt;
+      // Rhythm stages: attacks (the end of a wind-up) land on the beat.
+      if (ctx.beatHold && e.state === 'windup' && e.t <= 0 && e.def.behavior !== 'reaper') e.t = 1e-6;
 
       // Elites rally their squad now and then.
       if (e.elite && (e.rallyCd -= dt) <= 0) {

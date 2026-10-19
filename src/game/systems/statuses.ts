@@ -250,6 +250,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   }
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
   this.gpOnKill(e, source, by); // mutant rewards, mech drops, finale spots, Nova Heart, Powder Keg (systems/gameplay.ts)
+  this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
   this.enemies.kill(e);
   // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
   // (a stale `boss` once became a Chonk: wrong boss bar on clients and a stage that wouldn't clear).
@@ -697,7 +698,7 @@ export function makeSpecialApi(this: Game): SpecialApi {
 
 /** Q/E: fire the hero's special once its meter is full. */
 export function tryBomb(this: Game, h: Hero): void {
-  if (h.bombCharge < 1 || h.player.dead) return;
+  if (h.bombCharge < 1 || h.player.dead || this.modesHolster(h)) return;
   if (h.special.id !== 'bomb') {
     h.bombCharge = 0;
     startSpecial(h, h.specialDef, h.specialP, this.specialApi);

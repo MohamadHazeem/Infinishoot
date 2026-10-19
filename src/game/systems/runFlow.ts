@@ -226,6 +226,7 @@ export function loadStage(this: Game, stage: number): void {
   this.vfx.banner(`STAGE ${stage}`, this.stageSub(stage), 2.2);
   this.vfx.sound('wave', NaN, NaN);
   this.routeStageStart();
+  this.modesStageStart(); // rhythm stage / Pacifist road rules, weekly ghost (systems/modes.ts)
   this.checkAchievements();
 }
 
@@ -278,6 +279,7 @@ export function summary(this: Game, h: Hero): RunSummary {
 /** Bank lifetime stats into this machine's save, then show game over. */
 export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   if (this.meta.banked) return;
+  this.modesRunEnd(); // keep this week's ghost (systems/modes.ts)
   const bolts = bankMeta(this, sum);
   sum.bolts = bolts;
   const L = save.lifetime;

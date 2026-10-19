@@ -15,7 +15,8 @@ import { CURSES } from '../../data/curses';
 import { biomeForStage } from '../../data/biomes';
 import { directorTuning } from '../director';
 import { economyTuning, MAX_GEARS, type Hero } from '../hero';
-import { ROUTE_EVENTS, ROUTE_NODES, eventTuning, routeTuning, type EventEffect, type NodeKind } from '../../data/routeNodes';
+import { HIDDEN_NODES, ROUTE_EVENTS, ROUTE_NODES, eventTuning, routeTuning, type EventEffect, type NodeKind } from '../../data/routeNodes';
+import { pacifistTuning } from '../modes/pacifist';
 import { routeChoices, routeEdges, routeEventFor, routeLayer, routeTally, routeWindow } from '../route';
 import type { RouteView } from '../../ui/routeMap';
 import { samples } from '../../audio/samples';
@@ -83,6 +84,7 @@ export function routeMod(this: Game, k: string): number {
   if (kind === 'hard') return k === 'enemyHp' ? T.hardHp : k === 'enemyDmg' ? T.hardDmg : k === 'enemyCount' ? T.hardCount : k === 'score' ? T.hardScore : 0;
   if (kind === 'elite') return k === 'enemyHp' ? T.eliteHp : 0;
   if (kind === 'treasure') return k === 'enemyCount' ? T.treasureCount : 0;
+  if (kind === 'pacifist') return k === 'enemyCount' ? pacifistTuning.count : 0; // modes lane
   return 0;
 }
 
@@ -249,6 +251,7 @@ export function routeAdvance(this: Game): void {
   if (r.phase === 'map') {
     const kind = this.routeKind(this.stage + 1);
     if (kind === 'rest') this.routeRest();
+    if (kind === 'arcade' && this.modesArcade()) return; // modes lane: the bonus mini-game, then the portal
     if (kind === 'event') {
       r.phase = 'event';
       r.event = routeEventFor(this.seed, this.stage + 1);
@@ -372,7 +375,9 @@ export function routeViewFrom(this: Game, m: { phase: string; stage: number; see
   const stages = routeWindow(m.stage, routeTuning.behind, routeTuning.ahead);
   const layers = stages.map((s) => {
     const layer = routeLayer(m.seed, s, LOOP_STAGES);
-    return { stage: s, nodes: layer.nodes, edges: routeEdges(layer, routeLayer(m.seed, s + 1, LOOP_STAGES)), final: s % LOOP_STAGES === 0, biome: biomeForStage(s).name };
+    // Hidden roads (the Pacifist road) read ??? until they are the road taken.
+    const nodes = layer.nodes.map((n, i) => (HIDDEN_NODES.includes(n.kind) && m.path[s] !== i ? { ...n, kind: 'secret' as NodeKind } : n));
+    return { stage: s, nodes, edges: routeEdges(layer, routeLayer(m.seed, s + 1, LOOP_STAGES)), final: s % LOOP_STAGES === 0, biome: biomeForStage(s).name };
   });
   const ev = m.phase === 'event' ? ROUTE_EVENTS[m.ev] : undefined;
   return {

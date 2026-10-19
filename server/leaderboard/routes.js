@@ -3,5 +3,8 @@
 // Add a feature by importing its handler and appending it to ROUTES (one line each, so features don't collide).
 import { ghostRoute } from './ghost.js'; // coop2 lane: help ghosts (/ghost)
 
+import { ghostsRoute } from './ghosts.js';
+
 export const ROUTES = [];
 ROUTES.push(ghostRoute);
+ROUTES.push(ghostsRoute); // weekly ghost board (modes lane): /ghosts

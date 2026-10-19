@@ -223,6 +223,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
   this.renderWorldEvent(rdt);
+  this.renderModes(rdt); // rhythm floor, mini-games, race ghost, their HUD (systems/modes.ts)
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
   lap('ren.barrels+arena+chests');
   if (!held) this.particles.render();
