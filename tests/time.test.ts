@@ -224,6 +224,24 @@ start();
   ok(p.dead && game.mode === 'dead', 'only one last stand per stage');
 }
 
+// ---- Last stand remembers the combo from just before the hit that broke it
+start();
+{
+  const h = game.hero;
+  const p = h.player;
+  game.combo = T.standCombo + 20;
+  game.comboT = 5;
+  step(30);
+  game.combo = 0; // an earlier hit broke it...
+  step(60);
+  p.invuln = 0;
+  p.hp = 1;
+  game.hurtHero(h, 999, p.x + 1, p.z, null, 'test'); // ...and the next one would kill
+  ok(!p.dead && ts().heroes[0].standT > 0 && ts().heroes[0].standCombo >= T.standCombo, `a killing blow within ${T.standMemory} s of a big combo still opens the last stand`);
+  ts().heroes[0].standT = 0;
+  p.hp = p.maxHp;
+}
+
 // ---- Last stand: fail -> down -> death replay -> game over
 start();
 {
@@ -314,6 +332,31 @@ start();
   step(3);
   ok(game.slowMoT === 0 && ts().heroes[0].btCd > 0, 'SKILL SLOW-MO off: the moment still happens, without slow motion');
   settings.slowMo = true;
+  // A bullet ring grazing past.
+  ts().heroes[0].btCd = 0;
+  for (let k = 0; k < 6; k++) {
+    const an = (k / 6) * Math.PI * 2;
+    const r = p.radius + 0.26 + 0.3;
+    game.bullets.spawn({ x: p.x + Math.cos(an) * r, z: p.z + Math.sin(an) * r, dirX: 1, dirZ: 0, speed: 0.01, life: 1, radius: 0.26, damage: 0, knockback: 0, team: Team.Enemy, color: '#ff3df0', width: 0.5, length: 0.5 });
+  }
+  step(3);
+  ok(ts().heroes[0].btCd > 0, 'a bullet ring grazing past (not touching) is a near miss too');
+  game.bullets.clear();
+  // A perfect dash in a boss fight.
+  ts().heroes[0].btCd = 0;
+  game.perfectDash(h);
+  step(2);
+  ok(ts().heroes[0].btCd > 0, 'a perfect dash during a boss fight drops into bullet time');
+  // No boss: no bullet time.
+  game.boss!.hp = 0;
+  game.enemies.kill(game.boss!);
+  game.boss = null;
+  ts().heroes[0].btCd = 0;
+  h.skill.dashPerfect = false;
+  step(2);
+  game.perfectDash(h);
+  step(2);
+  ok(ts().heroes[0].btCd <= 0, 'outside boss and mini-boss fights nothing happens');
   cheats.god = false;
 }
 

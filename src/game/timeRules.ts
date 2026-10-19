@@ -25,8 +25,9 @@ export const timeTuning = {
   voteTime: 6,
 
   // ---- last stand
-  /** Team combo needed when the killing blow lands. */
+  /** Team combo needed when the killing blow lands: the best combo of the last standMemory seconds (a hit breaks the combo, so the killing blow usually follows a break). */
   standCombo: 50,
+  standMemory: 3,
   /** Kills that earn your life back. */
   standKills: 30,
   /** Seconds to get them (god mode meanwhile). */

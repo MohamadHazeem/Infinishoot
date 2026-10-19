@@ -4,7 +4,7 @@ import { debugBulletTime, forceClutch, timeState } from '../game/systems/time';
 
 /**
  * Test-link options for the time lane (called from applyTestLink, after the
- * companion lane's `mate`):
+ * companion lane's `mate`). Times are seconds of play:
  * - `rewindgo=<s>`: press REWIND after s seconds (`rewindat=<0..1>` pins the
  *   backward playback there, for screenshots). Try with `swarm=80`.
  * - `standgo=<s>`: a killing blow lands after s seconds with a x60 combo
@@ -20,9 +20,16 @@ import { debugBulletTime, forceClutch, timeState } from '../game/systems/time';
  *   (the dummy teammate never agrees).
  */
 export function timeLinks(game: Game, q: URLSearchParams): void {
+  // Seconds of play (not wall time: a slow headless browser runs the game slower than real time).
   const later = (key: string, fn: () => void) => {
     const s = Number(q.get(key));
-    if (s > 0) setTimeout(fn, s * 1000);
+    if (!(s > 0)) return;
+    const t0 = game.runTime;
+    const id = setInterval(() => {
+      if (game.runTime - t0 < s) return;
+      clearInterval(id);
+      fn();
+    }, 16);
   };
   const pinWhen = (key: string, ready: () => boolean) => {
     const at = q.get(key);

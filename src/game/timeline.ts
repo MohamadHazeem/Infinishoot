@@ -23,6 +23,7 @@ import type { EliteModDef } from '../data/eliteMods';
 import { Team, type BulletSpawn } from './bullets';
 import { bossLike } from './bossRules';
 import { timeTuning } from './timeRules';
+import { endUlt } from './ultimates';
 
 // ---------------------------------------------------------------- layouts
 
@@ -536,6 +537,11 @@ export class Timeline {
       h.skill.ult = a[o + H_ULT];
       h.rerollsLeft = Math.round(a[o + H_GEARS]);
       p.invuln = Math.max(p.invuln, timeTuning.rewindIframes);
+      // Transient moves stop: their meters came back, so they can't also keep going (no double bombs or ultimates).
+      h.bombT = -1;
+      h.bombNext = 0;
+      h.bomblets.length = 0;
+      if (h.skill.ultT > 0) endUlt(g, h);
     }
     // ---- team
     if (full) {
@@ -680,6 +686,15 @@ export class Timeline {
       pk.pulled[i] = f.pu[i * PU + 1];
     }
     pk.count = n;
+  }
+
+  /** Best team combo recorded in the last `seconds` of history. */
+  bestCombo(seconds: number): number {
+    let best = 0;
+    if (!this.count) return 0;
+    const t = this.at(this.count - 1).t - seconds;
+    for (let i = this.count - 1; i >= 0 && this.at(i).t >= t; i--) best = Math.max(best, this.at(i).combo);
+    return best;
   }
 
   /** Recorded state of row `row` in frame f (tests). */

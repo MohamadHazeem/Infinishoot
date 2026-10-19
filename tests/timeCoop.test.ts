@@ -180,6 +180,7 @@ cheats.god = false;
 A.combo = 0;
 (sA as any).lastCombo = 0;
 step(60);
+for (const h of A.heroes) TS.heroTimeOf(A, h).standUsed = true; // stands spent: this is about the replay
 for (const h of A.heroes) {
   h.player.invuln = 0;
   h.revivesLeft = 0;

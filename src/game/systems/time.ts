@@ -126,6 +126,8 @@ interface TimeState {
   /** Seconds left of the CLOSE CALL text and the clutch panel. */
   btText: number;
   reviveT: number;
+  /** On the title screen (already reset). */
+  idle: boolean;
 }
 
 const states = new WeakMap<Game, TimeState>();
@@ -168,6 +170,7 @@ export function timeState(g: Game): TimeState {
       shownRun: false,
       btText: 0,
       reviveT: 0,
+      idle: false,
     };
     states.set(g, s);
   }
@@ -176,6 +179,11 @@ export function timeState(g: Game): TimeState {
 
 function heroTime(s: TimeState, h: Hero): HeroTime {
   return (s.heroes[h.index] ??= fresh());
+}
+
+/** A hero's time state (tests, test links). */
+export function heroTimeOf(g: Game, h: Hero): HeroTime {
+  return heroTime(timeState(g), h);
 }
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -211,8 +219,14 @@ function bossNow(g: Game): Enemy | null {
 export function timeStep(this: Game, dt: number): boolean {
   const s = timeState(this);
   if (this.role === 'client') return clientStep(this, s, dt);
-  // New run / new stage: fresh counters and history.
-  if (this.runTime < s.lastRun - 1e-6 || this.mode === 'title') resetRun(s);
+  // Title: nothing to do (reset once). New run / new stage: fresh counters and history.
+  if (this.mode === 'title') {
+    if (!s.idle) resetRun(s);
+    s.idle = true;
+    return false;
+  }
+  s.idle = false;
+  if (this.runTime < s.lastRun - 1e-6) resetRun(s);
   s.lastRun = this.runTime;
   if (this.stage !== s.stage) {
     s.stage = this.stage;
@@ -226,7 +240,7 @@ export function timeStep(this: Game, dt: number): boolean {
     return true;
   }
   barriers(this, s);
-  const running = !(this.paused && this.role === 'solo') && this.mode !== 'levelup' && this.mode !== 'shop' && this.mode !== 'title' && this.juice.hitStop <= 0 && !this.photo?.active;
+  const running = !(this.paused && this.role === 'solo') && this.mode !== 'levelup' && this.mode !== 'shop' && this.juice.hitStop <= 0 && !this.photo?.active;
   // Record the world a few times a second of play.
   if (this.mode === 'fight' && running && this.runTime - s.lastRec >= 1 / timeTuning.recordHz - 1e-6) {
     s.tl.record(this);
@@ -385,6 +399,7 @@ function advanceHold(g: Game, s: TimeState, dt: number): void {
   g.heroes.forEach((h, i) => {
     if (h.left || !H.dead[i]) return;
     const p = h.player;
+    p.invuln = 0; // no i-frame blinking in the replay
     const down = k >= 1 || f0.heroDead(i);
     if (p.dead !== down) {
       p.dead = down;
@@ -466,13 +481,14 @@ export function lastStand(this: Game, h: Hero): boolean {
   const s = timeState(this);
   const ht = heroTime(s, h);
   if (this.mode !== 'fight' || this.role === 'client') return false;
-  if (!standOpens({ combo: s.lastCombo, used: ht.standUsed, pvp: !!this.pvp, training: !!this.onboarding.training, active: ht.standT > 0 })) return false;
+  const combo = Math.max(s.lastCombo, s.tl.bestCombo(timeTuning.standMemory));
+  if (!standOpens({ combo, used: ht.standUsed, pvp: !!this.pvp, training: !!this.onboarding.training, active: ht.standT > 0 })) return false;
   const T = timeTuning;
   const p = h.player;
   ht.standUsed = true;
   ht.standT = T.standTime;
   ht.standKills = 0;
-  ht.standCombo = s.lastCombo;
+  ht.standCombo = combo;
   p.dead = false;
   p.hp = 1;
   p.rig.root.visible = true;
@@ -830,12 +846,12 @@ export function renderTime(this: Game, frameDt: number): void {
   const H = s.hold;
   // Hold progress (host: its own clock; client: the host's).
   const holdKind = client ? s.net.hold : H ? (H.kind === 'rewind' ? 1 : 2) : 0;
-  const holdK = client ? s.net.k : H ? Math.min(1, H.t / (H.kind === 'rewind' ? H.dur : timeTuning.replayPlay)) : 0;
   const pin = timeDebug.pin;
+  const holdK = client ? s.net.k : H ? (pin >= 0 ? pin : Math.min(1, H.t / (H.kind === 'rewind' ? H.dur : timeTuning.replayPlay))) : 0;
   // Camera move.
   const v = s.view;
   if (v) {
-    v.t = pin >= 0 ? pin * v.dur : v.t + frameDt;
+    v.t = pin < 0 ? v.t + frameDt : v.kind === 'replay' ? Math.min(v.dur - 0.05, pin * timeTuning.replayPlay + 0.1) : pin * v.dur;
     if (v.kind === 'replay' && (holdKind !== 2 || s.skipped) && pin < 0 && v.t > 0.3) s.view = null;
     else if (v.t >= v.dur && pin < 0) s.view = null;
     else applyView(this, v);
@@ -846,7 +862,7 @@ export function renderTime(this: Game, frameDt: number): void {
   const ready = !used && hist * timeTuning.rewindSeconds >= timeTuning.rewindMin && this.mode === 'fight';
   const vote = client ? s.net.vote : voteHud(this, s);
   hud.meter(this.isCombatMode, used ? 0 : hist, ready, used, !!vote);
-  hud.vhsAt(holdKind === 1 ? holdK : -1, H?.secs ?? timeTuning.rewindSeconds, frameDt);
+  hud.vhsAt(holdKind === 1 ? rewindCurve(holdK) : -1, H?.secs ?? timeTuning.rewindSeconds, frameDt);
   hud.standAt(client ? s.net.stand : standHud(this, s), frameDt);
   hud.voteAt(vote);
   const replay = holdKind === 2 && !s.skipped;

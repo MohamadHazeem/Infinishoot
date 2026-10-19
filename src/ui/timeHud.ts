@@ -34,16 +34,17 @@ const CSS = `
 #tm-vhs .track.b { height: calc(2 * var(--p)); opacity: 0.22; animation-duration: 0.37s; animation-delay: -0.2s; }
 @keyframes tmTrack { from { transform: translateY(0); } to { transform: translateY(100vh); } }
 #tm-vhs .tag {
-  position: absolute; top: 22px; left: 26px;
-  display: flex; align-items: center; gap: 12px;
-  font: 52px/1 var(--display); color: var(--white);
+  position: absolute; top: 24vh; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 14px;
+  font: 64px/1 var(--display); color: var(--white);
   text-shadow: var(--outline);
   animation: tmBlink 0.5s steps(1) infinite;
 }
-#tm-vhs .tag .pg { width: 48px; height: 42px; }
 #tm-vhs .ctr {
-  position: absolute; top: 84px; left: 30px;
-  font: 22px var(--label); letter-spacing: 2px; color: var(--cyan);
+  position: absolute; top: calc(24vh + 70px); left: 50%;
+  transform: translateX(-50%);
+  font: 22px var(--label); letter-spacing: 3px; color: var(--cyan);
   text-shadow: var(--outline);
 }
 #tm-vhs .tc {
@@ -67,10 +68,10 @@ body.tm-cine #ingame { visibility: hidden; }
 }
 #tm-bars .bar.t { top: 0; }
 #tm-bars .bar.b { bottom: 0; }
-#tm-bars.on .bar { height: 9vh; }
-#tm-bars.wide.on .bar { height: 12vh; }
+#tm-bars.on .bar { height: 6vh; }
+#tm-bars.wide.on .bar { height: 11vh; }
 #tm-bars .cc {
-  position: absolute; left: 50%; bottom: calc(9vh + 18px);
+  position: absolute; left: 50%; bottom: calc(6vh + 120px);
   transform: translateX(-50%);
   font: 40px/1 var(--display); color: var(--yellow);
   text-shadow: var(--outline);
@@ -82,20 +83,20 @@ body.tm-cine #ingame { visibility: hidden; }
 
 /* ---- Death replay */
 #tm-replay .rec {
-  position: absolute; top: calc(9vh + 16px); left: 26px;
+  position: absolute; top: calc(11vh + 16px); left: 26px;
   display: flex; align-items: center; gap: 10px;
   font: 22px var(--label); letter-spacing: 3px; color: var(--white);
   text-shadow: var(--outline);
 }
 #tm-replay .rec i { width: calc(4 * var(--p)); height: calc(4 * var(--p)); background: var(--red); box-shadow: 0 0 0 var(--p) var(--ink); animation: tmBlink 0.8s steps(1) infinite; }
-#tm-replay .spd { position: absolute; top: calc(9vh + 16px); right: 28px; font: 22px var(--label); letter-spacing: 2px; color: var(--yellow); text-shadow: var(--outline); }
+#tm-replay .spd { position: absolute; top: calc(11vh + 16px); right: 28px; font: 22px var(--label); letter-spacing: 2px; color: var(--yellow); text-shadow: var(--outline); }
 #tm-replay .skip {
   position: absolute; bottom: 2.6vh; right: 28px;
   font: 14px var(--label); letter-spacing: 2px; color: var(--mist);
   display: flex; align-items: center; gap: 8px;
 }
 #tm-replay .card {
-  position: absolute; left: 50%; bottom: calc(9vh + 26px);
+  position: absolute; left: 50%; bottom: calc(11vh + 26px);
   transform: translateX(-50%);
   --bg: var(--navy); --hi: var(--blue); --lo: var(--ink); --ring: var(--yellow);
   padding: 10px 26px 12px;
@@ -141,14 +142,14 @@ body.tm-stand #game { filter: saturate(0.7) contrast(1.15); }
 
 /* ---- Clutch revive */
 #tm-revive .panel {
-  position: absolute; top: 15vh; left: 50%;
+  position: absolute; top: 13vh; left: 50%;
   transform: translateX(-50%);
   --bg: var(--navy); --hi: var(--blue); --lo: var(--ink); --ring: var(--yellow);
   padding: 10px 22px 14px;
   text-align: center;
   zoom: var(--ui, 1);
 }
-#tm-revive .hands { position: relative; width: 260px; height: 64px; margin: 0 auto 4px; overflow: hidden; }
+#tm-revive .hands { position: relative; width: 300px; height: 64px; margin: 0 auto 4px; overflow: hidden; }
 #tm-revive .hands .h { position: absolute; top: 4px; }
 #tm-revive .hands .h.l { left: 0; }
 #tm-revive .hands .h.r { right: 0; }
@@ -156,8 +157,8 @@ body.tm-stand #game { filter: saturate(0.7) contrast(1.15); }
 #tm-revive.on .h.l { animation: tmReachL 0.55s steps(5) forwards; }
 #tm-revive.on .h.r { animation: tmReachR 0.55s steps(5) forwards; }
 #tm-revive.on .boom { animation: tmBoom 0.5s steps(2) 0.55s forwards; }
-@keyframes tmReachL { from { transform: translateX(-20px); } to { transform: translateX(70px); } }
-@keyframes tmReachR { from { transform: translateX(20px); } to { transform: translateX(-70px); } }
+@keyframes tmReachL { from { transform: translateX(-30px); } to { transform: translateX(74px); } }
+@keyframes tmReachR { from { transform: translateX(30px); } to { transform: translateX(-74px); } }
 @keyframes tmBoom { 0% { opacity: 1; transform: translateX(-50%) scale(0.6); } 50% { transform: translateX(-50%) scale(1.15); } 100% { opacity: 1; transform: translateX(-50%) scale(1); } }
 #tm-revive .ttl { font: 44px/1 var(--display); color: var(--yellow); text-shadow: var(--outline); }
 #tm-revive .who { margin-top: 4px; font: 18px var(--font); color: var(--white); letter-spacing: 1px; }
@@ -165,7 +166,7 @@ body.tm-stand #game { filter: saturate(0.7) contrast(1.15); }
 
 /* ---- Team rewind vote */
 #tm-vote {
-  position: absolute; bottom: 104px; left: 50%;
+  position: absolute; bottom: 176px; left: 50%;
   transform: translateX(-50%);
   --bg: var(--night); --hi: var(--slate); --lo: var(--ink); --ring: var(--cyan);
   padding: 6px 16px 10px;
@@ -332,7 +333,7 @@ export class TimeHud {
     }
   }
 
-  /** VHS rewind overlay: progress 0..1 (-1 = off) and how many seconds it rewinds. */
+  /** VHS rewind overlay: how far back the playback is (0..1, -1 = off) of how many seconds it rewinds. */
   vhsAt(k: number, seconds: number, dt: number): void {
     this.playT = Math.max(0, this.playT - dt);
     const on = k >= 0 || this.playT > 0;
@@ -423,8 +424,8 @@ export class TimeHud {
     const hands = this.revive.querySelector('.hands')!;
     const paint = (sleeve: string) => (c: string) => (c === '#' ? 'var(--ink)' : c === 's' ? sleeve : c === 'c' || c === 'w' ? 'var(--white)' : c === 'h' ? 'var(--mist)' : null);
     hands.innerHTML =
-      `<div class="h l">${pixels(HAND, 4, paint(SLEEVES[ia % 4]))}</div>` +
-      `<div class="h r">${pixels(HAND, 4, paint(SLEEVES[ib % 4]), true)}</div>` +
+      `<div class="h l">${pixels(HAND, 5, paint(SLEEVES[ia % 4]))}</div>` +
+      `<div class="h r">${pixels(HAND, 5, paint(SLEEVES[ib % 4]), true)}</div>` +
       `<div class="boom">${pixels(BOOM, 6, (c) => (c === '#' ? 'var(--yellow)' : null))}</div>`;
     this.revive.querySelector('.who')!.textContent = `${rescuer.toUpperCase()} PULLED ${rescued.toUpperCase()} BACK!`;
     this.revive.classList.remove('on');
