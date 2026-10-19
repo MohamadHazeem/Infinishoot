@@ -59,10 +59,10 @@ const loop = new GameLoop({
   },
 
   render(alpha, frameDt) {
+    syncPrompts(input, frameDt); // button prompts follow the last used device
     const t0 = prof.on ? performance.now() : 0;
     if (!game.paused && game.mode !== 'levelup') retroGlobals.uTime.value += frameDt;
     game.render(alpha, frameDt);
-    syncPrompts(input, frameDt); // button prompts follow the last used device
     const t1 = prof.on ? performance.now() : 0;
     renderer.gl.setClearColor(retroGlobals.uFogColor.value); // follows the biome
     renderer.render(game.scene, game.cam.camera);

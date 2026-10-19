@@ -207,15 +207,19 @@ export function injectHudCss(): void {
  * UI SCALE limits (percent). Scaling up is capped by the window so the top
  * row (life, clock, score) never overlaps: at most `fitW` CSS px of width and
  * `fitH` of height per 100% (1280x720 allows about 120%, 1920x1080 all 150%).
+ * Windows narrower than `tinyW` shrink the HUD a little more (never under
+ * `tinyMin`), so the level badge, life and clock still fit side by side.
  */
-export const uiScaleTuning = { min: 75, max: 150, fitW: 950, fitH: 600 };
+export const uiScaleTuning = { min: 75, max: 150, fitW: 950, fitH: 600, tinyW: 760, tinyMin: 0.75 };
 
-/** Zoom factor for a stored UI SCALE (percent) in a w x h window; bad values fall back to 100%. Never shrinks below 100% on its own. */
+/** Zoom factor for a stored UI SCALE (percent) in a w x h window; bad values fall back to 100%. */
 export function uiZoom(pct: number, w = 1920, h = 1080): number {
   if (!Number.isFinite(pct)) return 1;
-  const want = Math.max(uiScaleTuning.min, Math.min(uiScaleTuning.max, pct)) / 100;
-  const fit = Math.max(1, Math.min(w / uiScaleTuning.fitW, h / uiScaleTuning.fitH));
-  return Math.round(Math.min(want, fit) * 100) / 100;
+  const t = uiScaleTuning;
+  const want = Math.max(t.min, Math.min(t.max, pct)) / 100;
+  const fit = Math.max(1, Math.min(w / t.fitW, h / t.fitH));
+  const tiny = w < t.tinyW ? Math.max(t.tinyMin, w / t.tinyW) : 1;
+  return Math.round(Math.max(t.min / 100, Math.min(want, fit) * tiny) * 100) / 100;
 }
 
 let lastPct = 100;

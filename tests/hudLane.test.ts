@@ -56,7 +56,7 @@ document.body.innerHTML = '';
 const { uiZoom } = await import('../src/ui/hudLayout');
 ok(uiZoom(100, 1280, 720) === 1 && uiZoom(75, 800, 600) === 0.75, 'UI SCALE 100% and 75%');
 ok(uiZoom(150, 1920, 1080) === 1.5 && uiZoom(150, 1280, 720) === 1.2, 'big scales are capped to what fits the window');
-ok(uiZoom(100, 640, 480) === 1, 'small windows never shrink the default on their own');
+ok(uiZoom(100, 800, 600) === 1 && uiZoom(100, 640, 480) === 0.84 && uiZoom(75, 640, 480) === 0.75, 'tiny windows shrink the HUD a little, never under 75%');
 ok(uiZoom(NaN) === 1 && uiZoom(400, 3840, 2160) === 1.5 && uiZoom(10) === 0.75, 'bad values are clamped');
 
 // ---------------------------------------------------------------- damage numbers
