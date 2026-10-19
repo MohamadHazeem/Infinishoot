@@ -3,6 +3,7 @@
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `hostGame = Online.hostGame;`.
  */
+import { profileSummary } from './meta2';
 import type { Game } from '../game';
 import { localHero, kitText } from '../game';
 import { randomSeed } from '../../core/rng';
@@ -27,7 +28,7 @@ export async function hostGame(this: Game, name: string): Promise<void> {
   if (this.role !== 'host' || this.host) return;
   const host = new NetHost(3);
   this.host = host;
-  this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) }];
+  this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), pf: profileSummary() }];
   this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
   host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
   host.onLeave = (id) => this.onClientLeft(id);
@@ -43,7 +44,7 @@ export async function hostGame(this: Game, name: string): Promise<void> {
 
 export function refreshLobby(this: Game): void {
   if (!this.host) return;
-  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout) }));
+  const players = this.lobby.map((p, i) => ({ name: p.name, color: HERO_COLORS[i], kit: kitText(p.loadout), pf: p.pf ?? null }));
   const difficulty = this.lobbyDifficulty().id;
   const kind = this.lobbyKind;
   const extra = this.mpLobbyExtra(); // Versus Overlord, weekly team, PUBLIC (systems/mp.ts)
@@ -116,7 +117,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
     return;
   }
-  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) });
+  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), pf: profileSummary() });
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }
 

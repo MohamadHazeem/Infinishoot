@@ -41,7 +41,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard';
+export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'profile' | 'achievements';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly';
 
@@ -82,7 +82,7 @@ export interface ScreenActions {
 
 export interface LobbyView {
   code: string;
-  players: { name: string; color: string; kit?: string }[];
+  players: { name: string; color: string; kit?: string; pf?: { lv: number; title: string; banner: string } | null }[];
   isHost: boolean;
   status: string;
   /** Difficulty the host picked (shown to everyone in the lobby). */
@@ -154,6 +154,8 @@ export interface Offer {
 }
 
 export interface RunSummary {
+  /** meta2: the host's profile counters for this hero (src/game/systems/meta2.ts). */
+  m2?: Record<string, number>;
   heat?: number;
   bolts?: number;
   clears?: number;
@@ -900,7 +902,7 @@ export class Screens {
     showRelayField(el, !inLobby);
     el.querySelector('.code-big')!.textContent = v.code;
     el.querySelector('.players')!.innerHTML = localizeHtml(v.players
-      .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span><bdi>${p.name}</bdi>${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
+      .map((p, i) => `<div class="lobby-player" style="--c:${p.color}"><span class="dot"></span><bdi>${p.name}</bdi>${p.pf ? ` <small class="pf" style="--pf:${p.pf.banner}">LV ${p.pf.lv} ${p.pf.title.toUpperCase()}</small>` : ''}${i === 0 ? ' <small>HOST</small>' : ''}${p.kit ? ` <small class="kit">${p.kit}</small>` : ''}</div>`)
       .join(''));
     el.querySelector<HTMLElement>('.mp-heat')!.hidden = !(v.isHost && v.code && (v.kind ?? 'coop') === 'coop');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
@@ -1523,7 +1525,8 @@ export class Screens {
   }
 
   private renderUnlocks(): void {
-    this.els.unlocks.querySelector('.ach-list')!.innerHTML = localizeHtml(ACHIEVEMENTS.map((a) => {
+    // meta2's measured achievements live on EXTRAS > ACHIEVEMENTS; UNLOCKS keeps the ones that unlock things.
+    this.els.unlocks.querySelector('.ach-list')!.innerHTML = localizeHtml(ACHIEVEMENTS.filter((a) => !a.track).map((a) => {
       const done = save.achievements.includes(a.id);
       const item = a.unlockLoadout ? (WEAPONS[a.unlockLoadout] ?? SPECIALS[a.unlockLoadout]) : null;
       const reward = a.unlockWeapon ? `Unlocks ${WEAPONS[a.unlockWeapon].name}` : item ? `Loadout: ${item.name}` : '';

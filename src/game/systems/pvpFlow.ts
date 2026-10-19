@@ -188,6 +188,7 @@ export function pvpCheckWinner(this: Game): void {
 
 /** Everyone: show the winner, then back to the title a few seconds later. */
 export function pvpOver(this: Game, winner: string): void {
+  this.meta2PvpOver(winner); // profile stats and XP (systems/meta2.ts)
   const pvp = this.pvp!;
   pvp.phase = 'over';
   this.vfx.banner(winner ? `${winner.toUpperCase()} WINS!` : 'DRAW!', 'LAST ONE STANDING', 4);
