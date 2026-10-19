@@ -35,6 +35,10 @@ const BASE_STEMS: Readonly<Record<string, Instrument>> = {
   pellets: { patch: 'square', steps: [2, 6, 10, 14], degrees: [0, 2, 4, 2], octave: 12, length: 0.3, cutoff: 2000, pan: 0.22 },
   bouncer: { patch: 'pluck', steps: [0, 5, 8, 13], degrees: [0, 4, 7, 4], octave: 12, length: 1.3, cutoff: 5500, pan: -0.38 },
   starfall: { patch: 'bell', steps: [3, 7, 11, 15], degrees: [7, 4, 2, 0], octave: 24, length: 2, cutoff: 6500, pan: 0.35 },
+  // Hero kits (heroes3 lane)
+  katana: { patch: 'pluck', steps: [0, 3, 6, 12], degrees: [0, 4, 7, 4], octave: 12, length: 0.5, cutoff: 7000, pan: -0.1 },
+  iaido: { patch: 'wide', steps: [8], degrees: [7], octave: 12, length: 3, cutoff: 5200, pan: 0.15, sweep: true },
+  beacon: { patch: 'square', steps: [2, 6, 10, 14], degrees: [4, 4, 7, 4], octave: 24, length: 0.4, cutoff: 3600, pan: 0.2 },
 };
 /** A fused weapon plays its first part's rhythm through its second part's patch, merged rhythms, an octave up. */
 function fusedStem(a: Instrument, b: Instrument): Instrument {

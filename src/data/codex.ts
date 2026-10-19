@@ -59,6 +59,16 @@ const HERO_LORE: Record<string, string> = {
     "A rescue worker who once held a collapsing bridge together until the last courier crossed. The heavy armour is mostly for everyone else's peace of mind.",
   dash: 'The old island racing champion traded prize money for a pair of experimental boots. The scorch marks are now a registered signature.',
   ace: 'A radio operator who can hear the rhythm hiding in machine chatter. Every shot is timed to the next beat.',
+  duelist:
+    'A fencing champion from the floating arenas who never learned to dodge. Why would you, when every blow can be turned aside?',
+  furnace:
+    'A boiler-room giant who keeps the island lighthouses warm. Standing still is not laziness; it is stoking.',
+  twin:
+    'Nobody is sure which one is the original. They split the snacks evenly and argue about it anyway.',
+  ronin:
+    'A wandering sword-saint who left the old dojo when its training bots went rogue. The arm blade was forged from the dojo bell, and it still rings on every cut.',
+  tinker:
+    'The islands\' youngest mechanic builds friends out of whatever the robots leave behind. Every bot gets a name, a number and a tiny hand-painted smile.',
 };
 
 export const CODEX = [

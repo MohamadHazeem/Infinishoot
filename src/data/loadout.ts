@@ -16,7 +16,7 @@ export const DEFAULT_LOADOUT: Loadout = { primary: 'buster', secondary: 'charge'
 export function loadoutOptions(slot: LoadoutSlot): string[] {
   if (slot === 'special') return Object.keys(SPECIALS);
   return Object.values(WEAPONS)
-    .filter((d) => d.slot === slot)
+    .filter((d) => d.slot === slot && !d.heroOnly)
     .map((d) => d.id);
 }
 

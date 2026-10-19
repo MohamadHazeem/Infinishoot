@@ -35,6 +35,7 @@ import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
 import { contentLinks } from './contentLinks';
 import { weapons3Links } from './weapons3Links';
+import { heroes3Links } from './heroes3Links';
 import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
 import { bossLinks } from './bossLinks';
@@ -113,6 +114,7 @@ import { SCAR_COLORS } from '../game/scars';
  * Bosses lane (src/dev/bossLinks.ts): &titan, &titanphase=3, &titanmove=beam, &remix, &duel.
  *
  * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
+ * Heroes3 lane (src/dev/heroes3Links.ts): &hero=ronin&aim=0,-1 (swings), &rank=katana:2:3, &strikego=2, &beacongo=1, &bots=5.
  *
  * Modes lane (src/dev/modesLinks.ts): &rhythm, &pacifist&pact=40, &minigame=gallery|coins|whack&mgt=6, &ghost=demo&ghostlead=3, &modescreen=ghosts.
  *
@@ -234,6 +236,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   hudLinks(game, q);
   contentLinks(game, q);
   weapons3Links(game, q);
+  heroes3Links(game, q); // rank=, strikego=, beacongo=, bots= (src/dev/heroes3Links.ts)
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   // Readability stress: &heroes=4 (up to 8), with real rigs, weapons and local effect replay.
   const heroCount = Math.min(8, Math.max(1, Number(q.get('heroes')) || 1));

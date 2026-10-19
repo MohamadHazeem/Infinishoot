@@ -1,6 +1,7 @@
 import type GUI from 'lil-gui';
 import { biomeFoeTuning } from '../game/biomeFoes';
 import { heroMechTuning } from '../game/heroMechs';
+import { addHeroes3Folder } from './debugHeroes3';
 
 /** Debug panel folder for the content lane: biome foes and hero mechanics. */
 export function addContentFolder(gui: GUI): void {
@@ -24,4 +25,5 @@ export function addContentFolder(gui: GUI): void {
   const t = heroMechTuning.twin;
   f.add(t, 'damage', 0, 1, 0.05).name('Twin damage x');
   f.add(t, 'side', 0.5, 3, 0.1).name('Twin distance');
+  addHeroes3Folder(gui); // Ronin and Tinker (heroes3 lane)
 }

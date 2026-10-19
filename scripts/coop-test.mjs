@@ -1,4 +1,5 @@
-// Online co-op test with two real game instances in headless Chromium.
+// Online co-op test with two real game instances in headless Chromium. The host plays the Tinker and the client
+// the Ronin (COOP_HEROES=host,client picks others).
 //   npm run coop [-- --secs 80] [--out shots/coop] [--size 960x540]
 // Page A hosts an online co-op game, page B joins with the invite code, and
 // both play with the dev autoplay bot (src/dev/bot.ts `botAuto`), at night in
@@ -138,6 +139,22 @@ await Promise.all(
       saveSettings(); // kept through the client's reload (it joins by the invite link)
       window.game.applyLocalSkin(); // what the wardrobe does: the title hero gets the pet
     }, pet),
+  ),
+);
+// Heroes (heroes3 lane): the host plays the Tinker (its bots reach the client through the snapshot), the client
+// the Ronin (it dashes itself; the host judges the cuts). COOP_HEROES=rookie,rookie plays the old pair.
+const [heroA, heroB] = (process.env.COOP_HEROES ?? 'tinker,ronin').split(',');
+await Promise.all(
+  [
+    [A, heroA],
+    [B, heroB],
+  ].map(([p, hero]) =>
+    p.page.evaluate(async (hero) => {
+      const { settings } = await import('/src/game/settings.ts');
+      window.cheats.unlockAll = true; // both heroes unlock through achievements a fresh profile doesn't have
+      settings.hero = hero;
+      window.game.applyLocalSkin();
+    }, hero),
   ),
 );
 await A.page.evaluate(() => {
@@ -424,12 +441,38 @@ const clientTo = (kind) =>
     for (const s of list) if (!best || Math.hypot(s.x - p.x, s.z - p.z) < Math.hypot(best.x - p.x, best.z - p.z)) best = s;
     if (!best) return null;
     window.botAuto(false);
+    for (const w of g.hero.weapons) if ('predFocus' in w) w.predFocus = 0; // a Ronin client: no dash-strike off the toy when the bot lets go
+    g.input.keys.clear(); // the bot's last keys and buttons would otherwise stay held and walk the hero off the toy
+    g.input.mouseButtons = 0;
     g.toys.jumps[g.local] = null; // not mid-flight from an earlier pad
     p.teleport(best.x, best.z);
     setTimeout(() => window.botAuto(true), kind === 'pad' ? 1200 : 3000);
     return [best.x, best.z];
   }, kind);
+/** heroes3 lane: the host Tinker's bots on both screens, the client Ronin's sword (and later its dash-strike) on the host. */
+const heroes3Check = (dash) => async () => {
+  const h = await host(async () => {
+    const { minionsOf } = await import('/src/game/heroes3.ts');
+    const g = window.game;
+    const d = (i, k) => Math.round(g.heroes[i]?.damageBy[k] ?? 0);
+    const strikes = g.heroes[1]?.weapons.find((w) => w.def.id === 'iaido')?.cutSeq ?? 0;
+    return { heroes: g.heroes.map((x) => x.heroDef.id).join(), bots: minionsOf(g).count, minion: d(0, 'minion'), katana: d(1, 'katana'), iaido: d(1, 'iaido'), strikes };
+  });
+  if (h.heroes !== 'tinker,ronin') return `skipped (heroes ${h.heroes})`;
+  const c = await client(async () => {
+    const { minionsOf } = await import('/src/game/heroes3.ts');
+    const g = window.game;
+    return { bots: minionsOf(g).count, swings: g.hero.weapons.find((w) => w.def.id === 'katana')?.seq ?? -1 };
+  });
+  if (h.bots < 1 || c.bots < 1) fail(`heroes3: bots host ${h.bots}, client ${c.bots}`);
+  if (h.katana <= 0 || c.swings <= 0) fail(`heroes3: client Ronin's sword: host damage ${h.katana}, client swings ${c.swings}`);
+  if (dash && h.iaido <= 0) fail(`heroes3: the client Ronin's dash-strike never cut anything on the host`);
+  return { host: h, client: c };
+};
+
 const SCENARIO = [
+  [20, 'heroes3: Tinker bots on both screens, the client Ronin swings', heroes3Check(false)],
+  [70, 'heroes3: the client Ronin has dash-struck too', heroes3Check(true)],
   [8, 'new enemy types, an elite and the Goldbug near the client', () =>
     host(async () => {
       const g = window.game;

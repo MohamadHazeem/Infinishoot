@@ -3,6 +3,7 @@ import { Team } from './bullets';
 import { pilotGameplay } from './systems/gameplay';
 import { pilotModes } from './systems/modes';
 import { goldenPortalAt } from './systems/cinematics';
+import { pilotHeroes3 } from './heroes3';
 
 /**
  * The autoplay brain: what a bot-driven hero wants to do this step. Shared by
@@ -102,6 +103,7 @@ export class Autopilot {
     }
     // Supply crates and mech suits nearby, and combo cash-ins (gameplay lane).
     const mv = { mx, mz };
+    if (g.mode !== 'portal') pilotHeroes3(g.hero.heroDef?.mech, p.x, p.z, mv, boss ?? null); // the Ronin fights up close (heroes3 lane; help ghosts drive a stand-in without a hero def)
     o.cash = pilotGameplay(g, mv, Math.hypot(ax, az) > 1);
     const aim = pilotModes(g, mv); // mini-games, the Pacifist road (modes lane)
     if (aim !== undefined) best = aim;
@@ -110,7 +112,7 @@ export class Autopilot {
     o.target = best;
     // Right click: hold ~1.4 s (a full charge, or fire whenever a cooldown weapon is ready), then let go briefly.
     this.rightT = (this.rightT + 1 / 60) % 1.6;
-    o.charge = !!best && this.rightT < 1.4;
+    o.charge = !!best && this.rightT < 1.4 && g.mode !== 'portal'; // (a Ronin's dash-strike would carry it away from the portal)
     o.dash = bd < 1.3 && p.dashReady01 >= 1;
     o.special = g.hero.bombCharge >= 1 && Math.hypot(ax, az) > 1;
     // Skill layer: ultimate when charged with enemies close, parry when an enemy bullet is about to land.

@@ -9,6 +9,7 @@ import { lagOut, lagSteps, lagTuning, rewindEnemy } from './netcode';
  */
 import { ARENA_SOURCE_NAMES } from './arena';
 import { MECH_SOURCE_NAMES } from './heroMechs';
+import { heroes3OnKill } from './heroes3';
 import { gpBulletBlast } from './gameplay';
 import { GP_SOURCE_NAMES } from '../gameplay';
 import { copyOrbPulse } from './enemyAi';
@@ -258,6 +259,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.gpOnKill(e, source, by); // mutant rewards, mech drops, finale spots, Nova Heart, Powder Keg (systems/gameplay.ts)
   this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
   gauntletKill(this, e);
+  heroes3OnKill(this, e, by); // Point Blank kills (systems/heroes3.ts)
   this.enemies.kill(e);
   // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
   // (a stale `boss` once became a Chonk: wrong boss bar on clients and a stage that wouldn't clear).

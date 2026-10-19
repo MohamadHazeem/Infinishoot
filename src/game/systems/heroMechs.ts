@@ -11,6 +11,7 @@ import { heroMechTuning, TwinClone } from '../heroMechs';
 import type { Hero } from '../hero';
 import { power } from '../ultimates';
 import { commit } from '../../render/instancing';
+import { heroes3Achievements, heroes3Parry, renderHeroes3, updateHeroes3 } from './heroes3';
 
 const FIRE_TAGS = ['fire', 'area'] as const;
 
@@ -18,6 +19,7 @@ const FIRE_TAGS = ['fire', 'area'] as const;
 export const MECH_SOURCE_NAMES: Record<string, string> = {
   furnace: 'Furnace Aura',
   roller: 'Snowball',
+  minion: 'Tinker Bots',
 };
 
 /** Make sure a Twin hero has its clone (host and clients; lazily, the hero's ctx comes after its def). */
@@ -75,12 +77,14 @@ export function updateHeroMechs(this: Game, dt: number): void {
       else tw?.follow(dt);
     }
   }
+  updateHeroes3(this, dt); // Ronin and Tinker (systems/heroes3.ts)
 }
 
 /** A hero landed a parry (from systems/skill.ts): the run's count, and the Duelist's chain. */
 export function onParryLanded(this: Game, h: Hero): void {
   const m = h.mech;
   m.parries++;
+  heroes3Parry(this, h); // the Ronin's counter-slash
   if (m.id !== 'duelist') return;
   const n = m.chainParry();
   if (n > 1) this.vfx.num(h.player.x, 3.3, h.player.z, `CHAIN x${n}`, 'crit');
@@ -204,6 +208,7 @@ export function renderHeroMechs(this: Game, alpha: number, frameDt: number): voi
     }
   }
   commit(am.instanceMatrix, am.count);
+  renderHeroes3(this, frameDt); // Tinker bots (systems/heroes3.ts)
 }
 
 /** Achievements that unlock the mechanic heroes (appended to checkAchievements). */
@@ -214,6 +219,7 @@ export function heroMechAchievements(this: Game): [string, boolean][] {
     ['riposte', h.mech.parries >= 25],
     ['immovable', h.mech.stillBest >= 20],
     ['double_trouble', clicks.length >= 2 && clicks.every((w) => w.evolved)],
+    ...heroes3Achievements(this),
   ];
 }
 

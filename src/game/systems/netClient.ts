@@ -32,6 +32,7 @@ import { onHeartbeat } from '../netFeel';
 import { onCoverMsg } from '../coverBreak';
 import { applySoundLaneNet } from './sound2';
 import { applyNq, clientViewStep, netcodeBullets, netcodeClientMsg, netcodeSnapshot, netcodeStep, snapIfTeleported } from './netcode';
+import { applyHeroes3Net, heroes3ClientStep } from './heroes3';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (netcodeClientMsg(this, m)) return; // probes; flushes the playout buffer before world changes (systems/netcode.ts)
@@ -240,6 +241,7 @@ export function clientUpdate(this: Game, dt: number): void {
   this.skillClientInput(control);
   this.companionClientInput(control);
   this.gameplayClientInput(control);
+  heroes3ClientStep(this, dt, control, rightClickHeld(input, control)); // the Ronin's own dash-strike (systems/heroes3.ts)
   const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
   const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
   const charging = rightClickHeld(input, control);
@@ -418,6 +420,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
   if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen
+  applyHeroes3Net(this, s.h3); // Tinker bots (systems/heroes3.ts)
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
   else if (!portal && this.portal.active) this.portal.close();

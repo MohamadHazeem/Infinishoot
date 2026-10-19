@@ -7,7 +7,8 @@
 import { sfx } from './sfx';
 import { caption } from './captions';
 import { voiceGate } from './announcer';
-import { RECORDED_VOICES, speechBusy } from './voices';
+import { RECORDED_VOICES, barkSample, speechBusy, type BarkKind as RecordedKind } from './voices';
+import { samples } from './samples';
 import { BARKS, compose, voiceProfile, voiceTuning, type BarkKind, type Utterance } from './voice';
 
 /** VOICE setting (the volume is audioSettings.voice). */
@@ -31,6 +32,20 @@ export interface BarkOptions {
   force?: boolean;
 }
 
+/** Synth bark kinds that have a recorded line (src/audio/voices.ts); the rest stay silent for recorded heroes. */
+const RECORDED_KIND: Partial<Record<BarkKind, RecordedKind>> = { lowLife: 'lowhp', levelUp: 'level', evolve: 'evolve', revive: 'revive', victory: 'win' };
+
+/**
+ * Does this hero's recorded voice cover this moment? Recorded heroes never mix
+ * in the synth voice, except as the fallback when their recorded line for the
+ * moment is missing (not in the pack, or not loaded yet).
+ */
+export function speaksRecorded(heroId: string, kind: BarkKind): boolean {
+  if (!RECORDED_VOICES.has(heroId)) return false;
+  const k = RECORDED_KIND[kind];
+  return !k || !!samples.buffer(barkSample(heroId, k));
+}
+
 export class HeroVoice {
   private last = new Map<string, number>();
   private busy = new Map<number, { until: number; priority: number }>();
@@ -43,7 +58,7 @@ export class HeroVoice {
   /** Try to bark; returns the utterance if the moment passed every gate. */
   bark(kind: BarkKind, sp: Speaker, o: BarkOptions = {}): Utterance | null {
     // Heroes with recorded barks speak through src/audio/voices.ts; this voice is for the rest.
-    if (!voiceSettings.enabled || RECORDED_VOICES.has(sp.heroId)) return null;
+    if (!voiceSettings.enabled || speaksRecorded(sp.heroId, kind)) return null;
     const b = BARKS[kind];
     // One voice channel for everyone: barks wait for boss lines and the announcer (src/audio/voices.ts).
     if (speechBusy()) return null;

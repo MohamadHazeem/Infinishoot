@@ -234,7 +234,7 @@ export class Input {
         if (down) {
           this.padButtons[i] = true;
           this.device = 'pad';
-        }
+        } else if (this.vPrev[i] && !pad?.buttons[i]?.pressed) this.padButtons[i] = false; // let go (touch R-CLICK, test links); a real pad may still hold it
         this.vPrev[i] = down;
       });
     }

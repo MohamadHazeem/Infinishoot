@@ -62,6 +62,8 @@ export class HeroMech {
   chainT = 0;
   /** Parries landed this run (any hero; achievement). */
   parries = 0;
+  /** Kills within 2.5 m this run (any hero; the Point Blank achievement, src/game/systems/heroes3.ts). */
+  closeKills = 0;
   // Twin
   twin: TwinClone | null = null;
 
@@ -73,6 +75,7 @@ export class HeroMech {
       this.chain =
       this.chainT =
       this.parries =
+      this.closeKills =
         0;
   }
 
@@ -375,6 +378,53 @@ export function attachHeroGear(rig: HeroRig, mech: HeroDef['mech'] | undefined):
       for (const k of [-1, 1])
         put(rig.body, new THREE.BoxGeometry(0.34, 0.12, 0.42), iron, k * 0.42, 1.18, 0);
       put(rig.body, new THREE.BoxGeometry(0.22, 0.16, 0.06), glow, 0, 0.98, 0.3, 'grate');
+      break;
+    }
+    case 'ronin': {
+      const straw = mat('#d9a95b');
+      const strawDark = mat('#a8763e');
+      const red = mat('#b13e53');
+      const steel = mat('#f4f4f4', 0.35);
+      const edge = mat('#73eff7', 0.7);
+      const gold = mat('#ffcd75');
+      // A wide straw kasa hat over the helmet, its red band, and headband tails flying back.
+      put(rig.head, new THREE.ConeGeometry(0.72, 0.3, 12), straw, 0, 0.5, -0.02, 'kasa');
+      put(rig.head, new THREE.CylinderGeometry(0.73, 0.73, 0.03, 12), strawDark, 0, 0.36, -0.02);
+      put(rig.head, new THREE.CylinderGeometry(0.4, 0.42, 0.07, 10), red, 0, 0.42, -0.02);
+      put(rig.head, new THREE.BoxGeometry(0.08, 0.04, 0.5).rotateX(-0.5).rotateY(0.3), red, 0.1, 0.22, -0.55);
+      put(rig.head, new THREE.BoxGeometry(0.07, 0.04, 0.42).rotateX(-0.7).rotateY(-0.25), red, -0.08, 0.2, -0.5);
+      // A red sash at the waist.
+      put(rig.body, new THREE.BoxGeometry(0.6, 0.1, 0.42), red, 0, 0.8, 0);
+      put(rig.body, new THREE.BoxGeometry(0.12, 0.28, 0.06).rotateZ(0.2), red, 0.2, 0.66, -0.22);
+      // The arm blade: a long katana out of the forearm (the arm points forward when raised).
+      put(rig.armR, new THREE.BoxGeometry(0.3, 0.05, 0.22), gold, 0.04, -0.73, 0);
+      put(rig.armR, new THREE.BoxGeometry(0.05, 1.15, 0.13), steel, 0.04, -1.33, 0, 'blade');
+      put(rig.armR, new THREE.BoxGeometry(0.03, 1.1, 0.04), edge, 0.04, -1.33, 0.08);
+      put(rig.armR, new THREE.ConeGeometry(0.07, 0.18, 4).rotateX(Math.PI), steel, 0.04, -2.0, 0.01);
+      break;
+    }
+    case 'tinker': {
+      const orange = mat('#ef7d57');
+      const gold = mat('#ffcd75');
+      const dark = mat('#333c57');
+      const steel = mat('#566c86');
+      const lens = mat('#73eff7', 0.6);
+      const red = mat('#b13e53', 0.5);
+      // Big goggles pushed up on the helmet.
+      put(rig.head, new THREE.BoxGeometry(0.66, 0.08, 0.1), dark, 0, 0.27, 0.27);
+      for (const k of [-1, 1]) {
+        put(rig.head, new THREE.CylinderGeometry(0.13, 0.13, 0.1, 10).rotateX(Math.PI / 2), gold, k * 0.15, 0.3, 0.33);
+        put(rig.head, new THREE.CylinderGeometry(0.09, 0.09, 0.04, 10).rotateX(Math.PI / 2), lens, k * 0.15, 0.3, 0.39);
+      }
+      // A tool backpack with a spinning cog and an antenna.
+      put(rig.body, new THREE.BoxGeometry(0.52, 0.5, 0.3), orange, 0, 1.0, -0.34);
+      put(rig.body, new THREE.BoxGeometry(0.54, 0.08, 0.32), dark, 0, 1.18, -0.34);
+      put(rig.body, new THREE.CylinderGeometry(0.17, 0.17, 0.06, 8).rotateX(Math.PI / 2), gold, 0.0, 0.98, -0.52, 'cog');
+      put(rig.body, new THREE.CylinderGeometry(0.02, 0.02, 0.55, 4), dark, -0.18, 1.45, -0.38);
+      put(rig.body, new THREE.SphereGeometry(0.06, 6, 4), red, -0.18, 1.74, -0.38);
+      // A wrench in the free hand.
+      put(rig.armL, new THREE.BoxGeometry(0.07, 0.5, 0.07), steel, -0.03, -0.62, 0.05);
+      put(rig.armL, new THREE.BoxGeometry(0.2, 0.08, 0.08), steel, -0.03, -0.88, 0.05);
       break;
     }
     case 'twin': {

@@ -24,6 +24,7 @@ import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
 import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
+import { heroes3Net } from './heroes3';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -256,6 +257,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     vs: this.versusNet(),
     s2: soundLaneNet(this, forHero),
     nq: netNq(this), // everyone's ping / loss / snapshot rate (systems/netcode.ts)
+    h3: heroes3Net(this, forHero, INTEREST), // Tinker bots (systems/heroes3.ts)
   };
   // Bullets go as deltas (`bd`, src/net/bulletCodec.ts); `hs` stamps the host step for the client's playout clock.
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length, bu: { b: this.bullets, idx: bi } }, { fx: fxEncoder.encode(events, keepFx), hs: this.stepN });

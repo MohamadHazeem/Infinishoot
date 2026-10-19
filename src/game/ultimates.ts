@@ -5,6 +5,7 @@ import type { Hero } from './hero';
 import { SCAR_COLORS } from './scars';
 import { bossLike } from './bossRules';
 import { bladeDance, meltdown, mirrorStorm } from './heroUlts';
+import { scrapLegion, thousandCuts } from './heroes3Ults';
 
 /**
  * Hero ultimates: one per hero (src/data/heroes.ts `ult`), charged by damage
@@ -90,6 +91,25 @@ export const ULTS: Record<string, UltDef> = {
     color: '#73eff7',
     color2: '#f4f4f4',
     duration: 3,
+    invuln: true,
+  },
+  // heroes3 lane (src/game/systems/heroes3.ts).
+  cuts: {
+    id: 'cuts',
+    name: 'THOUSAND CUTS',
+    desc: 'Time slows and your blade is everywhere: rapid slashes on everything around you for 3 s, then one last cut on all of them.',
+    color: '#b13e53',
+    color2: '#f4f4f4',
+    duration: 3,
+    invuln: true,
+  },
+  legion: {
+    id: 'legion',
+    name: 'SCRAP LEGION',
+    desc: 'Six big mechs drop in around you and blast everything near for 9 s (fewer per Tinker in big parties).',
+    color: '#ffcd75',
+    color2: '#73eff7',
+    duration: 1.2,
     invuln: true,
   },
 };
@@ -236,6 +256,12 @@ export function updateUlt(g: Game, h: Hero, dt: number): void {
       break;
     case 'mirror':
       mirrorStorm(g, h, dt, pw);
+      break;
+    case 'cuts':
+      thousandCuts(g, h, dt, pw);
+      break;
+    case 'legion':
+      scrapLegion(g, h, age);
       break;
   }
   if (sk.ultT <= 0) endUlt(g, h);

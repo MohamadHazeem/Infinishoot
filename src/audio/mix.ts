@@ -39,6 +39,11 @@ export const weaponSamples: Readonly<Record<string, string>> = {
   rail: 'w_rail',
   meteor: 'w_meteor',
   storm: 'w_storm',
+  swordSlash: 'sword_slash',
+  swordCombo: 'sword_combo',
+  swordDash: 'sword_dash',
+  summon: 'summon',
+  minionZap: 'minion_zap',
   explode: 'explode_small',
 };
 export const cueSamples: Readonly<Record<string, string>> = {
@@ -77,6 +82,11 @@ export const cueSamples: Readonly<Record<string, string>> = {
   petLevel: 'pet_level',
   teamCharge: 'team_charge',
   highFive: 'high_five',
+  swordSlash: 'sword_slash',
+  swordCombo: 'sword_combo',
+  swordDash: 'sword_dash',
+  summon: 'summon',
+  minionZap: 'minion_zap',
 };
 /**
  * 0 swarm noise .. 4 big moments, then the sound lane's bands: 6 = off-screen
