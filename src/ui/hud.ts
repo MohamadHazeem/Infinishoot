@@ -81,6 +81,8 @@ export interface HudState {
   /** Dashes ready / max (Dash Cells). */
   dashStock: number;
   dashMax: number;
+  /** Label for the dash meter ('DASH' unless the hero's dash key does something else, e.g. the Duelist's PARRY). */
+  dashLabel?: string;
   bomb01: number;
   /** Short name of the special on Q/E (BOMB, STORM...). */
   special: string;
@@ -716,7 +718,8 @@ export class Hud {
     const dash = this.el('#dashpip');
     dash.style.setProperty('--k', String(s.dash01));
     dash.classList.toggle('ready', s.dash01 >= 1);
-    this.text('#dashpip > span', s.dashMax > 1 ? `DASH ${s.dashStock}` : 'DASH');
+    const dashLabel = s.dashLabel ?? 'DASH';
+    this.text('#dashpip > span', s.dashMax > 1 ? `${dashLabel} ${s.dashStock}` : dashLabel);
     const bomb = this.el('#bombpip');
     bomb.style.setProperty('--k', String(s.bomb01));
     bomb.classList.toggle('ready', s.bomb01 >= 1);

@@ -80,7 +80,8 @@ flush();
 if (A.mode === 'shop') A.closeShop();
 A.loadStage(5);
 flush();
-const step = (n: number) => { for (let i = 0; i < n; i++) { A.update(1 / 60); flush(); B.update(1 / 60); B.render(1, 1 / 60); flush(); } };
+// Keep the team under its next level: a level-up waits for the fake guest's pick and would freeze the run.
+const step = (n: number) => { for (let i = 0; i < n; i++) { A.xp = 0; A.xpNext = 1e9; A.update(1 / 60); flush(); B.update(1 / 60); B.render(1, 1 / 60); flush(); } };
 step(10);
 ok(A.arenaStage === 5 && B.arenaStage === 5 && sig(A.arena) === sig(B.arena), 'host and client build the same Toy Factory arena on stage 5');
 // Crusher: an enemy parked on a pad is flattened at the slam; it counts as an environmental kill.

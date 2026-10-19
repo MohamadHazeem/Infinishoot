@@ -11,6 +11,7 @@ import { MOD_BY_ID } from '../../data/mods';
 import { sfx } from '../../audio/sfx';
 import { bossTrack, music, type TrackId } from '../../audio/music';
 import { biomeForStage } from '../../data/biomes';
+import { skillTuning } from '../style';
 import { attractLead } from './attract';
 import { applyTimeOfDay } from '../../render/biomeLook';
 import { retroGlobals } from '../../render/retroMaterial';
@@ -315,9 +316,11 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     {
       hp: p.hp,
       maxHp: p.maxHp,
-      dash01: p.dashReady01,
-      dashStock: p.dashStock,
-      dashMax: p.dashMax,
+      // The Duelist's dash key parries, so the meter shows the parry cooldown instead.
+      dash01: p.noDash ? 1 - Math.min(1, local.skill.parryCd / skillTuning.parryCooldown) : p.dashReady01,
+      dashStock: p.noDash ? 1 : p.dashStock,
+      dashMax: p.noDash ? 1 : p.dashMax,
+      dashLabel: p.noDash ? 'PARRY' : undefined,
       bomb01: local.bombCharge,
       special: local.specialDef.short,
       score: this.score,

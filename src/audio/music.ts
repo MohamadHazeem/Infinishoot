@@ -4,7 +4,7 @@ import {
   type TrackId, type Song, type Section,
 } from './music/composition';
 import { MusicSynth, musicTuning } from './music/synth';
-export { TRACKS, makeSong, biomeTrack, bossTrack, trackUnlocked } from './music/composition';
+export { TRACKS, makeSong, bossTrack, trackUnlocked } from './music/composition';
 export type { TrackId } from './music/composition';
 export { musicTuning } from './music/synth';
 

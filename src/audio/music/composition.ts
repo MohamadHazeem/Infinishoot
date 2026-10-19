@@ -105,11 +105,6 @@ export const TRACKS: { id: TrackId; name: string; stage: number; boss?: boolean;
 
 export const TRACK_BY_ID = Object.fromEntries(TRACKS.map((t) => [t.id, t])) as Record<TrackId, (typeof TRACKS)[number]>;
 
-/** The track for a stage's biome (biomes cycle every 4 stages). */
-export function biomeTrack(stage: number): TrackId {
-  return (['meadow', 'dunes', 'frost', 'magma'] as const)[(Math.max(1, Math.floor(stage)) - 1) % 4];
-}
-
 // ---------------------------------------------------------------- song generation
 
 export interface Song {
