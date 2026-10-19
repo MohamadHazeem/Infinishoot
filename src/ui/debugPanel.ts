@@ -30,6 +30,9 @@ import { surfaceTuning } from '../render/surfaces';
 import { worldDustTuning } from '../game/systems/worldFx';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
+import { banishTuning } from '../game/banish';
+import { cardNumTuning } from '../game/cardNumbers';
+import { previewTuning } from '../game/shopPreview';
 
 /** lil-gui tweak panel. Hidden by default; toggle with the backquote key. */
 export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: () => void): GUI {
@@ -135,6 +138,17 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   run.add({ boss: () => game.debugSkipToBoss() }, 'boss').name('Skip to boss');
   run.add({ fill: () => (game.hero.bombCharge = 1) }, 'fill').name('Fill bomb');
   run.add({ restart: () => game.restart() }, 'restart').name('New run');
+
+  // Shop lane: banish charges, card number lines, order preview sample hits.
+  const shop = gui.addFolder('Shop & cards').close();
+  shop.add(banishTuning, 'start', 0, 10, 1).name('Banishes per run');
+  shop.add(banishTuning, 'perShop', 0, 5, 1).name('Banishes per shop');
+  shop.add(banishTuning, 'max', 0, 20, 1).name('Banish cap');
+  shop.add({ b: () => (game.hero.banishLeft += 1) }, 'b').name('+1 banish');
+  shop.add(cardNumTuning, 'maxLines', 1, 6, 1).name('Number lines per card');
+  shop.add(previewTuning, 'dist', 0, 20, 0.5).name('Preview hit distance');
+  shop.add(previewTuning, 'near', 0, 3.5, 0.1).name('Preview near distance');
+  shop.add(previewTuning, 'far', 8, 30, 0.5).name('Preview far distance');
 
   const dir = gui.addFolder('Director').close();
   dir.add(directorTuning, 'stageSeconds', 30, 900, 10);

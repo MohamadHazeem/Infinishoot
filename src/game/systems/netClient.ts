@@ -74,7 +74,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.applySnapshot(m);
       break;
     case 'lv':
-      this.screens.showLevelUp(m.offers as Offer[], String(m.title), Number(m.rerolls), m.loadout as LoadoutItem[], Number(m.skip));
+      this.screens.showLevelUp(m.offers as Offer[], String(m.title), Number(m.rerolls), m.loadout as LoadoutItem[], Number(m.skip), Number(m.banish ?? -1));
       break;
     case 'shop':
       this.screens.showShop(this.shopFromNet(m.view as NetShop), m.focus === undefined ? undefined : Number(m.focus));
@@ -109,7 +109,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
 export function shopFromNet(this: Game, v: NetShop): ShopView {
   return {
     ...v,
-    offers: v.offers.map((o) => (o && MOD_BY_ID[o.id] ? { def: MOD_BY_ID[o.id], price: o.price, hint: o.hint } : null)),
+    offers: v.offers.map((o) => (o && MOD_BY_ID[o.id] ? { def: MOD_BY_ID[o.id], price: o.price, hint: o.hint, locked: o.locked, nums: o.nums } : null)),
     owned: v.owned.filter((o) => MOD_BY_ID[o.id]).map((o) => ({ def: MOD_BY_ID[o.id], sell: o.sell, readout: o.readout, level: o.level, maxLevel: o.maxLevel, upCost: o.upCost })),
   };
 }

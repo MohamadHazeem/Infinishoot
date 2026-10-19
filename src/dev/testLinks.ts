@@ -11,6 +11,7 @@ import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
+import { shopLinks } from './shopLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -191,6 +192,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (pg > 0) setTimeout(() => (shootAt(1.5, 8), game.tryParry(game.hero)), pg * 1000);
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
+  shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
   return true;
 }
 

@@ -50,6 +50,19 @@ export class Synergy implements ModApi {
 
   constructor(private host: SynergyHost) {}
 
+  /**
+   * Read-only preview (shop): a throwaway engine running these slots through
+   * the real Echo resolution, flag sums and damage pipeline. Slot state is
+   * copied, so hooks run on it (and on `host`, a sandbox) never touch the
+   * hero's real Mods.
+   */
+  static sandbox(slots: readonly Slot[], host: SynergyHost): Synergy {
+    const s = new Synergy(host);
+    s.slots = slots.map((sl) => ({ ...sl, st: { ...sl.st } }));
+    s.rebuild();
+    return s;
+  }
+
   // ---------------------------------------------------------------- ModApi
   get player(): Player {
     return this.host.player;
