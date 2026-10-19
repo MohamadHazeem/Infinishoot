@@ -152,9 +152,9 @@ export const BIOMES: BiomeDef[] = [
         clusters: [0.3, 0.25, 0.3, 0.15],
         rock: 'pumpkin',
         rockColors: ['#ff8a2a', '#ffa23d', '#f07a1f'],
-        light: { sun: [0.82, 0.62, 0.42], sky: [0.56, 0.5, 0.66], ground: [0.42, 0.3, 0.3] },
-        fog: '#ffc79a',
-        grade: { lift: [0.03, 0.01, 0.0], gamma: [0.98, 1, 1.02], gain: [1.05, 1.0, 0.94], saturation: 1.08 },
+        light: { sun: [0.76, 0.66, 0.5], sky: [0.54, 0.52, 0.68], ground: [0.4, 0.32, 0.32] },
+        fog: '#f4c8a0',
+        grade: { lift: [0.025, 0.01, 0.0], gamma: [0.99, 1, 1.01], gain: [1.03, 1.0, 0.96], saturation: 1.04 },
         weather: 'leaves',
         rain: 0.25,
         tufts: ['#e0a040', '#c98a2e', '#f2c05a', '#b8862a', '#a8b040'],
@@ -244,20 +244,20 @@ export const BIOMES: BiomeDef[] = [
       {
         id: 'aurora',
         name: 'Aurora Peaks',
-        groundTint: '#d8f4ff',
-        wallTint: '#c8f0f0',
-        capColor: '#c8fff0',
-        pillarTint: '#c8e0ff',
-        edge: { tex: 'snow', colors: ['#d8fff4', '#c8e8ff', '#e0d8ff'] },
-        leafTint: '#7fd8c8',
+        groundTint: '#c8f8ec',
+        pathTint: '#b8e8f0',
+        wallTint: '#a8e8e0',
+        capColor: '#d8fff4',
+        pillarTint: '#b8f0e0',
+        edge: { tex: 'snow', colors: ['#c8fff0', '#b8f0e8', '#d8d0ff'] },
+        leafTint: '#6fd8b8',
         rock: 'crystal',
         rockColors: ['#73eff7', '#a7f070', '#b8a8ff'],
-        light: { sun: [0.5, 0.6, 0.68], sky: [0.36, 0.52, 0.74], ground: [0.3, 0.42, 0.52] },
-        fog: '#8fd8e0',
-        grade: { lift: [0.0, 0.02, 0.04], gamma: [1, 0.99, 1], gain: [0.96, 1.03, 1.03], saturation: 1.1 },
+        light: { sun: [0.46, 0.6, 0.62], sky: [0.4, 0.34, 0.66], ground: [0.26, 0.42, 0.46] },
+        fog: '#5fb8c0',
+        grade: { lift: [0.0, 0.025, 0.04], gamma: [1, 0.99, 1], gain: [0.95, 1.04, 1.02], saturation: 1.12 },
         weather: 'aurora',
         rain: 0,
-        dusk: 0.85,
       },
     ],
   },
@@ -291,9 +291,9 @@ export const BIOMES: BiomeDef[] = [
       {
         id: 'ashen',
         name: 'Ashen Magma',
-        groundTint: '#c8c4c8',
-        pathTint: '#b8b0b8',
-        wallTint: '#b0aab8',
+        ground: 'greyAsh',
+        pathTint: '#c8c0c0',
+        wallTint: '#b8b4bc',
         capColor: '#ffb627',
         pillarTint: '#c8c0c8',
         edge: { tex: 'obsidian', colors: ['#6a6670', '#57535e', '#7a7480'] },
@@ -305,6 +305,7 @@ export const BIOMES: BiomeDef[] = [
         grade: { lift: [0.03, 0.01, 0.01], gamma: [1, 0.99, 1], gain: [1.06, 1.0, 0.95], saturation: 1.02 },
         weather: 'ash',
         dust: '#9a949e',
+        dusk: 0.5,
       },
     ],
   },
@@ -434,6 +435,19 @@ export function biomeKeysUpTo(stages: number): string[] {
   for (let s = 1; s <= Math.max(1, stages); s++) {
     const k = biomeKeyForStage(s);
     if (!out.includes(k)) out.push(k);
+  }
+  return out;
+}
+
+/** The first stage that shows each biome reached in `stages` stages (title attract mode picks from these). */
+export function biomeStagesUpTo(stages: number): number[] {
+  const out: number[] = [];
+  const keys: string[] = [];
+  for (let s = 1; s <= Math.max(1, Math.min(48, stages)); s++) {
+    const k = biomeKeyForStage(s);
+    if (keys.includes(k)) continue;
+    keys.push(k);
+    out.push(s);
   }
   return out;
 }

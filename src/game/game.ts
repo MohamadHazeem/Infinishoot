@@ -66,6 +66,7 @@ import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
 import * as SkillSys from './systems/skill';
+import * as AttractSys from './systems/attract';
 
 export { economyTuning } from './hero';
 
@@ -463,6 +464,8 @@ export class Game implements HeroWorld {
   applySkillNet = SkillSys.applySkillNet;
   renderSkill = SkillSys.renderSkill;
   bestStyle = SkillSys.bestStyle;
+  // Title attract mode (src/game/systems/attract.ts).
+  attractTick = AttractSys.attractTick;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -1015,6 +1018,7 @@ export class Game implements HeroWorld {
       for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
       if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
     }
+    if (this.mode === 'title' && !switched) this.attractTick(dt);
     if (frozen || switched) {
       input.endStep();
       this.hostTick(true);

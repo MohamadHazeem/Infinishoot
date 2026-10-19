@@ -57,7 +57,14 @@ export function buildBlockWall(rng: Rng, w: number, h: number, d: number, mats: 
   const thick = alongX ? d : w;
   const rows = Math.max(2, Math.round(h / 0.6));
   const bh = 0.6;
-  const stud = new THREE.CylinderGeometry(0.16, 0.16, 0.16, 8);
+  // Bricks are baked per colour here (one mesh per colour per wall), so the arena merge stays cheap.
+  const byMat = new Map<THREE.Material, THREE.BufferGeometry[]>();
+  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => {
+    geo.translate(x, y, z);
+    const list = byMat.get(mat) ?? [];
+    list.push(geo);
+    byMat.set(mat, list);
+  };
   for (let r = 0; r < rows; r++) {
     let t = -len / 2;
     // Running bond: every other course starts with a half brick.
@@ -66,20 +73,23 @@ export function buildBlockWall(rng: Rng, w: number, h: number, d: number, mats: 
       const want = first ? 0.5 : rng.chance(0.6) ? 1 : 1.5;
       first = false;
       const bl = Math.min(want, len / 2 - t);
-      const geo = new THREE.BoxGeometry(alongX ? bl - 0.04 : thick - 0.04, bh - 0.03, alongX ? thick - 0.04 : bl - 0.04);
       const c = t + bl / 2;
       const mat = rng.pick(mats);
-      g.add(mesh(geo, mat, alongX ? c : 0, r * bh + bh / 2, alongX ? 0 : c));
+      add(new THREE.BoxGeometry(alongX ? bl - 0.04 : thick - 0.04, bh - 0.03, alongX ? thick - 0.04 : bl - 0.04), mat, alongX ? c : 0, r * bh + bh / 2, alongX ? 0 : c);
       if (r === rows - 1) {
-        // Studs: two rows across the thickness, one every half metre.
-        for (let k = 0.25; k < bl; k += 0.5)
-          for (const off of [-thick / 4, thick / 4]) {
-            const along = t + k;
-            g.add(mesh(stud, mat, alongX ? along : off, rows * bh + 0.08, alongX ? off : along));
-          }
+        // Studs along the top, one every half metre.
+        for (let k = 0.25; k < bl; k += 0.5) {
+          const along = t + k;
+          add(new THREE.CylinderGeometry(0.17, 0.17, 0.16, 6), mat, alongX ? along : 0, rows * bh + 0.08, alongX ? 0 : along);
+        }
       }
       t += bl;
     }
+  }
+  for (const [mat, geos] of byMat) {
+    const merged = mergeGeometries(geos);
+    for (const x of geos) x.dispose();
+    if (merged) g.add(new THREE.Mesh(merged, mat));
   }
   return g;
 }

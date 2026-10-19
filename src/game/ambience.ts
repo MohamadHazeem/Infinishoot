@@ -86,7 +86,7 @@ const STYLES: Record<Weather, WeatherStyle> = {
   wind: { count: 120, colors: ['#ffffff', '#f4f8ff', '#e2f0ff'], w: 26, d: 18, y: [0.3, 5], vel: [12, 0, -2], wobble: 0.3, size: [1.1, 0.03, 0.03] },
   leaves: { count: 110, colors: ['#ef7d57', '#ffb627', '#e2563c', '#ffcd75'], w: 24, d: 18, y: [0, 9], vel: [1.2, -1.0, 0.4], wobble: 1.1, size: [0.16, 0.02, 0.12] },
   fireflies: { count: 70, colors: ['#e8ff8a', '#a7f070', '#fff4a0'], w: 22, d: 16, y: [0.3, 3.2], vel: [0.15, 0, 0.1], wobble: 0.9, size: [0.09, 0.09, 0.09] },
-  aurora: { count: 120, colors: ['#73eff7', '#a7f070', '#b8a8ff', '#ffffff'], w: 24, d: 18, y: [1, 13], vel: [0.25, 0.45, 0.1], wobble: 0.6, size: [0.12, 0.12, 0.12] },
+  aurora: { count: 160, colors: ['#73eff7', '#a7f070', '#b8a8ff', '#ffffff'], w: 24, d: 18, y: [1, 13], vel: [0.25, 0.45, 0.1], wobble: 0.6, size: [0.07, 0.6, 0.07] },
   ash: { count: 190, colors: ['#9a949e', '#c8c4c8', '#6a6670', '#ff7a2f'], w: 24, d: 18, y: [0, 11], vel: [0.5, -0.7, 0.2], wobble: 0.6, size: [0.1, 0.03, 0.1] },
 };
 

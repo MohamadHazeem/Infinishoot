@@ -87,16 +87,22 @@ function grantFromLifetime(d: SaveData): void {
 export const save: SaveData = normalize(loadJson<unknown>(KEY, null));
 grantFromLifetime(save);
 
+/** While on (the title screen's attract demo), nothing touches the profile: no saves, achievements, enemies met or run records. */
+export const saveLock = { on: false };
+
 export function persist(): void {
+  if (saveLock.on) return;
   saveJson(KEY, save);
 }
 
 /** Note an enemy type as met (saved with the next persist). */
 export function markSeen(id: string): void {
+  if (saveLock.on) return;
   if (!save.seen.includes(id)) save.seen.push(id);
 }
 
 export function addRunRecord(r: RunRecord): void {
+  if (saveLock.on) return;
   save.history.unshift(r);
   save.history.length = Math.min(save.history.length, 30);
 }
@@ -130,6 +136,7 @@ export function loadoutUnlockBy(id: string) {
 
 /** Grant an achievement once. Returns its def if newly earned. */
 export function grantAchievement(id: string) {
+  if (saveLock.on) return null;
   if (save.achievements.includes(id)) return null;
   const def = ACHIEVEMENTS.find((a) => a.id === id);
   if (!def) return null;

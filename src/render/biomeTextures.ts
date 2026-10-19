@@ -38,8 +38,8 @@ export const biomeTextures = {
   /** Golden autumn grass with fallen red and orange leaves. */
   autumnGrass: () =>
     makeTexture(32, (ctx, s, rng) => {
-      px(ctx, 0, 0, '#d9a441', s, s);
-      speckle(ctx, s, rng, ['#c99232', '#e6b552', '#b8862a', '#a8a040'], 150);
+      px(ctx, 0, 0, '#b4a85e', s, s);
+      speckle(ctx, s, rng, ['#a89a52', '#c4b46c', '#9a9c50', '#8c9248'], 150);
       for (let i = 0; i < 6; i++) {
         const x = rng.int(1, s - 3);
         const y = rng.int(1, s - 2);
@@ -56,6 +56,14 @@ export const biomeTextures = {
       px(ctx, 0, 0, '#ef7d57', s, s);
       speckle(ctx, s, rng, ['#e2563c', '#ffb627', '#ffcd75', '#c8492e'], 80);
     }, 52),
+
+  /** Ashen Magma: cold grey ash with ember flecks. */
+  greyAsh: () =>
+    makeTexture(32, (ctx, s, rng) => {
+      px(ctx, 0, 0, '#6a6670', s, s);
+      speckle(ctx, s, rng, ['#5c5862', '#7a7680', '#4e4a54', '#86828c'], 180);
+      for (let i = 0; i < 4; i++) px(ctx, rng.int(0, s - 1), rng.int(0, s - 1), rng.pick(['#ff9f3d', '#ffd23f', '#ff7a2f']));
+    }, 53),
 
   // ---------------------------------------------------------------- Toy Factory
 

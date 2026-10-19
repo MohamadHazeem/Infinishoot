@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Game } from '../game/game';
 import type { Enemy } from '../game/enemies';
-import { crusherPhase, crusherTuning } from '../game/hazards';
+import { crusherPhase, crusherTuning, pressHeight } from '../game/hazards';
 import { paint } from '../render/geometry';
 import { commit } from '../render/instancing';
 import { createRetroMaterial } from '../render/retroMaterial';
@@ -41,26 +41,6 @@ const m4 = new THREE.Matrix4();
 const q = new THREE.Quaternion();
 const v = new THREE.Vector3();
 const one = new THREE.Vector3(1, 1, 1);
-
-/** Press height (m) over its cycle: hovers, winds down with a shudder, slams, holds, lifts. Pure. */
-export function pressHeight(phase: number): number {
-  const C = crusherTuning;
-  const since = phase * C.period;
-  const left = C.period - since;
-  const top = 4.6;
-  const low = 0.32;
-  if (since < 0.25) return low;
-  if (since < 1.25) {
-    const k = (since - 0.25) / 1.0;
-    return low + (top - low) * (1 - (1 - k) * (1 - k));
-  }
-  if (left < 0.12) return low + (3.2 - low) * (left / 0.12);
-  if (left < C.warn) {
-    const k = 1 - (left - 0.12) / (C.warn - 0.12);
-    return top - (top - 3.2) * k * k;
-  }
-  return top;
-}
 
 function pressGeometry(): THREE.BufferGeometry {
   const parts: THREE.BufferGeometry[] = [];
@@ -185,7 +165,8 @@ export function worldRender(g: Game, frameDt: number): void {
     if (boss && boss.uid === s.dressUid) s.noBossT = 0;
     else if ((s.noBossT += frameDt) > T.linger || g.mode === 'title' && !boss) s.gone = true;
   }
-  s.dressK = s.gone ? s.dressK - dt / T.sink : Math.min(1, s.dressK + dt / T.rise);
+  // Frame time, not sim time: the dressing still sinks while the shop is open after the fight.
+  s.dressK = s.gone ? s.dressK - frameDt / T.sink : Math.min(1, s.dressK + frameDt / T.rise);
   if (s.gone && s.dressK <= 0) {
     clearDressing(g, s);
     return;
@@ -195,4 +176,9 @@ export function worldRender(g: Game, frameDt: number): void {
   d.floor.scale.set(Math.max(0.01, ease), 1, Math.max(0.01, ease));
   d.props.position.y = -3.2 * (1 - ease);
   if (d.spin) d.spin.children.forEach((c, i) => (c.rotation.y += dt * (0.35 + i * 0.2) * (i % 2 ? -1 : 1)));
+}
+
+/** The boss dressing on show ('king', 'rex'...), or null; for tests. */
+export function dressingOf(g: Game): string | null {
+  return states.get(g)?.dressing?.id ?? null;
 }

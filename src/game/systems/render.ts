@@ -11,6 +11,7 @@ import { MOD_BY_ID } from '../../data/mods';
 import { sfx } from '../../audio/sfx';
 import { bossTrack, music, type TrackId } from '../../audio/music';
 import { biomeForStage } from '../../data/biomes';
+import { attractLead } from './attract';
 import { applyTimeOfDay } from '../../render/biomeLook';
 import { retroGlobals } from '../../render/retroMaterial';
 import { BULLET_Y } from '../bullets';
@@ -224,7 +225,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.pickups+weapons+fx');
 
   const inMenu = this.mode === 'title' || this.screens.current !== 'none';
-  if (this.mode === 'title') this.lead.set(0, 0, 0);
+  if (this.mode === 'title') this.lead.copy(attractLead(this)); // the attract demo's hero sits right of the menu
   else if (input.device === 'pad') {
     const active = input.padAim.x !== 0 || input.padAim.y !== 0;
     this.lead.set(p.aim.x, 0, p.aim.z).multiplyScalar(active ? cameraTuning.padLookAhead : 0);

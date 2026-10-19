@@ -119,6 +119,26 @@ export function crusherSlammed(t0: number, t1: number, i: number): boolean {
   return Math.floor((t1 + off) / P) > Math.floor((t0 + off) / P);
 }
 
+/** Press height (m) over its cycle: hovers, winds down with a shudder, slams, holds, lifts. Pure. */
+export function pressHeight(phase: number): number {
+  const C = crusherTuning;
+  const since = phase * C.period;
+  const left = C.period - since;
+  const top = 4.6;
+  const low = 0.32;
+  if (since < 0.25) return low;
+  if (since < 1.25) {
+    const k = (since - 0.25) / 1.0;
+    return low + (top - low) * (1 - (1 - k) * (1 - k));
+  }
+  if (left < 0.12) return low + (3.2 - low) * (left / 0.12);
+  if (left < C.warn) {
+    const k = 1 - (left - 0.12) / (C.warn - 0.12);
+    return top - (top - 3.2) * k * k;
+  }
+  return top;
+}
+
 /** Sky Ruins wind lanes (arena conveyors of kind 'wind'). */
 export const windTuning = {
   /** Push speed along the lane (m/s); belts push at CONVEYOR_SPEED. */
