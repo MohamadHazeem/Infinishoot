@@ -327,7 +327,7 @@ function hostRules(g: Game, s: CineState, dt: number): void {
 }
 
 function onStageClear(g: Game, s: CineState): void {
-  if (g.pvp || g.onboarding.training) return;
+  if (g.pvp || g.onboarding.training || g.runMode === 'gauntlet' || g.runMode === 'bossrush') return;
   // Leftover golden chests vanish with the stage, like the normal ones.
   for (const c of s.chests) g.vfx.burst(c.x, 0.4, c.z, { count: 12, color: '#ffd23f', color2: '#f4f4f4', speed: [2, 6], size: [0.15, 0.3], life: [0.3, 0.6], up: 5, gravity: 12 });
   s.chests = [];

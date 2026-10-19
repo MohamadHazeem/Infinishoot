@@ -1,3 +1,4 @@
+import { gauntletTuning } from '../game/systems/gauntlet';
 import { noiseTuning } from '../render/noiseGovernor';
 import GUI from 'lil-gui';
 import * as THREE from 'three';
@@ -313,6 +314,16 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addMpFolder(gui, game); // MP lane: Versus Swarm, local co-op, lobby browser (src/ui/debugMp.ts)
   worldDebugFolder(gui, game); // biomes, crushers, wind, boss dressing, title demo (src/world/worldDebug.ts)
   addWorldEventsFolder(gui, game); // world events: start any now, force one, knobs (src/ui/debugWorldEvents.ts)
+  const gf = gui.addFolder('Gauntlet / Boss Rush').close();
+  gf.add(gauntletTuning, 'wave', 10, 90, 5);
+  gf.add(gauntletTuning, 'mini', 30, 360, 30);
+  gf.add(gauntletTuning, 'boss', 60, 720, 30);
+  gf.add(gauntletTuning, 'aliveStart', 5, 60, 1);
+  gf.add(gauntletTuning, 'alivePerWave', 1, 30, 1);
+  gf.add(gauntletTuning, 'aliveCap', 50, 450, 10);
+  gf.add(gauntletTuning, 'spawnRate', 4, 30, 1);
+  gf.add(gauntletTuning, 'shopSeconds', 5, 60, 5);
+  gf.add(gauntletTuning, 'attackEvery', 3, 20, 1);
   addModesFolder(gui, game); // rhythm stages, pacifist road, mini-games, ghosts (src/ui/debugModes.ts)
   addSound2Folder(gui, game); // sound lane 2: duel music, crowd, radio DJ, instruments, ears (src/ui/debugSound2.ts)
 

@@ -1,3 +1,4 @@
+import { applyGauntletNet } from './gauntlet';
 import { assistAim } from './aimAssist';
 import { applyMetaSnapshot, MetaRun } from './meta';
 /**
@@ -392,6 +393,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   this.applyWorldEventNet(s.we, s.wt);
+  applyGauntletNet(this, s.gl);
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
   const portal = s.portal as [number, number] | null;

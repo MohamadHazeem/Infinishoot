@@ -1,3 +1,4 @@
+import { gauntletNet } from './gauntlet';
 import { metaSkin } from '../../data/codex';
 /**
  * Online, host side: messages from clients and snapshots.
@@ -237,6 +238,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     wt: this.worldEventLive(forHero),
     tm: this.timeNet(forHero),
     co: this.coopNet(forHero),
+    gl: gauntletNet(this),
     md: this.modesNet(),
     cn: this.cineNet(),
     vs: this.versusNet(),

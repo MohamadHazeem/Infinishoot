@@ -1,3 +1,4 @@
+import * as GauntletSys from './systems/gauntlet';
 import * as Mods2Sys from './systems/mods2';
 import { accessibilityInput, assistAim } from './systems/aimAssist';
 import { metaSkin } from '../data/codex';
@@ -340,10 +341,10 @@ export class Game implements HeroWorld {
   makeEventHost = SpiceSys.makeEventHost;
   spiceLines = SpiceSys.spiceLines;
   goldFx = SpiceSys.goldFx;
-  stageClear = SpiceSys.stageClear;
-  openShop = SpiceSys.openShop;
+  stageClear = GauntletSys.stageClear;
+  openShop = GauntletSys.openShop;
   shopFx = SpiceSys.shopFx;
-  closeShop = SpiceSys.closeShop;
+  closeShop = GauntletSys.closeShop;
   endlessNextWave = SpiceSys.endlessNextWave;
   bossRushStage = SpiceSys.bossRushStage;
   openPortal = SpiceSys.openPortal;
@@ -400,7 +401,7 @@ export class Game implements HeroWorld {
   collect = StatusesSys.collect;
   updateBullets = StatusesSys.updateBullets;
   updateChests = StatusesSys.updateChests;
-  updateChestSpawns = StatusesSys.updateChestSpawns;
+  updateChestSpawns = GauntletSys.updateChestSpawns;
   openChest = StatusesSys.openChest;
   bulletBlast = StatusesSys.bulletBlast;
   makeSpecialApi = StatusesSys.makeSpecialApi;
@@ -466,7 +467,7 @@ export class Game implements HeroWorld {
   startBossIntro = BossFightSys.startBossIntro;
   skipBossIntro = BossFightSys.skipBossIntro;
   updateBossFight = BossFightSys.updateBossFight;
-  updateMiniBoss = BossFightSys.updateMiniBoss;
+  updateMiniBoss = GauntletSys.updateMiniBoss;
   bossNet = BossFightSys.bossNet;
   applyBossNet = BossFightSys.applyBossNet;
   renderBossFight = BossFightSys.renderBossFight;
@@ -1105,6 +1106,7 @@ export class Game implements HeroWorld {
     out.hpMul *= this.meta.has('armor') ? 1.35 : 1;
     out.speedMul *= (this.meta.has('haste') ? 1.25 : 1) * (this.meta.rule('speed') ? 2 : 1);
     out.dmgMul *= this.meta.has('damage') ? 1.25 : 1;
+    GauntletSys.gauntletSpawn(this, out);
     return out;
   }
 
@@ -1123,6 +1125,8 @@ export class Game implements HeroWorld {
     if (this.runMode !== 'standard') parts.push(MODE_BY_ID[this.runMode].name.toUpperCase());
     if (this.difficulty.id !== 'normal') parts.push(this.difficulty.name.toUpperCase());
     if (this.meta.label) parts.push(this.meta.label);
+    const challenge = GauntletSys.gauntletLabel(this);
+    if (challenge) parts.push(challenge);
     return parts.join(' · ');
   }
 
@@ -1246,6 +1250,7 @@ export class Game implements HeroWorld {
     if (this.paused && this.screens.current === 'none') this.paused = false;
     if (this.paused && input.padButtonPressed(9)) this.resume();
     // Solo pauses the world; online the game keeps running behind the menu.
+    GauntletSys.gauntletMenuTick(this, dt);
     const frozen = (this.paused && this.role === 'solo') || this.mode === 'levelup' || this.mode === 'shop' || this.mode === 'title';
     this.updateRoute(dt);
     if (this.mode === 'levelup' && !switched) {
@@ -1294,6 +1299,7 @@ export class Game implements HeroWorld {
     lapStart();
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
+    GauntletSys.gauntletTick(this, dt);
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
     this.updateSkill(dt);
@@ -1388,7 +1394,7 @@ export class Game implements HeroWorld {
     }
     if (this.mode === 'fight' && anyAlive && this.pvp?.phase !== 'duel' && this.pvp?.phase !== 'over') {
       this.director.teamLevel = this.level; // the Reaper comes for high-level teams
-      const reqs = this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
+      const reqs = this.runMode === 'gauntlet' ? GauntletSys.gauntletRequests(this, dt) : this.runMode === 'bossrush' ? GauntletSys.rushRequests(this, dt) : this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
       for (const r of reqs) {
         if (r.kind === 'boss') this.spawnBoss(r.def);

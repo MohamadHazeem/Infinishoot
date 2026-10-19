@@ -11,6 +11,8 @@ export const voiceGate = {
   claim: (_priority: number, _seconds: number, _stop: () => void): void => {},
 };
 const priorities: Readonly<Record<string, number>> = {
+  gauntlet: 7,
+  ascension: 7,
   game_over: 10,
   boss: 9,
   stage_clear: 8,

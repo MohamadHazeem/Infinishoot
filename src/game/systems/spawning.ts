@@ -1,3 +1,4 @@
+import { gauntletBoss, gauntletElite } from './gauntlet';
 /**
  * Spawning enemies, rings, bosses and elites.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -46,6 +47,7 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
   if (!pos) return null;
   const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
   const spawned = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
+  gauntletElite(this, spawned);
   if (def.special) {
     this.vfx.toast('SWARM QUEEN! CUT THE WALL, BREAK THE EGGS!', 3);
     this.vfx.sound('swarmScreech', pos.x, pos.z);
@@ -96,7 +98,8 @@ export function spawnRing(this: Game, def: EnemyDef, count: number): void {
 }
 
 export function spawnBoss(this: Game, def: EnemyDef): void {
-  def = stageBossDef.call(this, def); // rematches and the Titan (systems/bossLane.ts)
+  if (this.runMode !== 'bossrush') def = stageBossDef.call(this, def); // rematches and the Titan (systems/bossLane.ts)
+  def = gauntletBoss(this, def) ?? def;
   if (def.behavior === 'titan') return spawnTitan.call(this, def);
   const p = (this.aliveHeroes[0] ?? this.hero).player;
   const pos = this.ringPoint(13, 16, def.radius + 0.5) ?? { x: p.x + 12, z: p.z };
