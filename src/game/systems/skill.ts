@@ -12,6 +12,8 @@
  * hero, local feedback (dash refund, flash, banner, announcer).
  */
 import type { Game } from '../game';
+import { dashKeyPressed } from '../heroMechs';
+import { parryWhiff, parryWindowMul } from './heroMechs';
 import type { Hero } from '../hero';
 import type { Enemy } from '../enemies';
 import { BULLET_Y, Team } from '../bullets';
@@ -82,7 +84,8 @@ function onBeat(w: SkillWorld): boolean {
 export function skillInput(this: Game, h: Hero, control: boolean): void {
   if (!control) return;
   const input = this.input;
-  if (input.actionPressed('parry') || PAD_PARRY.some((b) => input.padButtonPressed(b))) this.tryParry(h);
+  // The Duelist has no dash: its dash key parries (src/game/heroMechs.ts).
+  if (input.actionPressed('parry') || PAD_PARRY.some((b) => input.padButtonPressed(b)) || (h.player.noDash && dashKeyPressed(input))) this.tryParry(h);
   if (input.actionPressed('ult') || PAD_ULT.some((b) => input.padButtonPressed(b))) this.tryUlt(h);
 }
 
@@ -94,8 +97,8 @@ export function skillClientInput(this: Game, control: boolean): void {
   clientHeartbeat(this);
   if (!control || !this.client) return;
   const input = this.input;
-  if ((input.actionPressed('parry') || PAD_PARRY.some((b) => input.padButtonPressed(b))) && sk.parryCd <= 0) {
-    sk.parryCd = skillTuning.parryCooldown;
+  if ((input.actionPressed('parry') || PAD_PARRY.some((b) => input.padButtonPressed(b)) || (h.player.noDash && dashKeyPressed(input))) && sk.parryCd <= 0) {
+    sk.parryCd = parryWhiff(h, skillTuning.parryCooldown);
     // The round trip lets the host rewind the judgement (src/game/netFeel.ts).
     this.client.send({ t: 'parry', rtt: clientRtt(this) });
     parrySwing(this, h);
@@ -179,8 +182,8 @@ export function tryParry(this: Game, h: Hero): void {
   if (sk.parryCd > 0 || h.player.dead || !this.isCombatMode) return;
   // Remote parries: with a measured ping the host rewinds (src/game/netFeel.ts), else the old fixed allowance.
   const lag = heroParryLag(this, h);
-  sk.parryT = lag > 0 ? remoteParry(lag, skillTuning.parryReach, skillTuning.parryWindow).window : h.remote ? skillTuning.parryWindowRemote : skillTuning.parryWindow;
-  sk.parryCd = skillTuning.parryCooldown;
+  sk.parryT = (lag > 0 ? remoteParry(lag, skillTuning.parryReach, skillTuning.parryWindow).window : h.remote ? skillTuning.parryWindowRemote : skillTuning.parryWindow) * parryWindowMul(h);
+  sk.parryCd = parryWhiff(h, skillTuning.parryCooldown);
   sk.parried = 0;
   // The client already drew its own swing.
   if (!h.remote) parrySwing(this, h);
@@ -328,6 +331,7 @@ function parried(g: Game, h: Hero, n: number): void {
   chargeUlt(g, h, ultTuning.parryGain * Math.min(4, n));
   sk.style.add(first ? styleTuning.parry + styleTuning.parryExtra * (n - 1) : styleTuning.parryExtra * n, first ? (n > 1 ? `PARRY x${n}` : 'PARRY!') : undefined);
   if (!first) return;
+  g.onParryLanded(h);
   if (!g.online && h === g.hero) g.juice.freeze(T.parryFreeze);
   else if (h === g.hero) onlineStop(g, T.parryFreeze); // host's own parry; clients get theirs from the `pa` event
   g.vfx.ring(p.x, p.z, 0.8, 4.5, '#73eff7', 0.25);

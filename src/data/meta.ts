@@ -36,4 +36,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'heat_4', name: 'Warming Up', desc: 'Beat the final boss at Heat 4 or more' },
   { id: 'heat_10', name: 'Hot Seat', desc: 'Beat the final boss at Heat 10 or more' },
   { id: 'heat_20', name: 'Meltdown', desc: 'Beat the final boss at Heat 20 or more' },
+  // Hero unlocks (src/data/heroes.ts; checked in src/game/systems/heroMechs.ts).
+  { id: 'riposte', name: 'Riposte', desc: 'Parry 25 times in one run' },
+  { id: 'immovable', name: 'Immovable', desc: 'Stand still for 20 seconds straight during a stage' },
+  { id: 'double_trouble', name: 'Double Trouble', desc: 'Evolve both your left and right click in one run' },
 ];

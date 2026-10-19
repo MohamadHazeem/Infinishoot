@@ -1,6 +1,9 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
-export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper';
-export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive';
+export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper' | BiomeBehavior;
+export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper' | 'hive' | BiomeModel;
+/** Biome-native enemies (src/game/biomeFoes.ts): one per biome. */
+export type BiomeBehavior = 'diver' | 'burrower' | 'roller' | 'slug' | 'marcher' | 'kite';
+export type BiomeModel = 'bee' | 'shark' | 'snowball' | 'slug' | 'soldier' | 'kite';
 
 export interface EnemyDef {
   id: string;
@@ -70,6 +73,20 @@ export interface EnemyDef {
   death?: 'robot' | 'goo' | 'shards';
   /** Family call on spawn / wind-up (src/audio/families.ts); defaults from model, behaviour and death type. */
   voice?: 'robot' | 'slime' | 'frog' | 'bug' | 'boss' | 'ghost';
+  /** Biome-native: the director only sends it in these biomes (BiomeDef ids). */
+  biomes?: string[];
+  /** Bumble Bee: circles at `hover` m, then dives straight through you; bees nearby follow it in a column. */
+  dive?: { hover: number; range: number; windup: number; speed: number; duration: number; recover: number; interval: number; follow: number };
+  /** Sand Shark: swims under the sand (can't be hit), marks a ring under you, bursts out, then lies exposed for `exposed` s. */
+  burrow?: { swim: number; under: number; range: number; windup: number; air: number; radius: number; damage: number; exposed: number };
+  /** Snowball Roller: rolls in wide arcs (turn rad/s), growing a step every `growEvery` m; a big one shatters on walls and heroes. */
+  roll?: { turn: number; growEvery: number; growth: number; maxSteps: number; crashAt: number; radius: number; damage: number };
+  /** Lava Slug: drops a burning puddle every `every` s; now and then swells up and spills a big one. */
+  ooze?: { every: number; life: number; r: number; dps: number; spill: number; spillR: number; windup: number };
+  /** Wind-up Soldier: rewinds (telegraph), marches straight for `walk` s, winds down for `rest` s. Ranks march together. */
+  march?: { walk: number; rest: number; windup: number; speed: number; rank: number; restMul: number };
+  /** Gust Kite: keeps its distance and blows a cone of wind that shoves heroes (and its friends). */
+  gust?: { keepDistance: number; interval: number; windup: number; range: number; arcDeg: number; push: number; damage: number };
 }
 
 export const ENEMIES: Record<string, EnemyDef> = {
@@ -626,6 +643,133 @@ export const ENEMIES: Record<string, EnemyDef> = {
     minMinute: -1,
     weight: 0,
   },
+  // ---------------------------------------------------------------- biome-native enemies (src/game/biomeFoes.ts)
+  bee: {
+    id: 'bee',
+    death: 'goo',
+    name: 'Bumble Bee',
+    behavior: 'diver',
+    model: 'bee',
+    hp: 10,
+    speed: 4.4,
+    radius: 0.4,
+    bodyColor: '#ffcd75',
+    accentColor: '#333c57',
+    contactDamage: 7,
+    knockbackResist: 0,
+    xp: 1,
+    score: 45,
+    minMinute: 0.8, // stage 1 from about 0:38
+    weight: 3.2,
+    pack: [3, 5],
+    biomes: ['meadow'],
+    dive: { hover: 6, range: 10, windup: 0.75, speed: 17, duration: 0.6, recover: 0.7, interval: 2.6, follow: 4 },
+  },
+  shark: {
+    id: 'shark',
+    death: 'goo',
+    name: 'Sand Shark',
+    behavior: 'burrower',
+    model: 'shark',
+    hp: 60,
+    speed: 3.0,
+    radius: 0.7,
+    bodyColor: '#566c86',
+    accentColor: '#ffcd75',
+    contactDamage: 12,
+    knockbackResist: 0.4,
+    xp: 5,
+    score: 180,
+    minMinute: 2, // stage 2 from about 0:24
+    weight: 1.6,
+    maxAlive: 6,
+    biomes: ['dunes'],
+    burrow: { swim: 1.7, under: 2.2, range: 3.2, windup: 0.8, air: 0.45, radius: 2.0, damage: 16, exposed: 2.2 },
+  },
+  roller: {
+    id: 'roller',
+    death: 'shards',
+    name: 'Snowball Roller',
+    behavior: 'roller',
+    model: 'snowball',
+    hp: 40,
+    speed: 3.6,
+    radius: 0.55,
+    bodyColor: '#f4f4f4',
+    accentColor: '#73eff7',
+    contactDamage: 10,
+    knockbackResist: 0.5,
+    xp: 4,
+    score: 150,
+    minMinute: 3.5, // stage 3 from about 0:24
+    weight: 1.5,
+    maxAlive: 8,
+    biomes: ['peaks'],
+    roll: { turn: 1.4, growEvery: 2.6, growth: 0.2, maxSteps: 7, crashAt: 3, radius: 2.4, damage: 18 },
+  },
+  slug: {
+    id: 'slug',
+    death: 'goo',
+    name: 'Lava Slug',
+    behavior: 'slug',
+    model: 'slug',
+    hp: 90,
+    speed: 1.9,
+    radius: 0.7,
+    bodyColor: '#ef7d57',
+    accentColor: '#ffcd75',
+    contactDamage: 12,
+    knockbackResist: 0.6,
+    xp: 5,
+    score: 170,
+    minMinute: 5, // stage 4 from about 0:24
+    weight: 1.6,
+    maxAlive: 10,
+    biomes: ['magma'],
+    ooze: { every: 0.45, life: 4, r: 0.85, dps: 12, spill: 6, spillR: 2.4, windup: 0.9 },
+  },
+  soldier: {
+    id: 'soldier',
+    death: 'robot',
+    name: 'Wind-up Soldier',
+    behavior: 'marcher',
+    model: 'soldier',
+    hp: 30,
+    speed: 2.4,
+    radius: 0.5,
+    bodyColor: '#3b5dc9',
+    accentColor: '#ffcd75',
+    contactDamage: 10,
+    knockbackResist: 0.3,
+    xp: 3,
+    score: 110,
+    minMinute: 1,
+    weight: 3,
+    pack: [4, 6],
+    biomes: ['factory'],
+    march: { walk: 4.2, rest: 2.2, windup: 0.9, speed: 4.6, rank: 4, restMul: 1.5 },
+  },
+  kite: {
+    id: 'kite',
+    death: 'shards',
+    name: 'Gust Kite',
+    behavior: 'kite',
+    model: 'kite',
+    hp: 26,
+    speed: 3.4,
+    radius: 0.6,
+    bodyColor: '#73eff7',
+    accentColor: '#ff7eb6',
+    contactDamage: 4,
+    knockbackResist: 0.1,
+    xp: 4,
+    score: 150,
+    minMinute: 1.5,
+    weight: 2,
+    maxAlive: 6,
+    biomes: ['skyruins'],
+    gust: { keepDistance: 7, interval: 3.8, windup: 0.9, range: 9, arcDeg: 32, push: 20, damage: 0 },
+  },
 };
 
 /**
@@ -651,6 +795,12 @@ const VETERAN_LOOK: Record<string, [string, string]> = {
   medic: ['#566c86', '#a7f070'],
   leaper: ['#257179', '#ff3d5a'],
   mortar: ['#5d275d', '#ffcd75'],
+  bee: ['#ef7d57', '#1a1c2c'],
+  shark: ['#29366f', '#ff3d5a'],
+  roller: ['#73eff7', '#29366f'],
+  slug: ['#5d275d', '#ff7a2f'],
+  soldier: ['#b13e53', '#ffcd75'],
+  kite: ['#5d275d', '#a7f070'],
 };
 
 /** Regular enemy id -> its veteran's id. */
@@ -681,6 +831,10 @@ for (const [id, [bodyColor, accentColor]] of Object.entries(VETERAN_LOOK)) {
     spawn: b.spawn && { ...b.spawn, into: 'v_' + b.spawn.into },
     leap: b.leap && { ...b.leap, damage: Math.round(b.leap.damage * t.dmg) },
     mortar: b.mortar && { ...b.mortar, damage: Math.round(b.mortar.damage * t.dmg) },
+    burrow: b.burrow && { ...b.burrow, damage: Math.round(b.burrow.damage * t.dmg) },
+    roll: b.roll && { ...b.roll, damage: Math.round(b.roll.damage * t.dmg) },
+    ooze: b.ooze && { ...b.ooze, dps: Math.round(b.ooze.dps * t.dmg) },
+    gust: b.gust && { ...b.gust, push: b.gust.push * 1.2 },
   };
 }
 
@@ -704,6 +858,12 @@ export function squadOf(def: EnemyDef): string {
     shielder: 'shooter',
     leaper: 'leaper',
     zippy: 'zippy',
+    bee: 'bee',
+    soldier: 'soldier',
+    shark: 'zippy',
+    roller: 'zippy',
+    slug: 'chonk',
+    kite: 'zippy',
   };
   const id = pick[base] ?? 'bopper';
   return def.id.startsWith('v_') && VETERAN_OF[id] ? VETERAN_OF[id] : id;
@@ -715,6 +875,11 @@ export function squadSize(stage: number): number {
 }
 
 /** Bosses rotate by stage: King, Rex, Queen, then the final boss on every 4th stage; stage 5 starts the loop again. */
+/** Is this enemy allowed in the given biome? Biome-native enemies only spawn at home. */
+export function biomeAllows(def: EnemyDef, biome: string): boolean {
+  return !def.biomes || def.biomes.includes(biome);
+}
+
 export const BOSS_ORDER = ['king', 'rex', 'queen', 'omega'];
 export function bossForStage(stage: number): EnemyDef {
   return ENEMIES[BOSS_ORDER[(Math.max(1, stage) - 1) % BOSS_ORDER.length]];

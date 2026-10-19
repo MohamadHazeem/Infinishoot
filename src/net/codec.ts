@@ -42,8 +42,8 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setUint32(o, e.uid, true);
     v.setUint8(o + 4, DEF_INDEX.get(e.def.id) ?? 0);
     v.setUint8(o + 5, STATE_INDEX.get(e.state) ?? 1);
-    // Bits 5-7: the boss action.
-    const flags = (e.elite ? 1 : 0) | (e.frozen > 0 ? 2 : 0) | (e.burnT > 0 ? 4 : 0) | (e.shockT > 0 ? 8 : 0) | (e.flash > 0 ? 16 : 0) | (Math.max(0, BOSS_ACTIONS.indexOf(e.action)) << 5);
+    // Bits 5-7: the boss action, or a biome foe's sub-state (those never set an action, so it reads 0).
+    const flags = (e.elite ? 1 : 0) | (e.frozen > 0 ? 2 : 0) | (e.burnT > 0 ? 4 : 0) | (e.shockT > 0 ? 8 : 0) | (e.flash > 0 ? 16 : 0) | ((Math.max(0, BOSS_ACTIONS.indexOf(e.action)) | (e.sub & 7)) << 5);
     v.setUint8(o + 6, flags);
     v.setUint8(o + 7, Math.max(0, Math.min(255, Math.round(e.t * 50))));
     v.setInt16(o + 8, q16(e.x), true);
@@ -77,6 +77,8 @@ export interface EnemyRecord {
   flash: boolean;
   /** Boss attack (drives client-side telegraphs). */
   action: BossAction;
+  /** Biome foe sub-state (Enemy.sub): same bits as the boss action. */
+  sub: number;
   t: number;
   x: number;
   z: number;
@@ -112,6 +114,7 @@ export function unpackEnemies(buf: NetBytes, each: (r: EnemyRecord) => void): vo
     r.ai = (em >> 4) & 7;
     r.shield = r.elite && !!(em & 0x80);
     r.action = BOSS_ACTIONS[flags >> 5] ?? 'ring';
+    r.sub = flags >> 5;
     r.t = v.getUint8(o + 7) / 50;
     r.x = v.getInt16(o + 8, true) / 100;
     r.z = v.getInt16(o + 10, true) / 100;
@@ -144,7 +147,8 @@ export function packBullets(b: Bullets, idx: number[]): ArrayBuffer {
     v.setUint8(o + 9, Math.min(255, Math.round(b.length[i] * 50)));
     const c = BULLET_COLORS.indexOf(b.colorOf(i));
     v.setUint8(o + 10, c < 0 ? 0 : c);
-    v.setUint8(o + 11, b.team[i]);
+    // Bit 0: team; bits 1-3: the silhouette (src/game/bulletShapes.ts).
+    v.setUint8(o + 11, (b.team[i] & 1) | ((b.shape[i] & 7) << 1));
     v.setUint16(o + 12, Math.min(65535, Math.round(Math.max(0, b.life[i]) * 1000)), true);
     o += BULLET_BYTES;
   }
@@ -169,7 +173,8 @@ export function unpackBullets(buf: NetBytes, b: Bullets): void {
       radius: 0.2,
       damage: 0,
       knockback: 0,
-      team: v.getUint8(o + 11) === 1 ? 1 : 0,
+      team: v.getUint8(o + 11) & 1 ? 1 : 0,
+      shape: (v.getUint8(o + 11) >> 1) & 7,
       color: BULLET_COLORS[v.getUint8(o + 10)] ?? BULLET_COLORS[0],
       width: v.getUint8(o + 8) / 100,
       length: v.getUint8(o + 9) / 50,

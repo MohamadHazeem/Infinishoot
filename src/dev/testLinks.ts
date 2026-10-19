@@ -19,6 +19,7 @@ import { isMutatorId } from '../data/mutators';
 import { isRouteId, type RouteId } from '../data/routes';
 import { hudLinks } from '../ui/hudLinks';
 import { smashCover } from '../game/coverBreak';
+import { contentLinks } from './contentLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -68,6 +69,8 @@ import { smashCover } from '../game/coverBreak';
  *   ?test&heatpick=hp:3&screen=heat    store a heat pick (as if chosen on the HEAT screen) and show it
  *   ?test&mode=weekly&mutators=giants,mitosis   force mutators (src/data/mutators.ts)
  *   ?test&screen=modes / &screen=heat   the MODE screen (heat button, Weekly) / the HEAT screen
+ *
+ * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -175,6 +178,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     });
   }
   hudLinks(game, q);
+  contentLinks(game, q);
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

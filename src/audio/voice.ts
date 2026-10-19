@@ -41,6 +41,9 @@ export const HERO_VOICES: Readonly<Record<string, VoiceProfile>> = {
   bulwark: { f0: 120, tract: 0.82, syl: 0.115, wave: 'sawtooth', consonants: 'bdmn' },
   dash: { f0: 330, tract: 1.22, syl: 0.066, wave: 'square', consonants: 'tskp' },
   ace: { f0: 195, tract: 1.0, syl: 0.08, wave: 'square', consonants: 'pkns' },
+  duelist: { f0: 230, tract: 1.06, syl: 0.07, wave: 'square', consonants: 'tsdk' },
+  furnace: { f0: 105, tract: 0.78, syl: 0.125, wave: 'sawtooth', consonants: 'bmdw' },
+  twin: { f0: 290, tract: 1.16, syl: 0.075, wave: 'triangle', consonants: 'pnmt' },
 };
 /** Co-op: each player slot shifts the voice so two Rookies still sound like two people. */
 export const PLAYER_SHIFT = [1, 1.13, 0.88, 1.26];

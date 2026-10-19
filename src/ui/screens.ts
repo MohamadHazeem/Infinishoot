@@ -24,7 +24,8 @@ import { HEROES } from '../data/heroes';
 import { ACTIONS, binds, keyLabel, rebind, resetBinds, type Action } from '../core/keybinds';
 import { prompt, promptHtml } from './prompts';
 import { ENEMIES } from '../data/enemies';
-import { ENEMY_TIPS } from '../data/bestiary';
+import { ENEMY_TIPS, enemyHome } from '../data/bestiary';
+import { BIOMES } from '../data/biomes';
 import type { CardNum } from '../game/cardNumbers';
 import { canBanish } from '../game/banish';
 import type { PreviewRow, ShopPreview } from '../game/shopPreview';
@@ -1439,7 +1440,7 @@ export class Screens {
     this.els.bestiary.querySelector('.bestiary')!.innerHTML = all
       .map((d) => {
         if (!save.seen.includes(d.id)) return `<div class="bst unseen"><b>???</b><small>Not met yet.</small></div>`;
-        const kind = d.boss ? 'BOSS' : d.minStage ? `FROM STAGE ${d.minStage}` : `FROM MINUTE ${Math.max(0, d.minMinute)}`;
+        const kind = d.boss ? 'BOSS' : d.biomes ? enemyHome(d.biomes, (b) => BIOMES.find((x) => x.id === b)?.name) : d.minStage ? `FROM STAGE ${d.minStage}` : `FROM MINUTE ${Math.max(0, d.minMinute)}`;
         return `<div class="bst" style="--c:${d.bodyColor}"><i class="sw" style="background:${d.bodyColor}"></i><b>${d.name.toUpperCase()}</b>
           <span class="st">LIFE ${d.hp} · SPEED ${d.speed} · HIT ${d.contactDamage} · ${kind}</span>
           <small>${ENEMY_TIPS[d.id] ?? ''}</small></div>`;

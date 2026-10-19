@@ -24,6 +24,7 @@ import { audioSettings } from '../audio/sfx';
 import { addLookFolder } from './debugLook';
 import { addReadabilityFolder } from './debugReadability';
 import { addAudioFolder } from './debugAudio';
+import { addContentFolder } from './debugContent';
 import { rainTuning, weatherForce } from '../game/ambience';
 import { worldFxTuning } from '../game/particles';
 import { debrisTuning } from '../game/debris';
@@ -95,6 +96,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addLookFolder(gui);
   addReadabilityFolder(gui);
   addAudioFolder(gui, game);
+  addContentFolder(gui);
 
   const cam = gui.addFolder('Camera').close();
   cam.add(cameraTuning, 'pitchDeg', 30, 89, 1);

@@ -4,6 +4,7 @@ import type { Game } from './game';
 import type { Hero } from './hero';
 import { SCAR_COLORS } from './scars';
 import { bossLike } from './bossRules';
+import { bladeDance, meltdown, mirrorStorm } from './heroUlts';
 
 /**
  * Hero ultimates: one per hero (src/data/heroes.ts `ult`), charged by damage
@@ -62,6 +63,34 @@ export const ULTS: Record<string, UltDef> = {
     color2: '#7df9ff',
     duration: 1.4,
     invuln: false,
+  },
+  // Mechanic heroes (src/game/heroUlts.ts).
+  dance: {
+    id: 'dance',
+    name: 'BLADE DANCE',
+    desc: 'For 2.5 s every bullet near you flies back, the closest enemies get slashed again and again, and your parry chain is full.',
+    color: '#b13e53',
+    color2: '#f4f4f4',
+    duration: 2.5,
+    invuln: true,
+  },
+  meltdown: {
+    id: 'meltdown',
+    name: 'MELTDOWN',
+    desc: 'Full heat at once, then four growing fire novas that set everything on fire.',
+    color: '#ff7a2f',
+    color2: '#ffcd75',
+    duration: 1.9,
+    invuln: true,
+  },
+  mirror: {
+    id: 'mirror',
+    name: 'MIRROR STORM',
+    desc: 'You and your twin spin crossfire rings and aimed fans for 3 s.',
+    color: '#73eff7',
+    color2: '#f4f4f4',
+    duration: 3,
+    invuln: true,
   },
 };
 
@@ -198,6 +227,15 @@ export function updateUlt(g: Game, h: Hero, dt: number): void {
       break;
     case 'storm':
       while (sk.ultStep < ultTuning.stormAt.length && age >= ultTuning.stormAt[sk.ultStep]) strike(g, h, sk.ultStep++, pw);
+      break;
+    case 'dance':
+      bladeDance(g, h, dt, pw);
+      break;
+    case 'meltdown':
+      meltdown(g, h, age, pw);
+      break;
+    case 'mirror':
+      mirrorStorm(g, h, dt, pw);
       break;
   }
   if (sk.ultT <= 0) endUlt(g, h);

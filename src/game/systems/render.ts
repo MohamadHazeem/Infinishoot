@@ -225,6 +225,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.ambience');
   this.pickups.render(this.animTime);
   for (const h of this.heroes) for (const w of h.weapons) w.draw(a, h.ctx);
+  this.renderHeroMechs(a, rdt);
   this.fx.render(this.cam.camera);
   this.portal.render(rdt);
   this.renderMuzzleFlashes();

@@ -68,6 +68,10 @@ export class Player {
   ultSpeed = 1;
   /** Seconds of golden skill glow (perfect dash, parry, ultimate); presentation only. */
   skillGlow = 0;
+  /** 0..1 orange heat glow (the Furnace hero standing still); presentation only. */
+  heatGlow = 0;
+  /** Heroes without a dash (the Duelist parries on the dash key instead). */
+  noDash = false;
 
   readonly rig: HeroRig;
   private shadow: THREE.Mesh;
@@ -157,6 +161,13 @@ export class Player {
     this.kz = dirZ * playerTuning.hurtKnockback;
     this.hurtFlash = 0.15;
     this.sqV -= 6;
+  }
+
+  /** Shoved without damage (a Gust Kite's wind): adds to the knockback, which slides ~force/10 m. */
+  shove(dirX: number, dirZ: number, force: number): void {
+    this.kx += dirX * force;
+    this.kz += dirZ * force;
+    this.sqV -= 4;
   }
 
   get radius(): number {
@@ -282,7 +293,7 @@ export class Player {
     const hasInput = mx !== 0 || mz !== 0;
 
     let dashed = false;
-    if (wantDash && this.dashStock >= 1 && this.dashT <= 0) {
+    if (wantDash && !this.noDash && this.dashStock >= 1 && this.dashT <= 0) {
       // Dash where you're moving; if standing still, dash toward the aim.
       this.dashX = hasInput ? mx : this.aim.x;
       this.dashZ = hasInput ? mz : this.aim.z;
@@ -411,8 +422,10 @@ export class Player {
     this.skillGlow = Math.max(0, this.skillGlow - frameDt);
     // Skill glow: a golden shimmer after a perfect dash or parry, and while an ultimate runs.
     const glow = this.hurtFlash <= 0 && !this.dashing && this.skillGlow > 0 ? 0.25 + 0.2 * Math.sin(this.blinkT * 30) : 0;
-    const fa = this.hurtFlash > 0 ? 0.85 : this.dashing ? 0.35 : glow;
-    const [r, g, b] = this.hurtFlash > 0 ? [1, 0.2, 0.3] : glow > 0 ? [1, 0.85, 0.3] : [0.6, 0.9, 1];
+    // Furnace heat: a pulsing orange glow that grows while standing still.
+    const heat = this.hurtFlash <= 0 && !this.dashing && glow <= 0 && this.heatGlow > 0.05 ? this.heatGlow * (0.32 + 0.12 * Math.sin(this.blinkT * 12)) : 0;
+    const fa = this.hurtFlash > 0 ? 0.85 : this.dashing ? 0.35 : glow || heat;
+    const [r, g, b] = this.hurtFlash > 0 ? [1, 0.2, 0.3] : glow > 0 ? [1, 0.85, 0.3] : heat > 0 ? [1, 0.42, 0.1] : [0.6, 0.9, 1];
     for (const m of this.rig.materials) m.uniforms.uFlash.value.set(r, g, b, fa);
   }
 

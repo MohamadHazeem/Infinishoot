@@ -49,7 +49,7 @@ const game = new Game(input, 16 / 9, document.getElementById('hud')!, document.g
 installBot(game, input);
 const botRun = (globalThis as any).window.botRun as (s: number, god?: boolean) => Record<string, unknown>;
 // Unlock everything so all heroes/difficulties/weapons get exercised.
-save.achievements.push('boss_slayer', 'elite_hunter', 'speedster', 'stage_3', 'hard_stage3', 'first_steps', 'maxed', 'evolved', 'exterminator', 'arsenal');
+save.achievements.push('boss_slayer', 'elite_hunter', 'speedster', 'stage_3', 'hard_stage3', 'first_steps', 'maxed', 'evolved', 'exterminator', 'arsenal', 'riposte', 'immovable', 'double_trouble');
 
 const runs: [string, string, string, number][] = [
   ['standard', 'normal', 'rookie', 900],
@@ -57,6 +57,10 @@ const runs: [string, string, string, number][] = [
   ['bossrush', 'nightmare', 'dash', 400],
   ['daily', 'easy', 'ace', 300],
   ['weekly', 'normal', 'rookie', 300],
+  // Mechanic heroes (src/game/heroMechs.ts): parry-on-dash, heat aura, mirror twin.
+  ['standard', 'normal', 'duelist', 240],
+  ['endless', 'easy', 'furnace', 240],
+  ['standard', 'hard', 'twin', 240],
 ];
 // Heat for the non-challenge runs (src/data/heat.ts): every modifier at rank 1.
 const { saveHeatPick } = await import('../src/game/runMods');
@@ -66,6 +70,8 @@ for (const [mode, diff, hero, secs] of runs) {
   settings.mode = mode;
   settings.difficulty = diff;
   settings.hero = hero;
+  // The Twin's clone copies the left click: give it a beam weapon so the clone's own weapon instance runs too.
+  settings.loadout = { ...settings.loadout, primary: hero === 'twin' ? 'laser' : 'buster' };
   settings.pet = hero === 'rookie' ? 'sparky' : hero === 'dash' ? 'bit' : 'guardian';
   game.applyLocalSkin();
   try {

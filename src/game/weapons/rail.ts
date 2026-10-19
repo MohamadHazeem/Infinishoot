@@ -8,6 +8,7 @@ import { Weapon, type WeaponCtx } from './base';
 const TRACES = 8;
 const FADE = 0.25; // seconds a rail trace stays visible
 const ION_STEP = 2.4; // metres between Ion Rail detonations
+const FORKS = 6; // Storm Rail branches per trace
 
 interface Trace {
   x: number;
@@ -37,6 +38,9 @@ export class Rail extends Weapon {
   private coreMat: THREE.MeshBasicMaterial;
   private glowMat: THREE.MeshBasicMaterial;
   private geo = new THREE.BoxGeometry(1, 0.1, 1).translate(0, 0, 0.5);
+  /** Storm Rail: forked lightning branches off each trace (two zig-zag segments each). */
+  private forks: THREE.Mesh[] = [];
+  private forkMat: THREE.MeshBasicMaterial;
 
   constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
@@ -50,6 +54,14 @@ export class Rail extends Weapon {
       core.visible = glow.visible = false;
       this.group.add(core, glow);
       this.beams.push({ core, glow });
+    }
+    this.forkMat = new THREE.MeshBasicMaterial({ color: def.evos![1].color, ...additive });
+    for (let i = 0; i < TRACES * FORKS * 2; i++) {
+      const m = new THREE.Mesh(this.geo, this.forkMat);
+      m.renderOrder = 2;
+      m.visible = false;
+      this.group.add(m);
+      this.forks.push(m);
     }
     scene.add(this.group);
   }
@@ -147,6 +159,40 @@ export class Rail extends Weapon {
       b.core.scale.set(w * 0.3 * k, 1, t.len);
       b.glow.scale.set(w * (1.4 + (1 - k)) * k, 2, t.len);
     });
+    this.renderForks(ctx.time);
+  }
+
+  /** Storm Rail: branches of lightning crackle off each fresh trace (seeded by the trace, re-rolled as it flickers). */
+  private renderForks(time: number): void {
+    const storm = this.evoId === 'storm';
+    let n = 0;
+    if (storm) {
+      for (const t of this.traces) {
+        const k = 1 - t.t / FADE;
+        const flick = Math.floor(time * 24);
+        for (let f = 0; f < FORKS; f++) {
+          const h = Math.sin((t.x * 12.9898 + t.z * 78.233 + f * 37.719 + flick * 0.618) * 43758.5453);
+          const r = h - Math.floor(h); // 0..1
+          const d = ((f + 0.3 + r * 0.6) / FORKS) * t.len;
+          const side = f % 2 ? 1 : -1;
+          let x = t.x + t.dx * d;
+          let z = t.z + t.dz * d;
+          let a = Math.atan2(t.dx, t.dz) + side * (0.6 + r * 0.6);
+          for (let seg = 0; seg < 2; seg++) {
+            const m = this.forks[n++];
+            const len = (1.1 + r * 1.2) * (seg ? 0.7 : 1) * k;
+            m.visible = len > 0.05;
+            m.position.set(x, BULLET_Y, z);
+            m.rotation.set(0, a, 0);
+            m.scale.set(0.09, 1, len);
+            x += Math.sin(a) * len;
+            z += Math.cos(a) * len;
+            a -= side * (0.9 + r * 0.5); // zig back
+          }
+        }
+      }
+    }
+    for (; n < this.forks.length; n++) this.forks[n].visible = false;
   }
 
   dispose(): void {
@@ -154,5 +200,6 @@ export class Rail extends Weapon {
     this.geo.dispose();
     this.coreMat.dispose();
     this.glowMat.dispose();
+    this.forkMat.dispose();
   }
 }

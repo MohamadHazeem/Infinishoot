@@ -73,6 +73,8 @@ import { RunMods } from './runMods';
 import { RunUi } from '../ui/runUi';
 import { weaponCue, windupCue } from './systems/sound';
 import { rightClickHeld } from './chargeMode';
+import * as BiomeFoesSys from './systems/biomeFoes';
+import * as HeroMechsSys from './systems/heroMechs';
 
 export { economyTuning } from './hero';
 
@@ -470,6 +472,16 @@ export class Game implements HeroWorld {
   skillNet = SkillSys.skillNet;
   applySkillNet = SkillSys.applySkillNet;
   renderSkill = SkillSys.renderSkill;
+  snowballCrash = BiomeFoesSys.snowballCrash;
+  kiteGust = BiomeFoesSys.kiteGust;
+  updateBiomeFoes = BiomeFoesSys.updateBiomeFoes;
+  biomeFoesClient = BiomeFoesSys.biomeFoesClient;
+  updateHeroMechs = HeroMechsSys.updateHeroMechs;
+  onParryLanded = HeroMechsSys.onParryLanded;
+  heroMechNet = HeroMechsSys.heroMechNet;
+  applyHeroMechNet = HeroMechsSys.applyHeroMechNet;
+  renderHeroMechs = HeroMechsSys.renderHeroMechs;
+  heroMechAchievements = HeroMechsSys.heroMechAchievements;
   bestStyle = SkillSys.bestStyle;
   // Routes, heat and Weekly mutators (src/game/systems/runMods.ts).
   runModsStart = RunModsSys.runModsStart;
@@ -910,6 +922,7 @@ export class Game implements HeroWorld {
         this.vfx.zone(x, z, r, delay);
       },
       ...EnemyAiSys.enemyCtxExtras.call(this),
+      foe: BiomeFoesSys.biomeFoeApi.call(this),
     };
   }
 
@@ -1106,6 +1119,7 @@ export class Game implements HeroWorld {
       h.ctx.soundSource = null;
       this.weaponFeel(h);
     }
+    this.updateHeroMechs(dt);
     for (const h of this.heroes) this.updateBomb(h, dt);
     updateSpecials(this.heroes, dt, this.specialApi);
     // Q/E specials recharge over time; the meter waits while the special (or bomb wave) still runs.
@@ -1122,6 +1136,7 @@ export class Game implements HeroWorld {
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
     this.updateHazards(dt);
+    this.updateBiomeFoes(dt);
     this.updateArena(dt);
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
