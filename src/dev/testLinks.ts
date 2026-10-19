@@ -1,3 +1,4 @@
+import { LoadingScreen } from '../ui/loadingScreen';
 import { halloweenLinks } from '../game/systems/halloween';
 import { gauntletTest } from '../game/systems/gauntlet';
 import { director2Links } from '../game/systems/director2';
@@ -259,6 +260,12 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
+  // Menu lane: a pinned boot overlay for screenshots (?test&menuload=1, 2 or error).
+  if (q.has('menuload')) {
+    const loading = new LoadingScreen();
+    loading.progress(Number(q.get('menuload')) || 1, 3, 'menu.load.code');
+    if (q.get('menuload') === 'error') loading.fail(() => location.reload());
+  }
   // Settings lane: &settingstab=0..5, &vision=protanopia|deuteranopia|tritanopia, &textsize=150, &reduceeffects.
   if (q.has('settingstab')) game.screens.settingsScreen.selectTab(Number(q.get('settingstab')) || 0);
   if (q.has('assist')) settings.aimAssist = q.get('assist') !== 'off';

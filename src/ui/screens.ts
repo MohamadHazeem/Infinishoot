@@ -19,7 +19,7 @@ import { sfx } from '../audio/sfx';
 import { music, TRACKS, trackUnlocked, type TrackId } from '../audio/music';
 import { RARITY, type Rarity } from '../data/rarity';
 import { SLOT_LABEL, decoys, fmtScore, reduceMotion, reelAt, reelSteps, slotPicto, type LoadoutItem, type Slot } from './hud';
-import { MenuNav } from './menu';
+import { MenuNav, TitleMenu, polishMenuScreen, menuItemAvailable } from './menu';
 import { iconHtml } from './pixelIcons';
 import { fuseStrip, fusionGuide } from './fusionUi';
 import { SKINS } from '../data/skins';
@@ -42,7 +42,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp';
+export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly';
 
@@ -256,6 +256,7 @@ export class Screens {
   private navs = {} as Record<Named, MenuNav>;
   private settingsReturn: ScreenName = 'title';
   readonly settingsScreen: SettingsScreen;
+  private readonly titleMenu: TitleMenu;
   private wipeArmed = false;
   /** Gold last shown in the shop, for the +/- popups. */
   private shopGold = -1;
@@ -512,11 +513,11 @@ export class Screens {
       relic: new MenuNav(this.els.relic, { horizontal: true }),
       unlocks: new MenuNav(this.els.unlocks, { horizontal: true, onBack: () => actions.title() }),
       savedata: new MenuNav(this.els.savedata, { horizontal: true, onBack: () => this.show('unlocks') }),
-      gameover: new MenuNav(this.els.gameover, { horizontal: true }),
+      gameover: new MenuNav(this.els.gameover, { horizontal: true, onBack: () => actions.title() }),
       online: new MenuNav(this.els.online, { onBack: () => actions.mpLeave() }),
       wait: new MenuNav(this.els.wait),
       loadout: new MenuNav(this.els.loadout, { columns: 5, onBack: () => this.loadoutBack() }),
-      extras: new MenuNav(this.els.extras, { onBack: () => actions.title() }),
+      extras: new MenuNav(this.els.extras, { columns: 3, onBack: () => actions.title() }),
       jukebox: new MenuNav(this.els.jukebox, { columns: 2, onBack: () => this.show('extras') }),
       wardrobe: new MenuNav(this.els.wardrobe, { columns: 3, onBack: () => this.show('extras') }),
       modes: new MenuNav(this.els.modes, { columns: 4, onBack: () => actions.title() }),
@@ -744,6 +745,7 @@ export class Screens {
     );
 
     this.settingsScreen = new SettingsScreen(this, () => this.show(this.settingsReturn), () => this.show('controls'));
+    this.titleMenu = new TitleMenu(root, this);
   }
 
   /** Register a screen built elsewhere (its element is added to the menu root). */
@@ -758,8 +760,14 @@ export class Screens {
   }
 
   private metaReturn: ScreenName = 'modes';
+  private readonly menuFocus = new Map<ScreenName, number>();
 
   show(name: ScreenName, focus?: number): void {
+    name = this.titleMenu.destination(name, this.current);
+    const previous = this.current;
+    // A text field on the screen we hide must not keep swallowing menu keys.
+    if (previous !== name && this.root.contains(document.activeElement)) (document.activeElement as HTMLElement).blur();
+    if (previous !== 'none' && previous !== name) this.menuFocus.set(previous, this.nav(previous).focus);
     this.current = name;
     for (const [k, el] of Object.entries(this.els)) el.hidden = k !== name;
     for (const [k, x] of Object.entries(this.extra)) x.el.hidden = k !== name;
@@ -787,8 +795,10 @@ export class Screens {
       el.setAttribute('aria-label', el.querySelector('h1')?.textContent?.trim() || name);
     }
     this.onShow?.(name);
+    this.titleMenu.show(name);
+    if (name !== 'none') polishMenuScreen(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]);
     if (name !== 'none') relocalizeDom(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named], 'en');
-    if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'settings' ? this.settingsScreen.selectedTab : name === 'levelup' ? 1 : 0));
+    if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'settings' ? this.settingsScreen.selectedTab : name === 'levelup' ? 1 : this.menuFocus.get(name) ?? 0));
   }
 
   /** Route map between stages (src/ui/routeMap.ts); `statusOnly` just refreshes the countdown. */
@@ -1292,7 +1302,7 @@ export class Screens {
 
   /** Which shop control has focus: "act:index". */
   private shopKey(): string {
-    const f = this.els.shop.querySelectorAll<HTMLElement>('[data-nav]')[this.navs.shop.focus];
+    const f = this.navs.shop.element;
     return f ? `${f.dataset.act}:${f.dataset.index ?? ''}` : '';
   }
 
@@ -1301,7 +1311,7 @@ export class Screens {
    * same control as before, or (after a buy) the next offer still for sale.
    */
   private shopFocus(prevKey: string, buyIndex?: number): number {
-    const items = [...this.els.shop.querySelectorAll<HTMLElement>('[data-nav]')];
+    const items = [...this.els.shop.querySelectorAll<HTMLElement>('[data-nav]')].filter(menuItemAvailable);
     const find = (act: string, i: number) => items.findIndex((b) => b.dataset.act === act && Number(b.dataset.index) === i);
     if (this.shopFollow) {
       const k = find(this.shopFollow.act, this.shopFollow.index);
