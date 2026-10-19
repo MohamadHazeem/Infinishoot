@@ -1,3 +1,5 @@
+import { captureClips } from './game/systems/clips';
+import { installClipsUi } from './ui/clipsUi';
 import './platform/desktop';
 import { installDesktopUi } from './platform/help';
 import { displayState } from './platform/display';
@@ -53,6 +55,7 @@ const reportAudio = () => {
 window.addEventListener('pointerdown', reportAudio);
 window.addEventListener('keydown', reportAudio);
 installDesktopUi(game.screens);
+installClipsUi(game);
 window.addEventListener('resize', () => game.cam.setAspect(renderer.aspect));
 setupTouchEditor(game.screens);
 setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none', game);
@@ -135,6 +138,7 @@ const loop = new GameLoop({
     renderer.gl.setClearColor(retroGlobals.uFogColor.value); // follows the biome
     renderer.render(game.scene, game.cam.camera);
     photo?.afterRender();
+    captureClips(game, canvas, frameDt);
     // Startup milestones: a submitted WebGL frame, not just constructed DOM.
     if (!titleMeasured && game.mode === 'title') {
       titleMeasured = true;

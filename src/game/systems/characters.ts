@@ -1,3 +1,4 @@
+import { markClip } from './clips';
 /**
  * Finisher lane: boss finishers and character portraits.
  * Game methods (`this` is the Game), installed on the class as fields.
@@ -164,6 +165,7 @@ export function finisherHold(this: Game, dt: number): boolean {
 
 /** Effects-bus target (every machine): the finisher starts here. */
 export function onFinisher(this: Game, bossId: string, heroIndex: number, x: number, z: number): void {
+  markClip(this, 'boss');
   const def = ENEMIES[bossId];
   if (!def || settings.finishers === false) return;
   const st = state(this);

@@ -1,3 +1,4 @@
+import { markClip } from './clips';
 /**
  * Time lane: rewind, last stand, bullet-time dodges, the death replay and
  * clutch revives. These are Game methods (`this` is the Game), installed on
@@ -734,6 +735,7 @@ function playEvent(g: Game, s: TimeState, ev: TimeEvent): void {
       s.btText = timeTuning.btSwing;
       break;
     case 'cr': {
+      markClip(g, 'revive');
       const o = g.heroes[extra];
       timeSound('clutch', Math.max(gain, 0.6));
       hud?.reviveStart(o?.name ?? '', h.name, extra, i);

@@ -1,3 +1,4 @@
+import { markClip } from './clips';
 /**
  * Cinematics lane (Game methods, installed on the class as fields): the
  * sky-falling stage transition, the painterly ending after Omega, the
@@ -541,6 +542,7 @@ function startReveal(g: Game, s: CineState, item: RevealItem): void {
 function revealLand(g: Game, s: CineState): void {
   const r = s.reveal!;
   r.landed = true;
+  markClip(g, 'legendary');
   const p = r.hero.player;
   sfx.named('legendaryPick'); // fanfare (and the announcer's "Legendary!")
   if (!reduceMotion()) {
@@ -561,6 +563,7 @@ export function onCine(this: Game, kind: string, hero: number, x: number, z: num
   const view = ui(this, s);
   const level = cineLevel();
   if (kind === 'flawless') {
+    markClip(this, 'flawless');
     if (level !== 'off') {
       s.flaw = { t: 0 };
       view?.flawlessStart(data);

@@ -1,3 +1,4 @@
+import { clipsFor, markClip } from '../game/systems/clips';
 import { secretsLinks } from '../game/systems/secrets';
 import { gfx3Links } from './gfx3Links';
 import { LoadingScreen } from '../ui/loadingScreen';
@@ -145,6 +146,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   };
   cheats.unlockAll = true;
   cheats.god = q.has('god');
+  if (q.has('clips')) settings.highlightClips = q.get('clips') !== 'off';
   const ql = q.get('quality');
   const qi = ql ? ['low', 'medium', 'high', 'auto', 'potato'].indexOf(ql) : -1;
   if (qi >= 0) {
@@ -152,6 +154,11 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     applySettings();
   }
   if (q.has('fps')) settings.showFps = true;
+  // Clips QA: real captured frames, then a marked moment and the result gallery.
+  if (q.has('clipmark')) {
+    setTimeout(() => markClip(game, 'boss'), 2000);
+    setTimeout(() => { clipsFor(game).flush(); game.paused = true; game.screens.show('clips'); }, 5500);
+  }
   // Audio accessibility overlays: &captions (caption strip), &arrows (sound arrows).
   if (q.has('captions') || q.has('arrows')) {
     settings.captions ||= q.has('captions');

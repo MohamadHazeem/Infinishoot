@@ -1,3 +1,4 @@
+import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
 import { resetSecrets, clearSecrets } from './secrets';
 import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
@@ -153,6 +154,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.stage = 1;
   this.score = this.kills = this.combo = this.maxCombo = 0;
   this.runTime = this.comboT = 0;
+  resetClips(this);
   this.mvp = createMvp();
   this.level = 1;
   this.xp = 0;
