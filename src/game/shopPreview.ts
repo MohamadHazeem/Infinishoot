@@ -159,6 +159,7 @@ export function previewRows(slots: readonly Slot[], b: PreviewBuild): PreviewRow
     if (!c || conditions.has(c.label)) continue;
     conditions.add(c.label);
     const sample = Synergy.sandbox(slots, sandboxHost(b));
+    for (const s of sample.slots) if (s.def.onEvent && s.st.t > b.time) s.st.t += 10;
     sample.time = b.time + 10;
     sample.nearWall = !!c.nearWall;
     sample.ownFire = !!c.ownFire;

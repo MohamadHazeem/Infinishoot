@@ -49,7 +49,7 @@ export function mods2Position(this: Game, h: Hero): void {
 
 /** Applied after refreshLive; addition/cap before division avoids order-dependent aura stacking. */
 export function mods2Auras(this: Game, h: Hero): void {
-  if (h.player.dead || this.role === 'client') return;
+  if (h.player.dead || this.role === 'client' || this.pvp?.phase === 'duel') return;
   let reload = 0;
   for (const o of this.heroes)
     if (o !== h && !o.left && !o.player.dead && nearby(h, o)) reload += o.synergy.flags.allyReload;
@@ -60,7 +60,7 @@ export function mods2Auras(this: Game, h: Hero): void {
 }
 
 export function mods2Crit(this: Game, e: Enemy, by: Hero): number {
-  if (this.role === 'client' || e.burnT <= 0 || e.burnOwner === by.index) return 0;
+  if (this.role === 'client' || this.pvp?.phase === 'duel' || e.burnT <= 0 || e.burnOwner === by.index) return 0;
   const owner = this.heroes[e.burnOwner];
   return owner && !owner.left && !owner.player.dead
     ? Math.min(mods2Tuning.burnCritCap, owner.synergy.flags.allyBurnCrit)
@@ -69,12 +69,13 @@ export function mods2Crit(this: Game, e: Enemy, by: Hero): number {
 
 /** Actual recovery only: no overheal, no recursive sharing, no revived/disconnected recipients. */
 export function mods2Heal(this: Game, by: Hero, healed: number): void {
-  if (this.role === 'client' || healed <= 0) return;
+  if (this.role === 'client' || this.pvp?.phase === 'duel' || healed <= 0) return;
   const share = healed * Math.min(0.2, by.synergy.flags.allySiphon);
   if (share <= 0) return;
   for (const h of this.heroes) {
     if (h === by || h.left || h.player.dead || !nearby(by, h)) continue;
     const gain = h.player.heal(share);
-    if (gain > 0) this.vfx.num(h.player.x, 2.4, h.player.z, `+${+gain.toFixed(1)}`, 'heal');
+    // Tiny lifesteal shares still change HP; avoid a '+0' effect for every kill.
+    if (gain >= 1) this.vfx.num(h.player.x, 2.4, h.player.z, `+${+gain.toFixed(1)}`, 'heal');
   }
 }

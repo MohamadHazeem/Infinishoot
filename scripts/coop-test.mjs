@@ -14,6 +14,7 @@
 // console error or desync that lasts two checks in a row.
 // Signalling goes through PeerJS's public broker like the real game (needs
 // internet); the WebRTC data channel itself is local, page to page.
+// COOP_TIMEOUT_MS=120000 COOP_LOW=1 accommodates busy shared builders (assertions unchanged).
 // COOP_TRACE=1 prints the client hero's position trail on both pages when they disagree.
 import { chromium } from 'playwright-core';
 import { createServer } from 'vite';
@@ -27,6 +28,7 @@ const opt = (k, d) => {
   return i < 0 ? d : args[i + 1];
 };
 const SECS = Number(opt('--secs', '80'));
+const PAGE_TIMEOUT = Number(process.env.COOP_TIMEOUT_MS ?? 30000);
 const OUT = opt('--out', join('shots', 'coop'));
 const [W, H] = opt('--size', '960x540').split('x').map(Number);
 mkdirSync(OUT, { recursive: true });
@@ -65,7 +67,9 @@ const browser = await chromium.launch({
 
 async function openPage(name) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H } });
+  if (process.env.COOP_LOW) await ctx.addInitScript(() => localStorage.setItem('infinishoot.settings.v1', JSON.stringify({ graphics: 0 })));
   const page = await ctx.newPage();
+  page.setDefaultTimeout(PAGE_TIMEOUT);
   const errors = [];
   page.on('pageerror', (e) => errors.push(`${e.message}\n${(e.stack ?? '').split('\n').slice(1, 4).join('\n')}`));
   page.on('console', (m) => {
@@ -76,7 +80,7 @@ async function openPage(name) {
     errors.push(t);
   });
   await page.goto(base);
-  await page.waitForFunction(() => window.game && window.botAuto && window.game.mode === 'title', null, { timeout: 30000 });
+  await page.waitForFunction(() => window.game && window.botAuto && window.game.mode === 'title', null, { timeout: PAGE_TIMEOUT });
   return { name, page, errors };
 }
 

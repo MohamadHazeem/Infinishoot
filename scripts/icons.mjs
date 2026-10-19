@@ -96,7 +96,7 @@ const ART = {
   slipstream: 'wind-slap',
   encore: 'microphone',
   cash_capacitor: 'car-battery',
-  second_hand: 'anticlockwise-rotation',
+  second_hand: 'return-arrow',
   ejection_seat: 'car-seat',
   jack_in_box: 'box-unpacking',
   hearth: 'fireplace',
@@ -107,7 +107,7 @@ const ART = {
   signal_flare: 'cross-flare',
   pit_crew: 'spanner',
   counterchorus: 'resonance',
-  blood_bond: 'nested-hearts',
+  blood_bond: 'opposite-hearts',
   wing_guard: 'winged-shield',
   standing_ovation: 'shaking-hands',
   // Mods

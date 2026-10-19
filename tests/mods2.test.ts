@@ -118,7 +118,7 @@ if (A.mode === 'shop') A.closeShop();
 flush();
 const guest = A.heroes[1];
 
-const { MODS2, MODS, MOD_BY_ID } = await import('../src/data/mods');
+const { MODS2, MOD_BY_ID } = await import('../src/data/mods');
 const { modDesc, modMaxLevel } = await import('../src/game/modTypes');
 const { previewRows, heroBuild, rowValue } = await import('../src/game/shopPreview');
 const { ICON_ART } = await import('../src/data/iconArt');
@@ -157,7 +157,7 @@ for (const def of MODS2) {
   ok(
     !!icon &&
       !art.has(icon) &&
-      MODS.filter((d) => d.id !== def.id).every((d) => JSON.stringify(ICON_ART[d.id]) !== icon),
+      Object.entries(ICON_ART).every(([id, paths]) => id === def.id || JSON.stringify(paths) !== icon),
     `${def.id}: unique icon`,
   );
   art.add(icon);
@@ -207,6 +207,10 @@ ok(
   previewRows(h.synergy.slots, heroBuild(h, 0.2))[0].a === 12,
   'shop shows currently active trigger damage',
 );
+equip(h, ['riposte_cell', 'cash_capacitor']);
+h.synergy.event('parry');
+const stackedPreview = previewRows(h.synergy.slots, heroBuild(h, 0.2));
+ok(stackedPreview.find(r => r.k === 'AFTER CASH-IN')?.a === 6, 'conditional preview preserves another active trigger window');
 // New event hooks aggregate Echo/levels once, including cooldown-limited novas.
 equip(h, ['echo', 'counterchorus'], 2);
 const originalBlast = h.blast;
@@ -268,6 +272,13 @@ h.player.pos.x += 3;
 A.mods2Position(h);
 ok(!h.synergy.ownFire, 'leaving flame removes Hearth');
 h.player.pos.x -= 3;
+const { StaticBoxGrid } = await import('../src/core/spatialHash');
+const originalWalls = A.walls;
+A.walls = new StaticBoxGrid([{ minX: h.player.x + 1.5, maxX: h.player.x + 2.5, minZ: h.player.z - 1, maxZ: h.player.z + 1 }]);
+equip(h, ['wallflower']);
+A.mods2Position(h); ok(h.synergy.nearWall, 'cover within 2m grants Wallflower');
+h.player.pos.x -= 5; A.mods2Position(h); ok(!h.synergy.nearWall, 'moving away from cover removes Wallflower');
+h.player.pos.x += 5; A.walls = originalWalls;
 // Chest damage routes through the game and effects bus; reopening cannot retrigger.
 equip(h, ['jack_in_box']);
 e.x = h.player.x + 2;
@@ -360,6 +371,12 @@ ok(
   'out-of-range allies receive neither heal nor reload',
 );
 Object.assign(guest.player.pos, h.player.pos);
+// Opponents in a PvP duel must never receive ally auras.
+(A as any).pvp = { phase: 'duel' };
+guest.refreshLive(); const duelCd = guest.stats.cooldownMul;
+A.mods2Auras(guest);
+ok(guest.stats.cooldownMul === duelCd && A.mods2Crit(e, guest) === 0, 'ally Mods are off in PvP duels');
+(A as any).pvp = null;
 // Readouts, healing and invulnerability travel through the real compact snapshot.
 guest.player.invuln = 0.3;
 B.onClientMessage(structuredClone(A.buildSnapshot(guest, A.vfx.drain())));
