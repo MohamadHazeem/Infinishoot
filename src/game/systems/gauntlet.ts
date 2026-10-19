@@ -45,6 +45,7 @@ export function rushRoster(): EnemyDef[] {
   return rosterCache ??= Object.values(ENEMIES).filter(d => d.boss && !d.remixOf && d.behavior !== 'titanpart');
 }
 export function startGauntlet(g: Game): void {
+  document.getElementById('g-shop-clock')?.remove();
   const old = states.get(g);
   states.delete(g);
   const s = challengeState(g);
@@ -192,7 +193,13 @@ export function gauntletTick(g: Game, dt: number): void {
 export function gauntletMenuTick(g: Game, dt: number): void {
   const s = states.get(g);
   if (!s) return;
-  if (g.runMode === 'bossrush' && g.mode === 'shop' && !g.preShop && !g.paused && (s.shopLeft -= dt) <= 0) g.closeShop();
+  if (g.runMode === 'bossrush' && g.mode === 'shop' && !g.preShop) {
+    if (!g.paused) s.shopLeft -= dt;
+    const clock = document.getElementById('g-shop-clock');
+    const label = `NEXT BOSS IN ${Math.max(0, Math.ceil(s.shopLeft))}s`;
+    if (clock && clock.textContent !== label) clock.textContent = label;
+    if (s.shopLeft <= 0) g.closeShop();
+  }
   if (!s.announced && g.mode === 'fight' && (g.runMode === 'gauntlet' || s.ascension)) {
     s.announcementT += dt;
     if (s.announcementT > 2) s.announced = announcer.say(g.runMode === 'gauntlet' ? 'vo_gauntlet' : 'vo_ascension');
@@ -246,9 +253,22 @@ export function openShop(this: Game): void {
     if (!rushSlot(this.stage, rushRoster().length).shop) { this.loadStage(this.stage + 1); return; }
     challengeState(this).shopLeft = gauntletTuning.shopSeconds;
   }
-  Spice.openShop.call(this);
+  if (this.runMode === 'bossrush' && !this.preShop) {
+    // Timed Rush breaks use the normal shop; secret relic choices would obscure its countdown.
+    this.mode = 'shop'; this.secretShop = false;
+    for (const h of this.heroes) {
+      if (h.left) continue;
+      h.openShop(false, false); this.presentShop(h); this.shopFx(h, 'open');
+    }
+    injectCss();
+    document.getElementById('g-shop-clock')?.remove();
+    const clock = document.createElement('div'); clock.id = 'g-shop-clock';
+    clock.textContent = `NEXT BOSS IN ${Math.ceil(challengeState(this).shopLeft)}s`;
+    document.querySelector('#scr-shop h1')?.after(clock);
+  } else Spice.openShop.call(this);
 }
 export function closeShop(this: Game): void {
+  document.getElementById('g-shop-clock')?.remove();
   if (this.runMode === 'bossrush' && !this.preShop) {
     this.screens.show('none');
     this.loadStage(this.stage + 1);
@@ -291,6 +311,7 @@ export function formatTime(t: number): string {
 }
 
 const CSS = `
+#g-shop-clock {color:var(--yellow);font:20px var(--font);}
 #g-challenge { padding:calc(2 * var(--p)) calc(3 * var(--p)); background:var(--night); color:var(--cyan); font:18px var(--font); white-space:pre-line; --hi:var(--blue); --lo:var(--ink); --ring:var(--ink); box-shadow:inset var(--p) var(--p) 0 var(--hi),inset calc(-1 * var(--p)) calc(-1 * var(--p)) 0 var(--lo),0 0 0 var(--p) var(--ring); }
 body[data-gauntlet='true'] #timer { visibility:hidden; }
 #g-dark {position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 0 min(14vw,130px) #1a1c2c;z-index:0;opacity:.92;}
