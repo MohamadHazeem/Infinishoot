@@ -163,6 +163,7 @@ export function updateRaid(this: Game, dt: number): void {
     const e = r.proxies[i];
     e.x = e.px = HEAD_X[i];
     e.z = e.pz = HEAD_Z;
+    e.hp = e.maxHp = s.heads[i].max; // Real boss health for hit/ultimate scaling; lane owns the damage bank.
   }
   stepRaid(s, dt);
   this.director.time = s.time;

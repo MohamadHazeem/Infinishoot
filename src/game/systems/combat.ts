@@ -62,7 +62,13 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (crit) amount *= by.stats.critMult;
   amount = Math.max(1, Math.round(amount));
   const raidHit = this.damageRaid(e, amount, o, by);
-  if (raidHit !== null) return raidHit;
+  if (raidHit !== null) {
+    if (raidHit > 0) {
+      this.skillHit(e, o, raidHit, crit, by);
+      if (!o.noStatus) { by.synergy.hit(ev); if (crit) by.synergy.crit(ev); }
+    }
+    return raidHit;
+  }
   const dealt = Math.min(amount, Math.max(0, e.hp + e.shield));
   // Shielded elites: the shield soaks damage (and blocks statuses) until it breaks.
   const shielded = e.shield > 0;
