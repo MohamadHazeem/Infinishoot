@@ -242,6 +242,10 @@ export class Ambience {
       this.flash = 0;
       return;
     }
+    if (dt <= 0) {
+      this.flash = 0; // paused: no frozen lightning
+      return;
+    }
     this.rainT += dt;
     const fade = Math.min(1, this.rainT / rainTuning.fadeIn);
     const swell = 0.75 + 0.25 * Math.sin(this.rainT * 0.11) * Math.sin(this.rainT * 0.037 + 1);

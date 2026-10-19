@@ -248,6 +248,7 @@ export class Surfaces {
     lily: THREE.Material;
   };
   private biome = '';
+  private hasLava = false;
   private half = 55;
   private t = 0;
   // Per-patch timers (parallel to `patches`).
@@ -323,6 +324,7 @@ export class Surfaces {
     const hazards: SurfacePatch[] = arena.hazards.filter((h) => h.kind === 'lava' || h.kind === 'ice' || h.kind === 'water').map((h) => ({ x: h.x, z: h.z, r: h.r, kind: h.kind as SurfaceKind }));
     const decor = decorPatches(biomeId, seed, arena.halfSize, blocked, hazards.map((h) => ({ x: h.x, z: h.z, r: h.r / 0.85 })));
     this.patches = [...hazards, ...decor];
+    this.hasLava = this.patches.some((p) => p.kind === 'lava');
     this.rippleT = this.patches.map(() => Math.random());
     this.spurtT = this.patches.map(() => 1 + Math.random() * 4);
     this.bubbleT = this.patches.map(() => Math.random());
@@ -541,7 +543,7 @@ export class Surfaces {
     // Lava: a warm pulsing glow around each pool, and bubbles that swell and pop.
     const gl = this.glow;
     gl.begin();
-    if (this.biome === 'magma' || this.patches.some((p) => p.kind === 'lava')) {
+    if (this.hasLava) {
       for (let i = 0; i < this.patches.length; i++) {
         const p = this.patches[i];
         if (p.kind !== 'lava' || (p.x - cx) ** 2 + (p.z - cz) ** 2 > near2 * 1.6) continue;
