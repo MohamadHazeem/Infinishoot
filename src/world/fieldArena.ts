@@ -400,7 +400,8 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   const extra = biomeHazard(biome.id);
   if (extra === 'quicksand') {
     const sandMat = createRetroMaterial({ map: textures.clay(), color: '#b98a5a', unlit: 0.15, uvScroll: [0.015, 0.025] });
-    const rimMat = createRetroMaterial({ color: '#8a5a3a' });
+    const rimMat = createRetroMaterial({ color: '#f2d29a' });
+    const eyeMat = createRetroMaterial({ map: textures.clay(), color: '#7a5038', unlit: 0.1, uvScroll: [-0.04, 0.03] });
     for (let i = 0; i < 4; i++) {
       const r = rng.range(2.6, 3.8);
       const c = spot(r * 2, r * 2, 1.5);
@@ -409,7 +410,10 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
       rim.position.set(c[0], 0.025, c[1]);
       const m = new THREE.Mesh(wobblyDisc(rng, r, 12, r * 0.8), sandMat);
       m.position.set(c[0], 0.04, c[1]);
-      group.add(rim, m);
+      // A darker sinking eye in the middle that swirls the other way.
+      const eye = new THREE.Mesh(wobblyDisc(rng, r * 0.45, 10, r * 0.4), eyeMat);
+      eye.position.set(c[0], 0.05, c[1]);
+      group.add(rim, m, eye);
       hazards.push({ x: c[0], z: c[1], r: r * 0.9, kind: 'quicksand' });
     }
   } else if (extra === 'thorns') {
