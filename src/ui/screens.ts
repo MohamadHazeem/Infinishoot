@@ -157,7 +157,7 @@ function rangeLabel(inp: HTMLInputElement): void {
   if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
 }
 
-type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices';
+type ToggleKey = 'interactiveMusic' | 'adaptiveSilence' | 'lowHealthAudio' | 'headphones3d' | 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'heroVoices' | 'weather';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -280,6 +280,7 @@ export class Screens {
   <h1>PAUSED</h1>
   <div class="menu">
     <button data-nav data-act="resume">RESUME</button>
+    <button data-nav data-act="photo">PHOTO MODE</button>
     <button data-nav data-act="settings">SETTINGS</button>
     <button data-nav data-act="quit">QUIT RUN</button>
   </div>
@@ -306,6 +307,7 @@ export class Screens {
     <button data-nav data-toggle="crt">CRT FILTER <b></b></button>
     <button data-nav data-toggle="distortion">SHOCKWAVES <b></b></button>
     <button data-nav data-toggle="nightStages">NIGHT STAGES <b></b></button>
+    <button data-nav data-toggle="weather">WEATHER <b></b></button>
     <button data-nav data-toggle="rumble">CONTROLLER RUMBLE <b></b></button>
     <button data-nav data-toggle="colorblind">COLOUR-BLIND BULLETS <b></b></button>
     <button data-nav data-toggle="reduceFlash">REDUCE FLASHING <b></b></button>

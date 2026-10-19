@@ -26,8 +26,8 @@ import { endUlt, power, startUlt, ultHitGain, ultKillGain, ultOf, ultTuning, upd
 import { preloadSkillAudio, skillSound } from '../skillAudio';
 import { SkillHud } from '../../ui/styleMeter';
 
-/** Skill events: [seq, kind, hero index, x, z, extra]. pd = perfect dash, pa = parry, ul = ultimate, rk = rank up (extra = rank). */
-type SkillEvent = [number, 'pd' | 'pa' | 'ul' | 'rk', number, number, number, number];
+/** Skill events: [seq, kind, hero index, x, z, extra]. pd = perfect dash, pa = parry, ul = ultimate, rk = rank up (extra = rank), sw = parry swing (every attempt). */
+type SkillEvent = [number, 'pd' | 'pa' | 'ul' | 'rk' | 'sw', number, number, number, number];
 
 interface SkillWorld {
   seq: number;
@@ -173,17 +173,30 @@ export function tryParry(this: Game, h: Hero): void {
   sk.parryT = h.remote ? skillTuning.parryWindowRemote : skillTuning.parryWindow;
   sk.parryCd = skillTuning.parryCooldown;
   sk.parried = 0;
-  // The client already drew its own swing.
+  // The client already drew its own swing; everyone else draws it from the 'sw' event.
   if (!h.remote) parrySwing(this, h);
+  emit(this, 'sw', h);
   doParry(this, h);
 }
 
-/** The swing itself (cosmetic): a quick ring at the hand. */
+const swingHand = { x: 0, z: 0 };
+
+/**
+ * The swing itself (cosmetic, local fx on each machine): a ring at the hand
+ * and an arc of sparks sweeping across the aim. Every machine draws every
+ * hero's swing: its own on the press, the others from the 'sw' skill event.
+ */
 function parrySwing(g: Game, h: Hero): void {
   const p = h.player;
-  const m = { x: 0, z: 0 };
-  p.muzzle(m);
-  g.vfx.ring(m.x, m.z, 0.5, 2.2, '#73eff7', 0.14);
+  p.muzzle(swingHand);
+  g.fx.ring(swingHand.x, swingHand.z, 0.5, 2.2, '#73eff7', 0.14);
+  const a0 = Math.atan2(p.aim.z, p.aim.x);
+  const r = p.radius + 0.9;
+  for (let k = 0; k < 7; k++) {
+    const t = k / 6;
+    const a = a0 - 1.1 + t * 2.2;
+    g.fx.star(p.x + Math.cos(a) * r, 1.1, p.z + Math.sin(a) * r, 0.4 + 0.4 * Math.sin(t * Math.PI), k === 3 ? '#ffffff' : '#73eff7', 0.1 + t * 0.08);
+  }
   p.recoil = Math.max(p.recoil, 1.4);
   p.bounce(-3);
 }
@@ -454,6 +467,7 @@ function playEvent(g: Game, ev: SkillEvent): void {
       if (def.id === 'blitz') p.refundDash(true);
     }
   } else if (kind === 'rk' && mine) skillSound(extra >= 4 ? 'rankS' : 'rankA', true, 1);
+  else if (kind === 'sw' && !mine && !p.dead) parrySwing(g, h);
 }
 
 /** Host snapshot part: every hero's skill state, plus the events this client hasn't had. */

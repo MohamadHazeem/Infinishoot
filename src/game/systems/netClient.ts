@@ -15,7 +15,8 @@ import { type Offer, type RunSummary, type ShopFx, type ShopView } from '../../u
 import { Hero } from '../hero';
 import { markSeen, unlockedWeapons } from '../save';
 import { settings } from '../settings';
-import { type VfxEvent } from '../vfx';
+import { decodeFx } from '../../net/fxCodec';
+import { SnapDecoder } from '../../net/snapCodec';
 import { createWeapon } from '../weapons';
 import { FUSION_BY_ID } from '../../data/fusions';
 import { showFusionMerge } from '../../ui/fusionUi';
@@ -212,7 +213,13 @@ export function clientUpdate(this: Game, dt: number): void {
   input.endStep();
 }
 
-export function applySnapshot(this: Game, s: Record<string, unknown>): void {
+/** Snapshot decoders (they keep the baselines the host's deltas refer to), one per game. */
+const snapDecoders = new WeakMap<Game, SnapDecoder>();
+
+export function applySnapshot(this: Game, m: Record<string, unknown>): void {
+  let dec = snapDecoders.get(this);
+  if (!dec) snapDecoders.set(this, (dec = new SnapDecoder()));
+  const s = dec.decode(m);
   const now = performance.now();
   if (this.snapTime) this.snapInterval += (Math.min(200, now - this.snapTime) - this.snapInterval) * 0.2;
   this.snapTime = now;
@@ -337,7 +344,7 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
 
   unpackBullets(s.bu as NetBytes, this.bullets);
   unpackPickups(s.pk as NetBytes, this.pickups);
-  for (const e of (s.ev as VfxEvent[]) ?? []) this.vfx.apply(e);
+  if (s.fx) decodeFx(s.fx as NetBytes, (e) => this.vfx.apply(e));
   this.applySkillNet(s.sk);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);

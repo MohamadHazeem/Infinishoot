@@ -527,6 +527,8 @@ export class Game implements HeroWorld {
 
   mode: Mode = 'title';
   paused = false;
+  /** Photo mode (src/ui/photoMode.ts, set by main.ts): while active it gets the input instead of the game. */
+  photo: { active: boolean; update(dt: number): void } | null = null;
 
   // --- Team run state ---
   seed = 0;
@@ -1027,6 +1029,11 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    if (this.photo?.active) {
+      this.photo.update(dt);
+      this.input.endStep();
+      return;
+    }
     if (this.pvp) this.pvpTick();
     this.coopInput();
     if (this.role === 'client') {

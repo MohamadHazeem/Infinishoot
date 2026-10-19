@@ -91,6 +91,8 @@ const MAX_MOTES = 340;
 
 /** Quality preset scale for weather (set by settings). */
 export const fxQuality = { ambience: 1 };
+/** SETTINGS > WEATHER: off hides rain, snow and other motes, the rain darkening and lightning (cosmetic, local). */
+export const weatherSettings = { enabled: true };
 const MAX_TUFTS = 1100;
 
 export class Ambience {
@@ -246,7 +248,7 @@ export class Ambience {
 
   /** Rain fades in over the stage's first seconds and swells and eases; heavy rain brings lightning. */
   private updateRain(dt: number, cx: number, cz: number): void {
-    if (!this.rainy) {
+    if (!this.rainy || !weatherSettings.enabled) {
       this.rain = Math.max(0, this.rain - dt * 0.5);
       this.flash = 0;
       return;
@@ -340,7 +342,7 @@ export class Ambience {
     this.updateRain(dt, cx, cz);
     const st = this.style;
     const rainK = this.weather === 'rain' ? this.rain : 1;
-    const n = st ? Math.floor(st.count * this.density * fxQuality.ambience * rainK) : 0;
+    const n = st && weatherSettings.enabled ? Math.floor(st.count * this.density * fxQuality.ambience * rainK) : 0;
     if (st && this.weather === 'rain') this.renderRain(dt, cx, cz, n, st);
     else if (st) {
       // Sand blows in gusts; wind streaks follow the Sky Fortress wind; everything else drifts steadily.

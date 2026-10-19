@@ -17,6 +17,7 @@ import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
 import { ROUTE_NODES, type NodeKind } from '../data/routeNodes';
 import { BIOME_BY_ID, biomeOverride } from '../data/biomes';
+import type { PhotoMode } from '../ui/photoMode';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -57,6 +58,10 @@ import { BIOME_BY_ID, biomeOverride } from '../data/biomes';
  *   ?test&encounter=altar              a route encounter right away (altar, gambler, idol, spring, dojo, shrine)
  *   ?test&weapons=drones:6,lightning:6&fuse   a level-up with the FUSION card (`fuse=go` picks it: the fusion moment)
  *   ?test&weapons=storm_drones&god&swarm=80     start with a fused weapon (any id in src/data/fusions.ts)
+ *   ?test&photo=2                     photo mode after 2 s (pauses first); with &photofilter=neon (normal, crt, sepia,
+ *     comic, neon, bw), &photoframe=film (none, snapshot, film, arcade, comic), &stickers=star@0.3,0.4;pow@0.7,0.3
+ *     (star, heart, bolt, crown, skull, pow, gg, wow, oneup), &nologo, &photocam=yaw,pitch,dist (0.6,40,18),
+ *     &photohide (hide the photo UI), &photosnap (save a PNG)
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
@@ -339,6 +344,28 @@ function animLinks(game: Game, q: URLSearchParams): void {
     if (b) game.killEnemy(b, 'buster', game.hero);
   });
   later('clear', () => game.stageClear());
+  later('photo', () => {
+    const ph = game.photo as PhotoMode | null;
+    if (!ph) return;
+    game.pause();
+    if (!ph.open()) return;
+    const cam = (q.get('photocam') ?? '').split(',').filter(Boolean).map(Number);
+    ph.configure({
+      filter: q.get('photofilter') ?? undefined,
+      frame: q.get('photoframe') ?? undefined,
+      stickers: (q.get('stickers') ?? '').split(';').filter(Boolean).map((s) => {
+        const [id, at = '0.5,0.5'] = s.split('@');
+        const [u, v] = at.split(',').map(Number);
+        return { id, u: u || 0.5, v: v || 0.5 };
+      }),
+      logo: !q.has('nologo'),
+      yaw: Number.isFinite(cam[0]) ? cam[0] : undefined,
+      pitch: Number.isFinite(cam[1]) ? cam[1] : undefined,
+      dist: Number.isFinite(cam[2]) ? cam[2] : undefined,
+      hideUi: q.has('photohide'),
+    });
+    if (q.has('photosnap')) setTimeout(() => ph.snap(), 600);
+  });
   later('die', () => {
     cheats.god = false;
     const p = game.hero.player;
