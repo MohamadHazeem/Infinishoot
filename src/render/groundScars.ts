@@ -128,9 +128,9 @@ export class ScarMap {
       for (let tx = x0; tx <= x1; tx++) {
         const dx = tx + 0.5 - cx;
         const dy = ty + 0.5 - cy;
-        // Ragged pixel edge: jitter the distance per texel.
-        const jit = (hash(tx, ty) - 0.5) * 0.28;
-        const q = Math.sqrt(dx * dx + dy * dy) / rt + jit;
+        // Ragged pixel edge: jitter the distance per texel (more toward the edge, none at the centre).
+        const q0 = Math.sqrt(dx * dx + dy * dy) / rt;
+        const q = q0 + (hash(tx, ty) - 0.5) * 0.28 * Math.min(1, q0);
         if (q >= reach / r) continue;
         const o = (ty * n + tx) * 4;
         let sc = 0;
@@ -246,10 +246,10 @@ export class ScarMap {
 /** Raise the four channels at byte offset `o` to at least the given 0..1 values. True if anything changed. */
 function max(d: Uint8Array, o: number, r: number, g: number, b: number, a: number): boolean {
   let ch = false;
-  const R = Math.round(r * 255);
-  const G = Math.round(g * 255);
-  const B = Math.round(b * 255);
-  const A = Math.round(a * 255);
+  const R = Math.min(255, Math.round(r * 255));
+  const G = Math.min(255, Math.round(g * 255));
+  const B = Math.min(255, Math.round(b * 255));
+  const A = Math.min(255, Math.round(a * 255));
   if (R > d[o]) {
     d[o] = R;
     ch = true;
@@ -326,6 +326,7 @@ const frag = /* glsl */ `
 uniform sampler2D uScar;
 uniform sampler2D uCrack;
 uniform float uExtent;
+uniform float uTexel;
 uniform float uTime;
 uniform float uScorchA;
 uniform float uCraterA;
@@ -344,6 +345,11 @@ in float vFog;
 layout(location = 0) out vec4 outColor;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+// Crater relief: a bowl (deeper toward the centre) with a raised rim of thrown-up dirt.
+float height(float a) {
+  return -a * 0.7 + smoothstep(0.0, 0.1, a) * (1.0 - smoothstep(0.1, 0.32, a)) * 0.22;
+}
 
 void main() {
   vec2 uv = vWorld.xz / (uExtent * 2.0) + 0.5;
@@ -369,6 +375,16 @@ void main() {
   float a = max(smoothstep(0.0, 1.0, scorch) * uScorchA, bowl * uCraterA);
   col = mix(col, uRimCol * light, rim * 0.85);
   a = max(a, rim * 0.5);
+  // Relief from the sun: the slopes of the bowl and rim that face it catch light, the others fall into shadow.
+  if (crater > 0.0) {
+    float hx = height(texture(uScar, uv + vec2(uTexel, 0.0)).a) - height(texture(uScar, uv - vec2(uTexel, 0.0)).a);
+    float hz = height(texture(uScar, uv + vec2(0.0, uTexel)).a) - height(texture(uScar, uv - vec2(0.0, uTexel)).a);
+    vec3 sd = normalize(uSunDir);
+    float rel = dot(normalize(vec3(-hx, 0.45, -hz)), sd) - sd.y * 0.97;
+    float lit = clamp(rel * 2.2, -1.0, 1.0);
+    col = mix(col, lit > 0.0 ? uRimCol * light * 1.15 : vec3(0.08, 0.05, 0.1), abs(lit) * 0.8);
+    a = max(a, abs(lit) * 0.6);
+  }
   // Dark cracks in the crater bowl.
   float cr = crack * smoothstep(0.4, 0.75, crater);
   col = mix(col, vec3(0.06, 0.03, 0.08), cr * 0.8);
@@ -386,7 +402,7 @@ void main() {
   vec2 cell = floor(vWorld.xz * 3.0);
   float tw = step(0.965, hash(cell + floor(uTime * 1.5 + hash(cell) * 9.0)));
   vec3 ice = vec3(0.74, 0.9, 1.0) * light + vec3(0.6, 0.8, 1.0) * crack * 0.25 + tw * 0.8;
-  float fa = fr * (0.55 + 0.25 * frost);
+  float fa = fr * (0.42 + 0.22 * frost);
   col = mix(col, ice, fa / max(a + fa, 0.001));
   a = max(a, fa);
   col = mix(col, uFogColor, vFog);
@@ -401,6 +417,7 @@ export class GroundScars {
   private mesh: THREE.Mesh;
   private time = { value: 0 };
   private full = true;
+  private mat: THREE.ShaderMaterial;
 
   constructor(scene: THREE.Scene) {
     const T = scarTuning;
@@ -426,6 +443,7 @@ export class GroundScars {
         uScar: { value: this.tex },
         uCrack: { value: crack },
         uExtent: { value: T.extent },
+        uTexel: { value: 1 / T.size },
         uTime: this.time,
         uScorchA: { value: T.scorchAlpha },
         uCraterA: { value: T.craterAlpha },
@@ -454,6 +472,7 @@ export class GroundScars {
       blendSrcAlpha: THREE.ZeroFactor,
       blendDstAlpha: THREE.OneFactor,
     });
+    this.mat = mat;
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(T.extent * 2, T.extent * 2).rotateX(-Math.PI / 2), mat);
     this.mesh.position.y = 0.022;
     this.mesh.frustumCulled = false;
@@ -477,6 +496,8 @@ export class GroundScars {
   /** Fade, then upload what changed (only the dirty row spans). */
   render(dt: number): void {
     this.time.value += dt;
+    this.mat.uniforms.uScorchA.value = scarTuning.scorchAlpha;
+    this.mat.uniforms.uCraterA.value = scarTuning.craterAlpha;
     this.map.fade(dt);
     const tex = this.tex;
     if (this.full) {

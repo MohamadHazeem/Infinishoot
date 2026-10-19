@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { WeaponDef } from '../../data/weapons';
 import type { Enemy } from '../enemies';
 import { Weapon, type WeaponCtx } from './base';
-import { trails, trailTuning } from '../trails';
+import { trails } from '../trails';
 
 const MAX_SEGMENTS = 1600;
 const BOLT_LIFE = 0.16;
@@ -117,7 +117,7 @@ export class Lightning extends Weapon {
     // On LOW quality trails are off and the thin lines below carry the bolt.
     this.lines.visible = !trails.enabled;
     if (trails.enabled) {
-      const step = 1 / trailTuning.arcRate;
+      const step = trails.arcStep;
       if (trails.clock - this.arcAt >= step || trails.clock < this.arcAt) {
         this.arcAt = trails.clock;
         for (const b of this.bolts) {

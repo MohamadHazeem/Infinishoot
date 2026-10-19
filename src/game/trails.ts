@@ -91,6 +91,7 @@ void main() {
 const frag = /* glsl */ `
 uniform float uClock;
 uniform float uIntensity;
+uniform float uSteady;
 in vec3 vCol;
 in float vSide;
 in float vK;
@@ -112,7 +113,8 @@ void main() {
     col = col * body * fl + vec3(1.0, 0.9, 0.6) * core * fade * 0.4;
     fade = fade * fade;
   } else if (vStyle == 2) {
-    float on = step(0.25, fract(sin(floor(uClock * 24.0) * 7.31 + vSeed * 91.0) * 4375.85));
+    // Flickers on and off (steady with REDUCE FLASHING).
+    float on = max(uSteady, step(0.25, fract(sin(floor(uClock * 24.0) * 7.31 + vSeed * 91.0) * 4375.85)));
     col = vCol * body * 0.9 + vec3(1.0) * core * 1.2;
     fade *= on * 0.6 + 0.4;
   } else if (vStyle == 3) {
@@ -144,12 +146,23 @@ class Trails {
   private wn = 0;
   private full = false;
   private clockU = { value: 0 };
+  private steadyU = { value: 0 };
+  private intensityU = { value: trailTuning.intensity };
   private colors = new Map<string, THREE.Color>();
   private tmp = new THREE.Color();
   /** Seconds of (unfrozen) game time; arcs and flicker key off it. */
   clock = 0;
   /** Off on LOW quality (settings), like the old streaks. */
   enabled = true;
+  /** REDUCE FLASHING: electric arcs stop flickering and re-roll their shape less often. */
+  set steady(v: boolean) {
+    this.steadyU.value = v ? 1 : 0;
+  }
+
+  /** Seconds between arc re-rolls. */
+  get arcStep(): number {
+    return 1 / (trailTuning.arcRate * (this.steadyU.value > 0 ? 0.35 : 1));
+  }
 
   attach(scene: THREE.Scene): void {
     const g = new THREE.InstancedBufferGeometry();
@@ -178,7 +191,8 @@ class Trails {
       fragmentShader: frag,
       uniforms: {
         uClock: this.clockU,
-        uIntensity: { value: trailTuning.intensity },
+        uIntensity: this.intensityU,
+        uSteady: this.steadyU,
         uFogNear: retroGlobals.uFogNear,
         uFogFar: retroGlobals.uFogFar,
       },
@@ -277,6 +291,7 @@ class Trails {
 
   /** Advance the fade clock by `dt` (0 while frozen) and upload what changed. */
   render(dt: number): void {
+    this.intensityU.value = trailTuning.intensity;
     this.clock += dt;
     this.clockU.value = this.clock;
     this.flush();

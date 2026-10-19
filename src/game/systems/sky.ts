@@ -16,9 +16,9 @@ import { MAX_HEAT, postfx } from '../../render/postfx';
 import { renderQuality } from '../../render/quality';
 import { SkyFx, skyOverrides } from '../../render/sky';
 import { BULLET_Y, BulletLook } from '../bullets';
-import { settings } from '../settings';
+import { access, settings } from '../settings';
 import type { BurstOptions } from '../particles';
-import { trails, trailTuning } from '../trails';
+import { trails } from '../trails';
 
 export const skyFxTuning = {
   /** Heat haze over fire shots: shimmer strength, radius (m) and how close shots merge into one spot (m). */
@@ -97,8 +97,9 @@ export function updateSkyFx(this: Game, frameDt: number): void {
   });
   this.scars.ground.magma = biome === 'magma';
 
+  trails.steady = access.reduceFlash;
   heatHaze(this, st, cam);
-  if (trails.enabled && dt > 0 && trails.clock - st.arcAt >= 1 / trailTuning.arcRate) {
+  if (trails.enabled && dt > 0 && trails.clock - st.arcAt >= trails.arcStep) {
     st.arcAt = trails.clock;
     crackle(this);
   }
@@ -159,7 +160,7 @@ function crackle(game: Game): void {
     const r = e.radius * (0.6 + Math.random() * 0.5);
     const y = e.radius * (0.6 + Math.random() * 1.2);
     const reach = T.crackleReach * (0.6 + Math.random() * 0.6);
-    trails.arc(e.x + Math.cos(a) * r * 0.5, y, e.z + Math.sin(a) * r * 0.5, e.x + Math.cos(a) * (r + reach), Math.max(0.15, y + (Math.random() - 0.6) * 0.8), e.z + Math.sin(a) * (r + reach), '#7df9ff', 0.06, 1 / trailTuning.arcRate + 0.02, 0.18, false);
+    trails.arc(e.x + Math.cos(a) * r * 0.5, y, e.z + Math.sin(a) * r * 0.5, e.x + Math.cos(a) * (r + reach), Math.max(0.15, y + (Math.random() - 0.6) * 0.8), e.z + Math.sin(a) * (r + reach), '#7df9ff', 0.06, trails.arcStep + 0.02, 0.18, false);
   }
 }
 
