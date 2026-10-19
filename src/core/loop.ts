@@ -17,6 +17,7 @@ export interface LoopCallbacks {
   render(alpha: number, frameDt: number): void;
   runHidden(): boolean;
   frameCap?(): number;
+  batterySaver?(): boolean;
 }
 
 const TICKER = 'setInterval(() => postMessage(0), 1000 / 60);';
@@ -72,7 +73,8 @@ export class GameLoop {
   private frame = (now: number): void => {
     if (!this.running) return;
     const frameDt = this.step(now);
-    if (this.pacer.ready(now, this.cb.frameCap?.() ?? 0)) this.cb.render(this.paused ? 1 : this.acc / SIM_DT, this.pacer.dt || frameDt);
+    const cap = this.cb.batterySaver?.() ? 30 : this.cb.frameCap?.() ?? 0;
+    if (this.pacer.ready(now, cap)) this.cb.render(this.paused ? 1 : this.acc / SIM_DT, this.pacer.dt || frameDt);
     this.rafId = requestAnimationFrame(this.frame);
   };
 }

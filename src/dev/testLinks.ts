@@ -270,6 +270,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   sound2Links(game, q); // band=, instrument=, duelmusic, tension, djnow, crowd= (src/dev/sound2Links.ts)
   meta2Links(game, q); // m2screen=profile|achievements, m2lv=, m2demo, m2quests=, m2equip= (src/dev/meta2Links.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
+  // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
+  if (q.has('battery')) settings.batterySaver = true;
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
   // Menu lane: a pinned boot overlay for screenshots (?test&menuload=1, 2 or error).

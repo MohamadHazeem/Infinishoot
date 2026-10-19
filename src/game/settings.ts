@@ -1,5 +1,6 @@
 import { applyDesktopSettings } from '../platform/desktop';
 import { displayOptions, type DisplayOptions } from '../../electron/logic.mjs';
+import { mobileDevice } from '../core/mobile';
 import { applyColorblind, type ColorblindMode } from '../render/colorblind';
 import { applyTextScale } from '../ui/settingsScreen';
 import { browserLanguage, type Language } from '../i18n';
@@ -124,6 +125,9 @@ export interface Settings extends DisplayOptions {
   teamMoveMode: 'hold' | 'toggle';
   aimAssist: boolean;
   mouseAimAssist: boolean;
+  batterySaver: boolean;
+  touchOpacity: number;
+  touchAutoHide: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -195,10 +199,16 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   teamMoveMode: 'toggle',
   aimAssist: true,
   mouseAimAssist: false,
+  batterySaver: false,
+  touchOpacity: 70,
+  touchAutoHide: true,
 };
 export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS, loadout: { ...DEFAULT_LOADOUT } });
 Object.assign(settings, displayOptions(settings));
 settings.damageNumbers ??= 'auto';
+settings.batterySaver = settings.batterySaver === true;
+settings.touchOpacity = Number.isFinite(settings.touchOpacity) ? Math.max(25, Math.min(100, settings.touchOpacity)) : 70;
+settings.touchAutoHide = settings.touchAutoHide !== false;
 settings.language = settings.language === 'ar' || settings.language === 'en' ? settings.language : browserLanguage();
 // Screenshot/test locale override. Subsequent explicit settings changes persist normally.
 if (typeof location !== 'undefined') {
@@ -245,7 +255,7 @@ export function applyQualityLevel(level: number, auto: boolean): void {
 
 /** Auto quality: feed every rendered frame's time while playing; steps quality to hold 60 fps. */
 export function autoQualityTick(frameDt: number, active: boolean): void {
-  if (!renderQuality.auto || !governor || !active) return;
+  if (!renderQuality.auto || !governor || !active || settings.batterySaver) return;
   const l = governor.sample(frameDt);
   if (l >= 0) applyQualityLevel(l, true);
 }
@@ -293,7 +303,7 @@ export function applySettings(): void {
   settings.graphics = g;
   if (g === AUTO) {
     // Keep the governor (and its rung) across unrelated settings changes.
-    if (!governor || !renderQuality.auto) governor = new QualityGovernor(AUTO_START);
+    if (!governor || !renderQuality.auto) governor = new QualityGovernor(mobileDevice() ? 0 : AUTO_START);
     applyQualityLevel(governor.level, true);
   } else {
     governor = null;

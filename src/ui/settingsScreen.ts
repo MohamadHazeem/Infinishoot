@@ -3,7 +3,7 @@ import { settings, SETTINGS_DEFAULTS, saveSettings, type Settings } from '../gam
 import { MenuNav } from './menu';
 import type { Screens } from './screens';
 import { promptHtml, promptState } from './prompts';
-import { localize, relocalizeDom, getLanguage } from '../i18n';
+import { t, localize, relocalizeDom, getLanguage } from '../i18n';
 
 export const SETTINGS_TABS = ['VIDEO', 'AUDIO', 'CONTROLS', 'GAMEPLAY', 'ACCESSIBILITY', 'CO-OP'] as const;
 export type SettingsTab = typeof SETTINGS_TABS[number];
@@ -20,6 +20,9 @@ row('VIDEO', 'resolutionScale', 'RESOLUTION SCALE', 'Scales the internal pixel r
 row('VIDEO', 'frameCap', 'FRAME CAP', 'Presentation limit: 30, 60, 120 or unlimited. Simulation stays at 60 Hz. Browser refresh and VSync may limit the result.', undefined, ['30', '60', '120', 'unlimited']);
 row('VIDEO', 'vsync', 'VSYNC', 'Desktop: synchronize presentation with the display. Restart the app to apply. Browsers always control synchronization.');
 row('VIDEO', 'graphics', 'QUALITY', 'AUTO adjusts visual detail to keep the game running smoothly. POTATO is the lightest, for very old PCs.', [0, 4, 1], undefined, ['LOW', 'MEDIUM', 'HIGH', 'AUTO', 'POTATO']);
+row('VIDEO', 'batterySaver', t('mobile.battery'), t('mobile.batteryDesc'));
+row('CONTROLS', 'touchOpacity', t('mobile.opacity'), t('mobile.opacityDesc'), [25, 100, 5]);
+row('CONTROLS', 'touchAutoHide', t('mobile.autoHide'), t('mobile.autoHideDesc'));
 row('VIDEO', 'retro', 'RETRO LOOK', 'Pixel-era colour depth, dithering and vertex wobble.', [0, 1, 0.1]);
 row('VIDEO', 'glow', 'GLOW', 'Brightness of the soft glow around lights and effects.', [0, 1, 0.1]);
 row('VIDEO', 'crt', 'CRT FILTER', 'Adds scanlines and darkens the screen edges.');
@@ -92,7 +95,7 @@ export class SettingsScreen {
   private hint: HTMLElement;
   private lastFocus: Element | null = null;
   private hintMode: string | null = null;
-  constructor(screens: Pick<Screens, 'addScreen'>, back: () => void, controls: () => void) {
+  constructor(screens: Pick<Screens, 'addScreen' | 'show'>, back: () => void, controls: () => void) {
     injectSettingsCss();
     this.el.id = 'scr-settings';
     this.el.className = 'screen dim';
@@ -104,9 +107,11 @@ export class SettingsScreen {
       panel.innerHTML = SETTINGS_ROWS.filter((r) => r.tab === SETTINGS_TABS[i]).map((r) => r.range
         ? `<label><span>${r.label} <b data-value="${r.key}"></b></span><input data-setting="${r.key}" aria-label="${r.label}" aria-describedby="settings-description" type="range" min="${r.range[0]}" max="${r.range[1]}" step="${r.range[2]}"></label>`
         : `<button data-setting="${r.key}" ${r.key === 'tips' ? 'data-act="ob-tips"' : ''} aria-describedby="settings-description">${r.label} <b data-value="${r.key}"></b></button>`).join('')
-        + (SETTINGS_TABS[i] === 'CONTROLS' ? '<button data-rebind aria-label="Rebind keyboard controls">REBIND KEYS…</button>' : '')
+        + (SETTINGS_TABS[i] === 'CONTROLS' ? `<button data-touch-layout>${t('mobile.layout')}</button><button data-rebind aria-label="Rebind keyboard controls">REBIND KEYS…</button>` : '')
         + (SETTINGS_TABS[i] === 'GAMEPLAY' ? '<button data-act="ob-tips-reset" aria-label="Reset first-time tips">RESET TIPS</button>' : '');
     });
+    const touchLayoutButton = this.el.querySelector('[data-touch-layout]')!;
+    touchLayoutButton.parentElement!.prepend(touchLayoutButton);
     this.description = this.el.querySelector('.settings-description')!;
     this.hint = this.el.querySelector('.settings-hint')!;
     this.nav = new MenuNav(this.el, { onBack: back });
@@ -144,6 +149,7 @@ export class SettingsScreen {
       saveSettings(); this.sync();
     });
     this.el.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-rebind]')) controls(); });
+    this.el.querySelector('[data-touch-layout]')!.addEventListener('click', () => screens.show('touchlayout'));
     this.selectTab(0);
   }
   selectTab(index: number): void {
@@ -185,7 +191,8 @@ export class SettingsScreen {
     const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting);
     if (r) this.description.textContent = ['windowMode', 'resolutionScale', 'frameCap', 'vsync'].includes(r.key) ? localize(r.desc) : r.desc;
     else if (el.hasAttribute('data-reset')) this.description.textContent = 'Restore defaults for this tab only. Key bindings have their own reset on REBIND KEYS.';
-    else if (el.hasAttribute('data-rebind')) this.description.textContent = 'Choose the keyboard keys for each action. Gamepad and touch layouts remain fixed.';
+    else if (el.hasAttribute('data-rebind')) this.description.textContent = t('mobile.rebindDesc');
+    else if (el.hasAttribute('data-touch-layout')) this.description.textContent = t('mobile.help');
     else if (el.hasAttribute('data-settings-back')) this.description.textContent = 'Return to the previous menu. Your changes are already saved.';
     else if (el.dataset.act === 'ob-tips-reset') this.description.textContent = 'Show first-time tips again as you encounter each mechanic.';
     else if (el.dataset.tab !== undefined) this.description.textContent = `${SETTINGS_TABS[Number(el.dataset.tab)]} · Changes save automatically on this device.`;

@@ -1,154 +1,215 @@
-import { localizeHtml } from '../i18n';
 import type { Input } from '../core/input';
+import type { Game } from '../game/game';
+import { settings } from '../game/settings';
+import { timeState } from '../game/systems/time';
+import { timeTuning } from '../game/timeRules';
+import { mobileDevice } from '../core/mobile';
+import { onLanguageChange } from '../i18n';
+import {
+  TOUCH_IDS,
+  TOUCH_BUTTONS,
+  touchControls,
+  touchLabel,
+  placeTouch,
+  type TouchId,
+} from './touchEditor';
 
-/**
- * On-screen twin-stick controls for touch screens. They appear on the first
- * touch: the left half of the screen is a floating move stick, the right half
- * an aim stick that also fires, plus DASH, RIGHT CLICK, SPECIAL, PARRY and ULT buttons. Everything
- * feeds Input.virtual, which behaves like a gamepad, so the game needs no
- * special cases. Menus are normal buttons and work with taps.
- */
-const RADIUS = 56;
-
-/** HUD state the touch buttons show (written by the skill HUD every frame): the ULT button fills and glows when ready. */
+/** Read by the local presentation only; actions still use the ordinary authoritative input path. */
 export const touchHud = { ult01: 0, ultReady: false };
 
-const TOUCH_CSS = `
-#touch .parry { --bg: var(--teal); --hi: var(--green); }
-#touch .ult {
-  --c: var(--yellow);
-  --bg: var(--plum);
-  --hi: var(--red);
-  background: linear-gradient(to top, var(--orange) calc(var(--k, 0) * 100%), var(--bg) 0);
-}
-#touch .ult.ready { --ring: var(--yellow); color: var(--yellow); animation: hop 0.5s steps(2) infinite; }
-.reduce-flash #touch .ult.ready { animation: none; }
-`;
-
-export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolean): void {
-  let built = false;
+export function setupTouch(
+  root: HTMLElement,
+  input: Input,
+  inGame: () => boolean,
+  game?: Game,
+): void {
   const v = input.virtual;
-  let layer: HTMLElement;
-  const sticks: Record<'move' | 'aim', { id: number; ox: number; oy: number; base: HTMLElement; knob: HTMLElement }> = {} as never;
-
-  let ultBtn: HTMLElement | null = null;
-  let shownK = -1;
-  let shownReady = false;
-
+  let layer: HTMLElement | null = null;
+  const elements = {} as Record<TouchId, HTMLElement>;
+  const sticks = {
+    move: { id: -1, x: 0, y: 0, radius: 56, knob: null as HTMLElement | null },
+    aim: { id: -1, x: 0, y: 0, radius: 56, knob: null as HTMLElement | null },
+  };
+  const held = new Map<number, TouchId>();
+  let shownK = -1,
+    shownReady = false;
+  const reset = () => {
+    for (const id of ['move', 'aim'] as const) {
+      sticks[id].id = -1;
+      sticks[id].knob?.style.removeProperty('transform');
+      v[id].x = v[id].y = 0;
+    }
+    for (const id of TOUCH_IDS) {
+      const button = TOUCH_BUTTONS[id];
+      if (button !== undefined) v.buttons[button] = false;
+      elements[id]?.classList.remove('on');
+    }
+    held.clear();
+  };
+  const layout = () => {
+    if (!layer) return;
+    reset();
+    for (const id of TOUCH_IDS)
+      placeTouch(elements[id], touchControls()[id], layer.clientWidth, layer.clientHeight);
+  };
   const build = () => {
-    built = true;
-    v.active = true;
-    if (!document.getElementById('touch-css')) {
-      const st = document.createElement('style');
-      st.id = 'touch-css';
-      st.textContent = TOUCH_CSS;
-      document.head.appendChild(st);
+    if (layer) return;
+    layer = document.createElement('div');
+    layer.id = 'touch';
+    layer.hidden = true;
+    for (const id of TOUCH_IDS) {
+      const stick = id === 'move' || id === 'aim';
+      const b = document.createElement(stick ? 'div' : 'button');
+      b.className = `${stick ? 'tstick' : 'tbtn'} ${id}`;
+      b.dataset.touch = id;
+      b.setAttribute('aria-label', touchLabel(id));
+      if (stick) {
+        const knob = document.createElement('i');
+        b.append(knob);
+        sticks[id].knob = knob;
+      } else b.textContent = touchLabel(id);
+      elements[id] = b;
+      layer.append(b);
     }
-    root.insertAdjacentHTML(
-      'beforeend',
-      localizeHtml(`<div id="touch">
-        <div class="tstick move"><i></i></div>
-        <div class="tstick aim"><i></i></div>
-        <button class="tbtn dash" data-b="0">DASH</button>
-        <button class="tbtn charge" data-b="2">R-CLICK</button>
-        <button class="tbtn bomb" data-b="5">SPECIAL</button>
-        <button class="tbtn parry" data-b="1">PARRY</button>
-        <button class="tbtn ult" data-b="10">ULT</button>
-        <button class="tbtn rewind" data-b="14">REWIND</button>
-      </div>`),
-    );
-    layer = root.querySelector('#touch')!;
-    ultBtn = layer.querySelector<HTMLElement>('.ult');
-    for (const k of ['move', 'aim'] as const) {
-      const base = layer.querySelector<HTMLElement>(`.tstick.${k}`)!;
-      sticks[k] = { id: -1, ox: 0, oy: 0, base, knob: base.querySelector('i')! };
-    }
-    layer.querySelectorAll<HTMLElement>('.tbtn').forEach((b) => {
-      const i = Number(b.dataset.b);
-      const set = (on: boolean) => (e: PointerEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        v.buttons[i] = on;
-        b.classList.toggle('on', on);
-      };
-      b.addEventListener('pointerdown', set(true));
-      b.addEventListener('pointerup', set(false));
-      b.addEventListener('pointercancel', set(false));
-      b.addEventListener('pointerleave', set(false));
+    root.append(layer);
+    layer.addEventListener('pointerdown', (e) => {
+      if (!inGame() || e.pointerType !== 'touch') return;
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-touch]');
+      if (!b) return;
+      const id = b.dataset.touch as TouchId;
+      v.active = true;
+      if (id === 'move' || id === 'aim') {
+        const s = sticks[id];
+        if (s.id !== -1) return;
+        const r = b.getBoundingClientRect();
+        s.id = e.pointerId;
+        s.x = r.left + r.width / 2;
+        s.y = r.top + r.height / 2;
+        s.radius = r.width / 2;
+      } else {
+        if ([...held.values()].includes(id)) return;
+        held.set(e.pointerId, id);
+        v.buttons[TOUCH_BUTTONS[id]!] = true;
+      }
+      b.classList.add('on');
+      b.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    onLanguageChange(() => {
+      for (const id of TOUCH_IDS) {
+        elements[id].setAttribute('aria-label', touchLabel(id));
+        if (id !== 'move' && id !== 'aim') elements[id].textContent = touchLabel(id);
+      }
     });
   };
-
-  const stickFor = (x: number) => (x < window.innerWidth / 2 ? 'move' : 'aim');
-
   window.addEventListener(
     'pointerdown',
     (e) => {
       if (e.pointerType !== 'touch') return;
-      if (!built) build();
-      layer.hidden = !inGame();
-      if (!inGame() || (e.target as HTMLElement).closest('button, .screen')) return;
-      const k = stickFor(e.clientX);
-      const s = sticks[k];
-      if (s.id >= 0) return;
-      s.id = e.pointerId;
-      s.ox = e.clientX;
-      s.oy = e.clientY;
-      s.base.style.transform = `translate(${e.clientX - RADIUS}px, ${e.clientY - RADIUS}px)`;
-      s.base.classList.add('on');
+      build();
+      v.active = true;
     },
-    { passive: true },
+    { capture: true, passive: true },
   );
-
   window.addEventListener(
     'pointermove',
     (e) => {
-      if (!built) return;
-      for (const k of ['move', 'aim'] as const) {
-        const s = sticks[k];
+      for (const id of ['move', 'aim'] as const) {
+        const s = sticks[id];
         if (s.id !== e.pointerId) continue;
-        let dx = e.clientX - s.ox;
-        let dy = e.clientY - s.oy;
-        const l = Math.hypot(dx, dy);
-        if (l > RADIUS) {
-          dx = (dx / l) * RADIUS;
-          dy = (dy / l) * RADIUS;
-        }
-        s.knob.style.transform = `translate(${dx}px, ${dy}px)`;
-        const out = k === 'move' ? v.move : v.aim;
-        const n = Math.min(1, l / RADIUS);
-        if (n < 0.18) out.x = out.y = 0;
-        else {
-          out.x = (dx / (Math.hypot(dx, dy) || 1)) * (k === 'move' ? n : 1);
-          out.y = (dy / (Math.hypot(dx, dy) || 1)) * (k === 'move' ? n : 1);
-        }
+        const dx = e.clientX - s.x,
+          dy = e.clientY - s.y,
+          l = Math.hypot(dx, dy),
+          n = Math.min(1, l / s.radius),
+          scale = Math.min(1, s.radius / (l || 1));
+        s.knob!.style.transform = `translate(${dx * scale}px,${dy * scale}px)`;
+        const out = v[id];
+        out.x = n < 0.18 ? 0 : (dx / (l || 1)) * (id === 'move' ? n : 1);
+        out.y = n < 0.18 ? 0 : (dy / (l || 1)) * (id === 'move' ? n : 1);
       }
     },
     { passive: true },
   );
-
   const release = (e: PointerEvent) => {
-    if (!built) return;
-    for (const k of ['move', 'aim'] as const) {
-      const s = sticks[k];
-      if (s.id !== e.pointerId) continue;
-      s.id = -1;
-      s.base.classList.remove('on');
-      s.knob.style.transform = '';
-      const out = k === 'move' ? v.move : v.aim;
-      out.x = out.y = 0;
+    for (const id of ['move', 'aim'] as const)
+      if (sticks[id].id === e.pointerId) {
+        sticks[id].id = -1;
+        sticks[id].knob!.style.transform = '';
+        v[id].x = v[id].y = 0;
+        elements[id].classList.remove('on');
+      }
+    const id = held.get(e.pointerId);
+    if (id) {
+      held.delete(e.pointerId);
+      v.buttons[TOUCH_BUTTONS[id]!] = false;
+      elements[id].classList.remove('on');
     }
   };
   window.addEventListener('pointerup', release);
   window.addEventListener('pointercancel', release);
-
-  // Hide the controls behind menus.
-  const tick = () => {
-    if (built) layer.hidden = !inGame();
-    if (ultBtn && !layer.hidden) {
-      if (touchHud.ult01 !== shownK) ultBtn.style.setProperty('--k', String((shownK = touchHud.ult01)));
-      if (touchHud.ultReady !== shownReady) ultBtn.classList.toggle('ready', (shownReady = touchHud.ultReady));
+  window.addEventListener('blur', reset);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) reset();
+  });
+  window.addEventListener('resize', layout);
+  window.addEventListener('touchlayoutchange', layout);
+  const forced =
+    typeof location !== 'undefined' &&
+    new URLSearchParams(location.search).has('test') &&
+    new URLSearchParams(location.search).has('touch');
+  if (mobileDevice() || forced) {
+    build();
+    v.active = true;
+  }
+  // Low-frequency HUD refresh, no extra animation loop or per-frame DOM queries.
+  const refresh = () => {
+    if (!layer) return;
+    const hide = !inGame() || document.hidden;
+    if (layer.hidden !== hide) {
+      layer.hidden = hide;
+      reset();
+      if (!hide) layout();
     }
-    requestAnimationFrame(tick);
+    if (hide) return;
+    layer.style.opacity = String(settings.touchOpacity / 100);
+    for (const id of TOUCH_IDS) {
+      let unused = false;
+      if (game) {
+        const dead = game.hero.player.dead;
+        unused = dead && id !== 'team';
+        if (id === 'team') unused = !game.coop || !!game.pvp;
+        if (id === 'rewind') {
+          const s = timeState(game);
+          unused =
+            dead ||
+            !!game.pvp ||
+            (game.role === 'client' ? s.net.used : s.rewindsUsed >= timeTuning.rewindPerStage);
+        }
+        if (id === 'charge')
+          unused = dead || !game.hero.weapons.some((w) => w.def.slot === 'secondary');
+        if (id === 'bomb') unused = dead || !game.hero.special;
+        if (id === 'cash' || id === 'cashpick') unused = dead || !!game.pvp || game.combo <= 0;
+      }
+      const hidden = settings.touchAutoHide && unused;
+      if (elements[id].hidden !== hidden) {
+        elements[id].hidden = hidden;
+        const button = TOUCH_BUTTONS[id];
+        if (hidden && button !== undefined) v.buttons[button] = false;
+      }
+    }
+    if (touchHud.ult01 !== shownK)
+      elements.ult.style.setProperty('--k', String((shownK = touchHud.ult01)));
+    if (touchHud.ultReady !== shownReady)
+      elements.ult.classList.toggle('ready', (shownReady = touchHud.ultReady));
   };
-  requestAnimationFrame(tick);
+  // Menu transitions must clear held input immediately, even between timer ticks.
+  new MutationObserver(() => {
+    if (!inGame()) {
+      reset();
+      if (layer) layer.hidden = true;
+    }
+  }).observe(root, { attributes: true, attributeFilter: ['class'] });
+  setInterval(refresh, 100);
+  refresh();
 }
