@@ -15,6 +15,7 @@
 // Signalling goes through PeerJS's public broker like the real game (needs
 // internet); the WebRTC data channel itself is local, page to page.
 // COOP_TIMEOUT_MS=120000 COOP_LOW=1 accommodates busy shared builders (assertions unchanged).
+// COOP_ANGLE=metal can use the native macOS GPU instead of the default SwiftShader.
 // COOP_TRACE=1 prints the client hero's position trail on both pages when they disagree.
 import { chromium } from 'playwright-core';
 import { createServer } from 'vite';
@@ -62,7 +63,7 @@ const base = `http://127.0.0.1:${server.config.server.port ?? server.httpServer.
 const browser = await chromium.launch({
   headless: true,
   executablePath: findChrome(),
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
+  args: [`--use-angle=${process.env.COOP_ANGLE ?? 'swiftshader'}`, '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
 });
 
 async function openPage(name) {

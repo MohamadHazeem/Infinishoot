@@ -36,7 +36,7 @@ export function mods2Event(this: Game, h: Hero, kind: ModEvent): void {
 export function mods2Position(this: Game, h: Hero): void {
   const syn = h.synergy;
   syn.nearWall =
-    syn.needsWall && this.walls.hitCircle(h.player.x, h.player.z, mods2Tuning.wallRadius);
+    syn.needsWall && this.walls.hitSolid(h.player.x, h.player.z, mods2Tuning.wallRadius);
   syn.ownFire = false;
   if (syn.needsFire) {
     for (const w of h.weapons)

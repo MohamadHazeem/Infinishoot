@@ -278,7 +278,10 @@ A.walls = new StaticBoxGrid([{ minX: h.player.x + 1.5, maxX: h.player.x + 2.5, m
 equip(h, ['wallflower']);
 A.mods2Position(h); ok(h.synergy.nearWall, 'cover within 2m grants Wallflower');
 h.player.pos.x -= 5; A.mods2Position(h); ok(!h.synergy.nearWall, 'moving away from cover removes Wallflower');
-h.player.pos.x += 5; A.walls = originalWalls;
+h.player.pos.x += 5;
+A.walls = new StaticBoxGrid([{ minX: h.player.x + 1.5, maxX: h.player.x + 2.5, minZ: h.player.z - 1, maxZ: h.player.z + 1, gap: true }]);
+A.mods2Position(h); ok(!h.synergy.nearWall, 'an empty gap is not solid cover');
+A.walls = originalWalls;
 // Chest damage routes through the game and effects bus; reopening cannot retrigger.
 equip(h, ['jack_in_box']);
 e.x = h.player.x + 2;
