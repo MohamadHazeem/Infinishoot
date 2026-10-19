@@ -16,6 +16,8 @@
     "shot": "node scripts/shot.mjs",
     "coop": "node scripts/coop-test.mjs",
     "bench": "node scripts/bench.mjs",
+    "fuzz": "node scripts/fuzz.mjs",
+    "soak": "node scripts/soak.mjs",
     "icons": "node scripts/icons.mjs",
     "format": "prettier --write \"src/**/*.{ts,css}\"",
     "app": "npm run build && electron .",

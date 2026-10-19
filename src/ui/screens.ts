@@ -1711,12 +1711,21 @@ export class Screens {
 
 // ---------------------------------------------------------------- shop particles
 
+/** Elements with a `replay` class whose animationend listener is still waiting. */
+const replaying = new WeakMap<HTMLElement, Set<string>>();
+
 /** Restart a CSS animation class on an element. */
 function replay(el: HTMLElement, cls: string): void {
   el.classList.remove(cls);
   void el.offsetWidth;
   el.classList.add(cls);
-  el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
+  // One waiting listener per element and class: a screen hidden mid-animation (the shop closed at once)
+  // cancels it without an animationend, and a new listener per opening piled up (soak, crash-fuzz lane).
+  let pending = replaying.get(el);
+  if (!pending) replaying.set(el, (pending = new Set()));
+  if (pending.has(cls)) return;
+  pending.add(cls);
+  el.addEventListener('animationend', () => (pending.delete(cls), el.classList.remove(cls)), { once: true });
 }
 
 /** One pixel bit (or coin) flying from (x0, y0) to (x1, y1) with a little hop. */

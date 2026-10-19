@@ -34,6 +34,8 @@ export interface PilotIntent {
 
 export class Autopilot {
   private rightT = 0;
+  /** Which way round a wall the walk to a target goes (1 / -1), kept until the way is clear so it doesn't dither. */
+  private side = 0;
   readonly out: PilotIntent = { mx: 0, mz: 0, target: null, charge: false, dash: false, special: false, ult: false, parry: false, cash: -1 };
 
   decide(g: Game): PilotIntent {
@@ -80,10 +82,10 @@ export class Autopilot {
     let mx: number;
     let mz: number;
     if (g.mode === 'portal') {
-      // A flawless stage's golden portal beats the normal one (cinematics lane).
+      // A flawless stage's golden portal beats the normal one (cinematics lane). Walk round walls in the
+      // way: the golden portal is placed clear of the normal one, not of wherever the hero kited to.
       const to = goldenPortalAt(g) ?? g.portal;
-      mx = to.x - p.x;
-      mz = to.z - p.z;
+      [mx, mz] = this.steer(g, p.x, p.z, to.x, to.z);
     } else if (boss) {
       // Circle the boss at a safe-ish distance.
       const dx = p.x - boss.x;
@@ -123,5 +125,34 @@ export class Autopilot {
       }
     }
     return o;
+  }
+
+  /**
+   * Direction from (x, z) towards (tx, tz) that steps round walls: straight when the line is clear,
+   * else the clear 2.5 m step closest to the target's bearing, turning to one side and sticking to it
+   * (follows the wall instead of pushing into it).
+   */
+  steer(g: Game, x: number, z: number, tx: number, tz: number): [number, number] {
+    const dx = tx - x;
+    const dz = tz - z;
+    const w = g.walls;
+    if (w.segmentClear(x, z, tx, tz, 0.3)) {
+      this.side = 0;
+      return [dx, dz];
+    }
+    const a0 = Math.atan2(dz, dx);
+    const sides = this.side ? [this.side] : [1, -1];
+    for (let k = 1; k <= 8; k++) {
+      for (const sd of sides) {
+        const a = a0 + sd * k * (Math.PI / 8);
+        const ux = Math.cos(a);
+        const uz = Math.sin(a);
+        if (!w.segmentClear(x + ux * 0.3, z + uz * 0.3, x + ux * 2.5, z + uz * 2.5, 0.3)) continue;
+        this.side = sd;
+        return [ux, uz];
+      }
+    }
+    this.side = -this.side; // boxed in on this side: try the other next step
+    return [dx, dz];
   }
 }

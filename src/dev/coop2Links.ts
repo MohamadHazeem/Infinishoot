@@ -36,7 +36,8 @@ export function coop2Links(game: Game, q: URLSearchParams): void {
   const em = q.get('emote');
   if (em) setTimeout(() => game.coopEmote(game.hero, em), 1000);
   const mem = q.get('mateemote');
-  if (mem && game.heroes[1]) setInterval(() => game.coopEmote(game.heroes[1], mem === 'cycle' ? EMOTES[Math.floor(Math.random() * EMOTES.length)].id : mem), 2500);
+  // The dummy can be gone by then (versus, local co-op or the title replace the heroes).
+  if (mem && game.heroes[1]) setInterval(() => game.heroes[1] && game.coopEmote(game.heroes[1], mem === 'cycle' ? EMOTES[Math.floor(Math.random() * EMOTES.length)].id : mem), 2500);
   if (q.has('pool')) {
     const id = setInterval(() => {
       if (game.mode !== 'fight' || st.stage < 1) return;

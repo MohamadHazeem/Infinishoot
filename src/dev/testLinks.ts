@@ -38,6 +38,7 @@ import { charDebug } from '../game/systems/characters';
 import { portraits, type Expression } from '../ui/portraits';
 import { skyOverrides, skyTuning } from '../render/sky';
 import { SCAR_COLORS } from '../game/scars';
+import { fuzzMonkey } from './fuzzLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -111,6 +112,8 @@ import { SCAR_COLORS } from '../game/scars';
  *   &mate&autopilot, &joincode=K7P2Q, &mate&teamult=2, &ghostgo=2.
  * MP lane (src/dev/mpLinks.ts): &versus (vs the AI Overlord), &versus=ol&god (you are the Overlord), &vstime=, &vspts=, &vsgo=,
  *   &localcoop[=run]&lcpads=2, &browse=fake, &teamboard=fake, &lobby=versus|weekly.
+ *
+ * Crash fuzzer (src/dev/fuzzLinks.ts, scripts/fuzz.mjs): &monkey=<seed> random keys, clicks, pauses, tab hides and resizes.
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -321,6 +324,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
+  if (q.has('monkey')) fuzzMonkey(game, Number(q.get('monkey')) || 1); // crash fuzzer: random keys, clicks, pauses on top of the bot
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   return true;
