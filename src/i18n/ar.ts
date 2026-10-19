@@ -2,6 +2,31 @@ import { storyAr } from '../game/story/strings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "mods.category.weapons": "الأسلحة",
+  "mods.category.enemies": "الأعداء",
+  "mods.category.relics": "الآثار",
+  "mods.category.mods": "تعديلات المتجر",
+  "mods.category.biomes": "المناطق",
+  "mods.category.events": "الأحداث",
+
+  "mods.title": "التعديلات",
+  "mods.intro": "محتوى يصنعه اللاعبون. التحميل من الأعلى للأسفل، والتعديل الأخير له الأولوية. يجب أن يستخدم اللاعبون عبر الإنترنت الحزم النشطة نفسها وبالترتيب نفسه.",
+  "mods.active": "النشط: ⟪count⟫ حزم · ⟪hash⟫",
+  "mods.pending": "حُفظت التغييرات للتشغيل التالي. إعادة تشغيل اللعبة تنهي جلستك الحالية.",
+  "mods.empty": "لا توجد حزم مثبتة. استورد ملف JSON أو ZIP للبدء.",
+  "mods.enabled": "مفعّل",
+  "mods.disabled": "معطّل",
+  "mods.up": "نقل للأعلى",
+  "mods.down": "نقل للأسفل",
+  "mods.remove": "إزالة",
+  "mods.import": "استيراد JSON / ZIP",
+  "mods.folder": "فتح مجلد التعديلات",
+  "mods.restart": "إعادة تشغيل اللعبة",
+  "mods.back": "رجوع",
+  "mods.loading": "جارٍ قراءة ملفات التعديلات…",
+  "mods.imported": "تم الاستيراد. راجع الأخطاء وفعّل الحزم، ثم أعد التشغيل لتطبيقها.",
+  "mods.mismatch": "حزم التعديلات غير متطابقة: استخدم الحزم المفعّلة والإصدارات وترتيب التحميل نفسه، أو عطّل جميع الحزم، ثم أعد التشغيل.",
+
   "content.84fee1b908": "شفرات الرياح المتقاطعة",
   "content.21f48f0714": "شفرتان هلاليتان تتقاطعان إلى الخارج، ثم تقطعان الأعداء في مسار عودة منحني.",
   "content.bceb0fd05d": "ملفات تسلا",

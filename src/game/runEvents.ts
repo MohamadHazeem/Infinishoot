@@ -1,5 +1,5 @@
 import type { Rng } from '../core/rng';
-import { EVENT_IDS, STAGE_EVENTS, type ChallengeKind, type EventId } from '../data/stageEvents';
+import { eventBehavior, EVENT_IDS, STAGE_EVENTS, type ChallengeKind, type EventId } from '../data/stageEvents';
 import type { Tag } from '../data/tags';
 import { WEAPONS } from '../data/weapons';
 
@@ -85,11 +85,11 @@ export class RunEvents {
   }
 
   get goldRush(): boolean {
-    return this.event?.id === 'goldrush';
+    return eventBehavior(this.event?.id) === 'goldrush';
   }
 
   get fog(): boolean {
-    return this.event?.id === 'fog';
+    return eventBehavior(this.event?.id) === 'fog';
   }
 
   /** Every fight step (not during the boss). `time` = stage seconds elapsed. */
@@ -128,11 +128,11 @@ export class RunEvents {
     this.host.banner(def.name, def.sub, 2);
     this.host.sound(def.good ? 'jingle' : 'ominous');
     this.meteorT = 1.2;
-    if (id === 'parade') {
+    if (eventBehavior(id) === 'parade') {
       this.paradeLeft = 3;
       this.paradeT = 0;
     }
-    if (id === 'stampede') {
+    if (eventBehavior(id) === 'stampede') {
       this.host.spawnRing();
       this.paradeT = 3.5;
       this.paradeLeft = 1;
@@ -141,9 +141,10 @@ export class RunEvents {
 
   private tickEvent(dt: number): void {
     const ev = this.event!;
+    const behavior = eventBehavior(ev.id);
     ev.t -= dt;
     const h = this.host;
-    if (ev.id === 'meteors' && (this.meteorT -= dt) <= 0) {
+    if (behavior === 'meteors' && (this.meteorT -= dt) <= 0) {
       this.meteorT = 0.55;
       const ts = h.targets();
       if (ts.length) {
@@ -153,14 +154,14 @@ export class RunEvents {
         h.meteor(p.x + Math.cos(a) * d, p.z + Math.sin(a) * d, 2.4, 1.3, 18 * h.dmgMul);
       }
     }
-    if ((ev.id === 'parade' || ev.id === 'stampede') && this.paradeLeft > 0 && (this.paradeT -= dt) <= 0) {
+    if ((behavior === 'parade' || behavior === 'stampede') && this.paradeLeft > 0 && (this.paradeT -= dt) <= 0) {
       this.paradeLeft--;
       this.paradeT = 2.5;
-      if (ev.id === 'parade') h.spawnElite();
+      if (behavior === 'parade') h.spawnElite();
       else h.spawnRing();
     }
     if (ev.t <= 0) {
-      if (ev.id === 'goldrush' || ev.id === 'fog') h.toast(ev.id === 'fog' ? 'THE FOG LIFTS' : 'GOLD RUSH OVER', 2);
+      if (behavior === 'goldrush' || behavior === 'fog') h.toast(behavior === 'fog' ? 'THE FOG LIFTS' : 'GOLD RUSH OVER', 2);
       this.event = null;
     }
   }

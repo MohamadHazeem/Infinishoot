@@ -1,6 +1,7 @@
 import './platform/desktop';
 import { installDesktopUi } from './platform/help';
 import { displayState } from './platform/display';
+import { mods } from './mods/manager';
 import '@fontsource/jersey-10/latin-400.css';
 import '@fontsource/jersey-15/latin-400.css';
 import '@fontsource/silkscreen/latin-400.css';
@@ -24,6 +25,12 @@ const hudEl = document.getElementById('hud')!;
 const statsEl = document.getElementById('stats')!;
 const reticleEl = document.getElementById('reticle')!;
 
+// Content must be ready before pooled meshes or a lobby can be created.
+const modQuery = new URLSearchParams(location.search);
+const modPreview = modQuery.has('test') && modQuery.has('modexample')
+  ? [{ key: 'preview/mint', name: 'example.json', raw: (await import('../docs/mods/example.json?raw')).default, enabled: true }]
+  : undefined;
+await mods.initialize(modPreview);
 applySettings();
 const renderer = new RetroRenderer(canvas);
 performance.mark('infinishoot:renderer');

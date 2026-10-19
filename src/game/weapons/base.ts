@@ -253,16 +253,21 @@ export abstract class Weapon {
 
   /** The partner-item evolution's colour when evolved, else `base`. */
   protected look(base: string): string {
-    return this.partnerEvolved ? this.def.evolution!.color : base;
+    return this.partnerEvolved ? this.def.evolution!.color : this.def.modColor ?? base;
   }
 
   private lookEvo = false;
+  private modLookApplied = false;
 
   /** Render entry point: re-skins an auto weapon when it evolves, then draws it. */
   draw(alpha: number, ctx: WeaponCtx): void {
+    if (this.def.modColor && !this.modLookApplied) {
+      this.applyLook(this.def.modColor);
+      this.modLookApplied = true;
+    }
     if (this.partnerEvolved !== this.lookEvo) {
       this.lookEvo = this.partnerEvolved;
-      this.applyLook(this.lookEvo ? this.def.evolution!.color : null);
+      this.applyLook(this.lookEvo ? this.def.evolution!.color : this.def.modColor ?? null);
     }
     this.render(alpha, ctx);
   }

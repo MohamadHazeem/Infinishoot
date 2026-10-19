@@ -154,6 +154,7 @@ void import('./logic.mjs').then((module) => {
   Menu.setApplicationMenu(process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'appMenu' }, { label: 'View', submenu: [{ label: 'Toggle Fullscreen', accelerator: 'Control+Command+F', click: () => setMode(mode === 'fullscreen' ? 'windowed' : 'fullscreen') }] }]) : null);
   app.on('child-process-gone', (_event, details) => log('process-crash', details, true));
   log('session', context());
+  require('./mods.cjs').registerMods(app);
   createWindow();
 });
 app.on('before-quit', flush);

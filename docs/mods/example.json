@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "mint",
+  "name": "Mint Circuit",
+  "version": "1.0.0",
+  "description": "Mint drones, candy-coloured Boppers and a fresh stage-two island.",
+  "content": {
+    "weapons": [
+      { "id": "mint_drones", "base": "drones", "set": { "name": "Mint Satellites", "desc": "Four mint drones circle you and hit nearby enemies.", "color": "#a7f070", "rarity": "uncommon", "params": { "count": 4, "dmg": 18, "radius": 3 } } }
+    ],
+    "enemies": [
+      { "id": "mint_bopper", "base": "bopper", "set": { "name": "Mint Bopper", "hp": 30, "speed": 3.5, "bodyColor": "#38b764", "accentColor": "#a7f070", "weight": 10, "minMinute": 0 } }
+    ],
+    "relics": [
+      { "id": "mint_heart", "base": "r_ironheart", "set": { "name": "Mint Heart", "desc": "+40 max life.", "color": "#a7f070", "add": { "maxHp": 40 } } }
+    ],
+    "mods": [
+      { "id": "mint_glass", "base": "glass_cannon", "set": { "name": "Sugar Glass", "color": "#73eff7", "price": 7 } }
+    ],
+    "biomes": [
+      { "id": "mint_island", "base": "meadow", "stages": [2], "set": { "name": "Mint Island", "groundTint": "#a7f070", "wallTint": "#73eff7", "leafTint": "#38b764", "fog": "#73eff7", "tree": "round", "rock": "crystal", "rockColors": ["#73eff7", "#a7f070"], "clusters": [0.15, 0.15, 0.45, 0.25] } }
+    ],
+    "events": [
+      { "id": "mint_rush", "base": "goldrush", "set": { "name": "MINT RUSH!", "sub": "SWEET GOLD EVERYWHERE", "seconds": 28 } }
+    ]
+  }
+}

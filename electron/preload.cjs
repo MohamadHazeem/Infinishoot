@@ -14,3 +14,8 @@ contextBridge.exposeInMainWorld('desktop', {
     return () => ipcRenderer.removeListener('desktop:mode', listener);
   },
 });
+// Content mods (src/mods): list the mods folder and open it.
+contextBridge.exposeInMainWorld('infiniMods', {
+  list: () => ipcRenderer.invoke('mods:list'),
+  openFolder: () => ipcRenderer.invoke('mods:folder'),
+});

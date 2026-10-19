@@ -1,3 +1,4 @@
+import { ModsScreen } from './modsScreen';
 import { gauntletOption, renderGauntletOptions } from '../game/systems/gauntlet';
 import { SettingsScreen } from './settingsScreen';
 import { localize, t, localizeHtml, relocalizeDom } from '../i18n';
@@ -42,7 +43,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp';
+export type ExtraScreen = 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly';
 
@@ -258,6 +259,7 @@ export class Screens {
   private navs = {} as Record<Named, MenuNav>;
   private settingsReturn: ScreenName = 'title';
   readonly settingsScreen: SettingsScreen;
+  readonly modsScreen: ModsScreen;
   private readonly titleMenu: TitleMenu;
   private wipeArmed = false;
   /** Gold last shown in the shop, for the +/- popups. */
@@ -747,6 +749,7 @@ export class Screens {
     );
 
     this.settingsScreen = new SettingsScreen(this, () => this.show(this.settingsReturn), () => this.show('controls'));
+    this.modsScreen = new ModsScreen(this);
     this.titleMenu = new TitleMenu(root, this);
   }
 
@@ -777,6 +780,7 @@ export class Screens {
     this.root.classList.toggle('menu-open', name !== 'none');
     if (META_SCREENS.includes(name as MetaScreen)) renderMeta(this.els[name as MetaScreen], name as MetaScreen);
     if (name === 'settings') this.settingsScreen.open();
+    if (name === 'contentmods') this.modsScreen.open();
     if (name === 'title') this.renderProgress();
     if (name === 'unlocks') this.renderUnlocks();
     if (name === 'jukebox') this.renderJukebox();

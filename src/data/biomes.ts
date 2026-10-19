@@ -447,6 +447,9 @@ export function biomeKeyForStage(stage: number): string {
 }
 
 const resolved = new Map<string, BiomeDef>();
+/** Content packs are installed once before arena construction. */
+export const modBiomeStages: Record<number, string> = {};
+export function clearBiomeCache(): void { resolved.clear(); }
 
 /** A biome by key: 'meadow' or a remix like 'meadow:autumn' (the remix's look over its biome). */
 export function biomeByKey(key: string): BiomeDef {
@@ -470,7 +473,7 @@ export const biomeForce: { key: string | null } = { key: null };
 
 /** Stage 1 is the meadow; loop 1 tours the classics, later loops bring the new biomes and remixes. */
 export function biomeForStage(stage: number): BiomeDef {
-  return biomeByKey(biomeForce.key ?? seasonalStage(stage)?.biome ?? biomeKeyForStage(stage));
+  return biomeByKey(biomeForce.key ?? modBiomeStages[stage] ?? seasonalStage(stage)?.biome ?? biomeKeyForStage(stage));
 }
 
 /** Every biome key that shows up in the first `stages` stages (title attract mode picks from these). */

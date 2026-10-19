@@ -1,3 +1,4 @@
+import { eventBehavior } from '../../data/stageEvents';
 import { gauntletScore } from '../../data/ascension';
 import { renderGauntlet, challengeState } from './gauntlet';
 import { beginReadability, renderReadability } from './readability2';
@@ -134,7 +135,7 @@ export function updateSky(this: Game, frameDt: number): void {
   this.dayK = want < this.dayK - 0.5 ? want : this.dayK + (want - this.dayK) * Math.min(1, frameDt * 0.8);
   applyTimeOfDay(this.dayK);
   // Fog bank event: the fog rolls in close, then lifts.
-  const fog = this.role === 'client' ? this.netEvent?.[0] === 'fog' : this.runEvents.fog;
+  const fog = this.role === 'client' ? eventBehavior(this.netEvent?.[0]) === 'fog' : this.runEvents.fog;
   const k = this.fogK + ((fog ? 1 : 0) - this.fogK) * Math.min(1, frameDt * 1.2);
   if (k > 0.002 || this.fogK > 0.002) {
     // The camera sits ~25 m from the hero: thick fog from 20 m hides everything past the screen's middle.

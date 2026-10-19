@@ -1,3 +1,4 @@
+import { modSession } from '../../mods/manager';
 /**
  * Online lobby: hosting, joining and starting co-op games.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -68,7 +69,7 @@ export function refreshLobby(this: Game): void {
   const kind = this.lobbyKind;
   const extra = this.mpLobbyExtra(); // Versus Overlord, weekly team, PUBLIC (systems/mp.ts)
   this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind, extra: extra.mp });
-  this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind, ...extra, co: this.coopLobby() }); // co: roles, revive pool, join anytime (systems/coop2.ts)
+  this.host.broadcast({ t: 'lobby', mods: modSession.hash, players, code: this.host.code, difficulty, kind, ...extra, co: this.coopLobby() }); // co: roles, revive pool, join anytime (systems/coop2.ts)
 }
 
 /** Co-op difficulty: the host's pick, if their save has it unlocked. */
@@ -87,7 +88,7 @@ export function hostStart(this: Game): void {
     const seed = randomSeed();
     const difficulty = this.lobbyDifficulty().id;
     const rules = pvpRules(this); // format, rounds, arena (systems/pvp2.ts)
-    this.host.broadcast({ t: 'pvpgo', seed, difficulty, rules });
+    this.host.broadcast({ t: 'pvpgo', mods: modSession.hash, seed, difficulty, rules });
     this.pvpBegin('host', seed, difficulty, rules);
     return;
   }
@@ -144,7 +145,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     return;
   }
   netcodeJoined(this, client); // snapshot playout buffer, ICE watch (systems/netcode.ts)
-  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile(), pf: profileSummary() }); // prof: lobby card (systems/party.ts), pf: meta2 profile summary
+  client.send({ t: 'hello', mods: modSession.hash, pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile(), pf: profileSummary() }); // prof: lobby card (systems/party.ts), pf: meta2 profile summary
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }
 
