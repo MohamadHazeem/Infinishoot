@@ -498,18 +498,20 @@ const heroes3Check = (dash) => async () => {
     const { minionsOf } = await import('/src/game/heroes3.ts');
     const g = window.game;
     const d = (i, k) => Math.round(g.heroes[i]?.damageBy[k] ?? 0);
-    const strikes = g.heroes[1]?.weapons.find((w) => w.def.id === 'iaido')?.cutSeq ?? 0;
-    return { heroes: g.heroes.map((x) => x.heroDef.id).join(), bots: minionsOf(g).count, minion: d(0, 'minion'), katana: d(1, 'katana'), iaido: d(1, 'iaido'), strikes };
+    const iai = g.heroes[1]?.weapons.find((w) => w.def.id === 'iaido');
+    const strikes = iai?.cutSeq ?? 0;
+    return { heroes: g.heroes.map((x) => x.heroDef.id).join(), bots: minionsOf(g).count, minion: d(0, 'minion'), katana: d(1, 'katana'), iaido: d(1, 'iaido'), strikes, applied: iai?.remoteStrikes ?? 0, refused: iai?.remoteRefused ?? 0 };
   });
   if (h.heroes !== 'tinker,ronin') return `skipped (heroes ${h.heroes})`;
   const c = await client(async () => {
     const { minionsOf } = await import('/src/game/heroes3.ts');
+    const { heroes3ClientStats } = await import('/src/game/systems/heroes3.ts');
     const g = window.game;
-    return { bots: minionsOf(g).count, swings: g.hero.weapons.find((w) => w.def.id === 'katana')?.seq ?? -1 };
+    return { bots: minionsOf(g).count, swings: g.hero.weapons.find((w) => w.def.id === 'katana')?.seq ?? -1, dashStrikes: heroes3ClientStats.strikes };
   });
   if (h.bots < 1 || c.bots < 1) fail(`heroes3: bots host ${h.bots}, client ${c.bots}`);
   if (h.katana <= 0 || c.swings <= 0) fail(`heroes3: client Ronin's sword: host damage ${h.katana}, client swings ${c.swings}`);
-  if (dash && h.iaido <= 0) fail(`heroes3: the client Ronin's dash-strike never cut anything on the host`);
+  if (dash && h.iaido <= 0) fail(`heroes3: the client Ronin's dash-strike never cut anything on the host (client reported ${c.dashStrikes} strikes, host applied ${h.applied}, refused ${h.refused})`);
   return { host: h, client: c };
 };
 

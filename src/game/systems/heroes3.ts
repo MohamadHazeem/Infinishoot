@@ -24,6 +24,7 @@ import { Team } from '../bullets';
 import { settings } from '../settings';
 import { ultTuning } from '../ultimates';
 import { heroHitStop } from './skill';
+import { lagOut, lagSteps, rewindEnemy } from './netcode';
 import { heroes3Hooks, heroes3Tuning, minionCap, minionsOf, MinionKind, MinionPool, packMinions, SLASH_COLORS, SlashLog, unpackMinions, unpackSlashes, zapDamage, MAX_MINIONS } from '../heroes3';
 import { createRetroMaterial } from '../../render/retroMaterial';
 import { paint } from '../../render/geometry';
@@ -33,6 +34,8 @@ import type { Iaido } from '../weapons/iaido';
 import type { Beacon } from '../weapons/beacon';
 
 const RT = heroes3Tuning.ronin;
+/** Host: a reported dash-strike path must start or end this close to where the host has the hero (m). */
+const RT_PATH_REACH = 8;
 const TT = heroes3Tuning.tinker;
 const LT = heroes3Tuning.legion;
 const TYPICAL = 30; // a typical enemy's base life (ultimates scale by it, like src/game/ultimates.ts)
@@ -128,6 +131,8 @@ function roninStep(g: Game, h: Hero): void {
   }
   const s = weaponOf<Iaido>(h, 'iaido');
   if (!s) return;
+  // A connected client dashes its own Ronin and reports the path (`iai`, heroes3StrikeMsg); an autopilot hero has no client.
+  s.clientDriven = g.role === 'host' && !!h.remote && !!h.peerId;
   if (s.stopReq > 0) heroHitStop(g, h, s.stopReq);
   // The dash itself: local heroes here; a client dashes its own hero (heroes3ClientStep).
   if (s.lunge.want && !h.remote && !p.dead) {
@@ -137,6 +142,41 @@ function roninStep(g: Game, h: Hero): void {
 }
 
 const clientLast = { x: 0, z: 0 };
+/** Client: the dash-strike in progress per game (reported to the host when the dash ends). */
+const clientStrikes = new WeakMap<Game, { focus: number; sx: number; sz: number; t: number }>();
+/** Client: dash-strikes reported to the host (the coop script reads it). */
+export const heroes3ClientStats = { strikes: 0 };
+const r2 = (v: number) => Math.round(v * 100) / 100;
+
+/**
+ * Host: a client's Ronin finished a dash-strike on its own screen: [focus, start, end] of the path it
+ * travelled. The strike is judged here (recharge, focus, length, a start near where the host has the
+ * hero) and cut along that path, against enemies where the client saw them (lag compensation).
+ */
+export function heroes3StrikeMsg(g: Game, h: Hero, m: Record<string, unknown>): void {
+  const s = weaponOf<Iaido>(h, 'iaido');
+  const p = h.player;
+  if (!s || p.dead || !g.isCombatMode || !h.remote) return;
+  const n = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : NaN);
+  const focus = n(m.f);
+  const sx = n(m.sx);
+  const sz = n(m.sz);
+  const ex = n(m.ex);
+  const ez = n(m.ez);
+  if (![focus, sx, sz, ex, ez].every(Number.isFinite) || focus < RT.focusMin || focus > 1.01) return;
+  // The path starts about where the host has had this hero lately (its smoothed position trails the reports).
+  if (Math.hypot(sx - p.x, sz - p.z) > RT_PATH_REACH && Math.hypot(ex - p.x, ez - p.z) > RT_PATH_REACH) return;
+  const lag = lagSteps(g, h.index);
+  s.remoteStrike({
+    focus: Math.min(1, focus),
+    sx,
+    sz,
+    ex,
+    ez,
+    cutIn: RT.cutDelay - lag / 60,
+    at: (e) => (lag > 0 && rewindEnemy(g, e, lag) ? lagOut : null),
+  });
+}
 
 /** Client: its own Ronin's dash-strike, from its own right click (the host judges the hits). */
 export function heroes3ClientStep(g: Game, dt: number, control: boolean, charging: boolean): void {
@@ -149,11 +189,22 @@ export function heroes3ClientStep(g: Game, dt: number, control: boolean, chargin
   if ((p.x - clientLast.x) ** 2 + (p.z - clientLast.z) ** 2 > 16 && !p.dashing) s.predFocus = 0;
   clientLast.x = p.x;
   clientLast.z = p.z;
+  const focus = s.predFocus;
   const dist = s.predict(dt, control && charging && !h.player.dead);
   if (dist > 0 && !h.player.dead) {
     const a = h.player.aim;
     h.player.lunge(a.x, a.z, dist / RT.dashSpeed, RT.dashSpeed);
     g.juice.kick(a.x, a.z, 3);
+    clientStrikes.set(g, { focus, sx: p.x, sz: p.z, t: 0 });
+  }
+  // The dash is over (or cut short): tell the host the path this hero travelled.
+  const c = clientStrikes.get(g);
+  if (c && (c.t += dt) > 0.02 && !p.dashing) {
+    clientStrikes.delete(g);
+    if (!p.dead) {
+      g.client?.send({ t: 'iai', f: r2(c.focus), sx: r2(c.sx), sz: r2(c.sz), ex: r2(p.x), ez: r2(p.z) });
+      heroes3ClientStats.strikes++;
+    }
   }
 }
 

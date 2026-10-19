@@ -9,6 +9,23 @@ const R = heroes3Tuning.ronin;
 const now = () => performance.now() / 1000;
 /** A strike may start this share of the recharge early (a client's `ready` arrives rounded and late). */
 const READY_SLACK = 0.06;
+/** A reported path may be this much longer than the focus allows (m): rounding and the last dash step. */
+const PATH_SLACK = 1;
+/** Extra search radius when enemies are rewound to a client's view (they may have moved since). */
+const LAG_PAD = 3;
+
+/** Host: a connected client's dash-strike, along the path its hero travelled on its own screen. */
+export interface RemoteStrike {
+  focus: number;
+  sx: number;
+  sz: number;
+  ex: number;
+  ez: number;
+  /** Seconds until the delayed cut (the client's cut delay less the time the report spent arriving). */
+  cutIn: number;
+  /** Where an enemy was on the client's screen (lag compensation), or null to use where it is. */
+  at: (e: Enemy) => { x: number; z: number } | null;
+}
 
 /**
  * The Ronin's right click: hold to focus (0..1), release to dash-strike along
@@ -18,7 +35,12 @@ const READY_SLACK = 0.06;
  *
  * Movement belongs to whoever moves the hero: the weapon raises `lunge` and
  * src/game/systems/heroes3.ts dashes local heroes; a client dashes its own hero
- * (`predict`) and the host sweeps the path the client reports.
+ * (`predict`) and, when its dash ends, sends the path it travelled (`iai`
+ * message, `heroes3ClientStep`). The host strikes along that exact path
+ * (`remoteStrike`, enemies rewound to the client's view like its bullets), so a
+ * late or bunched-up input stream can't make the host miss the release or the
+ * dash. A connected client's right click only builds focus on the host (drawn
+ * for everyone); its release never starts a strike there (`clientDriven`).
  * Evolutions: Phantom Step (the afterimage cuts again, kills refund recharge),
  * Raijin Strike (the cut chains lightning, Shock).
  *
@@ -33,6 +55,14 @@ export class Iaido extends Weapon {
   readonly lunge = { want: false, dirX: 0, dirZ: 0, time: 0, speed: R.dashSpeed };
   /** Hit-stop the system should play this step (s). */
   stopReq = 0;
+  /** Host: this hero is a connected client's, which dashes itself and reports the path (`remoteStrike`). */
+  clientDriven = false;
+  /** Host: the focus at the last right-click release (a client's report carries at most 1; Overcharge goes deeper). */
+  private releasedFocus = 0;
+  private remoteReq: RemoteStrike | null = null;
+  /** Host: client strikes applied / refused (tests and the coop script). */
+  remoteStrikes = 0;
+  remoteRefused = 0;
   private strikeT = 0;
   private lx = 0;
   private lz = 0;
@@ -135,8 +165,15 @@ export class Iaido extends Weapon {
         ctx.particles.burst(m.x, 1.05, m.z, { count: 1 + Math.round(this.focus * 2), color: this.evoColor, color2: '#ffffff', speed: [0.5, 2], size: [0.08, 0.16], life: [0.1, 0.2], up: 1.5, drag: 4 });
       }
     } else if (this.focus > 0) {
-      if (this.focus >= R.focusMin && !blocked && this.cd <= READY_SLACK * this.cdMax && this.strikeT <= 0) this.start(ctx);
+      this.releasedFocus = this.focus;
+      if (!this.clientDriven && this.focus >= R.focusMin && !blocked && this.cd <= READY_SLACK * this.cdMax && this.strikeT <= 0) this.start(ctx);
       this.focus = 0;
+    }
+    if (this.remoteReq) {
+      const req = this.remoteReq;
+      this.remoteReq = null;
+      if (!blocked && this.strikeT <= 0 && this.cd <= READY_SLACK * this.cdMax && Math.hypot(req.ex - req.sx, req.ez - req.sz) <= iaidoStrike(this.p, req.focus).dist + PATH_SLACK) this.strikePath(ctx, req);
+      else this.remoteRefused++;
     }
     if (this.strikeT > 0) {
       this.strikeT -= dt;
@@ -159,30 +196,62 @@ export class Iaido extends Weapon {
     }
   }
 
-  private start(ctx: WeaponCtx): void {
-    const pl = ctx.player;
-    const p = this.p;
-    const f = Math.min(1, this.focus);
-    const st = iaidoStrike(p, f);
-    const over = this.focus > 1.05 ? 1.3 : 1; // Overcharge: a deeper focus cuts harder
+  /** Host: a connected client's Ronin reported its dash-strike (applied on this weapon's next update). */
+  remoteStrike(req: RemoteStrike): void {
+    this.remoteReq = req;
+  }
+
+  /** Strike strength, damage multipliers and cooldown for a strike at this focus (Overcharge past 1). */
+  private arm(ctx: WeaponCtx, focus: number): ReturnType<typeof iaidoStrike> {
+    const st = iaidoStrike(this.p, Math.min(1, focus));
+    const over = focus > 1.05 ? 1.3 : 1; // Overcharge: a deeper focus cuts harder
     this.passMul = st.pass * over;
     this.cutMul = st.cut * over;
     this.extraCuts = ctx.flags.chargeSplit; // Split Shot Mods: the afterimage cuts again
+    this.hitE.length = this.hitUid.length = 0;
+    this.cutT = this.phantomT = -1;
+    this.startCooldown(this.p.cd / this.rightClickSpeed(ctx));
+    return st;
+  }
+
+  private dashFx(ctx: WeaponCtx, x: number, z: number): void {
+    ctx.sound('swordDash');
+    ctx.fx.ring(x, z, 0.5, 3, this.evoColor, 0.2);
+    ctx.particles.burst(x, 0.6, z, { count: 10, color: '#f4f4f4', color2: this.evoColor, speed: [2, 6], size: [0.15, 0.3], life: [0.2, 0.4], dir: { x: -this.sdx, z: -this.sdz, spread: 0.8 }, drag: 3 });
+  }
+
+  private start(ctx: WeaponCtx): void {
+    const pl = ctx.player;
+    const st = this.arm(ctx, this.focus);
     const l = Math.hypot(pl.aim.x, pl.aim.z) || 1;
     this.sdx = pl.aim.x / l;
     this.sdz = pl.aim.z / l;
     const time = st.dist / R.dashSpeed;
     Object.assign(this.lunge, { want: true, dirX: this.sdx, dirZ: this.sdz, time, speed: R.dashSpeed });
-    // The sweep window outlasts the dash a little: a remote hero's path arrives late.
+    // The sweep window outlasts the dash a little (an autopilot hero's moves come through its remote input).
     this.strikeT = time + 0.2;
     this.lx = this.sx = pl.x;
     this.lz = this.sz = pl.z;
-    this.hitE.length = this.hitUid.length = 0;
-    this.cutT = this.phantomT = -1;
-    this.startCooldown(p.cd / this.rightClickSpeed(ctx));
-    ctx.sound('swordDash');
-    ctx.fx.ring(pl.x, pl.z, 0.5, 3, this.evoColor, 0.2);
-    ctx.particles.burst(pl.x, 0.6, pl.z, { count: 10, color: '#f4f4f4', color2: this.evoColor, speed: [2, 6], size: [0.15, 0.3], life: [0.2, 0.4], dir: { x: -this.sdx, z: -this.sdz, spread: 0.8 }, drag: 3 });
+    this.dashFx(ctx, pl.x, pl.z);
+  }
+
+  /** Host: the whole reported path at once, then the delayed cut. */
+  private strikePath(ctx: WeaponCtx, req: RemoteStrike): void {
+    // An Overcharged client holds past full focus here too (its own prediction stops at 1).
+    this.arm(ctx, req.focus >= 0.99 ? Math.max(req.focus, this.releasedFocus) : req.focus);
+    this.releasedFocus = 0;
+    const len = Math.hypot(req.ex - req.sx, req.ez - req.sz);
+    const pl = ctx.player;
+    this.sdx = len > 0.01 ? (req.ex - req.sx) / len : pl.aim.x;
+    this.sdz = len > 0.01 ? (req.ez - req.sz) / len : pl.aim.z;
+    this.sx = req.sx;
+    this.sz = req.sz;
+    this.ex = req.ex;
+    this.ez = req.ez;
+    this.dashFx(ctx, req.sx, req.sz);
+    this.sweepPath(ctx, req.sx, req.sz, req.ex, req.ez, req.at);
+    this.cutT = Math.max(0, req.cutIn);
+    this.remoteStrikes++;
   }
 
   /** Cut everything between the last position and the hero's current one. */
@@ -190,22 +259,27 @@ export class Iaido extends Weapon {
     const pl = ctx.player;
     const ax = this.lx;
     const az = this.lz;
-    const bx = pl.x;
-    const bz = pl.z;
-    this.lx = bx;
-    this.lz = bz;
+    this.lx = pl.x;
+    this.lz = pl.z;
+    this.sweepPath(ctx, ax, az, pl.x, pl.z, null);
+  }
+
+  /** Cut everything along a stretch of the dash (`at`: where each enemy was on the dashing client's screen). */
+  private sweepPath(ctx: WeaponCtx, ax: number, az: number, bx: number, bz: number, at: RemoteStrike['at'] | null): void {
     const w = this.p.width * Math.sqrt(ctx.stats.areaMul);
     const mx = (ax + bx) / 2;
     const mz = (az + bz) / 2;
     const half = Math.hypot(bx - ax, bz - az) / 2;
     const dmg = this.p.dmg * this.passMul * ctx.stats.chargeDmg;
     let n = 0;
-    for (const e of ctx.inRadius(mx, mz, half + w, this.scratch)) {
-      if (this.hitE.includes(e) || segDist(e.x, e.z, ax, az, bx, bz) > w + e.radius) continue;
+    for (const e of ctx.inRadius(mx, mz, half + w + (at ? LAG_PAD : 0), this.scratch)) {
+      if (this.hitE.includes(e)) continue;
+      const seen = at?.(e);
+      if (segDist(seen ? seen.x : e.x, seen ? seen.z : e.z, ax, az, bx, bz) > w + e.radius) continue;
       this.hitE.push(e);
       this.hitUid.push(e.uid);
       // Pushed aside, off the path.
-      const side = (e.x - pl.x) * -this.sdz + (e.z - pl.z) * this.sdx >= 0 ? 1 : -1;
+      const side = (e.x - bx) * -this.sdz + (e.z - bz) * this.sdx >= 0 ? 1 : -1;
       ctx.damage(e, dmg, { source: 'iaido', dirX: -this.sdz * side, dirZ: this.sdx * side, knockback: 9, hx: e.x, hz: e.z, canCrit: true, loud: n++ < 2 });
       e.squash(-6);
       ctx.fx.star(e.x, 1, e.z, 0.9, '#ffffff', 0.08);

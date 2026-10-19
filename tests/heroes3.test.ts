@@ -136,7 +136,7 @@ const { Game, cheats } = await import('../src/game/game');
 const { Team } = await import('../src/game/bullets');
 const { ENEMIES } = await import('../src/data/enemies');
 const { settings } = await import('../src/game/settings');
-const { h3World, heroes3Net, heroes3Achievements } = await import('../src/game/systems/heroes3');
+const { h3World, heroes3Net, heroes3Achievements, heroes3StrikeMsg } = await import('../src/game/systems/heroes3');
 
 const input = new Input(document.getElementById('game') as HTMLCanvasElement);
 const game = new Game(input, 16 / 9, document.getElementById('hud')!, document.getElementById('reticle')!);
@@ -242,6 +242,30 @@ ok(p.x - x0 > 5, `releasing dashes the Ronin forward (${(p.x - x0).toFixed(1)} m
 ok(line.every((e) => e.hp < e.maxHp), 'everything the dash passes through is cut');
 ok(line.every((e, i) => e.hp < passHp[i] - 50), 'and cut again, harder, a beat later');
 ok(iaido.ready < 1, 'the dash-strike recharges');
+
+// Online: a client dashes its own Ronin and reports the path it travelled (`iai`); the host cuts along exactly
+// that path (no longer from the client's right-click release seen through its input stream, which a jittery or
+// bunched link could hide or delay past the sweep).
+game.enemies.clear();
+step(120); // recharged
+const onPath = [spawn('bopper', p.x + 1.5, p.z + 3), spawn('bopper', p.x + 3.5, p.z + 3.3)];
+const offPath = spawn('bopper', p.x + 2.5, p.z - 3);
+for (const e of [...onPath, offPath]) e.frozen = 99;
+step(2); // in the spatial hash
+h.remote = { x: p.x, z: p.z, vx: 0, vz: 0, ax: 1, az: 0, ad: -1, firing: false, charging: false, dashing: false };
+const applied = iaido.remoteStrikes;
+heroes3StrikeMsg(game, h, { t: 'iai', f: 1, sx: p.x - 1, sz: p.z + 3, ex: p.x + 5, ez: p.z + 3 });
+step(1);
+const passHp2 = onPath.map((e) => e.hp);
+step(30);
+ok(iaido.remoteStrikes === applied + 1 && onPath.every((e) => e.hp < e.maxHp) && offPath.hp === offPath.maxHp, 'a reported dash-strike path cuts what lies on it, and nothing else');
+ok(onPath.every((e, i) => e.hp < passHp2[i] - 50), 'and the reported strike cuts again a beat later');
+step(120);
+const refused = iaido.remoteRefused;
+heroes3StrikeMsg(game, h, { t: 'iai', f: 0.2, sx: p.x, sz: p.z, ex: p.x + 15, ez: p.z });
+step(2);
+ok(iaido.remoteRefused === refused + 1 && iaido.remoteStrikes === applied + 1, 'a path longer than the focus allows is refused');
+h.remote = null;
 
 // Parry: the Ronin's counter-slash.
 game.enemies.clear();

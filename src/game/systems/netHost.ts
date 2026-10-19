@@ -31,7 +31,7 @@ import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
 import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
-import { heroes3Net } from './heroes3';
+import { heroes3Net, heroes3StrikeMsg } from './heroes3';
 import { coopPlayMessage, coopPlayNet } from './coopplay';
 import { lobbyCap } from '../eightp';
 import { eightpSnapTick, heroWeaponsFor } from './eightp';
@@ -120,6 +120,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
     if (m.vt !== undefined) noteViewStep(this, h, Number(m.vt)); // lag compensation (systems/netcode.ts)
   } else if (m.t === 'ping') {
     if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z), typeof m.k === 'string' ? m.k : undefined);
+  } else if (m.t === 'iai') {
+    heroes3StrikeMsg(this, h, m); // a client Ronin's dash-strike path (systems/heroes3.ts)
   } else if (m.t === 'dash') {
     if (!h.player.dead && this.isCombatMode) {
       h.player.invuln = Math.max(h.player.invuln, playerTuning.dashTime + playerTuning.dashIframesExtra);
