@@ -2,9 +2,10 @@
  * Mid-stage events (one per stage, at a random moment) and side challenges
  * (one per stage). Behaviour lives in src/game/runEvents.ts.
  */
-export type EventId = 'meteors' | 'goldrush' | 'fog' | 'parade' | 'stampede' | 'garden' | 'rebellion' | 'gravity' | 'goblins' | 'blackout' | 'turrets';
+export type EventId = (string & {}) | 'meteors' | 'goldrush' | 'fog' | 'parade' | 'stampede' | 'garden' | 'rebellion' | 'gravity' | 'goblins' | 'blackout' | 'turrets';
 
 export interface StageEventDef {
+  behavior?: string;
   id: EventId;
   name: string;
   sub: string;
@@ -29,3 +30,6 @@ export const STAGE_EVENTS: Record<EventId, StageEventDef> = {
 export const EVENT_IDS = Object.keys(STAGE_EVENTS) as EventId[];
 
 export type ChallengeKind = 'nohit' | 'tagkills' | 'combo' | 'chests' | 'elites';
+
+/** Custom event IDs retain the behaviour of their shipped template. */
+export function eventBehavior(id: string | undefined): string | undefined { return id ? STAGE_EVENTS[id]?.behavior ?? id : undefined; }

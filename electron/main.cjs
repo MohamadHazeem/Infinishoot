@@ -14,6 +14,9 @@ function createWindow() {
     webPreferences: {
       // Keep the game running when the window is in the background, so an online host never pauses everyone.
       backgroundThrottling: false,
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      sandbox: true,
     },
   });
   win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
@@ -55,5 +58,5 @@ function createWindow() {
 Menu.setApplicationMenu(
   process.platform === 'darwin' ? Menu.buildFromTemplate([{ role: 'appMenu' }, { label: 'View', submenu: [{ role: 'togglefullscreen' }] }]) : null,
 );
-app.whenReady().then(createWindow);
+app.whenReady().then(() => { require('./mods.cjs').registerMods(app); createWindow(); });
 app.on('window-all-closed', () => app.quit());

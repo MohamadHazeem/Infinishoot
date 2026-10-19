@@ -1,3 +1,4 @@
+import { modSession } from '../../mods/manager';
 /**
  * Online lobby: hosting, joining and starting co-op games.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -64,7 +65,7 @@ export function refreshLobby(this: Game): void {
   const kind = this.lobbyKind;
   const extra = this.mpLobbyExtra(); // Versus Overlord, weekly team, PUBLIC (systems/mp.ts)
   this.screens.setLobby({ code: this.host.code, players, isHost: true, status: players.length > 1 ? 'Ready when you are!' : 'Share the code with your friends', difficulty, kind, extra: extra.mp });
-  this.host.broadcast({ t: 'lobby', players, code: this.host.code, difficulty, kind, ...extra, co: this.coopLobby() }); // co: roles, revive pool, join anytime (systems/coop2.ts)
+  this.host.broadcast({ t: 'lobby', mods: modSession.hash, players, code: this.host.code, difficulty, kind, ...extra, co: this.coopLobby() }); // co: roles, revive pool, join anytime (systems/coop2.ts)
 }
 
 /** Co-op difficulty: the host's pick, if their save has it unlocked. */
@@ -82,7 +83,7 @@ export function hostStart(this: Game): void {
     }
     const seed = randomSeed();
     const difficulty = this.lobbyDifficulty().id;
-    this.host.broadcast({ t: 'pvpgo', seed, difficulty });
+    this.host.broadcast({ t: 'pvpgo', mods: modSession.hash, seed, difficulty });
     this.pvpBegin('host', seed, difficulty);
     return;
   }
@@ -133,7 +134,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
     return;
   }
-  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile() }); // prof: lobby card (systems/party.ts)
+  client.send({ t: 'hello', mods: modSession.hash, pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile() }); // prof: lobby card (systems/party.ts)
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }
 

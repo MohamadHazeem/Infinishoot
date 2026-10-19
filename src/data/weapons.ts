@@ -35,6 +35,9 @@ export interface WeaponEvolution {
 export type ArmSlot = 'primary' | 'secondary';
 
 export interface WeaponDef extends Upgradable {
+  /** JSON content packs reuse a shipped implementation; loaded before Game construction. */
+  behavior?: string;
+  modColor?: string;
   id: string;
   rarity: Rarity;
   /** Loadout slot; loadout weapons don't take an auto-weapon slot. */

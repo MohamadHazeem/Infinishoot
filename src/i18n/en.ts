@@ -1,5 +1,23 @@
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "mods.title": "MODS",
+  "mods.intro": "Player-made content. Load order runs top to bottom; later overrides win. Online players must use the same active packs and order.",
+  "mods.active": "ACTIVE: ⟪count⟫ packs · ⟪hash⟫",
+  "mods.pending": "Changes saved for next launch. RESTART GAME ends your current session.",
+  "mods.empty": "No packs installed. Import a JSON or ZIP to begin.",
+  "mods.enabled": "ENABLED",
+  "mods.disabled": "DISABLED",
+  "mods.up": "MOVE UP",
+  "mods.down": "MOVE DOWN",
+  "mods.remove": "REMOVE",
+  "mods.import": "IMPORT JSON / ZIP",
+  "mods.folder": "OPEN MODS FOLDER",
+  "mods.restart": "RESTART GAME",
+  "mods.back": "BACK",
+  "mods.loading": "Reading mod files…",
+  "mods.imported": "Imported. Review errors, enable your packs, then restart to apply.",
+  "mods.mismatch": "MOD SET MISMATCH: use the same enabled packs, versions and load order, or disable all packs, then restart.",
+
   "content.84fee1b908": "Crosswind Blades",
   "content.21f48f0714": "Paired crescent blades cross outward, then slice back along a curved return path.",
   "content.bceb0fd05d": "Tesla Coils",

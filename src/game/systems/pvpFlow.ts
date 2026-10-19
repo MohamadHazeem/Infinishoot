@@ -1,3 +1,4 @@
+import { modSession } from '../../mods/manager';
 /**
  * PvP mode flow (rules in src/game/pvp.ts).
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -93,7 +94,7 @@ export function pvpStartDuel(this: Game): void {
   this.hud.setVisible(true);
   for (const h of heroes) {
     if (!h.peerId) continue;
-    this.host!.send(h.peerId, { t: 'start', seed: pvp.seed, difficulty: this.difficulty.id, you: h.index, players: heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
+    this.host!.send(h.peerId, { t: 'start', mods: modSession.hash, seed: pvp.seed, difficulty: this.difficulty.id, you: h.index, players: heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
   }
   this.loadStage(1);
   this.enemies.clear();

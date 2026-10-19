@@ -1,3 +1,6 @@
+import { modSession } from '../../mods/manager';
+import { matchingMods } from '../../mods/registry';
+import { t } from '../../i18n';
 import { applyGauntletNet } from './gauntlet';
 import { createMvp, type MvpReport } from './mvp';
 import { assistAim } from './aimAssist';
@@ -33,6 +36,11 @@ import { onCoverMsg } from '../coverBreak';
 import { applySoundLaneNet } from './sound2';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
+  if ((m.t === 'lobby' || m.t === 'start' || m.t === 'pvpgo') && !matchingMods(modSession.hash, m.mods)) {
+    this.leaveToTitle();
+    this.hud.toast(t('mods.mismatch'), 6);
+    return;
+  }
   if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
   if (this.lobbyClientMessage(m)) return; // lobby lane: cards, chat, pings, kick, party (systems/party.ts)
   if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)

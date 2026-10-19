@@ -1,3 +1,4 @@
+import { modWeapon } from '../../mods/weapon';
 import { Crosswind } from './crosswind';
 import { Tesla } from './tesla';
 import { Swarm } from './swarm';
@@ -41,7 +42,7 @@ export { ChargeShot } from './charge';
 export function createWeapon(id: string, scene: THREE.Scene, def: WeaponDef = WEAPONS[id]): Weapon {
   // Fusions (src/data/fusions.ts) build their two parts through this same factory.
   if (def?.fusion) return new FusionWeapon(def, scene, createWeapon);
-  switch (id) {
+  switch (def?.behavior ?? id) {
     case 'crosswind': return new Crosswind(def, scene);
     case 'tesla': return new Tesla(def, scene);
     case 'swarm': return new Swarm(def, scene);
@@ -54,9 +55,9 @@ export function createWeapon(id: string, scene: THREE.Scene, def: WeaponDef = WE
     case 'charge':
       return new ChargeShot(def);
     case 'drones':
-      return new Drones(def, scene);
+      return modWeapon(new Drones(def, scene));
     case 'aura':
-      return new Aura(def, scene);
+      return modWeapon(new Aura(def, scene));
     case 'lightning':
       return new Lightning(def, scene);
     case 'discs':
@@ -66,7 +67,7 @@ export function createWeapon(id: string, scene: THREE.Scene, def: WeaponDef = WE
     case 'mines':
       return new Mines(def, scene);
     case 'nova':
-      return new Nova(def);
+      return modWeapon(new Nova(def));
     case 'fire':
       return new Fire(def, scene);
     case 'scatter':

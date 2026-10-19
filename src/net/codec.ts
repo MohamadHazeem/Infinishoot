@@ -10,6 +10,12 @@ import type { Pickups } from '../game/pickups';
  */
 const DEF_IDS = Object.keys(ENEMIES);
 const DEF_INDEX = new Map(DEF_IDS.map((id, i) => [id, i]));
+/** Content packs finalize IDs before the first connection; order is covered by the mod hash. */
+export function refreshEnemyRegistry(): void {
+  DEF_IDS.splice(0, DEF_IDS.length, ...Object.keys(ENEMIES));
+  DEF_INDEX.clear();
+  DEF_IDS.forEach((id, i) => DEF_INDEX.set(id, i));
+}
 const STATES: EnemyState[] = ['spawning', 'move', 'windup', 'attack', 'recover'];
 const STATE_INDEX = new Map(STATES.map((s, i) => [s, i]));
 
