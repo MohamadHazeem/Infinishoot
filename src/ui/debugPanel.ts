@@ -56,7 +56,7 @@ import { finisherTuning } from '../game/finisher';
 import { portraitTuning } from './portraits';
 import { skillTuning, styleTuning } from '../game/style';
 import { ultTuning } from '../game/ultimates';
-import { petTuning } from '../data/pets';
+import { petTuning, pets2Tuning } from '../data/pets';
 import { teamTuning } from '../game/teamMoves';
 import { banishTuning } from '../game/banish';
 import { cardNumTuning } from '../game/cardNumbers';
@@ -379,6 +379,12 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
 
   // Companion lane: pets and co-op team moves.
   const comp = gui.addFolder('Pets & team moves').close();
+  const p2 = comp.addFolder('More companions').close();
+  p2.add(pets2Tuning, 'flameDamage', 0, 100, 1);
+  p2.add(pets2Tuning, 'turretDamage', 0, 100, 1);
+  p2.add(pets2Tuning, 'stealPerStage', 0, 50, 1);
+  p2.add(pets2Tuning, 'absorbRadius', 1, 5, 0.1);
+  p2.add(pets2Tuning, 'scoutRange', 10, 70, 1);
   comp.add(petTuning, 'fetchMagnet', 0, 2, 0.05).name('Fetch range +');
   comp.add(petTuning, 'zapDmg', 0, 100, 1).name('Zap damage');
   comp.add(petTuning, 'zapPerLevel', 0, 20, 0.5).name('Zap per team lv');

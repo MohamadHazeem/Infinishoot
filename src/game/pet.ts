@@ -1,3 +1,4 @@
+import { Pets2State, Pet2Model, isPets2 } from './pets2';
 import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { PET_BY_ID, PET_MAX_LEVEL, petRanks, petSkillAt, petTuning, type PetDef, type PetSkillId } from '../data/pets';
@@ -8,6 +9,7 @@ import { PET_BY_ID, PET_MAX_LEVEL, petRanks, petSkillAt, petTuning, type PetDef,
  * snapshot (`net()` / `setNet()`). Reset at the start of every run.
  */
 export class PetState {
+  readonly extra = new Pets2State();
   def: PetDef = PET_BY_ID.none;
   level = 1;
   ranks: Record<PetSkillId, number> = petRanks(PET_BY_ID.none, 1);
@@ -49,6 +51,7 @@ export class PetState {
   }
 
   reset(): void {
+    this.extra.reset();
     this.level = 1;
     this.ranks = petRanks(this.def, 1);
     this.shieldReady = this.ranks.shield > 0;
@@ -71,6 +74,7 @@ export class PetState {
 
   /** New stage: the shield comes back. */
   stageRefresh(): void {
+    this.extra.reset();
     this.shieldReady = this.ranks.shield > 0;
     this.tauntT = 0;
   }
@@ -112,6 +116,7 @@ const GOLD = '#ffcd75';
 export class PetView {
   readonly root = new THREE.Group();
   private body = new THREE.Group();
+  private custom: Pet2Model | null = null;
   private finL: THREE.Mesh;
   private finR: THREE.Mesh;
   private tail: THREE.Mesh;
@@ -189,6 +194,11 @@ export class PetView {
       tip.position.y = 0.47;
       this.body.add(ant, tip);
     }
+    if (isPets2(def.id)) {
+      // Keep the first child Group as the hat socket used by meta2.
+      for (const child of this.body.children) child.visible = false;
+      this.custom = new Pet2Model(def.id, def.color, this.body, this.root, scene);
+    }
     this.root.add(this.body);
     scene.add(this.root);
     this.shownLevel = state.level;
@@ -200,10 +210,11 @@ export class PetView {
   }
 
   /** Follow a point behind-left of the hero (or the decoy spot while taunting). */
-  render(dt: number, hx: number, hz: number, facing: number, visible: boolean): void {
+  render(dt: number, hx: number, hz: number, facing: number, visible: boolean, still = false): void {
     this.root.visible = visible;
     if (!visible) {
       this.placed = false;
+      this.custom?.hide();
       return;
     }
     const st = this.state;
@@ -225,36 +236,39 @@ export class PetView {
     this.shownLevel = st.level;
     this.popT = Math.max(0, this.popT - dt);
     const lv = st.level;
-    const pop = this.popT > 0 ? Math.sin((this.popT / 0.7) * Math.PI) * 0.6 : 0;
+    const pop = !still && this.popT > 0 ? Math.sin((this.popT / 0.7) * Math.PI) * 0.6 : 0;
     const s = 1 + petTuning.growPerLevel * (lv - 1) + pop;
     this.body.scale.setScalar(s);
-    this.body.rotation.y = this.popT > 0 ? (1 - this.popT / 0.7) * Math.PI * 4 : 0;
-    this.tail.visible = lv >= 2;
-    this.ring.visible = lv >= 3;
+    this.body.rotation.y = !still && this.popT > 0 ? (1 - this.popT / 0.7) * Math.PI * 4 : 0;
+    this.tail.visible = !this.custom && lv >= 2;
+    this.ring.visible = !this.custom && lv >= 3;
     this.ring.rotation.z = this.t * 2.5;
-    this.crown.visible = lv >= 4;
+    this.crown.visible = !this.custom && lv >= 4 && !this.body.getObjectByName('m2hat');
     this.halo.visible = st.reviveReady;
     this.gem.visible = st.shieldReady;
-    const ga = this.t * 3.2;
-    this.gem.position.set(Math.cos(ga) * 0.55 * s, 0.15 + Math.sin(this.t * 5) * 0.06, Math.sin(ga) * 0.55 * s);
+    const ga = still ? 0 : this.t * 3.2;
+    this.gem.position.set(Math.cos(ga) * 0.55 * s, 0.15 + (still ? 0 : Math.sin(this.t * 5) * 0.06), Math.sin(ga) * 0.55 * s);
     this.gem.rotation.y = this.t * 4;
 
-    const bob = taunting ? Math.abs(Math.sin(this.t * 9)) * 0.3 : Math.sin(this.t * 3) * 0.12;
+    const bob = still ? 0 : taunting ? Math.abs(Math.sin(this.t * 9)) * 0.3 : Math.sin(this.t * 3) * 0.12;
     this.root.position.set(this.x, 1.5 + (lv - 1) * 0.06 + bob, this.z);
-    this.root.rotation.y = taunting ? this.t * 6 : Math.atan2(hx - this.x, hz - this.z);
-    const flap = Math.sin(this.t * (taunting ? 30 : 18)) * 0.5;
+    this.root.rotation.y = taunting && !still ? this.t * 6 : Math.atan2(hx - this.x, hz - this.z);
+    const flap = still ? 0 : Math.sin(this.t * (taunting ? 30 : 18)) * 0.5;
     this.finL.rotation.z = flap;
     this.finR.rotation.z = -flap;
     this.zapT = Math.max(0, this.zapT - dt);
     const f = this.bodyMat.uniforms.uFlash.value;
-    if (this.zapT > 0) f.set(1, 1, 0.6, 0.8);
+    if (still) f.set(1, 1, 1, 0);
+    else if (this.zapT > 0) f.set(1, 1, 0.6, 0.8);
     else if (taunting) f.set(1, 0.3, 0.3, Math.sin(this.t * 14) > 0 ? 0.55 : 0);
     else if (this.popT > 0) f.set(1, 1, 1, 0.6 * (this.popT / 0.7));
     else if (lv >= PET_MAX_LEVEL) f.set(this.color.r, this.color.g, this.color.b, 0.25 + 0.2 * Math.sin(this.t * 4));
     else f.set(1, 1, 1, 0);
+    this.custom?.render(st, this.t, still);
   }
 
   dispose(): void {
+    this.custom?.dispose();
     this.scene.remove(this.root);
     this.root.traverse((o) => {
       if (o instanceof THREE.Mesh) {

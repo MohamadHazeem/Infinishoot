@@ -164,8 +164,8 @@ if (NETSIM) {
 // Pets: Sparky for the host, Bit for the client (companion lane checks pet levels and team moves).
 await Promise.all(
   [
-    [A, 'sparky'],
-    [B, 'bit'],
+    [A, args.includes('--pets2') ? 'minimech' : 'sparky'],
+    [B, args.includes('--pets2') ? 'owlbot' : 'bit'],
   ].map(([p, pet]) =>
     p.page.evaluate(async (pet) => {
       const { settings, saveSettings } = await import('/src/game/settings.ts');
@@ -1075,6 +1075,24 @@ if (args.includes('--secrets')) SCENARIO.push([56, 'secret relay reward reaches 
     await shot('secrets');
     return { synced, relics: count };
   } finally { await Promise.all([host(() => window.botAuto(true)), client(() => window.botAuto(true))]); }
+}]);
+
+// --pets2: use Mini Mech / Owl-Bot and verify their additive companion records over WebRTC.
+if (args.includes('--pets2')) SCENARIO.push([19, 'pets2 turret and scout snapshots', async () => {
+  const expected = await host(() => {
+    const g = window.game, mech = g.heroes[0].petState.extra, owl = g.heroes[1].petState.extra;
+    mech.actionT = 60; mech.turretT = 30; mech.turretX = g.hero.player.x; mech.turretZ = g.hero.player.z;
+    owl.scanT = 60; owl.scoutKind = 2; owl.scoutX = 24; owl.scoutZ = 17;
+    owl.secret = true; owl.secretX = -21; owl.secretZ = 18;
+    return { x: mech.turretX, z: mech.turretZ };
+  });
+  await B.page.waitForFunction(({ x, z }) => {
+    const hs = window.game.heroes, a = hs[0]?.petState.extra, b = hs[1]?.petState.extra;
+    return hs[0]?.pet === 'minimech' && hs[1]?.pet === 'owlbot' && a.turretT > 0 &&
+      Math.abs(a.turretX - x) < 0.11 && Math.abs(a.turretZ - z) < 0.11 &&
+      b.scoutKind === 2 && b.scoutX === 24 && b.secret && b.secretX === -21;
+  }, expected, { timeout: PAGE_TIMEOUT });
+  return client(() => window.game.heroes.map(h => [h.pet, h.petState.extra.net()]));
 }]);
 
 // Optional Halloween run: force a shared pickup and verify its receipt travels once.

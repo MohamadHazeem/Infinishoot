@@ -20,7 +20,7 @@ import { createWeapon, type Weapon, type WeaponCtx } from './weapons';
 import { SKINS, type SkinDef } from '../data/skins';
 import { CURSE_BY_ID, CURSES } from '../data/curses';
 import { activeCombos, WEAPON_COMBOS } from '../data/weaponCombos';
-import { PET_BY_ID } from '../data/pets';
+import { PET_BY_ID, pets2Tuning } from '../data/pets';
 import { PetState, PetView } from './pet';
 import { RELIC_BY_ID, rollRelic } from '../data/relics';
 import { HEROES, heroClicks, heroOf, type HeroDef } from '../data/heroes';
@@ -392,6 +392,7 @@ export class Hero implements SynergyHost {
       this.relics.map((id) => RELIC_BY_ID[id]?.add ?? {}),
     );
     s.magnet += this.petState.magnetBonus;
+    s.critChance = Math.min(1, s.critChance + this.petState.ranks.lucky * pets2Tuning.luckyCrit);
     syn.applyStatic(s);
     return s;
   }

@@ -1,3 +1,6 @@
+import { updatePet2, renderPets2 } from './pets2';
+import { isPets2 } from '../pets2';
+import { petRanks } from '../../data/pets';
 /**
  * Companion lane: growing pets and co-op team moves.
  * Game methods (`this` is the Game), installed on the class as fields, e.g.
@@ -106,6 +109,7 @@ export function updatePets(this: Game, dt: number): void {
   for (const h of this.heroes) {
     const st = h.petState;
     if (!st.has || h.left || h.player.dead) continue;
+    updatePet2.call(this, h, dt);
     const p = h.player;
     const r = st.ranks;
     // Fetch: grab gems and coins in range and send them flying to you.
@@ -180,8 +184,8 @@ export function updatePets(this: Game, dt: number): void {
           st.tauntT = rankOf(petTuning.tauntTime, r.taunt);
           st.tauntCd = rankOf(petTuning.tauntEvery, r.taunt);
           this.vfx.ring(st.tauntX, st.tauntZ, 1, 9, '#ef7d57', 0.45);
-          this.vfx.num(st.tauntX, 2.6, st.tauntZ, 'HEY! OVER HERE!', 'score');
-          this.vfx.sound('jumpPad', st.tauntX, st.tauntZ, 1.3);
+          this.vfx.num(st.tauntX, 2.6, st.tauntZ, st.def.id === 'robopup' ? 'WOOF!' : 'HEY! OVER HERE!', 'score');
+          this.vfx.sound(st.def.id === 'robopup' ? 'pet2:bark' : 'jumpPad', st.tauntX, st.tauntZ, 1.3);
         }
       }
     }
@@ -224,7 +228,7 @@ export function petGrowth(this: Game): void {
     const learned = st.levelUp();
     st.stageRefresh();
     if (!learned) continue;
-    if (learned === 'fetch') h.recomputeStats();
+    if (learned === 'fetch' || learned === 'lucky') h.recomputeStats();
     const p = h.player;
     const info = PET_SKILL_INFO[learned];
     this.vfx.sound('petLevel', p.x, p.z);
@@ -566,6 +570,7 @@ export function companionNet(this: Game): Record<string, unknown> {
   const m = s.move;
   return {
     p: this.heroes.map((h) => h.petState.net()),
+    p2: this.heroes.map((h) => isPets2(h.pet) ? h.petState.extra.net() : null),
     m: [r2(s.meter.charge), s.meter.linked, r2(s.meter.linkT), s.meter.next],
     a: m ? [MOVE_IDS.indexOf(m.id), r2(m.t), r2(m.x), r2(m.z), m.mask, m.by] : null,
   };
@@ -574,12 +579,13 @@ export function companionNet(this: Game): Record<string, unknown> {
 /** Client: mirror pet records, the meter and the running move. */
 export function applyCompanionNet(this: Game, d: unknown): void {
   if (!d || typeof d !== 'object') return;
-  const o = d as { p?: number[][]; m?: number[]; a?: number[] | null };
+  const o = d as { p?: number[][]; p2?: (number[] | null)[]; m?: number[]; a?: number[] | null };
   const s = this.companionState();
   o.p?.forEach((rec, i) => {
     const h = this.heroes[i];
     if (h && Array.isArray(rec)) h.petState.setNet(rec);
   });
+  o.p2?.forEach((rec, i) => this.heroes[i]?.petState.extra.setNet(rec ?? undefined));
   if (o.m) {
     s.meter.charge = o.m[0];
     s.meter.linked = o.m[1];
@@ -595,7 +601,7 @@ export function applyCompanionNet(this: Game, d: unknown): void {
 
 // ------------------------------------------------------------------ presentation (every machine)
 
-const petHud: PetHudState = { def: PET_BY_ID.none, level: 1, maxLevel: 1, ranks: { fetch: 0, zap: 0, taunt: 0, shield: 0, revive: 0 }, shieldReady: false, reviveReady: false };
+const petHud: PetHudState = { def: PET_BY_ID.none, level: 1, maxLevel: 1, ranks: petRanks(PET_BY_ID.none, 1), shieldReady: false, reviveReady: false };
 const teamHud: TeamHudState = { charge: 0, linked: 0, link01: 0, next: TEAM_MOVES[0], firing: '', key: 'T' };
 const beamSources: { x: number; z: number; color: string }[] = [];
 const srcPool = Array.from({ length: 4 }, () => ({ x: 0, z: 0, color: '#ffffff' }));
@@ -616,6 +622,7 @@ export function renderCompanion(this: Game, rdt: number): void {
     petHud.reviveReady = st.reviveReady;
     s.hud.setPet(petHud);
   } else s.hud.setPet(null);
+  renderPets2.call(this, rdt);
   const on = playing && teamOn(this);
   if (on) {
     teamHud.charge = s.meter.charge;
