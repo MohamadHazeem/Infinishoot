@@ -1,3 +1,4 @@
+import { secretsTuning } from '../data/secrets';
 import { gauntletTuning } from '../game/systems/gauntlet';
 import { addDirector2Debug } from '../game/systems/director2';
 import { mvpTuning } from '../game/systems/mvp';
@@ -135,6 +136,11 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   addSoundFolder(gui); // Sound designer: samples, cues, live tuning, export
   addSkyFolder(gui);
   addGraphicsFolder(gui);
+  const secrets = gui.addFolder('Secrets').close();
+  secrets.add(secretsTuning, 'roomChance', 0, 1, 0.01);
+  secrets.add(secretsTuning, 'beatWindow', 0.05, 0.3, 0.01);
+  secrets.add(secretsTuning, 'iceSeconds', 3, 30, 1);
+  secrets.add(secretsTuning, 'bossHp', 0.5, 3, 0.05);
   addBossLaneFolder(gui); // Titan, rematches, boss duel
   addBosses3Folder(gui); // biome bosses (src/ui/debugBosses3.ts)
 

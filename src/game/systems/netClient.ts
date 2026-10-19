@@ -1,3 +1,4 @@
+import { applySecretsNet } from './secrets';
 import { applyGauntletNet } from './gauntlet';
 import { createMvp, type MvpReport } from './mvp';
 import { assistAim } from './aimAssist';
@@ -407,6 +408,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   applyGauntletNet(this, s.gl);
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
+  applySecretsNet(this, s.ss);
   if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen
   const portal = s.portal as [number, number] | null;
   if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);

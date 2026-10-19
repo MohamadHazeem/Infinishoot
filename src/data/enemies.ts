@@ -1,3 +1,4 @@
+import { secretBossDefs } from './secrets';
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
 import { bossLaneDefs, type RemixFlags } from './bossRemix';
 import { BIOME_BOSSES, BIOME_MINIS, bosses3Defs } from './bosses3';
@@ -1018,6 +1019,7 @@ export function miniBossForStage(stage: number): EnemyDef {
 Object.assign(ENEMIES, bossLaneDefs(ENEMIES));
 // Biome bosses, their mini-bosses and minions (src/data/bosses3.ts).
 Object.assign(ENEMIES, bosses3Defs());
+Object.assign(ENEMIES, secretBossDefs(ENEMIES));
 
 /** Every enemy's hit material (veterans use their base enemy's). Unlisted enemies sound like flesh. */
 export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {

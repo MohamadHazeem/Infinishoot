@@ -1,3 +1,4 @@
+import { resetSecrets, clearSecrets } from './secrets';
 import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
 import { seasonAt, seasonalStage } from '../../data/seasons';
 import { gauntletScore } from '../../data/ascension';
@@ -42,6 +43,7 @@ import { clearBossLane } from './bossLane';
 import { clearBosses3 } from './bosses3';
 
 export function clearWorld(this: Game): void {
+  clearSecrets(this);
   clearHalloween.call(this);
   this.enemies.clear();
   this.netEnemies.clear();
@@ -156,6 +158,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.xpNext = xpForLevel(1);
   this.elitesRun = this.bossesRun = this.overloads = this.victories = 0;
   this.newAchievements = [];
+  resetSecrets(this);
   this.curses = [];
   resetHalloween.call(this);
   selectSeason.call(this, typeof location === 'undefined' || ['daily', 'weekly'].includes(this.runMode) || this.pvp || this.versus ? null : seasonAt(new Date(), typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('season'))?.id);

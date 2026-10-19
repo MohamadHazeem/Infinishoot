@@ -1,3 +1,4 @@
+import { secretsLinks } from '../game/systems/secrets';
 import { LoadingScreen } from '../ui/loadingScreen';
 import { halloweenLinks } from '../game/systems/halloween';
 import { gauntletTest } from '../game/systems/gauntlet';
@@ -370,6 +371,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   firsttenLinks(game, q); // fresh, ftgoals=, ftmodes, ftshop, ftlvl, ftdie=Rhino (src/dev/firsttenLinks.ts)
   if (q.has('adaptive')) adaptiveTuning.enabled = q.get('adaptive') !== 'off';
   director2Links(game, q);
+  secretsLinks(game, q);
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
   if (q.has('mvp')) {
     const report = mvpDemo(game, Number(q.get('mvp')) || 4);

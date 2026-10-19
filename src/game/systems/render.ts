@@ -1,3 +1,4 @@
+import { renderSecrets } from './secrets';
 import { gauntletScore } from '../../data/ascension';
 import { renderGauntlet, challengeState } from './gauntlet';
 import { beginReadability, renderReadability } from './readability2';
@@ -228,6 +229,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
   this.renderWorldEvent(rdt);
+  renderSecrets(this);
   this.renderModes(rdt); // rhythm floor, mini-games, race ghost, their HUD (systems/modes.ts)
   renderGauntlet(this);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
