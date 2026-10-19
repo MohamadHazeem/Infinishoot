@@ -10,7 +10,7 @@ const CSS = `
 #ping-wheel .pw-hub { position: absolute; left: calc(-1 * var(--p, 4px)); top: calc(-1 * var(--p, 4px)); width: calc(2 * var(--p, 4px)); height: calc(2 * var(--p, 4px)); background: var(--white); box-shadow: 0 0 0 var(--p, 4px) var(--ink); }
 #ping-wheel .pw-item { position: absolute; transform: translate(-50%, -50%); padding: calc(1.5 * var(--p, 4px)) calc(2.5 * var(--p, 4px)); font: 22px var(--font); white-space: nowrap; color: var(--white); background: var(--night); box-shadow: 0 0 0 var(--p, 4px) var(--ink), inset 0 calc(-1 * var(--p, 4px)) 0 var(--ink); }
 #ping-wheel .pw-item i { display: inline-block; width: calc(2 * var(--p, 4px)); height: calc(2 * var(--p, 4px)); margin-right: calc(1.5 * var(--p, 4px)); background: var(--c); vertical-align: middle; }
-#ping-wheel .pw-item.on { color: var(--ink); background: var(--c); box-shadow: 0 0 0 var(--p, 4px) var(--white), inset 0 calc(-1 * var(--p, 4px)) 0 rgba(0, 0, 0, 0.25); }
+#ping-wheel .pw-item.on { color: var(--ink); background: var(--c); box-shadow: 0 0 0 var(--p, 4px) var(--white), inset 0 calc(-1 * var(--p, 4px)) 0 var(--slate); }
 #ping-wheel .pw-item.on i { background: var(--ink); }
 #ping-wheel .pw-tip { position: absolute; left: 0; top: calc(16 * var(--p, 4px) + 92px); transform: translateX(-50%); font: 12px var(--label); color: var(--white); white-space: nowrap; }
 `;
