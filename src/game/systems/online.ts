@@ -83,7 +83,7 @@ export function lobbyDifficulty(this: Game): DifficultyDef {
 
 export function hostStart(this: Game): void {
   if (this.role !== 'host' || !this.host) return;
-  if (this.lobby.length > 4 && this.lobbyKind !== 'raid') { this.hud.toast('Select RAID for more than four players.', 3); return; }
+  if (this.lobby.length > 4 && !['raid', 'pvp', 'race'].includes(this.lobbyKind)) { this.hud.toast('Pick RAID, PVP or RACE for more than four players.', 3); return; }
   if (this.lobbyKind === 'pvp') {
     if (this.lobby.length < 2) {
       this.hud.toast('PVP NEEDS AT LEAST 2 PLAYERS', 2.5);

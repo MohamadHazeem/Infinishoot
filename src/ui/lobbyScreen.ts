@@ -8,6 +8,7 @@ import { PET_BY_ID } from '../data/pets';
 import { chatTuning, inviteBase, inviteLink, parseInviteCode, pingBand, QUICK_CHAT } from '../game/lobby';
 import { chatLog, lobbyX } from '../game/systems/party';
 import { sfx } from '../audio/sfx';
+import { titleChip } from './coopTitle';
 
 /**
  * PLAY ONLINE lobby, lobby lane (notes/lanes/lobby.md): player cards (hero,
@@ -99,7 +100,7 @@ export class LobbyUi {
         const ping = i === 0 ? '<span class="ping host">HOST</span>' : c && c.ping >= 0 ? `<span class="ping ${pingBand(c.ping)}">${c.ping} MS</span>` : '<span class="ping">... MS</span>';
         const tags = x && x.you === i ? '<small class="you">YOU</small>' : '';
         return `<div class="lobby-player lob-card ${c?.ready ? 'ready' : ''}" style="--c:${p.color}">
-          <div class="lob-top"><span class="dot"></span><b>${esc(p.name)}</b>${tags}<span class="lob-flag">${c?.ready ? 'READY' : 'NOT READY'}</span></div>
+          <div class="lob-top"><span class="dot"></span><b>${esc(p.name)}</b>${tags}${titleChip((p as { title?: string }).title ?? '')}<span class="lob-flag">${c?.ready ? 'READY' : 'NOT READY'}</span></div>
           <div class="lob-line">${esc(hero.toUpperCase())}${prof ? ` · LV ${prof.lv} · BEST STAGE ${prof.best || '-'}` : ''}</div>
           ${p.kit ? `<div class="lob-line kit">${esc(p.kit)}</div>` : ''}
           <div class="lob-line cos">${esc([skin, pet].filter(Boolean).join(' · ').toUpperCase())}${ping}</div>

@@ -181,15 +181,15 @@ export function installRace(g: Game, root: HTMLElement): void {
   g.hostStart = function (this: Game) {
     if (this.role !== 'host' || !this.host) return;
     if (this.lobbyKind === 'race') return raceHostStart(this);
-    if (this.lobby.length > 4) {
-      this.hud.toast(`ONLY RACE TAKES MORE THAN 4 PLAYERS (${this.lobby.length} HERE)`, 3);
+    if (this.lobby.length > 4 && !['pvp', 'raid'].includes(this.lobbyKind)) {
+      this.hud.toast(`ONLY RACE, PVP AND RAID TAKE MORE THAN 4 PLAYERS (${this.lobby.length} HERE)`, 3);
       return;
     }
     return hostStart.call(this);
   };
   const refresh = g.refreshLobby;
   g.refreshLobby = function (this: Game) {
-    this.host?.setMax?.(this.lobbyKind === 'race' ? 7 : 3);
+    this.host?.setMax?.(['race', 'pvp', 'raid'].includes(this.lobbyKind) ? 7 : 3);
     refresh.call(this);
     if (!this.host) return;
     st.ranks.set('', save.ranked.rating);
