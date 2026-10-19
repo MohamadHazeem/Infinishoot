@@ -53,7 +53,7 @@ export class HighlightRecorder {
   private lastMarks = new Map<HighlightKind, number>();
   get supported(): boolean { return this.support ??= !!clipMime() && typeof HTMLCanvasElement !== 'undefined' && !!HTMLCanvasElement.prototype.captureStream && typeof createImageBitmap === 'function'; }
   reset(): void {
-    this.abort?.abort(); this.generation++; this.busy = false; this.recording = false;
+    this.abort?.abort(); this.generation++; this.busy = false; this.recording = false; this.failed = false;
     this.ring.clear(); this.highlights.length = 0; this.combo.reset(); this.lastMarks.clear(); this.clock = this.next = 0; this.onChange?.();
   }
   stop(clear = false): void {
@@ -122,6 +122,7 @@ export class HighlightRecorder {
     this.exporting = true; this.abort = new AbortController(); this.onChange?.();
     try {
       const blob = await encodeClip(h.frames.slice(), this.abort.signal);
+      if (this.abort.signal.aborted) throw new Error('Export cancelled');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `InfiniShoot-${h.kind}-stage${h.stage}-${h.id}.webm`; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 60_000);

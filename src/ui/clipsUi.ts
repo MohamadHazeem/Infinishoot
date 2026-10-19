@@ -6,7 +6,7 @@ import { t } from '../i18n';
 import { prompt } from './prompts';
 
 const CSS = `
-.clips-panel { width:min(860px,94%); box-sizing:border-box; padding:calc(3 * var(--p)); background:var(--night); color:var(--white); }
+.clips-panel { min-width:0; max-width:100%; width:min(860px,94%); box-sizing:border-box; padding:calc(3 * var(--p)); background:var(--night); color:var(--white); }
 .clips-panel { --bg:var(--night); --hi:var(--blue); --lo:var(--ink); --ring:var(--ink);
  box-shadow:inset var(--p) var(--p) 0 var(--hi), inset calc(-1 * var(--p)) calc(-1 * var(--p)) 0 var(--lo),
  0 calc(-1 * var(--p)) 0 var(--ink), 0 var(--p) 0 var(--ink), calc(-1 * var(--p)) 0 0 var(--ink), var(--p) 0 0 var(--ink),
@@ -23,6 +23,7 @@ const CSS = `
 #scr-clips .clips-reel { flex-wrap:wrap; justify-content:center; }
 #scr-clips .clips-panel { max-height:80vh; overflow:auto; }
 #scr-mvp .clips-panel { width:100%; }
+#scr-mvp .mvp-shell { grid-template-columns:minmax(0,1fr); }
 .clips-status { min-height:1.3em; }
 `;
 /** Registers the gallery; small result-screen rails are rebuilt only when shown/changed. */
