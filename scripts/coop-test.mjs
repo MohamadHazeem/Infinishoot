@@ -787,8 +787,10 @@ async function partyPhase() {
       g.mode = 'dead';
       g.endRun();
     });
-    const ok = await until(B, () => window.game.screens.current === 'gameover', null, 6000);
-    const okA = await host(() => window.game.screens.current === 'gameover');
+    const ok = await until(B, () => ['gameover', 'mvp'].includes(window.game.screens.current), null, 6000);
+    const okA = await host(() => ['gameover', 'mvp'].includes(window.game.screens.current));
+    // The MVP awards come first; CONTINUE leads to game over.
+    for (const p of [A, B]) await p.evaluate(() => { if (window.game.screens.current === 'mvp') window.game.screens.show('gameover'); });
     if (!ok || !okA) fail(`party: game over screens host ${okA} client ${ok}`);
   };
   await Promise.all([A, B].map((p) => p.page.evaluate(() => window.botAuto(false))));

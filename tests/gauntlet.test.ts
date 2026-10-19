@@ -129,7 +129,8 @@ ok(save.history[0].cause === 'Boss Rush complete', 'completed Rush is recorded a
 
 start();
 g.difficulty = { ...g.difficulty, id: 'hard' };
-g.spawnBoss(ENEMIES.omega);
+// Spawn Omega directly: on stage 1 the boss lane's rematch picker may swap the def for an earlier boss.
+g.boss = g.enemies.spawn(ENEMIES.omega, g.hero.player.x + 12, g.hero.player.z, g.spawnOpts({ instant: true }));
 kill(g.boss!);
 ok(A.gauntletProfile.unlocked === 1 && A.gauntletProfile.victory, 'actual Hard Omega kill unlocks A1 and NG+');
 A.gauntletProfile.selected = 1;

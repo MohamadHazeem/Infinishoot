@@ -165,7 +165,8 @@ const gameOver = () => {
   steps(3);
 };
 gameOver();
-ok(A.screens.current === 'gameover' && B.screens.current === 'gameover', 'game over on both');
+ok(['gameover', 'mvp'].includes(A.screens.current) && ['gameover', 'mvp'].includes(B.screens.current), 'game over on both');
+for (const g of [A, B]) if (g.screens.current === 'mvp') g.screens.show('gameover'); // MVP awards first
 const partyBtn = rootB.querySelector<HTMLElement>('#scr-gameover [data-act=party-open]');
 ok(!!partyBtn && !partyBtn.hidden && rootB.querySelector<HTMLElement>('#scr-gameover [data-act=retry]')!.hidden, 'online game over: PARTY instead of RETRY');
 partyBtn!.click();

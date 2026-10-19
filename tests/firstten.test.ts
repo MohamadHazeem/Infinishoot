@@ -174,8 +174,9 @@ p.invuln = 0;
 h.lastHitBy = 'Rhino';
 h.dashes = 10;
 if (p.hurt(p.hp + 1, 0, 1)) game.onHeroDown(h);
-for (let i = 0; i < 60 * 8 && game.screens.current !== 'gameover'; i++) game.update(1 / 60);
-ok(game.screens.current === 'gameover', 'the run ends on game over');
+for (let i = 0; i < 60 * 8 && !['gameover', 'mvp'].includes(game.screens.current); i++) game.update(1 / 60);
+ok(['gameover', 'mvp'].includes(game.screens.current), 'the run ends on game over');
+if (game.screens.current === 'mvp') game.screens.show('gameover'); // the MVP awards come first; CONTINUE leads to game over
 const next = $('#scr-gameover .ft-next')!;
 ok(!next.hidden && next.textContent!.includes('Rhino') && next.textContent!.includes('FIRST RUN'), 'game over: an encouraging line and the Rhino tip');
 ok(next.nextElementSibling?.querySelector('[data-act=retry]') !== null, 'RETRY sits right under the card');
