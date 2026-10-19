@@ -161,7 +161,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   const r = e.radius;
   const y = r + 0.1 + e.hopY;
   this.vfx.sound(big ? 'eliteDie' : 'enemyDie', e.x, e.z, this.pitch);
-  this.vfx.burst(e.x, y, e.z, { count: big ? 40 : def.xp >= 3 ? 12 : 6, color: def.bodyColor, color2: def.accentColor, speed: [3, 9], size: [0.15, 0.3 + r * 0.15], life: [0.3, 0.6], up: 5, gravity: 18, drag: 2 });
+  this.vfx.burst(e.x, y, e.z, { count: big ? 40 : def.xp >= 3 ? 12 : 6, color: def.bodyColor, color2: def.accentColor, speed: [3, 9], size: [0.15, 0.3 + r * 0.15], life: [0.3, 0.6], up: 5, gravity: 18, drag: 2, debris: big ? 12 : def.xp >= 3 ? 3 : 1 });
   if (def.xp >= 3 || big || this.rng.chance(0.25)) this.vfx.ring(e.x, e.z, r * 2, 3, def.bodyColor, 0.25);
   this.deathFx(e, big);
   // The body flies off, pushed by the hit (or away from the killer). Ka-Boomers that blew themselves up leave none.
@@ -242,7 +242,7 @@ export function blast(this: Game, x: number, z: number, r: number, base: number,
   this.vfx.sound('explode', x, z);
   this.vfx.ring(x, z, 1, r * 2, color, 0.25);
   this.vfx.star(x, 1, z, r, color, 0.12);
-  this.vfx.burst(x, 0.6, z, { count: 8, color, color2: '#fff35c', speed: [3, 8], size: [0.15, 0.3], life: [0.2, 0.45], up: 4, gravity: 12 });
+  this.vfx.burst(x, 0.6, z, { count: 8, color, color2: '#fff35c', speed: [3, 8], size: [0.15, 0.3], life: [0.2, 0.45], up: 4, gravity: 12, smoke: Math.round(Math.min(4, 1 + r * 0.8)), sparks: 5, scorch: r >= 1.2 ? 0 : r * 0.7 });
   if (r >= 1.2) this.vfx.scar(x, z, r * 0.7, SCAR_COLORS.scorch, 10);
   if (this.authority) this.barrels.igniteNear(x, z, r, by.index);
   if (this.authority) this.blastToys(x, z, r, base, by.index);
@@ -266,8 +266,8 @@ export function explodeBarrel(this: Game, i: number, b: Barrel): void {
   const R = barrelTuning.radius;
   this.vfx.shake(b.x, b.z, 0.45);
   this.vfx.ring(b.x, b.z, 1, R * 2.3, '#ffb627', 0.35);
-  this.vfx.burst(b.x, 0.8, b.z, { count: 26, color: '#ff4d5e', color2: '#ffd23f', speed: [5, 12], size: [0.2, 0.45], life: [0.35, 0.7], up: 7, gravity: 14 });
-  this.vfx.burst(b.x, 1.2, b.z, { count: 10, color: '#3a3d5c', color2: '#8a90c8', speed: [1, 3], size: [0.4, 0.7], life: [0.6, 1.0], up: 3, drag: 2 });
+  this.vfx.burst(b.x, 0.8, b.z, { count: 26, color: '#ff4d5e', color2: '#ffd23f', speed: [5, 12], size: [0.2, 0.45], life: [0.35, 0.7], up: 7, gravity: 14, debris: 7 });
+  this.vfx.burst(b.x, 1.2, b.z, { count: 10, color: '#3a3d5c', color2: '#8a90c8', speed: [1, 3], size: [0.4, 0.7], life: [0.6, 1.0], up: 3, drag: 2, smoke: 8, scorch: 0 });
   this.vfx.num(b.x, 2.4, b.z, 'KABOOM!', 'crit');
   if (by === this.hero) this.juice.freeze(0.04);
   this.blast(b.x, b.z, R, barrelTuning.damage * (1 + 0.6 * (this.stage - 1)), '#ff7a2f', 'barrel', ['explosive', 'fire'], false, by);
@@ -288,7 +288,7 @@ export function detonate(this: Game, e: Enemy): void {
   this.vfx.scar(e.x, e.z, R * 0.75, SCAR_COLORS.scorch, 12);
   this.vfx.ring(e.x, e.z, 1, R * 2, '#ff3d5a', 0.3);
   this.vfx.star(e.x, 1, e.z, R * 1.2, '#ffb627', 0.15);
-  this.vfx.burst(e.x, 0.6, e.z, { count: 14, color: '#ff9f3d', color2: '#3a3d5c', speed: [4, 9], size: [0.15, 0.35], life: [0.3, 0.6], up: 5, gravity: 14 });
+  this.vfx.burst(e.x, 0.6, e.z, { count: 14, color: '#ff9f3d', color2: '#3a3d5c', speed: [4, 9], size: [0.15, 0.35], life: [0.3, 0.6], up: 5, gravity: 14, smoke: 4, sparks: 6, scorch: 0 });
   this.vfx.sound('explode', e.x, e.z);
   this.vfx.shake(e.x, e.z, 0.3);
   this.barrels.igniteNear(e.x, e.z, R, 0);
@@ -311,7 +311,7 @@ export function updateStrikes(this: Game, dt: number): void {
     this.strikes.splice(i, 1);
     this.vfx.ring(s.x, s.z, 1, (s.r * 2.2) / 0.46 / 2, '#ff7a2f', 0.3);
     this.vfx.star(s.x, 0.8, s.z, s.r * 1.2, '#ffb627', 0.12);
-    this.vfx.burst(s.x, 0.4, s.z, { count: 10, color: '#ff3df0', color2: '#ffd23f', speed: [3, 8], size: [0.15, 0.3], life: [0.25, 0.5], up: 6, gravity: 14 });
+    this.vfx.burst(s.x, 0.4, s.z, { count: 10, color: '#ff3df0', color2: '#ffd23f', speed: [3, 8], size: [0.15, 0.3], life: [0.25, 0.5], up: 6, gravity: 14, smoke: 3 });
     this.vfx.sound('explode', s.x, s.z);
     this.vfx.shake(s.x, s.z, 0.2);
     for (const h of this.aliveHeroes) {
@@ -332,7 +332,7 @@ export function bossSlam(this: Game, e: Enemy): void {
   this.juice.freeze(0.06);
   this.vfx.ring(e.x, e.z, 1, R * 2.4, '#ff3d5a', 0.4);
   this.vfx.ring(e.x, e.z, 1, R * 1.6, '#ffffff', 0.3);
-  this.vfx.burst(e.x, 0.3, e.z, { count: 30, color: '#f2e2b8', color2: '#ffffff', speed: [5, 12], size: [0.2, 0.4], life: [0.4, 0.8], up: 4, gravity: 10 });
+  this.vfx.burst(e.x, 0.3, e.z, { count: 30, color: '#f2e2b8', color2: '#ffffff', speed: [5, 12], size: [0.2, 0.4], life: [0.4, 0.8], up: 4, gravity: 10, dust: 16 });
   for (const h of this.aliveHeroes) {
     if (Math.hypot(h.player.x - e.x, h.player.z - e.z) < R + h.player.radius) this.hurtHero(h, 24 * e.dmgMul, e.x, e.z, null, e.def.name);
   }

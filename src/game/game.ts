@@ -63,6 +63,7 @@ import type { BossApi } from './bosses';
 import * as ArenaSys from './systems/arena';
 import { Interactives } from './interactives';
 import { ObjectiveHud } from '../ui/objectiveHud';
+import * as WorldFxSys from './systems/worldFx';
 
 export { economyTuning } from './hero';
 
@@ -438,6 +439,7 @@ export class Game implements HeroWorld {
   arenaSetNet = ArenaSys.arenaSetNet;
   renderArena = ArenaSys.renderArena;
   objectiveTarget = ArenaSys.objectiveTarget;
+  worldFx = WorldFxSys.worldFx;
 
   readonly scene = new THREE.Scene();
   arena: Arena;

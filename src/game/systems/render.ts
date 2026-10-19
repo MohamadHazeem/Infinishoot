@@ -282,6 +282,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.updateMusic(frameDt, boss);
   this.updateSky(frameDt);
   this.updateLook(frameDt);
+  this.worldFx(frameDt);
   this.hud.update(
     {
       hp: p.hp,

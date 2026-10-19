@@ -6,6 +6,7 @@ import { cheats, type Game } from '../game/game';
 import { applySettings, settings } from '../game/settings';
 import { lookOverrides } from '../game/systems/look';
 import { OBJECTIVE_KINDS, type ObjectiveKind } from '../game/objectives';
+import { weatherForce } from '../game/ambience';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -34,6 +35,8 @@ import { OBJECTIVE_KINDS, type ObjectiveKind } from '../game/objectives';
  *   ?test&objective=totems&near=totem   force the stage objective, start next to an arena toy
  *     near: pad, turret, pillar, crate, totem, shard, beacon, lava, ice, quicksand, thorns
  *   ?test&stage=4&topple                topple the pillar nearest the hero
+ *   ?test&stage=3&rain                 force rain (meadow/peaks); `dry` forces no rain
+ *   ?test&stage=4&at=lava              start next to a lava pool (also at=water, at=ice, at=12,-30)
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -63,6 +66,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (lo.length) settings.loadout = { primary: lo[0] ?? settings.loadout.primary, secondary: lo[1] ?? settings.loadout.secondary, special: lo[2] ?? settings.loadout.special };
   const obj = q.get('objective');
   game.toys.force = OBJECTIVE_KINDS.includes(obj as ObjectiveKind) ? (obj as ObjectiveKind) : null;
+  weatherForce.mode = q.has('rain') ? 'rain' : q.has('dry') ? 'clear' : null;
   game.startSolo();
   if (q.get('seed')) game.rng = new Rng(Number(q.get('seed')));
   // Skip the starting shop.
@@ -131,6 +135,22 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     let best = null as (typeof game.toys.props)[number] | null;
     for (const t of game.toys.props) if (t.alive && t.def.kind === 'pillar' && (!best || Math.hypot(t.def.x - p.x, t.def.z - p.z) < Math.hypot(best.def.x - p.x, best.def.z - p.z))) best = t;
     if (best) game.damageProp(best, 1e6, 0, 0, 1);
+  }
+  const at = q.get('at');
+  if (at) {
+    let x = NaN;
+    let z = NaN;
+    if (/^-?[\d.]+,-?[\d.]+$/.test(at)) [x, z] = at.split(',').map(Number);
+    else {
+      game.worldFx(0); // builds the stage's surfaces now
+      const p = game.ambience.surfaces.patches.find((s) => s.kind === at);
+      if (p) [x, z] = [p.x, p.z + p.r + 1.5];
+    }
+    if (!Number.isNaN(x)) {
+      const pl = game.hero.player;
+      pl.pos.x = pl.prev.x = x;
+      pl.pos.z = pl.prev.z = z;
+    }
   }
   return true;
 }
