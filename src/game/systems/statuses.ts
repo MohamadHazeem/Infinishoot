@@ -1,5 +1,6 @@
 import { halloweenKill } from './halloween';
 import { gauntletKill } from './gauntlet';
+import { pvpFriendly } from '../pvp';
 import { markSeen } from '../save';
 import { lagOut, lagSteps, lagTuning, rewindEnemy } from './netcode';
 /**
@@ -599,7 +600,7 @@ export function updateBullets(this: Game, dt: number): void {
     const r = b.radius[i];
     const lag = lagSteps(this, b.owner[i]); // a remote hero's shot: test against where enemies were on its screen (systems/netcode.ts)
     this.hash.query(x, z, lag ? r + lagTuning.pad : r, (e) => {
-      if (hit || !e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || e.pvpOwner === b.owner[i]) return;
+      if (hit || !e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || pvpFriendly(this.pvp?.teams, e.pvpOwner, b.owner[i])) return;
       const rr = e.radius + r;
       const back = lag > 0 && rewindEnemy(this, e, lag);
       const ex = back ? lagOut.x : e.x;

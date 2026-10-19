@@ -2,6 +2,8 @@
  * PvP mode flow (rules in src/game/pvp.ts).
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `pvpBegin = PvpFlow.pvpBegin;`.
+ * Rounds, teams, arenas, bots, the scoreboard and the spectator camera live in
+ * src/game/systems/pvp2.ts (pvp2 lane).
  */
 import type { Game } from '../game';
 import { statusTuning, PVP_WAIT_NOTE, clock, playerName } from '../game';
@@ -11,12 +13,17 @@ import { WEAPONS, isRightClick } from '../../data/weapons';
 import { type Enemy } from '../enemies';
 import { Hero } from '../hero';
 import { type DamageOpts } from '../weapons';
-import { PVP_TARGET, applyBuild, exportBuild, pvpTuning } from '../pvp';
+import { applyBuild, exportBuild, pvpTuning, teamsFor, roundState, pvpLanding, pvpCarry, pvpFriendly, zoneRadius, zoneDpsAt, DEFAULT_PVP_RULES, type PvpRules } from '../pvp';
 import { cleanLook } from '../../data/customise';
+import { isBotPeer, botHero, pvpNextRound, pvpRoundOver, pvpDuelStep, pvpMatchEndFx, pvpRulesNote } from './pvp2';
+import { hazardAt } from '../hazards';
 
 /** Everyone: play the shared stage alone, keeping the connection open for the duel. */
-export function pvpBegin(this: Game, net: 'host' | 'client', seed: number, difficulty: string): void {
-  this.pvp = { phase: 'stage', net, seed, ready: new Map(), progress: new Map(), proxies: [], acc: [], lastHit: [], zoneR: 0, zoneT: 0, zoneTick: 0 };
+export function pvpBegin(this: Game, net: 'host' | 'client', seed: number, difficulty: string, rules: PvpRules = DEFAULT_PVP_RULES): void {
+  this.pvp = {
+    phase: 'stage', net, seed, ready: new Map(), progress: new Map(), proxies: [], acc: [], lastHit: [], zoneR: 0, zoneT: 0, zoneTick: 0,
+    rules, teams: [], round: 0, wins: [], arena: '', zoneStart: pvpTuning.zoneStart, countdown: 0, roundEnd: 0, landT: [], stats: [], done: false,
+  };
   this.role = 'solo';
   // Solo stage: nothing to replay on clients, so don't pile up effects for the duel's first snapshot.
   this.vfx.recording = false;
@@ -24,7 +31,7 @@ export function pvpBegin(this: Game, net: 'host' | 'client', seed: number, diffi
   this.runMode = 'standard';
   this.hero.name = this.netName || playerName();
   this.startRun({ seed, difficulty });
-  this.vfx.banner('PVP · YOUR STAGE', 'BEAT THE BOSS AND BUILD UP<br>THEN FIGHT EVERYONE ELSE', 3);
+  this.vfx.banner('PVP · YOUR STAGE', `BEAT THE BOSS AND BUILD UP<br>THEN ${pvpRulesNote(rules)}`, 3);
 }
 
 /** Your stage is over (boss beaten and shop closed, or you died): send your build and wait. */
@@ -51,30 +58,33 @@ export function pvpTick(this: Game): void {
     return;
   }
   pvp.progress.set('', mine);
-  const rows = this.lobby.map((p) => `${p.name}: ${pvp.ready.has(p.peerId) ? 'READY' : pvp.progress.get(p.peerId) ?? 'PLAYING'}`);
+  const rows = this.lobby.map((p) => `${p.name}: ${isBotPeer(p.peerId) ? 'BOT · READY' : pvp.ready.has(p.peerId) ? 'READY' : pvp.progress.get(p.peerId) ?? 'PLAYING'}`);
   this.host?.broadcast({ t: 'pvpstat', rows });
   if (pvp.phase === 'wait') this.screens.showWait(rows, PVP_WAIT_NOTE);
 }
 
-/** Host: start the duel once everyone still here has handed in a build. */
+/** Host: start the duel once everyone still here has handed in a build (bots build theirs at the start). */
 export function pvpCheckReady(this: Game): void {
   const pvp = this.pvp;
   if (!pvp || pvp.net !== 'host' || pvp.phase === 'duel' || pvp.phase === 'over') return;
-  if (!this.lobby.every((p) => pvp.ready.has(p.peerId))) return;
+  if (!this.lobby.every((p) => isBotPeer(p.peerId) || pvp.ready.has(p.peerId))) return;
   this.pvpStartDuel();
 }
 
-/** Host: rebuild every hero from its build and drop them all into one arena. */
+/** Host: rebuild every hero from its build and drop them all into the first round. */
 export function pvpStartDuel(this: Game): void {
   const pvp = this.pvp!;
   pvp.phase = 'duel';
   this.role = 'host';
   this.vfx.drain();
+  const levels = [...pvp.ready.values()].map((b) => b.level);
+  const avgLevel = levels.length ? levels.reduce((a, b) => a + b, 0) / levels.length : this.level;
   const heroes = this.lobby.map((p, i) => {
     if (i === 0) return this.hero;
     const h = this.makeHero(i, p.name, p.unlocked.filter((id) => WEAPONS[id]), p.peerId, p.skin, p.pet, p.hero);
     h.player.look = cleanLook(p.look);
-    applyBuild(h, pvp.ready.get(p.peerId)!, this.scene);
+    if (isBotPeer(p.peerId)) botHero(this, h, p.loadout, avgLevel);
+    else applyBuild(h, pvp.ready.get(p.peerId)!, this.scene);
     return h;
   });
   this.hero.name = this.lobby[0].name;
@@ -82,38 +92,27 @@ export function pvpStartDuel(this: Game): void {
   this.local = 0;
   this.hero.recomputeStats();
   this.hero.player.reset(this.hero.stats);
-  this.hero.revivesLeft = pvp.ready.get('')?.revives ?? this.hero.revivesLeft;
   for (const h of heroes) {
     h.left = false;
     h.player.showWhenDead = true;
     h.pendingLevels = h.chestsPending = 0;
-    h.bombCharge = 1;
+    // A duel is one life per round: no Second Wind, no pet revive.
+    h.revivesLeft = 0;
+    h.petState.reviveUsed = true;
   }
+  pvp.teams = teamsFor(heroes.length, pvp.rules.format);
+  pvp.wins = Array.from({ length: Math.max(...pvp.teams) + 1 }, () => 0);
+  pvp.stats = heroes.map(() => ({ dealt: 0, taken: 0, kos: 0, out: false }));
+  pvp.round = 0;
+  pvp.done = false;
   this.screens.show('none');
   this.hud.setVisible(true);
   for (const h of heroes) {
-    if (!h.peerId) continue;
+    if (!h.peerId || isBotPeer(h.peerId)) continue;
     this.host!.send(h.peerId, { t: 'start', seed: pvp.seed, difficulty: this.difficulty.id, you: h.index, players: heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
   }
   this.loadStage(1);
-  this.enemies.clear();
-  this.pickups.clear?.();
-  // Heroes start spread on a circle facing the middle, each with an invisible stand-in the others can hit.
-  pvp.proxies = [];
-  heroes.forEach((h, i) => {
-    const a = (i / heroes.length) * Math.PI * 2;
-    h.player.teleport(Math.cos(a) * pvpTuning.spawnRadius, Math.sin(a) * pvpTuning.spawnRadius);
-    h.player.setAimDir(-Math.cos(a), -Math.sin(a));
-    const e = this.enemies.spawn(PVP_TARGET, h.player.x, h.player.z, { instant: true });
-    e.pvpOwner = h.index;
-    pvp.proxies[h.index] = e;
-  });
-  pvp.acc = heroes.map(() => 0);
-  pvp.lastHit = heroes.map(() => -1);
-  pvp.zoneR = pvpTuning.zoneStart;
-  pvp.zoneT = pvp.zoneTick = 0;
-  this.vfx.banner('DUEL!', 'LAST ONE STANDING WINS<br>THE RED RING CLOSES IN', 2.8);
-  this.vfx.sound('boss', NaN, NaN);
+  pvpNextRound(this);
 }
 
 /** A hit on a hero's stand-in: the attacker's stats, Mods and crits apply, then it's scaled down to hero damage. */
@@ -121,13 +120,15 @@ export function pvpHit(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   const pvp = this.pvp;
   const target = this.heroes[e.pvpOwner];
   if (!pvp || pvp.phase !== 'duel' || !target || target === by || target.player.dead || target.left || target.player.dashing) return 0;
+  // Friendly fire is off (teams), and nothing counts during the 3-2-1 or after the round is decided.
+  if (pvpFriendly(pvp.teams, e.pvpOwner, by.index) || pvp.countdown > 0 || pvp.roundEnd > 0) return 0;
   const tags: readonly Tag[] = o.tags ?? by.tagsOf(o.source) ?? [];
   const crit = !o.fixed && !!o.canCrit && this.rng.chance(by.stats.critChance);
   const ev = { e, source: o.source, tags, dist: Math.hypot(e.x - by.player.x, e.z - by.player.z), crit };
   let amount = o.fixed ? base : by.synergy.damage(ev, base * by.stats.damageMul);
   if (e.exposeT > 0) amount *= 1 + statusTuning.exposeMult;
   if (crit) amount *= by.stats.critMult;
-  pvp.acc[target.index] += amount * pvpTuning.damageScale;
+  pvp.acc[target.index] += amount * pvpTuning.damageScale * (pvpTuning.sourceMul[o.source] ?? 1);
   pvp.lastHit[target.index] = by.index;
   if (!o.noStatus) {
     if (isRightClick(o.source)) e.exposeT = statusTuning.exposeTime;
@@ -137,9 +138,12 @@ export function pvpHit(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   return amount;
 }
 
-/** Duel step: stand-ins follow their heroes, pending damage lands as hits, the ring closes. */
+/** Duel step: stand-ins follow their heroes, pending damage lands as hits, the ring closes, rounds turn over. */
 export function updateDuel(this: Game, dt: number): void {
   const pvp = this.pvp!;
+  pvpDuelStep(this, dt); // bots, the round clock, specials pacing (systems/pvp2.ts)
+  if (this.pvp !== pvp || pvp.phase !== 'duel') return;
+  const T = pvpTuning;
   for (const h of this.heroes) {
     const e = pvp.proxies[h.index];
     if (!e) continue;
@@ -153,52 +157,81 @@ export function updateDuel(this: Game, dt: number): void {
     e.vx = e.vz = e.kx = e.kz = 0;
     e.hp = e.maxHp;
     e.frozen = 0;
-    // Damage lands as hits, so i-frames and the per-hit cap pace a duel instead of one volley deciding it.
-    if (pvp.acc[h.index] >= 1 && h.player.invuln <= 0) {
+    // Damage lands as hits a few times a second (short i-frames, a cap per second), so no single volley decides a duel.
+    pvp.landT[h.index] = (pvp.landT[h.index] ?? 0) - dt;
+    if (pvp.acc[h.index] >= 1 && pvp.landT[h.index] <= 0 && h.player.invuln <= 0) {
       const by = this.heroes[pvp.lastHit[h.index]];
-      const raw = pvp.acc[h.index];
-      pvp.acc[h.index] = 0;
-      this.hurtHero(h, raw, by?.player.x ?? h.player.x, by?.player.z ?? h.player.z, null, by ? by.name : 'Opponent');
+      const dmg = pvpLanding(pvp.acc[h.index], h.stats.armor, h.player.maxHp);
+      pvp.acc[h.index] = pvpCarry(pvp.acc[h.index], dmg, h.stats.armor, h.player.maxHp);
+      pvp.landT[h.index] = T.landEvery;
+      const hp0 = h.player.hp;
+      this.hurtHero(h, dmg + h.stats.armor, by?.player.x ?? h.player.x, by?.player.z ?? h.player.z, null, by ? by.name : 'Opponent');
+      const lost = Math.max(0, hp0 - (h.player.dead ? 0 : h.player.hp));
+      if (lost > 0) {
+        h.player.invuln = Math.min(h.player.invuln, T.iframes);
+        pvp.stats[h.index].taken += lost;
+        if (by) pvp.stats[by.index].dealt += lost;
+      }
     }
   }
-  // The safe ring closes after a while; outside it you lose life every second.
+  if (pvp.countdown > 0 || pvp.roundEnd > 0) return;
+  // The safe ring closes after a while, then collapses (sudden death); outside it you lose life every second.
   pvp.zoneT += dt;
-  if (pvp.zoneT > pvpTuning.zoneDelay) pvp.zoneR = Math.max(pvpTuning.zoneMin, pvp.zoneR - pvpTuning.zoneSpeed * dt);
-  if (this.stepN % 12 === 0) this.vfx.ring(0, 0, pvp.zoneR * 2, 1.01, '#b13e53', 0.25); // ring sizes are diameters
+  pvp.zoneR = zoneRadius(pvp.zoneT, pvp.zoneStart);
   pvp.zoneTick -= dt;
   if (pvp.zoneTick <= 0) {
     pvp.zoneTick = 1;
+    const dps = zoneDpsAt(pvp.zoneT, pvp.zoneStart);
     for (const h of this.aliveHeroes) {
       if (Math.hypot(h.player.x, h.player.z) <= pvp.zoneR) continue;
-      this.hurtHero(h, h.player.maxHp * pvpTuning.zoneDps + h.stats.armor, 0, 0, null, 'The ring');
+      this.hurtHero(h, h.player.maxHp * dps + h.stats.armor, 0, 0, null, 'The ring');
+      h.player.invuln = Math.min(h.player.invuln, T.iframes);
+    }
+  }
+  // Thorn patches scratch (PvP arenas): heroes, unlike enemies, only get scratched.
+  if (this.stepN % 30 === 0 && this.arena.hazards.length) {
+    for (const h of this.aliveHeroes) {
+      const p = h.player;
+      if (p.dashing || p.invuln > 0 || hazardAt(this.arena.hazards, p.x, p.z, 'thorns') < 0) continue;
+      this.hurtHero(h, p.maxHp * T.thornHero + h.stats.armor, p.x, p.z, null, 'Thorns');
+      p.invuln = Math.min(p.invuln, T.iframes);
     }
   }
 }
 
-/** Host: one hero left (or none): that's the match. */
+/** Host: at most one team standing: the round is over (the next starts, or the match ends). */
 export function pvpCheckWinner(this: Game): void {
   const pvp = this.pvp;
   if (!pvp || pvp.net !== 'host' || pvp.phase !== 'duel') return;
-  const alive = this.aliveHeroes;
-  if (alive.length > 1) return;
-  const name = alive[0]?.name ?? '';
-  this.host?.broadcast({ t: 'pvpend', winner: name });
-  this.pvpOver(name);
+  // Credit knockouts once per hero per round.
+  for (const h of this.heroes) {
+    const st = pvp.stats[h.index];
+    if (!st || st.out || !(h.player.dead || h.left)) continue;
+    st.out = true;
+    const by = pvp.lastHit[h.index];
+    if (by >= 0 && by !== h.index && pvp.stats[by] && !h.left) pvp.stats[by].kos++;
+  }
+  if (pvp.roundEnd > 0) return;
+  const alive = this.aliveHeroes.map((h) => h.index);
+  const r = roundState(alive, pvp.teams);
+  if (!r.over) return;
+  pvpRoundOver(this, r.team);
 }
 
-/** Everyone: show the winner, then back to the title a few seconds later. */
-export function pvpOver(this: Game, winner: string): void {
+/** Everyone: show the winner, then back to the title a few seconds later. `team`: the winning team (-1 draw). */
+export function pvpOver(this: Game, winner: string, team = -2): void {
   this.meta2PvpOver(winner); // profile stats and XP (systems/meta2.ts)
   const pvp = this.pvp!;
   pvp.phase = 'over';
-  this.vfx.banner(winner ? `${winner.toUpperCase()} WINS!` : 'DRAW!', 'LAST ONE STANDING', 4);
+  this.vfx.banner(winner ? `${winner.toUpperCase()} WINS!` : 'DRAW!', pvp.rules.rounds === 1 ? 'LAST ONE STANDING' : `MATCH OVER · ${pvp.wins.join(' - ')}`, 4);
   this.vfx.flash(0.8);
   this.vfx.sound('legendaryPick', NaN, NaN);
+  pvpMatchEndFx(this, team);
   window.setTimeout(() => {
     if (this.pvp !== pvp) return;
     this.leaveToTitle();
     this.hud.toast(winner ? `${winner.toUpperCase()} WON THE DUEL` : 'THE DUEL WAS A DRAW', 4);
-  }, 4500);
+  }, 6500);
 }
 
 export function saveName(this: Game, name: string): void {

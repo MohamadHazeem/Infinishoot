@@ -34,7 +34,7 @@ export const MAX_WEAPONS = 4;
 export const MAX_PASSIVES = 6;
 /** Gears are spent to reroll level-up cards; you can carry this many. */
 export const MAX_GEARS = 5;
-export const HERO_COLORS = ['#2f7bff', '#22c76a', '#ffb627', '#d8def0'];
+export const HERO_COLORS = ['#2f7bff', '#22c76a', '#ffb627', '#d8def0', '#ff5e7a', '#a77bff', '#4ff2ff', '#a7f070']; // 5-8: PvP free-for-all
 
 export const economyTuning = {
   clearGold: 5, // flat gold for clearing a stage
