@@ -31,3 +31,6 @@ Open the game straight into a situation: `http://localhost:5173/?test&...` (also
 - Gameplay runs in `update()` and on the host; anything clients need goes through snapshots or the effects bus (`game.vfx`). Cosmetic-only things can be derived locally in render.
 - No new runtime dependencies without a good reason; the game must stay small and load fast.
 - Secrets (API keys) live only in `.env.local`, never in code: the game is public. Generated assets (audio, images) are committed; the keys that made them are not.
+
+## Parallel builds
+Big batches run many builders at once, one git worktree per lane: see docs/parallel-builds/README.md (briefs, merge helper, checklist).
