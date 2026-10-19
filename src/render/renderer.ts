@@ -1,9 +1,14 @@
 import * as THREE from 'three';
 import { retroGlobals } from './retroMaterial';
+import { renderQuality } from './quality';
+import { setOutlines } from './outlines';
+import { blurFrag, brightFrag, compositeFrag, fullscreenVert, postfx, postfxTuning } from './postfx';
 
 /**
- * Renders the scene into a low-resolution target, then runs a post pass
- * (colour-depth reduction + ordered dither + saturation) to the canvas.
+ * Renders the scene into a low-resolution target, then post-processes it to
+ * the canvas: optional half-resolution bloom (bright pass + separable blur),
+ * then one composite pass (shockwave / heat distortion, glow, per-area colour
+ * grading, saturation, colour-depth reduction + ordered dither, CRT).
  * The canvas drawing buffer stays at the internal resolution and is scaled
  * up by CSS with `image-rendering: pixelated`.
  */
@@ -13,74 +18,36 @@ export const postSettings = {
   colorBits: 5,
   dither: 0.5,
   saturation: 1.15,
-  /** Soft glow around bright pixels (0 = off). */
+  /** Glow / bloom strength around bright pixels (0 = off). */
   glow: 0.4,
   /** CRT look: scanlines and a vignette (0 = off, 1 = full). */
   crt: 0,
 };
 
-const postVert = /* glsl */ `
-out vec2 vUv;
-void main() {
-  vUv = position.xy * 0.5 + 0.5;
-  gl_Position = vec4(position.xy, 0.0, 1.0);
+function fullscreen(frag: string, uniforms: Record<string, THREE.IUniform>): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    vertexShader: fullscreenVert,
+    fragmentShader: frag,
+    depthTest: false,
+    depthWrite: false,
+    uniforms,
+  });
 }
-`;
-
-const postFrag = /* glsl */ `
-uniform sampler2D tScene;
-uniform float uBits;
-uniform float uDither;
-uniform float uSaturation;
-uniform float uGlow;
-uniform float uCrt;
-uniform vec2 uTexel;
-in vec2 vUv;
-layout(location = 0) out vec4 outColor;
-
-float bayer4(vec2 p) {
-  ivec2 i = ivec2(mod(p, 4.0));
-  const float m[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
-  return m[i.x + i.y * 4] / 16.0 - 0.46875;
-}
-
-vec3 bright(vec2 o) {
-  vec3 c = texture(tScene, vUv + o * uTexel).rgb;
-  return max(c - 0.62, 0.0);
-}
-
-void main() {
-  vec3 col = texture(tScene, vUv).rgb;
-  // Cheap glow: bright neighbours at two radii bleed into this pixel.
-  if (uGlow > 0.0) {
-    vec3 g = bright(vec2(2.0, 0.0)) + bright(vec2(-2.0, 0.0)) + bright(vec2(0.0, 2.0)) + bright(vec2(0.0, -2.0));
-    g += 0.6 * (bright(vec2(3.0, 3.0)) + bright(vec2(-3.0, 3.0)) + bright(vec2(3.0, -3.0)) + bright(vec2(-3.0, -3.0)));
-    g += 0.4 * (bright(vec2(5.0, 0.0)) + bright(vec2(-5.0, 0.0)) + bright(vec2(0.0, 5.0)) + bright(vec2(0.0, -5.0)));
-    col += g * uGlow * 0.45;
-  }
-  float luma = dot(col, vec3(0.299, 0.587, 0.114));
-  col = clamp(mix(vec3(luma), col, uSaturation), 0.0, 1.0);
-  float levels = exp2(uBits) - 1.0;
-  col += bayer4(gl_FragCoord.xy) * uDither / levels;
-  col = floor(col * levels + 0.5) / levels;
-  if (uCrt > 0.0) {
-    // Every other line a little darker, plus a soft vignette.
-    col *= 1.0 - uCrt * 0.22 * step(1.0, mod(gl_FragCoord.y, 2.0));
-    vec2 d = vUv - 0.5;
-    col *= 1.0 - uCrt * 0.5 * pow(dot(d, d) * 2.2, 1.6);
-  }
-  outColor = vec4(col, 1.0);
-}
-`;
 
 export class RetroRenderer {
   readonly gl: THREE.WebGLRenderer;
   readonly width = { value: 0 };
   readonly height = { value: 0 };
   private target: THREE.WebGLRenderTarget;
+  private bloomA: THREE.WebGLRenderTarget;
+  private bloomB: THREE.WebGLRenderTarget;
   private postScene = new THREE.Scene();
   private postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  private quad: THREE.Mesh;
   private postMat: THREE.ShaderMaterial;
+  private brightMat: THREE.ShaderMaterial;
+  private blurMat: THREE.ShaderMaterial;
 
   constructor(canvas: HTMLCanvasElement) {
     THREE.ColorManagement.enabled = false;
@@ -94,29 +61,50 @@ export class RetroRenderer {
       magFilter: THREE.NearestFilter,
       depthBuffer: true,
     });
+    const half = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false };
+    this.bloomA = new THREE.WebGLRenderTarget(1, 1, half);
+    this.bloomB = new THREE.WebGLRenderTarget(1, 1, half);
 
-    this.postMat = new THREE.ShaderMaterial({
-      glslVersion: THREE.GLSL3,
-      vertexShader: postVert,
-      fragmentShader: postFrag,
-      depthTest: false,
-      depthWrite: false,
-      uniforms: {
-        tScene: { value: this.target.texture },
-        uBits: { value: postSettings.colorBits },
-        uDither: { value: postSettings.dither },
-        uSaturation: { value: postSettings.saturation },
-        uGlow: { value: postSettings.glow },
-        uCrt: { value: postSettings.crt },
-        uTexel: { value: new THREE.Vector2(1, 1) },
-      },
+    this.postMat = fullscreen(compositeFrag, {
+      tScene: { value: this.target.texture },
+      tBloom: { value: this.bloomA.texture },
+      uBits: { value: postSettings.colorBits },
+      uDither: { value: postSettings.dither },
+      uSaturation: { value: postSettings.saturation },
+      uGlow: { value: postSettings.glow },
+      uGlowMode: { value: 1 },
+      uCrt: { value: postSettings.crt },
+      uTexel: { value: new THREE.Vector2(1, 1) },
+      uAspect: { value: 16 / 9 },
+      uTime: retroGlobals.uTime,
+      uWaves: { value: postfx.waves },
+      uWaveCount: { value: 0 },
+      uHeat: { value: postfx.heat },
+      uHeatCount: { value: 0 },
+      uWaveWidth: { value: postfxTuning.waveWidth },
+      uWavePx: { value: postfxTuning.wavePx },
+      uHeatPx: { value: postfxTuning.heatPx },
+      uLift: { value: postfx.lift },
+      uGamma: { value: postfx.gamma },
+      uGain: { value: postfx.gain },
+      uNight: { value: 0 },
     });
-    // Single full-screen triangle.
+    this.brightMat = fullscreen(brightFrag, {
+      tScene: { value: this.target.texture },
+      uTexel: { value: new THREE.Vector2(1, 1) },
+      uThreshold: { value: postfxTuning.bloomThreshold },
+      uKnee: { value: postfxTuning.bloomKnee },
+    });
+    this.blurMat = fullscreen(blurFrag, {
+      tSrc: { value: this.bloomA.texture },
+      uDir: { value: new THREE.Vector2(1, 0) },
+    });
+    // Single full-screen triangle; its material is swapped per pass.
     const tri = new THREE.BufferGeometry();
     tri.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
-    const quad = new THREE.Mesh(tri, this.postMat);
-    quad.frustumCulled = false;
-    this.postScene.add(quad);
+    this.quad = new THREE.Mesh(tri, this.postMat);
+    this.quad.frustumCulled = false;
+    this.postScene.add(this.quad);
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
@@ -131,7 +119,13 @@ export class RetroRenderer {
     this.height.value = h;
     this.gl.setSize(w, h, false);
     this.target.setSize(w, h);
+    const bw = Math.max(1, Math.ceil(w / 2));
+    const bh = Math.max(1, Math.ceil(h / 2));
+    this.bloomA.setSize(bw, bh);
+    this.bloomB.setSize(bw, bh);
     this.postMat.uniforms.uTexel.value.set(1 / w, 1 / h);
+    this.postMat.uniforms.uAspect.value = w / h;
+    this.brightMat.uniforms.uTexel.value.set(1 / w, 1 / h);
     retroGlobals.uSnapRes.value.set(w, h);
   }
 
@@ -139,18 +133,48 @@ export class RetroRenderer {
     return this.width.value / this.height.value;
   }
 
+  private pass(mat: THREE.ShaderMaterial, target: THREE.WebGLRenderTarget | null): void {
+    this.quad.material = mat;
+    this.gl.setRenderTarget(target);
+    this.gl.render(this.postScene, this.postCam);
+  }
+
   render(scene: THREE.Scene, camera: THREE.Camera): void {
     this.gl.info.reset();
+    setOutlines(renderQuality.outlines, this.height.value);
     const u = this.postMat.uniforms;
+    const glowMode = postSettings.glow > 0 ? renderQuality.glow : 0;
     u.uBits.value = postSettings.colorBits;
     u.uDither.value = postSettings.dither;
-    u.uSaturation.value = postSettings.saturation;
-    u.uGlow.value = postSettings.glow;
+    u.uSaturation.value = postSettings.saturation * postfx.saturation;
+    u.uGlow.value = glowMode === 2 ? postSettings.glow * postfxTuning.bloomStrength : postSettings.glow;
+    u.uGlowMode.value = glowMode;
     u.uCrt.value = postSettings.crt;
+    const distort = renderQuality.distortion && postfx.distortion;
+    u.uWaveCount.value = distort ? postfx.waveCount : 0;
+    u.uHeatCount.value = distort ? postfx.heatCount : 0;
+    u.uWaveWidth.value = postfxTuning.waveWidth;
+    u.uWavePx.value = postfxTuning.wavePx * (this.height.value / 270);
+    u.uHeatPx.value = postfxTuning.heatPx * (this.height.value / 270);
+    u.uNight.value = postfx.night * postfxTuning.nightVignette;
 
     this.gl.setRenderTarget(this.target);
+    this.gl.setClearAlpha(0); // alpha is the bloom mask: the background doesn't glow
     this.gl.render(scene, camera);
-    this.gl.setRenderTarget(null);
-    this.gl.render(this.postScene, this.postCam);
+    if (glowMode === 2) {
+      this.brightMat.uniforms.uThreshold.value = postfxTuning.bloomThreshold;
+      this.brightMat.uniforms.uKnee.value = postfxTuning.bloomKnee;
+      this.pass(this.brightMat, this.bloomA);
+      const b = this.blurMat.uniforms;
+      const bw = this.bloomA.width;
+      const bh = this.bloomA.height;
+      b.tSrc.value = this.bloomA.texture;
+      b.uDir.value.set(1 / bw, 0);
+      this.pass(this.blurMat, this.bloomB);
+      b.tSrc.value = this.bloomB.texture;
+      b.uDir.value.set(0, 1 / bh);
+      this.pass(this.blurMat, this.bloomA);
+    }
+    this.pass(this.postMat, null);
   }
 }

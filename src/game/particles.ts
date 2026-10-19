@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { commit } from '../render/instancing';
+import { renderQuality } from '../render/quality';
 
 /**
  * Pooled chunky 3D particles (little spinning cubes), one InstancedMesh.
@@ -60,7 +61,8 @@ export class Particles {
   burst(x: number, y: number, z: number, o: BurstOptions, rand = Math.random): void {
     this.c1.set(o.color);
     this.c2.set(o.color2 ?? o.color);
-    for (let n = 0; n < o.count && this.alive < MAX; n++) {
+    const count = o.count <= 2 ? o.count : Math.ceil(o.count * renderQuality.particles);
+    for (let n = 0; n < count && this.alive < MAX; n++) {
       const i = this.alive++;
       let a = rand() * Math.PI * 2;
       if (o.dir) a = Math.atan2(o.dir.z, o.dir.x) + (rand() - 0.5) * o.dir.spread;
