@@ -443,7 +443,7 @@ async function compare(tag) {
       if (!b) continue;
       check(`${name}left${j}`, a.left === b.left, `${name}: hero ${j} left host ${a.left} vs ${b.left}`);
       if (a.left) continue;
-      check(`${name}hp${j}`, Math.abs(a.hp - b.hp) <= Math.max(12, a.hp * 0.25) && a.dead === b.dead, `${name}: hero ${j} hp host ${a.hp}${a.dead ? ' down' : ''} vs ${b.hp}${b.dead ? ' down' : ''}`);
+      check(`${name}hp${j}`, Math.abs(a.hp - b.hp) <= Math.max(12, a.hp * 0.25) && a.dead === b.dead, `${name}: hero ${j} hp host ${a.hp}${a.dead ? ' down' : ''} vs ${b.hp}${b.dead ? ' down' : ''}`, 3); // life swings fast (buy-backs, team-ult heals): a lagged view may catch two in a row
       check(`${name}weap${j}`, a.weapons === b.weapons, `${name}: hero ${j} build host [${a.weapons}] vs [${b.weapons}]`);
       check(`${name}mech${j}`, a.mech === b.mech, `${name}: hero ${j} mech host ${a.mech} vs ${b.mech}`);
       const lim = i === 1 ? 6 : 4;
@@ -793,7 +793,17 @@ async function versusSmoke() {
     const g = window.game;
     return g.versus?.overlord === 1 && { mode: g.mode, overlord: g.versus.overlord, enemies: g.enemies.list.filter((e) => e.active).length };
   }, 3)));
-  log(`versus: host ${JSON.stringify(r)}, clients ${JSON.stringify(cs)}`);
+  // The Overlord looks at the beacon (its camera focus steers its interest box through `vcam`): it must see its swarm.
+  const sees = await cl(0, () => {
+    const g = window.game;
+    window.botAuto(false);
+    const at = g.versus.markers?.[0] ?? { x: 10, z: 10 };
+    g.versus.camX = at.x;
+    g.versus.camZ = at.z;
+    return true;
+  }).then(() => until(C[0].page, () => window.game.enemies.list.filter((e) => e.active && e.def.id === 'swarmer').length, 4));
+  log(`versus: host ${JSON.stringify(r)}, clients ${JSON.stringify(cs)}, the Overlord sees ${sees} swarmers at its beacon`);
+  if (!(sees > 0)) fail(`versus: the Overlord client sees no swarmers where it looks (${sees})`);
   if (!r || r.overlord !== 1 || !r.bench || !(r.swarmers > 0)) fail(`versus: host ${JSON.stringify(r)}`);
   if (cs.some((c) => !c)) fail(`versus: clients ${JSON.stringify(cs)}`);
   await simPause(5);
