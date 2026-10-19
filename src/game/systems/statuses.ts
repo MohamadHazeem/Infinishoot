@@ -22,6 +22,7 @@ import { playerTuning } from '../player';
 import { SCAR_COLORS } from '../scars';
 import { CURSE_BY_ID } from '../../data/curses';
 import { bossLike } from '../bossRules';
+import { noteBulletHit } from '../netFeel';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
@@ -528,7 +529,9 @@ export function updateBullets(this: Game, dt: number): void {
         if (p.dead || h.left || p.invuln > 0) continue;
         const rr = b.radius[i] + p.radius * 0.8;
         if ((p.x - x) ** 2 + (p.z - z) ** 2 < rr * rr) {
+          const hp0 = p.hp;
           this.hurtHero(h, b.damage[i], b.px[i], b.pz[i], null, 'Enemy fire');
+          if (h.remote) noteBulletHit(this, h, hp0 - p.hp, b.vx[i], b.vz[i]); // a late parry can undo it
           b.kill(i--);
           break;
         }

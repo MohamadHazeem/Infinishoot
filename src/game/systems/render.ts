@@ -24,6 +24,7 @@ import { lap, lapStart } from '../../core/prof';
 import { viewCull } from '../../render/viewCull';
 import { MODE_BY_ID, MODES, today, type ModeId } from '../../data/modes';
 import { boardId, fetchTop, leaderboardEnabled } from '../../net/leaderboard';
+import { tickOnlineStop } from '../netFeel';
 
 /** Fast elites leave puffs behind. Cosmetic and derived from synced state, so every machine draws its own. */
 export function eliteTrails(this: Game, frameDt: number): void {
@@ -171,7 +172,9 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const a = this.juice.hitStop > 0 || frozen ? 1 : alpha;
   // Clients draw remote things between the last two snapshots.
   const netA = client ? Math.min(1, (performance.now() - this.snapTime) / Math.max(16, this.snapInterval)) : a;
-  const rdt = frozen ? 0 : frameDt * (this.slowMoT > 0 ? 0.35 : 1);
+  // Online hit-stop: hold the picture (not the simulation) for the local hero's heavy hits.
+  const held = tickOnlineStop(this, frameDt);
+  const rdt = frozen || held ? 0 : frameDt * (this.slowMoT > 0 ? 0.35 : 1);
   this.localAudio(frameDt, frozen);
   updateSound.call(this, frameDt, frozen);
   this.input.rumbleOn = settings.rumble;
@@ -179,7 +182,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const slow = this.slowMoT > 0 ? 0.35 : 1;
   if (!frozen) {
     this.juice.tick(frameDt);
-    this.animTime += frameDt * slow;
+    if (!held) this.animTime += frameDt * slow;
   }
 
   for (const h of this.heroes) {
@@ -200,16 +203,16 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   if (!this.paused && this.mode !== 'levelup' && this.mode !== 'shop') {
     for (let i = zones.length - 1; i >= 0; i--) if ((zones[i].t -= frameDt) <= 0) zones.splice(i, 1);
   }
-  this.enemies.render(client ? netA : a, this.animTime);
+  if (!held) this.enemies.render(client ? netA : a, this.animTime);
   lap('ren.enemies');
   this.eliteTrails(frameDt);
-  this.bullets.render(a);
+  if (!held) this.bullets.render(a);
   lap('ren.bullets');
   this.barrels.render(this.animTime);
   this.renderArena(rdt);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
   lap('ren.barrels+arena+chests');
-  this.particles.render();
+  if (!held) this.particles.render();
   this.scars.render(rdt);
   streaks.render(rdt);
   lap('ren.particles+scars');
