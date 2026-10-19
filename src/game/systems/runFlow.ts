@@ -237,7 +237,7 @@ export function resume(this: Game): void {
 }
 
 export function quitRun(this: Game): void {
-  if (this.pvp) this.leaveToTitle();
+  if (this.pvp || this.onboarding.training) this.leaveToTitle(); // training banks nothing
   else if (this.role === 'solo') this.endRun(true);
   else this.leaveToTitle();
 }

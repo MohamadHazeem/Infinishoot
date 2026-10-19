@@ -11,6 +11,7 @@ import { STYLE_RANKS, styleTuning } from '../game/style';
 import { Team } from '../game/bullets';
 import { prof, profReset } from '../core/prof';
 import { renderQuality } from '../render/quality';
+import { onboardingLinks } from './onboardingLinks';
 
 /**
  * Test links: open the game straight into a situation, for quick playtests
@@ -47,6 +48,8 @@ import { renderQuality } from '../render/quality';
  *   ?test&bench&hold=180               phase timers on (`window.__prof`, scripts/bench.mjs), no level-ups; keep 180
  *     swarmers alive by topping them up around the hero every 0.5 s (`hold=150,20:spinner` mixes types);
  *     &bullets=500 keeps 500 enemy bullets in flight around the hero (use with god)
+ *
+ * Onboarding (src/dev/onboardingLinks.ts): &training=4, &trainingdone, &tip=boss, &discover=all, &recap, &offer, &screen=codex
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -191,6 +194,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (pg > 0) setTimeout(() => (shootAt(1.5, 8), game.tryParry(game.hero)), pg * 1000);
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
+  // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
+  onboardingLinks(game, q);
   return true;
 }
 

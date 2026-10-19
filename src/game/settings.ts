@@ -49,6 +49,8 @@ export interface Settings {
   bossIntros: boolean;
   /** Slow-motion on perfect dashes and Mega Barrage (solo only). */
   slowMo: boolean;
+  /** First-time tip panels during runs (src/game/tips.ts). */
+  tips: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -82,8 +84,10 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   dynamicCamera: true,
   bossIntros: true,
   slowMo: true,
+  tips: true,
 });
 settings.dynamicCamera ??= true;
+settings.tips ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

@@ -29,6 +29,12 @@ export interface SaveData {
   seen: string[];
   /** Last runs (max 30). */
   history: RunRecord[];
+  /** First-time tips already shown (src/game/tips.ts). */
+  tips: string[];
+  /** Codex entries met: owned, picked or offered (src/data/codex.ts keys). */
+  discovered: string[];
+  /** The training field: offered once on a fresh save, and finished. */
+  training: { offered: boolean; done: boolean };
   lifetime: {
     runs: number;
     kills: number;
@@ -43,7 +49,8 @@ export interface SaveData {
 const KEY = 'save';
 // v2 dropped Bolts and Workshop upgrades; older saves keep their achievements and stats.
 // v3 added the enemy guide (`seen`) and run history.
-const VERSION = 3;
+// v4 added first-time tips (`tips`), the codex (`discovered`) and the training field (`training`).
+const VERSION = 4;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
@@ -52,6 +59,9 @@ function fresh(): SaveData {
     achievements: [],
     seen: [],
     history: [],
+    tips: [],
+    discovered: [],
+    training: { offered: false, done: false },
     lifetime: { runs: 0, kills: 0, elites: 0, bosses: 0, bestStage: 0, bestLevel: 0, playTime: 0 },
   };
 }
@@ -65,6 +75,9 @@ function normalize(raw: unknown): SaveData {
     d.achievements = r.achievements.filter((a) => ACHIEVEMENTS.some((x) => x.id === a));
   }
   if (Array.isArray(r.seen)) d.seen = r.seen.filter((x): x is string => typeof x === 'string');
+  if (Array.isArray(r.tips)) d.tips = r.tips.filter((x): x is string => typeof x === 'string');
+  if (Array.isArray(r.discovered)) d.discovered = r.discovered.filter((x): x is string => typeof x === 'string');
+  if (r.training && typeof r.training === 'object') d.training = { offered: !!r.training.offered, done: !!r.training.done };
   if (Array.isArray(r.history)) d.history = r.history.filter((x) => x && typeof x === 'object' && Number.isFinite((x as RunRecord).score)).slice(0, 30);
   if (r.lifetime && typeof r.lifetime === 'object') {
     for (const k of Object.keys(d.lifetime) as (keyof SaveData['lifetime'])[]) {

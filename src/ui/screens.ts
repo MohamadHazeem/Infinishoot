@@ -26,7 +26,9 @@ import { ENEMIES } from '../data/enemies';
 import { ENEMY_TIPS } from '../data/bestiary';
 
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
-export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary';
+export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | ExtraScreen;
+/** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
+export type ExtraScreen = 'codex' | 'training';
 
 export interface ScreenActions {
   start(): void;
@@ -220,7 +222,7 @@ function nextLevelHtml(def: ModDef, level: number): string {
   return next.map((w, i) => (w === now[i] ? w : `<b>${w}</b>`)).join(' ');
 }
 
-type Named = Exclude<ScreenName, 'none'>;
+type Named = Exclude<ScreenName, 'none' | ExtraScreen>;
 
 /** Level-up pick lock: seconds after the cards appear (or a reroll) before any pick or skip counts. */
 export const pickTuning = { lock: 0.6 };
@@ -243,6 +245,10 @@ export class Screens {
   private lockCards: HTMLElement[] = [];
 
   private root: HTMLElement;
+  /** Screens other modules add (addScreen): shown and navigated like the built-in ones. */
+  private extra: Partial<Record<ExtraScreen, { el: HTMLElement; nav: MenuNav }>> = {};
+  /** Called on every show(), before the menu's focus is set (other modules fill or extend screens here). */
+  onShow: ((name: ScreenName) => void) | null = null;
 
   constructor(root: HTMLElement, private readonly actions: ScreenActions) {
     this.root = root;
@@ -696,9 +702,21 @@ export class Screens {
     });
   }
 
+  /** Register a screen built elsewhere (its element is added to the menu root). */
+  addScreen(name: ExtraScreen, el: HTMLElement, opts: ConstructorParameters<typeof MenuNav>[1] = {}): void {
+    el.hidden = true;
+    this.root.appendChild(el);
+    this.extra[name] = { el, nav: new MenuNav(el, opts) };
+  }
+
+  private nav(name: Exclude<ScreenName, 'none'>): MenuNav {
+    return this.extra[name as ExtraScreen]?.nav ?? this.navs[name as Named];
+  }
+
   show(name: ScreenName, focus?: number): void {
     this.current = name;
     for (const [k, el] of Object.entries(this.els)) el.hidden = k !== name;
+    for (const [k, x] of Object.entries(this.extra)) x.el.hidden = k !== name;
     // Hide in-game banners and toasts behind menus.
     this.root.classList.toggle('menu-open', name !== 'none');
     if (name === 'settings') this.syncSettings();
@@ -716,11 +734,12 @@ export class Screens {
       this.msg('');
       this.els.savedata.querySelector<HTMLElement>('[data-act=wipe]')!.textContent = 'RESET SAVE';
     }
-    if (name !== 'none') this.navs[name].refresh(focus ?? (name === 'levelup' ? 1 : 0));
+    this.onShow?.(name);
+    if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'levelup' ? 1 : 0));
   }
 
   update(input: Input, dt: number): void {
-    if (this.current !== 'none') this.navs[this.current].update(input, dt);
+    if (this.current !== 'none') this.nav(this.current).update(input, dt);
     this.tickReels(dt);
     this.tickLock();
   }
