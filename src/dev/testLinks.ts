@@ -4,6 +4,7 @@ import { META_SCREENS, type MetaScreen } from '../ui/metaScreens';
 import { companionLinks } from './companionLinks';
 import { timeLinks } from './timeLinks';
 import { coop2Links } from './coop2Links';
+import { cinematicsLinks } from './cinematicsLinks';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
@@ -101,6 +102,7 @@ import { SCAR_COLORS } from '../game/scars';
  * Modes lane (src/dev/modesLinks.ts): &rhythm, &pacifist&pact=40, &minigame=gallery|coins|whack&mgt=6, &ghost=demo&ghostlead=3, &modescreen=ghosts.
  *
  * World events (src/dev/worldEventLinks.ts): &wev=collapse|flood|split|giant|eclipse|flower|volcano|stealth, &wevt=6 (jump its clock), &wevoff.
+ * Cinematics lane (src/dev/cinematicsLinks.ts): &skyfall=1&skyat=0.5, &ending=1&endat=0.3, &reveal=starfall, &jackpot=1&jackkind=gold, &flawless=1&portalnow, &titleplay, &cine=short.
  * Time lane (src/dev/timeLinks.ts): &rewindgo=3&rewindat=0.5, &standgo=2, &btgo=2&btat=0.5, &replaygo=3&replayat=1,
  *   &mate&clutchgo=2&clutchat=0.5, &mate&votego=2.
  * Coop2 lane (src/dev/coop2Links.ts): &mate&emote=wave, &mate&mateemote=cheer, &mate&wheel=emotes, &mate&pool&downme=2,
@@ -217,6 +219,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
   modesLinks(game, q); // rhythm, pacifist, pact=, minigame=, mgt=, ghost=demo, ghostlead=, modescreen=ghosts (src/dev/modesLinks.ts)
+  cinematicsLinks(game, q); // skyfall=, ending=, reveal=, jackpot=, flawless=, titleplay=, cine= (src/dev/cinematicsLinks.ts)
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);

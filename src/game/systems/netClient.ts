@@ -382,6 +382,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyCompanionNet(s.cp);
   this.applyTimeNet(s.tm);
   this.applyCoopNet(s.co);
+  this.applyCineNet(s.cn);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   this.applyWorldEventNet(s.we, s.wt);

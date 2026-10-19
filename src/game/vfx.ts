@@ -26,7 +26,8 @@ export type VfxEvent =
   | ['g', number, number, number, string, number]
   | ['c', number, number, number, string, number, number, number, number]
   | ['F', string, number, number, number]
-  | ['P', string, string, string, number];
+  | ['P', string, string, string, number]
+  | ['C', string, number, number, number, string];
 
 export interface DangerZone {
   x: number;
@@ -54,6 +55,8 @@ export interface VfxTargets {
   finisher?(bossId: string, heroIndex: number, x: number, z: number): void;
   /** A character portrait pops in with a line (src/ui/portraits.ts). */
   portrait?(who: string, expression: string, text: string, seconds: number): void;
+  /** A cinematics moment (kind, hero index, where, data): jackpot, flawless, ending (src/game/systems/cinematics.ts). */
+  cine?(kind: string, hero: number, x: number, z: number, data: string): void;
   listener(): { x: number; z: number };
 }
 
@@ -141,6 +144,12 @@ export class Vfx {
     this.rec(['P', who, expression, text, seconds]);
   }
 
+  /** Team-wide: a cinematics moment ('jackpot', 'flawless', 'ending'); every machine plays its own part locally. */
+  cine(kind: string, hero: number, x: number, z: number, data = ''): void {
+    this.t.cine?.(kind, hero, x, z, data);
+    this.rec(['C', kind, hero, Math.round(x * 100) / 100, Math.round(z * 100) / 100, data]);
+  }
+
   /** Team-wide HUD messages. */
   banner(title: string, sub = '', seconds = 1.6): void {
     this.t.hud.showBanner(title, sub, seconds);
@@ -221,6 +230,9 @@ export class Vfx {
         break;
       case 'P':
         this.t.portrait?.(e[1], e[2], e[3], e[4]);
+        break;
+      case 'C':
+        this.t.cine?.(e[1], e[2], e[3], e[4], e[5]);
         break;
       case 'h':
         if (e[1] === 'banner') this.t.hud.showBanner(e[2], e[3], e[4]);

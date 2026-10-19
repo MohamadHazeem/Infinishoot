@@ -87,6 +87,7 @@ import * as WorldEventsSys from './systems/worldEvents';
 import * as TimeSys from './systems/time';
 import * as Coop2Sys from './systems/coop2';
 import * as ModesSys from './systems/modes';
+import * as CineSys from './systems/cinematics';
 import { portraits } from '../ui/portraits';
 
 export { economyTuning } from './hero';
@@ -611,6 +612,14 @@ export class Game implements HeroWorld {
   modesLocal = ModesSys.modesLocal;
   modesRunEnd = ModesSys.modesRunEnd;
   renderModes = ModesSys.renderModes;
+  // Cinematics: sky-fall transition, ending, legendary reveal, jackpot chest, flawless reward (src/game/systems/cinematics.ts).
+  cineStep = CineSys.cineStep;
+  skyfallTransition = CineSys.skyfallTransition;
+  jackpotRoll = CineSys.jackpotRoll;
+  onCine = CineSys.onCine;
+  cineNet = CineSys.cineNet;
+  applyCineNet = CineSys.applyCineNet;
+  renderCinematics = CineSys.renderCinematics;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -806,6 +815,7 @@ export class Game implements HeroWorld {
       corpse: (id, x, y, z, s, f, dx, dz) => this.onCorpse(id, x, y, z, s, f, dx, dz),
       finisher: (id, hi, x, z) => this.onFinisher(id, hi, x, z),
       portrait: (who, ex, text, sec) => portraits.popIn(who, ex as Parameters<typeof portraits.popIn>[1], text, sec),
+      cine: (kind, hero, x, z, data) => this.onCine(kind, hero, x, z, data),
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {
@@ -1168,6 +1178,12 @@ export class Game implements HeroWorld {
       this.hostTick(false);
       return;
     }
+    // Cinematics (systems/cinematics.ts): solo holds the world for the ending, reveals and jackpots.
+    if (this.cineStep(dt)) {
+      this.input.endStep();
+      this.hostTick(false);
+      return;
+    }
     if (this.role === 'client') {
       this.clientUpdate(dt);
       return;
@@ -1436,6 +1452,7 @@ export class Game implements HeroWorld {
   }
 
   updateTransition(): void {
+    if (this.skyfallTransition()) return; // the sky-fall cinematic (systems/cinematics.ts)
     const t = this.modeT;
     if (t < 0.35) this.hud.setFade(t / 0.35);
     else if (!this.stageLoaded) {

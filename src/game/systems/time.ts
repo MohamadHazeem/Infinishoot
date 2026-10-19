@@ -279,6 +279,13 @@ function resetRun(s: TimeState): void {
 }
 
 /** Moments a rewind may not cross: menus, chests opened, the boss arriving, players joining or leaving. */
+/** Start the rewind history over (another lane's payout that a rewind must not undo, e.g. a jackpot chest). */
+export function timeBarrier(g: Game): void {
+  const s = timeState(g);
+  s.tl.clear();
+  s.lastRec = -1;
+}
+
 function barriers(g: Game, s: TimeState): void {
   let opened = 0;
   for (const c of g.chests.list) if (c.openT >= 0) opened++;

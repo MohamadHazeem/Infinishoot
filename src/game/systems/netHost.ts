@@ -236,6 +236,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     tm: this.timeNet(forHero),
     co: this.coopNet(forHero),
     md: this.modesNet(),
+    cn: this.cineNet(),
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

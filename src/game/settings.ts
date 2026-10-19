@@ -94,6 +94,8 @@ export interface Settings {
   coopJoinable: boolean;
   /** Friends' help ghosts appear in your runs (EXTRAS > HELP GHOSTS). */
   helpGhosts: boolean;
+  /** CINEMATICS: sky-fall transitions, the ending, legendary reveals, jackpot reels (full, short or off). */
+  cinematics: 'full' | 'short' | 'off';
 }
 
 const KEY = 'settings.v1';
@@ -149,6 +151,7 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   coopPool: false,
   coopJoinable: true,
   helpGhosts: true,
+  cinematics: 'full',
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -162,6 +165,7 @@ settings.deathReplay ??= true;
 settings.coopPool ??= false;
 settings.coopJoinable ??= true;
 settings.helpGhosts ??= true;
+settings.cinematics ??= 'full';
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */
