@@ -1,6 +1,6 @@
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
-import { t } from '../../i18n';
+import { en } from '../../i18n/en';
 import { halloweenNet, cleanHalloweenLook } from './halloween';
 import { gauntletNet } from './gauntlet';
 import { metaSkin } from '../../data/codex';
@@ -43,7 +43,7 @@ export function heroByPeer(this: Game, id: string): Hero | undefined {
 export function onHostMessage(this: Game, from: string, m: Record<string, unknown>): void {
   // Check before lobby profile bookkeeping AND drop-in/reconnect admission.
   if (m.t === 'hello' && !matchingMods(modSession.hash, m.mods)) {
-    this.host?.send(from, { t: 'full', reason: t('mods.mismatch') });
+    this.host?.send(from, { t: 'full', reason: en['mods.mismatch'] });
     const host = this.host;
     setTimeout(() => host?.kick(from), 250);
     return;

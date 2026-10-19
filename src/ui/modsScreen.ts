@@ -49,7 +49,7 @@ export class ModsScreen {
       else if (mod) text(row, Object.entries(mod.content).map(([kind, entries]) => `${t('mods.category.' + kind)}: ${entries.length}`).join(' · '), 'content-mod-counts');
       const controls = document.createElement('div'); controls.className = 'content-mod-actions'; row.append(controls);
       const change = (fn: () => void) => { const current = this.nav.focus; fn(); this.render(Math.max(0, current)); };
-      button(controls, file.enabled ? t('mods.enabled') : t('mods.disabled'), () => change(() => mods.toggle(file.key)), !mod || (!!errors.length && !file.enabled)).setAttribute('aria-pressed', String(file.enabled));
+      button(controls, file.enabled ? t('mods.enabled') : t('mods.disabled'), () => change(() => mods.toggle(file.key)), (!mod || !!errors.length) && !file.enabled).setAttribute('aria-pressed', String(file.enabled));
       button(controls, t('mods.up'), () => change(() => mods.move(file.key, -1)), i === 0);
       button(controls, t('mods.down'), () => change(() => mods.move(file.key, 1)), i === mods.files.length - 1);
       if (file.key.startsWith('import/')) button(controls, t('mods.remove'), () => change(() => mods.remove(file.key)));

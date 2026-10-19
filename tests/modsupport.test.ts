@@ -178,3 +178,10 @@ const duplicateZip = Buffer.concat([z1.subarray(0, off1), z2.subarray(0, off2), 
 const duplicateManager = new ModManager();
 try { await duplicateManager.importFile('duplicate.zip', duplicateZip); ok(false, 'duplicate archive pack IDs rejected'); }
 catch (e) { ok(String(e).includes('duplicate pack IDs') && duplicateManager.files.length === 0, 'duplicate archive pack IDs rejected atomically'); }
+
+const capacityFiles = Array.from({ length: 4 }, (_, n) => file(JSON.stringify({
+  schemaVersion: 1, id: `cap${n}`, name: `Capacity ${n}`, version: '1',
+  content: { enemies: Array.from({ length: 64 }, (_, i) => ({ id: `cap${n}_enemy${i}`, base: 'bopper', set: {} })) },
+}), true, `cap${n}`));
+const capacityPlan = planMods(capacityFiles);
+ok(Object.keys(capacityPlan.registries.enemies).length <= 256 && capacityPlan.results.some(r => r.errors.some(e => e.includes('256-type'))), 'enemy codec capacity rejects whole overflowing packs');
