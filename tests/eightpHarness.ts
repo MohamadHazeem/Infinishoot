@@ -156,8 +156,12 @@ export async function makeTeam(n: number, opts: { bots?: boolean; renderEvery?: 
       const [g, m, from] = q.shift()!;
       if (g === A) A.onHostMessage(from, structuredClone(m));
       else {
+        // A client that left (e.g. refused with 'full') has no connection: say which and why instead of a null crash.
+        if (!(g as any).client) throw new Error(`eightp harness: ${g.netName} has no connection (it left or was refused) when the host sent ${JSON.stringify(m).slice(0, 120)}`);
         (g as any).client.lastHeard = performance.now();
+        const wasFull = m && (m as { t?: string }).t === 'full';
         g.onClientMessage(structuredClone(m));
+        if (wasFull) throw new Error(`eightp harness: the host refused ${g.netName}: ${String((m as { reason?: string }).reason)}`);
       }
     }
   };

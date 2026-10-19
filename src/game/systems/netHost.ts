@@ -75,7 +75,6 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       this.host?.send(from, { t: 'full', reason: this.mode === 'title' && !this.pvp && this.lobby.length >= lobbyCap(this.lobbyKind) ? 'That game is full.' : 'Game already started.' });
       return;
     }
-    if (this.lobby.length >= (this.lobbyKind === 'raid' ? 8 : 4)) { this.host?.send(from, { t: 'full', reason: 'That lobby is full.' }); return; }
     this.lobby.push({
       peerId: from,
       name: String(m.name ?? 'Player').slice(0, 12),
