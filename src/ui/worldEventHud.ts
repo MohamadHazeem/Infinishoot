@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import type { Game } from '../game/game';
 import type { WorldEvent } from '../game/systems/worldEvents';
 import {
@@ -97,7 +98,7 @@ export class WorldEventHud {
     this.ptr = document.createElement('div');
     this.ptr.id = 'wevptr';
     this.ptr.hidden = true;
-    this.ptr.innerHTML = '<div class="a"></div><div class="m"></div>';
+    this.ptr.innerHTML = localizeHtml('<div class="a"></div><div class="m"></div>');
     const goals = document.getElementById('goals');
     if (goals) goals.insertBefore(this.el, document.getElementById('spice'));
     else root.append(this.el);
@@ -119,7 +120,7 @@ export class WorldEventHud {
     const html = ev.kind === 'stealth' ? this.stealthHtml(g, ev) : this.eventHtml(ev);
     if (html !== this.last) {
       this.last = html;
-      el.innerHTML = html;
+      el.innerHTML = localizeHtml(html);
       el.style.setProperty('--wc', HUD_COLOR[ev.kind] ?? 'var(--orange)');
       if (this.lastKind !== ev.kind) {
         el.classList.remove('pop');
@@ -255,7 +256,7 @@ export class WorldEventHud {
     const me = g.hero.player;
     const txt = `${Math.round(Math.hypot(tx - me.x, tz - me.z))}M`;
     const lab = p.lastElementChild as HTMLElement;
-    if (lab.textContent !== txt) lab.textContent = txt;
+    if (lab.textContent !== txt) lab.textContent = localize(txt);
     void this.tmp;
   }
 }

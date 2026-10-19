@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import type { Game } from '../game/game';
 import { playerName } from '../game/game';
 import { settings, saveSettings } from '../game/settings';
@@ -22,7 +23,7 @@ export class TeamBoardUi {
     private service = teamBoard,
   ) {
     const t = document.createElement('template');
-    t.innerHTML = `<div id="scr-teamboard" class="screen dim">
+    t.innerHTML = localizeHtml(`<div id="scr-teamboard" class="screen dim">
       <h1>WEEKLY CO-OP</h1>
       <p class="note tb-rules"></p>
       <label class="field">TEAM NAME <input id="tb-team" type="text" maxlength="16" spellcheck="false" autocomplete="off"></label>
@@ -30,10 +31,10 @@ export class TeamBoardUi {
       <div class="section">TEAM BOARD</div>
       <div class="scroll"><div class="tb-list hiscores"></div></div>
       <div class="menu row"><button data-nav data-act="tb-back">BACK</button></div>
-    </div>`;
+    </div>`);
     this.screen = t.content.firstElementChild as HTMLElement;
     game.screens.addScreen('teamboard', this.screen, { onBack: () => this.close() });
-    root.querySelector('#scr-online .mp-choice [data-act=lb-open]')?.insertAdjacentHTML('afterend', '<button data-nav data-act="tb-open">WEEKLY CO-OP</button>');
+    root.querySelector('#scr-online .mp-choice [data-act=lb-open]')?.insertAdjacentHTML('afterend', localizeHtml('<button data-nav data-act="tb-open">WEEKLY CO-OP</button>'));
     const field = this.screen.querySelector<HTMLInputElement>('#tb-team')!;
     field.addEventListener('change', () => {
       settings.teamName = cleanTeam(field.value);
@@ -67,20 +68,20 @@ export class TeamBoardUi {
   render(): void {
     const w = weeklyChallenge();
     const s = this.screen;
-    s.querySelector('.tb-rules')!.innerHTML = `Week <b>${w.week}</b>: the same seed and rules for every team. ${w.rules.map((r) => `<b>${r.name.toUpperCase()}</b> ${r.desc}`).join(' ')} Everyone starts as the Rookie. Host a game with GAME: WEEKLY, or play it in LOCAL CO-OP.`;
+    s.querySelector('.tb-rules')!.innerHTML = localizeHtml(`Week <b>${w.week}</b>: the same seed and rules for every team. ${w.rules.map((r) => `<b>${r.name.toUpperCase()}</b> ${r.desc}`).join(' ')} Everyone starts as the Rookie. Host a game with GAME: WEEKLY, or play it in LOCAL CO-OP.`);
     s.querySelector<HTMLInputElement>('#tb-team')!.value = teamNameOf(this.game);
     const best = localTeamBest(w.week);
-    s.querySelector('.tb-best')!.innerHTML = best
-      ? `<div class="note">YOUR TEAM'S BEST THIS WEEK: <b>${best.score.toLocaleString('en-US')}</b> · STAGE ${best.stage} · ${esc(best.team)} (${best.members.map(esc).join(', ')})</div>`
-      : '<div class="note">NO TEAM RESULT THIS WEEK YET.</div>';
+    s.querySelector('.tb-best')!.innerHTML = localizeHtml(best
+      ? `<div class="note">YOUR TEAM'S BEST THIS WEEK: <b>${best.score.toLocaleString('en-US')}</b> · STAGE ${best.stage} · <bdi>${esc(best.team)} (${best.members.map(esc).join(', ')})</bdi></div>`
+      : '<div class="note">NO TEAM RESULT THIS WEEK YET.</div>');
     const list = s.querySelector('.tb-list')!;
-    if (!this.service.enabled) list.innerHTML = '<div class="note">The global team board needs the online service (VITE_LEADERBOARD_URL, see server/leaderboard/README.md). Your best is kept on this PC.</div>';
-    else if (!this.rows) list.innerHTML = '<div class="note">LOADING...</div>';
-    else if (!this.rows.length) list.innerHTML = '<div class="note">NO TEAMS YET THIS WEEK. BE THE FIRST!</div>';
+    if (!this.service.enabled) list.innerHTML = localizeHtml('<div class="note">The global team board needs the online service (VITE_LEADERBOARD_URL, see server/leaderboard/README.md). Your best is kept on this PC.</div>');
+    else if (!this.rows) list.innerHTML = localizeHtml('<div class="note">LOADING...</div>');
+    else if (!this.rows.length) list.innerHTML = localizeHtml('<div class="note">NO TEAMS YET THIS WEEK. BE THE FIRST!</div>');
     else
-      list.innerHTML = `<ol>${this.rows
-        .map((r) => `<li><b>${esc(r.team)}</b> <span>${r.members.map(esc).join(', ')}</span> <em>${r.score.toLocaleString('en-US')}</em> <small>ST ${r.stage}</small></li>`)
-        .join('')}</ol>`;
+      list.innerHTML = localizeHtml(`<ol>${this.rows
+        .map((r) => `<li><b><bdi>${esc(r.team)}</bdi></b> <bdi>${r.members.map(esc).join(', ')}</bdi> <em>${r.score.toLocaleString('en-US')}</em> <small>ST ${r.stage}</small></li>`)
+        .join('')}</ol>`);
   }
 }
 

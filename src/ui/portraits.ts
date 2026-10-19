@@ -1,3 +1,4 @@
+import { localize, localizeHtml } from '../i18n';
 /**
  * Character portraits on the HUD: the local hero's face next to the life bar
  * (its expression follows what's happening), and comic pop-ins with a speech
@@ -307,10 +308,10 @@ export class Portraits {
     p.t = 0;
     p.out = -1;
     p.life = Math.max(0.6, seconds);
-    p.text = text;
+    p.text = localize(text);
     p.shown = -1;
     const nm = p.el.querySelector<HTMLElement>('.pp-nm')!;
-    nm.textContent = sp.name.toUpperCase();
+    nm.textContent = localize(sp.name.toUpperCase());
     nm.style.setProperty('--c', sp.color);
     if (p.ctx) {
       p.ctx.clearRect(0, 0, PORTRAIT, PORTRAIT);
@@ -345,7 +346,7 @@ export class Portraits {
       const n = typedChars(p.text, p.t, instant);
       if (n !== p.shown) {
         p.shown = n;
-        p.txt.textContent = p.text.slice(0, n);
+        p.txt.textContent = localize(p.text.slice(0, n));
       }
       if (p.t >= p.life) this.leave(p);
     }
@@ -384,7 +385,7 @@ export class Portraits {
     if (p) return p;
     const el = document.createElement('div');
     el.className = `pp-pop ${side}`;
-    el.innerHTML = `<div class="pp-face px"><canvas width="${PORTRAIT}" height="${PORTRAIT}"></canvas></div><div class="pp-bub"><b class="pp-nm"></b><span class="pp-tx"></span></div>`;
+    el.innerHTML = localizeHtml(`<div class="pp-face px"><canvas width="${PORTRAIT}" height="${PORTRAIT}"></canvas></div><div class="pp-bub"><b class="pp-nm"></b><span class="pp-tx"></span></div>`);
     this.root!.appendChild(el);
     return {
       who: '',

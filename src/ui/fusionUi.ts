@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import { FUSIONS } from '../data/fusions';
 import { WEAPONS } from '../data/weapons';
 import { iconHtml } from './pixelIcons';
@@ -27,7 +28,7 @@ export function showFusionMerge(parts: readonly [string, string], fusionId: stri
   const el = document.createElement('div');
   el.className = 'fusion-merge';
   el.style.setProperty('--c', f.color);
-  el.innerHTML = `<div class="fm-a">${iconHtml(a.id, a.color, a.icon)}</div><div class="fm-b">${iconHtml(b.id, b.color, b.icon)}</div><i class="fm-flash"></i><div class="fm-c">${iconHtml(f.id, f.color, f.icon)}</div>`;
+  el.innerHTML = localizeHtml(`<div class="fm-a">${iconHtml(a.id, a.color, a.icon)}</div><div class="fm-b">${iconHtml(b.id, b.color, b.icon)}</div><i class="fm-flash"></i><div class="fm-c">${iconHtml(f.id, f.color, f.icon)}</div>`);
   document.body.appendChild(el);
   mergeEl = el;
   setTimeout(() => {

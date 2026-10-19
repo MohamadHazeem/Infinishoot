@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import { prompt } from './prompts';
 import { iconHtml } from './pixelIcons';
 
@@ -140,7 +141,7 @@ class GameplayHud {
     this.cb = document.createElement('div');
     this.cb.id = 'gp-comeback';
     this.cb.hidden = true;
-    this.cb.innerHTML = 'COMEBACK!<small>x2 DAMAGE UNTIL YOU HEAL</small>';
+    this.cb.innerHTML = localizeHtml('COMEBACK!<small>x2 DAMAGE UNTIL YOU HEAL</small>');
     root.append(this.power, this.cash, this.cb);
     return true;
   }
@@ -183,7 +184,7 @@ class GameplayHud {
     const key = rows.join('');
     if (key === this.lastPower) return;
     this.lastPower = key;
-    el.innerHTML = key;
+    el.innerHTML = localizeHtml(key);
     el.hidden = !rows.length;
   }
 
@@ -201,7 +202,7 @@ class GameplayHud {
       .map((t, i) => `<div class="t ${s.afford[i] ? 'ok' : ''} ${i === s.sel ? 'sel' : ''}" style="--c:${t.color}"><span><span class="cur">${i === s.sel ? '▶' : ''}</span>${t.name}</span><span class="cost">${t.cost}</span></div>`)
       .join('');
     el.className = s.afford[s.sel] ? 'ready' : '';
-    el.innerHTML = `<div class="h"><span>CASH IN COMBO</span>${prompt('cash')}</div>${rows}<div class="f">${prompt('cashpick')} SWITCH · RESETS COMBO</div>`;
+    el.innerHTML = localizeHtml(`<div class="h"><span>CASH IN COMBO</span>${prompt('cash')}</div>${rows}<div class="f">${prompt('cashpick')} SWITCH · RESETS COMBO</div>`);
     el.hidden = false;
   }
 }

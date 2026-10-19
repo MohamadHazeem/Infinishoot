@@ -1,3 +1,5 @@
+import { browserLanguage, type Language } from '../i18n';
+import { applyLanguage } from '../i18n/layout';
 import { spatialSettings } from '../audio/spatial';
 import { loadJson, saveJson } from '../core/storage';
 import { audioSettings, sfx } from '../audio/sfx';
@@ -19,6 +21,7 @@ import { AUTO, AUTO_START, MANUAL_LEVELS, QualityGovernor, renderQuality, setRen
 
 /** Player-facing settings, persisted between sessions. */
 export interface Settings {
+  language: Language;
   volume: number;
   sfxVolume: number;
   musicVolume: number;
@@ -111,6 +114,7 @@ export interface Settings {
 const KEY = 'settings.v1';
 
 export const settings: Settings = loadJson<Settings>(KEY, {
+  language: browserLanguage(),
   volume: 0.6,
   sfxVolume: 1,
   musicVolume: 0.7,
@@ -167,6 +171,12 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   crowd: true,
   radioDj: true,
 });
+settings.language = settings.language === 'ar' || settings.language === 'en' ? settings.language : browserLanguage();
+// Screenshot/test locale override. Subsequent explicit settings changes persist normally.
+if (typeof location !== 'undefined') {
+  const lang = new URLSearchParams(location.search).get('lang');
+  if (lang === 'ar' || lang === 'en') settings.language = lang;
+}
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
 settings.weather ??= true;
@@ -217,6 +227,7 @@ export function qualityGovernor(): QualityGovernor | null {
 
 /** Push settings into the systems that use them. */
 export function applySettings(): void {
+  applyLanguage(settings.language);
   audioSettings.volume = settings.volume;
   audioSettings.sfx = settings.sfxVolume;
   audioSettings.music = settings.musicVolume;

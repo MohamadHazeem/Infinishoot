@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import type { Game } from '../game/game';
 import { HERO_COLORS } from '../game/hero';
 import { KBM, LocalLobby, SLOT_ROWS, localCoopTuning } from '../game/localCoop';
@@ -45,7 +46,7 @@ export class LocalCoopUi {
       () => (cheats.unlockAll ? undefined : unlockedLoadout()),
     );
     const t = document.createElement('template');
-    t.innerHTML = `<div id="scr-localcoop" class="screen dim">
+    t.innerHTML = localizeHtml(`<div id="scr-localcoop" class="screen dim">
       <h1>LOCAL CO-OP</h1>
       <p class="note">2-4 players on this PC. Press <b>A</b> on a gamepad (or <b>ENTER</b> on the keyboard: player 1) to join.
       Up / down picks a row, left / right changes it, <b>A</b> / ENTER when ready, <b>B</b> / BACKSPACE to leave. <b>Y</b> / M switches the mode.</p>
@@ -53,11 +54,11 @@ export class LocalCoopUi {
       <div class="lc-slots"></div>
       <div class="msg lc-status"></div>
       <div class="menu row"><button class="lc-back" data-act="lc-back">BACK</button></div>
-    </div>`;
+    </div>`);
     this.screen = t.content.firstElementChild as HTMLElement;
     game.screens.addScreen('localcoop', this.screen, {});
-    root.querySelector('#scr-title [data-act=online]')?.insertAdjacentHTML('afterend', '<button data-nav data-act="lc-open">LOCAL CO-OP</button>');
-    root.insertAdjacentHTML('beforeend', '<div id="lc-hud" hidden></div><div id="lc-turn" class="px" hidden></div>');
+    root.querySelector('#scr-title [data-act=online]')?.insertAdjacentHTML('afterend', localizeHtml('<button data-nav data-act="lc-open">LOCAL CO-OP</button>'));
+    root.insertAdjacentHTML('beforeend', localizeHtml('<div id="lc-hud" hidden></div><div id="lc-turn" class="px" hidden></div>'));
     this.hudEl = root.querySelector<HTMLElement>('#lc-hud')!;
     this.turnEl = root.querySelector<HTMLElement>('#lc-turn')!;
     root.addEventListener('click', (e) => {
@@ -161,15 +162,15 @@ export class LocalCoopUi {
 
   private status(s: string): void {
     const el = this.screen.querySelector('.lc-status')!;
-    if (el.textContent !== s) el.textContent = s;
+    if (el.textContent !== s) el.textContent = localize(s);
   }
 
   renderScreen(): void {
     const L = this.lobby;
     const w = weeklyChallenge();
-    this.screen.querySelector('.lc-mode')!.innerHTML = `<button class="lc-modebtn ${this.mode === 'weekly' ? 'on' : ''}" data-act="lc-mode">MODE: ${this.mode === 'weekly' ? `WEEKLY CO-OP ${w.week}` : 'STANDARD'}</button>${
+    this.screen.querySelector('.lc-mode')!.innerHTML = localizeHtml(`<button class="lc-modebtn ${this.mode === 'weekly' ? 'on' : ''}" data-act="lc-mode">MODE: ${this.mode === 'weekly' ? `WEEKLY CO-OP ${w.week}` : 'STANDARD'}</button>${
       this.mode === 'weekly' ? `<span class="lc-rules">${w.rules.map((r) => r.name.toUpperCase()).join(' + ')} · ROOKIE KIT FOR EVERYONE</span>` : ''
-    }`;
+    }`);
     const cells: string[] = [];
     for (let i = 0; i < localCoopTuning.maxPlayers; i++) {
       const s = L.slots[i];
@@ -187,7 +188,7 @@ export class LocalCoopUi {
         <b>P${i + 1}</b><em>${s.pad === KBM ? 'KEYBOARD + MOUSE' : `GAMEPAD ${s.pad + 1}`}</em>${rows}
         <button class="lc-readybtn" data-act="lc-ready" data-pad="${s.pad}">${s.ready ? 'READY!' : 'NOT READY'}</button></div>`);
     }
-    this.screen.querySelector('.lc-slots')!.innerHTML = cells.join('');
+    this.screen.querySelector('.lc-slots')!.innerHTML = localizeHtml(cells.join(''));
     if (!this.screen.querySelector('.lc-status')!.textContent) this.status('WAITING FOR PLAYERS: 2 OR MORE');
   }
 
@@ -204,19 +205,19 @@ export class LocalCoopUi {
     if (turn) {
       const h = g.heroes[lc.turn];
       const txt = `P${lc.turn + 1} · ${deviceLabel(g, lc.turn)}: ${g.mode === 'shop' ? 'YOUR SHOP' : 'YOUR PICK'}`;
-      if (this.turnEl.textContent !== txt) this.turnEl.textContent = txt;
+      if (this.turnEl.textContent !== txt) this.turnEl.textContent = localize(txt);
       this.turnEl.style.setProperty('--c', h?.color ?? '#fff');
     }
     if (this.hudEl.hidden) return;
     const key = g.heroes.map((h) => h.index).join();
     if (key !== this.shown) {
       this.shown = key;
-      this.hudEl.innerHTML = g.heroes
+      this.hudEl.innerHTML = localizeHtml(g.heroes
         .map(
           (h, i) =>
             `<div class="lc-p px" style="--c:${h.color}"><b>P${i + 1}</b><small>${deviceLabel(g, i)}</small><div class="lc-bar"><i></i></div><div class="lc-sp"><i></i></div><span class="lc-st"></span></div><i class="lc-aim" style="--c:${h.color}"></i>`,
         )
-        .join('');
+        .join(''));
     }
     const panels = this.hudEl.querySelectorAll<HTMLElement>('.lc-p');
     const aims = this.hudEl.querySelectorAll<HTMLElement>('.lc-aim');

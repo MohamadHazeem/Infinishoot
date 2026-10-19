@@ -1,3 +1,4 @@
+import { localize } from '../i18n';
 import * as THREE from 'three';
 import { reduceMotion } from './hud';
 import { settings } from '../game/settings';
@@ -119,9 +120,9 @@ export class DamageNumbers {
     }
     n.scale = damageNumberScale(n.value);
     const number = Math.round(n.value);
-    n.el.textContent = Number.isFinite(n.value)
+    n.el.textContent = localize(Number.isFinite(n.value)
       ? kind === 'crit' ? `${number}!` : kind === 'heal' ? `+${number}` : String(number)
-      : String(value);
+      : String(value));
   }
 
   clear(): void {

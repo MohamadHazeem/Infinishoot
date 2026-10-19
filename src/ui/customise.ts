@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import { ACCESSORIES, decodeLook, encodeLook, PRISM_CYCLE, SWEETIE16, WEAPON_SKINS, type HeroCustom } from '../data/customise';
 import { saveSettings, settings } from '../game/settings';
 import type { Screens } from './screens';
@@ -105,20 +106,20 @@ export class CustomiseUi {
     this.el = document.createElement('div');
     this.el.id = 'scr-customise';
     this.el.className = 'screen';
-    this.el.innerHTML = `<h1>CUSTOMISE</h1><div class="cu-panel"></div>`;
+    this.el.innerHTML = localizeHtml(`<h1>CUSTOMISE</h1><div class="cu-panel"></div>`);
     screens.addScreen('customise', this.el, { columns: 17, onBack: () => screens.show('extras') });
     // EXTRAS > CUSTOMISE, next to the wardrobe.
-    document.querySelector('#scr-extras [data-act=wardrobe]')?.insertAdjacentHTML('afterend', '<button data-nav data-act="cu-open">CUSTOMISE</button>');
+    document.querySelector('#scr-extras [data-act=wardrobe]')?.insertAdjacentHTML('afterend', localizeHtml('<button data-nav data-act="cu-open">CUSTOMISE</button>'));
     document.querySelector('#scr-extras [data-act=cu-open]')?.addEventListener('click', () => this.open());
     // SETTINGS > ANIME LOOK (after SHOCKWAVES); the settings screen labels every data-toggle on show.
     const after = document.querySelector('#scr-settings [data-toggle=distortion]');
     if (after && !document.querySelector('#scr-settings [data-toggle=animeLook]')) {
-      after.insertAdjacentHTML('afterend', '<button data-nav data-toggle="animeLook">ANIME LOOK <b></b></button>');
+      after.insertAdjacentHTML('afterend', localizeHtml('<button data-nav data-toggle="animeLook">ANIME LOOK <b></b></button>'));
       const b = document.querySelector<HTMLElement>('#scr-settings [data-toggle=animeLook]')!;
       b.addEventListener('click', () => {
         settings.animeLook = !settings.animeLook;
         saveSettings();
-        b.querySelector('b')!.textContent = settings.animeLook ? 'ON' : 'OFF';
+        b.querySelector('b')!.textContent = localize(settings.animeLook ? 'ON' : 'OFF');
       });
     }
     this.el.addEventListener('click', (e) => {
@@ -181,7 +182,7 @@ export class CustomiseUi {
       return `<div class="cu-sec">${label}</div><div class="cu-row"><button data-nav data-cu="${key}" data-v="-1" class="cu-sw skin ${cur < 0 ? 'on' : ''}">SKIN</button>${sw}</div>`;
     };
     const chips = (cols: readonly string[]) => `<span class="cu-chips">${cols.map((x) => `<i style="--c:${x}"></i>`).join('')}</span>`;
-    this.el.querySelector('.cu-panel')!.innerHTML = `
+    this.el.querySelector('.cu-panel')!.innerHTML = localizeHtml(`
       ${row('armor', 'ARMOUR')}
       ${row('body', 'BODY')}
       ${row('accent', 'ACCENT')}
@@ -190,7 +191,7 @@ export class CustomiseUi {
       <div class="cu-sec">WEAPON SKIN</div>
       <div class="cu-row">${WEAPON_SKINS.map((w, i) => `<button data-nav data-cu="weapon" data-v="${i}" class="cu-opt ${c.weapon === i ? 'on' : ''}">${w.name.toUpperCase()}${w.main ? chips(w.cycle ? PRISM_CYCLE.slice(0, 4) : [w.main, w.hot]) : ''}</button>`).join('')}</div>
       <p class="note">Colours paint your hero everywhere; in co-op your armour keeps your player colour. Weapon skins recolour your shots and their trails (enemy shots never change).</p>
-      <div class="cu-row"><button data-nav data-cu="reset" class="cu-opt">RESET</button><button data-nav data-cu="back" class="cu-opt">BACK</button></div>`;
+      <div class="cu-row"><button data-nav data-cu="reset" class="cu-opt">RESET</button><button data-nav data-cu="back" class="cu-opt">BACK</button></div>`);
   }
 
   /** Per frame: re-render if the look changed elsewhere (test links, another tab). */

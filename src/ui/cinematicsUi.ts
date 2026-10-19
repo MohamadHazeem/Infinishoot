@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 /**
  * Cinematics lane overlays (plain DOM + small canvases, CSS injected here):
  * the sky-fall cloud layer, the painterly ending, the legendary reveal's
@@ -87,14 +88,14 @@ export class CineUi {
     this.root = document.createElement('div');
     this.root.id = 'cine';
     this.root.innerHTML =
-      `<canvas class="cn-sky" width="320" height="180" hidden></canvas>` +
+      localizeHtml(`<canvas class="cn-sky" width="320" height="180" hidden></canvas>` +
       `<div class="cn-bars" hidden><i></i><i></i></div>` +
       `<div class="cn-end" hidden><div class="cn-paint"><canvas></canvas><canvas></canvas></div><div class="cn-cap px"></div><div class="cn-title"><div class="t">THE END?</div><div class="s"></div><div class="c"></div></div><div class="cn-skip">SKIP ▸</div></div>` +
       `<div class="cn-reveal" hidden><div class="cn-card px"><div class="lbl"></div><div class="nm"></div><div class="tx"></div></div><div class="cn-skip">SKIP ▸</div></div>` +
       `<div class="cn-drop" hidden></div>` +
       `<div class="cn-jack" hidden><div class="cn-bulbs"></div><div class="cn-cab px"><div class="cn-marq">JACKPOT</div><div class="cn-reels"></div><div class="cn-pay"><div class="t"></div><div class="l"></div></div></div><div class="cn-coins"></div><div class="cn-skip">SKIP ▸</div></div>` +
       `<div class="cn-flaw" hidden><canvas width="320" height="180"></canvas><div class="cn-stamp"><div class="t">FLAWLESS!</div><div class="s"></div></div></div>` +
-      `<div class="cn-tp" hidden></div>`;
+      `<div class="cn-tp" hidden></div>`);
     parent.appendChild(this.root);
     const q = <T extends HTMLElement>(sel: string) => this.root.querySelector<T>(sel)!;
     this.sky = q<HTMLCanvasElement>('.cn-sky');
@@ -114,7 +115,7 @@ export class CineUi {
     for (let i = 0; i < 3; i++) {
       const r = document.createElement('div');
       r.className = 'cn-reel';
-      r.innerHTML = '<div class="strip"></div>';
+      r.innerHTML = localizeHtml('<div class="strip"></div>');
       reelsEl.appendChild(r);
       this.reels.push(r.querySelector('.strip')!);
     }
@@ -217,8 +218,8 @@ export class CineUi {
     this.endPainted = [-1, -1];
     this.end.hidden = false;
     this.end.classList.remove('card');
-    this.end.querySelector('.cn-title .s')!.textContent = `LOOP ${cast.loop + 1} BEGINS · EVERYTHING HITS HARDER`;
-    this.end.querySelector('.cn-title .c')!.textContent = `INFINISHOOT · THANKS FOR PLAYING · v${typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : ''}`;
+    this.end.querySelector('.cn-title .s')!.textContent = localize(`LOOP ${cast.loop + 1} BEGINS · EVERYTHING HITS HARDER`);
+    this.end.querySelector('.cn-title .c')!.textContent = localize(`INFINISHOOT · THANKS FOR PLAYING · v${typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : ''}`);
     this.ensurePanel(0, 0);
   }
 
@@ -249,7 +250,7 @@ export class CineUi {
     const panel = ENDING_PANELS[f.panel];
     const cap = this.end.querySelector<HTMLElement>('.cn-cap')!;
     const show = panel.caption && f.k > 0.08 && f.fade < 0.6;
-    if (cap.textContent !== panel.caption) cap.textContent = panel.caption;
+    if (cap.textContent !== panel.caption) cap.textContent = localize(panel.caption);
     cap.classList.toggle('on', !!show);
     this.end.classList.toggle('card', panel.id === 'end' && f.k > 0.05);
   }
@@ -266,12 +267,12 @@ export class CineUi {
     const card = this.reveal.querySelector<HTMLElement>('.cn-card')!;
     if (card.dataset.key !== item.key) {
       card.dataset.key = item.key;
-      card.querySelector('.lbl')!.textContent = item.label;
+      card.querySelector('.lbl')!.textContent = localize(item.label);
       const nm = card.querySelector<HTMLElement>('.nm')!;
-      nm.textContent = item.name.toUpperCase();
+      nm.textContent = localize(item.name.toUpperCase());
       nm.style.color = item.color;
-      card.querySelector('.tx')!.textContent = item.text;
-      this.drop.innerHTML = iconHtml(item.icon, item.color, item.glyph);
+      card.querySelector('.tx')!.textContent = localize(item.text);
+      this.drop.innerHTML = localizeHtml(iconHtml(item.icon, item.color, item.glyph));
       this.drop.style.setProperty('--c', item.color);
     }
     card.classList.toggle('on', k >= land);
@@ -300,10 +301,10 @@ export class CineUi {
         const s = k === TARGET ? v.land[i] : SYMBOLS[(k * 7 + i * 3) % SYMBOLS.length];
         cells.push(`<div class="cell">${symbolHtml(s)}</div>`);
       }
-      strip.innerHTML = cells.join('');
+      strip.innerHTML = localizeHtml(cells.join(''));
     });
-    this.jack.querySelector('.cn-pay .t')!.textContent = v.title;
-    this.jack.querySelector('.cn-pay .l')!.innerHTML = v.lines.map((l) => `<div>${l}</div>`).join('');
+    this.jack.querySelector('.cn-pay .t')!.textContent = localize(v.title);
+    this.jack.querySelector('.cn-pay .l')!.innerHTML = localizeHtml(v.lines.map((l) => `<div>${l}</div>`).join(''));
     // Coins for a gold pile: from the reels to the HUD gold counter.
     this.coinsEl.innerHTML = '';
     this.coins = [];
@@ -367,7 +368,7 @@ export class CineUi {
 
   flawlessStart(sub: string): void {
     this.flaw.hidden = false;
-    this.flaw.querySelector('.cn-stamp .s')!.textContent = sub;
+    this.flaw.querySelector('.cn-stamp .s')!.textContent = localize(sub);
     const st = this.flaw.querySelector<HTMLElement>('.cn-stamp')!;
     st.classList.remove('go');
     void st.offsetWidth;
@@ -404,9 +405,9 @@ export class CineUi {
     if (!state) return;
     this.hint.classList.toggle('on', state === 'playing');
     this.hint.innerHTML =
-      state === 'idle'
+      localizeHtml(state === 'idle'
         ? `${prompt('move')} TAKE THE HERO`
-        : `YOU'RE PLAYING · NOTHING IS SAVED · MENU: ↑↓ ${prompt('confirm')}`;
+        : `YOU'RE PLAYING · NOTHING IS SAVED · MENU: ↑↓ ${prompt('confirm')}`);
     refreshPrompts(this.hint);
   }
 

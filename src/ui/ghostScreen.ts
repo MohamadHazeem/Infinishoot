@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import type { Screens } from './screens';
 import { HERO_BY_ID } from '../data/heroes';
 import { addToInbox, decodeGhost, encodeGhost, ghostInbox, ghostTuning, myGhost, saveInbox, type HelpGhost } from '../game/coop2';
@@ -29,7 +30,7 @@ const CSS = `
 
 function line(g: HelpGhost): string {
   const hero = HERO_BY_ID[g.hero]?.name ?? 'Hero';
-  return `<i style="--c:${g.color}"></i>${g.name} <small>${hero.toUpperCase()} · LV ${g.level} · FELL TO ${g.boss.toUpperCase()} ON STAGE ${g.stage}${g.date ? ` · ${g.date}` : ''}</small>`;
+  return `<i style="--c:${g.color}"></i><bdi>${g.name}</bdi> <small>${hero.toUpperCase()} · LV ${g.level} · FELL TO ${g.boss.toUpperCase()} ON STAGE ${g.stage}${g.date ? ` · ${g.date}` : ''}</small>`;
 }
 
 export class GhostScreen {
@@ -49,7 +50,7 @@ export class GhostScreen {
     this.el.id = 'scr-ghosts';
     this.el.className = 'screen dim';
     screens.addScreen('ghosts', this.el, { onBack: () => screens.show('extras') });
-    document.querySelector('#scr-extras [data-act=history]')?.insertAdjacentHTML('beforebegin', '<button data-nav data-act="gh-open">HELP GHOSTS</button>');
+    document.querySelector('#scr-extras [data-act=history]')?.insertAdjacentHTML('beforebegin', localizeHtml('<button data-nav data-act="gh-open">HELP GHOSTS</button>'));
     document.querySelector('#scr-extras [data-act=gh-open]')?.addEventListener('click', () => this.open());
     this.file = document.createElement('input');
     this.file.type = 'file';
@@ -75,7 +76,7 @@ export class GhostScreen {
     const mine = myGhost();
     const inbox = ghostInbox();
     const code = mine ? encodeGhost(mine) : '';
-    this.el.innerHTML = `
+    this.el.innerHTML = localizeHtml(`
       <h1>HELP GHOSTS</h1>
       <div class="gh-panel">
         <p class="note">Fall at a boss and your game keeps a help ghost. Send it to a friend: the next time they're at a boss or in deep trouble, your ghost fights beside them for ${ghostTuning.duration} seconds. Co-op teammates who fall at a boss leave theirs automatically.</p>
@@ -87,7 +88,7 @@ export class GhostScreen {
         <div class="gh-row"><input class="gh-add" type="text" spellcheck="false" autocomplete="off" placeholder="${ghostShareEnabled ? 'GHOST1-... OR A 6-LETTER CODE' : 'GHOST1-...'}"><button data-nav data-gh="add">ADD</button><button data-nav data-gh="load">LOAD FILE</button></div>
         <div class="gh-msg">${this.msg}</div>
         <div class="menu row"><button data-nav data-gh="toggle">GHOSTS IN MY RUNS: ${settings.helpGhosts !== false ? 'ON' : 'OFF'}</button><button data-nav data-gh="back">BACK</button></div>
-      </div>`;
+      </div>`);
     this.el.appendChild(this.file);
   }
 

@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import { CODEX_TABS, codexCount, codexTab, type CodexTab } from '../data/arsenal';
 import { RARITY } from '../data/rarity';
 import { tagChips } from '../data/tags';
@@ -52,12 +53,12 @@ export class OnboardingUi {
     injectCss();
     root.insertAdjacentHTML(
       'beforeend',
-      `<div id="ob-tip" class="px" hidden>
+      localizeHtml(`<div id="ob-tip" class="px" hidden>
         <div class="ob-tip-h"><i>TIP</i><b></b><button class="ob-x" data-act="ob-tip-x" aria-label="Close">X</button></div>
         <p></p>
         <div class="ob-tip-bar"><i></i></div>
       </div>
-      <div id="ob-train" class="px" hidden></div>`,
+      <div id="ob-train" class="px" hidden></div>`),
     );
     this.tip = root.querySelector<HTMLElement>('#ob-tip')!;
     this.train = root.querySelector<HTMLElement>('#ob-train')!;
@@ -91,18 +92,18 @@ export class OnboardingUi {
     screens.addScreen('training', this.ready, { horizontal: true, onBack: () => actions.trainingDone(false) });
 
     // Buttons on the built-in screens.
-    const after = (sel: string, html: string) => root.querySelector(sel)?.insertAdjacentHTML('afterend', html);
+    const after = (sel: string, html: string) => root.querySelector(sel)?.insertAdjacentHTML('afterend', localizeHtml(html));
     after('#scr-title [data-act=online]', '<button data-nav data-act="ob-training">TRAINING</button>');
     after('#scr-extras [data-act=bestiary]', '<button data-nav data-act="ob-codex">ARSENAL</button>');
-    root.querySelector('#scr-settings [data-act=controls]')?.insertAdjacentHTML('beforebegin', '<button data-nav data-act="ob-tips">TIPS <b></b></button><button data-nav data-act="ob-tips-reset">RESET TIPS</button>');
+    root.querySelector('#scr-settings [data-act=controls]')?.insertAdjacentHTML('beforebegin', localizeHtml('<button data-nav data-act="ob-tips">TIPS <b></b></button><button data-nav data-act="ob-tips-reset">RESET TIPS</button>'));
     root.querySelector('#scr-title .menu')?.insertAdjacentHTML(
       'beforebegin',
-      `<div class="ob-offer px" hidden><b>NEW HERE?</b><span>A two-minute TRAINING run teaches you to dash, parry, use your right click, special and more.</span>
-        <div class="menu row"><button data-nav data-act="ob-training" class="continue">TRAINING &#9654;</button><button data-nav data-act="ob-offer-no">NO THANKS</button></div></div>`,
+      localizeHtml(`<div class="ob-offer px" hidden><b>NEW HERE?</b><span>A two-minute TRAINING run teaches you to dash, parry, use your right click, special and more.</span>
+        <div class="menu row"><button data-nav data-act="ob-training" class="continue">TRAINING &#9654;</button><button data-nav data-act="ob-offer-no">NO THANKS</button></div></div>`),
     );
     const go = root.querySelector('#scr-gameover');
-    go?.querySelector('.go-cols')?.insertAdjacentHTML('beforeend', '<div class="ob-go"></div>');
-    go?.querySelector('.menu.row')?.insertAdjacentHTML('beforeend', '<button data-nav data-act="ob-card">BUILD CARD</button>');
+    go?.querySelector('.go-cols')?.insertAdjacentHTML('beforeend', localizeHtml('<div class="ob-go"></div>'));
+    go?.querySelector('.menu.row')?.insertAdjacentHTML('beforeend', localizeHtml('<button data-nav data-act="ob-card">BUILD CARD</button>'));
 
     root.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
@@ -132,15 +133,15 @@ export class OnboardingUi {
           return;
         case 'ob-tips-reset':
           actions.resetTips();
-          b.textContent = 'TIPS RESET!';
+          b.textContent = localize('TIPS RESET!');
           return;
         case 'ob-tip-x':
           return actions.tipClosed();
         case 'ob-card': {
-          b.textContent = 'SAVING...';
+          b.textContent = localize('SAVING...');
           void actions.buildCard().then((ok) => {
-            b.textContent = ok ? 'CARD SAVED!' : 'NO CARD';
-            setTimeout(() => (b.textContent = 'BUILD CARD'), 2200);
+            b.textContent = localize(ok ? 'CARD SAVED!' : 'NO CARD');
+            setTimeout(() => (b.textContent = localize('BUILD CARD')), 2200);
           });
           return;
         }
@@ -152,8 +153,8 @@ export class OnboardingUi {
 
   showTip(title: string, text: string, seconds: number): void {
     const t = this.tip;
-    t.querySelector('b')!.textContent = title;
-    t.querySelector('p')!.textContent = text;
+    t.querySelector('b')!.textContent = localize(title);
+    t.querySelector('p')!.textContent = localize(text);
     t.style.setProperty('--life', `${seconds}s`);
     t.hidden = false;
     t.classList.remove('in');
@@ -179,8 +180,8 @@ export class OnboardingUi {
     const fresh = !this.trainKey.startsWith(`${v.step}|`);
     this.trainKey = key;
     const pips = Array.from({ length: v.total }, (_, i) => `<i class="${i < v.step ? 'on' : i === v.step ? 'now' : ''}"></i>`).join('');
-    this.train.innerHTML = `<div class="ob-tr-h"><span>TRAINING ${v.step + 1}/${v.total}</span><b>${v.title}</b>${v.canSkip ? '<button class="ob-x" data-act="ob-skip">SKIP STEP</button>' : ''}</div>
-      <p>${v.text}</p><div class="ob-pips">${pips}</div>`;
+    this.train.innerHTML = localizeHtml(`<div class="ob-tr-h"><span>TRAINING ${v.step + 1}/${v.total}</span><b>${v.title}</b>${v.canSkip ? '<button class="ob-x" data-act="ob-skip">SKIP STEP</button>' : ''}</div>
+      <p>${v.text}</p><div class="ob-pips">${pips}</div>`);
     if (fresh) {
       this.train.classList.remove('in');
       void this.train.offsetWidth;
@@ -204,9 +205,9 @@ export class OnboardingUi {
 
   syncSettings(tipsOn: boolean): void {
     const b = this.root.querySelector<HTMLElement>('#scr-settings [data-act=ob-tips] b');
-    if (b) b.textContent = tipsOn ? 'ON' : 'OFF';
+    if (b) b.textContent = localize(tipsOn ? 'ON' : 'OFF');
     const r = this.root.querySelector<HTMLElement>('#scr-settings [data-act=ob-tips-reset]');
-    if (r) r.textContent = 'RESET TIPS';
+    if (r) r.textContent = localize('RESET TIPS');
   }
 
   // ---------------------------------------------------------------- codex
@@ -214,20 +215,20 @@ export class OnboardingUi {
   renderCodex(discovered: readonly string[] = this.lastDiscovered): void {
     this.lastDiscovered = discovered;
     const set = new Set(discovered);
-    this.codex.querySelector('.ob-tabs')!.innerHTML = CODEX_TABS.map((t) => {
+    this.codex.querySelector('.ob-tabs')!.innerHTML = localizeHtml(CODEX_TABS.map((t) => {
       const c = codexCount(t.id, discovered);
       return `<button data-nav data-act="ob-tab" data-tab="${t.id}" class="ob-tab ${t.id === this.tab ? 'on' : ''}">${t.label}<small>${c.have}/${c.total}</small></button>`;
-    }).join('');
+    }).join(''));
     const c = codexCount(this.tab, discovered);
-    this.codex.querySelector('.ob-count')!.textContent = `${c.have} / ${c.total} DISCOVERED`;
-    this.codex.querySelector('.ob-codex')!.innerHTML = codexTab(this.tab)
+    this.codex.querySelector('.ob-count')!.textContent = localize(`${c.have} / ${c.total} DISCOVERED`);
+    this.codex.querySelector('.ob-codex')!.innerHTML = localizeHtml(codexTab(this.tab)
       .map((e) => {
         if (!set.has(e.key))
           return `<div class="ob-cx unseen" data-nav tabindex="-1"><div class="ic">${iconHtml(e.icon, '#333c57', '?')}</div><b>???</b><em>${e.kind}</em><span>Not discovered yet.</span></div>`;
         const r = e.rarity ? `<em class="r-text-${e.rarity}">${RARITY[e.rarity].label} · ${e.kind}</em>` : `<em>${e.kind}</em>`;
         return `<div class="ob-cx ${e.rarity ? 'r-' + e.rarity : ''}" data-nav tabindex="-1" style="--c:${e.color}"><div class="ic">${iconHtml(e.icon, e.color, e.glyph)}</div><b>${e.name}</b>${r}<span>${e.desc}</span>${e.tags?.length ? `<div class="chips">${tagChips(e.tags)}</div>` : ''}</div>`;
       })
-      .join('');
+      .join(''));
   }
   private lastDiscovered: readonly string[] = [];
 
@@ -256,16 +257,16 @@ export class OnboardingUi {
       )
       .join('');
     box.innerHTML =
-      (ul ? `<div class="ob-unlocks px"><div class="hs-title">CLOSEST UNLOCKS</div>${ul}</div>` : '') +
+      localizeHtml((ul ? `<div class="ob-unlocks px"><div class="hs-title">CLOSEST UNLOCKS</div>${ul}</div>` : '') +
       (rows
         ? `<div class="ob-recap px"><div class="hs-title">RUN TIMELINE</div><table><tr><th></th><th>LV</th><th>DPS</th><th>KILLS</th><th>GOLD</th><th>TIME</th><th>BOSS</th></tr>${rows}</table></div>`
-        : '');
+        : ''));
   }
 }
 
 function el(html: string): HTMLElement {
   const t = document.createElement('template');
-  t.innerHTML = html.trim();
+  t.innerHTML = localizeHtml(html.trim());
   return t.content.firstElementChild as HTMLElement;
 }
 

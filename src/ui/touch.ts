@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import type { Input } from '../core/input';
 
 /**
@@ -45,7 +46,7 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
     }
     root.insertAdjacentHTML(
       'beforeend',
-      `<div id="touch">
+      localizeHtml(`<div id="touch">
         <div class="tstick move"><i></i></div>
         <div class="tstick aim"><i></i></div>
         <button class="tbtn dash" data-b="0">DASH</button>
@@ -54,7 +55,7 @@ export function setupTouch(root: HTMLElement, input: Input, inGame: () => boolea
         <button class="tbtn parry" data-b="1">PARRY</button>
         <button class="tbtn ult" data-b="10">ULT</button>
         <button class="tbtn rewind" data-b="14">REWIND</button>
-      </div>`,
+      </div>`),
     );
     layer = root.querySelector('#touch')!;
     ultBtn = layer.querySelector<HTMLElement>('.ult');

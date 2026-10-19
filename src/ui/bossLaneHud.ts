@@ -1,3 +1,4 @@
+import { localize, localizeHtml } from '../i18n';
 /**
  * Boss lane HUD bits: the Titan's weak-point pips under the boss bar (one pixel
  * pip per weak point plus the core: lit while it can be hit, dim while sealed,
@@ -49,7 +50,7 @@ function ensure(): HTMLElement | null {
     tag = document.createElement('div');
     tag.className = 'duel-tag';
     tag.hidden = true;
-    tag.textContent = 'SHOWDOWN · STAY IN THE RING';
+    tag.textContent = localize('SHOWDOWN · STAY IN THE RING');
     bar.appendChild(tag);
     lastKey = '';
   }
@@ -67,5 +68,5 @@ export function setBossLaneHud(hp: readonly number[] | null, phase: number, duel
   if (!hp) return;
   const cells = TITAN_PARTS.map((p, i) => `<i class="${p.kind} ${hp[i] > 0 ? (p.group <= phase ? 'open' : 'sealed') : 'gone'}"></i>`);
   cells.push(`<i class="core ${phase >= 4 ? 'open' : 'sealed'}"></i>`);
-  pips.innerHTML = cells.join('');
+  pips.innerHTML = localizeHtml(cells.join(''));
 }

@@ -1,3 +1,4 @@
+import { localize, localizeHtml } from '../i18n';
 import type { Game } from '../game/game';
 import { samples } from '../audio/samples';
 import { sfx } from '../audio/sfx';
@@ -427,7 +428,7 @@ export class PhotoMode {
   private toast(msg: string): void {
     const t = this.els.toast;
     if (!t) return;
-    t.textContent = msg;
+    t.textContent = localize(msg);
     t.classList.add('on');
     this.toastT = 2.4;
   }
@@ -777,7 +778,7 @@ export class PhotoMode {
     const root = document.createElement('div');
     root.id = 'photo';
     root.hidden = true;
-    root.innerHTML = `
+    root.innerHTML = localizeHtml(`
       <canvas class="ph-view"></canvas>
       <div class="ph-flash"></div>
       <div class="ph-ui">
@@ -802,7 +803,7 @@ export class PhotoMode {
           <button class="px" data-ph="exit"><i>ESC</i>BACK</button>
         </div>
       </div>
-      <div class="ph-hint">H: SHOW UI</div>`;
+      <div class="ph-hint">H: SHOW UI</div>`);
     document.body.appendChild(root);
     this.root = root;
     this.view = root.querySelector('.ph-view');
@@ -902,7 +903,7 @@ export class PhotoMode {
   private refreshUi(): void {
     const set = (k: string, v: string) => {
       const el = this.els[`v-${k}`];
-      if (el) el.textContent = v;
+      if (el) el.textContent = localize(v);
     };
     set('filter', PHOTO_FILTERS.find((f) => f.id === this.filter)?.name ?? '');
     set('frame', PHOTO_FRAMES.find((f) => f.id === this.frameId)?.name ?? '');
@@ -919,7 +920,7 @@ export class PhotoMode {
     const b = document.querySelector<HTMLElement>('#scr-pause [data-act="photo"]');
     if (!b) return;
     this.pauseLabel = label;
-    b.textContent = label;
+    b.textContent = localize(label);
     b.classList.toggle('cant', label !== 'PHOTO MODE');
   }
 }

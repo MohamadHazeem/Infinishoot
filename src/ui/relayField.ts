@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import { customRelayText, hasRelay, parseRelay, setCustomRelay } from '../net/ice';
 
 /**
@@ -26,7 +27,7 @@ export function mountRelayField(screen: HTMLElement): void {
   }
   const box = document.createElement('label');
   box.className = 'field relay-field';
-  box.innerHTML = `<span>CUSTOM RELAY (OPTIONAL)</span><input type="text" spellcheck="false" autocomplete="off" placeholder="turn:relay.example.com:3478 user password"><span class="relay-hint"></span>`;
+  box.innerHTML = localizeHtml(`<span>CUSTOM RELAY (OPTIONAL)</span><input type="text" spellcheck="false" autocomplete="off" placeholder="turn:relay.example.com:3478 user password"><span class="relay-hint"></span>`);
   after.insertAdjacentElement('afterend', box);
   const input = box.querySelector('input')!;
   const hint = box.querySelector<HTMLElement>('.relay-hint')!;
@@ -35,7 +36,7 @@ export function mountRelayField(screen: HTMLElement): void {
     const ok = parseRelay(input.value) !== null;
     if (ok) setCustomRelay(input.value);
     hint.className = `relay-hint ${ok ? (input.value.trim() ? 'good' : '') : 'bad'}`;
-    hint.textContent = !ok ? 'Format: turn:host:port username password' : input.value.trim() ? 'Relay saved: used when you host or join' : hasRelay() ? 'This build has a relay' : 'Only needed if friends cannot connect';
+    hint.textContent = localize(!ok ? 'Format: turn:host:port username password' : input.value.trim() ? 'Relay saved: used when you host or join' : hasRelay() ? 'This build has a relay' : 'Only needed if friends cannot connect');
   };
   input.addEventListener('input', check);
   check();

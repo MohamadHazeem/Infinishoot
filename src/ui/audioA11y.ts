@@ -1,3 +1,4 @@
+import { localize } from '../i18n';
 /**
  * Audio accessibility overlays: the CAPTIONS strip (announcer and hero voice
  * lines) and SOUND ARROWS (screen-edge pointers toward off-screen threat
@@ -157,8 +158,8 @@ export class AudioA11y {
     el.dataset.key = c.who + c.text;
     el.style.setProperty('--c', c.color);
     const who = this.caps.ownerDocument.createElement('b');
-    who.textContent = c.who;
-    el.append(who, c.text);
+    who.textContent = localize(c.who);
+    el.append(who, localize(c.text));
     this.caps.appendChild(el);
     this.lines.push({ el, t: CAP_TIME });
     while (this.lines.length > MAX_CAPS) this.lines.shift()!.el.remove();
@@ -175,7 +176,7 @@ export class AudioA11y {
       el.style.setProperty('--a', def.color);
       const arrow = doc.createElement('i');
       const label = doc.createElement('span');
-      label.textContent = def.label;
+      label.textContent = localize(def.label);
       el.append(arrow, label);
       el.hidden = true;
       this.arrowsRoot.appendChild(el);

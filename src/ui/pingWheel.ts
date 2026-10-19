@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import { PING_KINDS } from '../game/teamPlay';
 import { EMOTES } from '../game/coop2';
 
@@ -51,7 +52,7 @@ export class PingWheel {
       }),
     );
     html += '<div class="pw-tip">RELEASE TO SEND · TAB / WHEEL / LB RB: PAGE</div>';
-    this.el.innerHTML = html;
+    this.el.innerHTML = localizeHtml(html);
     this.pages = [0, 1].map((pg) => [...this.el.querySelectorAll<HTMLElement>(`.pw-item[data-pg="${pg}"]`)]);
     this.tabs = [...this.el.querySelectorAll<HTMLElement>('.pw-tabs span')];
     this.setPage(0);

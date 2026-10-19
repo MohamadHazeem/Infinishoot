@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import type { Game } from '../game/game';
 import { clock } from '../game/game';
 import { isoWeek } from '../data/weekly';
@@ -55,7 +56,7 @@ export class GhostScreen {
     // EXTRAS > GHOST RACE, after RUN HISTORY.
     const after = document.querySelector('#scr-extras [data-act=history]');
     if (after && !document.querySelector('#scr-extras [data-act=gr-open]')) {
-      after.insertAdjacentHTML('afterend', '<button data-nav data-act="gr-open">GHOST RACE</button>');
+      after.insertAdjacentHTML('afterend', localizeHtml('<button data-nav data-act="gr-open">GHOST RACE</button>'));
       document.querySelector('#scr-extras [data-act=gr-open]')?.addEventListener('click', () => this.open());
     }
     this.el.addEventListener('click', (e) => {
@@ -76,7 +77,7 @@ export class GhostScreen {
   private msg(text: string, ok = true): void {
     const m = this.el.querySelector<HTMLElement>('.gh-msg');
     if (!m) return;
-    m.textContent = text;
+    m.textContent = localize(text);
     m.classList.toggle('err', !ok);
   }
 
@@ -84,11 +85,11 @@ export class GhostScreen {
     const week = this.week;
     const mine = ghostStore.mine(week);
     const rival = ghostStore.rival();
-    const rivalText = rival ? `${esc(rival.name.toUpperCase())} · ${line(rival)}${rival.week !== week ? ` <span class="dim">(${esc(rival.week)})</span>` : ''}` : '<span class="dim">YOUR OWN BEST</span>';
+    const rivalText = rival ? `<bdi>${esc(rival.name.toUpperCase())}</bdi> · ${line(rival)}${rival.week !== week ? ` <span class="dim">(${esc(rival.week)})</span>` : ''}` : '<span class="dim">YOUR OWN BEST</span>';
     const online = ghostsOnline
       ? `<button data-nav data-gh="upload">UPLOAD MINE</button><button data-nav data-gh="browse">BROWSE ONLINE</button>`
       : '';
-    this.el.innerHTML = `<h1>GHOST RACE</h1>
+    this.el.innerHTML = localizeHtml(`<h1>GHOST RACE</h1>
       <p class="note">Race a friend's Weekly Challenge run: their ghost runs beside you, with a live score and time delta.</p>
       <div class="gh-panel">
         <div class="gh-row"><b>THIS WEEK</b><span>${esc(week)}</span></div>
@@ -106,7 +107,7 @@ export class GhostScreen {
         ${online}
         <button data-nav data-gh="back">BACK</button>
       </div>
-      <div class="gh-list">${this.list.map((e, i) => `<button data-nav data-gh="pick" data-id="${i}">#${i + 1} ${esc(e.name.toUpperCase())} · ${e.score.toLocaleString('en-US')} · STAGE ${e.stage} · ${clock(e.time)}</button>`).join('')}</div>`;
+      <div class="gh-list">${this.list.map((e, i) => `<button data-nav data-gh="pick" data-id="${i}">#${i + 1} <bdi>${esc(e.name.toUpperCase())}</bdi> · ${e.score.toLocaleString('en-US')} · STAGE ${e.stage} · ${clock(e.time)}</button>`).join('')}</div>`);
     this.el.append(this.file);
     if (this.game.screens.current === 'ghostrace') this.game.screens.show('ghostrace'); // re-scan the buttons
   }

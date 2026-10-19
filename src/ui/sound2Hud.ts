@@ -1,3 +1,4 @@
+import { localizeHtml, localize } from '../i18n';
 import { INSTRUMENTS, INSTRUMENT_IDS, type InstrumentId } from '../audio/instruments';
 import { DJ_NAME, STATION } from '../audio/radio';
 
@@ -198,7 +199,7 @@ export class SoundLaneHud {
     this.onair = document.createElement('div');
     this.onair.id = 's2-onair';
     this.onair.hidden = true;
-    this.onair.innerHTML = `<div class="h"><i class="radio"></i><span>${STATION}</span><b class="tag">ON AIR</b><i class="live"></i><span class="eq"><i></i><i></i><i></i></span></div><div class="who">${DJ_NAME}</div><div class="line"></div>`;
+    this.onair.innerHTML = localizeHtml(`<div class="h"><i class="radio"></i><span>${STATION}</span><b class="tag">ON AIR</b><i class="live"></i><span class="eq"><i></i><i></i><i></i></span></div><div class="who">${DJ_NAME}</div><div class="line"></div>`);
     this.line = this.onair.querySelector('.line')!;
     hudRoot.appendChild(this.onair);
   }
@@ -209,7 +210,7 @@ export class SoundLaneHud {
     const text = onAir && showLine ? line : '';
     if (text !== this.lastLine) {
       this.lastLine = text;
-      this.line.textContent = text;
+      this.line.textContent = localize(text);
       this.line.hidden = !showLine;
     }
     this.updateBand(inRun ? band : 0);
@@ -238,7 +239,7 @@ export class SoundLaneHud {
       if (!(mask & (1 << i))) return;
       html += `<img src="${instrumentIcon(id)}" alt="${INSTRUMENTS[id].name}" title="${INSTRUMENTS[id].name}"${added & (1 << i) ? ' class="new"' : ''}>`;
     });
-    this.band.innerHTML = html;
+    this.band.innerHTML = localizeHtml(html);
   }
 
   private updateDuel(turn: 'boss' | 'hero' | null): void {
@@ -255,6 +256,6 @@ export class SoundLaneHud {
     this.lastDuel = key;
     this.duel.hidden = !turn;
     this.duel.className = key;
-    this.duel.textContent = turn === 'boss' ? "♪ BOSS'S TURN" : turn === 'hero' ? '♪ YOUR TURN! HIT IT!' : '';
+    this.duel.textContent = localize(turn === 'boss' ? "♪ BOSS'S TURN" : turn === 'hero' ? '♪ YOUR TURN! HIT IT!' : '');
   }
 }

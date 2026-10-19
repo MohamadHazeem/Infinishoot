@@ -1,3 +1,4 @@
+import { localizeHtml, t, localize } from '../i18n';
 /**
  * In-game arcade HUD: XP bar and level, life, stage timer, score and combo,
  * kills and gold, boss bar, weapon/item loadout, dash and bomb meters,
@@ -227,13 +228,13 @@ export class Hud {
   constructor(root: HTMLElement) {
     root.insertAdjacentHTML(
       'beforeend',
-      `<div id="ingame">
-         <div id="xpbar"><div class="fill"></div><i class="spark" aria-hidden="true"></i><div class="lv px"><span>LV</span><b></b></div></div>
+      localizeHtml(`<div id="ingame">
+         <div id="xpbar"><div class="fill"></div><i class="spark" aria-hidden="true"></i><div class="lv px"><span>${t("text.lv_a7bdee")}</span><b></b></div></div>
          <div id="hp"><div class="bar"><div class="chunk"></div><div class="fill"></div></div><div class="num"></div></div>
          <div id="runinfo"><span class="kills"></span><span class="gold"></span><span class="gears"></span></div>
          <div id="timer"><div class="clock"></div><div class="stage"></div></div>
          <div id="goals"><div id="team"></div><div id="spice"></div></div>
-         <button id="pausebtn" title="Pause (Esc)" aria-label="Pause">II</button>
+         <button id="pausebtn" title="Pause (Esc)" aria-label="Pause">${t("text.ii_66cc12")}</button>
          <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div><div class="ticks"></div></div><div class="ph"></div></div>
          <div id="toast"></div>
          <div id="chestreveal" hidden></div>
@@ -244,10 +245,10 @@ export class Hud {
          <div id="ebars"></div>
          <div id="tags"></div>
          <canvas id="minimap" width="${MM}" height="${MM}" hidden></canvas>
-         <div id="downed" hidden><div class="t">YOU'RE DOWN</div><div class="bar"></div><div class="s"></div><div class="h">A TEAMMATE MUST STAND NEXT TO YOU</div></div>
+         <div id="downed" hidden><div class="t">${t("text.you_re_down_7253f9")}</div><div class="bar"></div><div class="s"></div><div class="h">${t("text.a_teammate_must_stand_next_to_you_982358")}</div></div>
          <div id="meters">
-           <div id="dashpip" class="pip">${prompt('dash')}<span>DASH</span></div>
-           <div id="bombpip" class="pip">${prompt('bomb')}<span>BOMB</span></div>
+           <div id="dashpip" class="pip">${prompt('dash')}<span>${t("text.dash_abb5fe")}</span></div>
+           <div id="bombpip" class="pip">${prompt('bomb')}<span>${t("text.bomb_1b7417")}</span></div>
          </div>
          <div id="banner"><div class="t"></div><div class="s"></div></div>
          <div id="chestptr" hidden><i class="arrow"></i>${iconHtml('world_chest', '#ffcd75', '')}<span class="m"></span></div>
@@ -255,7 +256,7 @@ export class Hud {
        <div id="vignette"></div>
        <div id="flash"></div>
        <div id="fade"></div>
-       <div id="navhint" aria-hidden="true"><span>${prompt('confirm')} SELECT</span><span>${prompt('back')} BACK</span></div>`,
+       <div id="navhint" aria-hidden="true"><span>${prompt('confirm')} SELECT</span><span>${prompt('back')} BACK</span></div>`),
     );
     injectHudCss();
     this.q = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
@@ -289,7 +290,7 @@ export class Hud {
   private text(sel: string, v: string): void {
     if (this.lastText[sel] === v) return;
     this.lastText[sel] = v;
-    this.el(sel).textContent = v;
+    this.el(sel).textContent = localize(v);
   }
 
   setVisible(v: boolean): void {
@@ -298,8 +299,8 @@ export class Hud {
 
   showBanner(title: string, sub = '', seconds = 1.6): void {
     const b = this.el('#banner');
-    b.querySelector('.t')!.textContent = title;
-    b.querySelector('.s')!.innerHTML = sub;
+    b.querySelector('.t')!.textContent = localize(title);
+    b.querySelector('.s')!.innerHTML = localizeHtml(sub);
     restartClass(b, 'show');
     this.bannerT = seconds;
   }
@@ -307,7 +308,7 @@ export class Hud {
   /** Small message under the timer (elite incoming, achievements, ...). */
   toast(msg: string, seconds = 2.2): void {
     const t = this.el('#toast');
-    t.textContent = msg;
+    t.textContent = localize(msg);
     restartClass(t, 'show');
     this.toastT = seconds;
   }
@@ -322,9 +323,9 @@ export class Hud {
     const el = this.el('#chestreveal');
     el.className = '';
     el.innerHTML =
-      `<div class="icon">${iconHtml('world_chest', '#ffcd75', '')}</div><div class="body"><div class="lbl">TREASURE!</div>` +
+      localizeHtml(`<div class="icon">${iconHtml('world_chest', '#ffcd75', '')}</div><div class="body"><div class="lbl">${t("text.treasure_8e2478")}</div>` +
       `<div class="reel"><div class="strip">${[item, ...decoys(steps.length, item.id)].map((d) => `<div>${d.name}</div>`).join('')}</div></div>` +
-      `<div class="txt">${item.text}</div></div>`;
+      `<div class="txt">${item.text}</div></div>`);
     el.hidden = true;
     void el.offsetWidth; // restart the pop-in
     el.hidden = false;
@@ -344,7 +345,7 @@ export class Hud {
       if (passed >= c.steps.length) {
         c.landed = true;
         el.classList.add('landed', `r-${c.rarity}`);
-        el.querySelector('.icon')!.innerHTML = iconHtml(c.item.id, c.item.color, c.item.icon);
+        el.querySelector('.icon')!.innerHTML = localizeHtml(iconHtml(c.item.id, c.item.color, c.item.icon));
         sfx.reelLand(c.rarity);
         if (c.rarity === 'legendary') sfx.legendary();
       }
@@ -392,8 +393,8 @@ export class Hud {
             `<div class="slot ${i.max ? 'max' : ''} ${i.evo ? 'evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" title="${i.name}${i.slot ? ' (' + SLOT_LABEL[i.slot] + ')' : ''}">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'EVO' : i.max ? 'MAX' : i.level}</i></div>`,
         )
         .join('');
-    this.el('#loadout .weapons').innerHTML = html('weapon');
-    this.el('#loadout .passives').innerHTML = html('passive');
+    this.el('#loadout .weapons').innerHTML = localizeHtml(html('weapon'));
+    this.el('#loadout .passives').innerHTML = localizeHtml(html('passive'));
   }
 
   private lastMods = '';
@@ -409,18 +410,18 @@ export class Hud {
     const html = team
       .map(
         (t) =>
-          `<div class="mate ${t.down ? 'down' : ''} ${t.left ? 'left' : ''}" style="--c:${t.color}"><span class="nm">${t.name}${t.left ? ' (left)' : t.down ? ' DOWN' : ''}</span><div class="bar"><div style="width:${Math.round(t.hp01 * 100)}%"></div></div></div>`,
+          `<div class="mate ${t.down ? 'down' : ''} ${t.left ? 'left' : ''}" style="--c:${t.color}"><span class="nm"><bdi>${t.name}</bdi>${t.left ? ' (left)' : t.down ? ' DOWN' : ''}</span><div class="bar"><div style="width:${Math.round(t.hp01 * 100)}%"></div></div></div>`,
       )
       .join('');
     if (html !== this.lastTeam) {
       this.lastTeam = html;
-      this.el('#team').innerHTML = html;
+      this.el('#team').innerHTML = localizeHtml(html);
     }
     const root = this.el('#tags');
     while (this.tagEls.length < tags.length) {
       const el = document.createElement('div');
       el.className = 'tag';
-      el.innerHTML = '<div class="rv"><span></span><div class="bar"></div></div><div class="nm"></div><i class="arrow"></i>';
+      el.innerHTML = localizeHtml('<div class="rv"><span></span><div class="bar"></div></div><div class="nm" translate="no" dir="auto"></div><i class="arrow"></i>');
       root.appendChild(el);
       this.tagEls.push({ el, nm: el.querySelector('.nm')!, rv: el.querySelector('.rv span')!, arrow: el.querySelector('.arrow')!, label: '', rvPct: -1, dir: 99, color: '' });
     }
@@ -451,14 +452,14 @@ export class Hud {
       d.el.classList.toggle('edge', edge);
       d.el.classList.toggle('down', t.down);
       const label = edge && t.dist !== undefined ? `${t.name} ${Math.round(t.dist)}m` : t.name;
-      if (d.label !== label) d.nm.textContent = d.label = label;
+      if (d.label !== label) d.nm.textContent = (d.label = label);
       // Revive progress: whole percent, so the DOM only changes when it moves.
       const pct = t.down ? Math.floor(Math.max(0, Math.min(1, t.revive01)) * 100) : -1;
       if (pct !== d.rvPct) {
         d.rvPct = pct;
         d.el.style.setProperty('--rv', String(Math.max(0, pct) / 100));
         d.el.classList.toggle('rev', pct > 0);
-        d.rv.textContent = pct > 0 ? `REVIVING ${pct}%` : 'REVIVE ME!';
+        d.rv.textContent = localize(pct > 0 ? `REVIVING ${pct}%` : 'REVIVE ME!');
       }
     });
   }
@@ -535,7 +536,7 @@ export class Hud {
       const el = document.createElement('div');
       el.className = 'ebar';
       el.style.display = 'none';
-      el.innerHTML = '<i></i><div class="bar"><b class="trail"></b><b class="fill"></b></div>';
+      el.innerHTML = localizeHtml('<i></i><div class="bar"><b class="trail"></b><b class="fill"></b></div>');
       this.el('#ebars').appendChild(el);
       this.ebars.push({ el, fill: el.querySelector('.fill')!, trail: el.querySelector('.trail')!, hp: -1, hitT: -1e9, shown: false });
     }
@@ -574,7 +575,7 @@ export class Hud {
       .join('');
     if (html === this.lastMods) return;
     this.lastMods = html;
-    this.el('#mods').innerHTML = html;
+    this.el('#mods').innerHTML = localizeHtml(html);
   }
 
   private spiceEls: { el: HTMLElement; txt: HTMLElement; kind: string; text: string }[] = [];
@@ -590,12 +591,12 @@ export class Hud {
       if (!d || d.kind !== l.kind) {
         const el = document.createElement('div');
         el.className = `px ${l.kind}`;
-        el.innerHTML = `${SPICE_LABEL[l.kind] ? `<i>${SPICE_LABEL[l.kind]}</i>` : ''}<span></span>`;
+        el.innerHTML = localizeHtml(`${SPICE_LABEL[l.kind] ? `<i>${SPICE_LABEL[l.kind]}</i>` : ''}<span></span>`);
         if (d) d.el.replaceWith(el);
         else root.appendChild(el);
         d = this.spiceEls[i] = { el, txt: el.querySelector('span')!, kind: l.kind, text: '' };
       }
-      if (d.text !== l.text) d.txt.textContent = d.text = l.text;
+      if (d.text !== l.text) d.txt.textContent = localize(d.text = l.text);
     });
     while (this.spiceEls.length > lines.length) this.spiceEls.pop()!.el.remove();
   }
@@ -667,7 +668,7 @@ export class Hud {
       const ticks = (s.boss.ticks ?? []).map((t) => `<i style="left:${(t * 100).toFixed(1)}%"></i>`).join('');
       if (this.lastText['#bossbar .ticks'] !== ticks) {
         this.lastText['#bossbar .ticks'] = ticks;
-        this.el('#bossbar .ticks').innerHTML = ticks;
+        this.el('#bossbar .ticks').innerHTML = localizeHtml(ticks);
       }
       const n = (s.boss.ticks?.length ?? 0) + 1;
       const ph = s.boss.phase ?? 1;
