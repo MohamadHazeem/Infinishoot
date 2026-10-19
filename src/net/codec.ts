@@ -48,8 +48,8 @@ export function packEnemies(list: Enemy[]): ArrayBuffer {
     v.setInt16(o + 16, q16(e.targetX), true);
     v.setInt16(o + 18, q16(e.targetZ), true);
     v.setUint8(o + 20, Math.round(Math.max(0, Math.min(1, e.hp / (e.maxHp || 1))) * 255));
-    // Elite modifier (index + 1, 0 = none) and shield-up flag (bit 7).
-    v.setUint8(o + 21, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | (e.shield > 0 ? 0x80 : 0));
+    // Elite modifier (bits 0-3: index + 1, 0 = none), AI bits (4-6: squad, rallied, guarded) and shield-up flag (bit 7).
+    v.setUint8(o + 21, (e.mod ? ELITE_MOD_IDS.indexOf(e.mod.id) + 1 : 0) | ((e.aiBits & 7) << 4) | (e.shield > 0 ? 0x80 : 0));
     o += ENEMY_BYTES;
   }
   return buf;
@@ -81,6 +81,8 @@ export interface EnemyRecord {
   targetZ: number;
   /** Health fraction, 0..1 in 1/255 steps (elite bars on clients). */
   hp01: number;
+  /** Enemy AI bits (Enemy.aiBits): squad escort, rallied, sheltered by a Shield Bot. */
+  ai: number;
 }
 
 export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void): void {
@@ -99,7 +101,8 @@ export function unpackEnemies(buf: ArrayBuffer, each: (r: EnemyRecord) => void):
     r.shock = !!(flags & 8);
     r.flash = !!(flags & 16);
     const em = v.getUint8(o + 21);
-    r.eliteMod = r.elite ? (ELITE_MOD_IDS[(em & 0x7f) - 1] ?? null) : null;
+    r.eliteMod = r.elite ? (ELITE_MOD_IDS[(em & 0x0f) - 1] ?? null) : null;
+    r.ai = (em >> 4) & 7;
     r.shield = r.elite && !!(em & 0x80);
     r.action = BOSS_ACTIONS[flags >> 5] ?? 'ring';
     r.t = v.getUint8(o + 7) / 50;

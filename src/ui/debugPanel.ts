@@ -8,7 +8,7 @@ import { playerTuning } from '../game/player';
 import { cheats, scoreTuning, type Game } from '../game/game';
 import { specialTuning } from '../data/specials';
 import { directorTuning } from '../game/director';
-import { bossTuning, eliteTuning } from '../game/enemies';
+import { aiTuning, bossTuning, eliteTuning, goldenTuning, squadTuning } from '../game/enemies';
 import { juiceTuning } from '../game/juice';
 import { WEAPONS } from '../data/weapons';
 import { MODS } from '../data/mods';
@@ -130,6 +130,16 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   boss.add(bossTuning, 'enragePace', 0.2, 1, 0.05);
   boss.add(eliteTuning, 'speed', 0.5, 2, 0.05).name('Elite speed');
   boss.add(eliteTuning, 'pace', 0.3, 1.5, 0.05).name('Elite pace');
+
+  const ai = gui.addFolder('Enemy AI').close();
+  ai.add(aiTuning, 'flankMax', 0, 1.5, 0.05);
+  ai.add(aiTuning, 'wideShare', 0, 1, 0.05);
+  ai.add(aiTuning, 'coverPeek', 0, 3, 0.1);
+  ai.add(squadTuning, 'engage', 0, 20, 0.5).name('Squad engage');
+  ai.add(squadTuning, 'rallyEvery', 1, 20, 0.5).name('Rally every');
+  ai.add(squadTuning, 'rallySpeed', 1, 2, 0.05).name('Rally speed');
+  ai.add(goldenTuning, 'panicSpeed', 1, 2, 0.05).name('Goldbug panic');
+  ai.add(directorTuning, 'goldenChance', 0, 1, 0.05).name('Goldbug chance');
 
   const fx = gui.addFolder('Juice & audio').close();
   fx.add(juiceTuning, 'hitStopScale', 0, 3, 0.1).name('Hit-stop x');

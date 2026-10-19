@@ -206,6 +206,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
       c.squash(6);
     }
   }
+  this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
   this.enemies.kill(e);
   if (by?.hasRelic('r_fang') && ++by.fangKills % 20 === 0 && !by.player.dead) {
     const healed = by.player.heal(5);

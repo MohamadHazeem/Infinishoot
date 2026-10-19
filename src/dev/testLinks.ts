@@ -1,6 +1,7 @@
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
 import { STAGE_EVENTS, type EventId } from '../data/stageEvents';
 import { Rng } from '../core/rng';
+import { ENEMIES } from '../data/enemies';
 import { cheats, type Game } from '../game/game';
 import { settings } from '../game/settings';
 
@@ -14,6 +15,8 @@ import { settings } from '../game/settings';
  *   ?test&hero=ace&mode=endless&god    hero, mode, no damage
  *   ?test&elite=charger:shielded       spawn an elite with a modifier
  *   ?test&event=meteors&passives=armor:2,magnet:1&gold=200&seed=42
+ *   ?test&spawn=shielder:3,medic:1&golden&time=90   enemies near you, the Goldbug, stage clock
+ *   ?test&elite=shooter:fast&zoom=2.2   camera zoomed out (1-2.2)
  *
  * `?test` alone starts a solo run with the default kit and skips the starting shop.
  */
@@ -54,6 +57,21 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     const [id, mod] = e.split(':');
     game.debugSpawnElite(id, (ELITE_MOD_IDS.includes(mod as EliteModId) ? mod : ELITE_MOD_IDS[0]) as EliteModId);
   }
+  // Enemies in a ring 9 m out (spawnr=<m>), the Goldbug, and the stage clock (seconds).
+  if (q.get('zoom')) game.cam.zoom = Math.max(1, Number(q.get('zoom')));
+  if (q.get('time')) game.director.time = Number(q.get('time'));
+  const spawns = list('spawn').map(pair);
+  const total = spawns.reduce((a, [, n]) => a + n, 0);
+  let k = 0;
+  for (const [id, n] of spawns) {
+    const def = ENEMIES[id];
+    for (let i = 0; i < n && def; i++, k++) {
+      const a = (k / Math.max(1, total)) * Math.PI * 2;
+      const r = Number(q.get('spawnr') ?? 9);
+      game.enemies.spawn(def, h.player.x + Math.cos(a) * r, h.player.z + Math.sin(a) * r, game.spawnOpts());
+    }
+  }
+  if (q.has('golden')) game.spawnEnemy(ENEMIES.golden);
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();

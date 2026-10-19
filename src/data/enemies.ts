@@ -1,6 +1,6 @@
 /** Enemy definitions. Pure data; behaviour lives in game/enemies.ts. */
-export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper';
-export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper';
+export type Behavior = 'chase' | 'lunge' | 'shooter' | 'charger' | 'exploder' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'boss' | 'rex' | 'queen' | 'omega' | 'reaper';
+export type Model = 'bopper' | 'swarmer' | 'shooter' | 'charger' | 'exploder' | 'splitter' | 'spawner' | 'shielder' | 'leaper' | 'medic' | 'mortar' | 'golden' | 'king' | 'rex' | 'queen' | 'omega' | 'reaper';
 
 export interface EnemyDef {
   id: string;
@@ -41,6 +41,20 @@ export interface EnemyDef {
   fuse?: { range: number; time: number; radius: number; damage: number };
   split?: { into: string; count: number };
   spawn?: { into: string; count: number; interval: number };
+  /**
+   * Shielders: hits from inside the front arc (`arcDeg` either side of facing) deal
+   * x`frontMul`; allies within `range` behind it take x`behindMul` from that side.
+   * `turn` is how fast it can swing round (rad/s), which is what makes flanking work.
+   */
+  guard?: { arcDeg: number; frontMul: number; behindMul: number; range: number; turn: number };
+  /** Leapers: telegraphed hop in an arc (over cover) onto a marked landing ring. */
+  leap?: { range: number; windup: number; air: number; height: number; radius: number; damage: number; recover: number; cooldown: number };
+  /** Medics: every `interval` s heal allies within `radius` by `frac` of their max life. */
+  heal?: { radius: number; frac: number; interval: number; windup: number; keepDistance: number };
+  /** Mortars: lob `shells` telegraphed shells around you every `interval` s. */
+  mortar?: { keepDistance: number; interval: number; shells: number; radius: number; delay: number; damage: number };
+  /** Treasure enemy: flees, escapes after `life` seconds, drops a jackpot when caught. */
+  treasure?: { life: number };
   /** Stage boss (boss bar, bounty, no crowd separation). */
   boss?: boolean;
   /** How it dies: robots scatter bolts and springs, goo splashes, shards shatter. */
@@ -298,6 +312,111 @@ export const ENEMIES: Record<string, EnemyDef> = {
     maxAlive: 2,
     spawn: { into: 'swarmer', count: 5, interval: 5 },
   },
+  shielder: {
+    id: 'shielder',
+    death: 'robot',
+    name: 'Shield Bot',
+    behavior: 'shielder',
+    model: 'shielder',
+    hp: 70,
+    speed: 2.4,
+    radius: 0.62,
+    bodyColor: '#4fc3ff',
+    accentColor: '#ffcd75',
+    contactDamage: 12,
+    knockbackResist: 0.8,
+    xp: 4,
+    score: 160,
+    minMinute: 2.2,
+    weight: 1.6,
+    maxAlive: 8,
+    guard: { arcDeg: 70, frontMul: 0.15, behindMul: 0.5, range: 3.6, turn: 1.5 },
+    lunge: { range: 2.4, windup: 0.55, speed: 10, duration: 0.18, recover: 0.8 },
+  },
+  medic: {
+    id: 'medic',
+    death: 'robot',
+    name: 'Medi Bot',
+    behavior: 'medic',
+    model: 'medic',
+    hp: 34,
+    speed: 3.2,
+    radius: 0.5,
+    bodyColor: '#f4f4f4',
+    accentColor: '#38b764',
+    contactDamage: 5,
+    knockbackResist: 0.1,
+    xp: 6,
+    score: 300,
+    minMinute: 3,
+    weight: 1.0,
+    maxAlive: 3,
+    heal: { radius: 6, frac: 0.15, interval: 3.6, windup: 0.8, keepDistance: 10 },
+  },
+  leaper: {
+    id: 'leaper',
+    death: 'goo',
+    name: 'Hop Frog',
+    behavior: 'leaper',
+    model: 'leaper',
+    hp: 40,
+    speed: 3.0,
+    radius: 0.55,
+    bodyColor: '#a7f070',
+    accentColor: '#ff7a2f',
+    contactDamage: 8,
+    knockbackResist: 0.2,
+    xp: 4,
+    score: 140,
+    // Stage 2 from 1:12 (content minute 1.5 after stage 2's 1.5 head start).
+    minMinute: 3,
+    minStage: 2,
+    weight: 2,
+    pack: [2, 3],
+    leap: { range: 10, windup: 0.6, air: 0.75, height: 3.2, radius: 1.8, damage: 16, recover: 0.7, cooldown: 2.4 },
+  },
+  mortar: {
+    id: 'mortar',
+    death: 'robot',
+    name: 'Mortar Toad',
+    behavior: 'mortar',
+    model: 'mortar',
+    hp: 46,
+    speed: 2.0,
+    radius: 0.62,
+    bodyColor: '#ef7d57',
+    accentColor: '#333c57',
+    contactDamage: 8,
+    knockbackResist: 0.4,
+    xp: 5,
+    score: 180,
+    // Stage 2 from 2:00.
+    minMinute: 4,
+    minStage: 2,
+    weight: 1.2,
+    maxAlive: 5,
+    mortar: { keepDistance: 12, interval: 3.6, shells: 3, radius: 1.7, delay: 1.2, damage: 14 },
+  },
+  /** Rare treasure enemy: the director sends one per stage (see director.ts goldenTime). */
+  golden: {
+    id: 'golden',
+    death: 'shards',
+    name: 'Goldbug',
+    behavior: 'golden',
+    model: 'golden',
+    hp: 90,
+    speed: 6.4, // a hero's base speed is 7: catchable, but you have to chase
+    radius: 0.55,
+    bodyColor: '#ffd23f',
+    accentColor: '#fff6c8',
+    contactDamage: 0,
+    knockbackResist: 0.4,
+    xp: 40,
+    score: 5000,
+    minMinute: -1,
+    weight: 0,
+    treasure: { life: 12 },
+  },
   king: {
     id: 'king',
     death: 'robot',
@@ -419,6 +538,10 @@ const VETERAN_LOOK: Record<string, [string, string]> = {
   splitter: ['#257179', '#ffcd75'],
   jellet: ['#38b764', '#5d275d'],
   spawner: ['#29366f', '#ffcd75'],
+  shielder: ['#29366f', '#ff7a2f'],
+  medic: ['#566c86', '#a7f070'],
+  leaper: ['#257179', '#ff3d5a'],
+  mortar: ['#5d275d', '#ffcd75'],
 };
 
 /** Regular enemy id -> its veteran's id. */
@@ -447,7 +570,39 @@ for (const [id, [bodyColor, accentColor]] of Object.entries(VETERAN_LOOK)) {
     fuse: b.fuse && { ...b.fuse, damage: Math.round(b.fuse.damage * t.dmg) },
     split: b.split && { ...b.split, into: 'v_' + b.split.into },
     spawn: b.spawn && { ...b.spawn, into: 'v_' + b.spawn.into },
+    leap: b.leap && { ...b.leap, damage: Math.round(b.leap.damage * t.dmg) },
+    mortar: b.mortar && { ...b.mortar, damage: Math.round(b.mortar.damage * t.dmg) },
   };
+}
+
+/**
+ * Elite squads: the escort an elite brings (src/game/systems/enemyAi.ts spawnSquad).
+ * Shooters and mortars bring melee bodyguards; brawlers bring fast flankers.
+ */
+export function squadOf(def: EnemyDef): string {
+  const base = def.id.startsWith('v_') ? def.id.slice(2) : def.id;
+  const pick: Record<string, string> = {
+    shooter: 'bopper',
+    burster: 'bopper',
+    sniper: 'shielder',
+    spinner: 'shielder',
+    mortar: 'shielder',
+    medic: 'bopper',
+    charger: 'zippy',
+    chonk: 'zippy',
+    exploder: 'exploder',
+    splitter: 'jellet',
+    shielder: 'shooter',
+    leaper: 'leaper',
+    zippy: 'zippy',
+  };
+  const id = pick[base] ?? 'bopper';
+  return def.id.startsWith('v_') && VETERAN_OF[id] ? VETERAN_OF[id] : id;
+}
+
+/** Squad size for an elite on `stage`: 3 on stage 1, one more every 2 stages, at most 6. */
+export function squadSize(stage: number): number {
+  return Math.min(6, 3 + Math.floor((Math.max(1, stage) - 1) / 2));
 }
 
 /** Bosses rotate by stage: King, Rex, Queen, then the final boss on every 4th stage; stage 5 starts the loop again. */

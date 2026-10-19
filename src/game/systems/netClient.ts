@@ -294,6 +294,7 @@ export function applySnapshot(this: Game, s: Record<string, unknown>): void {
     e.frozen = r.frozen ? 1 : 0;
     if (e.def.boss && this.netBoss) e.phase = this.netBoss.hp01 < 0.33 ? 3 : this.netBoss.hp01 < 0.66 ? 2 : 1;
     e.shield = r.shield ? 1 : 0;
+    e.aiBits = r.ai;
     e.burnT = r.burn ? 1 : 0;
     e.shockT = r.shock ? 1 : 0;
     e.flash = r.flash ? 0.07 : 0;
