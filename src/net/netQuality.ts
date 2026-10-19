@@ -27,9 +27,9 @@ export const netQualityTuning = {
   /** Host: a client silent this long (ms) shows as not responding... */
   staleMs: 2500,
   /** ...and this long (ms) is dropped (its hero goes on autopilot and waits for a reconnect). */
-  dropMs: 8000,
+  dropMs: 12000,
   /** Client: the host silent this long (ms) and the client gives up on the connection and reconnects. */
-  hostSilentMs: 6000,
+  hostSilentMs: 10000,
   /** Client: keep trying to get back into the run for this long (s). Matches the host's autopilot wait. */
   reconnectFor: 60,
   /** Client: seconds between reconnect attempts. */

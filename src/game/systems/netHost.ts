@@ -21,7 +21,7 @@ import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
-import { netcodeHello, netcodeHostMsg, netcodeStep, netNq, noteViewStep } from './netcode';
+import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -125,6 +125,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
 }
 
 export function onClientLeft(this: Game, id: string): void {
+  netcodeNote(this, `host: ${id.slice(0, 6)} left`);
   if (this.coopLeft(id)) return; // mid-run: autopilot grace period, then a clean leave (systems/coop2.ts)
   if (this.pvp && this.pvp.phase !== 'duel' && this.pvp.phase !== 'over') {
     const who = this.lobby.find((p) => p.peerId === id);

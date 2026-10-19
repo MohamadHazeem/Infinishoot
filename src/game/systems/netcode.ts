@@ -60,8 +60,9 @@ interface Reconnect {
   tries: number;
   /** A connection being set up. */
   pending: NetClient | null;
-  /** Connected and said hello: waiting for the host's `start`. */
+  /** Connected and said hello: waiting for the host's `start` (since helloAt). */
   hello: boolean;
+  helloAt: number;
 }
 
 interface NetState {
@@ -83,6 +84,11 @@ interface NetState {
   overlay: NetOverlay | null;
   rejoinChecked: boolean;
   rejoinSaved: number;
+  /** This machine's own loop stalled (a long frame, a hidden tab): don't blame the network until this time. */
+  lastStepAt: number;
+  stallUntil: number;
+  /** Recent connection events (debugging, `npm run coop` prints them). */
+  events: string[];
 }
 
 const states = new WeakMap<Game, NetState>();
@@ -105,10 +111,23 @@ function st(g: Game): NetState {
       overlay: null,
       rejoinChecked: false,
       rejoinSaved: 0,
+      lastStepAt: 0,
+      stallUntil: 0,
+      events: [],
     };
     states.set(g, s);
   }
   return s;
+}
+
+function note(s: NetState, msg: string): void {
+  s.events.push(`${(performance.now() / 1000).toFixed(1)}s ${msg}`);
+  if (s.events.length > 40) s.events.shift();
+}
+
+/** Log a connection event (systems/netHost.ts). */
+export function netcodeNote(g: Game, msg: string): void {
+  note(st(g), msg);
 }
 
 /** The lane's state (tests, test links). */
@@ -122,6 +141,9 @@ export function netcodeState(g: Game): NetState {
 export function netcodeStep(g: Game, frozen = false): void {
   const s = st(g);
   const now = performance.now();
+  // Our own loop stood still (loading, a hidden tab, a slow machine): messages may be waiting unread, so give them time.
+  if (s.lastStepAt && now - s.lastStepAt > 1000) s.stallUntil = now + 3000;
+  s.lastStepAt = now;
   if (!s.rejoinChecked) {
     s.rejoinChecked = true;
     tryRejoinAfterReload(g);
@@ -161,7 +183,8 @@ function hostStep(g: Game, s: NetState, now: number, frozen: boolean): void {
       host.send(h.peerId, { t: 'np', n: p.next(now) });
     }
     const heard = host.lastHeard?.get(h.peerId); // (in-process test transports have none)
-    if (heard !== undefined && now - heard > T.dropMs && !h.left) {
+    if (heard !== undefined && now - heard > T.dropMs && !h.left && now > s.stallUntil) {
+      note(s, `host: ${h.name} silent ${Math.round(now - heard)} ms, dropped`);
       g.vfx.toast(`${h.name.toUpperCase()} STOPPED RESPONDING`, 2.5);
       host.drop?.(h.peerId); // onLeave -> coop2 autopilot grace (or a clean leave)
     }
@@ -201,7 +224,10 @@ function clientStep(g: Game, s: NetState, now: number): void {
     c.send({ t: 'nst', r: ps ? Math.round(ps.rate * 10) / 10 : 0, l: ps ? Math.round(ps.loss * 1000) / 1000 : 0, j: ps ? Math.round(ps.jitter) : 0, d: ps ? Math.round(ps.delay) : 0 });
   }
   // The host went quiet: give up on this connection (onClose starts the reconnect).
-  if (inRun && c.lastHeard > 0 && now - c.lastHeard > netQualityTuning.hostSilentMs && c instanceof NetClient) c.drop();
+  if (inRun && c.lastHeard > 0 && now - c.lastHeard > netQualityTuning.hostSilentMs && now > s.stallUntil && c instanceof NetClient) {
+    note(s, `client: host silent ${Math.round(now - c.lastHeard)} ms, dropping`);
+    c.drop();
+  }
   // Remember the run for a tab reload.
   if (inRun && now - s.rejoinSaved > 2000 && c instanceof NetClient) {
     s.rejoinSaved = now;
@@ -239,6 +265,7 @@ export function netcodeHello(g: Game, from: string, m: Record<string, unknown>):
   if (g.role !== 'host' || g.mode === 'title' || g.pvp) return;
   const pids = coop2Debug(g).pids;
   const h = g.heroes.find((x) => pids[x.index] === pid && x.peerId && x.peerId !== from && !x.left);
+  note(s, `host: hello from ${from.slice(0, 6)} pid ${pid.slice(0, 6)}${h ? `, dropping stale ${h.peerId.slice(0, 6)}` : ''}`);
   if (h) g.host?.drop?.(h.peerId);
 }
 
@@ -262,6 +289,7 @@ export function netcodeClientMsg(g: Game, m: Record<string, unknown>): boolean {
         } else s.playout.flush((x) => applySnap(g, s, x));
       }
       if (m.t === 'start' && s.rc) {
+        note(s, `client: back in after ${s.rc.tries} tries`);
         s.rc = null; // back in
         g.hud.toast('RECONNECTED!', 2);
       }
@@ -371,6 +399,7 @@ export function netcodeJoined(g: Game, c: NetClient): void {
   s.lastSnapStep = -1;
   c.onIce = (state) => {
     // ICE 'disconnected' often recovers by itself; 'failed' never does.
+    if (state !== 'connected' && state !== 'completed') note(st(g), `client: ICE ${state}`);
     if (state === 'failed' && g.client === c) c.drop();
   };
 }
@@ -380,8 +409,9 @@ export function netcodeLost(g: Game, c: NetClient): boolean {
   const s = st(g);
   if (g.client !== c || g.mode === 'title' || g.mode === 'dead' || g.pvp || s.rc) return !!s.rc;
   const now = performance.now();
-  s.rc = { code: c.code, name: g.netName || 'Player', until: now + netQualityTuning.reconnectFor * 1000, next: now + 500, tries: 0, pending: null, hello: false };
+  s.rc = { code: c.code, name: g.netName || 'Player', until: now + netQualityTuning.reconnectFor * 1000, next: now + 500, tries: 0, pending: null, hello: false, helloAt: 0 };
   s.playout?.clearQueue();
+  note(s, 'client: connection lost, reconnecting');
   g.vfx.toast('CONNECTION LOST · RECONNECTING', 2.5);
   return true;
 }
@@ -389,13 +419,21 @@ export function netcodeLost(g: Game, c: NetClient): boolean {
 function reconnectStep(g: Game, s: NetState, now: number): void {
   const rc = s.rc!;
   if (now > rc.until) {
+    note(s, `client: gave up after ${rc.tries} tries`);
     endReconnect(s);
     g.leaveToTitle();
     g.hud.toast("COULDN'T RECONNECT TO THE HOST", 3.5);
     return;
   }
+  // The host can hold a returning player until a calm moment (no menus); past 20 s, try a fresh connection.
+  if (rc.hello && now - rc.helloAt > 20000 && g.client) {
+    note(s, 'client: no answer to hello, retrying');
+    rc.hello = false;
+    rc.next = now;
+  }
   if (rc.pending || rc.hello || now < rc.next) return;
   rc.tries++;
+  note(s, `client: reconnect try ${rc.tries}`);
   const c = new NetClient(rc.code);
   rc.pending = c;
   c.onMessage = (m) => {
@@ -427,13 +465,16 @@ function reconnectStep(g: Game, s: NetState, now: number): void {
       }
       rc.pending = null;
       rc.hello = true;
+      rc.helloAt = performance.now();
+      note(s, 'client: connected, hello sent');
       const old = g.client;
       g.client = c;
       if (old && old !== c) old.close();
       netcodeJoined(g, c);
       c.send(helloMsg(rc.name));
     },
-    () => {
+    (e) => {
+      note(s, `client: try failed (${(e as Error)?.message ?? e})`);
       if (rc.pending === c) rc.pending = null;
       rc.next = performance.now() + netQualityTuning.retryEvery * 1000;
     },
