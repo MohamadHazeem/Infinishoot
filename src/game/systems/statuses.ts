@@ -1,4 +1,5 @@
 import { saveLock } from '../save';
+import { secretsKill } from './secrets';
 import { halloweenKill } from './halloween';
 import { gauntletKill } from './gauntlet';
 import { pvpFriendly } from '../pvp';
@@ -278,6 +279,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.skillKill(e, source, by);
   this.timeKill(e, by);
   if (isBoss) this.grantRelics();
+  secretsKill(this, e);
   // Combos and Mod triggers after the kill is resolved (they may kill more).
   if (by) {
     if (wasFrozen) this.shatter(e, by);

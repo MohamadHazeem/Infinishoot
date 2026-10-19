@@ -31,6 +31,8 @@ export function updateFamily(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz
   e.vx = e.vz = 0;
   e.copyFlash = Math.max(0, e.copyFlash - dt);
   const move = e.def.behavior;
+  // Secret reflection uses the mirror brain with ordinary boss phase invulnerability.
+  if (move === 'mirror' && e.def.boss && e.roarT > 0) { e.roarT = Math.max(0, e.roarT - dt); return; }
   if (move === 'burrower') {
     const p = e.def.burrow!;
     e.facing = Math.atan2(nx, nz);

@@ -28,6 +28,7 @@ export function heroLook(heroId: string, skin: Pick<SkinDef, 'armor' | 'accent' 
 }
 
 export function bossLook(def: { id: string; model?: string; bodyColor: string; accentColor: string }): PortraitLook {
+  if (def.id === 'shadow_hero') return heroLook('rookie', { armor: '#5d275d', accent: '#73eff7', suit: '#1a1c2c', hair: '#94b0c2', gem: '#a7f070', iris: '#73eff7' });
   return { kind: 'boss', model: def.model ?? def.id, colors: { body: def.bodyColor, accent: def.accentColor } };
 }
 

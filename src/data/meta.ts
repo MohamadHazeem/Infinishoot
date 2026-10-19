@@ -1,3 +1,4 @@
+import { SECRET_ACHIEVEMENTS } from './secrets';
 /**
  * Achievements: lifetime goals that unlock auto weapons for the level-up pool
  * and loadout items (clicks and specials) for the LOADOUT screen. This is the
@@ -57,6 +58,7 @@ function m(id: string, name: string, desc: string, tier: T, cat: AchievementCat,
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
+  ...SECRET_ACHIEVEMENTS,
   { id: 'light_tamer', name: 'Light Tamer', desc: 'Defeat 1,500 enemies in total', unlockLoadout: 'whip', lifetime: (l) => l.kills >= 1500 },
   { id: 'field_engineer', name: 'Field Engineer', desc: 'Defeat 12 elites in total', unlockLoadout: 'sentry', lifetime: (l) => l.elites >= 12 },
   { id: 'first_steps', name: 'First Steps', desc: 'Defeat 300 enemies in total', unlockLoadout: 'shield', unlockWeapon: 'pellets', lifetime: (l) => l.kills >= 300 },

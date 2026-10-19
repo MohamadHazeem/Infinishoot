@@ -1,3 +1,4 @@
+import { SECRET_BOSSES, SECRET_LORE } from './secrets';
 import { ENEMIES } from './enemies';
 import { ENEMY_TIPS } from './bestiary';
 import { BIOMES } from './biomes';
@@ -5,6 +6,8 @@ import { HEROES } from './heroes';
 import type { Loadout } from './loadout';
 
 const ENEMY_LORE: Record<string, string> = {
+  golden_king: 'SECRET: Three missing Goldbugs woke their king. His crown remembers every stolen coin. Watch the golden landing rings.',
+  shadow_hero: 'SECRET: A flawless night leaves a reflection behind. It cycles through your weapon patterns; its borrowed power has safe limits.',
   pumpking: 'Every October, the harvest clock crowns its largest pumpkin. Dodge the seed fans, leave the marked vines, and keep outside the carving knives. At two-thirds and one-third life the royal recipe gets faster.',
   pumpkin: 'A festival decoration with seeds of rebellion. Its last surprise is a burst of seeds.',
   ghost: 'A shy spirit that slips through walls and fades on a four-second cycle.',
@@ -72,11 +75,12 @@ const HERO_LORE: Record<string, string> = {
 };
 
 export const CODEX = [
+  ...SECRET_LORE,
   ...Object.values(ENEMIES)
     .filter((e) => !e.hidden)
     .map((e) => ({
       id: `enemy:${e.id}`,
-      kind: e.boss || e.miniboss ? 'BOSS' : 'ENEMY',
+      kind: SECRET_BOSSES.some(id => id === e.id) ? 'SECRET' : e.boss || e.miniboss ? 'BOSS' : 'ENEMY',
       name: e.name,
       text: `${ENEMY_LORE[e.id] ?? 'A veteran of the old island network, patched up and sent back out on patrol.'} ${ENEMY_TIPS[e.id] ?? 'Keep moving and watch its wind-up.'}`,
     })),
@@ -106,6 +110,7 @@ export const CODEX = [
   })),
 ];
 export const META_REWARDS = [
+  { id: 'secret_skin', name: 'Pixel Relay Armour', kind: 'skin', cost: 0, color: '#a7f070', condition: 'Solve a secret room or discover the old directional code.' },
   {
     id: 'heat_skin',
     name: 'Relay Gold Armour',
@@ -173,6 +178,7 @@ export interface MetaProgress {
   weekly: { score: number }[];
 }
 export function rewardAvailable(id: string, p: MetaProgress): boolean {
+  if (id === 'secret_skin') return p.achievements.includes('secret_room') || p.achievements.includes('secret_code');
   if (id === 'mint') return p.achievements.length > 0;
   if (id === 'sunset' || id === 'heat_skin' || id === 'heat_kit')
     return Object.values(p.bestHeat).some((n) => n >= 4);
@@ -183,6 +189,7 @@ export function rewardAvailable(id: string, p: MetaProgress): boolean {
 
 /** These colour sets travel through the existing skin id in co-op start messages. */
 export const META_SKINS = [
+  { id: 'secret_skin', name: 'Pixel Relay', armor: '#a7f070', accent: '#ffcd75', suit: '#29366f', hair: '#f4f4f4', gem: '#73eff7', iris: '#5d275d' },
   {
     id: 'heat_skin',
     name: 'Relay Gold',

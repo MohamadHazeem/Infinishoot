@@ -1,3 +1,4 @@
+import { shadowWeapon } from './secrets';
 /**
  * Enemy lane: callbacks the smarter enemies need (leaper landings, medic heals,
  * elite squads and rallies, the Goldbug), Shield Bot damage reduction, and
@@ -194,7 +195,7 @@ export function familyCtx(game: Game): FamilyApi {
       let target = game.aliveHeroes[0];
       let best = Infinity;
       for (const h of game.aliveHeroes) { const d = (h.player.x - e.x) ** 2 + (h.player.z - e.z) ** 2; if (d < best) { target = h; best = d; } }
-      const w = target?.weapons.find((w) => w.def.slot === 'primary');
+      const w = e.def.id === 'shadow_hero' && target ? shadowWeapon(e, target) : target?.weapons.find((w) => w.def.slot === 'primary');
       const p = w?.p ?? {};
       e.copyRadius = Math.min(3, p.radius ?? 2.2);
       e.copyZaps = Math.min(4, Math.round(p.zaps ?? 3));

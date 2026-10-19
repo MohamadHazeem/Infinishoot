@@ -42,7 +42,7 @@ export function challengeState(g: Game): ChallengeState {
 /** Registered base bosses, including Titan and future bosses; variants and body parts are excluded. */
 let rosterCache: EnemyDef[] | null = null;
 export function rushRoster(): EnemyDef[] {
-  return rosterCache ??= Object.values(ENEMIES).filter(d => d.boss && !d.remixOf && d.behavior !== 'titanpart');
+  return rosterCache ??= Object.values(ENEMIES).filter(d => d.boss && !d.secret && !d.remixOf && d.behavior !== 'titanpart');
 }
 export function startGauntlet(g: Game): void {
   document.getElementById('g-shop-clock')?.remove();

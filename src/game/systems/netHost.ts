@@ -1,6 +1,7 @@
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
 import { en } from '../../i18n/en';
+import { secretsNet } from './secrets';
 import { halloweenNet, cleanHalloweenLook } from './halloween';
 import { gauntletNet } from './gauntlet';
 import { pvp2Net, isBotPeer } from './pvp2';
@@ -261,6 +262,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     cp: this.companionNet(),
     d2: this.director2Net(),
     gpw: this.gameplayNet(forHero),
+    ss: secretsNet(this),
     we: this.worldEventNet(),
     wt: this.worldEventLive(forHero),
     tm: this.timeNet(forHero),

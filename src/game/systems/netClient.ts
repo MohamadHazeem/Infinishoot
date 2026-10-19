@@ -1,6 +1,7 @@
 import { modSession } from '../../mods/manager';
 import { matchingMods } from '../../mods/registry';
 import { t } from '../../i18n';
+import { applySecretsNet } from './secrets';
 import { applyGauntletNet } from './gauntlet';
 import { createMvp, type MvpReport } from './mvp';
 import { assistAim } from './aimAssist';
@@ -431,6 +432,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   applyGauntletNet(this, s.gl);
   this.applyModesNet(s.md);
   applySoundLaneNet(this, s.s2);
+  applySecretsNet(this, s.ss);
   if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen
   applyHeroes3Net(this, s.h3); // Tinker bots (systems/heroes3.ts)
   applyPvp2Net(this, s.p2); // PvP rounds, teams and ring (systems/pvp2.ts)
