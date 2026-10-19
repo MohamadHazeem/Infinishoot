@@ -270,6 +270,14 @@ const hostTo = (x: number, z: number) => hA.player.teleport(x, z);
   B.client!.send({ t: 'carry' });
   step(4);
   ok(SA.carriedBy[0] === 1 && SB.carriedBy[0] === 1, 'the guest presses INTERACT next to the downed host: carried');
+  for (let i = 0; i < 40; i++) {
+    gB.player.teleport(gB.player.x + 0.1, gB.player.z);
+    step(1);
+  }
+  step(10);
+  const dHost = Math.hypot(hA.player.x - gA.player.x, hA.player.z - gA.player.z);
+  const dClient = Math.hypot(hB.player.x - gB.player.x, hB.player.z - gB.player.z);
+  ok(dHost < 0.6 && dClient < 1.2, `the carried host rides with the guest (host ${dHost.toFixed(2)} m, client ${dClient.toFixed(2)} m)`);
   // The carrier drops out (disconnect): the downed host is put down where they were.
   gA.left = true;
   step(30); // past the hit-stop of the host going down

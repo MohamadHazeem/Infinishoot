@@ -695,12 +695,17 @@ const SCENARIO = [
     if (h.kind !== 'door' || h.state !== 'done' || c.kind !== 'door' || c.state !== 'done' || !c.open) fail(`co-op vault: host ${JSON.stringify(h)}, client ${JSON.stringify(c)}`);
     return { host: h, client: c };
   }],
-  [59, 'client carries the downed host, then puts them down', async () => {
+  // Before the stage boss (its ring-of-fire duel pens the heroes in).
+  [21, 'client carries the downed host, then puts them down', async () => {
     if (!(await coopFight())) return 'skipped (not fighting)';
-    const downed = await host(() => {
+    const downed = await host(async () => {
       const g = window.game;
       if (!g.isCombatMode) return false;
       const h = g.heroes[0];
+      // No last stand (time lane): it would put the host back on their feet mid-carry.
+      const ht = (await import('/src/game/systems/time.ts')).heroTimeOf(g, h);
+      ht.standUsed = true;
+      ht.standT = 0;
       window.botAuto(false);
       window.cheats.god = false;
       h.revivesLeft = 0;
@@ -722,10 +727,10 @@ const SCENARIO = [
     let carried = [-1, -1];
     await client(() => window.botAuto(false));
     for (let k = 0; k < 12 && !(carried[0] === 1 && carried[1] === 1); k++) {
-      await client((at) => {
-        window.game.hero.player.teleport(at[0] + 1, at[1]);
-        window.game.client.send({ t: 'carry' });
-      }, downed);
+      // Step next to them, let the host see where we are (input messages), then press INTERACT.
+      await client((at) => window.game.hero.player.teleport(at[0] + 1, at[1]), downed);
+      await pause(300);
+      await client(() => window.game.client.send({ t: 'carry' }));
       await pause(250);
       carried = await Promise.all([
         host(async () => (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).carriedBy[0] ?? -1),
@@ -734,11 +739,14 @@ const SCENARIO = [
     }
     // Walk 4 m with them; the host hero rides along on both screens.
     await client((at) => window.game.hero.player.teleport(at[0] + 5, at[1]), downed);
-    await pause(600);
-    const ride = await Promise.all([
+    let ride = [99, 99];
+    for (let k = 0; k < 8 && !(ride[0] < 1 && ride[1] < 2.5); k++) {
+      await pause(300);
+      ride = await Promise.all([
       host(() => { const g = window.game; return Math.hypot(g.heroes[0].player.x - g.heroes[1].player.x, g.heroes[0].player.z - g.heroes[1].player.z); }),
       client(() => { const g = window.game; return Math.hypot(g.heroes[0].player.x - g.hero.player.x, g.heroes[0].player.z - g.hero.player.z); }),
-    ]);
+      ]);
+    }
     await shot('coopplay-carry');
     await client(() => window.game.client.send({ t: 'carry' }));
     await pause(400);
@@ -748,7 +756,7 @@ const SCENARIO = [
     if (carried[0] !== 1 || carried[1] !== 1 || ride[0] > 1 || ride[1] > 2.5 || down !== -1) fail(`carry: carried host ${carried[0]} client ${carried[1]}, ride host ${ride[0]?.toFixed(2)} client ${ride[1]?.toFixed(2)}, put down ${down}`);
     return { carried, ride: ride.map((d) => +d.toFixed(2)), down };
   }],
-  [66, 'buddy tether between the two heroes', async () => {
+  [27, 'buddy tether between the two heroes', async () => {
     if (!(await coopFight())) return 'skipped (not fighting)';
     await host(() => window.botAuto(false));
     await client(() => window.botAuto(false));
