@@ -1,0 +1,347 @@
+/**
+ * Online, client side: messages from the host and applying snapshots.
+ * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
+ * installed on the class as fields, e.g. `onClientMessage = NetClient.onClientMessage;`.
+ */
+import type { Game } from '../game';
+import { Mode, INPUT_EVERY, REVIVE_TIME, PVP_WAIT_NOTE, NetShop } from '../game';
+import { MOD_BY_ID } from '../../data/mods';
+import { sfx } from '../../audio/sfx';
+import { unpackBullets, unpackEnemies, unpackPickups } from '../../net/codec';
+import { Hud, type LoadoutItem } from '../../ui/hud';
+import { type Offer, type RunSummary, type ShopFx, type ShopView } from '../../ui/screens';
+import { Hero } from '../hero';
+import { markSeen, unlockedWeapons } from '../save';
+import { settings } from '../settings';
+import { type VfxEvent } from '../vfx';
+import { createWeapon } from '../weapons';
+import { DIFF_BY_ID, type DifficultyId } from '../../data/modes';
+
+export function onClientMessage(this: Game, m: Record<string, unknown>): void {
+  switch (m.t) {
+    case 'lobby': {
+      const players = (m.players as { name: string; color: string }[]) ?? [];
+      this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind: m.kind === 'pvp' ? 'pvp' : 'coop' });
+      break;
+    }
+    case 'pvpgo':
+      this.pvpBegin('client', Number(m.seed), String(m.difficulty ?? 'normal'));
+      break;
+    case 'pvpstat':
+      if (this.pvp?.phase === 'wait') this.screens.showWait((m.rows as string[]) ?? [], PVP_WAIT_NOTE);
+      break;
+    case 'pvpend':
+      if (this.pvp) this.pvpOver(String(m.winner ?? ''));
+      break;
+    case 'full':
+      this.leaveToTitle();
+      this.hud.toast(String(m.reason ?? 'THAT GAME IS FULL'), 3);
+      break;
+    case 'start':
+      // PvP: the duel starts; from here on this machine mirrors the host like co-op.
+      if (this.pvp) {
+        this.role = 'client';
+        this.pvp.phase = 'duel';
+      }
+      this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
+      this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
+      break;
+    case 'wchest':
+      this.chests.open(Number(m.i));
+      break;
+    case 'chestspawn':
+      this.chests.add(Number(m.x), Number(m.z), Number(m.f));
+      break;
+    case 'chestitem':
+      this.hud.chestReveal(m.item as Parameters<Hud['chestReveal']>[0]);
+      break;
+    case 'shopfx':
+      this.screens.shopFx(m.kind as ShopFx, Number(m.i));
+      break;
+    case 'chestsgone':
+      this.chests.list = [];
+      break;
+    case 'barrel': {
+      const b = this.barrels.remove(Number(m.i));
+      if (b) this.removeBarrelCollider(b);
+      break;
+    }
+    case 'stage':
+      this.clientStage(Number(m.stage), Number(m.seed));
+      break;
+    case 's':
+      this.applySnapshot(m);
+      break;
+    case 'lv':
+      this.screens.showLevelUp(m.offers as Offer[], String(m.title), Number(m.rerolls), m.loadout as LoadoutItem[], Number(m.skip));
+      break;
+    case 'shop':
+      this.screens.showShop(this.shopFromNet(m.view as NetShop), m.focus === undefined ? undefined : Number(m.focus));
+      break;
+    case 'wait':
+      this.screens.showWait((m.who as string[]) ?? []);
+      break;
+    case 'go':
+      if (['levelup', 'shop', 'wait'].includes(this.screens.current)) this.screens.show('none');
+      break;
+    case 'toast':
+      this.hud.toast(String(m.msg));
+      break;
+    case 'hurt':
+      this.player.knock(Number(m.dx), Number(m.dz));
+      this.hud.hurt();
+      this.juice.shake(0.35);
+      this.juice.kick(Number(m.dx), Number(m.dz), 6);
+      sfx.playerHurt();
+      break;
+    case 'over':
+      this.mode = 'dead';
+      this.bankAndShow(m.sum as RunSummary);
+      break;
+    case 'end':
+      this.leaveToTitle();
+      this.hud.toast('THE HOST ENDED THE GAME', 3);
+      break;
+  }
+}
+
+export function shopFromNet(this: Game, v: NetShop): ShopView {
+  return {
+    ...v,
+    offers: v.offers.map((o) => (o && MOD_BY_ID[o.id] ? { def: MOD_BY_ID[o.id], price: o.price, hint: o.hint } : null)),
+    owned: v.owned.filter((o) => MOD_BY_ID[o.id]).map((o) => ({ def: MOD_BY_ID[o.id], sell: o.sell, readout: o.readout, level: o.level, maxLevel: o.maxLevel, upCost: o.upCost })),
+  };
+}
+
+export function clientStart(this: Game, seed: number, you: number, players: { name: string; skin?: string; pet?: string; hero?: string }[]): void {
+  this.seed = seed;
+  const heroes = players.map((p, i) => this.makeHero(i, p.name, i === you ? unlockedWeapons() : [], '', p.skin, p.pet ?? 'none', p.hero ?? 'rookie'));
+  this.setHeroes(heroes);
+  this.local = you;
+  for (const h of heroes) {
+    h.player.showWhenDead = heroes.length > 1;
+    h.recomputeStats();
+    h.player.reset(h.stats);
+  }
+  this.score = this.kills = this.combo = 0;
+  this.level = 1;
+  this.hud.resetScore();
+  this.hud.setVisible(true);
+  this.hud.setFade(0);
+  this.screens.show('none');
+  this.mode = 'fight';
+}
+
+export function clientStage(this: Game, stage: number, seed: number): void {
+  this.stage = stage;
+  this.seed = seed;
+  this.loadArena((seed ^ Math.imul(stage, 0x9e3779b1)) >>> 0, stage);
+  this.clearWorld();
+  this.heroes.forEach((h, i) => {
+    const s = this.spawnSpot(i);
+    h.player.teleport(s.x, s.z);
+  });
+  this.fadeT = 0.45;
+}
+
+export function clientUpdate(this: Game, dt: number): void {
+  const input = this.input;
+  if (this.isCombatMode && this.screens.current === 'none' && (input.keyPressed('Escape') || input.actionPressed('pause') || input.padButtonPressed(9))) {
+    this.pause();
+    input.endStep();
+    return;
+  }
+  const before = this.screens.current;
+  this.screens.update(input, dt);
+  if (this.paused && this.screens.current === 'none') this.paused = false;
+  if (this.screens.current === 'levelup' && before === 'levelup') {
+    for (let k = 0; k < 3; k++) if (input.keyPressed(`Digit${k + 1}`) && this.screens.canPick(k)) this.ui('pick', k);
+    if (input.actionPressed('reroll') || input.padButtonPressed(3)) this.ui('reroll');
+  }
+  this.runTime += dt;
+  const h = this.hero;
+  const p = h.player;
+  const control = this.isCombatMode && !p.dead && this.screens.current === 'none';
+  if (control) {
+    if (input.device === 'pad') {
+      if (input.padAim.x !== 0 || input.padAim.y !== 0) p.setAimDir(input.padAim.x, input.padAim.y);
+      else if (input.move.x !== 0 || input.move.y !== 0) p.setAimDir(input.move.x, input.move.y);
+    } else if (this.mouseAimPoint()) p.setAimPoint(this.aimHit.x, this.aimHit.z);
+  }
+  const wantDash =
+    control &&
+    (input.actionPressed('dash') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
+  const moving = this.isCombatMode && this.mode !== 'levelup';
+  this.groundAt(p.x, p.z, p.ground);
+  if (moving && p.update(dt, control ? input : null, this.arena.colliders, wantDash)) {
+    this.client?.send({ t: 'dash' });
+    this.juice.shake(0.05);
+  }
+  const wantBomb = control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));
+  if (wantBomb) this.client?.send({ t: 'bomb' });
+  const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
+  const firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
+  const charging = control && (input.mouseDown(2) || input.padButton(2));
+  if (this.stepN % INPUT_EVERY === 0 && this.client) {
+    const r2 = (v: number) => Math.round(v * 100) / 100;
+    this.client.send({ t: 'i', x: r2(p.x), z: r2(p.z), vx: r2(p.vel.x), vz: r2(p.vel.z), ax: r2(p.aim.x), az: r2(p.aim.z), ad: Number.isFinite(p.aimDist) ? r2(p.aimDist) : -1, f: firing, c: charging, d: p.dashing });
+  }
+  if (this.mode !== 'levelup' && this.mode !== 'shop') {
+    this.bullets.integrate(dt);
+    for (let i = 0; i < this.bullets.count; i++) if (this.bullets.life[i] <= 0) this.bullets.kill(i--);
+  }
+  this.particles.update(dt);
+  this.fx.update(dt);
+  if (this.fadeT > 0) this.fadeT -= dt;
+  input.endStep();
+}
+
+export function applySnapshot(this: Game, s: Record<string, unknown>): void {
+  const now = performance.now();
+  if (this.snapTime) this.snapInterval += (Math.min(200, now - this.snapTime) - this.snapInterval) * 0.2;
+  this.snapTime = now;
+  const prevMode = this.mode;
+  this.mode = s.mode as Mode;
+  if (this.mode === 'transition' && prevMode !== 'transition') this.fadeT = 0;
+  this.stage = Number(s.stage);
+  this.netTimeLeft = Number(s.tl);
+  this.netBoss = (s.boss as { name: string; hp01: number }) ?? null;
+  const team = s.team as Record<string, number>;
+  this.level = team.level;
+  this.xp = team.xp01 * 100;
+  this.xpNext = 100;
+  this.score = team.score;
+  this.combo = team.combo;
+  this.netCombo01 = team.combo01;
+  this.kills = team.kills;
+  this.runTime = team.time;
+  this.curses = (s.cu as string[]) ?? [];
+  this.netEvent = (s.sev as [string, number] | null) ?? null;
+  this.netChallenge = (s.sch as [string, number, number, boolean] | null) ?? null;
+  this.netBuffs = (s.bf as [number, number]) ?? [0, 0];
+
+  // Heroes
+  for (const hs of s.heroes as Record<string, unknown>[]) {
+    const h = this.heroes[Number(hs.i)];
+    if (!h) continue;
+    const p = h.player;
+    const wasDead = p.dead;
+    p.dead = !!hs.dead;
+    h.left = !!hs.left;
+    p.hp = Number(hs.hp);
+    h.stats.maxHp = Number(hs.mhp);
+    h.reviveT = Number(hs.rv) * REVIVE_TIME;
+    h.stats.areaMul = Number(hs.area);
+    if (h === this.hero) {
+      p.invuln = Math.max(p.invuln, Number(hs.inv));
+      if (!p.dead && wasDead) p.rig.root.visible = true;
+      p.recoil = Math.max(p.recoil, Number(hs.rec));
+    } else {
+      p.netSet(Number(hs.x), Number(hs.z), Number(hs.vx), Number(hs.vz), Number(hs.ax), Number(hs.az), !!hs.dash);
+      p.invuln = Number(hs.inv);
+      p.recoil = Number(hs.rec);
+      p.hurtFlash = Number(hs.hf);
+      if (!p.dead) p.rig.root.visible = true;
+    }
+    this.syncWeapons(h, hs.w as (string | number)[][]);
+    h.relics = (hs.rl as string[]) ?? [];
+  }
+
+  // Private info for this machine's hero
+  const you = s.you as Record<string, unknown>;
+  const h = this.hero;
+  h.gold = Number(you.gold);
+  h.rerollsLeft = Number(you.gears ?? 0);
+  const sp = you.special as [string, number, string] | undefined;
+  if (sp && sp[0] !== h.special.id) h.setSpecial(sp[0]);
+  if (sp && sp[1] !== h.special.level) {
+    h.special.level = sp[1];
+    h.loadoutDirty = true;
+  }
+  if (sp?.[2]) h.setSpecialBuild(sp[2]);
+  h.bombCharge = Number(you.bomb);
+  this.netMods = (you.mods as { id: string; ro: string; lv?: number }[]) ?? [];
+  const passives = (you.passives as Record<string, number>) ?? {};
+  if (JSON.stringify(passives) !== JSON.stringify(h.passives)) {
+    h.passives = passives;
+    h.loadoutDirty = true;
+  }
+  Object.assign(h.stats, you.stats as object);
+
+  // Enemies: create, update or remove mirrors by uid.
+  const seen = new Set<number>();
+  unpackEnemies(s.en as ArrayBuffer, (r) => {
+    seen.add(r.uid);
+    let e = this.netEnemies.get(r.uid);
+    if (!e || !e.active) {
+      e = this.enemies.spawn(r.def, r.x, r.z, { instant: true, elite: r.elite, eliteMod: r.eliteMod ?? undefined });
+      markSeen(r.def.id);
+      this.netEnemies.set(r.uid, e);
+      e.px = r.x;
+      e.pz = r.z;
+    } else {
+      e.px = e.x;
+      e.pz = e.z;
+    }
+    e.x = r.x;
+    e.z = r.z;
+    e.state = r.state;
+    e.t = r.t;
+    e.facing = r.facing;
+    e.sq = r.sq;
+    e.hopY = r.hopY;
+    e.hp = r.hp01 * e.maxHp; // drives elite health bars
+    e.frozen = r.frozen ? 1 : 0;
+    if (e.def.boss && this.netBoss) e.phase = this.netBoss.hp01 < 0.33 ? 3 : this.netBoss.hp01 < 0.66 ? 2 : 1;
+    e.shield = r.shield ? 1 : 0;
+    e.burnT = r.burn ? 1 : 0;
+    e.shockT = r.shock ? 1 : 0;
+    e.flash = r.flash ? 0.07 : 0;
+    e.action = r.action;
+    e.lungeX = Math.sin(r.lunge);
+    e.lungeZ = Math.cos(r.lunge);
+    e.targetX = r.targetX;
+    e.targetZ = r.targetZ;
+  });
+  for (const [uid, e] of this.netEnemies) {
+    if (seen.has(uid)) continue;
+    this.enemies.kill(e);
+    this.netEnemies.delete(uid);
+  }
+
+  unpackBullets(s.bu as ArrayBuffer, this.bullets);
+  unpackPickups(s.pk as ArrayBuffer, this.pickups);
+  for (const e of (s.ev as VfxEvent[]) ?? []) this.vfx.apply(e);
+
+  const portal = s.portal as [number, number] | null;
+  if (portal && !this.portal.active) this.portal.open(portal[0], portal[1]);
+  else if (!portal && this.portal.active) this.portal.close();
+}
+
+/** Client: mirror a hero's weapon list (ids/levels) and visual state. */
+export function syncWeapons(this: Game, h: Hero, list: (string | number)[][]): void {
+  let changed = h.weapons.length !== list.length;
+  for (let i = 0; i < list.length; i++) {
+    const [id, level, ready, key, ...state] = list[i] as [string, number, number, string, ...number[]];
+    let w = h.weapons[i];
+    if (!w || w.def.id !== id) {
+      w?.dispose();
+      w = createWeapon(id, this.scene);
+      h.weapons[i] = w;
+      changed = true;
+    }
+    if (w.build) {
+      if (w.buildKey !== key) {
+        w.setBuildKey(key);
+        changed = true;
+      }
+    } else if (w.level !== level) {
+      w.level = level;
+      changed = true;
+    }
+    w.ready = ready;
+    w.setNet(state);
+  }
+  while (h.weapons.length > list.length) h.weapons.pop()!.dispose();
+  if (changed) h.loadoutDirty = true;
+}
