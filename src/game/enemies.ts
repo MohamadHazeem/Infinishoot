@@ -800,7 +800,7 @@ class GroundDecals {
       scene.add(m);
     }
     dangerLayer(this.discs, 99);
-    for (const m of [this.lines, this.zones, this.markers]) dangerLayer(m);
+    for (const m of [this.lines, this.zones, this.markers, this.copyBeams]) dangerLayer(m);
   }
 
   setPulse(time: number, calm = false): void {

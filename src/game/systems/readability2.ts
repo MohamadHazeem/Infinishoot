@@ -13,10 +13,10 @@ function clarityCss(): void {
   styled = true;
   const style = document.createElement('style');
   style.textContent = `
-    .readable-chaos #banner { top: calc(72 * var(--p)); }
+    .readable-chaos #banner { top: calc(24 * var(--p)); left: auto; right: calc(8 * var(--p)); max-width: calc(100 * var(--p)); text-align: right; }
     .readable-chaos #banner.show { animation: none; }
-    .readable-chaos #banner .t { font-size: calc(20 * var(--p)); text-shadow: var(--outline); }
-    .readable-chaos #banner .s { margin-top: calc(2 * var(--p)); padding: calc(2 * var(--p)) calc(4 * var(--p)); font-size: calc(10 * var(--p)); }
+    .readable-chaos #banner .t { font-size: calc(12 * var(--p)); text-shadow: var(--outline); }
+    .readable-chaos #banner .s { margin-top: calc(2 * var(--p)); padding: calc(2 * var(--p)) calc(4 * var(--p)); font-size: calc(6 * var(--p)); }
   `;
   document.head.appendChild(style);
 }

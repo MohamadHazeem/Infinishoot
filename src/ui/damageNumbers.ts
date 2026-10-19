@@ -87,10 +87,11 @@ export class DamageNumbers {
     const amount = damageNumberValue(value);
     const automatic = settings.damageNumbers === 'auto' && !!this.noise?.active;
     const pressure = automatic ? this.noise!.pressure : 0;
-    const combat = Number.isFinite(amount) && kind !== 'score' && kind !== 'player' && kind !== 'heal';
-    // Keep labels/heals/player damage; AUTO filters hit spam relative to this build's recent damage.
-    const big = combat && automatic ? this.noise!.bigHit(amount, kind === 'crit') : true;
-    if (combat && automatic && pressure >= noiseTuning.numberDensity && !big) return;
+    const numeric = Number.isFinite(amount);
+    const combat = kind !== 'score' && kind !== 'player' && kind !== 'heal';
+    // Keep noncombat messages/heals/player damage; combat status labels share the hit budget.
+    const big = combat && automatic && numeric ? this.noise!.bigHit(amount, kind === 'crit') : true;
+    if (combat && automatic && numeric && pressure >= noiseTuning.numberDensity && !big) return;
     let n: Num | undefined;
     let distance = (damageNumberTuning.mergeRadius + (noiseTuning.clusterRadius - damageNumberTuning.mergeRadius) * pressure) ** 2;
     const window = damageNumberTuning.mergeWindow + (noiseTuning.clusterWindow - damageNumberTuning.mergeWindow) * pressure;
