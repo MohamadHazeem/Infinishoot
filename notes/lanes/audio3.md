@@ -51,3 +51,11 @@ Quest completion, trade/coin transfer, carry, reconnect, host migration and raid
 - Existing online co-op lobby / ping wheel / emotes; enable HEADPHONES 3D AUDIO and HERO VOICES.
 
 No human headphone audition or subjective mix review has been performed. Waveform measurements, actual Chromium playback and routing tests do not replace that review.
+
+## Final validation addendum
+
+- `npm run smoke`: **pass**, including all seven mode/hero probes, training, rhythm/Pacifist/mini-games/ghost racing, Versus, three-player local co-op, mortal death, MVP → game over, history and extras screens. No runtime errors.
+- Full `npm test` completed with four failing files. Three are existing integration expectations: `firstten.test.ts` (expects the old game-over screen), `lobbyCoop.test.ts` (same postgame expectation), and `gauntlet.test.ts` (Hard Omega unlock and Ascension history label). All three failures reproduce independently using an untouched archive of baseline **ff7c1c3**. The fourth was `audio3.test.ts` running before the generated mastering tables had been written; its final standalone rerun and all seven focused audio suites pass against the completed tables. The remaining files, including the long `sound2Game` integration suite, completed without new failures.
+- The required all-green integration gate is **not achieved** because of those baseline assertions and the live co-op harness's pet/postgame assumptions described above. These are explicit lead-integration follow-ups, not suppressed tests or claimed passes. No push or merge was performed.
+- 298 of the 303 recorded samples hit their category target. Four barks and `w_mine` stay below target to preserve the −3 dB peak headroom; the mine is a very short high-crest-factor transient. The regenerated script also audits rewind/time cues, tinnitus, crowd reactions, surround stingers and a representative radio break. `--extend --synth --report <existing-report>` is a development shortcut for appending those external cue families; the normal command above performs the complete fresh audit.
+- Screenshots, the detailed loudness JSON, browser logs and benchmark JSON are untracked under `shots/`; the gain tables and this handoff are committed. The first two implementation commits are `85c910e` and `aeeeedc`.
