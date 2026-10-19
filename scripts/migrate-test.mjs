@@ -220,7 +220,9 @@ async function waitMigrated(pages, expectHost, expectRole, nHeroes, label) {
   while (Date.now() - t < WAIT_MS) {
     st = await Promise.all(pages.map((p) => probe(p).catch((e) => ({ err: String(e) }))));
     const hosts = st.filter((s) => s.role === 'host' || s.role === 'solo');
-    const ok = hosts.length === 1 && st[expectHost]?.role === expectRole && st.every((s, i) => i === expectHost || (s.role === 'client' && !s.rc && s.mode !== 'title' && s.heroes.length === nHeroes));
+    // Every client must be connected to the new host's room (a client that hasn't noticed the loss yet still shows the old code).
+    const room = st[expectHost]?.code ?? '';
+    const ok = hosts.length === 1 && st[expectHost]?.role === expectRole && st.every((s, i) => i === expectHost || (s.role === 'client' && !s.rc && s.mode !== 'title' && s.heroes.length === nHeroes && s.code === room));
     if (ok) {
       log(`${label}: settled after ${((Date.now() - t) / 1000).toFixed(1)} s (${pages[expectHost].name} is ${expectRole})`);
       return st;

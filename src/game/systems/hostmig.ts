@@ -147,6 +147,8 @@ interface HostmigState {
   lastWho: string;
   /** The connected players the last regular snapshot listed. */
   cands: number[];
+  /** performance.now() each hero index was last seen connected. */
+  seenAt: number[];
   pagehide: boolean;
   /** New host: menus wait for these hero indexes until `holdUntil` (performance.now()). */
   waiting: Set<number>;
@@ -184,7 +186,7 @@ const states = new WeakMap<Game, HostmigState>();
 export function hostmigState(g: Game): HostmigState {
   let s = states.get(g);
   if (!s) {
-    s = { epoch: 0, base: '', nextSend: 0, sentKey: '', sig: 0, lastWho: '', cands: [], pagehide: false, waiting: new Set(), holdUntil: 0, peerSeen: [], mig: null, migAt: 0, bye: false, phase: 'idle', until: 0, cand: -1, joinAt: 0, skip: new Set(), yieldTo: [], yieldUntil: 0, yieldNext: 0, yieldTry: null, panel: null, panelText: '', crashTest: false, demo: '', migrations: 0, events: [] };
+    s = { epoch: 0, base: '', nextSend: 0, sentKey: '', sig: 0, lastWho: '', cands: [], seenAt: [], pagehide: false, waiting: new Set(), holdUntil: 0, peerSeen: [], mig: null, migAt: 0, bye: false, phase: 'idle', until: 0, cand: -1, joinAt: 0, skip: new Set(), yieldTo: [], yieldUntil: 0, yieldNext: 0, yieldTry: null, panel: null, panelText: '', crashTest: false, demo: '', migrations: 0, events: [] };
     states.set(g, s);
     (g as unknown as { hostmig: HostmigState }).hostmig = s; // tests and `npm run migrate` read it from window.game
   }
@@ -287,7 +289,11 @@ function buildSig(g: Game): number {
 export function buildMig(g: Game, s = hostmigState(g), leaving = false): MigSnapshot {
   // Connected players, in join order. A closing tab tears its connections down around its goodbye:
   // that last snapshot keeps everyone the previous one listed, so all clients still elect the same host.
-  let cands = connectedClients(g).map((h) => h.index);
+  // A player whose connection dropped in the last few seconds still counts: when a machine dies its connections often
+  // go a moment before it does, and every client must elect from the same list.
+  const now = performance.now();
+  for (const h of connectedClients(g)) s.seenAt[h.index] = now;
+  let cands = g.heroes.filter((h) => h !== g.hero && !h.left && now - (s.seenAt[h.index] ?? -Infinity) < hostmigTuning.recent * 1000).map((h) => h.index);
   if (leaving) cands = [...new Set([...s.cands, ...cands])].filter((i) => g.heroes[i] && !g.heroes[i].left).sort((a, b) => a - b);
   else s.cands = cands;
   const cs = coopState(g);
@@ -440,7 +446,8 @@ function clientStep(g: Game, s: HostmigState): void {
     return;
   }
   const m = s.mig;
-  if (!m || !migratable(g) || now - s.migAt > hostmigTuning.maxAge * 1000 + (s.phase === 'join' ? hostmigTuning.candidate * 4000 : 0)) return;
+  // However old: it's the last word from that host (a starved machine can take a minute to notice the loss).
+  if (!m || !migratable(g)) return;
   if (s.phase === 'idle') {
     s.phase = 'probe';
     s.until = now + (s.bye ? 0 : hostmigTuning.probe * 1000);
@@ -535,6 +542,7 @@ function promote(g: Game, s: HostmigState, m: MigSnapshot, solo: boolean): void 
   s.waiting = new Set(m.cands.filter((i) => i !== g.local && i !== m.hi));
   s.holdUntil = performance.now() + hostmigTuning.hold * 1000;
   s.peerSeen = g.heroes.map(() => '');
+  s.seenAt = [];
   s.sentKey = '';
   // Everyone else waits on the coop2 autopilot: migrating players reclaim their hero, the old host's drops out after the grace time.
   const cs = coopState(g);

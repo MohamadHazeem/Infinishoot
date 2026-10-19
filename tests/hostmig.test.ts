@@ -258,10 +258,12 @@ ok(!!sB.mig && sB.mig.heroes.length === 3 && sB.mig.en.byteLength > 20, 'snapsho
   const grace = C2.coop2Debug(A).grace;
   grace.push({ index: 2, t: 60, pilot: null as never });
   const bye = HM.buildMig(A, sA, true).cands.join();
-  const regular = HM.buildMig(A, sA).cands.join();
+  const recent = HM.buildMig(A, sA).cands.join();
+  sA.seenAt[2] = performance.now() - (HM.hostmigTuning.recent + 1) * 1000;
+  const later = HM.buildMig(A, sA).cands.join();
   grace.pop();
   HM.buildMig(A, sA);
-  ok(bye === '1,2' && regular === '1', `snapshot: the goodbye keeps the last connected list (${bye}; a regular one says ${regular})`);
+  ok(bye === '1,2' && recent === '1,2' && later === '1', `snapshot: a player who just dropped stays a candidate for a few seconds (goodbye ${bye}, now ${recent}, later ${later})`);
 }
 
 // ---------------------------------------------------------------- 1: the host is lost mid-level-up

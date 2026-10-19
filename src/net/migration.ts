@@ -21,6 +21,8 @@ export const MIG_VERSION = 1;
 export const hostmigTuning = {
   /** Seconds between migration snapshots (plus one at once on every mode, stage or roster change). */
   every: 1.5,
+  /** Host: a player whose connection dropped this recently (s) is still listed as a candidate. */
+  recent: 8,
   /** Client: how long to wait for the old host to answer before electing a new one (s). 0 when it said goodbye. */
   probe: 4,
   /** Client: the old host answered a reconnect but hasn't let us back in after this long (s): elect a new one after all. */
@@ -33,8 +35,6 @@ export const hostmigTuning = {
   heal: 90,
   /** New host: how long menus wait for migrating teammates before the autopilot answers for them (s). */
   hold: 30,
-  /** Snapshots older than this are not trusted for a promotion (s); the run is left instead. */
-  maxAge: 30,
 };
 
 /** Own primitive fields (numbers, booleans, strings) of a plain or class object: lane state with no nested objects. */
