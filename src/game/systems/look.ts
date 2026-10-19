@@ -148,6 +148,7 @@ export function updateLook(this: Game, frameDt: number): void {
     st.arena = this.arena;
     st.biomeFx.load(this.arena.group, this.arena.deco);
     this.enemies.setTint(biome.enemyTint ?? '#ffffff');
+    this.enemies.setBiome(biome.variant ? `${biome.id}:${biome.variant}` : biome.id);
   }
 
   // --- Night: every 3rd arena stage (or forced by a test link), faded in. Neon City is always partly dark.
