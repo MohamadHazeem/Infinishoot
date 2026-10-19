@@ -1,3 +1,4 @@
+import { BIOME3_BOSSES, BIOME3_MINIS } from './biome3';
 /**
  * Biome bosses (bosses3 lane): one stage boss for each loop-2 biome, their
  * mid-stage mini-bosses and their minions.
@@ -14,13 +15,14 @@
 import type { EnemyDef } from './enemies';
 
 /** Biome id -> its own stage boss. Omega still ends every loop; see bossForStage. */
-export const BIOME_BOSSES: Readonly<Record<string, string>> = { neon: 'glitch', factory: 'boxer', sky: 'gale' };
+export const BIOME_BOSSES: Readonly<Record<string, string>> = { ...BIOME3_BOSSES, neon: 'glitch', factory: 'boxer', sky: 'gale' };
 
 /** Every biome boss id. */
 export const BIOME_BOSS_IDS: readonly string[] = Object.values(BIOME_BOSSES);
 
 /** Their mini-bosses (smaller copies on the same brains), from loop 2 only. */
 export const BIOME_MINIS: readonly { id: string; of: string }[] = [
+  ...BIOME3_MINIS,
   { id: 'mc_static', of: 'glitch' },
   { id: 'jack_jr', of: 'boxer' },
   { id: 'squall', of: 'gale' },

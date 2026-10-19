@@ -149,6 +149,7 @@ type TipFn = (k: DeathInfo['keys']) => string;
 
 /** Suggestions per enemy behaviour (src/data/enemies.ts `behavior`). */
 const BY_BEHAVIOR: Record<string, TipFn> = {
+  jellyfish: () => 'Drifts sideways, then glows before sending a ring of zaps. Walk between the shots.',
   chase: () => "Don't let them box you in: walk in wide circles so the crowd trails behind you.",
   lunge: (k) => `They flash red before they lunge. Step aside, or dash through (${k.dash}): you can't be hit mid-dash.`,
   charger: (k) => `Try dashing through the Rhino's charge (${k.dash}). It whines and draws a line first, then can't turn.`,

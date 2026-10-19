@@ -22,8 +22,8 @@ const { MusicSynth } = await import('../src/audio/music/synth');
 ok([0, 4, 12, 20, 28, 36, 40, 48, 52].map((b) => sectionAt(b, 0.6)).join(',') === 'intro,verse,chorus,verse,chorus,bridge,final,turnaround,verse', 'song form includes a single intro, contrasting bridge, lifted final and turnaround');
 ok(sectionAt(12, 0.1) === 'verse' && sectionAt(8, 0.9) === 'chorus' && sectionAt(4, 0.9) === 'verse', 'intensity adapts at phrase boundaries while preserving verse setup');
 ok(new Set([1, 2, 3, 4, 5, 6].map(stageTranspose)).size === 6 && stageTranspose(7) === 0, 'each stage changes key without drifting out of instrument register');
-ok([1, 2, 3, 4, 5, 6, 7, 8, 9].map(bossTrack).join(',') === 'boss,rex,queen,omega,glitch,boxer,gale,omega,boss', 'boss tracks follow the stage boss: the rotation, the loop-2 biome bosses, Omega'); // bosses3 lane
-ok(biomeTrack(5) === 'neon' && biomeTrack(6) === 'factory' && biomeTrack(7) === 'sky' && biomeTrack(9) === 'meadow' && biomeTrack(0) === 'meadow', 'biomes repeat safely');
+ok([1, 2, 3, 4, 5, 6, 7, 8, 9].map(bossTrack).join(',') === 'boss,rex,queen,omega,glitch,boxer,gale,omega,cake', 'boss tracks follow the stage boss: the rotation, the loop-2 biome bosses, Omega'); // bosses3 lane
+ok(biomeTrack(5) === 'neon' && biomeTrack(6) === 'factory' && biomeTrack(7) === 'sky' && biomeTrack(9) === 'candy' && biomeTrack(0) === 'meadow', 'biomes repeat safely');
 ok(TRACKS.length >= 19 && new Set(TRACKS.slice(1, 5).map((t) => t.style.scale.join(','))).size === 4, 'jukebox has every area, boss and seasonal track (19+) and four distinct classic area modes');
 ok(trackUnlocked('shop', 0, 0) && !trackUnlocked('omega', 3, 10) && trackUnlocked('omega', 4, 1), 'jukebox unlocks use track metadata, not display index');
 const song = makeSong(TRACKS[1].style, 42);

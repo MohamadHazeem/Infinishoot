@@ -1,3 +1,4 @@
+import { paintBiome3Portrait } from './biome3Portraits';
 /**
  * Painted pixel portraits, generated on the fly (no image files): each hero
  * (in any skin and co-op armour colour), each boss model and the announcer,
@@ -827,7 +828,8 @@ export function paintPortrait(look: PortraitLook, expr: Expression, blink = fals
   else {
     const body = hexInt(look.colors.body ?? '#ff5e8a');
     const accent = hexInt(look.colors.accent ?? '#ffd23f');
-    if (look.model === 'pumpking') {
+    if (paintBiome3Portrait(p, look.model, body, accent, expr)) { /* lane portrait */ }
+    else if (look.model === 'pumpking') {
       p.ellipse(16, 19, 13, 11, body);
       for (const x of [9, 16, 23]) p.ellipse(x, 19, 4, 10, body);
       p.poly([5, 9, 5, 3, 10, 6, 16, 1, 22, 6, 27, 3, 27, 9], accent);

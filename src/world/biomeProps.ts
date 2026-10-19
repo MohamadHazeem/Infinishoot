@@ -1,3 +1,4 @@
+import { biome3Calm } from './biome3Arena';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Rng } from '../core/rng';
@@ -16,7 +17,7 @@ import { createRetroMaterial } from '../render/retroMaterial';
 /** One animated decoration set: instances of one mesh that spin or bob. */
 export interface ArenaAnim {
   mesh: THREE.InstancedMesh;
-  kind: 'spin' | 'bob';
+  kind: 'spin' | 'bob' | 'kelp';
   items: { x: number; y: number; z: number; yaw: number; scale: number; speed: number; phase: number }[];
 }
 
@@ -259,6 +260,7 @@ const sc = new THREE.Vector3();
 
 /** Pose animated scenery at time `t` (seconds). */
 export function poseAnim(a: ArenaAnim, t: number): void {
+  if (a.kind === 'kelp' && biome3Calm()) t = 0;
   for (let i = 0; i < a.items.length; i++) {
     const it = a.items[i];
     if (a.kind === 'spin') {

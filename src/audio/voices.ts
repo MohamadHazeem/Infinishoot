@@ -175,7 +175,7 @@ function speak(id: string, priority: number, gain: number, duck: number, positio
 }
 
 /** Biome bosses' models -> their recorded voice (roar_<id>, boss_<id>_intro/phase/defeat). */
-const BIOME_BOSS_VOICES: Readonly<Record<string, string>> = { dj: 'glitch', jack: 'boxer', airship: 'gale' };
+const BIOME_BOSS_VOICES: Readonly<Record<string, string>> = { dj: 'glitch', jack: 'boxer', airship: 'gale', cake: 'cake', kraken: 'kraken' };
 
 const SPEAKER_NAMES: Readonly<Record<string, string>> = {
   king: 'KING BOPPER', rex: 'RAMPAGE REX', queen: 'HIVE QUEEN', omega: 'OMEGA OVERLORD',
@@ -228,6 +228,8 @@ function bossMoment(mini: boolean, boss: string, line: BossLine, pitch: number, 
   }
   if (mini) return;
   if (line === 'phase') samples.play('choir_stab', { bus: 'ui', priority: 13, gain: 0.7, variation: 0, limit: 1, cooldown: 1 });
+  // New areas reuse the synth roar; no missing recorded lines should reserve the voice channel.
+  if (boss === 'cake' || boss === 'kraken') return;
   const delay = line === 'intro' ? voiceTuning.introDelay : line === 'phase' ? voiceTuning.phaseDelay : 0;
   sayLine(`boss_${boss}_${line}`, p, voiceTuning.bossGain, voiceTuning.bossDuck, delay, line === 'defeat' ? 4 : 3);
 }

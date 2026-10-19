@@ -44,6 +44,8 @@ export function isNightStage(arenaStage: number): boolean {
 
 /** Colour grade per area: cheerful, a touch of contrast and an identity tint. */
 export const BIOME_GRADES: Record<string, Grade> = {
+  candy: { lift: [0.015, 0, 0.015], gamma: [1, 1, 1], gain: [1.02, 0.98, 1], saturation: 1.1 },
+  ruins: { lift: [0, 0.02, 0.035], gamma: [1, 1, 1], gain: [0.94, 1.03, 1.05], saturation: 1.08 },
   meadow: { lift: [0.0, 0.0, 0.025], gamma: [1, 1, 1], gain: [1.02, 1.03, 0.99], saturation: 1.04 },
   dunes: { lift: [0.03, 0.0, 0.045], gamma: [0.97, 0.97, 0.98], gain: [1.0, 0.99, 0.96], saturation: 1.02 },
   peaks: { lift: [0.0, 0.015, 0.05], gamma: [1, 1, 1.02], gain: [0.96, 1.0, 1.04], saturation: 1.06 },

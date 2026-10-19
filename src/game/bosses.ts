@@ -1,3 +1,5 @@
+import { biome3Brain, type Biome3Api } from './biome3Brain';
+import { BIOME3_PHASE_LINES } from '../data/biome3';
 /**
  * Boss brains: King Bopper, Rampage Rex, Hive Queen, Omega Overlord and the
  * mid-stage mini-bosses (smaller copies that share these brains).
@@ -82,6 +84,7 @@ export type BossMove = (typeof BOSS_MOVES)[number];
 
 /** Short line shown with each phase change. */
 export const PHASE_LINES: Record<string, string[]> = {
+  ...BIOME3_PHASE_LINES,
   pumpking: ['', 'VINE GRABS: LEAVE THE MARKED PATCHES', 'CARVING KNIVES: KEEP YOUR DISTANCE'],
   boss: ['', 'SHOCKWAVE SLAMS: DASH THROUGH THE RINGS', 'ROYAL FURY'],
   rex: ['', 'FIGURE-EIGHT RAMPAGE', 'FIRE BREATH'],
@@ -92,6 +95,7 @@ export const PHASE_LINES: Record<string, string[]> = {
 
 /** Things the boss brains need from the game beyond EnemyCtx. Host only. */
 export interface BossApi {
+  biome3?: Biome3Api;
   /** An expanding shockwave ring centred on (x, z), starting after `delay`. */
   shockwave(e: Enemy, x: number, z: number, delay: number): void;
   /** Rex mid-charge: smash props and barrels it runs through; `fire` drops burning ground behind it. */
@@ -265,6 +269,9 @@ export function updateBoss(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: 
     case 'queen':
       queen(e, dt, ctx, nx, nz, dist, sp);
       return false;
+    case 'cake':
+    case 'kraken':
+      return biome3Brain(e, dt, ctx, nx, nz, dist, sp);
     case 'glitch':
     case 'boxer':
     case 'gale':

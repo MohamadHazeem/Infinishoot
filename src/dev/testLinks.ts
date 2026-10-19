@@ -1,3 +1,4 @@
+import { biome3Force } from '../game/biome3Brain';
 import { clipsFor, markClip } from '../game/systems/clips';
 import { secretsLinks } from '../game/systems/secrets';
 import { gfx3Links } from './gfx3Links';
@@ -145,6 +146,7 @@ import { SCAR_COLORS } from '../game/scars';
  */
 export function applyTestLink(game: Game, search = location.search): boolean {
   const q = new URLSearchParams(search);
+  biome3Force.move = q.get('biome3move') ?? '';
   if (!q.has('test')) return false;
   const list = (k: string) => (q.get(k) ?? '').split(',').map((x) => x.trim()).filter(Boolean);
   const pair = (s: string): [string, number] => {

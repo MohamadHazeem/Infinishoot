@@ -1,4 +1,5 @@
 import { pvpTuning } from '../game/pvp';
+import { addBiome3Folder } from './debugBiome3';
 import { secretsTuning } from '../data/secrets';
 import { shadowTuning } from '../render/shadows';
 import { gfx3Tuning } from '../game/fx';
@@ -158,6 +159,7 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   gfx3.add(shadowTuning, 'hz', 10, 60, 1);
   for (const key of ['beamStrength', 'beamLife', 'evolutionLife', 'beamHeight', 'evolutionHeight'] as const) gfx3.add(gfx3Tuning, key, 0.05, key.endsWith('Height') ? 10 : 2, 0.05);
   addBossLaneFolder(gui); // Titan, rematches, boss duel
+  addBiome3Folder(gui);
   addBosses3Folder(gui); // biome bosses (src/ui/debugBosses3.ts)
 
   const cam = gui.addFolder('Camera').close();

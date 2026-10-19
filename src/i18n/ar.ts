@@ -1,8 +1,10 @@
 import { followupsAr } from './followups';
+import { biome3Ar } from './biome3';
 import { storyAr } from '../game/story/strings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...biome3Ar,
   "clips.title": "لقطات مميزة",
   "clips.hint": "لعب بلا صوت · احفظ آخر 15 ثانية:",
   "clips.empty": "تظهر اللقطات هنا بعد اللحظات المميزة. فعّل اللقطات المميزة واختر جودة متوسطة أو أعلى.",

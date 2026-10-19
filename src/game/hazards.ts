@@ -12,7 +12,7 @@
 
 import { BIOME_BY_ID } from '../data/biomes';
 
-export type HazardKind ='lava' | 'ice' | 'quicksand' | 'thorns' | 'crusher';
+export type HazardKind = 'chocolate' | 'lava' | 'ice' | 'quicksand' | 'thorns' | 'crusher';
 
 export interface HazardZone {
   x: number;
@@ -69,7 +69,7 @@ export function heroGroundMul(zones: readonly HazardZone[], x: number, z: number
   const i = hazardAt(zones, x, z);
   if (i < 0) return 1;
   const k = zones[i].kind;
-  return k === 'quicksand' ? hazardTuning.sandHero : k === 'thorns' ? hazardTuning.thornHero : 1;
+  return k === 'chocolate' ? 0.65 : k === 'quicksand' ? hazardTuning.sandHero : k === 'thorns' ? hazardTuning.thornHero : 1;
 }
 
 /** Score for one environmental kill. */

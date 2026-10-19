@@ -1,3 +1,4 @@
+import { BIOME3_AREAS } from './biome3';
 import { seasonalStage } from './seasons';
 import type { BiomeTexKey } from '../render/biomeTextures';
 import type { TrackId } from '../audio/music/composition';
@@ -5,7 +6,7 @@ import type { TrackId } from '../audio/music/composition';
 type TexKey = BiomeTexKey;
 
 /** Weather motes that drift around the camera (src/game/ambience.ts). Rain replaces them on rainy stages. */
-export type Weather = 'pollen' | 'sand' | 'snow' | 'embers' | 'confetti' | 'wind' | 'leaves' | 'fireflies' | 'aurora' | 'ash' | 'neon';
+export type Weather = 'sprinkles' | 'bubbles' | 'pollen' | 'sand' | 'snow' | 'embers' | 'confetti' | 'wind' | 'leaves' | 'fireflies' | 'aurora' | 'ash' | 'neon';
 
 /** Colour grade for an area (same shape as src/render/postfx.ts `Grade`). */
 export interface BiomeGrade {
@@ -418,6 +419,7 @@ export const BIOMES: BiomeDef[] = [
     kind: 'sky',
     dusk: 0.6,
   },
+  ...BIOME3_AREAS,
 ];
 
 export const BIOME_BY_ID: Record<string, BiomeDef> = Object.fromEntries(BIOMES.map((b) => [b.id, b]));
@@ -428,12 +430,13 @@ export const BIOME_LOOP = 4;
 /**
  * Which biome each stage of a loop uses ('id' or 'id:remix'). Loop 1 is the
  * classic tour; loop 2 brings the new areas (Neon City, Toy Factory, Sky
- * Fortress) and ends on Ashen Magma; loop 3 tours remixes of the classics.
- * Loops after that alternate rows 2 and 3.
+ * Fortress) and ends on Ashen Magma; loop 3 adds Candy Kingdom and Sunken
+ * Ruins; loop 4 tours classic remixes. Later loops repeat rows 2–4.
  */
 export const BIOME_ORDER: string[][] = [
   ['meadow', 'dunes', 'peaks', 'magma'],
   ['neon', 'factory', 'sky', 'magma:ashen'],
+  ['candy', 'ruins', 'peaks:aurora', 'magma'],
   ['meadow:autumn', 'dunes:night', 'peaks:aurora', 'magma'],
 ];
 

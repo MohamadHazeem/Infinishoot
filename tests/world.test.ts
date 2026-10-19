@@ -9,14 +9,14 @@ import { BIOME_GRADES, isNightStage } from '../src/render/biomeLook';
 const order = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => biomeKeyForStage(from + i)).join(',');
 ok(order(1, 4) === 'meadow,dunes,peaks,magma', 'loop 1 is the classic tour, as before');
 ok(order(5, 8) === 'neon,factory,sky,magma:ashen', 'loop 2 brings Neon City, the Toy Factory, Sky Fortress and Ashen Magma');
-ok(order(9, 12) === 'meadow:autumn,dunes:night,peaks:aurora,magma', 'loop 3 tours remixes of the classics');
-ok(order(13, 16) === order(5, 8) && order(17, 20) === order(9, 12), 'later loops alternate rows 2 and 3');
+ok(order(9, 12) === 'candy,ruins,peaks:aurora,magma', 'loop 3 introduces Candy Kingdom and Sunken Ruins');
+ok(order(17, 20) === order(5, 8) && order(21, 24) === order(9, 12), 'later loops repeat rows 2 through 4');
 ok(biomeKeyForStage(0) === 'meadow' && biomeKeyForStage(-3) === 'meadow' && biomeKeyForStage(2.7) === 'dunes', 'odd stage numbers are safe');
 ok(BIOME_ORDER.every((row) => row.length === BIOME_LOOP), 'every row fills a loop');
 ok(BIOME_ORDER.flat().every((k) => allBiomeKeys().includes(k)), 'every key in the order resolves');
 const seen = new Set<string>();
 for (let s = 1; s <= 12; s++) seen.add(biomeForStage(s).id);
-ok(seen.size === 7, 'all seven biomes show up by loop 3');
+ok(seen.size === 9, 'all nine biomes show up by loop 3');
 
 // --- Remixes ---
 const autumn = biomeByKey('meadow:autumn');
@@ -41,7 +41,7 @@ ok(trackUnlocked('factory', 6, 0) && !trackUnlocked('factory', 5, 9) && trackUnl
 
 // --- Night ---
 ok(!isNightStage(1) && isNightStage(3) && isNightStage(6) && !isNightStage(7), 'night every third stage still holds');
-ok(isNightStage(10) && biomeForStage(10).variant === 'night', 'Night Dunes is always a night stage');
+ok(isNightStage(14) && biomeForStage(14).variant === 'night', 'Night Dunes is always a night stage');
 
 // --- Hazards ---
 ok(biomeHazard('factory') === 'crusher' && biomeHazard('sky') === null && biomeHazard('peaks') === null, 'factory adds crushers; Sky Fortress brings wind instead');

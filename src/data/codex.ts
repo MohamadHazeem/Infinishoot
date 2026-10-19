@@ -6,6 +6,14 @@ import { HEROES } from './heroes';
 import type { Loadout } from './loadout';
 
 const ENEMY_LORE: Record<string, string> = {
+  cake: "The royal bakery never stopped baking. Its proudest cake crowned itself and declared every day a birthday.",
+  kraken: "The keeper of the flooded archive guards a crown made from the last lighthouse bell.",
+  cupcake: "The royal taster decided that a smaller crown leaves more room for frosting.",
+  princeling: "Eight eager arms practise ruling one very small tide pool.",
+  gummy: "A kitchen helper filled with jelly instead of batteries. It always brings three friends.",
+  gumlet: "A brave crumb with a very sticky sense of purpose.",
+  jellyfish: "Old archive lamps learned to swim when the sea came through the windows.",
+
   golden_king: 'SECRET: Three missing Goldbugs woke their king. His crown remembers every stolen coin. Watch the golden landing rings.',
   shadow_hero: 'SECRET: A flawless night leaves a reflection behind. It cycles through your weapon patterns; its borrowed power has safe limits.',
   pumpking: 'Every October, the harvest clock crowns its largest pumpkin. Dodge the seed fans, leave the marked vines, and keep outside the carving knives. At two-thirds and one-third life the royal recipe gets faster.',
@@ -91,6 +99,8 @@ export const CODEX = [
     text:
       (
         {
+          candy: "Sugar towers shelter the old royal bakery. Chocolate streams wind between the lollipop orchards.",
+          ruins: "Below the tide, the archive still glows. Currents carry its forgotten messages through gardens of coral.",
           meadow:
             'The repair crews left flowers growing between the circuit boards. Every adventure begins somewhere bright.',
           dunes:
