@@ -292,10 +292,20 @@ let bot = -1;
 for (let i = 0; i < w.minions.top; i++) if (w.minions.alive[i] && w.minions.kind[i] === MinionKind.Bot) bot = i;
 game.enemies.clear();
 step(1);
-const hpBot = w.minions.hp[bot];
+const botHp = () => {
+  let s = 0;
+  for (let i = 0; i < w.minions.top; i++) if (w.minions.alive[i] && w.minions.kind[i] === MinionKind.Bot) s += w.minions.hp[i];
+  return s;
+};
+const hpBots = botHp();
+const nBots = w.minions.countOf(h.index, MinionKind.Bot);
 game.bullets.spawn({ x: w.minions.x[bot], z: w.minions.z[bot], dirX: -1, dirZ: 0, speed: 0.1, life: 4, radius: 0.26, damage: 10, knockback: 6, team: Team.Enemy, color: '#ff3df0', width: 0.5, length: 0.5 });
-step(3);
-ok(w.minions.hp[bot] < hpBot || !w.minions.alive[bot], 'a bot soaks an enemy bullet');
+const soakAt = game.bullets.count - 1;
+w.minions.vx[bot] = w.minions.vz[bot] = 0;
+step(1);
+step(1);
+ok(game.bullets.team[soakAt] !== Team.Enemy || game.bullets.count <= soakAt, 'a bot soaks an enemy bullet (the bullet is gone)');
+ok(botHp() < hpBots || w.minions.countOf(h.index, MinionKind.Bot) < nBots, 'and it costs the bot a hit');
 // Beacon: press right click to drop it; its field repairs.
 const beacon = h.weapons[1] as import('../src/game/weapons/beacon').Beacon;
 p.setAimDir(1, 0);

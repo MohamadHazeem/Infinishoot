@@ -357,7 +357,7 @@ export function heroes3Parry(g: Game, h: Hero): void {
   if (h.heroDef.mech !== 'ronin') return;
   const p = h.player;
   const k = weaponOf<Katana>(h, 'katana');
-  const base = (k?.p.dmg ?? 22) * RT.counterDmg;
+  const base = (k?.p.dmg ?? 27) * RT.counterDmg;
   let n = 0;
   for (const e of g.enemiesInRadius(p.x, p.z, RT.counterR, g.scratch).slice()) {
     if (e.pvpOwner === h.index || e.hp <= 0) continue;

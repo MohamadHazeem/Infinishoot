@@ -358,12 +358,15 @@ export function unpackSlashes(a: readonly number[], last: number, add: (x: numbe
  * Autopilot (dev bot, co-op drop-out autopilot): a Ronin circles a boss at
  * sword reach instead of the ranged heroes' 8 m, so the melee kit gets used.
  */
-export function pilotHeroes3(mech: string | undefined, px: number, pz: number, mv: { mx: number; mz: number }, boss: { x: number; z: number; radius: number } | null): void {
+export function pilotHeroes3(mech: string | undefined, px: number, pz: number, mv: { mx: number; mz: number }, boss: { x: number; z: number; radius: number; state?: string } | null): void {
   if (mech !== 'ronin' || !boss) return;
   const dx = px - boss.x;
   const dz = pz - boss.z;
   const d = Math.hypot(dx, dz) || 1;
-  const want = (boss.radius + 2 - d) * 0.6;
-  mv.mx = mv.mx * 0.25 + (-dz / d) * 0.8 + (dx / d) * want;
-  mv.mz = mv.mz * 0.25 + (dx / d) * 0.8 + (dz / d) * want;
+  // Hit and run: in close while the boss recovers or walks, back off while it winds up or attacks.
+  const busy = boss.state === 'windup' || boss.state === 'attack';
+  const want = (boss.radius + (busy ? 6 : 2) - d) * 0.6;
+  // Half of the usual steering stays in (it carries the dodging), the rest circles at sword reach.
+  mv.mx = mv.mx * 0.5 + (-dz / d) * 0.8 + (dx / d) * want;
+  mv.mz = mv.mz * 0.5 + (dx / d) * 0.8 + (dz / d) * want;
 }

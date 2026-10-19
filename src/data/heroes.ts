@@ -91,9 +91,9 @@ export const HEROES: HeroDef[] = [
   {
     id: 'ronin',
     name: 'Ronin',
-    desc: 'Melee. LEFT CLICK is a 3-hit sword combo (the third hit cleaves), RIGHT CLICK a focused dash-strike through enemies; a parry answers with a counter-slash. +20 life, +1 armor, 5% faster. ULTIMATE: Thousand Cuts.',
+    desc: 'Melee. LEFT CLICK is a 3-hit sword combo (the third hit cleaves), RIGHT CLICK a focused dash-strike through enemies; a parry answers with a counter-slash. +30 life, +1 armor, 5% faster. ULTIMATE: Thousand Cuts.',
     start: [],
-    add: { maxHp: 20, armor: 1, moveSpeedMul: 0.05 },
+    add: { maxHp: 30, armor: 1, moveSpeedMul: 0.05 },
     build: [1.02, 1.04],
     unlock: 'point_blank',
     ult: 'cuts',
@@ -103,9 +103,9 @@ export const HEROES: HeroDef[] = [
   {
     id: 'tinker',
     name: 'Tinker',
-    desc: 'Builds an army: little robots assemble every few seconds (more as the team levels) and zap nearby enemies. RIGHT CLICK drops a turret beacon that repairs. -10 life. ULTIMATE: Scrap Legion.',
+    desc: 'Builds an army: little robots assemble every few seconds (more as the team levels), zap nearby enemies and soak bullets. RIGHT CLICK drops a turret beacon that repairs. +15% pickup range. ULTIMATE: Scrap Legion.',
     start: [],
-    add: { maxHp: -10 },
+    add: { magnet: 0.15 },
     build: [0.94, 0.94],
     unlock: 'workshop',
     ult: 'legion',
