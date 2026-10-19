@@ -511,10 +511,12 @@ const SCENARIO = [
     }
     await host(() => window.game.reviveHero(window.game.heroes[1], 0.5));
     await pause(1500);
+    // The client's view runs behind (playout buffer, simulated link): wait for it to see itself standing.
+    for (let k = 0; k < 30 && (await client(() => window.game.hero.player.dead)); k++) await pause(200);
     const [h2, c2] = await Promise.all([host(() => window.game.heroes[1].player.dead), client(async () => {
       // Visible at some point (it blinks while the revive i-frames run).
       let seen = false;
-      for (let k = 0; k < 12 && !seen; k++, await new Promise((r) => setTimeout(r, 40))) seen = window.game.hero.player.rig.root.visible;
+      for (let k = 0; k < 75 && !seen; k++, await new Promise((r) => setTimeout(r, 40))) seen = window.game.hero.player.rig.root.visible;
       return [window.game.hero.player.dead, seen];
     })]);
     if (!h1 || !c1 || h2 || c2[0] || !c2[1]) fail(`down/revive: down host ${h1} client ${c1}; revived host ${!h2} client ${!c2[0]} visible ${c2[1]}`);

@@ -179,7 +179,7 @@ function hostStep(g: Game, s: NetState, now: number, frozen: boolean): void {
     let p = s.probes.get(h.peerId);
     if (!p) s.probes.set(h.peerId, (p = new ProbeTracker()));
     if (probe) {
-      p.expire(now);
+      if (now > s.stallUntil) p.expire(now); // after our own stall, echoes may still be waiting unread
       host.send(h.peerId, { t: 'np', n: p.next(now) });
     }
     const heard = host.lastHeard?.get(h.peerId); // (in-process test transports have none)

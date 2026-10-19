@@ -19,9 +19,10 @@
 - `src/game/systems/netcode.ts`: the glue (host probes `np` every 1 s, client reports `nst` every 2 s, the `nq` snapshot field `[rtt, loss %, snaps/s, reconnect]` per hero, silence detection, reconnect loop, tab-reload rejoin, lag hooks, HUD). `src/ui/netOverlay.ts`: the panel, tags and banner (CSS injected, pixel frames, Sweetie 16, `--ui` zoom, stepped blink off with REDUCE FLASHING).
 
 ## Numbers (`npm run coop`, wire bytes per snapshot)
-- Before (base commit, clean link): avg 1361 B; bullets `bu` 290 B per snapshot on average (14 B per bullet per snapshot).
-- After: see "Verification" (filled from the run).
-- Unit test (40 straight bullets, 21 snapshots): 11,760 B old format vs 742 B deltas.
+- Before (base commit, clean link): avg 1361 B per snapshot; bullets `bu` **290 B** on average (14 B per bullet per snapshot), the third-largest field.
+- After (five full runs, same script, simulated link and clean): avg 935-1840 B per snapshot (the totals swing with how far each run gets: bosses, crowds); bullets `bd` **36-76 B** on average (-75% to -88%), now the smallest field. Other fields in those runs: body `b` 391-598, `en` 361-550, `fx` 193-367, `pk` 98-292.
+- Unit test (40 straight bullets, 21 snapshots): 11,760 B old format vs 742 B deltas (-94%).
+- CPU (Node, this machine under load): enemy history 6 us per step for 300 enemies, 14 ns per rewound lookup, bullet deltas ~60 us per client snapshot for 500 bullets (including integration). Solo play only adds one storage check per step, so `npm run bench` (solo) is unaffected; it wasn't meaningful to run on a machine at load 100.
 
 ## Tuning
 - `interpTuning` (src/net/interp.ts): minDelay 50, maxDelay 250, margin 12, jitterCover 1.1, extrapMax 100 ms, warp 0.08, snapErr 400 ms, queueMax 30, window 64, stallMs 70. `SNAP_DIST` 6 m (teleport snap).
@@ -48,9 +49,19 @@
 - Host -> client: `np` {n} probes; snapshot extras `hs` (host step) and `bd` (bullet deltas, replaces `bu`); snapshot field `nq`.
 - Client -> host: `np` {n} echo; `nst` {r rate, l loss 0..1, j jitter ms, d delay ms}; `i` gains `vt` (host step on screen).
 
+## Decision-log paragraph for PLAN.md
+- 2026-10-20: Netcode lane (notes/lanes/netcode.md). Online play for the real internet: a dropped client keeps the run on screen and reconnects for 60 s with its player id, reclaiming its hero and build from the coop2 autopilot (grace 45 -> 60 s, allowed even into closed runs; lobby players' ids are now kept, which coop2 missed), and a reloaded tab rejoins within 60 s. Hosts drop clients silent for 12 s, clients drop hosts silent for 10 s, neither while its own loop has just stalled. Snapshots carry the host step and play out through an adaptive jitter buffer (interval + jitter, 50-250 ms, ±8% time warp, 100 ms extrapolation cap, teleport snap). Remote heroes' bullets are lag-compensated against 16 steps of enemy history, clamped to 250 ms and the host-measured ping. Bullets got uids and a bullet clock and travel as deltas (sent once, corrected only when off by 6 cm): 290 -> ~36-76 B per snapshot in `npm run coop`. SETTINGS > NETWORK STATS shows ping/loss/snapshot rate per player; a bad connection gets a warning tag over the teammate for everyone. The script simulates a 70 ms / 30 ms jitter / 2% loss client link (src/net/netsim.ts; loss modelled as retransmit stalls on the ordered channel) and cuts the connection mid-run. Peer prefix infinishoot-v4-.
+
 ## Files
 - New: src/net/netsim.ts, src/net/interp.ts, src/net/lagcomp.ts, src/net/bulletCodec.ts, src/net/netQuality.ts, src/game/systems/netcode.ts, src/ui/netOverlay.ts, src/dev/netcodeLinks.ts, tests/netcode.test.ts.
 - Changed (small, additive): src/net/peer.ts (prefix, spare slot, lastHeard, drop(), netsim, ICE callback), src/net/snapCodec.ts (bullet encoder in SnapEncoder, `bd`), src/net/codec.ts (export BULLET_COLORS), src/game/bullets.ts (uid, simTime), systems/netHost.ts, systems/netClient.ts, systems/online.ts (onClose -> reconnect, netcodeJoined), systems/render.ts (netA from the playout, renderNetcode), systems/statuses.ts (rewound hit test), src/game/coop2.ts (grace 60), systems/coop2.ts (reclaims into closed runs), settings.ts + screens.ts (NETWORK STATS), dev/testLinks.ts, scripts/coop-test.mjs.
+
+## Verification
+- `npm run typecheck`, `npx vite build`, `npm test` (57 files, including tests/netcode.test.ts: 67 checks) and `npm run smoke` pass.
+- tests/netcode.test.ts: the netsim (latency, retransmit stalls, order, pass-through); the playout buffer on a jittery link with a stall (every snapshot once, in order, alpha in range, clock never backwards, delay covers jitter, rare extrapolation, bounded queue) and on a clean link (delay ≤ 70 ms, no extrapolation, rate 20/s); lag history (rewind, interpolation, caps, slot reuse) and the rewind clamp (honest, capped, beyond the measured ping, unmeasured, negative); bullet deltas (straight flight with no resends, turned bullets, removals, slow motion via the bullet clock, keyframes, team/colour/speed); quality levels and probes; in-process host + client: lobby players' ids kept, `nq` reaching the client, bullets mirrored by uid, the 8-step lag accepted and the rewound enemy where the client saw it, the host's own shots never rewound, a reconnect over a stale connection reclaiming the same hero, a silent client dropped onto autopilot, everyone seeing "reconnecting", coming back into a run closed to new players, and a stranger still refused.
+- `npm run coop` (simulated link 70,30,0.02 and `--netsim off`), on a machine at load average 80-120 where the headless pages got 1-6 snapshots per second: **the netcode reconnect scenario passed in every run** (6 of 6: CONNECTION LOST shown, the host's autopilot, back in after 1-2 tries, the same 2 heroes, hero 1 on a new peer id, the build intact; one run even recovered from a failed ICE attempt). Every run still had 1-5 failures in other lanes' timing checks, a different set each run: team move, ping portrait, downed/revived client, turret, enemy mirror counts, screenshot timeouts. The unmodified base commit also failed 3 such checks under the same load. I turned those fixed waits into polls; on a normal machine they should pass, but **a clean `npm run coop` pass was not seen on this machine** (it needs a re-run by the lead).
+- `--reload` (tab reload) was not run here: page loads took ~100 s under this load, past the 60 s window.
+- Screenshots checked: shots/netcode-panel.png, netcode-rc.png, netcode-lost.png.
 
 ## Unfinished / risky
 - **Real internet not tested.** Only the simulated link and two headless pages on one machine. Real WebRTC reconnection timing (how long ICE takes to fail, TURN) is untested.
