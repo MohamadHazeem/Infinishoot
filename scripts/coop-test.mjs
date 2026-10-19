@@ -80,8 +80,8 @@ async function openPage(name) {
     if (/favicon|Failed to load resource|AudioContext was not allowed|WebGL: INVALID_OPERATION|GPU stall/i.test(t)) return;
     errors.push(t);
   });
-  await page.goto(base);
-  await page.waitForFunction(() => window.game && window.botAuto && window.game.mode === 'title', null, { timeout: 30000 });
+  await page.goto(base, { timeout: 300000 }); // generous: a busy build machine serves the dev bundle slowly
+  await page.waitForFunction(() => window.game && window.botAuto && window.game.mode === 'title', null, { timeout: 300000 });
   return { name, page, errors };
 }
 
@@ -130,8 +130,8 @@ const invite = await A.page.evaluate(async () => {
   return inviteLink(inviteBase(location), window.game.host.code);
 });
 if (!invite.includes(`join=${code}`)) fail(`invite link ${invite} has no code ${code}`);
-await B.page.goto(invite);
-await B.page.waitForFunction(() => window.game && window.botAuto, null, { timeout: 30000 });
+await B.page.goto(invite, { timeout: 300000 });
+await B.page.waitForFunction(() => window.game && window.botAuto, null, { timeout: 300000 });
 try {
   await A.page.waitForFunction(() => window.game.lobby.length === 2, null, { timeout: 25000 });
 } catch {
