@@ -18,7 +18,7 @@ export interface QualityLevel {
   glow: 0 | 1 | 2;
   /** Screen-space shockwaves and heat shimmer. */
   distortion: boolean;
-  /** Character outlines. */
+  /** Character outlines (an extra pass over every enemy and hero part: about a third of the scene's triangles in a big fight). */
   outlines: boolean;
   /** Particle density multiplier. */
   particles: number;
@@ -29,7 +29,7 @@ export interface QualityLevel {
 }
 
 export const QUALITY_LEVELS: readonly QualityLevel[] = [
-  { name: 'LOW', resolution: 216, lights: 4, glow: 0, distortion: false, outlines: true, particles: 0.5, ambience: 0.35, streaks: false },
+  { name: 'LOW', resolution: 216, lights: 4, glow: 0, distortion: false, outlines: false, particles: 0.5, ambience: 0.35, streaks: false },
   { name: 'LOW+', resolution: 240, lights: 6, glow: 1, distortion: true, outlines: true, particles: 0.75, ambience: 0.6, streaks: true },
   { name: 'MEDIUM', resolution: 270, lights: 10, glow: 2, distortion: true, outlines: true, particles: 1, ambience: 1, streaks: true },
   { name: 'HIGH', resolution: 360, lights: 16, glow: 2, distortion: true, outlines: true, particles: 1, ambience: 1, streaks: true },

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Rng } from '../core/rng';
 import { commit } from '../render/instancing';
+import { viewCull } from '../render/viewCull';
 import { createRetroMaterial, retroGlobals } from '../render/retroMaterial';
 import { Surfaces, inPatch } from '../render/surfaces';
 import type { Particles } from './particles';
@@ -52,7 +53,9 @@ export function flashCurve(t: number, reduced = false): number {
   return 0.75 * (1 - (t - 0.2) / 0.25);
 }
 
-const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+let motionQuery: MediaQueryList | null = null;
+/** Cached query (matchMedia() every frame built a new MediaQueryList each time). */
+const reducedMotion = () => typeof matchMedia === 'function' && (motionQuery ??= matchMedia('(prefers-reduced-motion: reduce)')).matches;
 const RAIN_SKY = new THREE.Color(0.36, 0.42, 0.6);
 const RAIN_FOG = new THREE.Color('#7f93b8');
 
@@ -100,6 +103,8 @@ export class Ambience {
   private ts = new Float32Array(MAX_TUFTS);
   private tr = new Float32Array(MAX_TUFTS);
   private tBend = new Float32Array(MAX_TUFTS);
+  /** Tuft colours (rgb); visible tufts are packed to the front of the instance buffers each frame. */
+  private tCol = new Float32Array(MAX_TUFTS * 3);
   private nTufts = 0;
   private t = 0;
   private m4 = new THREE.Matrix4();
@@ -179,9 +184,8 @@ export class Ambience {
         this.ts[i] = rng.range(0.7, 1.4);
         this.tr[i] = rng.next() * Math.PI * 2;
         this.tBend[i] = 0;
-        this.tufts.setColorAt(i, this.c.set(rng.pick(greens)));
+        this.c.set(rng.pick(greens)).toArray(this.tCol, i * 3);
       }
-      if (this.tufts.instanceColor) commit(this.tufts.instanceColor, this.nTufts);
     }
   }
 
@@ -228,10 +232,9 @@ export class Ambience {
       this.ts[k] = this.ts[i];
       this.tr[k] = this.tr[i];
       this.tBend[k] = 0;
-      if (this.tufts.instanceColor) this.tufts.setColorAt(k, this.tufts.getColorAt(i, this.c));
+      this.tCol.copyWithin(k * 3, i * 3, i * 3 + 3);
       k++;
     }
-    if (k !== this.nTufts && this.tufts.instanceColor) commit(this.tufts.instanceColor, k);
     this.nTufts = k;
   }
 
@@ -360,14 +363,16 @@ export class Ambience {
     this.surfaces.render(dt, cx, cz, this.rain, walkers, Math.max(0.4, fxQuality.ambience));
 
     // Grass: sway with the wind; bend away from nearby walkers and spring back.
-    const nt = this.nTufts;
+    // Only tufts in view are written (packed to the front with their colours), so off-screen grass costs no vertex work.
+    // Lower quality thins the grass (tufts are scattered at random, so a prefix is an even thinning).
+    const nt = Math.ceil(this.nTufts * Math.min(1, Math.max(0.5, fxQuality.ambience)));
+    const col = this.tufts.instanceColor!.array as Float32Array;
+    let vis = 0;
     for (let i = 0; i < nt; i++) {
       const x = this.tx[i];
       const z = this.tz[i];
-      if (Math.abs(x - cx) > 30 || Math.abs(z - cz) > 24) {
-        // Off-screen: park it (keeps the instance count stable).
-        this.m4.makeScale(0, 0, 0);
-        this.tufts.setMatrixAt(i, this.m4);
+      if (Math.abs(x - cx) > 30 || Math.abs(z - cz) > 24 || !viewCull.sphere(x, 0.3, z, 0.5)) {
+        this.tBend[i] = 0;
         continue;
       }
       let push = 0;
@@ -388,10 +393,15 @@ export class Ambience {
       this.q.setFromEuler(this.e);
       const s = this.ts[i];
       this.m4.compose(this.v.set(x, 0, z), this.q, this.s.set(s, s, s));
-      this.tufts.setMatrixAt(i, this.m4);
+      this.tufts.setMatrixAt(vis, this.m4);
+      col[vis * 3] = this.tCol[i * 3];
+      col[vis * 3 + 1] = this.tCol[i * 3 + 1];
+      col[vis * 3 + 2] = this.tCol[i * 3 + 2];
+      vis++;
     }
-    this.tufts.count = nt;
-    commit(this.tufts.instanceMatrix, nt);
+    this.tufts.count = vis;
+    commit(this.tufts.instanceMatrix, vis);
+    commit(this.tufts.instanceColor!, vis);
   }
 }
 

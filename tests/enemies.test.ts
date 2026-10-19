@@ -6,7 +6,7 @@ import { ENEMY_TIPS } from '../src/data/bestiary';
 import { Enemies, Enemy, aiTuning, flankBend, guardFactor, segmentHitsBox, type EnemyCtx } from '../src/game/enemies';
 import { Director, directorTuning, goldenTime } from '../src/game/director';
 import { packEnemies, unpackEnemies } from '../src/net/codec';
-import { SpatialHash } from '../src/core/spatialHash';
+import { SpatialHash, StaticBoxGrid } from '../src/core/spatialHash';
 import { Rng } from '../src/core/rng';
 import type { AABB } from '../src/world/collision';
 
@@ -125,6 +125,7 @@ function makeCtx(target: { x: number; z: number }, colliders: AABB[] = []) {
     targetAlive: true,
     hash: new SpatialHash<Enemy>(2),
     colliders,
+    walls: new StaticBoxGrid(colliders),
     onWindup: () => log.push('windup'),
     onEnrage: () => {},
     fireBullet: () => log.push('bullet'),

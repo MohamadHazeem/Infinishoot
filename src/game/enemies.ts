@@ -1,12 +1,13 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { ENEMIES, type EnemyDef } from '../data/enemies';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { paint } from '../render/geometry';
 import { textures } from '../render/textures';
-import type { SpatialHash } from '../core/spatialHash';
-import { resolveCircleVsBoxes, type AABB } from '../world/collision';
+import type { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
+import type { AABB } from '../world/collision';
 import { commit } from '../render/instancing';
+import { viewCull } from '../render/viewCull';
 import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
 import { Corpses, EnemyAnim, poseEnemy, type EnemyPose } from './enemyAnim';
 import { bossTuning, updateBoss, type BossApi } from './bosses';
@@ -390,7 +391,9 @@ function enemyGeometry(def: EnemyDef): THREE.BufferGeometry {
     const ng = (g.index ? g.toNonIndexed() : g).translate(x, y, z);
     parts.push(paint(ng, color));
   });
-  geo = mergeGeometries(parts)!;
+  // Re-index: corners shared by a face's two triangles become one vertex, so every
+  // enemy (and its outline pass, which reuses the geometry) runs about a third fewer vertex shaders.
+  geo = mergeVertices(mergeGeometries(parts)!);
   geoCache.set(def.id, geo);
   return geo;
 }
@@ -585,6 +588,8 @@ export interface EnemyCtx {
   targetAlive: boolean;
   hash: SpatialHash<Enemy>;
   colliders: AABB[];
+  /** Grid over `colliders` (rebuilt whenever they change). */
+  readonly walls: StaticBoxGrid;
   onWindup(e: Enemy): void;
   onEnrage(e: Enemy): void;
   fireBullet(e: Enemy, dirX: number, dirZ: number, speed: number, damage: number): void;
@@ -838,7 +843,7 @@ export class Enemies {
       const tgt = ctx.target;
       const dx = tgt.x - e.x;
       const dz = tgt.z - e.z;
-      const dist = Math.hypot(dx, dz) || 1;
+      const dist = Math.sqrt(dx * dx + dz * dz) || 1;
       const nx = dx / dist;
       const nz = dz / dist;
       const speed = e.def.speed * e.speedMul * (e.slowT > 0 ? 1 - e.slowAmt : 1) * (e.rallyT > 0 ? squadTuning.rallySpeed : 1);
@@ -858,342 +863,11 @@ export class Enemies {
         wantX = -nx * speed * 1.1;
         wantZ = -nz * speed * 1.1;
         e.facing = Math.atan2(-dx, -dz);
-      } else switch (e.def.behavior) {
-        case 'chase':
-          this.bend(e, nx, nz, dist);
-          wantX = this.ax * speed;
-          wantZ = this.az * speed;
-          e.facing = Math.atan2(this.ax, this.az);
-          break;
-
-        case 'lunge': {
-          const L = e.def.lunge!;
-          if (e.state === 'move') {
-            this.bend(e, nx, nz, dist);
-            wantX = this.ax * speed;
-            wantZ = this.az * speed;
-            e.facing = Math.atan2(this.ax, this.az);
-            if (dist < L.range * e.scale && ctx.targetAlive) this.enter(e, 'windup', aggro(e, L.windup, true), -5, ctx);
-          } else if (e.state === 'windup') {
-            if (e.t > aggro(e, L.windup, true) * (e.elite ? eliteTuning.track : 0.5)) this.lockOn(e, nx, nz, dx, dz);
-            e.sq = Math.min(e.sq, -0.25);
-            if (e.t <= 0) this.enter(e, 'attack', L.duration, 9);
-          } else if (e.state === 'attack') {
-            wantX = e.lungeX * L.speed;
-            wantZ = e.lungeZ * L.speed;
-            rigid = true;
-            if (e.t <= 0) this.enter(e, 'recover', aggro(e, L.recover), -4);
-          } else if (e.t <= 0) e.state = 'move';
-          break;
-        }
-
-        case 'shooter': {
-          const S = e.def.shoot!;
-          e.facing = Math.atan2(dx, dz);
-          if (e.state === 'move') {
-            // Hold a ring around the player, strafing sideways, or wait behind cover between shots.
-            this.coverMove(e, dt, ctx, nx, nz, dist, speed, S.keepDistance);
-            wantX = this.ax;
-            wantZ = this.az;
-            e.timerA -= dt;
-            const reach = S.pattern === 'sniper' ? 20 : 15;
-            if (e.timerA <= 0 && dist < reach && ctx.targetAlive) {
-              if (S.pattern === 'sniper') {
-                // Long aim: the line tracks you, then locks just before the shot.
-                this.lockOn(e, nx, nz, dx, dz);
-                this.enter(e, 'windup', aggro(e, 1.1, true), -3, ctx);
-              } else this.enter(e, 'windup', aggro(e, 0.45, true), -4, ctx);
-            }
-          } else if (e.state === 'windup') {
-            if (S.pattern === 'sniper' && e.t > 0.25) this.lockOn(e, nx, nz, dx, dz);
-            if (e.t <= 0) {
-              const base = Math.atan2(nz, nx);
-              const bulletSpeed = S.speed * (e.elite ? eliteTuning.bulletSpeed : 1);
-              if (S.pattern === 'sniper') {
-                ctx.fireBullet(e, e.lungeX, e.lungeZ, bulletSpeed, S.damage);
-                this.endVolley(e, S);
-              } else if (S.pattern === 'spiral' || S.pattern === 'burst') {
-                // Spirals stream bullets for a while; bursts fire three quick fans.
-                e.burst = S.pattern === 'spiral' ? S.bullets : 3;
-                e.spin = base;
-                e.timerB = 0;
-                this.enter(e, 'attack', 2, 4);
-              } else {
-                const n = S.bullets + (e.elite ? eliteTuning.extraBullets : 0);
-                const spread = THREE.MathUtils.degToRad(S.spreadDeg) * ((n - 1) / Math.max(1, S.bullets - 1));
-                for (let i = 0; i < n; i++) {
-                  const a = base + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
-                  ctx.fireBullet(e, Math.cos(a), Math.sin(a), bulletSpeed, S.damage);
-                }
-                this.endVolley(e, S);
-              }
-            }
-          } else if (e.state === 'attack') {
-            wantX = wantZ = 0;
-            e.timerB -= dt;
-            if (e.timerB <= 0 && e.burst > 0) {
-              e.burst--;
-              const bulletSpeed = S.speed * (e.elite ? eliteTuning.bulletSpeed : 1);
-              if (S.pattern === 'spiral') {
-                e.timerB = 0.075;
-                e.spin += 0.55;
-                for (const k of [0, Math.PI]) ctx.fireBullet(e, Math.cos(e.spin + k), Math.sin(e.spin + k), bulletSpeed, S.damage);
-              } else {
-                e.timerB = 0.22;
-                const base = Math.atan2(nz, nx);
-                const n = S.bullets + (e.elite ? eliteTuning.extraBullets : 0);
-                const spread = THREE.MathUtils.degToRad(S.spreadDeg) * ((n - 1) / Math.max(1, S.bullets - 1));
-                for (let i = 0; i < n; i++) {
-                  const a = base + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
-                  ctx.fireBullet(e, Math.cos(a), Math.sin(a), bulletSpeed, S.damage);
-                }
-              }
-              e.squash(3);
-            }
-            if (e.burst <= 0 || e.t <= 0) this.endVolley(e, S);
-          }
-          break;
-        }
-
-        case 'charger': {
-          const C = e.def.charge!;
-          if (e.state === 'move' && e.reroute > 0) {
-            // The charge line was walled: sidestep to find a clear one.
-            e.reroute -= dt;
-            wantX = (-nz * e.strafe + nx * 0.3) * speed;
-            wantZ = (nx * e.strafe + nz * 0.3) * speed;
-            e.facing = Math.atan2(dx, dz);
-          } else if (e.state === 'move') {
-            wantX = nx * speed;
-            wantZ = nz * speed;
-            e.facing = Math.atan2(dx, dz);
-            if (dist < C.range && ctx.targetAlive) {
-              if (this.walled(e.x, e.z, nx, nz, Math.min(dist - 0.5, C.speed * C.duration), e.radius * 0.8, ctx.colliders)) {
-                // Keep sidestepping the same way (it turns round if it bumps into something).
-                e.reroute = aiTuning.rerouteTime;
-              } else {
-                this.lockOn(e, nx, nz, dx, dz);
-                this.enter(e, 'windup', aggro(e, C.windup, true), -5, ctx);
-              }
-            }
-          } else if (e.state === 'windup') {
-            // Elites keep re-aiming the charge line for most of the wind-up.
-            if (e.elite && e.t > aggro(e, C.windup, true) * eliteTuning.track) this.lockOn(e, nx, nz, dx, dz);
-            e.sq = Math.min(e.sq, -0.2);
-            if (e.t <= 0) this.enter(e, 'attack', C.duration, 8);
-          } else if (e.state === 'attack') {
-            wantX = e.lungeX * C.speed;
-            wantZ = e.lungeZ * C.speed;
-            rigid = true;
-            if (e.t <= 0) this.enter(e, 'recover', aggro(e, C.recover), -5);
-          } else if (e.t <= 0) e.state = 'move';
-          break;
-        }
-
-        case 'exploder': {
-          const F = e.def.fuse!;
-          if (e.state === 'move') {
-            wantX = nx * speed;
-            wantZ = nz * speed;
-            e.facing = Math.atan2(dx, dz);
-            if (dist < F.range && ctx.targetAlive) this.enter(e, 'windup', aggro(e, F.time, true), -3, ctx);
-          } else if (e.state === 'windup') {
-            // Keeps creeping toward you while the fuse burns.
-            wantX = nx * speed * 0.25;
-            wantZ = nz * speed * 0.25;
-            if (e.t <= 0) {
-              ctx.detonate(e);
-              continue;
-            }
-          }
-          break;
-        }
-
-        case 'spawner': {
-          const P = e.def.spawn!;
-          if (e.state === 'move') {
-            e.timerA -= dt;
-            if (e.timerA <= 0) this.enter(e, 'windup', aggro(e, 0.7, true), -4, ctx);
-          } else if (e.state === 'windup' && e.t <= 0) {
-            for (let i = 0; i < P.count; i++) {
-              const a = (i / P.count) * Math.PI * 2;
-              ctx.spawnChild(P.into, e.x + Math.cos(a) * 1.6, e.z + Math.sin(a) * 1.6, e);
-            }
-            e.squash(8);
-            e.timerA = aggro(e, P.interval);
-            e.state = 'move';
-          }
-          break;
-        }
-
-        case 'shielder': {
-          const G = e.def.guard!;
-          const L = e.def.lunge!;
-          // Turns slowly toward its target, so getting round the side beats the shield.
-          let da = Math.atan2(dx, dz) - e.facing;
-          da = Math.atan2(Math.sin(da), Math.cos(da));
-          const turn = G.turn * (e.elite ? 1.3 : 1) * dt * (e.state === 'move' ? 1 : 0.3);
-          e.facing += Math.max(-turn, Math.min(turn, da));
-          if (e.state === 'move') {
-            wantX = nx * speed;
-            wantZ = nz * speed;
-            if (dist < L.range * e.scale && ctx.targetAlive && Math.abs(da) < 0.6) {
-              e.lungeX = Math.sin(e.facing);
-              e.lungeZ = Math.cos(e.facing);
-              this.enter(e, 'windup', aggro(e, L.windup, true), -5, ctx);
-            }
-          } else if (e.state === 'windup') {
-            e.sq = Math.min(e.sq, -0.2);
-            if (e.t <= 0) this.enter(e, 'attack', L.duration, 8);
-          } else if (e.state === 'attack') {
-            // Shield bash.
-            wantX = e.lungeX * L.speed;
-            wantZ = e.lungeZ * L.speed;
-            rigid = true;
-            if (e.t <= 0) this.enter(e, 'recover', aggro(e, L.recover), -4);
-          } else if (e.t <= 0) e.state = 'move';
-          if ((e.timerB -= dt) <= 0) {
-            e.timerB = 0.25;
-            this.guardAllies(e, G.range * e.scale, ctx);
-          }
-          break;
-        }
-
-        case 'leaper': {
-          const P = e.def.leap!;
-          if (e.state === 'move') {
-            this.bend(e, nx, nz, dist);
-            wantX = this.ax * speed;
-            wantZ = this.az * speed;
-            e.facing = Math.atan2(this.ax, this.az);
-            e.timerA -= dt;
-            if (e.timerA <= 0 && dist < P.range && ctx.targetAlive) {
-              e.targetX = tgt.x;
-              e.targetZ = tgt.z;
-              this.enter(e, 'windup', aggro(e, P.windup, true), -6, ctx);
-            }
-          } else if (e.state === 'windup') {
-            e.sq = Math.min(e.sq, -0.3);
-            // The landing ring follows you for the first half, then commits.
-            if (e.t > aggro(e, P.windup, true) * 0.5) {
-              e.targetX = tgt.x;
-              e.targetZ = tgt.z;
-            }
-            e.facing = Math.atan2(e.targetX - e.x, e.targetZ - e.z);
-            if (e.t <= 0) {
-              const jx = e.targetX - e.x;
-              const jz = e.targetZ - e.z;
-              const jd = Math.hypot(jx, jz);
-              const max = P.range * 1.2;
-              if (jd > max) {
-                e.targetX = e.x + (jx / jd) * max;
-                e.targetZ = e.z + (jz / jd) * max;
-              }
-              e.fromX = e.x;
-              e.fromZ = e.z;
-              this.enter(e, 'attack', P.air, 10);
-            }
-          } else if (e.state === 'attack') {
-            // Airborne: walls don't stop it (the wall check skips hopping enemies).
-            const k = 1 - Math.max(0, e.t) / P.air;
-            e.x = e.fromX + (e.targetX - e.fromX) * k;
-            e.z = e.fromZ + (e.targetZ - e.fromZ) * k;
-            e.hopY = Math.sin(k * Math.PI) * P.height * e.scale;
-            rigid = true;
-            if (e.t <= 0) {
-              e.hopY = 0;
-              ctx.land(e, P.radius * e.scale, P.damage);
-              e.timerA = aggro(e, P.cooldown * (0.8 + Math.random() * 0.4));
-              this.enter(e, 'recover', aggro(e, P.recover), -10);
-            }
-          } else if (e.t <= 0) e.state = 'move';
-          break;
-        }
-
-        case 'medic': {
-          const H = e.def.heal!;
-          e.facing = Math.atan2(dx, dz);
-          if (e.state === 'move') {
-            // Hangs back behind the crowd.
-            const radial = dist > H.keepDistance + 1 ? 1 : dist < H.keepDistance - 2 ? -1.2 : 0;
-            wantX = (nx * radial - nz * e.strafe * 0.5) * speed;
-            wantZ = (nz * radial + nx * e.strafe * 0.5) * speed;
-            if ((e.timerA -= dt) <= 0) this.enter(e, 'windup', aggro(e, H.windup, true), -4, ctx);
-          } else if (e.state === 'windup' && e.t <= 0) {
-            ctx.heal(e, H.radius * e.scale, H.frac);
-            e.squash(8);
-            e.timerA = aggro(e, H.interval);
-            e.state = 'move';
-          }
-          break;
-        }
-
-        case 'mortar': {
-          const M = e.def.mortar!;
-          e.facing = Math.atan2(dx, dz);
-          if (e.state === 'move') {
-            this.coverMove(e, dt, ctx, nx, nz, dist, speed, M.keepDistance);
-            wantX = this.ax;
-            wantZ = this.az;
-            e.timerA -= dt;
-            if (e.timerA <= 0 && dist < 18 && ctx.targetAlive) this.enter(e, 'windup', aggro(e, 0.7, true), -6, ctx);
-          } else if (e.state === 'windup' && e.t <= 0) {
-            const n = M.shells + (e.elite ? 2 : 0);
-            const dmg = M.damage * (e.elite ? 1.3 : 1);
-            for (let i = 0; i < n; i++) {
-              const a = Math.random() * Math.PI * 2;
-              const r = i === 0 ? 0 : 1.6 + Math.random() * 2.2;
-              ctx.strike(tgt.x + Math.cos(a) * r, tgt.z + Math.sin(a) * r, M.radius, M.delay + i * 0.15, dmg);
-            }
-            e.squash(10);
-            e.timerA = aggro(e, M.interval * (0.85 + Math.random() * 0.3));
-            e.state = 'move';
-          }
-          break;
-        }
-
-        case 'golden': {
-          // Runs away, zig-zagging, and escapes when its time is up.
-          e.timerA -= dt;
-          e.t = e.timerA; // synced so clients can blink it before it escapes
-          if (e.timerA <= 0) {
-            ctx.escape(e);
-            continue;
-          }
-          const wob = Math.sin(e.timerA * 3.1 + e.uid) * 0.7;
-          const c = Math.cos(wob);
-          const sn = Math.sin(wob);
-          let fx = -nx * c + nz * sn;
-          let fz = -nz * c - nx * sn;
-          const lim = ctx.bounds() - goldenTuning.edge;
-          if (Math.abs(e.x) > lim) fx -= Math.sign(e.x) * ((Math.abs(e.x) - lim) / goldenTuning.edge) * 2;
-          if (Math.abs(e.z) > lim) fz -= Math.sign(e.z) * ((Math.abs(e.z) - lim) / goldenTuning.edge) * 2;
-          const fd = Math.hypot(fx, fz) || 1;
-          const v = speed * (dist < goldenTuning.panic ? goldenTuning.panicSpeed : 1);
-          wantX = (fx / fd) * v;
-          wantZ = (fz / fd) * v;
-          e.facing = Math.atan2(wantX, wantZ);
-          if ((e.timerB -= dt) <= 0) {
-            e.timerB = 0.2;
-            ctx.sparkle(e);
-          }
-          break;
-        }
-
-        case 'boss':
-        case 'rex':
-        case 'queen':
-        case 'omega':
-          rigid = updateBoss(e, dt, ctx, nx, nz, dist, speed);
-          wantX = e.vx;
-          wantZ = e.vz;
-          break;
-        case 'reaper':
-          // Straight at you, ignoring the speed scaling: just faster than a hero's base speed.
-          wantX = e.vx = nx * e.def.speed;
-          wantZ = e.vz = nz * e.def.speed;
-          e.facing = Math.atan2(dx, dz);
-          break;
+      } else if (!this.behave(e, dt, ctx, dx, dz, nx, nz, dist, speed)) continue;
+      else {
+        wantX = this.wantX;
+        wantZ = this.wantZ;
+        rigid = this.rigid;
       }
 
       // Escorts hold formation behind their elite until a hero is close.
@@ -1223,8 +897,12 @@ export class Enemies {
       let sz = 0;
       if (!e.def.boss && e.def.behavior !== 'reaper') {
         const r = e.radius;
-        ctx.hash.query(e.x, e.z, r * 2, (o) => {
-          if (o === e || !o.alive) return;
+        // queryInto + a plain loop: a closure here allocated a context (and boxed sx/sz) per enemy per step.
+        const near = this.near;
+        const n = ctx.hash.queryInto(e.x, e.z, r * 2, near);
+        for (let i = 0; i < n; i++) {
+          const o = near[i];
+          if (o === e || !o.alive) continue;
           const ox = e.x - o.x;
           const oz = e.z - o.z;
           const d2 = ox * ox + oz * oz;
@@ -1235,7 +913,7 @@ export class Enemies {
             sx += (ox / d) * push;
             sz += (oz / d) * push;
           }
-        });
+        }
         const steer = rigid ? 1 : 1 - Math.exp(-10 * dt);
         e.vx += (wantX - e.vx) * steer;
         e.vz += (wantZ - e.vz) * steer;
@@ -1251,7 +929,7 @@ export class Enemies {
         e.z = Math.max(-58, Math.min(58, e.z));
       }
       // Rex smashes straight through cover while it charges.
-      const walled = e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && e.def.behavior === 'rex') && e.hopY <= 0 && resolveCircleVsBoxes(e, e.radius, ctx.colliders);
+      const walled = e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && e.def.behavior === 'rex') && e.hopY <= 0 && ctx.walls.resolveCircle(e, e.radius);
       if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
       if (walled && rigid && e.def.behavior === 'charger') {
         // Rhinos stop (and wobble) when they hit a wall mid-charge.
@@ -1259,6 +937,368 @@ export class Enemies {
       }
     }
   }
+
+  /** Behaviour outputs of behave(). */
+  private wantX = 0;
+  private wantZ = 0;
+  private rigid = false;
+
+  /**
+   * One enemy's behaviour for this step (split out of update() so both stay
+   * small enough for the optimizing compiler). Writes the wanted velocity to
+   * wantX/wantZ and whether it is an attack move to rigid; returns false if
+   * the enemy is gone (detonated, escaped).
+   */
+  private behave(e: Enemy, dt: number, ctx: EnemyCtx, dx: number, dz: number, nx: number, nz: number, dist: number, speed: number): boolean {
+    const tgt = ctx.target;
+    let wantX = 0;
+    let wantZ = 0;
+    let rigid = false;
+    switch (e.def.behavior) {
+      case 'chase':
+        this.bend(e, nx, nz, dist);
+        wantX = this.ax * speed;
+        wantZ = this.az * speed;
+        e.facing = Math.atan2(this.ax, this.az);
+        break;
+
+      case 'lunge': {
+        const L = e.def.lunge!;
+        if (e.state === 'move') {
+          this.bend(e, nx, nz, dist);
+          wantX = this.ax * speed;
+          wantZ = this.az * speed;
+          e.facing = Math.atan2(this.ax, this.az);
+          if (dist < L.range * e.scale && ctx.targetAlive) this.enter(e, 'windup', aggro(e, L.windup, true), -5, ctx);
+        } else if (e.state === 'windup') {
+          if (e.t > aggro(e, L.windup, true) * (e.elite ? eliteTuning.track : 0.5)) this.lockOn(e, nx, nz, dx, dz);
+          e.sq = Math.min(e.sq, -0.25);
+          if (e.t <= 0) this.enter(e, 'attack', L.duration, 9);
+        } else if (e.state === 'attack') {
+          wantX = e.lungeX * L.speed;
+          wantZ = e.lungeZ * L.speed;
+          rigid = true;
+          if (e.t <= 0) this.enter(e, 'recover', aggro(e, L.recover), -4);
+        } else if (e.t <= 0) e.state = 'move';
+        break;
+      }
+
+      case 'shooter': {
+        const S = e.def.shoot!;
+        e.facing = Math.atan2(dx, dz);
+        if (e.state === 'move') {
+          // Hold a ring around the player, strafing sideways, or wait behind cover between shots.
+          this.coverMove(e, dt, ctx, nx, nz, dist, speed, S.keepDistance);
+          wantX = this.ax;
+          wantZ = this.az;
+          e.timerA -= dt;
+          const reach = S.pattern === 'sniper' ? 20 : 15;
+          if (e.timerA <= 0 && dist < reach && ctx.targetAlive) {
+            if (S.pattern === 'sniper') {
+              // Long aim: the line tracks you, then locks just before the shot.
+              this.lockOn(e, nx, nz, dx, dz);
+              this.enter(e, 'windup', aggro(e, 1.1, true), -3, ctx);
+            } else this.enter(e, 'windup', aggro(e, 0.45, true), -4, ctx);
+          }
+        } else if (e.state === 'windup') {
+          if (S.pattern === 'sniper' && e.t > 0.25) this.lockOn(e, nx, nz, dx, dz);
+          if (e.t <= 0) {
+            const base = Math.atan2(nz, nx);
+            const bulletSpeed = S.speed * (e.elite ? eliteTuning.bulletSpeed : 1);
+            if (S.pattern === 'sniper') {
+              ctx.fireBullet(e, e.lungeX, e.lungeZ, bulletSpeed, S.damage);
+              this.endVolley(e, S);
+            } else if (S.pattern === 'spiral' || S.pattern === 'burst') {
+              // Spirals stream bullets for a while; bursts fire three quick fans.
+              e.burst = S.pattern === 'spiral' ? S.bullets : 3;
+              e.spin = base;
+              e.timerB = 0;
+              this.enter(e, 'attack', 2, 4);
+            } else {
+              const n = S.bullets + (e.elite ? eliteTuning.extraBullets : 0);
+              const spread = THREE.MathUtils.degToRad(S.spreadDeg) * ((n - 1) / Math.max(1, S.bullets - 1));
+              for (let i = 0; i < n; i++) {
+                const a = base + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
+                ctx.fireBullet(e, Math.cos(a), Math.sin(a), bulletSpeed, S.damage);
+              }
+              this.endVolley(e, S);
+            }
+          }
+        } else if (e.state === 'attack') {
+          wantX = wantZ = 0;
+          e.timerB -= dt;
+          if (e.timerB <= 0 && e.burst > 0) {
+            e.burst--;
+            const bulletSpeed = S.speed * (e.elite ? eliteTuning.bulletSpeed : 1);
+            if (S.pattern === 'spiral') {
+              e.timerB = 0.075;
+              e.spin += 0.55;
+              for (const k of [0, Math.PI]) ctx.fireBullet(e, Math.cos(e.spin + k), Math.sin(e.spin + k), bulletSpeed, S.damage);
+            } else {
+              e.timerB = 0.22;
+              const base = Math.atan2(nz, nx);
+              const n = S.bullets + (e.elite ? eliteTuning.extraBullets : 0);
+              const spread = THREE.MathUtils.degToRad(S.spreadDeg) * ((n - 1) / Math.max(1, S.bullets - 1));
+              for (let i = 0; i < n; i++) {
+                const a = base + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
+                ctx.fireBullet(e, Math.cos(a), Math.sin(a), bulletSpeed, S.damage);
+              }
+            }
+            e.squash(3);
+          }
+          if (e.burst <= 0 || e.t <= 0) this.endVolley(e, S);
+        }
+        break;
+      }
+
+      case 'charger': {
+        const C = e.def.charge!;
+        if (e.state === 'move' && e.reroute > 0) {
+          // The charge line was walled: sidestep to find a clear one.
+          e.reroute -= dt;
+          wantX = (-nz * e.strafe + nx * 0.3) * speed;
+          wantZ = (nx * e.strafe + nz * 0.3) * speed;
+          e.facing = Math.atan2(dx, dz);
+        } else if (e.state === 'move') {
+          wantX = nx * speed;
+          wantZ = nz * speed;
+          e.facing = Math.atan2(dx, dz);
+          if (dist < C.range && ctx.targetAlive) {
+            if (this.walled(e.x, e.z, nx, nz, Math.min(dist - 0.5, C.speed * C.duration), e.radius * 0.8, ctx.colliders)) {
+              // Keep sidestepping the same way (it turns round if it bumps into something).
+              e.reroute = aiTuning.rerouteTime;
+            } else {
+              this.lockOn(e, nx, nz, dx, dz);
+              this.enter(e, 'windup', aggro(e, C.windup, true), -5, ctx);
+            }
+          }
+        } else if (e.state === 'windup') {
+          // Elites keep re-aiming the charge line for most of the wind-up.
+          if (e.elite && e.t > aggro(e, C.windup, true) * eliteTuning.track) this.lockOn(e, nx, nz, dx, dz);
+          e.sq = Math.min(e.sq, -0.2);
+          if (e.t <= 0) this.enter(e, 'attack', C.duration, 8);
+        } else if (e.state === 'attack') {
+          wantX = e.lungeX * C.speed;
+          wantZ = e.lungeZ * C.speed;
+          rigid = true;
+          if (e.t <= 0) this.enter(e, 'recover', aggro(e, C.recover), -5);
+        } else if (e.t <= 0) e.state = 'move';
+        break;
+      }
+
+      case 'exploder': {
+        const F = e.def.fuse!;
+        if (e.state === 'move') {
+          wantX = nx * speed;
+          wantZ = nz * speed;
+          e.facing = Math.atan2(dx, dz);
+          if (dist < F.range && ctx.targetAlive) this.enter(e, 'windup', aggro(e, F.time, true), -3, ctx);
+        } else if (e.state === 'windup') {
+          // Keeps creeping toward you while the fuse burns.
+          wantX = nx * speed * 0.25;
+          wantZ = nz * speed * 0.25;
+          if (e.t <= 0) {
+            ctx.detonate(e);
+            return false;
+          }
+        }
+        break;
+      }
+
+      case 'spawner': {
+        const P = e.def.spawn!;
+        if (e.state === 'move') {
+          e.timerA -= dt;
+          if (e.timerA <= 0) this.enter(e, 'windup', aggro(e, 0.7, true), -4, ctx);
+        } else if (e.state === 'windup' && e.t <= 0) {
+          for (let i = 0; i < P.count; i++) {
+            const a = (i / P.count) * Math.PI * 2;
+            ctx.spawnChild(P.into, e.x + Math.cos(a) * 1.6, e.z + Math.sin(a) * 1.6, e);
+          }
+          e.squash(8);
+          e.timerA = aggro(e, P.interval);
+          e.state = 'move';
+        }
+        break;
+      }
+
+      case 'shielder': {
+        const G = e.def.guard!;
+        const L = e.def.lunge!;
+        // Turns slowly toward its target, so getting round the side beats the shield.
+        let da = Math.atan2(dx, dz) - e.facing;
+        da = Math.atan2(Math.sin(da), Math.cos(da));
+        const turn = G.turn * (e.elite ? 1.3 : 1) * dt * (e.state === 'move' ? 1 : 0.3);
+        e.facing += Math.max(-turn, Math.min(turn, da));
+        if (e.state === 'move') {
+          wantX = nx * speed;
+          wantZ = nz * speed;
+          if (dist < L.range * e.scale && ctx.targetAlive && Math.abs(da) < 0.6) {
+            e.lungeX = Math.sin(e.facing);
+            e.lungeZ = Math.cos(e.facing);
+            this.enter(e, 'windup', aggro(e, L.windup, true), -5, ctx);
+          }
+        } else if (e.state === 'windup') {
+          e.sq = Math.min(e.sq, -0.2);
+          if (e.t <= 0) this.enter(e, 'attack', L.duration, 8);
+        } else if (e.state === 'attack') {
+          // Shield bash.
+          wantX = e.lungeX * L.speed;
+          wantZ = e.lungeZ * L.speed;
+          rigid = true;
+          if (e.t <= 0) this.enter(e, 'recover', aggro(e, L.recover), -4);
+        } else if (e.t <= 0) e.state = 'move';
+        if ((e.timerB -= dt) <= 0) {
+          e.timerB = 0.25;
+          this.guardAllies(e, G.range * e.scale, ctx);
+        }
+        break;
+      }
+
+      case 'leaper': {
+        const P = e.def.leap!;
+        if (e.state === 'move') {
+          this.bend(e, nx, nz, dist);
+          wantX = this.ax * speed;
+          wantZ = this.az * speed;
+          e.facing = Math.atan2(this.ax, this.az);
+          e.timerA -= dt;
+          if (e.timerA <= 0 && dist < P.range && ctx.targetAlive) {
+            e.targetX = tgt.x;
+            e.targetZ = tgt.z;
+            this.enter(e, 'windup', aggro(e, P.windup, true), -6, ctx);
+          }
+        } else if (e.state === 'windup') {
+          e.sq = Math.min(e.sq, -0.3);
+          // The landing ring follows you for the first half, then commits.
+          if (e.t > aggro(e, P.windup, true) * 0.5) {
+            e.targetX = tgt.x;
+            e.targetZ = tgt.z;
+          }
+          e.facing = Math.atan2(e.targetX - e.x, e.targetZ - e.z);
+          if (e.t <= 0) {
+            const jx = e.targetX - e.x;
+            const jz = e.targetZ - e.z;
+            const jd = Math.hypot(jx, jz);
+            const max = P.range * 1.2;
+            if (jd > max) {
+              e.targetX = e.x + (jx / jd) * max;
+              e.targetZ = e.z + (jz / jd) * max;
+            }
+            e.fromX = e.x;
+            e.fromZ = e.z;
+            this.enter(e, 'attack', P.air, 10);
+          }
+        } else if (e.state === 'attack') {
+          // Airborne: walls don't stop it (the wall check skips hopping enemies).
+          const k = 1 - Math.max(0, e.t) / P.air;
+          e.x = e.fromX + (e.targetX - e.fromX) * k;
+          e.z = e.fromZ + (e.targetZ - e.fromZ) * k;
+          e.hopY = Math.sin(k * Math.PI) * P.height * e.scale;
+          rigid = true;
+          if (e.t <= 0) {
+            e.hopY = 0;
+            ctx.land(e, P.radius * e.scale, P.damage);
+            e.timerA = aggro(e, P.cooldown * (0.8 + Math.random() * 0.4));
+            this.enter(e, 'recover', aggro(e, P.recover), -10);
+          }
+        } else if (e.t <= 0) e.state = 'move';
+        break;
+      }
+
+      case 'medic': {
+        const H = e.def.heal!;
+        e.facing = Math.atan2(dx, dz);
+        if (e.state === 'move') {
+          // Hangs back behind the crowd.
+          const radial = dist > H.keepDistance + 1 ? 1 : dist < H.keepDistance - 2 ? -1.2 : 0;
+          wantX = (nx * radial - nz * e.strafe * 0.5) * speed;
+          wantZ = (nz * radial + nx * e.strafe * 0.5) * speed;
+          if ((e.timerA -= dt) <= 0) this.enter(e, 'windup', aggro(e, H.windup, true), -4, ctx);
+        } else if (e.state === 'windup' && e.t <= 0) {
+          ctx.heal(e, H.radius * e.scale, H.frac);
+          e.squash(8);
+          e.timerA = aggro(e, H.interval);
+          e.state = 'move';
+        }
+        break;
+      }
+
+      case 'mortar': {
+        const M = e.def.mortar!;
+        e.facing = Math.atan2(dx, dz);
+        if (e.state === 'move') {
+          this.coverMove(e, dt, ctx, nx, nz, dist, speed, M.keepDistance);
+          wantX = this.ax;
+          wantZ = this.az;
+          e.timerA -= dt;
+          if (e.timerA <= 0 && dist < 18 && ctx.targetAlive) this.enter(e, 'windup', aggro(e, 0.7, true), -6, ctx);
+        } else if (e.state === 'windup' && e.t <= 0) {
+          const n = M.shells + (e.elite ? 2 : 0);
+          const dmg = M.damage * (e.elite ? 1.3 : 1);
+          for (let i = 0; i < n; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const r = i === 0 ? 0 : 1.6 + Math.random() * 2.2;
+            ctx.strike(tgt.x + Math.cos(a) * r, tgt.z + Math.sin(a) * r, M.radius, M.delay + i * 0.15, dmg);
+          }
+          e.squash(10);
+          e.timerA = aggro(e, M.interval * (0.85 + Math.random() * 0.3));
+          e.state = 'move';
+        }
+        break;
+      }
+
+      case 'golden': {
+        // Runs away, zig-zagging, and escapes when its time is up.
+        e.timerA -= dt;
+        e.t = e.timerA; // synced so clients can blink it before it escapes
+        if (e.timerA <= 0) {
+          ctx.escape(e);
+          return false;
+        }
+        const wob = Math.sin(e.timerA * 3.1 + e.uid) * 0.7;
+        const c = Math.cos(wob);
+        const sn = Math.sin(wob);
+        let fx = -nx * c + nz * sn;
+        let fz = -nz * c - nx * sn;
+        const lim = ctx.bounds() - goldenTuning.edge;
+        if (Math.abs(e.x) > lim) fx -= Math.sign(e.x) * ((Math.abs(e.x) - lim) / goldenTuning.edge) * 2;
+        if (Math.abs(e.z) > lim) fz -= Math.sign(e.z) * ((Math.abs(e.z) - lim) / goldenTuning.edge) * 2;
+        const fd = Math.hypot(fx, fz) || 1;
+        const v = speed * (dist < goldenTuning.panic ? goldenTuning.panicSpeed : 1);
+        wantX = (fx / fd) * v;
+        wantZ = (fz / fd) * v;
+        e.facing = Math.atan2(wantX, wantZ);
+        if ((e.timerB -= dt) <= 0) {
+          e.timerB = 0.2;
+          ctx.sparkle(e);
+        }
+        break;
+      }
+
+      case 'boss':
+      case 'rex':
+      case 'queen':
+      case 'omega':
+        rigid = updateBoss(e, dt, ctx, nx, nz, dist, speed);
+        wantX = e.vx;
+        wantZ = e.vz;
+        break;
+      case 'reaper':
+        // Straight at you, ignoring the speed scaling: just faster than a hero's base speed.
+        wantX = e.vx = nx * e.def.speed;
+        wantZ = e.vz = nz * e.def.speed;
+        e.facing = Math.atan2(dx, dz);
+        break;
+    }
+    this.wantX = wantX;
+    this.wantZ = wantZ;
+    this.rigid = rigid;
+    return true;
+  }
+
+  /** Scratch list for neighbour queries (SpatialHash.queryInto). */
+  private near: Enemy[] = [];
 
   /** Scratch output of bend() / coverMove(). */
   private ax = 0;
@@ -1446,6 +1486,8 @@ export class Enemies {
         d.zones.setMatrixAt(d.zones.count++, this.m4);
       }
 
+      // Off screen: no body, shadow or aura (telegraphs above still draw; they can be long).
+      if (!viewCull.sphere(x, y + e.radius, z, e.radius * 2)) continue;
       const b = this.batches.get(e.def.id)!;
       if (b.mesh.count >= BATCH_CAP) continue;
       const i = b.mesh.count++;
