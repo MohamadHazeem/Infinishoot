@@ -99,6 +99,7 @@ export function goTitle(this: Game): void {
 /** Back to a single local hero on the title screen, closing any connection. */
 export function leaveToTitle(this: Game): void {
   this.pvp = null;
+  this.mpReset(); // no Versus match, local co-op pads or public listing (systems/mp.ts)
   this.host?.close();
   this.client?.close();
   this.host = null;
@@ -131,7 +132,7 @@ export function pickDifficulty(this: Game): DifficultyDef {
 /** Start a run (solo or online host). */
 export function startRun(this: Game, fixed?: { seed: number; difficulty: string }): void {
   this.paused = false;
-  if (this.role !== 'solo') this.runMode = 'standard';
+  if (this.role !== 'solo' && this.lobbyKind !== 'weekly') this.runMode = 'standard'; // online weekly co-op keeps 'weekly'
   this.difficulty = fixed ? DIFF_BY_ID[fixed.difficulty as DifficultyId] ?? DIFF_BY_ID.normal : this.pickDifficulty();
   this.runDate = today();
   this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
@@ -279,6 +280,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   if (this.meta.banked) return;
   const bolts = bankMeta(this, sum);
   sum.bolts = bolts;
+  this.mpRunBanked(sum); // weekly co-op team best and board (systems/mp.ts)
   const L = save.lifetime;
   L.runs++;
   L.kills += sum.kills;

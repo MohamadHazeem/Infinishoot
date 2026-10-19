@@ -28,10 +28,12 @@ import { onHeartbeat } from '../netFeel';
 import { onCoverMsg } from '../coverBreak';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
+  if (this.mpClientMessage(m)) return; // Versus results and order replies (systems/mp.ts)
   switch (m.t) {
     case 'lobby': {
       const players = (m.players as { name: string; color: string }[]) ?? [];
-      this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind: m.kind === 'pvp' ? 'pvp' : 'coop' });
+      const kind = (['pvp', 'versus', 'weekly'] as const).find((k) => k === m.kind) ?? 'coop';
+      this.screens.setLobby({ code: String(m.code ?? ''), players, isHost: false, status: 'Connected! Waiting for the host to start...', difficulty: String(m.difficulty ?? 'normal'), kind, extra: m.mp });
       break;
     }
     case 'pvpgo':
@@ -378,6 +380,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applySkillNet(s.sk);
   this.applyCompanionNet(s.cp);
   this.applyTimeNet(s.tm);
+  this.applyVersusNet(s.vs);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   this.applyWorldEventNet(s.we, s.wt);

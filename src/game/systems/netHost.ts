@@ -68,6 +68,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
   const h = this.heroByPeer(from);
   if (!h) return;
   h.lastSeen = performance.now();
+  if (this.versusHostMessage(h, m)) return; // Versus Overlord orders and camera (systems/versus.ts)
   if (m.t === 'rvote') return this.routeVote(h, Number(m.i)); // route map vote (systems/route.ts)
   if (m.t === 'i') {
     h.remote = {
@@ -147,7 +148,7 @@ export function hostTick(this: Game, frozen: boolean): void {
   if (this.stepN % (frozen ? 15 : SNAP_EVERY) !== 0) return;
   const events = this.vfx.drain();
   for (const h of this.heroes) {
-    if (!h.peerId || h.left) continue;
+    if (!h.peerId || (h.left && this.versus?.overlord !== h.index)) continue; // a Versus Overlord sits out but still watches
     this.host.send(h.peerId, this.buildSnapshot(h, events));
   }
 }
@@ -225,6 +226,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
     we: this.worldEventNet(),
     wt: this.worldEventLive(forHero),
     tm: this.timeNet(forHero),
+    vs: this.versusNet(),
   };
   return enc.encode(body, { en: packEnemies(en), enN: en.length, pk: packPickups(this.pickups, pi), pkN: pi.length }, { bu: packBullets(this.bullets, bi), fx: fxEncoder.encode(events, keepFx) });
 }

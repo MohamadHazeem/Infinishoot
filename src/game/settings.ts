@@ -88,6 +88,10 @@ export interface Settings {
   look: string;
   /** Slow-motion replay of the hit that ended the run, before the game-over screen. */
   deathReplay: boolean;
+  /** Weekly co-op team name this machine hosts under (MP lane; '' = "<name>'s Team"). */
+  teamName: string;
+  /** Host lobbies as PUBLIC (listed in PLAY ONLINE > BROWSE GAMES when the online service is on). */
+  lobbyPublic: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -140,6 +144,8 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   animeLook: false,
   look: '---00',
   deathReplay: true,
+  teamName: '',
+  lobbyPublic: false,
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -150,6 +156,8 @@ settings.portraitPops ??= true;
 settings.animeLook ??= false;
 settings.look ??= '---00';
 settings.deathReplay ??= true;
+settings.teamName ??= '';
+settings.lobbyPublic ??= false;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */
