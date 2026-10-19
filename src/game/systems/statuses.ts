@@ -3,6 +3,7 @@
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
  * installed on the class as fields, e.g. `ignite = Statuses.ignite;`.
  */
+import { ARENA_SOURCE_NAMES } from './arena';
 import type { Game } from '../game';
 import { scoreTuning, bombTuning, dropTuning, chestTuning, nukeTuning, statusTuning, cheats, BULLET_KINDS, IMPACT_BLAST } from '../game';
 import { StaticBoxGrid } from '../../core/spatialHash';
@@ -114,6 +115,7 @@ export function updateStatuses(this: Game, dt: number): void {
 
 export function sourceName(this: Game, id: string): string {
   if (SPECIALS[id]) return SPECIALS[id].name;
+  if (ARENA_SOURCE_NAMES[id]) return ARENA_SOURCE_NAMES[id];
   if (PASSIVES[id]) return PASSIVES[id].name;
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
@@ -212,6 +214,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     if (healed > 0) this.vfx.num(by.player.x, 2.4, by.player.z, `+${Math.round(healed)}`, 'heal');
   }
   this.runEvents.onKill(source, this.combo);
+  this.onEnvKill(e, source);
   if (isBoss) this.grantRelics();
   // Combos and Mod triggers after the kill is resolved (they may kill more).
   if (by) {
@@ -230,6 +233,7 @@ export function blast(this: Game, x: number, z: number, r: number, base: number,
   this.vfx.burst(x, 0.6, z, { count: 8, color, color2: '#fff35c', speed: [3, 8], size: [0.15, 0.3], life: [0.2, 0.45], up: 4, gravity: 12 });
   if (r >= 1.2) this.vfx.scar(x, z, r * 0.7, SCAR_COLORS.scorch, 10);
   if (this.authority) this.barrels.igniteNear(x, z, r, by.index);
+  if (this.authority) this.blastToys(x, z, r, base, by.index);
   const targets = this.enemiesInRadius(x, z, r, this.scratch).slice();
   // Napalm: an explosion that catches a burning enemy sets the whole blast alight.
   const napalm = explosive && !noStatus && targets.some((e) => e.burnT > 0);
@@ -492,6 +496,7 @@ export function updateBullets(this: Game, dt: number): void {
       }
     }
     if (this.walls.hitCircle(x, z, b.radius[i])) {
+      if (b.team[i] === Team.Player) this.hitToys(x, z, b.radius[i], b.damage[i], b.owner[i], b.vx[i], b.vz[i]);
       this.vfx.burst(b.px[i], BULLET_Y, b.pz[i], { count: 3, color: '#ffffff', color2: b.team[i] === Team.Enemy ? '#ff3df0' : '#fff36b', speed: [2, 6], size: [0.08, 0.15], life: [0.1, 0.25], up: 2, gravity: 10 });
       this.bulletBlast(i);
       b.kill(i--);

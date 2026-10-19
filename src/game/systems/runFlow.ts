@@ -60,6 +60,7 @@ export function loadArena(this: Game, seed: number, stage = 1): void {
   this.walls = new StaticBoxGrid(this.arena.colliders);
   this.enemyCtx.colliders = this.arena.colliders;
   this.barrels.load(this.arena);
+  this.loadToys();
   this.chests.clear();
   this.ambience.load(biome.id, seed, this.arena.halfSize, (x, z) => this.walls.hitCircle(x, z, 0.5));
   this.scars.clear();

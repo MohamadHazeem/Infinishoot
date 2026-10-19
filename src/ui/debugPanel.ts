@@ -9,6 +9,9 @@ import { cheats, scoreTuning, type Game } from '../game/game';
 import { specialTuning } from '../data/specials';
 import { directorTuning } from '../game/director';
 import { bossTuning, eliteTuning } from '../game/enemies';
+import { arenaTuning } from '../game/interactives';
+import { hazardTuning } from '../game/hazards';
+import { objectiveTuning } from '../game/objectives';
 import { juiceTuning } from '../game/juice';
 import { WEAPONS } from '../data/weapons';
 import { MODS } from '../data/mods';
@@ -119,6 +122,12 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   dir.add(directorTuning, 'coopEase', 0.5, 1.2, 0.05).name('Co-op ease');
   dir.add(scoreTuning, 'comboWindow', 0.5, 6, 0.1);
   dir.add(specialTuning, 'cooldown', 3, 30, 0.5).name('Special cooldown (s)');
+
+  // Arena toys, hazards and objectives (src/game/interactives.ts, hazards.ts, objectives.ts).
+  const ar = gui.addFolder('Arena').close();
+  for (const k of ['jumpTime', 'jumpHeight', 'landRadius', 'landDmg', 'landKnock', 'turretTime', 'turretCooldown', 'turretRate', 'turretDmg', 'crateHp', 'pillarHp'] as const) ar.add(arenaTuning, k);
+  for (const k of ['knockSpeed', 'iceSlide', 'splatSpeed', 'sandHero', 'sinkTime', 'thornTick', 'envScore'] as const) ar.add(hazardTuning, k);
+  for (const k of ['beaconTime', 'beaconDrain', 'envKills', 'goldBase'] as const) ar.add(objectiveTuning, k);
 
   const boss = gui.addFolder('Boss').close();
   boss.add(bossTuning, 'hp', 0.2, 5, 0.1);

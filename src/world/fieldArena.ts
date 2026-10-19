@@ -7,6 +7,20 @@ import { paint, tiledBox } from '../render/geometry';
 import { mergeStatic } from '../render/mergeStatic';
 import { aabbFromCenter, overlapsAny, type AABB } from './collision';
 import { BIOMES, type BiomeDef } from '../data/biomes';
+import { biomeHazard, type HazardZone } from '../game/hazards';
+
+/** Breakable cover: shoot it down. Solid until destroyed; pillars topple and crush what's under them. */
+export interface ArenaProp {
+  kind: 'crate' | 'stack' | 'pillar';
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+  /** Yaw of the (bottom) crate; `rot2` is the stacked crate's (stacks only). */
+  rot: number;
+  rot2: number;
+  box: AABB;
+}
 
 /**
  * Big, open island field for survival stages. Mostly open ground for kiting,
@@ -22,10 +36,20 @@ export interface Arena {
   barrels: { x: number; z: number; box: AABB }[];
   /** Treasure chest spots (not solid: you walk into them to open). */
   chests: { x: number; z: number; facing: number }[];
-  /** Ground hazards: lava burns, ice is slippery. */
-  hazards: { x: number; z: number; r: number; kind: 'lava' | 'ice' }[];
+  /** Ground hazards: lava burns, ice is slippery, quicksand slows and swallows, thorns scratch (src/game/hazards.ts). */
+  hazards: HazardZone[];
   /** Conveyor belts: axis-aligned strips that carry anything on them along (dx, dz). */
   conveyors: { x: number; z: number; w: number; d: number; dx: number; dz: number }[];
+  /** The seed this arena was built from (interactives and objectives derive from it). */
+  seed: number;
+  /** Breakable cover (crates, crate stacks, toppling pillars); drawn by src/game/interactives.ts. */
+  props: ArenaProp[];
+  /** Jump pads: step on (x, z) to be launched to (tx, tz). */
+  pads: { x: number; z: number; tx: number; tz: number }[];
+  /** Turret pads: walk in to switch the turret on. */
+  turrets: { x: number; z: number }[];
+  /** Clear spots spread over the field for objectives (totems, shards, beacon). */
+  spots: { x: number; z: number }[];
 }
 
 export interface ArenaOptions {
@@ -45,12 +69,12 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   const colliders: AABB[] = [];
   const barrels: Arena['barrels'] = [];
   const chests: Arena['chests'] = [];
+  const props: ArenaProp[] = [];
   const tex = {
     grass: textures[biome.ground](),
     path: textures[biome.path](),
     sand: textures[biome.rim](),
     brick: textures[biome.wall](),
-    crate: textures.crate(),
     water: textures[biome.sea.tex](),
     leaves: textures[biome.leaves](),
     edge: textures[biome.edge.tex](),
@@ -162,8 +186,6 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
   const brickMat = createRetroMaterial({ map: tex.brick, color: biome.wallTint });
   const capMat = createRetroMaterial({ color: biome.capColor });
   const pillarMat = createRetroMaterial({ map: tex.brick, color: biome.pillarTint });
-  const crateMat = createRetroMaterial({ map: tex.crate });
-  const crateGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
   const trunkMat = createRetroMaterial({ color: biome.trunk });
   const snowMat = createRetroMaterial({ color: '#ffffff' });
   const flowerMat = createRetroMaterial({ color: '#ff7eb6' });
@@ -209,16 +231,12 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
     for (let i = rng.int(2, 4); i > 0; i--) {
       const p = spot(1.2, 1.2, 0.1, cx, cz, 2);
       if (!p) continue;
-      const c = new THREE.Mesh(crateGeo, crateMat);
-      c.position.set(p[0], 0.6, p[1]);
-      c.rotation.y = rng.pick([0, 0.15, -0.1]);
-      if (rng.chance(0.3)) {
-        const top = new THREE.Mesh(crateGeo, crateMat);
-        top.position.y = 1.2;
-        top.rotation.y = rng.range(-0.4, 0.4);
-        c.add(top);
-      }
-      solid(c, p[0], p[1], 1.2, 1.2);
+      // Crates are breakable cover: drawn and broken by src/game/interactives.ts (same rolls as before).
+      const rot = rng.pick([0, 0.15, -0.1]);
+      const rot2 = rng.chance(0.3) ? rng.range(-0.4, 0.4) : 0;
+      const box = aabbFromCenter(p[0], p[1], 1.2, 1.2);
+      colliders.push(box);
+      props.push({ kind: rot2 ? 'stack' : 'crate', x: p[0], z: p[1], w: 1.2, d: 1.2, rot, rot2, box });
     }
     for (let i = rng.int(1, 3); i > 0; i--) {
       const p = spot(0.9, 0.9, 0.2, cx, cz, 2.5);
@@ -377,7 +395,116 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
     }
   }
 
+  // --- Arena toys (placed last so the layout above stays the same for a given seed) ---
+  // Biome hazard patches: quicksand in the dunes, thorn bushes in the meadow.
+  const extra = biomeHazard(biome.id);
+  if (extra === 'quicksand') {
+    const sandMat = createRetroMaterial({ map: textures.clay(), color: '#b98a5a', unlit: 0.15, uvScroll: [0.015, 0.025] });
+    const rimMat = createRetroMaterial({ color: '#8a5a3a' });
+    for (let i = 0; i < 4; i++) {
+      const r = rng.range(2.6, 3.8);
+      const c = spot(r * 2, r * 2, 1.5);
+      if (!c) continue;
+      const rim = new THREE.Mesh(wobblyDisc(rng, r * 1.12, 12), rimMat);
+      rim.position.set(c[0], 0.025, c[1]);
+      const m = new THREE.Mesh(wobblyDisc(rng, r, 12, r * 0.8), sandMat);
+      m.position.set(c[0], 0.04, c[1]);
+      group.add(rim, m);
+      hazards.push({ x: c[0], z: c[1], r: r * 0.9, kind: 'quicksand' });
+    }
+  } else if (extra === 'thorns') {
+    const bramble = createRetroMaterial({ color: '#38b764' });
+    const bramble2 = createRetroMaterial({ color: '#257179' });
+    const thorn = createRetroMaterial({ color: '#ff7eb6', unlit: 0.3 });
+    const soil = createRetroMaterial({ color: '#6b5a3a' });
+    for (let i = 0; i < 5; i++) {
+      const r = rng.range(1.8, 2.8);
+      const c = spot(r * 2, r * 2, 1.2);
+      if (!c) continue;
+      const bed = new THREE.Mesh(wobblyDisc(rng, r * 1.05, 10), soil);
+      bed.position.set(c[0], 0.03, c[1]);
+      group.add(bed);
+      for (let k = Math.round(r * 3.5); k > 0; k--) {
+        const a = rng.range(0, Math.PI * 2);
+        const d = Math.sqrt(rng.next()) * r * 0.8;
+        const s = rng.range(0.8, 1.25);
+        const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55 * s, 0), k % 3 ? bramble : bramble2);
+        bush.position.set(c[0] + Math.cos(a) * d, 0.35 * s, c[1] + Math.sin(a) * d);
+        bush.rotation.set(rng.range(0, 1), rng.range(0, 3), 0);
+        group.add(bush);
+        for (let t = 0; t < 4; t++) {
+          const ta = rng.range(0, Math.PI * 2);
+          const spike = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.55 * s, 4), thorn);
+          spike.position.set(bush.position.x + Math.cos(ta) * 0.5 * s, bush.position.y + rng.range(-0.05, 0.4) * s, bush.position.z + Math.sin(ta) * 0.5 * s);
+          spike.rotation.set(Math.sin(ta) * 1.2, 0, -Math.cos(ta) * 1.2);
+          group.add(spike);
+        }
+      }
+      hazards.push({ x: c[0], z: c[1], r: r * 0.95, kind: 'thorns' });
+    }
+  }
+  const inHazard = (x: number, z: number, pad: number) => hazards.some((h) => (x - h.x) ** 2 + (z - h.z) ** 2 < (h.r + pad) ** 2);
+
+  // Toppling pillars: tall, shootable, crush whatever they fall on.
+  for (let i = 0; i < 4; i++) {
+    const p = spot(1.3, 1.3, 1.4);
+    if (!p || Math.hypot(p[0], p[1]) < 12) continue;
+    const box = aabbFromCenter(p[0], p[1], 1.2, 1.2);
+    colliders.push(box);
+    props.push({ kind: 'pillar', x: p[0], z: p[1], w: 1.2, d: 1.2, rot: rng.range(0, Math.PI), rot2: 0, box });
+  }
+
+  // Jump pads, each aimed at a clear landing spot 10-15 m away.
+  const pads: Arena['pads'] = [];
+  for (let tries = 0; pads.length < 3 && tries < 20; tries++) {
+    const p = spot(1.8, 1.8, 0.8);
+    if (!p || Math.hypot(p[0], p[1]) < 11 || inHazard(p[0], p[1], 1)) continue;
+    for (let k = 0; k < 16; k++) {
+      const a = rng.range(0, Math.PI * 2);
+      const d = rng.range(10, 15);
+      const tx = p[0] + Math.cos(a) * d;
+      const tz = p[1] + Math.sin(a) * d;
+      if (Math.abs(tx) > lim || Math.abs(tz) > lim || inHazard(tx, tz, 0.8)) continue;
+      if (overlapsAny(aabbFromCenter(tx, tz, 1.6, 1.6), placed, 0.6) || overlapsAny(aabbFromCenter(tx, tz, 1.6, 1.6), colliders, 0.4)) continue;
+      pads.push({ x: p[0], z: p[1], tx, tz });
+      break;
+    }
+  }
+
+  // Turret pads.
+  const turrets: Arena['turrets'] = [];
+  for (let tries = 0; turrets.length < 2 && tries < 20; tries++) {
+    const p = spot(1.8, 1.8, 1.2);
+    if (!p || Math.hypot(p[0], p[1]) < 10 || inHazard(p[0], p[1], 1) || turrets.some((t) => Math.hypot(t.x - p[0], t.z - p[1]) < 25)) continue;
+    turrets.push({ x: p[0], z: p[1] });
+  }
+
+  // Objective spots: spread out, away from the start.
+  const spots: Arena['spots'] = [];
+  for (let tries = 0; spots.length < 8 && tries < 80; tries++) {
+    const p = spot(1.4, 1.4, 1.5);
+    if (!p || Math.hypot(p[0], p[1]) < 12 || inHazard(p[0], p[1], 1.5) || spots.some((c) => Math.hypot(c.x - p[0], c.z - p[1]) < 14)) continue;
+    spots.push({ x: p[0], z: p[1] });
+  }
+
   // Hundreds of props -> one draw call per material.
   mergeStatic(group);
-  return { group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors };
+  return { group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors, seed, props, pads, turrets, spots };
+}
+
+/** Flat disc with a wobbly edge (hazard patches); uvScale tiles its texture. */
+function wobblyDisc(rng: Rng, r: number, segments: number, uvScale = 0): THREE.BufferGeometry {
+  const geo = new THREE.CircleGeometry(r, segments);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+  for (let k = 1; k < pos.count; k++) {
+    const f = rng.range(0.82, 1.08);
+    pos.setX(k, pos.getX(k) * f);
+    pos.setZ(k, pos.getZ(k) * f);
+  }
+  if (uvScale) {
+    const uv = geo.getAttribute('uv') as THREE.BufferAttribute;
+    for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) * uvScale, uv.getY(k) * uvScale);
+  }
+  return geo;
 }

@@ -31,6 +31,11 @@ export interface Barrel {
 /** Red explosive barrels: shoot one and it blows up, setting off its neighbours. */
 export class Barrels {
   list: Barrel[] = [];
+  /** Chain reaction: barrels that went off close together in time, and where the last one was. */
+  chain = 0;
+  chainT = 0;
+  lastX = 0;
+  lastZ = 0;
   private mesh: THREE.InstancedMesh;
   private m4 = new THREE.Matrix4();
   private q = new THREE.Quaternion();
@@ -96,6 +101,7 @@ export class Barrels {
 
   /** Count fuses down; calls `explode` for each barrel that goes off. */
   update(dt: number, explode: (i: number, b: Barrel) => void): void {
+    if ((this.chainT -= dt) <= 0) this.chain = 0;
     for (let i = 0; i < this.list.length; i++) {
       const b = this.list[i];
       if (!b.alive) continue;
@@ -104,6 +110,10 @@ export class Barrels {
       b.fuse -= dt;
       if (b.fuse <= 0) {
         b.alive = false;
+        this.chain = this.chainT > 0 ? this.chain + 1 : 1;
+        this.chainT = barrelTuning.chainDelay + 0.35;
+        this.lastX = b.x;
+        this.lastZ = b.z;
         explode(i, b);
       }
     }

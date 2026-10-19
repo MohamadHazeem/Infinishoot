@@ -191,6 +191,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   this.eliteTrails(frameDt);
   this.bullets.render(a);
   this.barrels.render(this.animTime);
+  this.renderArena(rdt);
   this.chests.render(this.paused ? 0 : frameDt, this.animTime);
   this.particles.render();
   this.scars.render(rdt);

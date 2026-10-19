@@ -78,6 +78,8 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       h.player.invuln = Math.max(h.player.invuln, playerTuning.dashTime + playerTuning.dashIframesExtra);
       this.onDash(h);
     }
+  } else if (m.t === 'jump') {
+    this.arenaJumpMsg(h, Number(m.i));
   } else if (m.t === 'bomb') {
     if (this.isCombatMode) this.tryBomb(h);
   } else if (m.t === 'ui') {
@@ -188,6 +190,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[]): Re
       stats: { moveSpeedMul: forHero.stats.moveSpeedMul, dashCooldownMul: forHero.stats.dashCooldownMul, dashCharges: forHero.stats.dashCharges, maxHp: forHero.stats.maxHp, magnet: forHero.stats.magnet, areaMul: forHero.stats.areaMul },
     },
     portal: this.portal.active ? [r2(this.portal.x), r2(this.portal.z)] : null,
+    ar: this.arenaNet(),
     en: packEnemies(en),
     bu: packBullets(this.bullets, bi),
     pk: packPickups(this.pickups, pi),
