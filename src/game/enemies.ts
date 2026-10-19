@@ -8,6 +8,7 @@ import type { SpatialHash } from '../core/spatialHash';
 import { resolveCircleVsBoxes, type AABB } from '../world/collision';
 import { commit } from '../render/instancing';
 import { ELITE_MODS, type EliteModDef, type EliteModId } from '../data/eliteMods';
+import { Corpses, EnemyAnim, poseEnemy, type EnemyPose } from './enemyAnim';
 
 export type EnemyState = 'spawning' | 'move' | 'windup' | 'attack' | 'recover';
 export type BossAction = 'ring' | 'summon' | 'slam' | 'charge' | 'spiral' | 'waves' | 'volley' | 'rain';
@@ -340,6 +341,8 @@ export class Enemy {
   /** Squash-and-stretch spring: displacement and velocity. */
   sq = 0;
   sqV = 0;
+  /** Cosmetic animation state (src/game/enemyAnim.ts). */
+  readonly anim = new EnemyAnim();
 
   constructor(public def: EnemyDef) {}
 
@@ -507,9 +510,38 @@ export class Enemies {
   private counts = new Map<string, number>();
   /** Danger zones to draw this frame (owned by the game's effects bus). */
   zones: { x: number; z: number; r: number; t: number; life: number }[] = [];
+  /** Flung corpses (cosmetic, src/game/enemyAnim.ts). */
+  readonly corpses = new Corpses();
+  private pose: EnemyPose = { y: 0, ox: 0, oz: 0, sx: 1, sy: 1, sz: 1, pitch: 0, roll: 0, yaw: 0 };
+  private euler = new THREE.Euler(0, 0, 0, 'YXZ');
+  private lastTime = -1;
+  private putCorpse = (def: EnemyDef, m: THREE.Matrix4, r: number, g: number, b: number, a: number): void => {
+    const bt = this.batch(def);
+    if (bt.mesh.count >= BATCH_CAP) return;
+    const i = bt.mesh.count++;
+    bt.mesh.setMatrixAt(i, m);
+    bt.flash.setXYZW(i, r, g, b, a);
+  };
+  private putShadow = (x: number, z: number, size: number): void => {
+    const d = this.decals;
+    if (d.shadows.count >= 2048) return;
+    this.m4.makeScale(size, 1, size).setPosition(x, 0.02, z);
+    d.shadows.setMatrixAt(d.shadows.count++, this.m4);
+  };
 
   constructor(private scene: THREE.Scene) {
     this.decals = new GroundDecals(scene, 2048);
+  }
+
+  private batch(def: EnemyDef): EnemyBatch {
+    let b = this.batches.get(def.id);
+    if (!b) this.batches.set(def.id, (b = new EnemyBatch(def, this.scene)));
+    return b;
+  }
+
+  /** Cosmetic death: the body is flung along (dirX, dirZ), tumbling (bosses shake apart in place). */
+  fling(def: EnemyDef, x: number, y: number, z: number, scale: number, facing: number, dirX: number, dirZ: number): void {
+    this.corpses.add(def, x, y, z, scale, facing, dirX, dirZ);
   }
 
   spawn(def: EnemyDef, x: number, z: number, o: SpawnOpts = {}): Enemy {
@@ -519,7 +551,7 @@ export class Enemies {
       e = new Enemy(def);
       this.list.push(e);
     }
-    if (!this.batches.has(def.id)) this.batches.set(def.id, new EnemyBatch(def, this.scene));
+    this.batch(def);
     e.reset(x, z, o);
     this.alive++;
     this.counts.set(def.id, (this.counts.get(def.id) ?? 0) + 1);
@@ -545,6 +577,7 @@ export class Enemies {
 
   clear(): void {
     for (const e of this.list) if (e.active) this.kill(e);
+    this.corpses.clear();
   }
 
   update(dt: number, ctx: EnemyCtx): void {
@@ -1264,6 +1297,9 @@ export class Enemies {
     const d = this.decals;
     d.shadows.count = d.markers.count = d.lines.count = d.zones.count = d.discs.count = d.auras.count = d.bubbles.count = 0;
     d.setPulse(time);
+    const fdt = this.lastTime < 0 ? 0 : Math.max(0, Math.min(0.05, time - this.lastTime));
+    this.lastTime = time;
+    const P = this.pose;
 
     for (const e of this.list) {
       if (!e.active || e.def.hidden) continue;
@@ -1282,9 +1318,10 @@ export class Enemies {
         if (pop <= 0) continue;
         sx *= pop;
         sy *= pop * 1.3;
-      } else if (e.state === 'move' && e.frozen <= 0 && e.def.speed > 0) {
-        y += Math.abs(Math.sin(time * 12 + e.uid)) * 0.1 * e.scale;
       }
+      // Body language: gait, lean, wind-up pose, hit wobble (cosmetic, src/game/enemyAnim.ts).
+      poseEnemy(e, e.anim, x, z, fdt, time, P);
+      y += P.y;
 
       // Telegraphs drawn on the ground.
       if (e.state === 'windup' && e.frozen <= 0) {
@@ -1317,8 +1354,8 @@ export class Enemies {
       const b = this.batches.get(e.def.id)!;
       if (b.mesh.count >= BATCH_CAP) continue;
       const i = b.mesh.count++;
-      this.q.setFromAxisAngle(this.up, e.facing);
-      this.m4.compose(this.v.set(x, y, z), this.q, this.s.set(sx, sy, sx));
+      this.q.setFromEuler(this.euler.set(P.pitch, e.facing + P.yaw, P.roll));
+      this.m4.compose(this.v.set(x + P.ox, y, z + P.oz), this.q, this.s.set(sx * P.sx, sy * P.sy, sx * P.sz));
       b.mesh.setMatrixAt(i, this.m4);
 
       // Flash priority: hit > frozen > telegraph > elite glow.
@@ -1354,6 +1391,8 @@ export class Enemies {
       this.m4.makeScale(ss, 1, ss).setPosition(x, 0.02, z);
       d.shadows.setMatrixAt(d.shadows.count++, this.m4);
     }
+
+    this.corpses.render(fdt, time, this.m4, this.putCorpse, this.putShadow);
 
     for (const zn of this.zones) {
       if (d.zones.count >= 62 || d.discs.count >= 32) break;

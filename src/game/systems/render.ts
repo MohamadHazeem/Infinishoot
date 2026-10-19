@@ -162,12 +162,14 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   const a = this.juice.hitStop > 0 || frozen ? 1 : alpha;
   // Clients draw remote things between the last two snapshots.
   const netA = client ? Math.min(1, (performance.now() - this.snapTime) / Math.max(16, this.snapInterval)) : a;
-  const rdt = frozen ? 0 : frameDt;
+  const rdt = frozen ? 0 : frameDt * (this.slowMoT > 0 ? 0.35 : 1);
   this.localAudio(frameDt, frozen);
   this.input.rumbleOn = settings.rumble;
+  // Boss-kill slow motion (host/solo sim runs at 35%): cosmetic animation slows with it.
+  const slow = this.slowMoT > 0 ? 0.35 : 1;
   if (!frozen) {
     this.juice.tick(frameDt);
-    this.animTime += frameDt;
+    this.animTime += frameDt * slow;
   }
 
   for (const h of this.heroes) {
@@ -212,6 +214,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     if (this.lead.length() > cameraTuning.lookAheadMax) this.lead.setLength(cameraTuning.lookAheadMax);
   }
   this.juice.shakeOffset(this.shake);
+  this.cameraDirector();
   this.cam.update(this.playerPos, this.lead, frameDt, this.shake);
 
   if (inMenu || p.dead) this.reticle.style.display = 'none';

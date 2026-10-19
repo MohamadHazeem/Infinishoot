@@ -53,6 +53,7 @@ import * as PvpFlowSys from './systems/pvpFlow';
 import * as NetHostSys from './systems/netHost';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
+import * as AnimSys from './systems/anim';
 
 export { economyTuning } from './hero';
 
@@ -385,6 +386,8 @@ export class Game implements HeroWorld {
   renderMinimap = RenderSys.renderMinimap;
   renderEliteBars = RenderSys.renderEliteBars;
   renderTeam = RenderSys.renderTeam;
+  cameraDirector = AnimSys.cameraDirector;
+  onCorpse = AnimSys.onCorpse;
 
   readonly scene = new THREE.Scene();
   arena: Arena;
@@ -551,6 +554,7 @@ export class Game implements HeroWorld {
       hud: this.hud,
       zones: this.enemies.zones,
       scars: this.scars,
+      corpse: (id, x, y, z, s, f, dx, dz) => this.onCorpse(id, x, y, z, s, f, dx, dz),
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {

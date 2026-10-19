@@ -162,6 +162,17 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.vfx.burst(e.x, y, e.z, { count: big ? 40 : def.xp >= 3 ? 12 : 6, color: def.bodyColor, color2: def.accentColor, speed: [3, 9], size: [0.15, 0.3 + r * 0.15], life: [0.3, 0.6], up: 5, gravity: 18, drag: 2 });
   if (def.xp >= 3 || big || this.rng.chance(0.25)) this.vfx.ring(e.x, e.z, r * 2, 3, def.bodyColor, 0.25);
   this.deathFx(e, big);
+  // The body flies off, pushed by the hit (or away from the killer). Ka-Boomers that blew themselves up leave none.
+  if (!(source === 'exploder' && def.fuse && e.t <= 0)) {
+    let fx = e.kx;
+    let fz = e.kz;
+    if (Math.hypot(fx, fz) < 0.5 && by) {
+      fx = e.x - by.player.x;
+      fz = e.z - by.player.z;
+    }
+    const fl = Math.hypot(fx, fz);
+    this.vfx.corpse(def.id, e.x, e.hopY, e.z, e.scale, e.facing, fl > 0.01 ? fx / fl : 0, fl > 0.01 ? fz / fl : 0);
+  }
   if (isBoss) {
     this.slowMoT = 1.4;
     this.bossBoom = { x: e.x, z: e.z, r: r * 2.2, n: 7, t: 0, color: def.bodyColor };

@@ -4,6 +4,9 @@ import { retroGlobals } from '../render/retroMaterial';
 import { postSettings, type RetroRenderer } from '../render/renderer';
 import { applyRetroStrength, retro } from '../render/retroSettings';
 import { cameraTuning } from '../game/cameraRig';
+import { camDirTuning } from '../game/animMath';
+import { enemyAnimTuning } from '../game/enemyAnim';
+import { heroAnimTuning } from '../game/heroModel';
 import { playerTuning } from '../game/player';
 import { cheats, scoreTuning, type Game } from '../game/game';
 import { specialTuning } from '../data/specials';
@@ -73,6 +76,22 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   cam.add(cameraTuning, 'follow', 1, 30, 0.5);
   cam.add(cameraTuning, 'lookAhead', 0, 0.6, 0.01);
   cam.add(cameraTuning, 'lookAheadMax', 0, 10, 0.5);
+  // Smart camera and animation (animation lane).
+  const anim = cam.addFolder('Smart camera & animation').close();
+  anim.add(camDirTuning, 'autoMin', 0.6, 1, 0.01);
+  anim.add(camDirTuning, 'autoMax', 1, 2, 0.01);
+  anim.add(camDirTuning, 'swarmOut', 0, 0.6, 0.01);
+  anim.add(camDirTuning, 'edgeOut', 0, 0.6, 0.01);
+  anim.add(camDirTuning, 'coopMax', 1, 2.2, 0.05);
+  anim.add(camDirTuning, 'killCamTime', 0.5, 5, 0.1);
+  anim.add(camDirTuning, 'killCamZoom', 0.3, 1, 0.05);
+  anim.add(heroAnimTuning, 'legSwing', 0, 2, 0.05);
+  anim.add(heroAnimTuning, 'leanFwd', 0, 0.8, 0.01);
+  anim.add(heroAnimTuning, 'dashStretch', 0, 1, 0.05);
+  anim.add(enemyAnimTuning, 'gait', 0, 2, 0.05).name('Enemy gait');
+  anim.add(enemyAnimTuning, 'hitWobble', 0, 2, 0.05);
+  anim.add(enemyAnimTuning, 'flingSpeed', 0, 20, 0.5);
+  anim.add(enemyAnimTuning, 'corpseLife', 0.1, 2, 0.05);
 
   const pl = gui.addFolder('Player').close();
   pl.add(playerTuning, 'maxSpeed', 1, 20, 0.5);
