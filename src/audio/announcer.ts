@@ -38,6 +38,8 @@ class Announcer {
   private priority = 0;
   private clock = () => 0;
   private duck = (_seconds: number) => {};
+  /** Called when a line starts playing (the announcer's portrait pops in). */
+  onSay: ((id: string, seconds: number) => void) | null = null;
   configure(clock: () => number, duck: (seconds: number) => void): void {
     this.clock = clock;
     this.duck = duck;
@@ -68,6 +70,7 @@ class Announcer {
     this.next = this.activeUntil + 2.5;
     this.last.set(id, now);
     this.duck(voice.duration);
+    this.onSay?.(id, voice.duration);
     return true;
   }
   reset(): void {

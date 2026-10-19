@@ -147,7 +147,7 @@ function rangeLabel(inp: HTMLInputElement): void {
   if (names && out) out.textContent = names[Math.round(Number(inp.value))] ?? '';
 }
 
-type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo';
+type ToggleKey = 'announcer' | 'autoFire' | 'showFps' | 'crt' | 'rumble' | 'colorblind' | 'reduceFlash' | 'dynamicCamera' | 'distortion' | 'nightStages' | 'bossIntros' | 'slowMo' | 'finishers' | 'portraitPops';
 
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
@@ -297,6 +297,8 @@ export class Screens {
     <button data-nav data-toggle="dynamicCamera">DYNAMIC CAMERA <b></b></button>
     <button data-nav data-toggle="bossIntros">BOSS INTROS <b></b></button>
     <button data-nav data-toggle="slowMo">SKILL SLOW-MO <b></b></button>
+    <button data-nav data-toggle="finishers">BOSS FINISHERS <b></b></button>
+    <button data-nav data-toggle="portraitPops">CHARACTER POP-INS <b></b></button>
     <button data-nav data-act="controls">CONTROLS...</button>
     <button data-nav data-toggle="autoFire">AUTO-FIRE <b></b></button>
     <button data-nav data-toggle="showFps">SHOW FPS <b></b></button>

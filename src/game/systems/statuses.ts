@@ -123,6 +123,7 @@ export function sourceName(this: Game, id: string): string {
 }
 
 export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null): void {
+  if (this.finisherCatch(e, source, by)) return; // a stage boss's killing blow plays the finisher first
   const def = e.def;
   const wasFrozen = e.frozen > 0;
   this.kills++;

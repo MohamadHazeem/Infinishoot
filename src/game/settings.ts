@@ -49,6 +49,10 @@ export interface Settings {
   bossIntros: boolean;
   /** Slow-motion on perfect dashes and Mega Barrage (solo only). */
   slowMo: boolean;
+  /** Comic finisher on a stage boss's killing blow. */
+  finishers: boolean;
+  /** Character portraits popping in (announcer, bosses, pings). */
+  portraitPops: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -82,8 +86,12 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   dynamicCamera: true,
   bossIntros: true,
   slowMo: true,
+  finishers: true,
+  portraitPops: true,
 });
 settings.dynamicCamera ??= true;
+settings.finishers ??= true;
+settings.portraitPops ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

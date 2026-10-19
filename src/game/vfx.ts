@@ -21,7 +21,9 @@ export type VfxEvent =
   | ['h', 'banner' | 'toast' | 'flash', string, string, number]
   | ['z', number, number, number, number]
   | ['g', number, number, number, string, number]
-  | ['c', number, number, number, string, number, number, number, number];
+  | ['c', number, number, number, string, number, number, number, number]
+  | ['F', string, number, number, number]
+  | ['P', string, string, string, number];
 
 export interface DangerZone {
   x: number;
@@ -45,6 +47,10 @@ export interface VfxTargets {
   scars: Scars;
   /** A dead enemy's body is flung (x, y, z, scale, facing, push direction); cosmetic. */
   corpse?(id: string, x: number, y: number, z: number, scale: number, facing: number, dirX: number, dirZ: number): void;
+  /** A boss finisher starts (boss id, the hero who landed it, where). */
+  finisher?(bossId: string, heroIndex: number, x: number, z: number): void;
+  /** A character portrait pops in with a line (src/ui/portraits.ts). */
+  portrait?(who: string, expression: string, text: string, seconds: number): void;
   listener(): { x: number; z: number };
 }
 
@@ -116,6 +122,18 @@ export class Vfx {
     const r2 = (v: number) => Math.round(v * 100) / 100;
     this.t.corpse?.(id, x, y, z, scale, facing, dirX, dirZ);
     this.rec(['c', r2(x), r2(z), r2(y), id, r2(scale), r2(facing), r2(dirX), r2(dirZ)]);
+  }
+
+  /** Team-wide: the boss finisher (every machine plays it; the host holds the kill until it ends). */
+  finisher(bossId: string, heroIndex: number, x: number, z: number): void {
+    this.t.finisher?.(bossId, heroIndex, x, z);
+    this.rec(['F', bossId, heroIndex, Math.round(x * 100) / 100, Math.round(z * 100) / 100]);
+  }
+
+  /** Team-wide: a character portrait pops in ('hero:<index>', 'boss:<id>', 'announcer'). */
+  portrait(who: string, expression: string, text: string, seconds: number): void {
+    this.t.portrait?.(who, expression, text, seconds);
+    this.rec(['P', who, expression, text, seconds]);
   }
 
   /** Team-wide HUD messages. */
@@ -192,6 +210,12 @@ export class Vfx {
         break;
       case 'c':
         this.t.corpse?.(e[4], e[1], e[3], e[2], e[5], e[6], e[7], e[8]);
+        break;
+      case 'F':
+        this.t.finisher?.(e[1], e[2], e[3], e[4]);
+        break;
+      case 'P':
+        this.t.portrait?.(e[1], e[2], e[3], e[4]);
         break;
       case 'h':
         if (e[1] === 'banner') this.t.hud.showBanner(e[2], e[3], e[4]);
