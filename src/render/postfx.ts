@@ -9,7 +9,7 @@ import * as THREE from 'three';
  *  - night: 0..1, darkens the screen edges a little on night stages
  */
 export const MAX_WAVES = 6;
-export const MAX_HEAT = 4;
+export const MAX_HEAT = 8; // lava (look pass) plus fire shots (systems/sky.ts)
 
 export const postfxTuning = {
   /** Shockwave ring thickness as a fraction of its radius, and peak push in internal pixels. */

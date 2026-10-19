@@ -2,17 +2,14 @@ import * as THREE from 'three';
 import type { BiomeDef } from '../data/biomes';
 import { retroGlobals } from './retroMaterial';
 import { mixGrade, NEUTRAL_GRADE, postfx, setGradeTarget, type Grade } from './postfx';
+import { SUNSET_GRADE, sunsetWeights, timeOfDay } from './sky';
 
 let current: BiomeDef | null = null;
 let dayK = 0;
 const SUN_DAY = new THREE.Vector3(0.45, 0.8, 0.4).normalize();
 const SUN_DUSK = new THREE.Vector3(0.85, 0.32, 0.42).normalize();
-const DUSK_SUN = new THREE.Color(0.86, 0.5, 0.36);
-const DUSK_SKY = new THREE.Color(0.44, 0.34, 0.62);
-const DUSK_GROUND = new THREE.Color(0.3, 0.2, 0.34);
-const DUSK_FOG = new THREE.Color('#d9788a');
-const tmp = new THREE.Color();
 const tmp2 = new THREE.Color();
+const todOut = { sun: retroGlobals.uSunColor.value, sky: retroGlobals.uSkyColor.value, ground: retroGlobals.uGroundColor.value, fog: retroGlobals.uFogColor.value };
 
 /**
  * Night stages: a cool moon, a dark tinted ambient and a dark fog. The
@@ -49,6 +46,7 @@ export const BIOME_GRADES: Record<string, Grade> = {
 const DEFAULT_EYES = new THREE.Color('#fff2a8');
 export const NIGHT_GRADE: Grade = { lift: [0.0, 0.012, 0.045], gamma: [1, 1, 1.03], gain: [1.0, 1.0, 1.06], saturation: 1.08 };
 const graded: Grade = { lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], saturation: 1 };
+const sunsetGraded: Grade = { lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], saturation: 1 };
 
 /** Set the shared light and fog uniforms for a biome (every retro material follows). */
 export function applyBiomeLook(b: BiomeDef): void {
@@ -69,10 +67,8 @@ export function applyTimeOfDay(k: number): void {
   dayK = k;
   const t = Math.max(0, Math.min(1, k)) * 0.75 * (b.dusk ?? 1);
   const n = postfx.night;
-  retroGlobals.uSunColor.value.setRGB(...b.light.sun).lerp(DUSK_SUN, t);
-  retroGlobals.uSkyColor.value.setRGB(...b.light.sky).lerp(DUSK_SKY, t);
-  retroGlobals.uGroundColor.value.setRGB(...b.light.ground).lerp(DUSK_GROUND, t);
-  retroGlobals.uFogColor.value.copy(tmp.set(b.fog)).lerp(DUSK_FOG, t * 0.6);
+  // Midday -> golden hour -> sunset, per biome (src/render/sky.ts).
+  timeOfDay(b.id, b.light, b.fog, k, todOut);
   retroGlobals.uSunDir.value.copy(SUN_DAY).lerp(SUN_DUSK, t).normalize();
   if (n > 0) {
     const N = nightTuning;
@@ -88,7 +84,8 @@ export function applyTimeOfDay(k: number): void {
     retroGlobals.uSunDir.value.lerp(N.moonDir, n).normalize();
   }
   retroGlobals.uNight.value = n;
-  setGradeTarget(mixGrade(BIOME_GRADES[b.id] ?? NEUTRAL_GRADE, NIGHT_GRADE, n, graded));
+  mixGrade(BIOME_GRADES[b.id] ?? NEUTRAL_GRADE, SUNSET_GRADE, sunsetWeights(k).dusk * 0.85, sunsetGraded);
+  setGradeTarget(mixGrade(sunsetGraded, NIGHT_GRADE, n, graded));
 }
 
 /** The biome whose look is applied (null before the first arena). */

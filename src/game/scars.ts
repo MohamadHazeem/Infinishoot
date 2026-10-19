@@ -1,12 +1,24 @@
 import * as THREE from 'three';
 import { commit } from '../render/instancing';
+import { GroundScars, type ScarKind } from '../render/groundScars';
 
 /**
- * Ground scars that linger: scorch marks from explosions, frost patches
- * from novas, craters from bombs and slams, goo splats from jellies. A ring
- * buffer of flat pixel-art splats; each shrinks away over the end of its life.
+ * Ground scars. Scorch, craters and frost go into the stage's persistent
+ * scar map (src/render/groundScars.ts): they merge instead of piling up as
+ * dark blobs, last most of the stage and fade oldest-first over a budget.
+ * Anything else (goo splats from jellies, a boss's burning ground) is a
+ * short-lived coloured splat: a ring buffer of flat pixel-art splats that
+ * shrink away over the end of their life.
  */
-const MAX = 220;
+const MAX = 160;
+
+/** How strongly a persistent scar of each kind is stamped (the `life` a caller passes hints at how big a deal it was). */
+export const scarKindTuning = {
+  /** Radius multiplier per kind. */
+  scorchR: 1.15,
+  craterR: 1.1,
+  frostR: 1.0,
+};
 
 export const SCAR_COLORS = {
   scorch: '#2b2233',
@@ -30,8 +42,11 @@ export class Scars {
   private s = new THREE.Vector3();
   private up = new THREE.Vector3(0, 1, 0);
   private c = new THREE.Color();
+  /** The persistent scar map. */
+  readonly ground: GroundScars;
 
   constructor(scene: THREE.Scene) {
+    this.ground = new GroundScars(scene);
     const mat = new THREE.MeshBasicMaterial({
       map: splatTexture(),
       transparent: true,
@@ -50,6 +65,13 @@ export class Scars {
   }
 
   add(x: number, z: number, r: number, color: string, life = 14): void {
+    const kind = scarKind(color);
+    if (kind) {
+      const T = scarKindTuning;
+      const k = kind === 'crater' ? T.craterR : kind === 'frost' ? T.frostR : T.scorchR;
+      this.ground.stamp(kind, x, z, r * k, Math.min(1, 0.55 + life / 30));
+      return;
+    }
     const i = this.next;
     this.next = (this.next + 1) % MAX;
     this.used = Math.min(MAX, this.used + 1);
@@ -66,9 +88,11 @@ export class Scars {
   clear(): void {
     this.used = this.next = 0;
     this.mesh.count = 0;
+    this.ground.clear();
   }
 
   render(dt: number): void {
+    this.ground.render(dt);
     const n = this.used;
     for (let i = 0; i < n; i++) {
       this.age[i] += dt;
@@ -83,6 +107,11 @@ export class Scars {
     this.mesh.count = n;
     commit(this.mesh.instanceMatrix, n);
   }
+}
+
+/** Which persistent kind a scar colour is (null = a short-lived coloured splat). */
+export function scarKind(color: string): ScarKind | null {
+  return color === SCAR_COLORS.scorch ? 'scorch' : color === SCAR_COLORS.crater ? 'crater' : color === SCAR_COLORS.frost ? 'frost' : null;
 }
 
 /** A chunky 32x32 splat: a noisy disc with a few satellite blobs, nearest-filtered. */
