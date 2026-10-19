@@ -1520,7 +1520,9 @@ class CoopHud {
           dy = -dy;
         }
         // Keep clear of the HUD corners (as the objective arrow does).
-        const k = Math.min((cx - 150) / Math.max(1e-3, Math.abs(dx)), (cy - 130) / Math.max(1e-3, Math.abs(dy)));
+        const mx = Math.max(150, W * 0.2);
+        const my = Math.max(120, H * 0.24);
+        const k = Math.min((cx - mx) / Math.max(1e-3, Math.abs(dx)), (cy - my) / Math.max(1e-3, Math.abs(dy)));
         sx = cx + dx * k;
         sy = cy + dy * k;
         arrow.hidden = false;

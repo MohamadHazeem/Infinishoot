@@ -397,6 +397,29 @@ const clientTo = (kind) =>
     setTimeout(() => window.botAuto(true), kind === 'pad' ? 1200 : 3000);
     return [best.x, best.z];
   }, kind);
+/** Coopplay scenarios: wait until both machines fight, then hold level-ups off (restored by `coopEnd`). */
+async function coopFight() {
+  for (let k = 0; k < 60; k++) {
+    const [h, c] = await Promise.all([host(() => window.game.mode), client(() => window.game.mode)]);
+    if (h === 'fight' && c === 'fight') {
+      await host(() => {
+        window.__xpNext ??= window.game.xpNext;
+        window.game.xpNext = 1e12;
+      });
+      return true;
+    }
+    await pause(250);
+  }
+  return false;
+}
+async function coopEnd() {
+  await host(() => {
+    if (window.__xpNext) window.game.xpNext = window.__xpNext;
+    window.__xpNext = undefined;
+    window.botAuto(true);
+  });
+  await client(() => window.botAuto(true));
+}
 const SCENARIO = [
   [8, 'new enemy types, an elite and the Goldbug near the client', () =>
     host(async () => {
@@ -636,11 +659,11 @@ const SCENARIO = [
     return { boss: id, playing: [h1, c1], held, after: [h2, c2], gone };
   }],
   // Coopplay lane (notes/lanes/coopplay.md): a co-op objective, carrying a downed teammate, the buddy tether.
+  // Each waits for the fight (bots close level-ups) and holds team XP meanwhile so no new menu freezes the world.
   [51, 'co-op objective: host and client each hold a vault switch', async () => {
+    if (!(await coopFight())) return 'skipped (not fighting)';
     const lay = await host(async () => {
       const g = window.game;
-      for (let k = 0; k < 30 && g.mode !== 'fight'; k++) await new Promise((r) => setTimeout(r, 200));
-      if (g.mode !== 'fight') return null;
       const cp = await import('/src/game/systems/coopplay.ts');
       if (!cp.forceCoopObjective(g, 'door')) return null;
       window.botAuto(false);
@@ -648,13 +671,16 @@ const SCENARIO = [
       g.hero.player.teleport(L.a.x, L.a.z);
       return L;
     });
-    if (!lay) return 'skipped (not fighting or no room)';
+    if (!lay) {
+      await coopEnd();
+      return 'skipped (no room)';
+    }
     await client((L) => {
       window.botAuto(false);
       window.game.hero.player.teleport(L.b.x, L.b.z);
     }, lay);
     let h, c;
-    for (let k = 0; k < 25; k++) {
+    for (let k = 0; k < 50; k++) {
       await pause(200);
       await host((L) => window.game.hero.player.teleport(L.a.x, L.a.z), lay);
       await client((L) => window.game.hero.player.teleport(L.b.x, L.b.z), lay);
@@ -665,12 +691,12 @@ const SCENARIO = [
       if (h.state === 'done' && c.open) break;
     }
     await shot('coopplay-vault');
-    await host(() => window.botAuto(true));
-    await client(() => window.botAuto(true));
+    await coopEnd();
     if (h.kind !== 'door' || h.state !== 'done' || c.kind !== 'door' || c.state !== 'done' || !c.open) fail(`co-op vault: host ${JSON.stringify(h)}, client ${JSON.stringify(c)}`);
     return { host: h, client: c };
   }],
   [59, 'client carries the downed host, then puts them down', async () => {
+    if (!(await coopFight())) return 'skipped (not fighting)';
     const downed = await host(() => {
       const g = window.game;
       if (!g.isCombatMode) return false;
@@ -690,7 +716,7 @@ const SCENARIO = [
       return h.player.dead ? [h.player.x, h.player.z] : false;
     });
     if (!downed) {
-      await host(() => window.botAuto(true));
+      await coopEnd();
       return 'skipped (host not downed)';
     }
     let carried = [-1, -1];
@@ -717,19 +743,17 @@ const SCENARIO = [
     await client(() => window.game.client.send({ t: 'carry' }));
     await pause(400);
     const down = await host(async () => (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).carriedBy[0] ?? -1);
-    await host(() => {
-      window.game.reviveHero(window.game.heroes[0], 0.6);
-      window.botAuto(true);
-    });
-    await client(() => window.botAuto(true));
+    await host(() => window.game.reviveHero(window.game.heroes[0], 0.6));
+    await coopEnd();
     if (carried[0] !== 1 || carried[1] !== 1 || ride[0] > 1 || ride[1] > 2.5 || down !== -1) fail(`carry: carried host ${carried[0]} client ${carried[1]}, ride host ${ride[0]?.toFixed(2)} client ${ride[1]?.toFixed(2)}, put down ${down}`);
     return { carried, ride: ride.map((d) => +d.toFixed(2)), down };
   }],
   [66, 'buddy tether between the two heroes', async () => {
+    if (!(await coopFight())) return 'skipped (not fighting)';
     await host(() => window.botAuto(false));
     await client(() => window.botAuto(false));
     let r;
-    for (let k = 0; k < 10; k++) {
+    for (let k = 0; k < 20; k++) {
       const at = await host(() => {
         const p = window.game.hero.player;
         return [p.x, p.z];
@@ -743,8 +767,7 @@ const SCENARIO = [
       if (r[0][0] === 1 && r[1][0] === 1 && r[0][1] > 1) break;
     }
     await shot('coopplay-tether');
-    await host(() => window.botAuto(true));
-    await client(() => window.botAuto(true));
+    await coopEnd();
     if (r[0][0] !== 1 || r[1][0] !== 1 || !(r[0][1] > 0) || !(r[1][1] > 0)) fail(`tether: host ${JSON.stringify(r[0])}, client ${JSON.stringify(r[1])}`);
     return { host: r[0], client: r[1] };
   }],
