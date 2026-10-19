@@ -10,6 +10,8 @@ import { Game, cheats } from './game/game';
 import { applySettings, autoQualityTick, settings } from './game/settings';
 import { setupTouch } from './ui/touch';
 import { syncPrompts } from './ui/prompts';
+import { withLoading } from './ui/loadingScreen';
+import { samples } from './audio/samples';
 import { prof } from './core/prof';
 import type { PhotoMode } from './ui/photoMode';
 
@@ -27,6 +29,17 @@ renderer.gl.setClearColor(retroGlobals.uFogColor.value);
 const input = new Input(canvas);
 const game = new Game(input, renderer.aspect, hudEl, reticleEl);
 performance.mark('infinishoot:game');
+// Audio is optional and gesture-unlocked; report the core pack without delaying play.
+let audioReported = false;
+const reportAudio = () => {
+  if (audioReported) return;
+  audioReported = true;
+  queueMicrotask(() => { void withLoading(() => Promise.race([samples.coreReady, new Promise<void>(resolve => setTimeout(resolve, 4000))]), 'menu.load.audio'); });
+  window.removeEventListener('pointerdown', reportAudio);
+  window.removeEventListener('keydown', reportAudio);
+};
+window.addEventListener('pointerdown', reportAudio);
+window.addEventListener('keydown', reportAudio);
 window.addEventListener('resize', () => game.cam.setAspect(renderer.aspect));
 setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none');
 // Optional tools load only on their first use (including lil-gui and its tuning panels).
@@ -34,7 +47,7 @@ let debugLoading = false;
 const openDebug = (e: KeyboardEvent) => {
   if (e.code !== 'Backquote' || e.repeat || debugLoading) return;
   debugLoading = true;
-  void import('./ui/debugPanel').then(({ createDebugPanel }) => {
+  void withLoading(() => import('./ui/debugPanel')).then(({ createDebugPanel }) => {
     createDebugPanel(renderer, game, () => game.cam.setAspect(renderer.aspect)).show();
     window.removeEventListener('keydown', openDebug);
   }).catch(() => {
@@ -48,7 +61,7 @@ let photoLoading = false;
 const openPhoto = (e: MouseEvent) => {
   if (!(e.target as HTMLElement | null)?.closest?.('[data-act="photo"]') || photoLoading) return;
   photoLoading = true;
-  void import('./ui/photoMode').then(({ PhotoMode }) => {
+  void withLoading(() => import('./ui/photoMode')).then(({ PhotoMode }) => {
     photo = new PhotoMode(game, canvas);
     game.photo = photo;
     if (import.meta.env.DEV) Object.assign(window, { photo });
