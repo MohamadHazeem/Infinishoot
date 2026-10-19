@@ -235,7 +235,7 @@ A.lobby = [
 ];
 sa.ranks.set('peerB', 1000);
 A.netName = 'Host';
-(A as any).pvp = { phase: 'duel', net: 'host', seed: 1, ready: new Map(), progress: new Map(), proxies: [], acc: [], lastHit: [], zoneR: 0, zoneT: 0, zoneTick: 0 };
+(A as any).pvp = { phase: 'duel', net: 'host', seed: 1, rules: { format: 'ffa', rounds: 1, arena: 'rotate' }, teams: [0, 1], wins: [1, 0], ready: new Map(), progress: new Map(), proxies: [], acc: [], lastHit: [], zoneR: 0, zoneT: 0, zoneTick: 0 };
 A.pvpOver('Host');
 ok(save.ranked.games === games + 1 && save.ranked.rating > 1000, 'PvP win raises the rating: ' + save.ranked.rating);
 

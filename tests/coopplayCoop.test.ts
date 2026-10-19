@@ -195,6 +195,9 @@ const hostTo = (x: number, z: number) => hA.player.teleport(x, z);
 {
   clearEnemies();
   ok(CP.forceCoopObjective(A, 'bomb'), 'host places a bomb and a bunker');
+  // The previous zone can share the bomb spawn; move both heroes off it before ticking.
+  hostTo(SA.bomb.x + 12, SA.bomb.z + 12);
+  guestTo(SA.bomb.x - 12, SA.bomb.z + 12);
   step(3);
   const L = SA.lay!;
   hostTo(L.a.x + 12, L.a.z + 12);
