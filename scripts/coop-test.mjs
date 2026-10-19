@@ -15,6 +15,11 @@
 // Signalling goes through PeerJS's public broker like the real game (needs
 // internet); the WebRTC data channel itself is local, page to page.
 // COOP_TRACE=1 prints the client hero's position trail on both pages when they disagree.
+// Lobby lane: page B joins through the invite link (?join=CODE), the two chat
+// (filtered, quick chat), pings and player cards show on both, and the run
+// starts by READY-UP (both ready, countdown). After the run: game over, the
+// PARTY screen, a unanimous RESTART vote, a second game over, BACK TO LOBBY
+// (still connected), then the host KICKs the client.
 import { chromium } from 'playwright-core';
 import { createServer } from 'vite';
 import { existsSync, mkdirSync, readdirSync } from 'node:fs';
@@ -92,8 +97,9 @@ await Promise.all(
     [B, 'bit'],
   ].map(([p, pet]) =>
     p.page.evaluate(async (pet) => {
-      const { settings } = await import('/src/game/settings.ts');
+      const { settings, saveSettings } = await import('/src/game/settings.ts');
       settings.pet = pet;
+      saveSettings(); // kept through the client's reload (it joins by the invite link)
       window.game.applyLocalSkin(); // what the wardrobe does: the title hero gets the pet
     }, pet),
   ),
@@ -117,7 +123,15 @@ if (hostReady !== true) {
   await done();
 }
 log(`hosting, code ${code}`);
-await B.page.evaluate((c) => void window.game.joinGame('CLIENTBOT', c), code);
+// Lobby lane: the client opens the invite link instead of typing the code.
+await B.page.evaluate(() => window.game.saveName('CLIENTBOT'));
+const invite = await A.page.evaluate(async () => {
+  const { inviteLink, inviteBase } = await import('/src/game/lobby.ts');
+  return inviteLink(inviteBase(location), window.game.host.code);
+});
+if (!invite.includes(`join=${code}`)) fail(`invite link ${invite} has no code ${code}`);
+await B.page.goto(invite);
+await B.page.waitForFunction(() => window.game && window.botAuto, null, { timeout: 30000 });
 try {
   await A.page.waitForFunction(() => window.game.lobby.length === 2, null, { timeout: 25000 });
 } catch {
@@ -136,7 +150,7 @@ await Promise.all(
     }),
   ),
 );
-await A.page.evaluate(() => window.game.hostStart());
+await lobbyPhase();
 await B.page.waitForFunction(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.heroes.length === 2, null, { timeout: 15000 }).catch(() => fail('client never started the run'));
 await Promise.all(
   [A, B].map((p) =>
@@ -620,7 +634,120 @@ while ((Date.now() - t0) / 1000 < SECS) {
   if (A.errors.length || B.errors.length) break;
   await new Promise((r) => setTimeout(r, 250));
 }
+if (!A.errors.length && !B.errors.length) {
+  try {
+    await partyPhase();
+  } catch (e) {
+    fail(`party phase threw: ${e.message}`);
+  }
+}
 await done();
+
+// ---------------------------------------------------------------- lobby lane
+/** Poll `fn` on a page until it returns truthy (or time runs out); returns the last value. */
+async function until(p, fn, arg, ms = 8000) {
+  const t = Date.now();
+  let v;
+  do {
+    v = await p.page.evaluate(fn, arg);
+    if (v) return v;
+    await new Promise((r) => setTimeout(r, 150));
+  } while (Date.now() - t < ms);
+  return v;
+}
+function click(p, sel) {
+  return p.page.evaluate((sel) => {
+    const b = document.querySelector(sel);
+    if (b) b.click();
+    return !!b;
+  }, sel);
+}
+
+/** Lobby: invite link landed, cards, pings, chat, then READY-UP starts the run. */
+async function lobbyPhase() {
+  const url = await B.page.evaluate(() => location.search);
+  if (url.includes('join=')) fail(`the invite link's join= stays in the address (${url})`);
+  const cards = await until(B, () => {
+    const x = document.querySelectorAll('#scr-online .lob-card');
+    return x.length === 2 && document.querySelector('#scr-online .players').textContent.includes('HOSTBOT') && [...x].map((c) => c.textContent.replace(/\s+/g, ' ').trim());
+  });
+  if (!cards) fail('client lobby: no player cards for both players');
+  const ping = await until(A, () => {
+    const t = document.querySelectorAll('#scr-online .lob-card')[1]?.querySelector('.ping')?.textContent ?? '';
+    return /\d+ MS/.test(t) && t;
+  });
+  if (!ping) fail('host lobby: no ping for the client');
+  // Chat both ways: free text (filtered) from the client, quick chat from the host.
+  await B.page.evaluate(() => {
+    const inp = document.querySelector('#scr-online .lob-input');
+    inp.value = 'hi host, this shit works';
+    inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+  });
+  await click(A, '#scr-online [data-act=chat-quick][data-q="2"]');
+  const chatA = await until(A, () => {
+    const t = document.querySelector('#scr-online .lob-log')?.textContent ?? '';
+    return t.includes('this **** works') && t.includes("LET'S GO!") && t;
+  });
+  const chatB = await until(B, () => {
+    const t = document.querySelector('#scr-online .lob-log')?.textContent ?? '';
+    return t.includes('this **** works') && t.includes("HOSTBOT: LET'S GO!") && t;
+  });
+  if (!chatA || !chatB) fail(`lobby chat: host sees "${chatA}", client sees "${chatB}"`);
+  await shot('lobby');
+  // READY-UP: the client first (no start yet), then the host; the countdown starts the run.
+  await click(B, '#scr-online [data-act=lob-ready]');
+  await new Promise((r) => setTimeout(r, 600));
+  const early = await A.page.evaluate(() => window.game.mode);
+  if (early !== 'title') fail(`the run started with only the client ready (${early})`);
+  await click(A, '#scr-online [data-act=lob-ready]');
+  const counting = await until(B, () => /STARTING IN/.test(document.querySelector('#scr-online .lob-status')?.textContent ?? ''), null, 3000);
+  if (!counting) fail('client never saw the ready-up countdown');
+  log(`lobby: cards ${JSON.stringify(cards)}, host ping ${ping}, chat ok ${!!(chatA && chatB)}, countdown seen ${!!counting}`);
+}
+
+/** After the run: game over, PARTY, vote RESTART, game over, BACK TO LOBBY, then KICK. */
+async function partyPhase() {
+  const over = async () => {
+    await host(() => {
+      const g = window.game;
+      g.mode = 'dead';
+      g.endRun();
+    });
+    const ok = await until(B, () => window.game.screens.current === 'gameover', null, 6000);
+    const okA = await host(() => window.game.screens.current === 'gameover');
+    if (!ok || !okA) fail(`party: game over screens host ${okA} client ${ok}`);
+  };
+  await Promise.all([A, B].map((p) => p.page.evaluate(() => window.botAuto(false))));
+  await over();
+  for (const p of [A, B]) if (!(await click(p, '#scr-gameover [data-act=party-open]:not([hidden])'))) fail(`party: no PARTY button on the ${p.name}`);
+  const rows = await until(B, () => window.game.screens.current === 'party' && document.querySelectorAll('#scr-party .pty-row').length === 2 && document.querySelector('#scr-party .pty-sum').textContent);
+  if (!rows) fail('party: the client party screen has no rows');
+  await click(B, '#scr-party [data-act=pty-vote][data-v=restart]');
+  const seen = await until(A, () => document.querySelector('#scr-party [data-act=pty-vote][data-v=restart]')?.textContent.includes('1/2'), null, 4000);
+  if (!seen) fail('party: the host never saw the client vote');
+  await shot('party');
+  await click(A, '#scr-party [data-act=pty-vote][data-v=restart]');
+  const again = await until(B, () => window.game.mode !== 'dead' && window.game.mode !== 'title' && window.game.heroes.length === 2 && window.game.stage === 1, null, 10000);
+  const seeds = await Promise.all([host(() => window.game.seed), client(() => window.game.seed)]);
+  if (!again || seeds[0] !== seeds[1]) fail(`party: RESTART didn't start the same run on both (client ok ${again}, seeds ${seeds})`);
+  await new Promise((r) => setTimeout(r, 1500));
+  await over();
+  for (const p of [A, B]) await click(p, '#scr-gameover [data-act=party-open]:not([hidden])');
+  await until(B, () => window.game.screens.current === 'party', null, 3000);
+  await click(B, '#scr-party [data-act=pty-vote][data-v=lobby]');
+  await new Promise((r) => setTimeout(r, 500));
+  await click(A, '#scr-party [data-act=pty-vote][data-v=lobby]');
+  const lobbyB = await until(B, () => window.game.mode === 'title' && window.game.role === 'client' && window.game.screens.current === 'online' && document.querySelectorAll('#scr-online .lob-card').length === 2, null, 6000);
+  const lobbyA = await host(() => window.game.mode === 'title' && window.game.lobby.length === 2 && window.game.screens.current === 'online');
+  if (!lobbyA || !lobbyB) fail(`party: BACK TO LOBBY host ${lobbyA} client ${lobbyB}`);
+  await shot('lobby-again');
+  // KICK: the client leaves for the title with a message; the host lobby has just the host.
+  if (!(await click(A, '#scr-online [data-act=lob-kick]'))) fail('kick: no KICK button');
+  const out = await until(B, () => window.game.role === 'solo' && window.game.screens.current === 'title' && (document.querySelector('#toast')?.textContent ?? '').includes('REMOVED'), null, 5000);
+  const hostOne = await until(A, () => window.game.lobby.length === 1, null, 3000);
+  if (!out || !hostOne) fail(`kick: client out ${out}, host lobby down to 1 ${hostOne}`);
+  log(`party: rows ok ${!!rows}, restart ok ${!!again}, back to lobby ${lobbyA && !!lobbyB}, kick ${!!out && !!hostOne}`);
+}
 
 async function done() {
   try {

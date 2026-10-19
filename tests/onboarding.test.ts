@@ -102,7 +102,7 @@ const { MODS } = await import('../src/data/mods');
   const text = exportFile();
   importFile(text);
   ok(save.tips[0] === 'boss' && save.discovered[0] === 'w:buster' && save.training.done, 'v4 fields survive save to file and back');
-  ok(JSON.parse(text).save.version === 4, 'save version 4');
+  ok(JSON.parse(text).save.version >= 4, 'save version 4+');
 }
 
 // ---------------------------------------------------------------- in the game

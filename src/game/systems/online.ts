@@ -17,24 +17,40 @@ import { prefetchIce } from '../../net/ice';
 import { cleanLook } from '../../data/customise';
 import { coopPlayerId } from '../coop2';
 import { versusOverlordIndex } from './mp';
+import { hostCode, myProfile } from './party';
+import { parseInviteCode } from '../lobby';
 
-export async function hostGame(this: Game, name: string): Promise<void> {
+/** `randomCode`: skip the friend code (lobby lane), e.g. when it is taken. */
+export async function hostGame(this: Game, name: string, randomCode = false): Promise<void> {
   this.saveName(name);
   this.netName = name.trim().slice(0, 12) || 'Player';
   this.leaveToTitle();
   this.role = 'host';
   await prefetchIce(); // time-limited relay credentials, if the build has a credential URL (src/net/ice.ts)
   if (this.role !== 'host' || this.host) return;
-  const host = new NetHost(3);
+  // Lobby lane: host under the player's friend code (saved codes and invite links keep working); a taken code falls back to a random one.
+  const fixed = randomCode ? undefined : hostCode();
+  const host = new NetHost(3, fixed);
   this.host = host;
   this.lobby = [{ peerId: '', name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) }];
   this.screens.setLobby({ code: '', players: [], isHost: true, status: 'Creating game...' });
   host.onMessage = (from, msg) => this.onHostMessage(from, msg as Record<string, unknown>);
-  host.onLeave = (id) => this.onClientLeft(id);
-  host.onError = (msg) => this.screens.setLobby({ code: '', players: [], isHost: true, status: msg });
+  host.onLeave = (id) => {
+    this.lobbyLeft(id); // lobby lane: ready flags, pings, votes (systems/party.ts)
+    this.onClientLeft(id);
+  };
+  host.onError = (msg) => {
+    if (fixed && host.errorType === 'unavailable-id') return; // retried below with a random code
+    this.screens.setLobby({ code: '', players: [], isHost: true, status: msg });
+  };
   try {
     await host.ready;
   } catch {
+    if (fixed && host.errorType === 'unavailable-id' && this.host === host) {
+      host.close();
+      this.host = null;
+      return this.hostGame(name, true);
+    }
     return;
   }
   if (this.host !== host) return;
@@ -98,6 +114,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
   this.role = 'client';
   await prefetchIce();
   if (this.role !== 'client' || this.client) return;
+  code = parseInviteCode(code) ?? code; // a pasted invite link works too (lobby lane)
   const client = new NetClient(code);
   this.client = client;
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connecting...' });
@@ -116,7 +133,7 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
     this.screens.setLobby({ code: '', players: [], isHost: false, status: (err as Error).message });
     return;
   }
-  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look) });
+  client.send({ t: 'hello', pid: coopPlayerId(), name, unlocked: unlockedWeapons(), loadout: validLoadout(settings.loadout, unlockedLoadout()), skin: settings.skin, pet: settings.pet, hero: localHero(), look: cleanLook(settings.look), prof: myProfile() }); // prof: lobby card (systems/party.ts)
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connected! Waiting for the host to start...' });
 }
 
