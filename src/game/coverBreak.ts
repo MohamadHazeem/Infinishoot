@@ -114,6 +114,13 @@ export function onCoverMsg(g: Game, m: Record<string, unknown>): void {
   breakLocal(g, coverOf(g), Number(m.i));
 }
 
+/** Indices of the cover pieces broken in this arena (a player joining mid-run gets them, coop2 lane). */
+export function brokenCover(g: Game): number[] {
+  const out: number[] = [];
+  coverOf(g).broken.forEach((b, i) => b && out.push(i));
+  return out;
+}
+
 /** Tests and debug: how many breakable covers this arena has, and how many are broken. */
 export function coverStats(g: Game): { total: number; broken: number } {
   const s = coverOf(g);

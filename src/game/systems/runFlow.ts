@@ -98,6 +98,7 @@ export function goTitle(this: Game): void {
 
 /** Back to a single local hero on the title screen, closing any connection. */
 export function leaveToTitle(this: Game): void {
+  if (this.role === 'client' && this.mode !== 'title') this.client?.send({ t: 'bye' }); // leaving on purpose: no autopilot wait (systems/coop2.ts)
   this.pvp = null;
   this.host?.close();
   this.client?.close();

@@ -306,6 +306,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
   lap('ren.camera+reticle');
   this.renderTeam();
   this.renderCompanion(rdt);
+  this.renderCoop2(rdt, netA); // emote bubbles, autopilot tags, help ghost, team panel, buy-back (systems/coop2.ts)
   this.renderEliteBars(alpha);
   this.renderMinimap();
   this.hud.setDowned(this.heroes.length > 1 && this.isCombatMode && this.hero.player.dead ? { revive01: Math.min(1, this.hero.reviveT / REVIVE_TIME) } : null);

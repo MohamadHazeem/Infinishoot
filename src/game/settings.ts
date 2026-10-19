@@ -88,6 +88,12 @@ export interface Settings {
   look: string;
   /** Slow-motion replay of the hit that ended the run, before the game-over screen. */
   deathReplay: boolean;
+  /** Online lobby (host): the team shares a pool of lives (coop2 lane, src/game/coop2.ts). */
+  coopPool: boolean;
+  /** Online (host): friends can join the run after it starts and come back if they drop. */
+  coopJoinable: boolean;
+  /** Friends' help ghosts appear in your runs (EXTRAS > HELP GHOSTS). */
+  helpGhosts: boolean;
 }
 
 const KEY = 'settings.v1';
@@ -140,6 +146,9 @@ export const settings: Settings = loadJson<Settings>(KEY, {
   animeLook: false,
   look: '---00',
   deathReplay: true,
+  coopPool: false,
+  coopJoinable: true,
+  helpGhosts: true,
 });
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
@@ -150,6 +159,9 @@ settings.portraitPops ??= true;
 settings.animeLook ??= false;
 settings.look ??= '---00';
 settings.deathReplay ??= true;
+settings.coopPool ??= false;
+settings.coopJoinable ??= true;
+settings.helpGhosts ??= true;
 settings.loadout = validLoadout(settings.loadout);
 
 /** Accessibility switches read by gameplay and effects code. */

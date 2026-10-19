@@ -28,6 +28,7 @@ import { onHeartbeat } from '../netFeel';
 import { onCoverMsg } from '../coverBreak';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
+  if (this.coopClientMsg(m)) return; // drop-in join, roster changes, ghosts (systems/coop2.ts)
   switch (m.t) {
     case 'lobby': {
       const players = (m.players as { name: string; color: string }[]) ?? [];
@@ -54,6 +55,7 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
         this.pvp.phase = 'duel';
       }
       this.difficulty = DIFF_BY_ID[m.difficulty as DifficultyId] ?? DIFF_BY_ID.normal;
+      snapDecoders.get(this)?.reset(); // a new (or re-)joined game: no baselines from an earlier connection
       this.clientStart(Number(m.seed), Number(m.you), (m.players as { name: string }[]) ?? []);
       applyMetaSnapshot(this, m.meta);
       break;
@@ -378,6 +380,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applySkillNet(s.sk);
   this.applyCompanionNet(s.cp);
   this.applyTimeNet(s.tm);
+  this.applyCoopNet(s.co);
 
   this.arenaSetNet(s.ar as Record<string, unknown> | undefined);
   this.applyWorldEventNet(s.we, s.wt);

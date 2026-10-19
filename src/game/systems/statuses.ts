@@ -32,6 +32,7 @@ import { noteBulletHit } from '../netFeel';
 import { vampHeal } from '../lifesteal';
 import { noteShock, overloadPartner, teamCombo, teamGame, teamTuning } from '../teamPlay';
 import { bossVoiceCue } from '../../audio/voices';
+import { COOP2_SOURCE_NAMES } from '../coop2';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
@@ -140,6 +141,7 @@ export function sourceName(this: Game, id: string): string {
   if (MECH_SOURCE_NAMES[id]) return MECH_SOURCE_NAMES[id]; // hero mechanics, biome foes
   if (GP_SOURCE_NAMES[id]) return GP_SOURCE_NAMES[id]; // gameplay lane: mech, super weapons, relics
   if (id === 'pet' || id === 'team') return id === 'pet' ? 'Pet' : 'Team Moves'; // companion lane
+  if (COOP2_SOURCE_NAMES[id]) return COOP2_SOURCE_NAMES[id]; // team ultimate, help ghosts
   const named: Record<string, string> = { pet: 'Sparky', meteor: 'Meteors', thorns: 'Thorn Mail', r_dashbomb: 'Blast Boots', bomb: 'Bomb', nuke: 'Nuke', burn: 'Burning', shatter: 'Shatter', overload: 'Overload', zap: 'Chain Zaps', exploder: 'Enemy blasts', charge: 'Charge Shot', barrel: 'Barrels' };
   return WEAPONS[id]?.name ?? MOD_BY_ID[id]?.name ?? named[id] ?? 'Other';
 }
@@ -481,6 +483,7 @@ export function onHeroDown(this: Game, h: Hero): void {
     this.juice.freeze(0.25);
     this.hud.flash(0.5);
   }
+  if (this.aliveHeroes.length === 0 && this.coopPoolSave(h)) return; // shared revive pool (systems/coop2.ts)
   if (this.aliveHeroes.length === 0) {
     this.mode = 'dead';
     this.modeT = 0;
