@@ -13,7 +13,10 @@ import { JSDOM } from 'jsdom';
 import { readFileSync } from 'node:fs';
 
 const html = readFileSync(`${process.cwd()}/index.html`, 'utf8');
-const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });
+// balance2: pin the season (the Halloween calendar would otherwise turn stage 2 into the Haunted stage with Pumpking
+// whenever the sweep runs between Oct 15 and Nov 7). `season: 'halloween'` measures Pumpking on purpose.
+const cfg0 = JSON.parse(process.env.SWEEP_CFG ?? '{}') as { season?: string };
+const dom = new JSDOM(html, { url: `http://localhost/?season=${cfg0.season ?? 'off'}`, pretendToBeVisual: true });
 const noop: any = new Proxy(function () {}, {
   get: (_t, k) => (k === 'data' ? new Uint8ClampedArray(4 * 64 * 64) : k === Symbol.toPrimitive ? () => 0 : k === 'measureText' ? () => ({ width: 10 }) : noop),
   apply: () => noop,
@@ -46,6 +49,17 @@ interface Cfg {
   /** Boss bench: jump to this stage's boss with the loadout at fixed ranks (no auto weapons, Mods, ultimate,
    * mech, crates or cash-ins), so only the kit kills the boss. */
   bench?: { stage: number; ranks: number; evo?: number; ult?: boolean };
+  /** balance2: heroes in the run (1 = solo; 2-4 via the AI squad, 5-8 add more squad bots), all on the dev/squad brains. */
+  team?: number;
+  /** Squad bots' heroes (comma list, default all Rookies). */
+  mates?: string;
+  /** Ascension level (solo Standard; forces Hard). */
+  asc?: number;
+  /** 'off' (default) or 'halloween'. */
+  season?: string;
+  /** A Trial id: play that trial (practice) instead of a run. */
+  trial?: string;
+  noRoute?: boolean;
 }
 const cfg = JSON.parse(process.env.SWEEP_CFG ?? '{}') as Cfg;
 cfg.kit ??= ['buster', 'charge', 'bomb'];
@@ -85,6 +99,19 @@ Autopilot.prototype.decide = function (g) {
     const dz = p.z - boss.z;
     const d = Math.hypot(dx, dz) || 1;
     const want = (2.5 + boss.radius - d) * 0.6;
+    o.mx = -dz / d * 0.6 + (dx / d) * want;
+    o.mz = dx / d * 0.6 + (dz / d) * want;
+  }
+  // balance2: the Beam Whip reaches 4.8-6.7 m, so at the bot's 8 m boss orbit it never touched a boss. Close in
+  // to ~75% of its reach like a whip player would (same idea as the shield above).
+  const wh = hh.weapons.find((w) => w.def.id === 'whip') as any;
+  const wb = wh && g.mode === 'fight' ? g.enemies.list.find((e) => e.alive && e.def.boss) : null;
+  if (wb && !(sh && boss && (sh.up || sh.ready >= 1))) {
+    const p = hh.player;
+    const dx = p.x - wb.x;
+    const dz = p.z - wb.z;
+    const d = Math.hypot(dx, dz) || 1;
+    const want = ((wh.p?.range ?? 4.8) * 0.75 + wb.radius - d) * 0.6;
     o.mx = -dz / d * 0.6 + (dx / d) * want;
     o.mz = dx / d * 0.6 + (dz / d) * want;
   }
@@ -130,6 +157,37 @@ settings.difficulty = cfg.diff;
 settings.hero = cfg.hero;
 settings.pet = 'none';
 settings.loadout = { primary: cfg.kit[0], secondary: cfg.kit[1], special: cfg.kit[2] };
+// balance2: team runs (AI squad: real heroes on the squad brain, normal co-op scaling) and Ascension.
+const team = Math.max(1, Math.min(8, cfg.team ?? 1));
+(settings as any).squadBots = Math.min(3, team - 1);
+(settings as any).squadHeroes = cfg.mates ?? 'rookie,rookie,rookie,rookie,rookie,rookie,rookie';
+(settings as any).cinematics = 'off';
+if (cfg.asc) {
+  const { gauntletProfile } = await import('../../src/data/ascension');
+  gauntletProfile.unlocked = gauntletProfile.selected = cfg.asc;
+}
+if (team > 4) {
+  const SQ = await import('../../src/game/systems/aisquad');
+  const { SquadBrain } = await import('../../src/game/aisquadBrain');
+  const { DEFAULT_LOADOUT } = await import('../../src/data/loadout');
+  const { unlockedWeapons } = await import('../../src/game/save');
+  const start0 = game.startSquad;
+  game.startSquad = function () {
+    start0.call(this);
+    const st = SQ.squadDebug(this);
+    if (!this.squadRun) return;
+    const ids = (cfg.mates ?? '').split(',');
+    const list = [...this.heroes];
+    for (let i = list.length; i < team; i++) {
+      const mh = this.makeHero(i, `Bot ${i}`, unlockedWeapons(), '', undefined, 'none', ids[i - 1] || 'rookie');
+      mh.loadoutPick = { ...DEFAULT_LOADOUT };
+      st.brains.set(mh, new SquadBrain());
+      st.bots.push(mh);
+      list.push(mh);
+    }
+    this.setHeroes(list);
+  };
+}
 (settings as any).bossIntros = true;
 game.applyLocalSkin();
 const GP = await import('../../src/game/gameplay');
@@ -138,7 +196,13 @@ if (cfg.bench) {
   GP.crateTuning.first = GP.crateTuning.every[0] = GP.crateTuning.every[1] = 1e9;
   for (const t of GP.cashTuning.tiers) t.cost = 1e9;
 }
-game.startSolo();
+// balance2: `trial` plays one Trial (src/data/trials.ts) as practice; `noRoute` turns the route map off (every
+// stage a plain stage with its boss, no pacifist/stealth/mini-game nodes) for the boss-focused sets.
+const TR = await import('../../src/game/systems/trials');
+const AR = await import('../../src/game/systems/architect');
+if (cfg.trial) TR.startTrial(game, cfg.trial, true);
+else game.startSolo();
+if (cfg.noRoute) game.route.on = false;
 const h = game.hero;
 if (cfg.bench) {
   const b = cfg.bench;
@@ -146,6 +210,10 @@ if (cfg.bench) {
   if (b.stage > 1) game.loadStage(b.stage);
   game.update(1 / 60);
   game.xpNext = 1e12; // no level-ups
+  // balance2: the hero bench runs at the team level a full run has at that boss (median level at stage end in the
+  // full god runs: 18 / 25 / 34 / 44): the Tinker's bot cap and zap damage grow with it; nothing else in a bench
+  // fight reads the level.
+  if (b.ult) game.level = ({ 1: 18, 2: 25, 3: 34, 4: 44 } as Record<number, number>)[b.stage] ?? 1;
   game.collect = ((c) => (hero: any, type: any, value: any) => { if (type !== 4 && type !== 6) c.call(game, hero, type, value); })(game.collect);
   // Ranks round-robin over the tracks (Heavy, Rapid, Multi, Heavy, ...), then the evolution.
   for (const w of h.weapons) {
@@ -213,6 +281,7 @@ interface StageRec { stage: number; time: number; level: number; ranks: number; 
 const bosses: BossRec[] = [];
 const stages: StageRec[] = [];
 let boss: BossRec | null = null;
+let archRec: BossRec | null = null;
 let bossRef: any = null;
 let stage = 1;
 let stageT0 = 0;
@@ -300,13 +369,25 @@ for (; i < n; i++) {
       }
     }
   }
+  const modeWas = game.mode;
   botStep();
+  if (process.env.SWEEP_DEBUG && game.mode !== modeWas) process.stderr.write(`[t${Math.round(game.runTime)} st${game.stage}] ${modeWas} -> ${game.mode} screen ${(game.screens as any).current} dead ${h.player.dead} hp ${Math.round(h.player.hp)} arch ${JSON.stringify((() => { const a = AR.architectState(game); return { a: a.active, d: a.done, t: Math.round(a.time), hp: a.hp, ph: a.phase }; })())} bosses ${game.enemies.list.filter((e) => e.active && e.def.boss).map((e) => e.def.name)}\n`);
   clockMs += 1000 / 60;
   fixedT += 1 / 60;
   if (game.mode === 'fight') fightTime += 1 / 60;
   if (i % 10 === 0) game.render(1, 1 / 6);
   // Bosses (not mini-bosses): time from entrance to death, and the time it could be hurt.
-  const b = game.enemies.list.find((e) => e.active && e.def.boss);
+  const b = game.enemies.list.find((e) => e.active && e.def.boss && e.def.id !== 'architect');
+  // balance2: the Architect (stage-12 finale) is its own record: encounter seconds until it's done.
+  const arch = AR.architectState(game);
+  if (arch.active && !archRec) {
+    archRec = { stage: game.stage, name: 'The Architect', t: 0, vuln: 0, hp: 0, dps: 0, dmg: {}, killed: false };
+    bosses.push(archRec);
+  }
+  if (archRec && !archRec.killed) {
+    archRec.t = archRec.vuln = +arch.time.toFixed(1);
+    if (arch.done) archRec.killed = true;
+  }
   if (b && !boss) {
     bossRef = b;
     bossDmgCur = {};
@@ -356,6 +437,14 @@ out(
     JSON.stringify({
       ...cfg,
       died,
+      teamN: game.heroes.length,
+      diffId: game.difficulty.id,
+      diffHp: game.difficulty.enemyHp,
+      bossPlayers: game.director.players,
+      trialResult: cfg.trial ? TR.trialsState(game).run?.result ?? null : undefined,
+      trialMetric: cfg.trial ? TR.trialsState(game).run?.def.metric : undefined,
+      trialMedals: cfg.trial ? TR.trialsState(game).run?.def.medals : undefined,
+      ascApplied: (await import('../../src/game/systems/gauntlet')).challengeState(game).ascension,
       endMode: game.mode,
       unstuck,
       endScreen: (game.screens as any).current,
