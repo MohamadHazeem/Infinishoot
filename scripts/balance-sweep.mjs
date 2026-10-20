@@ -22,6 +22,7 @@
 //   --seed0=3                        first seed (default 1), to add seeds to an earlier sweep
 //   --bundle=out.mjs                 only bundle the runner (to compare against older data later)
 //   --runner=out.mjs                 run with a runner bundled earlier instead of the current source
+//   --only=regex                     only the configs whose id matches (e.g. --only='team:.*nightmare')
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
@@ -40,18 +41,20 @@ const seed0 = Number(args.seed0 ?? 1);
 const jobs = Number(args.jobs ?? Math.max(2, Math.min(10, Math.floor(cpus().length / 2))));
 const secs = Number(args.secs ?? 1500);
 const stages = Number(args.stages ?? 4);
-const sets = (args.sets ?? (quick ? 'bench' : 'bench,herobench,kits,mortal,heroes,diff')).split(',');
+const sets = (args.sets ?? (quick ? 'bench' : 'bench,herobench,kits,mortal,heroes,diff,asc,team,loops,haunt,trials,raid')).split(',');
 const date = new Date().toISOString().slice(0, 10);
 const tag = args.tag ? `-${args.tag}` : '';
 
-const PRIMARY = ['buster', 'scatter', 'laser', 'orb', 'rail'];
-const SECONDARY = ['charge', 'grenade', 'well', 'shield', 'orbital'];
+// balance2: + Beam Whip / Pocket Sentry (weapons3) and the Ronin / Tinker (heroes3).
+const PRIMARY = ['buster', 'scatter', 'laser', 'orb', 'rail', 'whip'];
+const SECONDARY = ['charge', 'grenade', 'well', 'shield', 'orbital', 'sentry'];
 const SPECIAL = ['bomb', 'storm', 'blizzard', 'meteor', 'blackhole'];
-const HEROES = ['rookie', 'bulwark', 'dash', 'ace', 'duelist', 'furnace', 'twin'];
+const HEROES = ['rookie', 'bulwark', 'dash', 'ace', 'duelist', 'furnace', 'twin', 'ronin', 'tinker'];
 const DEF = ['buster', 'charge', 'bomb'];
+const TRIAL_IDS = ['buster', 'king', 'parry', 'gems', 'ronin', 'combo', 'rhino', 'rex', 'environment', 'escort', 'tinker', 'rhythm', 'mech', 'puzzle', 'rush', 'night', 'bulwark', 'furnace', 'queen', 'clean', 'dance'];
 const BENCH = [{ stage: 1, ranks: 3 }, { stage: 2, ranks: 5 }, { stage: 3, ranks: 7 }, { stage: 4, ranks: 9, evo: 0 }, { stage: 4, ranks: 9, evo: 1 }];
 const QUEEN = 'st3r7';
-const ITEM_SRC = { buster: ['buster'], scatter: ['scatter'], laser: ['laser'], orb: ['orb'], rail: ['rail'], charge: ['charge'], grenade: ['grenade'], well: ['well'], shield: ['shield'], orbital: ['orbital'], bomb: ['bomb'], storm: ['storm'], blizzard: ['blizzard', 'shatter'], meteor: ['meteor'], blackhole: ['blackhole'] };
+const ITEM_SRC = { whip: ['whip'], sentry: ['sentry'], buster: ['buster'], scatter: ['scatter'], laser: ['laser'], orb: ['orb'], rail: ['rail'], charge: ['charge'], grenade: ['grenade'], well: ['well'], shield: ['shield'], orbital: ['orbital'], bomb: ['bomb'], storm: ['storm'], blizzard: ['blizzard', 'shatter'], meteor: ['meteor'], blackhole: ['blackhole'] };
 
 /** Kits: each item in the default kit, plus a Latin square (every left x right pair once, specials rotated so every left x special and right x special pair shows up once too). */
 function kitList() {
@@ -61,7 +64,7 @@ function kitList() {
   for (const p of PRIMARY) put([p, DEF[1], DEF[2]]);
   for (const s of SECONDARY) put([DEF[0], s, DEF[2]]);
   for (const s of SPECIAL) put([DEF[0], DEF[1], s]);
-  for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++) put([PRIMARY[i], SECONDARY[j], SPECIAL[(i + j) % 5]]);
+  for (let i = 0; i < PRIMARY.length; i++) for (let j = 0; j < SECONDARY.length; j++) put([PRIMARY[i], SECONDARY[j], SPECIAL[(i + j) % 5]]);
   let kits = [...out.values()];
   if (args.kits) {
     const only = args.kits.split(',');
@@ -92,6 +95,41 @@ function configs() {
   if (sets.includes('diff'))
     for (const k of [DEF, ['scatter', 'grenade', 'storm'], ['laser', 'well', 'meteor']])
       for (const d of ['easy', 'normal', 'hard']) for (const god of [true, false]) add('diff', k, 'rookie', d, god);
+  // balance2 sets.
+  const cfg = (set, extra, n, god, kit = DEF, hero = 'rookie', diff = 'normal') => {
+    for (let s = seed0; s < seed0 + n; s++) cfgs.push({ set, id: `${set}:${kit.join('/')}:${hero}:${diff}:${god ? 'god' : 'mortal'}:${JSON.stringify(extra).replace(/[{}"]/g, '')}:${s}`, kit, hero, diff, god, seed: s, secs, stages, ...extra });
+  };
+  // Ascension (solo Standard, forces Hard): A0 = plain Hard.
+  if (sets.includes('asc'))
+    for (const asc of [0, 5, 10, 15, 20]) {
+      cfg('asc', { asc }, seeds + 2, false, DEF, 'rookie', 'hard');
+      cfg('asc', { asc }, seeds, true, DEF, 'rookie', 'hard');
+    }
+  // Team size (AI squad, all Rookies, default kit), Medium; Legend and Nightmare for teams.
+  if (sets.includes('team')) {
+    for (const team of [1, 2, 4, 8]) {
+      cfg('team', { team }, seeds, true);
+      cfg('team', { team }, seeds + 1, false);
+    }
+    for (const team of [2, 4, 8]) for (const d of ['nightmare', 'legend']) cfg('team', { team }, seeds + 1, false, DEF, 'rookie', d);
+  }
+  // Loops 2-3 (biome bosses, Omega 2/3, the Architect), god, a few kits.
+  if (sets.includes('loops'))
+    for (const k of [DEF, ['scatter', 'grenade', 'storm'], ['laser', 'well', 'meteor'], ['whip', 'sentry', 'blizzard']]) cfg('loops', { stages: 12, secs: 4200, noRoute: true }, seeds, true, k);
+  // Halloween: Pumpking on the Haunted stage 2 (compare with Rex in the kits set).
+  if (sets.includes('haunt'))
+    for (const k of [DEF, ['scatter', 'grenade', 'storm'], ['laser', 'well', 'meteor'], ['whip', 'sentry', 'blizzard']]) cfg('haunt', { season: 'halloween', stages: 2, noRoute: true }, seeds + 1, true, k);
+  // Raid (the Hydra Engine, solo with role helpers), Medium, default kit.
+  if (sets.includes('raid')) {
+    cfg('raid', { mode: 'raid', secs: 960 }, seeds, true);
+    cfg('raid', { mode: 'raid', secs: 960 }, seeds + 1, false);
+  }
+  // Trials (solo ones; practice attempts), god and mortal bot.
+  if (sets.includes('trials'))
+    for (const trial of TRIAL_IDS) {
+      cfg('trials', { trial, secs: 200 }, seeds, true);
+      cfg('trials', { trial, secs: 200 }, seeds + 1, false);
+    }
   return cfgs;
 }
 
@@ -148,8 +186,8 @@ const med = (a) => {
 };
 const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
 const geo = (a) => (a.length ? Math.exp(a.reduce((x, y) => x + Math.log(y), 0) / a.length) : null);
-const f1 = (x) => (x == null ? '-' : Number(x).toFixed(1));
-const f0 = (x) => (x == null ? '-' : String(Math.round(x)));
+const f1 = (x) => (x == null || !Number.isFinite(Number(x)) ? '-' : Number(x).toFixed(1));
+const f0 = (x) => (x == null || !Number.isFinite(Number(x)) ? '-' : String(Math.round(x)));
 const BOSSES = ['King Bopper', 'Rampage Rex', 'Hive Queen', 'Omega Overlord'];
 const SHORT = { 'King Bopper': 'King', 'Rampage Rex': 'Rex', 'Hive Queen': 'Queen', 'Omega Overlord': 'Omega' };
 
@@ -362,6 +400,99 @@ function report(results) {
       }
     L.push('');
   }
+  // ---------------------------------------------------------------- balance2 sets
+  const byStage = (rs) => {
+    const m = new Map();
+    for (const r of rs) for (const b of r.bosses) {
+      const k = `st${b.stage} ${b.name}`;
+      if (!m.has(k)) m.set(k, { stage: b.stage, name: b.name, t: [], n: 0 });
+      const e = m.get(k);
+      e.n++;
+      if (b.killed) e.t.push(b.vuln);
+    }
+    return [...m.values()].sort((a, b) => a.stage - b.stage || a.name.localeCompare(b.name));
+  };
+  const asc = ok.filter((r) => r.set === 'asc');
+  if (asc.length) {
+    L.push('## Ascension (solo Standard, Hard + cumulative rules, default kit)', '');
+    L.push('| level | mortal stages cleared (per seed) | mean | survived s | deaths (stage: cause) | god boss times King / Rex / Queen / Omega | god stage times st1-4 |', '|---|---|---|---|---|---|---|');
+    for (const a of [...new Set(asc.map((r) => r.asc ?? 0))].sort((x, y) => x - y)) {
+      const m = asc.filter((r) => !r.god && (r.asc ?? 0) === a);
+      const g = asc.filter((r) => r.god && (r.asc ?? 0) === a);
+      const bt = BOSSES.map((n) => f1(med(g.flatMap((r) => r.bosses.filter((x) => x.name === n && x.killed && x.stage <= 4).map((x) => x.vuln))))).join(' / ');
+      L.push(`| A${a} | ${m.map((r) => r.cleared).join(' ')} | ${f1(mean(m.map((r) => r.cleared)))} | ${f0(mean(m.map((r) => r.runTime)))} | ${m.filter((r) => r.died).map((r) => `st${r.deathStage}: ${r.deathCause}`).join('; ') || '-'} | ${bt} | ${stageCols(g, (x) => x.time).map(f0).join('/')} |`);
+    }
+    L.push('');
+  }
+  const team = ok.filter((r) => r.set === 'team');
+  if (team.length) {
+    L.push('## Team size (AI squad: every hero a Rookie with the default kit; Medium unless noted)', '');
+    L.push('Boss times are the whole team\'s. Ratio = team boss time / solo boss time (geometric mean over the four bosses).', '');
+    L.push('| heroes | difficulty | god: King / Rex / Queen / Omega (s) | ratio vs solo | god stage times st1-4 | kills per run | mortal stages cleared | mortal deaths |', '|---|---|---|---|---|---|---|---|');
+    const solo = Object.fromEntries(BOSSES.map((n) => [n, med(team.filter((r) => r.god && (r.team ?? 1) === 1 && r.diff === 'normal').flatMap((r) => r.bosses.filter((x) => x.name === n && x.killed && x.stage <= 4).map((x) => x.vuln)))]));
+    for (const d of ['normal', 'nightmare', 'legend'])
+      for (const n of [1, 2, 4, 8]) {
+        const g = team.filter((r) => r.god && (r.team ?? 1) === n && r.diff === d);
+        const m = team.filter((r) => !r.god && (r.team ?? 1) === n && r.diff === d);
+        if (!g.length && !m.length) continue;
+        const bt = Object.fromEntries(BOSSES.map((b) => [b, med(g.flatMap((r) => r.bosses.filter((x) => x.name === b && x.killed && x.stage <= 4).map((x) => x.vuln)))]));
+        const rat = geo(BOSSES.filter((b) => bt[b] && solo[b]).map((b) => bt[b] / solo[b]));
+        L.push(`| ${n} | ${d} | ${BOSSES.map((b) => f1(bt[b])).join(' / ')} | ${rat ? rat.toFixed(2) : '-'} | ${stageCols(g, (x) => x.time).map(f0).join('/')} | ${f0(mean(g.map((r) => r.kills)))} | ${m.map((r) => r.cleared).join(' ')} (${f1(mean(m.map((r) => r.cleared)))}) | ${m.filter((r) => r.died).map((r) => `st${r.deathStage}: ${r.deathCause}`).join('; ') || '-'} |`);
+      }
+    L.push('');
+  }
+  const loops = ok.filter((r) => r.set === 'loops');
+  if (loops.length) {
+    L.push('## Loops 1-3 (god, Medium, Rookie): every stage boss', '');
+    L.push('Vulnerable seconds, median over kits and seeds (killed only). The loop column compares each boss with the median boss of its loop.', '');
+    const rows = byStage(loops);
+    const loopMed = {};
+    for (const lp of [1, 2, 3]) loopMed[lp] = med(rows.filter((x) => Math.ceil(x.stage / 4) === lp && x.name !== 'The Architect').map((x) => med(x.t)));
+    L.push('| stage | boss | killed / fought | median s | min | max | vs loop median |', '|---|---|---|---|---|---|---|');
+    for (const x of rows) {
+      const m = med(x.t);
+      const lm = loopMed[Math.ceil(x.stage / 4)];
+      L.push(`| ${x.stage} | ${x.name} | ${x.t.length}/${x.n} | ${f1(m)} | ${f1(Math.min(...x.t))} | ${f1(Math.max(...x.t))} | ${m && lm ? (m / lm).toFixed(2) : '-'} |`);
+    }
+    L.push('', `Stages reached: ${loops.map((r) => r.stageReached).join(' ')}; run times ${loops.map((r) => r.runTime).join(' ')} s.`, '');
+    L.push('| kit | stage times st1-12 | level st4/8/12 |', '|---|---|---|');
+    for (const k of [...new Set(loops.map((r) => r.kit.join('/')))]) {
+      const rs = loops.filter((r) => r.kit.join('/') === k);
+      const st = [...Array(12)].map((_, i) => f0(med(rs.map((r) => r.stages.find((x) => x.stage === i + 1)?.time).filter((x) => x != null))));
+      const lv = [4, 8, 12].map((s0) => f0(med(rs.map((r) => r.stages.find((x) => x.stage === s0)?.level).filter((x) => x != null))));
+      L.push(`| ${k} | ${st.join('/')} | ${lv.join('/')} |`);
+    }
+    L.push('');
+  }
+  const trials = ok.filter((r) => r.set === 'trials');
+  if (trials.length) {
+    L.push('## Trials (practice attempts by the dev bot; god = untouchable, mortal = takes hits)', '');
+    L.push('Medal = 0 none, 1 bronze, 2 silver, 3 gold. Time/damage medals are maxima, kills/combo minima. Values are the trial\'s medal metric.', '');
+    L.push('| trial | metric | bronze / silver / gold | god: done, metric (medal) per seed | mortal: done, metric (medal) per seed |', '|---|---|---|---|---|');
+    for (const id of TRIAL_IDS) {
+      const rs = trials.filter((r) => r.trial === id);
+      if (!rs.length) continue;
+      const m = rs[0].trialMetric ?? '';
+      const cell = (g) => rs.filter((r) => r.god === g).map((r) => { const t = r.trialResult; return t ? `${t.success ? 'ok' : 'fail'} ${f1(t[m] ?? t.time)} (${t.medal})` : 'no result'; }).join(', ');
+      L.push(`| ${id} | ${m} | ${(rs[0].trialMedals ?? []).join(' / ')} | ${cell(true)} | ${cell(false)} |`);
+    }
+    L.push('');
+  }
+  const raid = ok.filter((r) => r.set === 'raid');
+  if (raid.length) {
+    L.push('## Raid (Hydra Engine, solo + role helpers, Medium, default kit)', '');
+    L.push('Enrage at 780 s, meltdown at 900 s.', '');
+    L.push('| bot | result per seed (phase, encounter s) |', '|---|---|');
+    for (const g of [true, false]) L.push(`| ${g ? 'god' : 'mortal'} | ${raid.filter((r) => r.god === g).map((r) => `${r.raid?.phase ?? '?'} ${r.raid?.time ?? '-'}${r.died && r.raid?.phase !== 'won' ? ' (died: ' + r.deathCause + ')' : ''}`).join('; ')} |`);
+    L.push('');
+  }
+  const haunt = ok.filter((r) => r.set === 'haunt');
+  if (haunt.length) {
+    L.push('## Halloween (Haunted stage 2: Pumpking), god, Medium', '');
+    L.push('| stage | boss | killed / fought | median s | min | max |', '|---|---|---|---|---|---|');
+    for (const x of byStage(haunt)) L.push(`| ${x.stage} | ${x.name} | ${x.t.length}/${x.n} | ${f1(med(x.t))} | ${f1(Math.min(...x.t))} | ${f1(Math.max(...x.t))} |`);
+    L.push('');
+  }
   return L.join('\n');
 }
 
@@ -448,7 +579,8 @@ if (args.bundle) {
 let results;
 if (args.from) results = JSON.parse(readFileSync(args.from, 'utf8')).results;
 else {
-  const cfgs = configs();
+  let cfgs = configs();
+  if (args.only) cfgs = cfgs.filter((c) => new RegExp(args.only).test(c.id));
   console.log(`sweep: ${cfgs.length} runs, ${jobs} jobs`);
   results = await runAll(cfgs);
   if (args.append) results = [...JSON.parse(readFileSync(args.append, 'utf8')).results, ...results];

@@ -1,6 +1,7 @@
 /** Pure encounter rules. Fixed-size fields are shared by the host, view and snapshots. */
 export const architectTuning = {
-  stage: 12, hp: 450000, coreShare: 0.075, teamHp: 0.65,
+  stage: 12, hp: 3600000, // balance2: was 450000, a tenth of the stage-12 Omega's life (real runs cleared it in ~19 s)
+  coreShare: 0.075, teamHp: 0.65,
   entrance: 3, transition: 2, warning: 1.6, cycle: 8,
   tile: 4, grid: 9, half: 18, orbit: 5.8, orbitSpeed: 0.16,
   bulletSpeed: 6, bulletDamage: 14, pulseEvery: 1.25,

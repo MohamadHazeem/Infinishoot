@@ -165,8 +165,12 @@ settings.cinematics = 'off'; settings.loadout = { primary: 'scatter', secondary:
 for (const id of ['drones', 'missiles', 'lightning', 'fire']) for (let i = 0; i < 6; i++) g.debugGiveWeapon(id);
 g.hero.passives = {}; g.hero.recomputeStats();
 g.level = 40; g.xpNext = 1e12;
+// This fixed level-40 kit is far weaker than a real stage-12 build, so the pacing band is checked at the lane's
+// reference life (450,000); the shipped life is tuned to the stage-12 power curve (balance2, architectTuning.hp).
+const shippedHp = M.architectTuning.hp; M.architectTuning.hp = 450000;
 S.startArchitect(g, true); installBot(g, g.input);
 const report = (window as any).botRun(300, true);
+M.architectTuning.hp = shippedHp;
 Math.random = nativeRandom;
 s = S.architectState(g);
 console.log('Architect god-bot report:', JSON.stringify({ ...report, encounterSeconds: s.time, phase: s.phase, hp: s.hp, core: s.core }));

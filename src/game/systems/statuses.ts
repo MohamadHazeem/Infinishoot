@@ -24,6 +24,10 @@ import { heroes4HitCare, heroes4OnKill } from './heroes4';
 import { gpBulletBlast } from './gameplay';
 import { GP_SOURCE_NAMES } from '../gameplay';
 import { copyOrbPulse } from './enemyAi';
+import { ultTuning } from '../ultimates';
+
+/** BULLET_KINDS index of ultimate bullets (Mega Barrage, Mirror Storm). */
+const ULT_BULLET_KIND = 14;
 import type { Game } from '../game';
 import { scoreTuning, bombTuning, dropTuning, chestTuning, nukeTuning, statusTuning, cheats, BULLET_KINDS, IMPACT_BLAST, OWNED_CHEST } from '../game';
 import { StaticBoxGrid } from '../../core/spatialHash';
@@ -641,7 +645,9 @@ export function updateBullets(this: Game, dt: number): void {
       const sp = Math.hypot(b.vx[i], b.vz[i]) || 1;
       const by = this.heroes[b.owner[i]] ?? this.hero;
       const kind = BULLET_KINDS[b.kind[i]] ?? BULLET_KINDS[0];
-      this.damage(hit, b.damage[i], { source: kind.source, tags: kind.tags, dirX: b.vx[i] / sp, dirZ: b.vz[i] / sp, knockback: b.knockback[i], hx: x, hz: z, canCrit: true, loud: true }, by);
+      // Bullet ultimates (Mega Barrage, Mirror Storm: kind ULT_BULLET_KIND) take ultTuning.bossMul on bosses like every other ultimate (balance2).
+      const bdmg = b.kind[i] === ULT_BULLET_KIND && hit.def.boss ? b.damage[i] * ultTuning.bossMul : b.damage[i];
+      this.damage(hit, bdmg, { source: kind.source, tags: kind.tags, dirX: b.vx[i] / sp, dirZ: b.vz[i] / sp, knockback: b.knockback[i], hx: x, hz: z, canCrit: true, loud: true }, by);
       if (b.blast[i] > 0 && IMPACT_BLAST.includes(b.kind[i])) {
         this.bulletBlast(i);
         b.blast[i] = 0;

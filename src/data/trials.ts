@@ -14,27 +14,29 @@ const def = (id: string, tier: number, category: TrialCategory, goal: TrialGoal,
   biome: 'meadow', hero: 'rookie', kit: ['buster', 'charge'], rank: 2, seconds: 90, goal, target, metric, medals,
   foes: ['bopper', 'zippy'], alive: 24, ...extra,
 });
+// Medal targets (balance2, from dev-bot probes: notes/lanes/balance2.md): gold about 1.5-2.5x the untouchable
+// auto-aim bot's time, silver between gold and the limit; combo/kill targets about 0.6x what the bot reaches.
 export const TRIALS: readonly TrialDef[] = [
   def('buster', 0, 'basics', 'survive', 90, 'damage', [90, 35, 0], { kit: ['buster'], only: true, rank: 0 }),
   def('king', 0, 'bosses', 'boss', 1, 'time', [90, 60, 40], { bosses: ['king'], kit: ['rail', 'charge', 'drones'], rank: 5, alive: 0 }),
   def('parry', 0, 'skill', 'parry', 20, 'time', [120, 80, 50], { seconds: 120, foes: [], alive: 0, kit: [], only: true }),
   def('gems', 0, 'world', 'gems', 30, 'time', [120, 80, 50], { seconds: 120, gravity: true, biome: 'sky', alive: 12 }),
   def('ronin', 0, 'heroes', 'kills', 60, 'time', [120, 85, 55], { hero: 'ronin', kit: ['katana', 'iaido'], seconds: 120, only: true, alive: 35 }),
-  def('combo', 0, 'basics', 'survive', 90, 'combo', [15, 35, 60], { kit: ['scatter', 'charge', 'drones'], alive: 40 }),
+  def('combo', 0, 'basics', 'survive', 90, 'combo', [40, 80, 130], { kit: ['scatter', 'charge', 'drones'], alive: 40 }),
   def('rhino', 1, 'skill', 'dash', 10, 'time', [120, 85, 55], { kit: [], only: true, foes: ['charger'], alive: 3, seconds: 120 }),
   def('rex', 1, 'bosses', 'survive', 60, 'damage', [0, 0, 0], { bosses: ['rex'], phase: 2, noHit: true, kit: [], only: true, alive: 0, seconds: 60 }),
   def('environment', 1, 'world', 'environment', 20, 'time', [150, 100, 65], { biome: 'magma', seconds: 150, alive: 40, only: true }),
   def('escort', 1, 'world', 'escort', 1, 'time', [150, 110, 75], { biome: 'factory', kit: ['laser', 'well', 'drones'], seconds: 150, alive: 14 }),
   def('tinker', 1, 'heroes', 'kills', 80, 'time', [150, 105, 70], { hero: 'tinker', kit: ['beacon', 'drones'], seconds: 150, rank: 4, alive: 35, only: true }),
   def('rhythm', 1, 'skill', 'beats', 25, 'time', [120, 90, 60], { biome: 'neon', seconds: 120, kit: ['buster', 'charge'], alive: 35 }),
-  def('mech', 2, 'heroes', 'kills', 150, 'time', [90, 65, 45], { mech: true, alive: 65, biome: 'factory' }),
+  def('mech', 2, 'heroes', 'kills', 150, 'time', [90, 70, 50], { mech: true, alive: 65, biome: 'factory' }),
   def('puzzle', 2, 'world', 'puzzle', 6, 'time', [120, 75, 45], { kit: [], only: true, foes: [], alive: 0, seconds: 120, biome: 'peaks' }),
-  def('rush', 2, 'bosses', 'boss', 3, 'time', [180, 135, 95], { seconds: 180, bosses: ['king', 'rex', 'queen'], kit: ['rail', 'well', 'drones', 'lightning'], rank: 5, alive: 0 }),
+  def('rush', 2, 'bosses', 'boss', 3, 'time', [180, 110, 75], { seconds: 180, bosses: ['king', 'rex', 'queen'], kit: ['rail', 'well', 'drones', 'lightning'], rank: 5, alive: 0 }),
   def('night', 2, 'world', 'stealth', 3, 'time', [150, 105, 70], { seconds: 150, biome: 'dunes:night', kit: [], only: true, foes: ['bopper', 'shooter'], alive: 12 }),
   def('bulwark', 2, 'heroes', 'survive', 120, 'damage', [100, 40, 0], { seconds: 120, hero: 'bulwark', kit: ['buster', 'shield'], biome: 'peaks', foes: ['shooter', 'burster'], alive: 14 }),
-  def('furnace', 2, 'heroes', 'kills', 100, 'time', [120, 90, 60], { seconds: 120, hero: 'furnace', kit: ['buster', 'charge', 'fire'], biome: 'magma', alive: 45 }),
-  def('queen', 3, 'bosses', 'boss', 1, 'time', [120, 80, 50], { seconds: 120, bosses: ['queen'], biome: 'peaks', hero: 'ace', kit: ['laser', 'charge', 'missiles'], rank: 5, alive: 0 }),
-  def('clean', 3, 'skill', 'survive', 90, 'kills', [20, 45, 75], { noHit: true, kit: ['buster', 'charge'], foes: ['shooter', 'bopper'], alive: 28 }),
+  def('furnace', 2, 'heroes', 'kills', 100, 'time', [120, 95, 65], { seconds: 120, hero: 'furnace', kit: ['buster', 'charge', 'fire'], biome: 'magma', alive: 45 }),
+  def('queen', 3, 'bosses', 'boss', 1, 'time', [120, 55, 30], { seconds: 120, bosses: ['queen'], biome: 'peaks', hero: 'ace', kit: ['laser', 'charge', 'missiles'], rank: 5, alive: 0 }),
+  def('clean', 3, 'skill', 'survive', 90, 'kills', [30, 70, 120], { noHit: true, kit: ['buster', 'charge'], foes: ['shooter', 'bopper'], alive: 28 }),
   def('dance', 3, 'skill', 'beats', 40, 'time', [150, 110, 80], { seconds: 150, biome: 'neon', kit: ['scatter', 'well'], alive: 45 }),
   def('pair-core', 3, 'pairs', 'escort', 1, 'time', [180, 120, 80], { seconds: 180, players: 2, biome: 'factory', kit: ['laser', 'well', 'drones'], alive: 30 }),
   def('pair-zones', 3, 'pairs', 'zones', 1, 'damage', [180, 70, 0], { seconds: 120, players: 2, biome: 'sky', kit: ['scatter', 'charge', 'drones'], alive: 25 }),
@@ -46,8 +48,9 @@ export type TrialMedal = 0 | 1 | 2 | 3;
 export interface TrialResult { time: number; damage: number; kills: number; combo: number; progress: number; success: boolean; medal: TrialMedal; }
 export interface TrialBest { medal: TrialMedal; time: number; value: number; }
 export type TrialRecords = Record<string, TrialBest>;
+// Progress gets the same 1e-5 slack as the finish check: a survive trial's summed time ends at 89.99999... (balance2).
 export function medalFor(d: TrialDef, r: Omit<TrialResult, 'medal'>): TrialMedal {
-  if (![r.time, r.damage, r.kills, r.combo].every(n => Number.isFinite(n) && n >= 0) || !r.success || !Number.isFinite(r.progress) || r.progress < d.target || !Number.isFinite(r[d.metric]) || r.time > d.seconds + 0.05 || (d.noHit && r.damage > 0)) return 0;
+  if (![r.time, r.damage, r.kills, r.combo].every(n => Number.isFinite(n) && n >= 0) || !r.success || !Number.isFinite(r.progress) || r.progress + 0.00001 < d.target || !Number.isFinite(r[d.metric]) || r.time > d.seconds + 0.05 || (d.noHit && r.damage > 0)) return 0;
   const value = r[d.metric], lower = d.metric === 'time' || d.metric === 'damage';
   for (let i = 2; i >= 0; i--) if (lower ? value <= d.medals[i] : value >= d.medals[i]) return (i + 1) as TrialMedal;
   return 0;
