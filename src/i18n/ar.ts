@@ -1,4 +1,5 @@
 import { architectAr } from '../game/architect/strings';
+import { elites2Ar } from './elites2';
 import { trialsAr } from './trials';
 import { pets2Ar } from './pets2';
 import { followupsAr } from './followups';
@@ -33,6 +34,7 @@ export const ar = {
   "weather2.lightning.cause": "عاصفة رعدية",
   "weather2.heatwave.cause": "موجة حرّ",
 
+  ...elites2Ar,
   ...trialsAr,
   ...pets2Ar,
   ...biome3Ar,

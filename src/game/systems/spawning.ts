@@ -1,3 +1,4 @@
+import { makeChampion, eliteToast, discoverElite } from './elites2';
 import { gauntletBoss, gauntletElite } from './gauntlet';
 /**
  * Spawning enemies, rings, bosses and elites.
@@ -7,7 +8,7 @@ import { gauntletBoss, gauntletElite } from './gauntlet';
 import { halloweenBoss } from './halloween';
 import type { Game } from '../game';
 import { RECYCLE_DIST } from '../game';
-import { ELITE_MOD_IDS, ELITE_MODS, type EliteModId } from '../../data/eliteMods';
+import { pickEliteMod, championRoll, type EliteModId } from '../../data/eliteMods';
 import { type EnemyDef } from '../../data/enemies';
 import { spawnCue } from './sound';
 import { bossLike } from '../bossRules';
@@ -34,7 +35,7 @@ export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x:
   return null;
 }
 
-export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId) {
+export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId, championMod?: EliteModId) {
   if (this.bossDuel) return null; // boss duel: nobody joins the one-on-one (stage events included; systems/bossLane.ts)
   if (def.treasure) return this.spawnGolden(def);
   if (this.meta.rule('elites') && !def.boss && !def.miniboss) elite = true;
@@ -48,6 +49,8 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
   if (!pos) return null;
   const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
   const spawned = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
+  if (elite && (championMod || (!forceMod && championRoll(this.stage, this.rng.next())))) makeChampion(this, spawned, championMod);
+  if (elite) discoverElite(spawned);
   gauntletElite(this, spawned);
   if (def.special) {
     this.vfx.toast('SWARM QUEEN! CUT THE WALL, BREAK THE EGGS!', 3);
@@ -61,8 +64,7 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
     this.vfx.flash(0.4);
   }
   if (elite) {
-    const mod = eliteMod ? `${ELITE_MODS[eliteMod].name.toUpperCase()} ` : '';
-    this.vfx.toast(`ELITE ${mod}${def.name.toUpperCase()} INCOMING!`);
+    this.vfx.toast(eliteToast(spawned));
     this.vfx.sound('elite', NaN, NaN);
   }
   return pos;
@@ -71,10 +73,7 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
 /** Weighted elite modifier roll. Splitting skips enemies that already split, don't move, or blow themselves up. */
 export function rollEliteMod(this: Game, def: EnemyDef): EliteModId {
   const noSplit = !!def.split || def.behavior === 'spawner' || def.behavior === 'exploder';
-  const ok = ELITE_MOD_IDS.filter((id) => !(ELITE_MODS[id].split && noSplit) && !(ELITE_MODS[id].teleport && def.behavior === 'spawner'));
-  let r = this.rng.next() * ok.reduce((a, id) => a + ELITE_MODS[id].weight, 0);
-  for (const id of ok) if ((r -= ELITE_MODS[id].weight) <= 0) return id;
-  return ok[ok.length - 1];
+  return pickEliteMod(this.rng.next(), noSplit, def.behavior === 'spawner');
 }
 
 export function spawnRing(this: Game, def: EnemyDef, count: number): void {

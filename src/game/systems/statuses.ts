@@ -1,3 +1,5 @@
+import { reflectEliteBullet } from './elites2';
+import { CHAMPION_CHEST, elites2Tuning } from '../../data/eliteMods';
 import { saveLock } from '../save';
 import { bulletCandidates } from './perf2';
 import { secretsKill } from './secrets';
@@ -180,7 +182,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   if (big && this.runMode !== 'gauntlet') {
     // Bosses drop one chest per hero that only its owner can open (value OWNED_CHEST + hero index); elites drop one for anyone.
     if (isBoss) this.heroes.forEach((h, i) => { const o = ownedChestSpot(i, this.heroes.length); if (!h.left) this.pickups.spawn(PickupType.Chest, e.x + o.x, e.z + o.z, OWNED_CHEST + i); }); // a ring for 5-8 heroes (eightp lane)
-    else this.pickups.spawn(PickupType.Chest, e.x, e.z);
+    else this.pickups.spawn(PickupType.Chest, e.x, e.z, e.mod2 ? CHAMPION_CHEST : 1);
     for (let i = 0; i < (isBoss ? 3 : 1); i++) this.pickups.spawn(PickupType.Bolt, e.x, e.z, 1);
     for (let i = 0; i < (isBoss ? 2 : 1); i++) this.pickups.spawn(PickupType.Gear, e.x, e.z);
     if (e.elite) {
@@ -242,14 +244,14 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
     }
   }
   // Volatile elites leave a telegraphed blast behind.
-  const boom = e.mod?.explode;
+  const boom = e.mod?.explode ?? e.mod2?.explode;
   if (boom) {
     this.strikes.push({ x: e.x, z: e.z, r: boom.r, t: boom.fuse, dmg: boom.dmg * this.director.dmgMul * this.difficulty.enemyDmg, cause: `Volatile ${e.def.name}` });
     this.vfx.zone(e.x, e.z, boom.r, boom.fuse);
     this.vfx.sound('fuseTick', e.x, e.z, 1.4);
   }
   // Splitting elites burst into normal-size copies that fly outward.
-  const split = e.mod?.split;
+  const split = e.mod?.split ?? e.mod2?.split;
   if (split) {
     this.vfx.ring(e.x, e.z, e.radius * 1.5, 4, e.mod!.color, 0.3);
     for (let i = 0; i < split.count && this.enemies.activeCount < 480; i++) {
@@ -447,8 +449,8 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
     if (dmg <= 0) return;
   }
   if (src && h.hasRelic('r_thorns') && src.active) this.damage(src, 80, { source: 'thorns', tags: [], noStatus: true }, h);
-  const vamp = src?.mod?.vampire;
-  if (vamp && src.active) {
+  const vamp = src?.mod?.vampire ?? src?.mod2?.vampire;
+  if (vamp && src?.active) {
     src.hp = Math.min(src.maxHp, src.hp + src.maxHp * vamp.onHit);
     this.vfx.num(src.x, 2.4 * src.scale, src.z, 'DRAIN', 'player');
     this.vfx.burst(p.x, 1, p.z, { count: 8, color: '#b13e53', color2: '#ff5e7a', speed: [2, 5], size: [0.12, 0.22], life: [0.3, 0.5], up: 3 });
@@ -552,9 +554,9 @@ export function collect(this: Game, h: Hero, type: PickupType, value: number): v
       this.vfx.num(p.x, 2.4, p.z, `+1 GEAR (${h.rerollsLeft}/${MAX_GEARS})`, 'score');
       break;
     case PickupType.Chest:
-      h.chestsPending++;
+      h.chestsPending += value === CHAMPION_CHEST ? 2 : 1;
       this.mods2Event(h, 'chest');
-      h.gold += 2;
+      h.gold += value === CHAMPION_CHEST ? elites2Tuning.championGold : 2;
       this.vfx.sound('chest', p.x, p.z);
       if (h === this.hero) this.hud.flash(0.3);
       break;
@@ -621,6 +623,7 @@ export function updateBullets(this: Game, dt: number): void {
       if ((ex - x) ** 2 + (ez - z) ** 2 < rr * rr) { hit = e; break; }
     }
     if (hit) {
+      if (reflectEliteBullet(this, hit, i)) continue;
       const sp = Math.hypot(b.vx[i], b.vz[i]) || 1;
       const by = this.heroes[b.owner[i]] ?? this.hero;
       const kind = BULLET_KINDS[b.kind[i]] ?? BULLET_KINDS[0];

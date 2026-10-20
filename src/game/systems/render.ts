@@ -1,4 +1,5 @@
 import { renderWeather2, prepareWeather2 } from './weather2';
+import { eliteLabel, eliteDetail, installEliteStyle } from './elites2';
 import { reduceMotion } from '../../ui/hud';
 import { renderArchitect, architectActive, architectState } from './architect';
 import { eventBehavior } from '../../data/stageEvents';
@@ -60,9 +61,9 @@ export function eliteTrails(this: Game, frameDt: number): void {
   if (this.trailT < 0.05) return;
   this.trailT = 0;
   for (const e of this.enemies.list) {
-    if (!e.active || !e.mod?.trail || e.state === 'spawning' || (e.x === e.px && e.z === e.pz)) continue;
+    if (!e.active || !(e.mod?.trail ?? e.mod2?.trail) || e.state === 'spawning' || (e.x === e.px && e.z === e.pz)) continue;
     const s = e.scale;
-    this.particles.burst(e.x, e.radius * 0.8, e.z, { count: 2, color: e.mod.color, color2: '#ffcd75', speed: [0.2, 0.9], size: [0.2 * s, 0.38 * s], life: [0.25, 0.45], up: 0.6, drag: 3 });
+    this.particles.burst(e.x, e.radius * 0.8, e.z, { count: 2, color: (e.mod?.trail ? e.mod : e.mod2)!.color, color2: '#ffcd75', speed: [0.2, 0.9], size: [0.2 * s, 0.38 * s], life: [0.25, 0.45], up: 0.6, drag: 3 });
   }
 }
 
@@ -492,7 +493,8 @@ export function renderMinimap(this: Game): void {
 
 /** Health bars over elites (bosses use the big boss bar). */
 export function renderEliteBars(this: Game, alpha: number): void {
-  const bars: { x: number; y: number; hp01: number; onScreen: boolean }[] = [];
+  installEliteStyle();
+  const bars: { x: number; y: number; hp01: number; onScreen: boolean; name: string; detail: string }[] = [];
   if (this.isCombatMode && this.screens.current === 'none') {
     for (const e of this.enemies.list) {
       if (!e.active || !(e.elite || e.def.special || e.def.id === 'reaper') || e.def.boss || e.hp <= 0) continue;
@@ -502,6 +504,7 @@ export function renderEliteBars(this: Game, alpha: number): void {
       bars.push({
         x: ((this.tmp.x + 1) / 2) * innerWidth,
         y: ((1 - this.tmp.y) / 2) * innerHeight,
+        name: eliteLabel(e), detail: eliteDetail(e),
         hp01: Math.max(0, Math.min(1, e.hp / e.maxHp)),
         onScreen: this.tmp.z < 1 && Math.abs(this.tmp.x) < 1.05 && Math.abs(this.tmp.y) < 1.05,
       });

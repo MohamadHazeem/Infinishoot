@@ -1,5 +1,7 @@
 import { applyArchitectNet, architectLocalStep } from './architect';
 import { applyWeather2Net, weather2Local } from './weather2';
+import { applyElites2Net, discoverElite } from './elites2';
+import { ELITE_MODS } from '../../data/eliteMods';
 import { acceptTrialStart, applyTrialsNet } from './trials';
 import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
@@ -404,6 +406,9 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
     e.frozen = r.frozen ? 1 : 0;
     if (e.def.boss && this.netBoss) e.phase = this.netBoss.hp01 < 0.33 ? 3 : this.netBoss.hp01 < 0.66 ? 2 : 1;
     e.shield = r.shield ? 1 : 0;
+    e.mod2 = r.eliteMod2 ? ELITE_MODS[r.eliteMod2] : null;
+    e.phaseOut = r.phaseOut;
+    if (e.elite) discoverElite(e);
     e.aiBits = r.ai;
     e.familyState = r.familyState;
     e.copyKind = r.copyKind;
@@ -455,6 +460,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   this.applyRaidNet(s.rd);
   this.applyModesNet(s.md);
   applyTrialsNet(this, s.trial);
+  applyElites2Net(this, s.el2);
   applySoundLaneNet(this, s.s2);
   applySecretsNet(this, s.ss);
   if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen

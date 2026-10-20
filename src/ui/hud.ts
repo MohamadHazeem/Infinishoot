@@ -542,13 +542,13 @@ export class Hud {
    * Floating health bars over elites. x/y are screen pixels of the bar's
    * bottom centre; call every frame (an empty list hides them all).
    */
-  setEliteBars(bars: { x: number; y: number; hp01: number; onScreen: boolean }[]): void {
+  setEliteBars(bars: { x: number; y: number; hp01: number; onScreen: boolean; name?: string; detail?: string }[]): void {
     const now = performance.now();
     while (this.ebars.length < bars.length) {
       const el = document.createElement('div');
       el.className = 'ebar';
       el.style.display = 'none';
-      el.innerHTML = localizeHtml('<i></i><div class="bar"><b class="trail"></b><b class="fill"></b></div>');
+      el.innerHTML = localizeHtml('<span class="elite-name"></span><span class="elite-detail"></span><i></i><div class="bar"><b class="trail"></b><b class="fill"></b></div>');
       this.el('#ebars').appendChild(el);
       this.ebars.push({ el, fill: el.querySelector('.fill')!, trail: el.querySelector('.trail')!, hp: -1, hitT: -1e9, shown: false });
     }
@@ -564,6 +564,9 @@ export class Hud {
         return;
       }
       b.el.style.transform = `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) translate(-50%, -100%)`;
+      const name = b.el.querySelector('.elite-name')!, detail = b.el.querySelector('.elite-detail')!;
+      if (name.textContent !== (t.name ?? '')) name.textContent = t.name ?? '';
+      if (detail.textContent !== (t.detail ?? '')) detail.textContent = t.detail ?? '';
       // Whole UI pixels only (16 across the bar); any drop flashes and leaves a white trail.
       const hp = Math.ceil(Math.max(0, Math.min(1, t.hp01)) * 16) / 16;
       if (hp < b.hp) b.hitT = now;

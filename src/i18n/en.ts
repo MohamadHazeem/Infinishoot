@@ -1,4 +1,5 @@
 import { architectEn } from '../game/architect/strings';
+import { elites2En } from './elites2';
 import { trialsEn } from './trials';
 import { pets2En } from './pets2';
 import { followupsEn } from './followups';
@@ -32,6 +33,7 @@ export const en = {
   "weather2.lightning.cause": "Lightning Storm",
   "weather2.heatwave.cause": "Heat Wave",
 
+  ...elites2En,
   ...trialsEn,
   ...pets2En,
   ...biome3En,

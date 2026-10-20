@@ -1,4 +1,5 @@
 import * as ArchitectSys from './systems/architect';
+import { updateElites2 } from './systems/elites2';
 import { installTrials } from './systems/trials';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
@@ -1462,6 +1463,7 @@ export class Game implements HeroWorld {
     for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
     this.companionTargets();
     coopPlayTargets(this); // the escorted core draws enemies too (systems/coopplay.ts)
+    updateElites2.call(this, dt);
     this.enemies.update(dt, this.enemyCtx);
     HalloweenSys.halloweenStep.call(this, dt);
     lap('sim.enemies');

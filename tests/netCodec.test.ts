@@ -13,7 +13,7 @@ import { pack, unpack } from 'peerjs-js-binarypack';
 const ids = Object.keys(ENEMIES);
 ok(ids.length <= 256, `enemy kinds fit a byte (${ids.length})`);
 ok(BOSS_ACTIONS.length <= 8, `boss actions fit 3 bits (${BOSS_ACTIONS.length})`);
-ok(ELITE_MOD_IDS.length <= 127, `elite mods fit 7 bits (${ELITE_MOD_IDS.length})`);
+ok(ELITE_MOD_IDS.length <= 15, `elite mods fit 4 bits (${ELITE_MOD_IDS.length})`);
 
 const states = ['spawning', 'move', 'windup', 'attack', 'recover'] as const;
 const list: Enemy[] = ids.map((id, i) => ({
