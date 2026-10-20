@@ -1,4 +1,6 @@
-import { localize, localizeHtml, setLanguage, t } from '../i18n';
+import { localize, localizeHtml, isLanguage, browserLanguage, t } from '../i18n';
+
+import { applyLanguage } from '../i18n/layout';
 
 import { loadJson } from '../core/storage';
 
@@ -68,11 +70,11 @@ export class LoadingScreen {
 export async function boot(load: () => Promise<unknown>): Promise<void> {
   const saved = loadJson<{ language?: string }>('settings.v1', {});
   const language = new URLSearchParams(location.search).get('lang') ?? saved.language;
-  if (language === 'ar' || language === 'en') setLanguage(language);
   const screen = new LoadingScreen();
-  screen.progress(1, 3, 'menu.load.code');
-  await painted();
   try {
+    await applyLanguage(isLanguage(language) ? language : browserLanguage());
+    screen.progress(1, 3, 'menu.load.code');
+    await painted();
     await load();
     screen.progress(2, 3, 'menu.load.scene');
     await painted();

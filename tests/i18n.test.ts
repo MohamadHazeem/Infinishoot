@@ -32,12 +32,12 @@ for (const key of Object.keys(en) as (keyof typeof en)[]) {
 assert.equal(browserLanguage(['ar-SA']), 'ar');
 assert.equal(browserLanguage(['ar_EG']), 'ar');
 assert.equal(browserLanguage(['en-GB', 'ar']), 'en');
-assert.equal(browserLanguage(['fr']), 'en');
+assert.equal(browserLanguage(['fr']), 'fr');
 assert.equal(browserLanguage([]), 'en');
-setLanguage('en');
+await setLanguage('en');
 assert.equal(t('settings.language'), 'LANGUAGE');
 assert.equal(localize('Stage 4'), 'Stage 4');
-setLanguage('ar');
+await setLanguage('ar');
 assert.equal(t('settings.language'), 'اللغة');
 assert.equal(t('new.lane.unknown'), 'new.lane.unknown');
 const backup = ar['settings.language'];
@@ -69,7 +69,7 @@ for (const def of [...Object.values(WEAPONS), ...Object.values(SPECIALS), ...Obj
   need(/[\u0600-\u06ff]/.test(localize(def.name)), 'data name: ' + def.name);
   if ('desc' in def && typeof def.desc === 'string') need(!/[a-z]{3}/i.test(localize(def.desc)), 'description: ' + def.desc);
 }
-const untranslatedEntries = [...codexEntries().flatMap(entry => [entry.name, entry.desc, entry.kind]), ...CODEX.flatMap(entry => [entry.name, entry.text])].filter(text => /[a-z]{3}/i.test(localize(text)));
+const untranslatedEntries = [...codexEntries().flatMap(entry => [entry.name, entry.desc, entry.kind]), ...CODEX.flatMap(entry => [entry.name, entry.text])].filter(text => /[a-z]{3}/i.test(localize(text).replace(/\b(UTC|ISO)\b/g, '')));
 need(untranslatedEntries.length === 0, 'all generated arsenal/codex copy translates: ' + untranslatedEntries.slice(0, 5).join(' | '));
 for (const mode of ['standard', 'endless', 'bossrush']) for (const progress of unlockProgress({ kills: 0, bosses: 0, elites: 0, bestStage: 1 }, { stage: 1, dashes: 0, weapons: 2, bosses: 0, mode, difficulty: 'hard' }, [])) {
   need(!/[a-z]{3}/i.test(localize(progress.unit)), 'unlock progress: ' + progress.unit);
@@ -91,7 +91,7 @@ let clicks = 0;
 root.querySelector('button')!.addEventListener('click', () => clicks++);
 relocalizeDom(root, 'en');
 assert.equal(root.querySelector('button')!.textContent, 'لعب فردي');
-setLanguage('en');
+await setLanguage('en');
 relocalizeDom(root, 'ar');
 assert.equal(root.querySelector('button')!.textContent, 'PLAY SOLO');
 assert.equal(root.querySelector('p')!.textContent, 'STAGE 4 SHOP');
@@ -110,7 +110,7 @@ const { MenuNav } = await import('../src/ui/menu');
 const { sfx } = await import('../src/audio/sfx');
 sfx.menuMove = () => {};
 sfx.ui = () => {};
-setLanguage('ar');
+await setLanguage('ar');
 const menu = dom.window.document.createElement('div');
 menu.innerHTML = '<button data-nav>A</button><button data-nav>B</button><button data-nav>C</button>';
 const nav = new MenuNav(menu, { columns: 3 });
@@ -120,7 +120,7 @@ assert.equal(nav.focus, 1, 'left moves to the next RTL card');
 menu.className = 'owned-mods';
 press('ArrowRight');
 assert.equal(nav.focus, 2, 'right moves along the LTR Mod pipeline');
-setLanguage('en');
+await setLanguage('en');
 
 // Parse source, not comments/CSS: every main-screen DOM write must pass through localization.
 // This catches new hardcoded labels (and data-driven English) even inside conditional expressions.

@@ -69,12 +69,12 @@ const { tip2Still } = await import('../src/game/systems/tips2');
   ok(texts.every((s) => !s.includes('⟪') && s.length > 20 && s.length < 230), 'every tip fills its button prompts and stays short');
   ok(TIPS.rewind.text().includes('B') && TIPS.ronin.text().includes('LMB') === TIPS.ronin.text().includes('LMB'), 'the rewind tip names its key');
   ok(TIP2_IDS.every((id) => tipTime(TIPS[id]) >= 5 && tipTime(TIPS[id]) <= 10), 'tips stay up 5-10 s');
-  setLanguage('ar');
+  await setLanguage('ar');
   const arTexts = TIP2_IDS.map((id) => TIPS[id].text());
   const arTitles = TIP2_IDS.map((id) => localize(TIPS[id].title));
   ok(arTexts.every((s) => /[؀-ۿ]/.test(s) && !s.includes('⟪')), 'Arabic tip texts with their prompts');
   ok(arTitles.every((s) => /[؀-ۿ]/.test(s)), 'Arabic tip titles (the tip panel localizes the canonical English): ' + arTitles.filter((s) => !/[؀-ۿ]/.test(s)).join(' | '));
-  setLanguage('en');
+  await setLanguage('en');
   ok(TIP_PRIORITY.collapse === 0 && tipInsertAt('collapse', ['parry', 'mech']) === 0 && tipInsertAt('ghost', ['parry']) === 1, 'danger tips jump ahead of trivia');
   ok(TIP2_MENUS.route === 'route', 'the route map tip belongs to its menu');
 }
@@ -121,12 +121,12 @@ const { tip2Still } = await import('../src/game/systems/tips2');
   ok(EXTRA_CODEX.every((c) => cx.get(c.id) === c), 'extra codex entries are in CODEX');
   ok(modeCodexId('standard', { pvp: false, race: false, versus: false, coop: true }) === 'mode:coop' && modeCodexId('gauntlet', { pvp: false, race: false, versus: false, coop: false }) === 'mode:gauntlet' && modeCodexId('standard', { pvp: true, race: false, versus: false, coop: true }) === 'mode:pvp', 'the run picks its mode entry');
 
-  setLanguage('ar');
+  await setLanguage('ar');
   const fresh = [...POWERUPS.flatMap((x) => [x.name, x.desc, x.kind]), 'POWER-UPS', ...EXTRA_CODEX.flatMap((c) => [c.name, c.text, c.kind]), ...CODEX.filter((c) => /^(enemy|biome|hero|mode|boss):/.test(c.id)).map((c) => c.text)];
   // Technical literals (UTC, ISO) stay in Latin letters on purpose (notes/lanes/arabic.md).
   const untranslated = fresh.filter((s) => /[a-z]{3}/i.test(localize(s).replace(/\b(UTC|ISO)\b/g, '')));
   ok(untranslated.length === 0, 'new Arsenal/Codex copy translates to Arabic: ' + untranslated.join(' || '));
-  setLanguage('en');
+  await setLanguage('en');
 }
 
 // ---------------------------------------------------------------- in the game
@@ -199,11 +199,11 @@ game.onboarding.closeTip();
 ok(save.meta.codex.includes('mode:standard'), 'playing a Standard run discovers its Codex entry');
 
 // Arabic: the tip panel shows the translated title and text.
-setLanguage('ar');
+await setLanguage('ar');
 game.hero.play.mechT = 5;
 step(260);
 const shown = $('#ob-tip')!.textContent ?? '';
 ok(save.tips.includes('mech') && /[؀-ۿ]/.test(shown) && !/MECH SUIT/.test(shown), 'in Arabic the mech tip shows in Arabic: ' + shown.slice(0, 60));
 ok(save.discovered.includes('x:mech'), 'piloting the mech discovers its Arsenal entry');
 game.hero.play.mechT = 0;
-setLanguage('en');
+await setLanguage('en');

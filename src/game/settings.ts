@@ -3,7 +3,7 @@ import { displayOptions, type DisplayOptions } from '../../electron/logic.mjs';
 import { mobileDevice } from '../core/mobile';
 import { applyColorblind, type ColorblindMode } from '../render/colorblind';
 import { applyTextScale } from '../ui/settingsScreen';
-import { browserLanguage, type Language } from '../i18n';
+import { browserLanguage, isLanguage, type Language } from '../i18n';
 import { applyLanguage } from '../i18n/layout';
 import { spatialSettings } from '../audio/spatial';
 import { loadJson, saveJson } from '../core/storage';
@@ -263,11 +263,11 @@ for (const key of ['oneStick', 'assistDash', 'assistIframes', 'assistDamage', 'a
 settings.batterySaver = settings.batterySaver === true;
 settings.touchOpacity = Number.isFinite(settings.touchOpacity) ? Math.max(25, Math.min(100, settings.touchOpacity)) : 70;
 settings.touchAutoHide = settings.touchAutoHide !== false;
-settings.language = settings.language === 'ar' || settings.language === 'en' ? settings.language : browserLanguage();
+settings.language = isLanguage(settings.language) ? settings.language : browserLanguage();
 // Screenshot/test locale override. Subsequent explicit settings changes persist normally.
 if (typeof location !== 'undefined') {
   const lang = new URLSearchParams(location.search).get('lang');
-  if (lang === 'ar' || lang === 'en') settings.language = lang;
+  if (isLanguage(lang)) settings.language = lang;
 }
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
