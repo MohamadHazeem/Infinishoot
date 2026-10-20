@@ -57,10 +57,13 @@ Get a weapon to level 5 while holding its partner item, and the next level-up (o
 
 ## Online co-op
 
-Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to 3 friends join with it. The host picks the difficulty (Easy, Medium or Hard) in the lobby. Each player has their own weapons, gold, Mods and shop; XP and score are shared. Stand next to a downed teammate to revive them. Co-op enemies scale with the number of players, 10% gentler than before.
+Title screen > PLAY > PLAY ONLINE. One player hosts and shares the 5-letter code or an invite link; up to 7 friends join (Versus takes 4), and more can watch from spectator seats. The host picks the game (co-op, Race, Raid, PvP, Versus) and the difficulty in the lobby. Each player has their own weapons, gold, Mods and shop; XP and score are shared. Stand next to a downed teammate to revive them, or drag them out of danger. If someone drops they can rejoin within 60 seconds, and if the host leaves the run carries on with a new host. Proximity voice chat is in SETTINGS > CO-OP (off by default). Solo players can bring up to 3 AI squadmates.
+
+Online extras (lobby browser, team board, ghosts, leaderboards) need the free Cloudflare server: see [docs/ONLINE.md](docs/ONLINE.md).
 
 ## What's in it
 
+- **v2.0**: 8-player co-op, host migration and reconnects, spectators, voice chat, trading, AI squadmates, Race, PvP formats and the Hydra Engine raid; heroes Ronin, Tinker, Medic and Brawler; Candy Kingdom and Sunken Ruins, new stage bosses and the Architect true final boss; item sets, new Mods, elite champions, secrets; Survival Gauntlet, Ascension, Trials, an arena editor, achievements, profile levels and a free cosmetic season track; adaptive pacing and gameplay weather; a light story; seven languages (English, Arabic, Spanish, French, Brazilian Portuguese, German, Turkish); phones and tablets; accessibility assists; highlight clips and JSON mod packs.
 - **Modes** (PLAY SOLO): Standard, Endless (one arena, a boss every 4 minutes), Boss Rush, and a Daily Challenge with the same seed for everyone. Difficulty: Easy, Medium or Hard, plus Nightmare once you reach stage 3 on Hard.
 - **Loadouts** (Mansour's v1.x): pick a left click, right click and Q/E special before the run, then grow them through upgrade trees with a two-way evolution fork.
 - **Heroes**: Rookie, Bulwark, Dash and Ace, each with a starting auto weapon and quirks. Skins and pets in EXTRAS > WARDROBE.
@@ -83,7 +86,7 @@ Title screen > PLAY ONLINE. One player hosts and shares the 5-letter code; up to
 - **Arenas**: four biomes with weather, swaying grass, lava that burns, slippery ice and conveyor belts, going from midday to sunset over each stage.
 - **Music** composed on the fly per area, with verses, choruses and boss themes that build with the fight; a jukebox in EXTRAS.
 - **Extras**: run history, enemy guide, rebindable keys, controller rumble, touch controls, colour-blind and reduced-flashing options, quality presets.
-- **Online co-op** for up to 4 players, with pings, spectating and revive bonuses. An optional **online leaderboard** can be switched on (see [server/leaderboard](server/leaderboard/README.md)).
+- **Online co-op** for up to 8 players, with pings, spectating and revive bonuses. An optional **online leaderboard** can be switched on (see [docs/ONLINE.md](docs/ONLINE.md)).
 
 ## Controls
 
@@ -110,6 +113,8 @@ Keys can be changed in SETTINGS > CONTROLS. On a touch screen, on-screen sticks 
 - [PLAN.md](PLAN.md): roadmap and decision log
 - [CLAUDE.md](CLAUDE.md): code conventions
 - [docs/RELEASING.md](docs/RELEASING.md): building releases and code signing
+- [docs/ONLINE.md](docs/ONLINE.md): turning on the online features
+- [docs/parallel-builds](docs/parallel-builds/README.md): how the big updates were built in parallel lanes
 
 ## Credits
 
