@@ -42,11 +42,11 @@ export class DashBudget {
   }
 }
 interface HeroAssist { budget: DashBudget; clicked: boolean; x: number; z: number; mx: number; mz: number; changed: boolean; }
-interface AssistState { assisted: boolean; clock: number; stage: number; heroes: Map<Hero, HeroAssist>; badge: HTMLElement | null; }
+interface AssistState { assisted: boolean; clock: number; stage: number; heroes: Map<Hero, HeroAssist>; badge: HTMLElement | null; controls: HTMLElement[]; clickable: boolean; }
 const states = new WeakMap<Game, AssistState>();
 function state(g: Game): AssistState {
   let s = states.get(g);
-  if (!s) { s = { assisted: false, clock: 0, stage: g.stage, heroes: new Map(), badge: null }; states.set(g, s); }
+  if (!s) { s = { assisted: false, clock: 0, stage: g.stage, heroes: new Map(), badge: null, controls: [], clickable: false }; states.set(g, s); }
   return s;
 }
 export function resetAssists(g: Game): void {
@@ -63,6 +63,15 @@ export function assistStep(this: Game, dt: number): number {
     if (help && (!active || s.stage !== this.stage || hero.player.dead)) help.clicked = false;
   }
   s.stage = this.stage;
+  const clickable = active && settings.oneStick && !this.hero.player.dead;
+  if (s.clickable !== clickable) {
+    s.clickable = clickable;
+    for (const control of s.controls) {
+      control.classList.toggle('casual-clickable', clickable);
+      control.tabIndex = clickable ? 0 : -1;
+      if (clickable) control.setAttribute('role', 'button'); else control.removeAttribute('role');
+    }
+  }
   if (active) {
     if (hasCasualOptions()) s.assisted = true;
     dt *= Number(settings.gameSpeed) / 100;
@@ -182,12 +191,28 @@ export function renderCasualPreset(el: HTMLElement): void {
 export function installAssists(g: Game, root: HTMLElement): void {
   if (!document.getElementById('casual-css')) {
     const css = document.createElement('style'); css.id = 'casual-css';
-    css.textContent = `.casual-preset{display:flex;align-items:center;gap:calc(5 * var(--p));max-width:900px;padding:calc(3 * var(--p))}.casual-preset small{font-size:18px;max-width:560px;color:var(--white)}.casual-preset button{--bg:var(--blue);--hi:var(--cyan);flex-shrink:0}.casual-preset button.on{--bg:var(--green);--hi:var(--lime)}.casual-badge{background:var(--ink);color:var(--lime);padding:calc(2 * var(--p)) calc(3 * var(--p));font:12px var(--label);white-space:nowrap}.casual-run-badge{position:absolute;inset-inline-end:calc(8 * var(--p));top:calc(66 * var(--p));pointer-events:none}.casual-run-badge[hidden]{display:none}#scr-history .casual-badge{color:var(--lime)}.casual-assists-heading{margin:calc(4 * var(--p)) 0;font-size:24px;color:var(--cyan)}.casual-assists-note{font-size:18px;margin:0 0 calc(4 * var(--p))}@media(max-width:700px){#scr-settings .settings-footer{flex-wrap:wrap;gap:calc(3 * var(--p))}#scr-settings .settings-footer button{flex:1 1 auto;white-space:nowrap}}@media(max-width:640px){.casual-preset{flex-direction:column;align-items:stretch}.casual-preset small{font-size:16px}}`;
+    css.textContent = `.casual-preset{display:flex;align-items:center;gap:calc(5 * var(--p));max-width:900px;padding:calc(3 * var(--p))}.casual-preset small{font-size:18px;max-width:560px;color:var(--white)}.casual-preset button{--bg:var(--blue);--hi:var(--cyan);flex-shrink:0}.casual-preset button.on{--bg:var(--green);--hi:var(--lime)}.casual-badge{background:var(--ink);color:var(--lime);padding:calc(2 * var(--p)) calc(3 * var(--p));font:12px var(--label);white-space:nowrap}.casual-run-badge{position:absolute;inset-inline-end:calc(8 * var(--p));top:calc(66 * var(--p));pointer-events:none}.casual-run-badge[hidden]{display:none}.casual-clickable{pointer-events:auto;cursor:pointer}.casual-clickable:hover,.casual-clickable:focus-visible{outline:var(--p) solid var(--cyan)}#scr-history .casual-badge{color:var(--lime)}.casual-assists-heading{margin:calc(4 * var(--p)) 0;font-size:24px;color:var(--cyan)}.casual-assists-note{font-size:18px;margin:0 0 calc(4 * var(--p))}@media(max-width:700px){#scr-settings .settings-footer{flex-wrap:wrap;gap:calc(3 * var(--p))}#scr-settings .settings-footer button{flex:1 1 auto;white-space:nowrap}}@media(max-width:640px){.casual-preset{flex-direction:column;align-items:stretch}.casual-preset small{font-size:16px}}`;
     document.head.append(css);
   }
   const badge = document.createElement('span'); badge.className = 'casual-badge casual-run-badge'; badge.hidden = true; badge.textContent = t('casual.badge'); root.append(badge); state(g).badge = badge;
+  // Existing meters become real mouse controls in one-stick mode; prompts still follow rebinds.
+  for (const [id, action, label] of [['dashpip', 'dash', 'casual.clickDash'], ['bombpip', 'bomb', 'casual.clickSpecial']] as const) {
+    const control = root.querySelector<HTMLElement>(`#${id}`);
+    if (!control) continue;
+    state(g).controls.push(control);
+    control.dataset.casualLabel = label;
+    control.addEventListener('click', () => {
+      if (state(g).clickable && oneStickActive(g) && !g.paused && g.isCombatMode && g.screens.current === 'none' && !g.hero.player.dead) g.input.pressAction(action);
+    });
+    control.addEventListener('keydown', event => {
+      if (state(g).clickable && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); control.click(); }
+    });
+  }
   const before = g.screens.onShow;
-  g.screens.onShow = name => { before?.(name); badge.textContent = t('casual.badge'); };
+  g.screens.onShow = name => {
+    before?.(name); badge.textContent = t('casual.badge');
+    for (const control of state(g).controls) control.setAttribute('aria-label', t(control.dataset.casualLabel!));
+  };
   root.addEventListener('click', e => {
     if (!(e.target as HTMLElement).closest('[data-casual-preset]')) return;
     casualPreset(); settings.mode = 'standard'; saveSettings();

@@ -77,6 +77,14 @@ A.resetAssists(g); A.assistStep.call(g, 1 / 60); off();
 ok(A.assistedRun(g), 'turning options off never unmarks an assisted run');
 A.resetAssists(g); ok(!A.assistedRun(g), 'new run resets eligibility');
 
+// Mouse-only players can still use the ordinary dash and special without keyboard keys.
+settings.oneStick = true; A.assistStep.call(g, 1 / 60);
+const dashMeter = document.querySelector<HTMLElement>('#dashpip')!, specialMeter = document.querySelector<HTMLElement>('#bombpip')!;
+dashMeter.click(); specialMeter.click();
+ok(dashMeter.getAttribute('role') === 'button' && input.actionPressed('dash') && input.actionPressed('bomb'), 'one-stick HUD meters accept mouse dash and special presses');
+input.endStep(); settings.oneStick = false; A.assistStep.call(g, 1 / 60); dashMeter.click();
+ok(!dashMeter.hasAttribute('role') && !input.actionPressed('dash'), 'ordinary controls keep noninteractive HUD meters');
+
 // Real damage pipeline, including odd and single-point damage.
 start(); const p = g.hero.player; p.hp = 100;
 g.hurtHero(g.hero, 11, 1, 0); const ordinary = 100 - p.hp;

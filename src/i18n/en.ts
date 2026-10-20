@@ -10,6 +10,8 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "casual.clickDash": "Click to dash",
+  "casual.clickSpecial": "Click to use your special",
   "casual.presetScores": "Local play only. Achievements count; leaderboard scores do not.",
   "casual.accessibility": "ACCESSIBILITY",
   "casual.savedNote": "ACCESSIBILITY · Changes save automatically on this device.",
@@ -22,7 +24,7 @@ export const en = {
   "casual.speed": "GAME SPEED",
   "casual.speedDesc": "100% is normal. 85% or 70% gives you more time to react. Solo and local co-op only; online uses normal host speed.",
   "casual.oneStick": "ONE-STICK MODE",
-  "casual.oneStickDesc": "Move with one stick or movement keys. Automatically aims at the nearest visible enemy and fires. Mouse: click a place to walk there; movement keys or menus cancel it. Dash and specials keep their buttons.",
+  "casual.oneStickDesc": "Move with one stick or movement keys. Automatically aims at the nearest visible enemy and fires. Mouse: click a place to walk there; movement keys or menus cancel it. Dash and specials keep their buttons. Click the dash and special meters to use them with a mouse.",
   "casual.dash": "AUTO-DASH",
   "casual.dashDesc": "Helps dodge imminent ground strikes, explosions and charge or sniper lines. Up to 3 automatic dashes per 60 seconds of play, using your normal dash stocks. Manual dash stays available.",
   "casual.iframes": "LONGER HIT PROTECTION",
