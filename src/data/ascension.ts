@@ -1,6 +1,9 @@
 /** Cumulative solo challenge rules. Level N includes every rule from 1 through N. */
 import { loadJson, saveJson } from '../core/storage';
 
+// balance2: A16 life +25% -> +20%, A18 damage +20% -> +15%, A20 life +30% -> +20%. A16-20 stacked +55% life,
+// +25% count and +20% damage at once; the bot's stages cleared fell 1.4-1.8 (A15) -> 0.5-0.6 (A20) while every
+// earlier block of five cost it ~0.3-0.5 (notes/lanes/balance2.md).
 export const ASCENSIONS = [
   { name: 'Quick Feet', desc: 'Enemy movement +10%.', speed: 0.1 },
   { name: 'Reinforced', desc: 'Enemy life +15%.', hp: 0.15 },
@@ -17,11 +20,11 @@ export const ASCENSIONS = [
   { name: 'Supply Drought', desc: 'Map chests arrive one third as often.', chest: 1 / 3 },
   { name: 'Double Encore', desc: 'Boss bonus rings have 16 bullets instead of 8.', attacks: 1 },
   { name: 'Overclocked', desc: 'Enemy movement +10%.', speed: 0.1 },
-  { name: 'Fortified', desc: 'Enemy life +25%.', hp: 0.25 },
+  { name: 'Fortified', desc: 'Enemy life +20%.', hp: 0.2 },
   { name: 'Packed House', desc: 'Enemy count +25%.', count: 0.25 },
-  { name: 'Crushing Blows', desc: 'Enemy damage +20%.', damage: 0.2 },
+  { name: 'Crushing Blows', desc: 'Enemy damage +15%.', damage: 0.15 },
   { name: 'Last Supplies', desc: 'Map chest cadence halves again.', chest: 0.5 },
-  { name: 'Summit', desc: 'Enemy life +30%; boss bonus rings have 24 bullets.', hp: 0.3, attacks: 1 },
+  { name: 'Summit', desc: 'Enemy life +20%; boss bonus rings have 24 bullets.', hp: 0.2, attacks: 1 },
 ] as const;
 export function ascensionLevel(n: unknown): number {
   return typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(20, Math.floor(n))) : 0;

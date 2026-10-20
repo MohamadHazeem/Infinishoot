@@ -22,6 +22,7 @@
 //   --seed0=3                        first seed (default 1), to add seeds to an earlier sweep
 //   --bundle=out.mjs                 only bundle the runner (to compare against older data later)
 //   --runner=out.mjs                 run with a runner bundled earlier instead of the current source
+//   --only=regex                     only the configs whose id matches (e.g. --only='team:.*nightmare')
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
@@ -578,7 +579,8 @@ if (args.bundle) {
 let results;
 if (args.from) results = JSON.parse(readFileSync(args.from, 'utf8')).results;
 else {
-  const cfgs = configs();
+  let cfgs = configs();
+  if (args.only) cfgs = cfgs.filter((c) => new RegExp(args.only).test(c.id));
   console.log(`sweep: ${cfgs.length} runs, ${jobs} jobs`);
   results = await runAll(cfgs);
   if (args.append) results = [...JSON.parse(readFileSync(args.append, 'utf8')).results, ...results];
