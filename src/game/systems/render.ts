@@ -2,6 +2,7 @@ import { renderWeather2, prepareWeather2 } from './weather2';
 import { eliteLabel, eliteDetail, installEliteStyle } from './elites2';
 import { reduceMotion } from '../../ui/hud';
 import { renderArchitect, architectActive, architectState } from './architect';
+import { squadPing } from './aisquad';
 import { eventBehavior } from '../../data/stageEvents';
 import { renderSecrets } from './secrets';
 import { encounterTrack, updateAudio3 } from './audio3';
@@ -100,6 +101,7 @@ export function ping(this: Game, h: Hero, x: number, z: number, kind?: string): 
   if (performance.now() - h.pingAt < 700) return;
   if (!eightpPingOk(this)) return; // 5-8 heroes: a team-wide ping budget (systems/eightp.ts)
   h.pingAt = performance.now();
+  if (h.index === 0) squadPing(this, x, z, kind);
   // Ping wheel picks (GO HERE, DANGER, ...): their own label and colour.
   const k = pingKind(kind);
   if (k) {

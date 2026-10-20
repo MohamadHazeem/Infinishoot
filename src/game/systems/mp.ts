@@ -206,6 +206,7 @@ function unlist(_g: Game, st: MpState): void {
  * the local co-op PC) posts it to the team board.
  */
 export function mpRunBanked(this: Game, sum: RunSummary): void {
+  if (this.squadRun) return;
   if (!this.meta.week || this.heroes.filter((h) => !h.left).length < 2 || this.pvp || this.versus) return;
   const members = this.heroes.filter((h) => h.name).map((h) => h.name);
   const team = this.role === 'client' ? states.get(this)?.team || 'Team' : teamNameOf(this);

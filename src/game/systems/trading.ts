@@ -508,6 +508,7 @@ export function openTrade(this: Game): void {
 // ---------------------------------------------------------------- achievements and titles
 
 function checkTradeAchievements(g: Game, s: TradeState): void {
+  if (g.squadRun) return;
   if (g.mode === 'title' || g.pvp) return;
   const st = g.role === 'client' ? s.net?.st ?? [] : (() => {
     const x = s.stats[g.local];

@@ -58,6 +58,8 @@ export interface Settings extends DisplayOptions {
   mode: string;
   difficulty: string;
   hero: string;
+  squadBots: number;
+  squadHeroes: string;
   rumble: boolean;
   colorblind: boolean;
   reduceFlash: boolean;
@@ -186,6 +188,8 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   mode: 'standard',
   difficulty: 'normal',
   hero: 'rookie',
+  squadBots: 0,
+  squadHeroes: 'random,random,random',
   rumble: true,
   colorblind: false,
   reduceFlash: false,

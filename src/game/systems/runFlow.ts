@@ -116,6 +116,7 @@ export function goTitle(this: Game): void {
 
 /** Back to a single local hero on the title screen, closing any connection. */
 export function leaveToTitle(this: Game): void {
+  this.resetSquad();
   if (this.role === 'client' && this.mode !== 'title') this.client?.send({ t: 'bye' }); // leaving on purpose: no autopilot wait (systems/coop2.ts)
   this.pvp = null;
   this.mpReset(); // no Versus match, local co-op pads or public listing (systems/mp.ts)
@@ -138,6 +139,7 @@ export function startSolo(this: Game): void {
   this.hero.name = playerName();
   this.applyLocalSkin();
   this.runMode = (MODE_BY_ID[settings.mode as ModeId] ?? MODES[0]).id;
+  this.startSquad();
   this.startRun();
 }
 
@@ -292,6 +294,7 @@ export function quitRun(this: Game): void {
 
 export function summary(this: Game, h: Hero): RunSummary {
   return {
+    squad: this.squadRun ? this.heroes.length - 1 : undefined,
     mvp: this.mvp.report ?? undefined,
     score: this.runMode === 'raid' ? this.score : this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : Math.floor(this.score * this.meta.multiplier),
     heat: this.meta.points,
@@ -349,9 +352,9 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
     weapons: h.weapons.map((w) => ({ id: w.def.id, level: w.level, evo: w.evolved })),
   });
   persist();
-  if (quit) { this.goTitle(); return; }
+  if (quit) { if (this.squadRun) this.leaveToTitle(); else this.goTitle(); return; }
   this.hud.toast(`+${bolts} BOLTS · COSMETICS ONLY`, 4);
-  if (leaderboardEnabled && this.role !== 'client' && (this.runMode !== 'raid' || this.victories > 0)) {
+  if (!this.squadRun && leaderboardEnabled && this.role !== 'client' && (this.runMode !== 'raid' || this.victories > 0)) {
     const board = this.meta.week ? weeklyChallenge(this.meta.week).board : boardId(this.runMode, this.difficulty.id, this.runDate);
     void submitGlobal(board, { name: this.hero.name, score: Math.floor(sum.score), stage: sum.stage, kills: sum.kills, time: sum.time }).then((r) => {
       if (r) this.hud.toast(`GLOBAL RANK #${r}!`, 4);
@@ -359,7 +362,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
     });
   }
   const rank = this.runMode === 'raid' ? -1 : this.runMode === 'gauntlet' ? challengeState(this).bankRank : this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
-  if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
+  if (!this.squadRun && this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
   this.screens.showGameOver(sum, rank, this.runMode === 'gauntlet' ? loadGauntletScores() : loadHighScores(), this.role === 'client');
   if (sum.mvp) { this.mvp.report = sum.mvp; this.showMvp(sum.mvp); }
 }

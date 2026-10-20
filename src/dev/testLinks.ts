@@ -2,6 +2,8 @@ import { architectLinks } from '../game/systems/architect';
 import { weather2Links } from '../game/systems/weather2';
 import { trialsTest } from '../game/systems/trials';
 import { pets2Links } from './pets2Links';
+import { squadCount } from '../game/aisquadBrain';
+import { pinWheel } from '../game/teamPlay';
 import { biome3Force } from '../game/biome3Brain';
 import { clipsFor, markClip } from '../game/systems/clips';
 import { secretsLinks } from '../game/systems/secrets';
@@ -206,7 +208,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // &biome=factory or &biome=meadow:autumn: pin the stage's biome (or remix); see BIOME_ORDER.
   const bk = q.get('biome');
   biomeForce.key = bk && allBiomeKeys().includes(bk) ? bk : null;
+  settings.squadBots = squadCount(Number(q.get('squad')));
+  if (q.has('squadheroes')) settings.squadHeroes = q.get('squadheroes')!;
   game.startSolo();
+  if (q.has('squadwheel')) setTimeout(() => pinWheel(game, 2, 1), 800);
   // Skip the starting shop.
   if (game.mode === 'shop') game.closeShop();
   const stage = Number(q.get('stage')) || (q.has('architect') ? 12 : 0);

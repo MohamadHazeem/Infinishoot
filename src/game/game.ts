@@ -1,6 +1,7 @@
 import * as ArchitectSys from './systems/architect';
 import { updateElites2 } from './systems/elites2';
 import { installTrials } from './systems/trials';
+import * as AisquadSys from './systems/aisquad';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
 import * as RaidSys from './systems/raid';
@@ -751,6 +752,9 @@ export class Game implements HeroWorld {
   partyTick = PartySys.partyTick;
   /** Versus Swarm match (null outside one) and shared-screen local co-op run (null outside one). */
   versus: VersusSys.VersusRun | null = null;
+  squadRun = false; // Offline bot teammates; excludes real-player co-op achievements/boards.
+  startSquad = AisquadSys.startSquad;
+  resetSquad = AisquadSys.resetSquad;
   localCoop: LocalCoopSys.LocalCoopRun | null = null;
 
   readonly scene = new THREE.Scene();
@@ -1236,6 +1240,7 @@ export class Game implements HeroWorld {
   /** "ENDLESS · HARD" style label for scores (blank for standard on normal). */
   get runLabel(): string {
     const parts: string[] = [];
+    if (this.squadRun) parts.push('SQUAD');
     if (this.runMode !== 'standard') parts.push(MODE_BY_ID[this.runMode].name.toUpperCase());
     if (this.difficulty.id !== 'normal') parts.push(this.difficulty.name.toUpperCase());
     if (this.meta.label) parts.push(this.meta.label);
@@ -1332,6 +1337,7 @@ export class Game implements HeroWorld {
     this.firstten.step(dt);
     if (this.pvp) this.pvpTick();
     this.coopInput();
+    AisquadSys.squadStep.call(this);
     this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
     this.tradingStep(dt); // co-op trading, shop pools, titles, LEGEND scaling (systems/trading.ts)
     this.mpTick(dt); // MP lane: Versus command view, local co-op menu turns, lobby heartbeat (systems/mp.ts)
@@ -1573,7 +1579,9 @@ export class Game implements HeroWorld {
     if (h.left) return;
     if (!p.dead && h.stats.regen > 0) p.heal(h.stats.regen * dt);
     const input = this.input;
-    if (h === this.hero) {
+    if (AisquadSys.squadHeroUpdate(this, h, dt, localControl)) {
+      // Bot movement uses the same Player physics; common hero bookkeeping follows.
+    } else if (h === this.hero) {
       const control = localControl && !p.dead;
       if (control) {
         if (input.device === 'pad') {

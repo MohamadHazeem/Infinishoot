@@ -1,3 +1,5 @@
+import { SQUAD_ORDERS } from './aisquadBrain';
+import { squadOrder } from './systems/aisquad';
 /**
  * Co-op team play (fixes lane): team status combos and the ping wheel.
  *
@@ -192,6 +194,8 @@ export function pingInput(g: Game): void {
       w.open = true;
       if (w.ui && w.ui.key !== emoteWheelKey()) w.ui = (w.ui.destroy(), null); // a season emote was equipped since
       w.ui ??= new PingWheel();
+      w.ui.squad(g.squadRun);
+      if (!g.squadRun && w.page === 2) w.page = 0;
       w.ui.show(input.device === 'pad' ? innerWidth / 2 : w.mx, input.device === 'pad' ? innerHeight / 2 : w.my);
       w.ui.setPage(w.page);
       wheelFlips = 0;
@@ -203,10 +207,10 @@ export function pingInput(g: Game): void {
       input.consumePad(4);
       input.consumePad(5);
       if (flip) {
-        w.page = 1 - w.page;
+        w.page = (w.page + 1) % (g.squadRun ? 3 : 2);
         w.ui?.setPage(w.page);
       }
-      const n = w.page === 1 ? emoteWheel().length : PING_KINDS.length;
+      const n = w.page === 2 ? 4 : w.page === 1 ? emoteWheel().length : PING_KINDS.length;
       w.pick = input.device === 'pad' ? wheelSlice(input.padAim.x, input.padAim.y, teamTuning.pickStick, n) : wheelSlice(input.mouse.x - w.mx, input.mouse.y - w.my, teamTuning.pickPx, n);
       w.ui?.select(w.pick);
     }
@@ -214,6 +218,11 @@ export function pingInput(g: Game): void {
   }
   if (w.held < 0) return;
   // Released.
+  if (w.open && w.page === 2) {
+    if (w.pick >= 0 && SQUAD_ORDERS[w.pick]) squadOrder(g, SQUAD_ORDERS[w.pick]);
+    w.held = -1; w.open = false; w.ui?.hide();
+    return;
+  }
   const emote = w.open && w.page === 1 && w.pick >= 0 ? emoteWheel()[w.pick] : null;
   if (emote) {
     w.held = -1;
@@ -240,6 +249,7 @@ export function pinWheel(g: Game, page: number, pick = 1): void {
   let w = wheels.get(g);
   if (!w) wheels.set(g, (w = { held: -1, open: false, ox: 0, oz: 0, mx: 0, my: 0, pick: -1, ui: null, page: 0 }));
   w.ui ??= new PingWheel();
+  w.ui.squad(g.squadRun);
   w.ui.show(innerWidth / 2, innerHeight / 2);
   w.ui.setPage(page);
   w.ui.select(pick);
