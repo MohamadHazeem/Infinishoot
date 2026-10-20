@@ -263,12 +263,24 @@ kbd.prompt:empty { display: none; }
 /* The playable-title hint sits bottom centre, clear of the menu and the activity cards. */
 #cine .cn-tp { right: auto; left: 50%; bottom: calc(4 * var(--p)); transform: translateX(-50%); white-space: nowrap; }
 
+/* Arabic (RTL) mirrors the HUD columns (src/i18n/layout.ts moves goals/loadout right and score/combo left):
+ * the panels that live beside them follow, so the right column isn't shared by goals, style and roles. */
+[lang=ar] #hud #stylemeter, [lang=ar] #hud #co2-panel { right: auto; left: 20px; }
+[lang=ar] #hud #stylemeter { justify-items: start; }
+[lang=ar] #hud #net-panel, [lang=ar] #hud > #ha-candy { left: auto; right: 20px; }
+[lang=ar] #vc-self { left: auto; right: calc(4 * var(--p)); }
+@media (max-width: 900px), (max-height: 500px), (pointer: coarse) {
+  /* Phones in Arabic: the mobile layout's right-hand pause/score/combo meet the mirrored face and life bar. */
+  [lang=ar] #hud #ingame #pausebtn { right: auto; left: 12px; }
+  [lang=ar] #hud #ingame #score, [lang=ar] #hud #ingame #combo { right: auto; left: 76px; }
+}
+
 /* Short windows (phones in landscape, 844x390): side panels shrink so the dock
  * finds room for them between the top row, the sticks and the bottom row. */
 @media (max-height: 500px) {
   #hud #ingame > #goals { zoom: calc(var(--ui) * 0.8); }
   #hud #ingame > :is(#petpanel, #teammeter, #stylemeter, #gp-power, #gp-cash), #hud #co2-panel, #hud #net-panel,
-  #hud #ob-tip, #hud > #ha-candy, #vc-self { zoom: calc(var(--ui) * 0.72); }
+  #hud #ob-tip, #hud > #ha-candy, #vc-self, #hud #ingame > .pp-pop { zoom: calc(var(--ui) * 0.72); }
   #hud #ob-tip { top: 30%; }
   #hud #ingame > #toast { font-size: 16px; padding: 4px 10px; }
   #cine .cn-tp { display: none; }

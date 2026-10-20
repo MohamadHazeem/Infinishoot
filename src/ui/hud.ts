@@ -575,8 +575,9 @@ export class Hud {
       }
       b.el.style.transform = `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) translate(-50%, -100%)`;
       const name = b.el.querySelector('.elite-name')!, detail = b.el.querySelector('.elite-detail')!;
-      if (name.textContent !== (t.name ?? '')) name.textContent = t.name ?? '';
-      if (detail.textContent !== (t.detail ?? '')) detail.textContent = t.detail ?? '';
+      // Canonical English names and details, localized at display (uipolish: the i18n DOM-write scanner).
+      if (b.el.dataset.nm !== (t.name ?? '')) name.textContent = localize((b.el.dataset.nm = t.name ?? ''));
+      if (b.el.dataset.dt !== (t.detail ?? '')) detail.textContent = localize((b.el.dataset.dt = t.detail ?? ''));
       // Whole UI pixels only (16 across the bar); any drop flashes and leaves a white trail.
       const hp = Math.ceil(Math.max(0, Math.min(1, t.hp01)) * 16) / 16;
       if (hp < b.hp) b.hitT = now;
