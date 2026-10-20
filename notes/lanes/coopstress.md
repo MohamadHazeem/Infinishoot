@@ -22,18 +22,24 @@ Test-side fixes (no game change): the dev bot now takes the secret merchant's re
 ## Numbers
 Snapshot bytes are the real wire size (PeerJS binarypack of the message). Three clients, so the host sends three snapshots per tick.
 
-| | `npm run coop4` (browsers, stage 1-2, run 5) | tests/coopstress.test.ts (one process, jsdom) |
+| | `npm run coop4` (browsers, stage 1-2; final runs 8 / 9 / 10) | tests/coopstress.test.ts (one process, jsdom) |
 |---|---|---|
-| snapshots per client | 2,326-2,568 per client | 1,200 steps |
-| average snapshot | 2,513-2,515 B per client (~49 KB/s per client at 20 Hz, ~147 KB/s upload for the host) | 3,215-3,231 B with ~300 enemies alive |
-| largest snapshot | 7,937-8,196 B, none over 16 KB (no PeerJS chunking) | |
-| `buildSnapshot` | 0.17-0.20 ms per client | 0.82-1.07 ms per client |
-| host update per 1/60 s step (4 players, no rendering) | p50 0.30 ms, p95 1.3 ms, p99 2.2 ms; 0.09% of steps over 16.7 ms | 3.1-5.1 ms average (jsdom DOM shims included) |
+| snapshots per client | 2,300-2,840 per client per run | 1,200 steps |
+| average snapshot | 2,610-2,650 / 3,020-3,050 / 2,850-2,860 B per client (~51-59 KB/s per client at 20 Hz; the host uploads 3x that, ~150-180 KB/s) | 3,215-3,231 B with ~300 enemies alive |
+| largest snapshot | 9.4-10.9 KB, none over 16 KB (no PeerJS chunking) | |
+| `buildSnapshot` | 0.15-0.16 ms per client | 0.24 ms per client (0.8-1.1 ms with the machine loaded) |
+| host update per 1/60 s step (4 players, no rendering) | p50 0.2-0.3 ms, p95 1.0-1.1 ms, p99 1.3-1.6 ms; 0.06-0.09% of steps over 16.7 ms (all of them opening a menu, below) | 1.14 ms average with ~300 enemies (3-5 ms with the machine loaded; jsdom DOM shims included) |
 | client update per step | 0.02-0.04 ms average (they mirror; rendering not counted) | |
+| sim speed (machine shared with other lanes) | median 0.18x / 0.75x / 0.67x of real time | |
+| most a client's snapshots fell behind the host | 0.3 / 0.3 / 0.2 sim s (the 70 ms-lagged client) | |
 
 - 2-player `npm run coop` for comparison (main before this lane): ~1,700 B average, ~11.5 KB max per snapshot, so a 4-player client's snapshot is ~1.5x a 2-player one (three more heroes in the body and more enemies near a spread-out team), and the host's upload is ~4.4x.
 - **Sim speed**: the browser runs got 0.03x-0.9x real time (median ~0.3x) because the machine was shared with 10+ other lanes' browsers and tests (load average 65-145 on 18 cores). The per-step averages above exclude those stalls by using percentiles; every step over 0.5 s on the host was the frame a level-up or shop screen opened (DOM build and layout of the menu, up to 56-65 s under that load). Measured alone on the same machine, opening a level-up screen took 330-1,300 ms of main thread (mostly native style/layout work, `showLevelUp` forcing layout through `offsetWidth`); not co-op specific, noted for the HUD/perf lanes.
-- Clients' snapshots fell at most 0.3-1.2 sim s behind the host (the 70 ms-lagged client the most).
+- Runs 1-7 found the bugs above and tuned the script (sim-time scheduling, latches, lag-aware strikes); runs 8, 9 and 10 with the final script and all fixes passed back to back (every scenario, Versus and local co-op included).
+
+## `npm run coop` (2 players)
+- Fixed in this lane: the team-move check (meter < 0.5 instead of exactly 0), which failed on main before any change here.
+- On this machine under the other lanes' load the 2-player script fails at random in its wall-clock waits (a different scenario each time: finisher 2.6 s, pet levels 0.6 s, turret, down/revive visibility), because the pages simulate at a fraction of real time (500-930 snapshots in a run instead of ~1,400). Nothing in those scenarios is touched here; the netcode lane's rewrite of the script polls instead of sleeping (scripts/coop-test.mjs on lane/netcode), which is the real fix. See "Verification" for the runs.
 
 ## Checked and found in sync (no change needed)
 - Level-ups for four (double level-up, WAIT screens, `go` closing everything), the starting shop, the post-boss shop, the secret merchant's relic screen, the route vote and portal into stage 2, all with one lagged client.
@@ -41,8 +47,20 @@ Snapshot bytes are the real wire size (PeerJS binarypack of the message). Three 
 - Versus Swarm with a client Overlord (bench hero, `vcmd` orders accepted, swarmers spawned, every client mirrors the Overlord index) and local co-op with three fake pads (4 heroes fighting, no errors).
 
 ## Not fixed / notes for other lanes
-- **Snapshot encoding scales with players** (src/net/snapCodec.ts, netcode lane's area): `SnapEncoder.encode` re-encodes the whole body (heroes, team, boss, arena...) for every client and then compares bytes; with 3 clients that is ~0.9-1.0 ms per client per snapshot (node/jsdom, ~300 enemies), most of it `writeSticky` and value encoding of fields that are identical for every client. Caching the encoded bytes of client-independent fields once per tick would cut the host's snapshot cost by about two thirds at 4 players. Not changed here (the codec is being reworked by the netcode lane).
+- **Snapshot encoding scales with players** (src/net/snapCodec.ts, netcode lane's area): `SnapEncoder.encode` re-encodes the whole body (heroes, team, boss, arena...) for every client and then compares bytes. A CPU profile of the in-process test puts ~44% of `buildSnapshot` in that body encode (`writeSticky` and value encoding of fields that are the same for every client) and ~16% in `packEnemies`. At 0.24 ms per client (calm machine) the host spends ~0.7 ms every third step on 3 clients: fine at 4 players, but encoding the client-independent fields once per tick would cut it by about half. Not changed here (the netcode lane is reworking the codec).
 - **Join timeout under load**: the 12 s connect timeout in `NetClient` (src/net/peer.ts) is often too short when the machine is starved (see above); real players on one PC per player won't see that, but a slow phone or a busy laptop might. The netcode lane owns the transport.
 - A boss can still be killed before every hero gets near it: owned chests now fly in at the clear, but only to a living owner (a downed one is stood up by the clear first, so in practice always).
 - The emote / ping rate limits, help ghosts (off in this run) and PvP were not stressed with four players.
 - Real networks, real latency spread and packet loss: only one client had a fixed added delay; the netcode lane's simulator covers loss and jitter.
+
+## Verification
+- `npm run typecheck`, `npx vite build`, `npm test` (57 files, including tests/coopstress.test.ts: 23 checks, each new check fails without its fix: chests 4 left, reclaim refused, the split vote 10.5 s), `npm run smoke`: pass.
+- `npm run coop4`: runs 8, 9 and 10 (final script, all fixes) passed in a row; 6-23 minutes each depending on the machine's load.
+- `npm run coop` (2 players): 3 of 3 passed on this lane's code once the load dropped (load average ~25-30); the same script on main's code passed 2 of 2 at that load. At load 60-85 both fail at random in wall-clock waits (see above).
+
+## Shared files touched (small)
+- src/game/pickups.ts (`vacuumChests`, nearest eligible collector), src/game/systems/spice.ts (stage clear / endless wave set and clear it), src/game/game.ts (`LobbyEntry.pid`), src/game/systems/netHost.ts (pid in the lobby entry, lobby cap: same line as the netcode lane), src/game/systems/online.ts (`joinGame`: close a given-up client, only the current client feeds the game), src/game/systems/coop2.ts (`newRun` fills `pids` from the lobby, pid-or-name match for reclaim and the kept build, `routeAutoVote`), src/dev/bot.ts (relic screen), scripts/coop-test.mjs (team-move meter check; the netcode lane rewrote the lines around it, so expect a one-line merge conflict there: keep `r.hostMeter > 0.5`), package.json (`coop4`), CLAUDE.md (two lines).
+- New: scripts/coop-stress.mjs, tests/coopstress.test.ts, this file.
+
+## Decision-log paragraph for PLAN.md
+- 2026-10-20: Coopstress lane (notes/lanes/coopstress.md). `npm run coop4` plays four-player online co-op in headless Chromium (host + 3 clients on the dev bot, one with added latency) through stage 1 into stage 2 with a drop-out/drop-in, the revive pool, a team ultimate, emotes, a mech, a world event, the boss and its owned chests, the shop and route, then Versus Swarm and local co-op, checking every client against the host and for stuck screens every 4 s; it schedules everything in the host's simulated seconds so a loaded machine only makes it slower. Fixed: owned boss chests could be stranded (a pickup only looked at the nearest hero; the stage clear now pulls every chest to whoever may open it), lobby players couldn't reclaim their hero after a drop (their player id was never recorded), a timed-out join kept a zombie connection that fed the title screen, a dropped player's autopilot now votes on the route map, and the lobby is capped at 4 in the game. With 4 players a client gets ~2.5-3 KB snapshots (~50-60 KB/s) and the host's simulation step stays at p95 ~1 ms without rendering.
