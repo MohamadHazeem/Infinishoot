@@ -28,6 +28,7 @@ import { eightpLinks } from './eightpLinks';
 import { spectateLinks } from './spectateLinks';
 import { netcodeLinks } from './netcodeLinks';
 import { coopplayLinks } from './coopplayLinks';
+import { hostmigLinks } from './hostmigLinks';
 import { cinematicsLinks } from './cinematicsLinks';
 import { sound2Links } from './sound2Links';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
@@ -149,6 +150,7 @@ import { fuzzMonkey } from './fuzzLinks';
  * Coop2 lane (src/dev/coop2Links.ts): &mate&emote=wave, &mate&mateemote=cheer, &mate&wheel=emotes, &mate&pool&downme=2,
  *   &mate&autopilot, &joincode=K7P2Q, &mate&teamult=2, &ghostgo=2.
  * Netcode lane (src/dev/netcodeLinks.ts): &mate&netdemo (NETWORK panel + a bad-connection warning), &mate&netdemo=rc, &netdemo=lost.
+ * Host migration lane (src/dev/hostmigLinks.ts): &mate&hostmig=probe|join|banner (the client's migration panel, the NEW HOST banner).
  * MP lane (src/dev/mpLinks.ts): &versus (vs the AI Overlord), &versus=ol&god (you are the Overlord), &vstime=, &vspts=, &vsgo=,
  *   &localcoop[=run]&lcpads=2, &browse=fake, &teamboard=fake, &lobby=versus|weekly.
  *
@@ -311,6 +313,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   netcodeLinks(game, q); // netdemo, netdemo=rc, netdemo=lost (src/dev/netcodeLinks.ts)
   coopplayLinks(game, q); // coopobj=, cpme=, cpmate=, cpcore=, cpbomb, carry=, tether=, banter=, notether (src/dev/coopplayLinks.ts)
   weather2Links(game, q); // weather=sandstorm|blizzard|lightning|heatwave; weatheroff
+  hostmigLinks(game, q); // hostmig=probe|join|banner (src/dev/hostmigLinks.ts)
   worldEventLinks(game, q); // world events: wev=<kind>, wevat=, wevnow, wevt=, wevoff (src/dev/worldEventLinks.ts)
   timeLinks(game, q); // rewindgo=, standgo=, btgo=, replaygo=, clutchgo=, votego= (src/dev/timeLinks.ts)
   halloweenLinks(game, q);

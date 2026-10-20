@@ -3544,4 +3544,16 @@ export const ar = {
   "eightp.versus_cap": "المواجهة تتسع حتى 4 لاعبين (اللعب الجماعي وPVP حتى 8)",
   "eightp.coop_cap": "اللعب الجماعي يتسع حتى 8 لاعبين",
   "eightp.game_full": "هذه اللعبة ممتلئة."
+  "hostmig.newHost": "مضيف جديد: ⟪name⟫",
+  "hostmig.solo": "تابع وحدك",
+  "hostmig.subSolo": "غادر المضيف · تستمر الجولة بلاعب واحد",
+  "hostmig.subMe": "غادر المضيف · لعبتك تدير الجولة الآن",
+  "hostmig.subOther": "غادر المضيف · جارٍ الاتصال بالمضيف الجديد",
+  "hostmig.lost": "انقطع المضيف",
+  "hostmig.finding": "جارٍ البحث عن مضيف جديد...",
+  "hostmig.safe": "الجولة محفوظة",
+  "hostmig.left": "غادر المضيف · المضيف الجديد",
+  "hostmig.connecting": "جارٍ الاتصال...",
+  "hostmig.gettingIn": "جارٍ العودة إلى الجولة...",
+  "hostmig.line": "مضيف جديد. واصلوا القتال!"
 } satisfies Record<keyof typeof en, string>;

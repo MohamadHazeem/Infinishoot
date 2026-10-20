@@ -3543,4 +3543,16 @@ export const en = {
   "eightp.versus_cap": "VERSUS TAKES UP TO 4 PLAYERS (CO-OP AND PVP TAKE 8)",
   "eightp.coop_cap": "CO-OP TAKES UP TO 8 PLAYERS",
   "eightp.game_full": "That game is full."
+  "hostmig.newHost": "NEW HOST: ⟪name⟫",
+  "hostmig.solo": "YOU CARRY ON",
+  "hostmig.subSolo": "THE HOST LEFT · THE RUN GOES ON SOLO",
+  "hostmig.subMe": "THE HOST LEFT · YOUR GAME RUNS THE RUN NOW",
+  "hostmig.subOther": "THE HOST LEFT · RECONNECTING TO THE NEW HOST",
+  "hostmig.lost": "HOST LOST",
+  "hostmig.finding": "FINDING A NEW HOST...",
+  "hostmig.safe": "THE RUN IS SAFE",
+  "hostmig.left": "HOST LEFT · NEW HOST",
+  "hostmig.connecting": "CONNECTING...",
+  "hostmig.gettingIn": "GETTING BACK IN...",
+  "hostmig.line": "New host. Keep fighting!"
 } as const;

@@ -2,6 +2,7 @@ import { clearArchitect, architectState } from './architect';
 import { trialsNet } from './trials';
 import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
+import { hostmigLeaving } from './hostmig';
 import { resetSecrets, clearSecrets } from './secrets';
 import { createRaidArena } from '../raid/arena';
 import { spawnSpotFor } from '../eightp';
@@ -116,6 +117,7 @@ export function goTitle(this: Game): void {
 
 /** Back to a single local hero on the title screen, closing any connection. */
 export function leaveToTitle(this: Game): void {
+  hostmigLeaving(this); // a host leaving mid-run hands the run over (systems/hostmig.ts)
   this.resetSquad();
   if (this.role === 'client' && this.mode !== 'title') this.client?.send({ t: 'bye' }); // leaving on purpose: no autopilot wait (systems/coop2.ts)
   this.pvp = null;

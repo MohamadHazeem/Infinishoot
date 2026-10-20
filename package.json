@@ -17,6 +17,7 @@
     "coop": "node scripts/coop-test.mjs",
     "coop8": "node scripts/coop8.mjs",
     "voicechat": "node scripts/voicechat-test.mjs",
+    "migrate": "node scripts/migrate-test.mjs",
     "bench": "node scripts/bench.mjs",
     "replay": "node scripts/replay.mjs",
     "visual": "node scripts/visual.mjs",

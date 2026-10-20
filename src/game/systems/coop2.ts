@@ -78,6 +78,7 @@ import { CoopHud, type CoopHudView } from '../../ui/coopHud';
 import { GhostScreen } from '../../ui/ghostScreen';
 import { playEmoteVoice } from '../../audio/emoteVoice';
 import type { Enemy } from '../enemies';
+import { hostmigAdmitNow, hostmigHolds } from './hostmig';
 
 type CoopEvent = [number, 'em' | 'tu' | 'bb' | 'gh', number, number, number];
 
@@ -357,7 +358,7 @@ function admitPending(g: Game, s: CoopState): void {
       s.pending.splice(i, 1);
     }
   }
-  if (!safeMoment(g)) return;
+  if (!safeMoment(g) && !hostmigAdmitNow(g)) return; // host migration: returning players get in mid-menu (systems/hostmig.ts)
   const list = s.pending.splice(0);
   for (const p of list) admit(g, s, p);
 }
@@ -546,6 +547,7 @@ function graceStep(g: Game, s: CoopState, dt: number): void {
       removeHero(g, s, h, `${h.name.toUpperCase()} DIDN'T COME BACK · THEIR HERO LEAVES`);
       continue;
     }
+    if (hostmigHolds(g, h.index)) { pilotHero(g, h, gr.pilot, dt); continue; } // a migrating player is on the way back (systems/hostmig.ts)
     // Menus and votes never wait for an empty seat.
     if (g.mode === 'levelup' && h.needsPick && h.offers.length) g.heroAction(h, 'pick', autoPickIndex(h.offers), 1);
     if (g.mode === 'shop' && !h.shopDone) g.heroAction(h, 'done', 0, 1);

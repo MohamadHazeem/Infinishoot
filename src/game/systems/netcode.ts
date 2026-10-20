@@ -66,6 +66,8 @@ interface Reconnect {
   /** Connected and said hello: waiting for the host's `start` (since helloAt). */
   hello: boolean;
   helloAt: number;
+  /** Why the last try failed (host migration lane: a room that exists but can't be reached yet is still alive). */
+  lastError?: string;
 }
 
 interface NetState {
@@ -480,6 +482,7 @@ function reconnectStep(g: Game, s: NetState, now: number): void {
     },
     (e) => {
       note(s, `client: try failed (${(e as Error)?.message ?? e})`);
+      rc.lastError = String((e as Error)?.message ?? e);
       if (rc.pending === c) rc.pending = null;
       rc.next = performance.now() + netQualityTuning.retryEvery * 1000;
     },

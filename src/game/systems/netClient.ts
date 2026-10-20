@@ -50,9 +50,11 @@ import { applyHeroes3Net, heroes3ClientStep } from './heroes3';
 import { applyCoopPlayNet, coopPlayClientInput, coopPlayLocal } from './coopplay';
 import { voiceClientMsg } from './voicechat';
 import { applySpectateNet, spectateClientMsg, spectateClientUpdate, spectating } from './spectate';
+import { hostmigClientMsg, hostmigTick } from './hostmig';
 
 export function onClientMessage(this: Game, m: Record<string, unknown>): void {
   if (netcodeClientMsg(this, m)) return; // probes; flushes the playout buffer before world changes (systems/netcode.ts)
+  if (hostmigClientMsg(this, m)) return; // migration snapshots; a host leaving on purpose (systems/hostmig.ts)
   if ((m.t === 'lobby' || m.t === 'start' || m.t === 'pvpgo') && !matchingMods(modSession.hash, m.mods)) {
     this.leaveToTitle();
     this.hud.toast(t('mods.mismatch'), 6);
@@ -228,6 +230,7 @@ export function clientStage(this: Game, stage: number, seed: number): void {
 export function clientUpdate(this: Game, dt: number): void {
   if (spectateClientUpdate(this, dt)) return; // watching: no hero of our own (systems/spectate.ts)
   netcodeStep(this); // playout clock, quality reports, reconnects (systems/netcode.ts)
+  hostmigTick(this); // the host is gone: elect a new one, or take over (systems/hostmig.ts)
   const input = this.input;
   if (this.isCombatMode && this.screens.current === 'none' && (input.keyPressed('Escape') || input.actionPressed('pause') || input.padButtonPressed(9))) {
     this.pause();

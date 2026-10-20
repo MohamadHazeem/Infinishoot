@@ -40,6 +40,7 @@ import { lobbyCap } from '../eightp';
 import { eightpSnapTick, heroWeaponsFor } from './eightp';
 import { voiceHostMsg } from './voicechat';
 import { spectateHostMessage, spectateHostStep, spectateLeft, spectateNet, spectateSend, type SnapView } from './spectate';
+import { hostmigTick } from './hostmig';
 
 /** Snapshot encoders, one per client hero (they keep that client's baselines), and one effects encoder. */
 const snapEncoders = new WeakMap<Hero, SnapEncoder>();
@@ -196,6 +197,7 @@ export function onClientLeft(this: Game, id: string): void {
 /** Send world snapshots to clients (20 Hz, slower while menus freeze the world). */
 export function hostTick(this: Game, frozen: boolean): void {
   netcodeStep(this, frozen); // probes, silent clients, enemy history, tab-reload rejoin (systems/netcode.ts)
+  hostmigTick(this); // migration snapshots for clients; a client taking over as host (systems/hostmig.ts)
   if (this.role !== 'host' || !this.host) return;
   this.vfx.recording = true;
   spectateHostStep(this); // spectators: run starts, roster, play from the next stage (systems/spectate.ts)
