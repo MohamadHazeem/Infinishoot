@@ -174,6 +174,8 @@ export function localize(value: string | number | null | undefined): string {
   const hit = cache.get(input);
   if (hit !== undefined) return hit;
   const plain = normalize(input), key = exact.get(plain.toUpperCase());
+  // Known paragraphs can reorder as a whole; record boards retain separate rows.
+  if (!key && input.includes('\n')) return input.split('\n').map(localize).join('\n');
   // Mixed templates may already contain t() output. Preserve known translated
   // phrases before the substring adapter can translate their words a second time.
   if (!key && reverseCatalogs.get(language)?.reverse.has(plain)) return input;
@@ -253,6 +255,7 @@ function domSource(value: string, previous: Language): string {
   return toEnglish(value, previous === 'en' ? language : previous);
 }
 function toEnglish(s: string, previous: Language): string {
+  if (s.includes('\n')) return s.split('\n').map(line => toEnglish(line, previous)).join('\n');
   const inverse = reverseCatalogs.get(previous);
   if (!inverse) return s;
   const { reverse, backward, inversePatterns } = inverse;

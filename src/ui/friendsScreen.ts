@@ -150,7 +150,7 @@ export class FriendsUi {
       ? f.recent
           .map((r, i) => {
             const known = !!r.code && !f.saved.some((x) => x.code === r.code);
-            return `<div class="fr-row"><b><bdi>${esc(r.name.toUpperCase())}</bdi></b><span>${lastPlayed(r.last, day)}${r.runs > 1 ? ` · ${r.runs} RUNS` : ''}${r.code ? ` · <bdi>${r.code}</bdi>` : ''}</span>${r.code ? `<button data-nav data-act="fr-join" data-code="${r.code}">JOIN</button>` : '<i></i>'}${known ? `<button data-nav data-act="fr-save" data-i="${i}">SAVE</button>` : '<i></i>'}</div>`;
+            return `<div class="fr-row"><b><bdi>${esc(r.name.toUpperCase())}</bdi></b><span>${localize(lastPlayed(r.last, day))}${r.runs > 1 ? ` · ${r.runs} RUNS` : ''}${r.code ? ` · <bdi>${r.code}</bdi>` : ''}</span>${r.code ? `<button data-nav data-act="fr-join" data-code="${r.code}">JOIN</button>` : '<i></i>'}${known ? `<button data-nav data-act="fr-save" data-i="${i}">SAVE</button>` : '<i></i>'}</div>`;
           })
           .join('')
       : '<div class="fr-empty">Play online and your teammates show up here.</div>';
