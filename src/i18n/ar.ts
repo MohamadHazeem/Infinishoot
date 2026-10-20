@@ -1,4 +1,5 @@
 import { architectAr } from '../game/architect/strings';
+import { integ2Ar } from './integ2';
 import { trialsAr } from './trials';
 import { pets2Ar } from './pets2';
 import { followupsAr } from './followups';
@@ -346,6 +347,7 @@ export const ar = {
   ...storyAr,
   ...tips2Ar,
   ...spectateAr,
+  ...integ2Ar,
   "desktop.paste": "لصق",
   "desktop.clipboardUnavailable": "الحافظة غير متاحة. أدخل النص أو حمّل ملفًا.",
 
