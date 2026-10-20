@@ -156,7 +156,7 @@ export function stageClear(this: Game): void {
   for (const c of this.chests.list) this.vfx.burst(c.x, 0.4, c.z, { count: 10, color: '#ffd23f', color2: '#b8653a', speed: [2, 6], size: [0.15, 0.3], life: [0.3, 0.6], up: 5, gravity: 12 });
   this.chests.list = [];
   if (this.role === 'host') this.host!.broadcast({ t: 'chestsgone' });
-  this.pickups.vacuum = true;
+  this.pickups.vacuum = this.pickups.vacuumChests = true;
   const noHit = this.damagedThisStage ? 0 : scoreTuning.noHitBonus * this.stage;
   this.score += noHit;
   for (const h of this.heroes) {
@@ -235,7 +235,7 @@ export function endlessNextWave(this: Game): void {
     h.phoenixUsed = false;
     if (h.hasRelic('r_clover')) h.rerollsLeft = Math.min(MAX_GEARS, h.rerollsLeft + 1);
   }
-  this.pickups.vacuum = false;
+  this.pickups.vacuum = this.pickups.vacuumChests = false;
   this.damagedThisStage = false;
   this.mode = 'fight';
   this.modeT = 0;

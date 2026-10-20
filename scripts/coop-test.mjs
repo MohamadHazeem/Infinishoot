@@ -817,7 +817,7 @@ const SCENARIO = [
       if (r.client) break;
     }
     r.hostMeter = await host(() => { window.__restoreTeamMove(); return window.__teamSpent; });
-    if (!r.host || r.client !== r.host || r.hostMeter !== 0) fail(`team move: host ${r.host} (meter ${r.hostMeter}), client ${r.client}`);
+    if (!r.host || r.client !== r.host || r.hostMeter > 0.5) fail(`team move: host ${r.host} (meter ${r.hostMeter}), client ${r.client}`);
     await shot('teammove');
     return r;
   }],

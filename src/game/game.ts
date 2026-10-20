@@ -300,6 +300,8 @@ export interface LobbyEntry {
   look?: string;
   /** Profile level, title and banner for the lobby card (meta2, src/data/profile.ts). */
   pf?: ProfileSummary | null;
+  /** Stable player id from the client's `hello` (coop2: reclaiming a hero after a drop). */
+  pid?: string;
 }
 
 /** "Scattergun / Grenade Lobber / Bomb" for the lobby list. */

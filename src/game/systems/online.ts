@@ -136,7 +136,10 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
   const client = new NetClient(code);
   this.client = client;
   this.screens.setLobby({ code: code.toUpperCase(), players: [], isHost: false, status: 'Connecting...' });
-  client.onMessage = (m) => this.onClientMessage(m as Record<string, unknown>);
+  // Only the current connection talks to the game: one that was given up on (timed out) may still open later.
+  client.onMessage = (m) => {
+    if (this.client === client) this.onClientMessage(m as Record<string, unknown>);
+  };
   client.onClose = () => {
     if (this.client !== client) return;
     if (netcodeLost(this, client)) return; // mid-run: keep the run and reconnect (systems/netcode.ts)
@@ -146,6 +149,9 @@ export async function joinGame(this: Game, name: string, code: string): Promise<
   try {
     await client.ready;
   } catch (err) {
+    // Close it: a slow connection that opens after the timeout would otherwise sit on one of the host's
+    // slots and feed its broadcasts (barrels, chests...) into this machine's title screen.
+    client.close();
     if (this.client !== client) return;
     this.client = null;
     this.role = 'solo';

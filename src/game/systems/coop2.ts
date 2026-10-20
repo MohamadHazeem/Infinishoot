@@ -282,6 +282,8 @@ function newRun(g: Game, s: CoopState): void {
   s.pool = { on: g.role === 'host' && settings.coopPool === true, lives: poolStartFor(poolTuning.start, g.heroes.length), stage: g.stage }; // eightp: 5-8 teams start with more
   // startRun stands every hero back up; nobody controls a disconnected one any more.
   if (g.role === 'host') {
+    // Players who came in through the lobby: their stable ids, so a drop-out can reclaim its hero.
+    s.pids = g.heroes.map((h) => (h.peerId ? g.lobby.find((p) => p.peerId === h.peerId)?.pid ?? '' : ''));
     for (const h of g.heroes) {
       if (h === g.hero || h.peerId) continue;
       h.left = true;
@@ -334,8 +336,9 @@ export function coopHello(this: Game, from: string, m: Record<string, unknown>):
     hero: heroOf(String(m.hero ?? '')).id,
     look: cleanLook(m.look),
   };
-  // Coming back? Their old hero (on autopilot, or removed) waits for them.
-  const mine = (i: number) => (pid ? s.pids[i] === pid : this.heroes[i]?.name === name);
+  // Coming back? Their old hero (on autopilot, or removed) waits for them. Matched by player id, or by
+  // name when that hero has no id on record (an older client).
+  const mine = (i: number) => (pid && s.pids[i] ? s.pids[i] === pid : this.heroes[i]?.name === name);
   const reclaim = this.heroes.findIndex((h, i) => i !== this.local && mine(i) && (h.left || s.grace.some((x) => x.index === i)));
   const busy = activeHeroes(this).length + s.pending.filter((p) => p.reclaim < 0).length;
   if (reclaim < 0 && busy >= COOP_MAX_PLAYERS) return refuse('That run is full (8 players).');
@@ -412,7 +415,7 @@ export function placeNearMate(g: Game, h: Hero): void {
 function admit(g: Game, s: CoopState, p: Pending): void {
   const host = g.host;
   if (!host) return;
-  const st = s.stash.find((x) => (p.pid ? x.pid === p.pid : x.name === p.entry.name));
+  const st = s.stash.find((x) => (p.pid && x.pid ? x.pid === p.pid : x.name === p.entry.name));
   let h: Hero;
   let back = false;
   const gi = p.reclaim >= 0 ? s.grace.findIndex((x) => x.index === p.reclaim) : -1;
@@ -553,8 +556,26 @@ function graceStep(g: Game, s: CoopState, dt: number): void {
     if (g.mode === 'shop' && !h.shopDone) g.heroAction(h, 'done', 0, 1);
     const vote = timeState(g).vote; // a TEAM REWIND vote (systems/time.ts): the autopilot agrees
     if (vote && !h.player.dead && !vote.yes.includes(h.index)) vote.yes.push(h.index);
+    routeAutoVote(g, s, h);
     pilotHero(g, h, gr.pilot, dt);
   }
+}
+
+/**
+ * The route map vote (systems/route.ts) on autopilot: once everyone still at the keyboard has voted, the
+ * empty seat goes with the most-voted road (ties: the host's), so the team doesn't wait out the timer.
+ */
+function routeAutoVote(g: Game, s: CoopState, h: Hero): void {
+  const r = g.route;
+  if (!r.open || r.decided >= 0 || (r.votes[h.index] ?? -1) >= 0) return;
+  const cast = g.heroes.filter((x) => !x.left && !s.grace.some((q) => q.index === x.index)).map((x) => r.votes[x.index] ?? -1);
+  if (!cast.length || cast.some((v) => v < 0)) return;
+  const n = new Map<number, number>();
+  for (const v of cast) n.set(v, (n.get(v) ?? 0) + 1);
+  const top = Math.max(...n.values());
+  const host = r.votes[g.local] ?? -1;
+  const pick = n.get(host) === top ? host : [...n].find(([, c]) => c === top)![0];
+  g.routeVote(h, pick);
 }
 
 /** Drive a hero with the autopilot brain through its remote input (host). */

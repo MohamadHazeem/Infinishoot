@@ -94,6 +94,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       hero: heroOf(String(m.hero ?? '')).id,
       look: cleanLook(m.look),
       pf: cleanSummary(m.pf), // profile card (meta2)
+      pid: typeof m.pid === 'string' ? m.pid.slice(0, 16) : '',
     });
     this.refreshLobby();
     return;
