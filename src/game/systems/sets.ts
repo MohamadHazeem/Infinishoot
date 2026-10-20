@@ -64,8 +64,9 @@ export class HeroSets {
   barrierT = 0;
   /** Speedster 6: weapons faster and harder after a dash. */
   buffT = 0;
-  /** Duelist 6: guaranteed crits. */
+  /** Duelist 6: guaranteed crits, and the cooldown before the next window. */
   critT = 0;
+  critCd = 0;
   botT = 0;
   carpetT = 0;
   /** Set-made explosions left this second. */
@@ -79,7 +80,7 @@ export class HeroSets {
     this.counts.fill(0);
     this.tiers.fill(0);
     this.any = false;
-    this.hits = this.stormCd = this.waveCd = this.buffT = this.critT = this.botT = 0;
+    this.hits = this.stormCd = this.waveCd = this.buffT = this.critT = this.critCd = this.botT = 0;
     this.barrier = false;
     this.barrierT = T.bulwarkBarrierCd;
     this.carpetT = T.carpetEvery;
@@ -189,6 +190,7 @@ export function setsStep(this: Game, h: Hero, dt: number): void {
   if (st.waveCd > 0) st.waveCd -= dt;
   if (st.buffT > 0) st.buffT -= dt;
   if (st.critT > 0) st.critT -= dt;
+  if (st.critCd > 0) st.critCd -= dt;
   const p = h.player;
   if (p.dead) return;
   // Bulwark 6: a barrier forms again after the cooldown.
@@ -254,7 +256,7 @@ export function setsHit(this: Game, e: Enemy, crit: boolean, amount: number, sou
   if (source.startsWith('set_') || source === 'zap' || source === 'burn') return;
   const alive = e.active && e.hp > 0 && e.shield <= 0;
   // Duelist 4: crits Expose.
-  if (crit && alive && st.tiers[DUEL] >= 2) this.expose(e);
+  if (crit && alive && st.tiers[DUEL] >= 2 && this.rng.chance(T.duelExpose)) this.expose(e);
   // Inferno 6: every hit ignites.
   if (alive && st.tiers[INF] >= 3 && !tags.includes('fire')) this.ignite(e, Math.max(3, amount * T.infernoIgnite), by);
   // Stormcaller 4: hits on Shocked enemies arc on.
@@ -372,8 +374,9 @@ export function setsDash(this: Game, h: Hero): void {
 /** Skill events (mods2Event). Duelist 6: parry / perfect dodge -> guaranteed crits. */
 export function setsEvent(this: Game, h: Hero, kind: ModEvent): void {
   const st = h.sets;
-  if (this.role === 'client' || st.tiers[DUEL] < 3 || (kind !== 'parry' && kind !== 'perfectDash')) return;
+  if (this.role === 'client' || st.tiers[DUEL] < 3 || st.critCd > 0 || (kind !== 'parry' && kind !== 'perfectDash')) return;
   st.critT = T.duelGuaranteed;
+  st.critCd = T.duelCooldown;
   this.vfx.num(h.player.x, 3, h.player.z, 'EN GARDE!', 'crit', h.index);
   this.vfx.ring(h.player.x, h.player.z, 0.8, 3.5, SETS[DUEL].color, 0.3);
 }
@@ -406,19 +409,30 @@ export function setsFrame(g: Game): void {
   if (runKey < 0 || shownRun < 0) {
     shown.set(h.sets.tiers);
     shownRun = runKey;
+    queue.length = 0;
     return;
   }
   for (let i = 0; i < SET_COUNT; i++) {
     const tr = h.sets.tiers[i];
-    if (tr > shown[i]) flourish(g, i, tr);
+    if (tr > shown[i]) queue.push(i * 4 + tr);
     shown[i] = tr;
   }
+  // One banner at a time: a piece in two sets can raise both tiers in the same frame.
+  const now = performance.now();
+  if (queue.length && now >= nextBanner) {
+    const k = queue.shift()!;
+    flourish(g, k >> 2, k & 3);
+    nextBanner = now + FLOURISH_S * 1000;
+  }
 }
+const queue: number[] = [];
+let nextBanner = 0;
+const FLOURISH_S = 2.4;
 
 function flourish(g: Game, set: number, tier: number): void {
   const def = SETS[set];
   const n = [0, 2, 4, 6][tier];
-  g.hud.showBanner(t('sets.banner', { set: setName(def.id), n }), tierText(def.id, tier), 2.4);
+  g.hud.showBanner(t('sets.banner', { set: setName(def.id), n }), tierText(def.id, tier), FLOURISH_S);
   // Lazy: hero.ts imports this module, and unit tests load heroes without a window (sfx needs one).
   void import('../../audio/sfx').then(({ sfx }) => sfx.play('setTier', 0.3, 'ui', (k) => {
     const base = 392 * 2 ** (tier / 12);

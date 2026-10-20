@@ -34,8 +34,8 @@ export const setsEn = {
   'sets.machinist.3': 'The bot fires twice as fast and chains; weapons recharge ⟪pct⟫% faster.',
   'sets.duelist': 'DUELIST',
   'sets.duelist.1': '+⟪pct⟫% crit chance.',
-  'sets.duelist.2': 'Crits Expose enemies and deal +⟪pct⟫% crit damage.',
-  'sets.duelist.3': 'A parry or perfect dodge makes every hit a crit for ⟪s⟫ s.',
+  'sets.duelist.2': '+⟪pct⟫% crit damage, and crits have a ⟪ex⟫% chance to Expose.',
+  'sets.duelist.3': 'A parry or perfect dodge makes every hit a crit for ⟪s⟫ s (once every ⟪cd⟫ s).',
 } as const;
 
 export const setsAr: Record<keyof typeof setsEn, string> = {
@@ -73,6 +73,6 @@ export const setsAr: Record<keyof typeof setsEn, string> = {
   'sets.machinist.3': 'الروبوت يطلق بضعف السرعة وتتسلسل صعقاته، وأسلحتك تُعاد تعبئتها أسرع بنسبة ⟪pct⟫%.',
   'sets.duelist': 'المبارز',
   'sets.duelist.1': 'فرصة الضربة الحرجة +⟪pct⟫%.',
-  'sets.duelist.2': 'الضربات الحرجة تكشف الأعداء وتزيد ضررها الحرج بنسبة ⟪pct⟫%.',
-  'sets.duelist.3': 'الصد أو المراوغة المثالية تجعل كل ضرباتك حرجة لمدة ⟪s⟫ ث.',
+  'sets.duelist.2': 'ضرر حرج +⟪pct⟫%، وللضربات الحرجة فرصة ⟪ex⟫% لكشف العدو.',
+  'sets.duelist.3': 'الصد أو المراوغة المثالية تجعل كل ضرباتك حرجة لمدة ⟪s⟫ ث (مرة كل ⟪cd⟫ ث).',
 };

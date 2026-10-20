@@ -23,7 +23,7 @@ export function tierText(id: SetId, tier: number): string {
     speedster: [{ move: pct(T.speedMove), dash: pct(T.speedDash) }, {}, { rate: pct(T.speedBuffRate), dmg: pct(T.speedBuffDmg), s: T.speedBuffTime }],
     boomsmith: [{ pct: pct(T.boomArea) }, { pct: pct(T.boomChance) }, { s: T.carpetEvery }],
     machinist: [{ pct: pct(T.machCooldown) }, {}, { pct: pct(T.machCooldown6) }],
-    duelist: [{ pct: pct(T.duelCrit) }, { pct: pct(T.duelCritMult) }, { s: T.duelGuaranteed }],
+    duelist: [{ pct: pct(T.duelCrit) }, { pct: pct(T.duelCritMult), ex: pct(T.duelExpose) }, { s: T.duelGuaranteed, cd: T.duelCooldown }],
   };
   return t(`sets.${id}.${tier}`, p[id][tier - 1] ?? {});
 }

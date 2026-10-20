@@ -4,7 +4,7 @@
  *   &relics=r_cinder,r_keg       own these relics
  *   &set=inferno:4,storm:2       own that many pieces of each set (relics, then items, Mods, auto weapons)
  *   &setpause=2                  open the pause screen (build + SETS panel) after 2 s
- *   &setat=4                     apply &set after 4 s instead of at once (plays the tier flourish)
+ *   &setat=4                     apply &set at 4 s of run time instead of at once (plays the tier flourish)
  *
  *   ?test&god&set=inferno:6&setpause=3      ?test&set=boomsmith:3&levelup      ?test&set=storm:3&shop&gold=60
  */
@@ -20,7 +20,9 @@ import type { Game } from '../game/game';
 
 export function setsLinks(game: Game, q: URLSearchParams): void {
   const at = Number(q.get('setat'));
-  if (at > 0) setTimeout(() => give(game, q), at * 1000);
+  if (at > 0) {
+    const t = setInterval(() => game.runTime >= at && (clearInterval(t), give(game, q)), 50);
+  }
   else give(game, q);
   const p = Number(q.get('setpause'));
   if (p > 0) setTimeout(() => game.pause(), p * 1000);

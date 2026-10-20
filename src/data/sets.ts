@@ -105,9 +105,9 @@ export const setsTuning = {
   glacierFrozenMul: 0.25, // 2: hits on Frozen enemies
   glacierFreeze: 0.06, // 4: freeze chance on hits
   glacierNovaR: 3, // 6: frozen kills burst into a freezing nova
-  glacierNova: 20,
-  glacierNovaPerStage: 8,
-  glacierNovaFreeze: 1.5,
+  glacierNova: 16,
+  glacierNovaPerStage: 7,
+  glacierNovaFreeze: 1.2,
   // BULWARK
   bulwarkArmor: 2, // 2
   bulwarkWaveR: 4, // 4: getting hit sends out a shockwave
@@ -126,7 +126,7 @@ export const setsTuning = {
   speedBuffDmg: 0.2,
   // BOOMSMITH
   boomArea: 0.2, // 2: explosions bigger
-  boomChance: 0.35, // 4: enemies your explosions kill can explode again
+  boomChance: 0.25, // 4: enemies your explosions kill can explode again
   boomR: 2,
   boomDmg: 16,
   boomDmgPerStage: 8,
@@ -140,15 +140,17 @@ export const setsTuning = {
   machCooldown: 0.08, // 2
   botEvery: 1, // 4: support bot zaps the nearest enemy
   botRange: 9,
-  botDmg: 14,
-  botDmgPerStage: 6,
+  botDmg: 20,
+  botDmgPerStage: 8,
   botEvery6: 0.5, // 6: faster, chains, and more recharge speed
   botHops6: 2,
   machCooldown6: 0.1,
   // DUELIST
   duelCrit: 0.08, // 2
-  duelCritMult: 0.25, // 4: crits Expose
-  duelGuaranteed: 3, // 6: parry / perfect dodge -> guaranteed crits for this long
+  duelCritMult: 0.2, // 4: crits can Expose
+  duelExpose: 0.25,
+  duelGuaranteed: 2, // 6: parry / perfect dodge -> guaranteed crits for this long
+  duelCooldown: 8, // ...at most once per this many seconds
   /** Set-made explosions per hero per second (chain reactions stay bounded). */
-  boomBudget: 10,
+  boomBudget: 8,
 };
