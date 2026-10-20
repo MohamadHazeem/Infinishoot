@@ -16,6 +16,7 @@ import { modMaxLevel, type ModDef } from './modTypes';
 import { Player, dashLevelMul } from './player';
 import { computeStats, type Stats } from './stats';
 import { MAX_MOD_SLOTS, Synergy, type SynergyHost } from './synergy';
+import { HeroSets, applySetLive, applySetStatic } from './systems/sets';
 import { createWeapon, type Weapon, type WeaponCtx } from './weapons';
 import { SKINS, type SkinDef } from '../data/skins';
 import { CURSE_BY_ID, CURSES } from '../data/curses';
@@ -187,6 +188,8 @@ export class Hero implements SynergyHost {
   readonly mech = new HeroMech();
   /** Gameplay lane: mech suit, super weapon, overload, comeback and relic state (src/game/gameplay.ts). */
   readonly play = new HeroPlay();
+  /** Item sets: piece counts, tiers and bonus timers (src/game/systems/sets.ts). */
+  readonly sets = new HeroSets();
   /** Comeback mode: at death's door with no revives left (x2 damage, red screen). For the music and sound. */
   get comeback(): boolean {
     return this.play.comeback;
@@ -292,6 +295,7 @@ export class Hero implements SynergyHost {
     }
     this.passives = {};
     this.synergy.reset();
+    this.sets.reset();
     this.gold = this.dashes = 0;
     this.damageBy = {};
     this.pendingLevels = this.chestsPending = 0;
@@ -394,6 +398,7 @@ export class Hero implements SynergyHost {
     s.magnet += this.petState.magnetBonus;
     s.critChance = Math.min(1, s.critChance + this.petState.ranks.lucky * pets2Tuning.luckyCrit);
     syn.applyStatic(s);
+    applySetStatic(this, s, passives); // item set bonuses (src/data/sets.ts)
     return s;
   }
 
@@ -408,6 +413,7 @@ export class Hero implements SynergyHost {
     this.stats.damageMul *= this.mech.damageMul;
     this.play.applyLive(this.stats);
     this.world.director2Live?.(this);
+    applySetLive(this);
   }
 
   get specialDef(): SpecialDef {

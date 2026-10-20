@@ -1,5 +1,6 @@
 import { trialsAr } from './trials';
 import { pets2Ar } from './pets2';
+import { setsAr } from './sets';
 import { followupsAr } from './followups';
 import { biome3Ar } from './biome3';
 import { storyAr } from '../game/story/strings';
@@ -10,6 +11,7 @@ import type { en } from './en';
 export const ar = {
   ...trialsAr,
   ...pets2Ar,
+  ...setsAr,
   ...biome3Ar,
   "clips.title": "لقطات مميزة",
   "clips.hint": "لعب بلا صوت · احفظ آخر 15 ثانية:",

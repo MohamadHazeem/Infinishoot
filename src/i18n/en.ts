@@ -1,5 +1,6 @@
 import { trialsEn } from './trials';
 import { pets2En } from './pets2';
+import { setsEn } from './sets';
 import { followupsEn } from './followups';
 import { biome3En } from './biome3';
 import { storyEn } from '../game/story/strings';
@@ -9,6 +10,7 @@ import { spectateEn } from '../game/spectateStrings';
 export const en = {
   ...trialsEn,
   ...pets2En,
+  ...setsEn,
   ...biome3En,
   "clips.title": "HIGHLIGHT CLIPS",
   "clips.hint": "Silent gameplay · Save the last 15 seconds:",

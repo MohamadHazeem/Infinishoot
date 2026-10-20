@@ -62,6 +62,7 @@ import { banishTuning } from '../game/banish';
 import { cardNumTuning } from '../game/cardNumbers';
 import { previewTuning } from '../game/shopPreview';
 import { mods2Tuning } from '../data/mods';
+import { setsTuning } from '../data/sets';
 import { trainingTuning } from '../game/training';
 import { addHudFolder } from './debugHud';
 import { addFixesFolder } from './fixesPanel';
@@ -239,6 +240,9 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   shop.add(previewTuning, 'dist', 0, 20, 0.5).name('Preview hit distance');
   shop.add(previewTuning, 'near', 0, 3.5, 0.1).name('Preview near distance');
   shop.add(previewTuning, 'far', 8, 30, 0.5).name('Preview far distance');
+
+  const setsF = gui.addFolder('Sets').close(); // item set bonuses (src/data/sets.ts)
+  for (const [k, v] of Object.entries(setsTuning) as [keyof typeof setsTuning, number][]) setsF.add(setsTuning, k, 0, Math.max(1, v * 4), v >= 2 ? 1 : 0.01);
 
   const mods2 = gui.addFolder('Mods: ally & position').close();
   mods2.add(mods2Tuning, 'allyRadius', 2, 20, 1);

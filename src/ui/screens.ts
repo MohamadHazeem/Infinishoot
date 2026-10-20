@@ -7,6 +7,7 @@ import { weeklyChallenge } from '../data/weekly';
 import type { Input } from '../core/input';
 import { ACHIEVEMENTS } from '../data/meta';
 import { tagChips, type Tag } from '../data/tags';
+import { offerSetChips, setChipsHtml, setsPanelHtml } from './setsUi';
 import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
 import { RELIC_BY_ID, type RelicDef } from '../data/relics';
@@ -1044,6 +1045,7 @@ export class Screens {
           <div class="desc">${o.text}</div>
           ${numsHtml(o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
+          ${offerSetChips(o)}
           ${o.replaces ? replaceStrip(o.replaces) : ''}
           ${o.partner ? partnerStrip(o.partner) : ''}
           ${o.fuses ? fuseStrip(o.fuses) : ''}
@@ -1200,7 +1202,8 @@ export class Screens {
     const el = this.els.pause.querySelector('.pause-info') ?? this.els.pause.appendChild(Object.assign(document.createElement('div'), { className: 'pause-info' }));
     el.innerHTML =
       localizeHtml((recipes ? `<div class="pi-col"><div class="pi-t">${t("text.evolutions_f392a9")}</div>${recipes}</div>` : '') +
-      (bars ? `<div class="pi-col"><div class="pi-t">${t("text.damage_this_run_7a0587")}</div>${bars}</div>` : ''));
+      (bars ? `<div class="pi-col"><div class="pi-t">${t("text.damage_this_run_7a0587")}</div>${bars}</div>` : '') +
+      setsPanelHtml());
   }
 
   // ---------------------------------------------------------------- shop
@@ -1214,6 +1217,7 @@ export class Screens {
           <div class="icon" style="--c:${r.color}">${iconHtml(r.id, r.color, r.icon)}</div>
           <div class="name">${r.name}</div>
           <div class="desc">${r.desc}</div>
+          ${setChipsHtml(r.id, true)}
           <div class="price">${t("text.take_free_41178a")}</div>
         </button>`,
       )
@@ -1252,6 +1256,7 @@ export class Screens {
           <div class="desc">${modDesc(m)}</div>
           ${modMaxLevel(m) > 1 ? `<div class="mod-ups">UPGRADES IN SHOP TO LV ${modMaxLevel(m)}</div>` : ''}
           ${m.synergy ? `<div class="chips">${tagChips(m.synergy)}</div>` : ''}
+          ${setChipsHtml(m.id, true)}
           ${o.hint ? `<div class="hint">${o.hint}</div>` : ''}
           ${numsHtml([...buyDamageNums(v.preview, i), ...(o.nums ?? [])].slice(0, 3))}
           <div class="price"><span class="gold-dot"></span> ${o.price}</div>

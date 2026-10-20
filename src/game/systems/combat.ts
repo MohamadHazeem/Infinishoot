@@ -59,6 +59,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (!o.fixed && e.frozen > 0 && e.shatter > 0) amount *= 1 + e.shatter;
   if (!o.fixed && e.shockT > 0) amount *= 1 + statusTuning.shockMult + by.synergy.flags.shockMult;
   if (!o.fixed && e.exposeT > 0) amount *= 1 + statusTuning.exposeMult;
+  if (!o.fixed) amount *= this.setsDamageMul(e, by); // item sets (systems/sets.ts)
   if (!o.fixed) amount *= this.guardMul(e, o, by); // Shield Bots
   if (crit) amount *= by.stats.critMult;
   amount = Math.max(1, Math.round(amount));
@@ -116,6 +117,7 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
     by.synergy.hit(ev);
     if (crit) by.synergy.crit(ev);
     if (crit && by.hasRelic('r_static') && o.source !== 'zap' && e.active) this.zap(e, 2, Math.max(4, amount * 0.35), by);
+    this.setsHit(e, crit, amount, o.source, tags, by);
   }
   if (e.def.phases) this.bossHpGate(e); // boss phases: can't skip one or die early
   if (e.hp <= 0 && e.active) this.killEnemy(e, o.source, by);

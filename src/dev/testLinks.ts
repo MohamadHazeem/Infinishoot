@@ -41,6 +41,7 @@ import { renderQuality } from '../render/quality';
 import { shopLinks } from './shopLinks';
 import { tradingLinks } from './tradingLinks';
 import { mods2Links } from './mods2Links';
+import { setsLinks } from './setsLinks';
 import { onboardingLinks } from './onboardingLinks';
 import { firsttenLinks } from './firsttenLinks';
 import { hudLinks } from '../ui/hudLinks';
@@ -410,6 +411,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (pg > 0) setTimeout(() => (shootAt(1.5, 8), game.tryParry(game.hero)), pg * 1000);
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
+  setsLinks(game, q); // item sets: &relics, &set=inferno:4, &setpause (src/dev/setsLinks.ts)
   shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
   tradingLinks(game, q); // trading lane: &tradedemo, &trade=<s>, &traderelic, &tradepool, &tradelobby (src/dev/tradingLinks.ts)
   mods2Links(game, q);
