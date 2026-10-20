@@ -244,6 +244,8 @@ export const en = {
   "replay.exit": "EXIT REPLAY",
 
   "replay.help": "HELP",
+
+  "replay.menu": "REPLAYS & CRASH LOGS",
   "replay.save": "SAVE REPLAY",
   "replay.watch": "WATCH REPLAY",
   "replay.crash": "WATCH CRASH REPLAY",

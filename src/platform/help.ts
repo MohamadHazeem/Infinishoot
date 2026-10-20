@@ -25,6 +25,12 @@ export function installDesktopUi(screens: Screens): void {
     button('desktop.minimize', () => { void desktop?.windowAction('minimize'); });
     button('desktop.close', () => { void desktop?.windowAction('close'); });
   }
+  // uipolish: the replay/crash-log help (src/game/systems/ci2.ts) moves out of the SETTINGS footer into this screen, so the footer has one HELP.
+  const replayHelp = screens.settingsScreen.el.querySelector<HTMLButtonElement>('.settings-footer [data-replay-help]');
+  if (replayHelp) {
+    replayHelp.dataset.desktopLabel = 'replay.menu';
+    menu.append(replayHelp);
+  }
   button('desktop.back', () => screens.show('settings'));
   menu.append(status); el.append(heading, menu);
   screens.addScreen('desktopHelp', el, { onBack: () => screens.show('settings') });

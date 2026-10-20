@@ -245,6 +245,8 @@ export const ar = {
   "replay.exit": "الخروج من إعادة اللعب",
 
   "replay.help": "مساعدة",
+
+  "replay.menu": "إعادات اللعب وسجل الأعطال",
   "replay.save": "حفظ إعادة اللعب",
   "replay.watch": "مشاهدة إعادة اللعب",
   "replay.crash": "مشاهدة إعادة اللعب عند التعطل",

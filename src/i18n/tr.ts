@@ -596,6 +596,7 @@ export const tr = {
   "replay.storage": "Replay tarayıcı depolamasına sığamadı. Bunun yerine bir dosyaya tasarruf edin.",
   "replay.exit": "EXİT REPLAY",
   "replay.help": "YARDIM",
+  "replay.menu": "TEKRARLAR VE ÇÖKME KAYITLARI",
   "replay.save": "SAVE REPLAY",
   "replay.watch": "WATCH REPLAY",
   "replay.crash": "WATCH CRASH REPLAY",

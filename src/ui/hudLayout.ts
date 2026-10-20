@@ -197,6 +197,21 @@ kbd.prompt:empty { display: none; }
 #navhint > span { display: inline-flex; align-items: center; gap: 6px; }
 .input-pad .menu-open > #navhint { display: flex; }
 
+/* ---------------- uipolish lane: one look for the small HUD chips. */
+/* Halloween candy line: a framed chip by the weapon slots (the dock lifts it above them). */
+#hud > #ha-candy {
+  left: 20px;
+  bottom: 20px;
+  padding: var(--p) calc(2 * var(--p));
+  font: 10px/12px var(--label);
+  letter-spacing: 1px;
+  color: var(--yellow);
+  background: var(--ink);
+  box-shadow: inset var(--p) var(--p) 0 0 var(--night), 0 calc(-1 * var(--p)) 0 0 var(--ink), 0 var(--p) 0 0 var(--ink), calc(-1 * var(--p)) 0 0 0 var(--ink), var(--p) 0 0 0 var(--ink);
+}
+/* HUD chips that live outside #ingame hide with the rest of the HUD under menus and cinematics. */
+.menu-open > #ha-candy, .menu-open ~ #vc-self, .cinematic > #ha-candy { visibility: hidden !important; }
+
 `;
 
 /** Add the layout CSS once (after style.css, so it overrides the rules it replaces). */
@@ -238,5 +253,151 @@ export function applyUiScale(pct: number): void {
   if (!resizeHooked) {
     resizeHooked = true;
     window.addEventListener('resize', () => applyUiScale(lastPct));
+  }
+}
+
+/* ======================================================================
+ * HUD dock (uipolish lane): one layout pass for every corner panel.
+ *
+ * Each lane positions its own panel with CSS. With ~40 lanes that gives
+ * overlaps (candy line on the weapon slots, network panel under a tall goals
+ * stack, toasts on the boss bar...). The dock keeps those CSS spots and only
+ * nudges a panel vertically when it would cover a panel listed before it in
+ * HUD_DOCK (top-anchored panels move down, bottom-anchored ones up), with
+ * `dockTuning.gap` px between them. It measures real screen boxes, so it works
+ * at every UI SCALE, window size, language and with touch controls. The nudge
+ * uses the CSS `translate` property, so a panel's own `transform` animations
+ * keep working. New corner panels: add their selector to HUD_DOCK.
+ * ====================================================================== */
+
+/**
+ * Corner panels in priority order, each with the way it may move: 0 = an
+ * anchor (the fixed frame of the HUD, never moves), 1 = a top-anchored panel
+ * (moves down), -1 = a bottom-anchored one (moves up). Every movable panel is
+ * pushed clear of all panels listed before it, so put the panels that matter
+ * most (and small chips that must stay by their anchor) first.
+ */
+export const HUD_DOCK: readonly (readonly [string, -1 | 0 | 1])[] = [
+  // Anchors.
+  ['#ingame > #xpbar', 0], ['#hudface', 0], ['#ingame > #hp', 0], ['#ingame > #runinfo', 0], ['#ingame > #timer', 0],
+  ['#ingame > #pausebtn', 0], ['#ingame > #score', 0], ['#ingame > #loadout', 0], ['#ingame > #meters', 0],
+  ['#ingame > #minimap', 0], ['#ingame > #bossbar', 0], ['#touch .tstick', 0], ['#touch .tbtn', 0],
+  // Left column, then the chips by the weapon slots.
+  ['#ingame > #goals', 1], ['#ha-candy', -1], ['#vc-self', -1],
+  // Right column.
+  ['#ingame > #combo', 1], ['#stylemeter', 1], ['#gp-cash', 1], ['#vs-foe', 1], ['#lc-hud .lc-p', 1],
+  ['#s2-onair', 1], ['#s2-band', 1], ['#weather2', 1],
+  // Bottom row.
+  ['#ingame > #mods', -1], ['#co2-panel', -1], ['#petpanel', -1], ['#teammeter', -1], ['#gp-power', -1],
+  ['#gp-comeback', -1], ['#architect-hud', -1],
+  // Top middle: banners under the clock, then toasts and the chest reveal.
+  ['#pvp2-hud', 1], ['#s2-duel', 1], ['#ingame > #toast', 1], ['#ingame > #chestreveal', 1],
+  // Extra left-column panels last: they go where there is room.
+  ['#net-panel', 1], ['#hm-panel', 1], ['#secret-hint', 1], ['#ob-tip', 1],
+];
+
+export const dockTuning = {
+  /** Seconds between layout passes (each pass reads ~20 boxes). */
+  every: 0.1,
+  /** Screen px kept between a pushed panel and the one it was pushed by. */
+  gap: 6,
+  /** Seconds between re-reading the selectors (panels appear lazily). */
+  rescan: 1,
+};
+
+/** A panel box in screen px at its CSS (un-nudged) spot; `dir` 0 = anchored, 1 = may move down, -1 = up. `off` is the result. */
+export interface DockBox { x: number; y: number; w: number; h: number; dir: -1 | 0 | 1; off: number }
+
+const hits = (a: DockBox, ay: number, b: DockBox): boolean =>
+  Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 1 && Math.min(ay + a.h, b.y + b.off + b.h) - Math.max(ay, b.y + b.off) > 1;
+
+/**
+ * Resolve the dock: boxes[0..n) in priority order. Each movable box slides
+ * along its `dir` until it covers none of the boxes before it, then is
+ * clamped inside the view (0..viewH). Writes `off` (px) on every box.
+ */
+export function resolveDock(boxes: DockBox[], n: number, gap: number, viewH: number): void {
+  for (let i = 0; i < n; i++) {
+    const b = boxes[i];
+    b.off = 0;
+    if (!b.dir) continue;
+    let y = b.y;
+    // Every pass moves the box past one blocker; n passes are always enough.
+    for (let pass = 0; pass < n; pass++) {
+      let moved = false;
+      for (let j = 0; j < i; j++) {
+        const o = boxes[j];
+        if (!hits(b, y, o)) continue;
+        y = b.dir > 0 ? o.y + o.off + o.h + gap : o.y + o.off - gap - b.h;
+        moved = true;
+      }
+      if (!moved) break;
+    }
+    y = Math.max(0, Math.min(viewH - b.h, y));
+    b.off = Math.round(y - b.y);
+  }
+}
+
+interface DockEl { el: HTMLElement; dir: -1 | 0 | 1 }
+
+/** The live dock: call `tick(dt)` once per frame (src/ui/hud.ts does). */
+export class HudDock {
+  private items: DockEl[] = [];
+  private boxes: DockBox[] = [];
+  private live: HTMLElement[] = [];
+  private applied = new Map<HTMLElement, number>();
+  private t = 0;
+  private scanT = 0;
+
+  private scan(): void {
+    this.items.length = 0;
+    for (const [sel, dir] of HUD_DOCK) {
+      for (const el of document.querySelectorAll<HTMLElement>(sel)) if (!this.items.some((d) => d.el === el)) this.items.push({ el, dir });
+    }
+    for (const el of this.applied.keys()) if (!el.isConnected) this.applied.delete(el);
+  }
+
+  tick(dt: number): void {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    this.t -= dt;
+    if (this.t > 0) return;
+    this.t = dockTuning.every;
+    this.scanT -= dockTuning.every;
+    if (this.scanT <= 0) {
+      this.scanT = dockTuning.rescan;
+      this.scan();
+    }
+    const viewH = window.innerHeight;
+    let n = 0;
+    for (const { el, dir } of this.items) {
+      const shown = el.isConnected && !el.hidden && (typeof el.checkVisibility !== 'function' || el.checkVisibility({ visibilityProperty: true }));
+      const off = this.applied.get(el) ?? 0;
+      if (!shown) {
+        if (off) this.set(el, 0);
+        continue;
+      }
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) continue;
+      const b = (this.boxes[n] ??= { x: 0, y: 0, w: 0, h: 0, dir: 0, off: 0 });
+      b.x = r.left;
+      b.y = r.top - off;
+      b.w = r.width;
+      b.h = r.height;
+      b.dir = dir;
+      this.live[n++] = el;
+    }
+    resolveDock(this.boxes, n, dockTuning.gap, viewH);
+    for (let i = 0; i < n; i++) {
+      const el = this.live[i];
+      if (Math.abs((this.applied.get(el) ?? 0) - this.boxes[i].off) >= 1) this.set(el, this.boxes[i].off);
+    }
+  }
+
+  private set(el: HTMLElement, off: number): void {
+    if (off) this.applied.set(el, off);
+    else this.applied.delete(el);
+    // `translate` lengths are zoomed with the element (UI SCALE), so undo that.
+    const z = (el as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom || 1;
+    el.style.translate = off ? `0 ${Math.round((off / z) * 100) / 100}px` : '';
   }
 }
