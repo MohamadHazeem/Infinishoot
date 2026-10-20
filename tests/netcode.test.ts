@@ -405,9 +405,29 @@ ok(NC.netcodeState(A).probes.get('peerB')?.rtt !== undefined && (NC.netcodeState
   const out = { x: 0, z: 0 };
   ok(hist.at(e, lag, out) && Math.abs(out.z - (p.z + 6)) < 0.01, 'game: the rewound enemy is where the client saw it');
   ok(NC.lagSteps(A, 0) === 0, 'game: the host\'s own shots never rewind');
+  // integ2: client-authored melee (katana swings and waves, the dash-strike) uses the same rewind through ctx.seen.
+  const seen = h.ctx.seen?.(e);
+  ok(!!seen && Math.abs(seen.z - (p.z + 6)) < 0.01 && (h.ctx.lagPad ?? 0) > 0, 'game: a client\'s melee (ctx.seen) judges the enemy where the client saw it');
+  ok(!A.heroes[0].ctx.seen?.(e) && !A.heroes[0].ctx.lagPad, 'game: the host\'s own melee uses where enemies are');
   lagTuning.enabled = false;
   ok(NC.lagSteps(A, 1) === 0, 'game: lag compensation can be switched off');
   lagTuning.enabled = true;
+}
+// integ2: inputs arriving bunched (jitter, a resent packet) keep a click edge for one host step.
+{
+  const h = A.heroes[1];
+  NC.remoteButtonsIn(h, false, false);
+  NC.remoteButton(h, 'firing', false);
+  NC.remoteButton(h, 'charging', false);
+  NC.remoteButtonsIn(h, false, true); // right click pressed...
+  NC.remoteButtonsIn(h, false, false); // ...and released before any host step read it
+  ok(NC.remoteButton(h, 'charging', false) === true && NC.remoteButton(h, 'charging', false) === false, 'game: a right-click tap inside one bunch of inputs is still seen for one step');
+  NC.remoteButtonsIn(h, true, true);
+  NC.remoteButtonsIn(h, true, true);
+  ok(NC.remoteButton(h, 'charging', true) && NC.remoteButton(h, 'firing', true) && NC.remoteButton(h, 'charging', true), 'game: held buttons stay held');
+  NC.remoteButtonsIn(h, false, false);
+  NC.remoteButton(h, 'firing', false);
+  NC.remoteButton(h, 'charging', false);
 }
 // Reconnect: the old connection hasn't closed yet; the player comes back on a new peer id with the same pid.
 {

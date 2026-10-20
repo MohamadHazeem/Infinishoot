@@ -165,10 +165,13 @@ export class Katana extends Weapon {
     const cleave = k === 2;
     const knock = p.knock * (cleave ? R.cleaveKnock : 1);
     let n = 0;
-    for (const e of ctx.inRadius(pl.x, pl.z, reach, this.scratch).slice()) {
+    // A client's swing is judged against where enemies were on its player's screen (ctx.seen, lag compensation);
+    // the hit itself (knockback, numbers) lands on the enemy where it is.
+    for (const e of ctx.inRadius(pl.x, pl.z, reach + (ctx.lagPad ?? 0), this.scratch).slice()) {
+      const at = ctx.seen?.(e);
+      if (!inSwordArc((at ? at.x : e.x) - pl.x, (at ? at.z : e.z) - pl.z, e.radius, a0, arc, reach)) continue;
       const dx = e.x - pl.x;
       const dz = e.z - pl.z;
-      if (!inSwordArc(dx, dz, e.radius, a0, arc, reach)) continue;
       const d = Math.hypot(dx, dz) || 1;
       ctx.damage(e, dmg, { source: 'katana', dirX: dx / d, dirZ: dz / d, knockback: knock, hx: e.x - (dx / d) * e.radius, hz: e.z - (dz / d) * e.radius, canCrit: true, loud: n < 3 });
       // Hit reaction: a squash, and the cleave staggers (heavy slow) anything that isn't a boss.
@@ -236,9 +239,14 @@ export class Katana extends Weapon {
       const x = this.wx[i];
       const z = this.wz[i];
       const w = R.waveWidth * this.ws[i];
-      for (const e of ctx.inRadius(x, z, w, this.scratch)) {
+      for (const e of ctx.inRadius(x, z, w + (ctx.lagPad ?? 0), this.scratch)) {
         if (this.wn[i] >= R.waveHits) break;
         if (this.waveHit(i, e.uid)) continue;
+        if (ctx.lagPad) {
+          // A client's wave: judged where the enemy was on its player's screen (the search was padded for it).
+          const at = ctx.seen?.(e) ?? e;
+          if ((at.x - x) ** 2 + (at.z - z) ** 2 >= (w + e.radius) ** 2) continue;
+        }
         this.wh[i * WAVE_HITS + Math.min(WAVE_HITS - 1, this.wn[i]++)] = e.uid;
         ctx.damage(e, this.wd[i], { source: 'katana', dirX: ca, dirZ: sa, knockback: 5, hx: e.x, hz: e.z, canCrit: true, loud: this.wn[i] <= 2 });
       }

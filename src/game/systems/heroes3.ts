@@ -24,7 +24,7 @@ import { Team } from '../bullets';
 import { settings } from '../settings';
 import { ultTuning } from '../ultimates';
 import { heroHitStop } from './skill';
-import { lagOut, lagSteps, rewindEnemy } from './netcode';
+import { lagSteps } from './netcode';
 import { heroes3Hooks, heroes3Tuning, minionCap, minionsOf, MinionKind, MinionPool, packMinions, SLASH_COLORS, SlashLog, unpackMinions, unpackSlashes, zapDamage, MAX_MINIONS } from '../heroes3';
 import { createRetroMaterial } from '../../render/retroMaterial';
 import { paint } from '../../render/geometry';
@@ -166,16 +166,8 @@ export function heroes3StrikeMsg(g: Game, h: Hero, m: Record<string, unknown>): 
   if (![focus, sx, sz, ex, ez].every(Number.isFinite) || focus < RT.focusMin || focus > 1.01) return;
   // The path starts about where the host has had this hero lately (its smoothed position trails the reports).
   if (Math.hypot(sx - p.x, sz - p.z) > RT_PATH_REACH && Math.hypot(ex - p.x, ez - p.z) > RT_PATH_REACH) return;
-  const lag = lagSteps(g, h.index);
-  s.remoteStrike({
-    focus: Math.min(1, focus),
-    sx,
-    sz,
-    ex,
-    ez,
-    cutIn: RT.cutDelay - lag / 60,
-    at: (e) => (lag > 0 && rewindEnemy(g, e, lag) ? lagOut : null),
-  });
+  // The cut comes the client's cut delay after its dash ended, less the time this report spent getting here.
+  s.remoteStrike({ focus: Math.min(1, focus), sx, sz, ex, ez, cutIn: RT.cutDelay - lagSteps(g, h.index) / 60 });
 }
 
 /** Client: its own Ronin's dash-strike, from its own right click (the host judges the hits). */

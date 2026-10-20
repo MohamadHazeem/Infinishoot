@@ -11,8 +11,6 @@ const now = () => performance.now() / 1000;
 const READY_SLACK = 0.06;
 /** A reported path may be this much longer than the focus allows (m): rounding and the last dash step. */
 const PATH_SLACK = 1;
-/** Extra search radius when enemies are rewound to a client's view (they may have moved since). */
-const LAG_PAD = 3;
 
 /** Host: a connected client's dash-strike, along the path its hero travelled on its own screen. */
 export interface RemoteStrike {
@@ -23,8 +21,6 @@ export interface RemoteStrike {
   ez: number;
   /** Seconds until the delayed cut (the client's cut delay less the time the report spent arriving). */
   cutIn: number;
-  /** Where an enemy was on the client's screen (lag compensation), or null to use where it is. */
-  at: (e: Enemy) => { x: number; z: number } | null;
 }
 
 /**
@@ -249,7 +245,7 @@ export class Iaido extends Weapon {
     this.ex = req.ex;
     this.ez = req.ez;
     this.dashFx(ctx, req.sx, req.sz);
-    this.sweepPath(ctx, req.sx, req.sz, req.ex, req.ez, req.at);
+    this.sweepPath(ctx, req.sx, req.sz, req.ex, req.ez);
     this.cutT = Math.max(0, req.cutIn);
     this.remoteStrikes++;
   }
@@ -261,20 +257,20 @@ export class Iaido extends Weapon {
     const az = this.lz;
     this.lx = pl.x;
     this.lz = pl.z;
-    this.sweepPath(ctx, ax, az, pl.x, pl.z, null);
+    this.sweepPath(ctx, ax, az, pl.x, pl.z);
   }
 
-  /** Cut everything along a stretch of the dash (`at`: where each enemy was on the dashing client's screen). */
-  private sweepPath(ctx: WeaponCtx, ax: number, az: number, bx: number, bz: number, at: RemoteStrike['at'] | null): void {
+  /** Cut everything along a stretch of the dash (a client's: where each enemy was on its screen, `ctx.seen`). */
+  private sweepPath(ctx: WeaponCtx, ax: number, az: number, bx: number, bz: number): void {
     const w = this.p.width * Math.sqrt(ctx.stats.areaMul);
     const mx = (ax + bx) / 2;
     const mz = (az + bz) / 2;
     const half = Math.hypot(bx - ax, bz - az) / 2;
     const dmg = this.p.dmg * this.passMul * ctx.stats.chargeDmg;
     let n = 0;
-    for (const e of ctx.inRadius(mx, mz, half + w + (at ? LAG_PAD : 0), this.scratch)) {
+    for (const e of ctx.inRadius(mx, mz, half + w + (ctx.lagPad ?? 0), this.scratch)) {
       if (this.hitE.includes(e)) continue;
-      const seen = at?.(e);
+      const seen = ctx.seen?.(e);
       if (segDist(seen ? seen.x : e.x, seen ? seen.z : e.z, ax, az, bx, bz) > w + e.radius) continue;
       this.hitE.push(e);
       this.hitUid.push(e.uid);

@@ -32,7 +32,7 @@ import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
-import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
+import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep, remoteButtonsIn } from './netcode';
 import { heroes3Net, heroes3StrikeMsg } from './heroes3';
 import { coopPlayMessage, coopPlayNet } from './coopplay';
 import { lobbyCap } from '../eightp';
@@ -123,6 +123,7 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       charging: !!m.c,
       dashing: !!m.d,
     };
+    remoteButtonsIn(h, !!m.f, !!m.c); // a click shorter than a bunch of late inputs still reaches the weapons (systems/netcode.ts)
     if (m.vt !== undefined) noteViewStep(this, h, Number(m.vt)); // lag compensation (systems/netcode.ts)
   } else if (m.t === 'ping') {
     if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z), typeof m.k === 'string' ? m.k : undefined);
