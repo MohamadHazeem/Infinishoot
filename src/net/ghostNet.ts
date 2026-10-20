@@ -1,3 +1,4 @@
+import { onlineServer } from './onlineServer';
 /**
  * Optional online ghost board (modes lane; server/leaderboard/ghosts.js). Like the score board,
  * it only talks to the worker when the build has VITE_LEADERBOARD_URL; otherwise every call
@@ -16,7 +17,7 @@ export interface GhostEntry {
   time: number;
 }
 
-const BASE = (import.meta.env?.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const BASE = onlineServer;
 
 export const ghostsOnline = leaderboardEnabled;
 
