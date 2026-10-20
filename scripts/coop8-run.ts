@@ -128,6 +128,15 @@ let worstDesync = '';
 let checks = 0;
 let bossAt = -1;
 let bossKilled = false;
+// Owned boss chests are counted as they drop: since coopstress, stage clear vacuums leftover chests to their owners.
+const { PickupType } = await import('../src/game/pickups');
+const { OWNED_CHEST } = await import('../src/game/game');
+const owned = new Set<number>();
+const spawn0 = A.pickups.spawn.bind(A.pickups);
+(A.pickups as any).spawn = (t: number, x: number, z: number, v?: number) => {
+  if (t === PickupType.Chest && v !== undefined && v >= OWNED_CHEST) owned.add(v - OWNED_CHEST);
+  return (spawn0 as any)(t, x, z, v);
+};
 const aliveSamples: number[] = [];
 const bulletSamples: number[] = [];
 const steps = Math.round(SECONDS * 60);
@@ -197,11 +206,6 @@ for (let s = 0; s < steps; s++) {
   }
 }
 
-// Boss chests: one owned per hero.
-const { PickupType } = await import('../src/game/pickups');
-const { OWNED_CHEST } = await import('../src/game/game');
-const owned = new Set<number>();
-for (let i = 0; i < A.pickups.count; i++) if (A.pickups.type[i] === PickupType.Chest && A.pickups.value[i] >= OWNED_CHEST) owned.add(A.pickups.value[i] - OWNED_CHEST);
 
 const per = [...T.stats.snapBytes.entries()].map(([id, l]) => ({ id, n: l.length, ...summary(l) }));
 const all = summary([...T.stats.snapBytes.values()].flat());
