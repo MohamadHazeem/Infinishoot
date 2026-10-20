@@ -139,12 +139,20 @@ async function host_(name) {
   await A.page.evaluate((name) => void window.game.hostGame(name), name);
   const ok = await A.page.evaluate(async () => {
     for (let k = 0; k < 100 && !window.game.host; k++) await new Promise((r) => setTimeout(r, 100));
-    try {
-      await window.game.host.ready;
-      return true;
-    } catch (e) {
-      return String(e?.type ?? e);
+    // The game retries with a random code when its fixed room code is still taken on the broker (systems/online.ts).
+    let err = '';
+    for (let tries = 0; tries < 3; tries++) {
+      const h = window.game.host;
+      try {
+        await h.ready;
+        return true;
+      } catch (e) {
+        err = String(e?.type ?? e);
+        for (let k = 0; k < 50 && window.game.host === h; k++) await new Promise((r) => setTimeout(r, 100));
+        if (!window.game.host || window.game.host === h) return err;
+      }
     }
+    return err;
   });
   if (ok !== true) {
     fail(`host could not register with the signalling server: ${ok}`);
