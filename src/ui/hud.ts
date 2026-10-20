@@ -12,7 +12,8 @@ import { MAX_GEARS } from '../game/hero';
 import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
 import { sfx } from '../audio/sfx';
-import { injectHudCss } from './hudLayout';
+import { HudDock, injectHudCss } from './hudLayout';
+import { ToastQueue, titleCardUp } from './toastQueue';
 import { prompt, promptText } from './prompts';
 
 // ---------------------------------------------------------------- slot reels
@@ -313,13 +314,22 @@ export class Hud {
     this.bannerT = seconds;
   }
 
-  /** Small message under the timer (elite incoming, achievements, ...). */
+  /** Small message under the timer (elite incoming, achievements, ...). Queued: one at a time, never over a title card (src/ui/toastQueue.ts). */
   toast(msg: string, seconds = 2.2): void {
+    const next = this.toasts.push(msg, seconds, this.bannerT > 0 || (this.toasts.left <= 0 && titleCardUp()));
+    if (next) this.showToast(next.msg, next.seconds);
+  }
+
+  private showToast(msg: string, seconds: number): void {
     const t = this.el('#toast');
     t.textContent = localize(msg);
     restartClass(t, 'show');
     this.toastT = seconds;
   }
+
+  /** uipolish lane: queued toasts and the corner-panel dock (src/ui/hudLayout.ts). */
+  private toasts = new ToastQueue();
+  private dock = new HudDock();
 
   private chest: { item: ChestItem; rarity: Rarity; steps: number[]; end: number; t: number; passed: number; landed: boolean } | null = null;
 
@@ -565,9 +575,9 @@ export class Hud {
       }
       b.el.style.transform = `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) translate(-50%, -100%)`;
       const name = b.el.querySelector('.elite-name')!, detail = b.el.querySelector('.elite-detail')!;
-      const nm = localize(t.name ?? ''), dt = localize(t.detail ?? '');
-      if (name.textContent !== nm) name.textContent = localize(t.name ?? '');
-      if (detail.textContent !== dt) detail.textContent = localize(t.detail ?? '');
+      // Canonical English names and details, localized at display (uipolish: the i18n DOM-write scanner).
+      if (b.el.dataset.nm !== (t.name ?? '')) name.textContent = localize((b.el.dataset.nm = t.name ?? ''));
+      if (b.el.dataset.dt !== (t.detail ?? '')) detail.textContent = localize((b.el.dataset.dt = t.detail ?? ''));
       // Whole UI pixels only (16 across the bar); any drop flashes and leaves a white trail.
       const hp = Math.ceil(Math.max(0, Math.min(1, t.hp01)) * 16) / 16;
       if (hp < b.hp) b.hitT = now;
@@ -747,10 +757,13 @@ export class Hud {
       this.bannerT -= dt;
       if (this.bannerT <= 0) this.el('#banner').classList.remove('show');
     }
-    if (this.toastT > 0) {
-      this.toastT -= dt;
-      if (this.toastT <= 0) this.el('#toast').classList.remove('show');
+    const queued = this.toasts.update(dt, this.toasts.waiting.length > 0 && (this.bannerT > 0 || titleCardUp()));
+    if (queued) this.showToast(queued.msg, queued.seconds);
+    else if (this.toastT > 0 && this.toasts.left <= 0) {
+      this.toastT = 0;
+      this.el('#toast').classList.remove('show');
     }
+    this.dock.tick(dt);
     this.updateChest(dt);
 
     // Vignette: hurt pulse plus a heartbeat when low on life.

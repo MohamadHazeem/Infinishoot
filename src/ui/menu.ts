@@ -219,6 +219,7 @@ export class TitleMenu {
   private readonly profile: HTMLElement;
   private readonly launch: HTMLElement;
   private playChild: ScreenName | null = null;
+  private titleChild: ScreenName | null = null;
 
   constructor(private readonly root: HTMLElement, screens: Screens) {
     ensureMenuCss();
@@ -251,6 +252,12 @@ export class TitleMenu {
   }
 
   destination(name: ScreenName, from: ScreenName): ScreenName {
+    // uipolish: EXTRAS pages opened straight from the title (season banner, profile/quests card) go back to the title.
+    if (from === 'title' && ['season', 'profile', 'achievements'].includes(name)) this.titleChild = name;
+    else if (name === 'extras' && from === this.titleChild) {
+      this.titleChild = null;
+      return 'title';
+    } else if (name !== this.titleChild) this.titleChild = null;
     if (from === 'play' && ['modes', 'online', 'localcoop'].includes(name)) this.playChild = name;
     if (name === 'title' && from === this.playChild) return 'play';
     if (name === 'none' || (name === 'title' && from === 'play')) this.playChild = null;
@@ -290,10 +297,18 @@ export function polishMenuScreen(el: HTMLElement): void {
   // A real back button gets the same live keyboard / controller prompt everywhere.
   for (const button of el.querySelectorAll<HTMLElement>('button')) {
     if (button.dataset.menuPrompt !== undefined || button.querySelector('[data-prompt]')) continue;
-    if ([localize('BACK'), localize('TITLE')].includes(button.textContent?.trim() ?? '')) {
+    if ([localize('BACK'), localize('TITLE')].includes(button.textContent?.trim() ?? '') || button.matches('[data-settings-back], [data-act$="back"]')) {
       button.dataset.menuPrompt = '';
       button.insertAdjacentHTML('afterbegin', localizeHtml(prompt('back') + ' '));
     }
+  }
+  // uipolish: BACK stays the last button of its row; lanes append theirs (TRIALS, HELP...) after it.
+  for (const button of el.querySelectorAll<HTMLElement>('button[data-menu-prompt]')) {
+    const row = button.parentElement;
+    if (!row || !(row.classList.contains('menu') || row.classList.contains('settings-footer')) || !button.nextElementSibling) continue;
+    let after: Element | null = button.nextElementSibling;
+    while (after && after.tagName === 'BUTTON') after = after.nextElementSibling;
+    if (!after) row.append(button);
   }
 }
 

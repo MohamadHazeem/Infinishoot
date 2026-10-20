@@ -599,6 +599,7 @@ export const ptBR = {
   "replay.storage": "A repetição não pôde caber no armazenamento do navegador. Salve- o em um arquivo em vez disso.",
   "replay.exit": "SAIR DA REPETIÇÃO",
   "replay.help": "AJUDA",
+  "replay.menu": "REPLAYS E REGISTROS DE FALHAS",
   "replay.save": "GRAVAR A REPETIÇÃO",
   "replay.watch": "ASSISTA A REPETIÇÃO",
   "replay.crash": "VER A REPETIÇÃO DA FALHA",

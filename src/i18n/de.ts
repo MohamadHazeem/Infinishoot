@@ -599,6 +599,7 @@ export const de = {
   "replay.storage": "Die Wiedergabe konnte nicht in den Browserspeicher passen, sondern in einer Datei speichern.",
   "replay.exit": "EXIT-WIEDERGABE",
   "replay.help": "HILFE",
+  "replay.menu": "REPLAYS & ABSTURZPROTOKOLLE",
   "replay.save": "SPEICHERN SIE REPLAY",
   "replay.watch": "WIEDERGABE ANSEHEN",
   "replay.crash": "CRASH REPLAY ANSEHEN",

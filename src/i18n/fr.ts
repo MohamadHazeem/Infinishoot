@@ -599,6 +599,7 @@ export const fr = {
   "replay.storage": "Replay ne pouvait pas s'intégrer dans le stockage du navigateur. Enregistrez-le dans un fichier à la place.",
   "replay.exit": "SORTIE REPLAY",
   "replay.help": "AIDE",
+  "replay.menu": "REPLAYS ET JOURNAUX DE PLANTAGE",
   "replay.save": "ENREGISTRER LE REPLAY",
   "replay.watch": "REGARDER LE REPLAY",
   "replay.crash": "REGARDER REJOUER UN CRASH",

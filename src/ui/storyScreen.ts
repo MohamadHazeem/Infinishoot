@@ -93,7 +93,8 @@ export class StoryScreen {
     button.dataset.nav = '';
     button.textContent = t('story.menu');
     button.onclick = () => screens.show('story');
-    root.querySelector('#scr-extras .menu')?.appendChild(button);
+    const extras = root.querySelector('#scr-extras .menu');
+    extras?.insertBefore(button, extras.querySelector('[data-act=ex-back]')); // uipolish: BACK stays last
     const oldShow = screens.onShow;
     screens.onShow = (name) => {
       oldShow?.(name);

@@ -336,12 +336,14 @@ export function installReplay(g: Game): void {
 
 function installHelp(g: Game, download: () => Promise<void>): void {
   const el = document.createElement('div'); el.id = 'scr-replay-help'; el.className = 'screen dim';
-  el.innerHTML = `<h1>${t('replay.help')}</h1><div class="menu"><button data-nav data-save>${t('replay.save')}</button><button data-nav data-watch>${t('replay.watch')}</button><button data-nav data-crash>${t('replay.crash')}</button><button data-nav data-back>${t('replay.back')}</button></div><p role="status"></p>`;
-  g.screens.addScreen('replay-help', el, { onBack: () => g.screens.show('settings') });
-  const b = document.createElement('button'); b.dataset.nav = ''; b.textContent = t('replay.help'); b.onclick = () => g.screens.show('replay-help');
+  el.innerHTML = `<h1>${t('replay.menu')}</h1><div class="menu"><button data-nav data-save>${t('replay.save')}</button><button data-nav data-watch>${t('replay.watch')}</button><button data-nav data-crash>${t('replay.crash')}</button><button data-nav data-back>${t('replay.back')}</button></div><p role="status"></p>`;
+  // uipolish: one HELP in the SETTINGS footer; the desktop HELP screen (src/platform/help.ts) lists this one as REPLAYS.
+  const back = () => g.screens.show(document.getElementById('scr-desktopHelp') ? 'desktopHelp' : 'settings');
+  g.screens.addScreen('replay-help', el, { onBack: back });
+  const b = document.createElement('button'); b.dataset.nav = ''; b.dataset.replayHelp = ''; b.textContent = t('replay.help'); b.onclick = () => g.screens.show('replay-help');
   document.querySelector('#scr-settings .settings-footer')?.prepend(b);
   el.querySelector('[data-save]')!.addEventListener('click', () => void download());
-  el.querySelector('[data-back]')!.addEventListener('click', () => g.screens.show('settings'));
+  el.querySelector('[data-back]')!.addEventListener('click', back);
   const watch = async (r: ReplayFile) => {
     // A fresh page also resets module-owned pools and WeakMap state from a previous run.
     const value = await packed(r); saveJson('replay.watch', value);

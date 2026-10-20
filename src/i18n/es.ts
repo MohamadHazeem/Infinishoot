@@ -599,6 +599,7 @@ export const es = {
   "replay.storage": "Replay no puede caber en el almacenamiento del navegador. Guardarlo a un archivo en su lugar.",
   "replay.exit": "SALIR DE LA REPETICIÓN",
   "replay.help": "AYUDA",
+  "replay.menu": "REPETICIONES Y REGISTROS DE FALLOS",
   "replay.save": "GUARDAR LA REPETICIÓN",
   "replay.watch": "VER LA REPETICIÓN",
   "replay.crash": "VER LA REPETICIÓN DE FALLOS",

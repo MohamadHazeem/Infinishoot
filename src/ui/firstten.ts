@@ -239,7 +239,7 @@ const CSS = `
 .ft-chip { font: 10px var(--label); font-style: normal; text-shadow: none; color: var(--ink); padding: 1px 5px 2px; margin: 0 3px; white-space: nowrap; }
 .ft-chip.left { background: var(--sky); }
 .ft-chip.right { background: var(--orange); }
-.ft-chip.special { background: #b06bd6; }
+.ft-chip.special { background: var(--plum); }
 .ft-chip.auto { background: var(--green); }
 .ft-chip.item { background: var(--mist); }
 /* First level-up: the slot ribbons blink to draw the eye. */
