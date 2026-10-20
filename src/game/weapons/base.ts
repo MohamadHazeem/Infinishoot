@@ -67,6 +67,14 @@ export interface WeaponCtx {
   damage(e: Enemy, base: number, o: DamageOpts): number;
   nearest(x: number, z: number, r: number, skip?: (e: Enemy) => boolean): Enemy | null;
   inRadius(x: number, z: number, r: number, out: Enemy[]): Enemy[];
+  /**
+   * Lag compensation for client-authored melee (netcode lane, like a remote hero's bullets): where enemy `e`
+   * was on this hero's own screen, or null to use where it is (solo, the host's own heroes, no history).
+   * The result is shared scratch: read it before the next call. Search radii should grow by `lagPad` when used.
+   */
+  seen?(e: Enemy): { x: number; z: number } | null;
+  /** Extra search radius (m) while `seen` may move enemies (0 when it never does). */
+  readonly lagPad?: number;
   /** Damage every barrel whose centre passes `inside` (beams, zaps, fields; bullets and blasts handle their own). */
   hitBarrels(dmg: number, inside: (x: number, z: number) => boolean): void;
   /** Chain lightning from an enemy: `hops` jumps, with its own visuals (Storm Rail). */

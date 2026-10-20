@@ -30,9 +30,18 @@ const jsonOut = (() => {
 const BUDGET = { avgBytes: 6000, maxBytes: 24000, buildMs: 3 };
 
 const errors: string[] = [];
-process.on('uncaughtException', (e) => errors.push('uncaught ' + (e as Error).stack));
-process.on('unhandledRejection', (e) => errors.push('unhandled ' + String(e)));
 const origError = console.error;
+process.on('uncaughtException', (e) => errors.push('uncaught ' + (e as Error).stack));
+process.on('unhandledRejection', (e) => errors.push('unhandled ' + ((e as Error)?.stack ?? String(e))));
+// Never "pass" silently: if the run ends without reaching its PASS/FAIL report (a thrown error that the
+// handlers above swallowed, or a top-level await that never settles and lets the event loop drain), say
+// so with whatever was collected and exit non-zero.
+let reported = false;
+process.on('exit', (code) => {
+  if (reported) return;
+  origError(`\nFAIL coop8: the run ended (exit ${code}) before its report` + (errors.length ? '\n' + errors.slice(0, 12).join('\n') : ' (nothing was thrown: a top-level await never settled)'));
+  process.exitCode = 1;
+});
 console.error = (...a: unknown[]) => {
   const s = a.map(String).join(' ');
   if (/Error|TypeError|undefined/.test(s)) errors.push('console.error ' + s.slice(0, 300));
@@ -233,6 +242,7 @@ if (all.max > BUDGET.maxBytes) errors.push(`largest snapshot ${all.max} B over $
 if (build.avg > BUDGET.buildMs) errors.push(`snapshot build ${build.avg.toFixed(2)} ms per client over ${BUDGET.buildMs} ms`);
 if (bossKilled && owned.size < PLAYERS) errors.push(`only ${owned.size} owned boss chests for ${PLAYERS} heroes`);
 if (!checks) errors.push('no host-vs-client checks ran');
+reported = true;
 if (errors.length) {
   console.log(`\nFAIL coop8: ${errors.length} problem(s)\n` + errors.slice(0, 12).join('\n'));
   process.exit(1);

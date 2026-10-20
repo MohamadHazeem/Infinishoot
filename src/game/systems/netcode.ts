@@ -395,6 +395,50 @@ export function rewindEnemy(g: Game, e: Enemy, steps: number): boolean {
 
 export { lagTuning };
 
+// ---------------------------------------------------------------- input edges (host)
+
+/**
+ * A client's inputs can arrive bunched (jitter, a resent packet holding the ones behind it) and the host
+ * keeps only the newest, so a right-click press or release, or a left-click tap, shorter than one bunch
+ * would never be seen: no Charge Shot release, no beacon or shield press. Per hero and button: if a state
+ * no host step has read yet was an edge and the newer input undoes it, the next step sees that edge first.
+ */
+interface ButtonEdge {
+  /** Newest state received, whether a step has read it, the state the last step used, an edge to replay. */
+  cur: boolean;
+  used: boolean;
+  applied: boolean;
+  edge: boolean | null;
+}
+const edges = new WeakMap<Hero, { firing: ButtonEdge; charging: ButtonEdge }>();
+const edgeOf = (h: Hero) => {
+  let e = edges.get(h);
+  if (!e) edges.set(h, (e = { firing: { cur: false, used: true, applied: false, edge: null }, charging: { cur: false, used: true, applied: false, edge: null } }));
+  return e;
+};
+
+/** Host: a remote input message arrived with these buttons. */
+export function remoteButtonsIn(h: Hero, firing: boolean, charging: boolean): void {
+  const e = edgeOf(h);
+  for (const [b, v] of [[e.firing, firing], [e.charging, charging]] as const) {
+    if (!b.used && b.cur !== b.applied && v === b.applied) b.edge = b.cur;
+    b.cur = v;
+    b.used = false;
+  }
+}
+
+/** Host step: the button state a remote hero's weapons see (`latest` is h.remote's). */
+export function remoteButton(h: Hero, which: 'firing' | 'charging', latest: boolean): boolean {
+  const b = edgeOf(h)[which];
+  let v = latest;
+  if (b.edge !== null) {
+    v = b.edge;
+    b.edge = null;
+  } else b.used = true;
+  b.applied = v;
+  return v;
+}
+
 // ---------------------------------------------------------------- connections
 
 /** Client: a real connection to the host was made (online.ts): buffer snapshots, remember the run. */

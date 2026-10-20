@@ -82,6 +82,17 @@ flush();
 const step = (n: number) => { for (let i = 0; i < n; i++) { A.xp = 0; A.xpNext = 1e9; A.update(1 / 60); flush(); B.update(1 / 60); B.render(1, 1 / 60); flush(); } };
 step(10);
 ok(A.arenaStage === 6 && B.arenaStage === 6 && sig(A.arena) === sig(B.arena), 'host and client build the same Toy Factory arena on stage 6');
+// The run seed is random, so whether stage 6 rolls a co-op vault (door/bomb, an extra collider) varied from run to run;
+// force each so the host's box and the client's (built from the 0.1 m wire layout) are always compared.
+{
+  const { forceCoopObjective, coopPlayState } = await import('../src/game/systems/coopplay');
+  for (const kind of ['door', 'bomb'] as const) {
+    if (!forceCoopObjective(A, kind)) continue;
+    step(10);
+    ok(B.toys.objective.kind === kind && sig(A.arena) === sig(B.arena), `co-op ${kind} vault: host and client arenas match`);
+  }
+  coopPlayState(A).force = null; // later stages roll their own objective again
+}
 // Crusher: an enemy parked on a pad is flattened at the slam; it counts as an environmental kill.
 const pad = A.arena.hazards.find((h) => h.kind === 'crusher')!;
 const def = (await import('../src/data/enemies')).ENEMIES.chonk;

@@ -112,8 +112,11 @@ shot(0); shot(2); shot(1); shot(-1, Team.Enemy);
 const shield = new Shield(WEAPONS.shield, g.scene);
 h.ctx.charging = true;
 shield.update(0.51, h.ctx);
-assert.equal(g.bullets.count, 2);
-assert.deepEqual(Array.from(g.bullets.owner.slice(0, 2)).sort(), [0, 2]);
+// The balance lane made the base Aegis Shield reflect (reflect: 1): hostile shots now bounce back as this
+// hero's instead of vanishing. Own and allied shots still pass untouched.
+assert.equal(g.bullets.count, 4);
+assert.deepEqual(Array.from(g.bullets.owner.slice(0, 4)), [0, 2, 0, 0], 'the opponent and enemy shots now belong to the shield owner');
+assert.deepEqual([0, 1, 2, 3].map(i => g.bullets.vx[i] > 0), [false, false, true, true], 'own and allied shots fly on, hostile ones bounce back');
 shield.dispose();
 g.bullets.clear();
 g.pvp = null; g.role = 'solo';

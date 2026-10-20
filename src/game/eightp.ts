@@ -13,9 +13,19 @@ export const VERSUS_MAX_PLAYERS = 4;
 /** PvP free-for-all (src/game/pvp.ts PVP_MAX_PLAYERS). */
 export const PVP_CAP = 8;
 
-/** How many players a lobby of this kind takes (host included). */
+/** RACE and RAID lobbies take eight on their own tuning (src/game/systems/race.ts, raid.ts), whatever the co-op cap is. */
+export const RACE_CAP = 8;
+export const RAID_CAP = 8;
+
+/** How many players a lobby of this kind takes (host included). Every lobby check (hello, start, NetHost.setMax) goes through this. */
 export function lobbyCap(kind: string | undefined): number {
-  return kind === 'versus' ? VERSUS_MAX_PLAYERS : kind === 'pvp' ? PVP_CAP : COOP_MAX_PLAYERS;
+  switch (kind) {
+    case 'versus': return VERSUS_MAX_PLAYERS;
+    case 'pvp': return PVP_CAP;
+    case 'race': return RACE_CAP;
+    case 'raid': return RAID_CAP;
+    default: return COOP_MAX_PLAYERS; // co-op and weekly co-op
+  }
 }
 
 export const eightpTuning = {

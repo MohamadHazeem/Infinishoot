@@ -1,5 +1,6 @@
 import { architectEn } from '../game/architect/strings';
 import { elites2En } from './elites2';
+import { integ2En } from './integ2';
 import { trialsEn } from './trials';
 import { pets2En } from './pets2';
 import { editorEn } from './editor';
@@ -419,6 +420,7 @@ export const en = {
   ...storyEn,
   ...tips2En,
   ...spectateEn,
+  ...integ2En,
   "desktop.paste": "PASTE",
   "desktop.clipboardUnavailable": "Clipboard unavailable. Use text entry or load a file.",
 

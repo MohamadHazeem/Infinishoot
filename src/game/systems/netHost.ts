@@ -33,8 +33,8 @@ import { heroOf } from '../../data/heroes';
 import { type HeroBuild } from '../pvp';
 import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
-import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep } from './netcode';
-import { heroes3Net } from './heroes3';
+import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep, remoteButtonsIn } from './netcode';
+import { heroes3Net, heroes3StrikeMsg } from './heroes3';
 import { coopPlayMessage, coopPlayNet } from './coopplay';
 import { lobbyCap } from '../eightp';
 import { eightpSnapTick, heroWeaponsFor } from './eightp';
@@ -83,7 +83,6 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       this.host?.send(from, { t: 'full', reason: this.mode === 'title' && !this.pvp && this.lobby.length >= lobbyCap(this.lobbyKind) ? 'That game is full.' : 'Game already started.' });
       return;
     }
-    if (this.lobby.length >= (this.lobbyKind === 'raid' ? 8 : 4)) { this.host?.send(from, { t: 'full', reason: 'That lobby is full.' }); return; }
     this.lobby.push({
       peerId: from,
       name: String(m.name ?? 'Player').slice(0, 12),
@@ -127,9 +126,12 @@ export function onHostMessage(this: Game, from: string, m: Record<string, unknow
       charging: !!m.c,
       dashing: !!m.d,
     };
+    remoteButtonsIn(h, !!m.f, !!m.c); // a click shorter than a bunch of late inputs still reaches the weapons (systems/netcode.ts)
     if (m.vt !== undefined) noteViewStep(this, h, Number(m.vt)); // lag compensation (systems/netcode.ts)
   } else if (m.t === 'ping') {
     if (!h.player.dead && this.isCombatMode) this.ping(h, Number(m.x), Number(m.z), typeof m.k === 'string' ? m.k : undefined);
+  } else if (m.t === 'iai') {
+    heroes3StrikeMsg(this, h, m); // a client Ronin's dash-strike path (systems/heroes3.ts)
   } else if (m.t === 'dash') {
     if (!h.player.dead && this.isCombatMode) {
       h.player.invuln = Math.max(h.player.invuln, playerTuning.dashTime + playerTuning.dashIframesExtra);

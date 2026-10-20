@@ -1,6 +1,7 @@
 import * as ArchitectSys from './systems/architect';
 import { updateElites2 } from './systems/elites2';
 import * as Assists from './systems/assists';
+import { lagOut, lagSteps, lagTuning, remoteButton, rewindEnemy } from './systems/netcode';
 import { installTrials } from './systems/trials';
 import * as AisquadSys from './systems/aisquad';
 import { installEditor } from './systems/editor';
@@ -1158,6 +1159,14 @@ export class Game implements HeroWorld {
         if (this.pvp) for (let i = out.length - 1; i >= 0; i--) if (pvpFriendly(this.pvp.teams, out[i].pvpOwner, hero.index)) out.splice(i, 1);
         return out;
       },
+      // A client's melee lands on what its player saw (enemies rewound by its view lag, systems/netcode.ts).
+      seen: (e) => {
+        const lag = lagSteps(this, hero.index);
+        return lag > 0 && rewindEnemy(this, e, lag) ? lagOut : null;
+      },
+      get lagPad() {
+        return lagSteps(game, hero.index) > 0 ? lagTuning.pad : 0;
+      },
       shake: (x, z, amount) => this.vfx.shake(x, z, amount),
       hitBarrels: (dmg, inside) => {
         this.barrels.hitWhere(dmg, hero.index, inside);
@@ -1638,8 +1647,9 @@ export class Game implements HeroWorld {
           p.invuln = Math.max(p.invuln, 0.08);
         }
       }
-      h.ctx.firing = r.firing && !p.dead;
-      h.ctx.charging = r.charging && !p.dead;
+      // A press or release that arrived inside a bunch of inputs is still seen for one step (systems/netcode.ts).
+      h.ctx.firing = (h.peerId ? remoteButton(h, 'firing', r.firing) : r.firing) && !p.dead;
+      h.ctx.charging = (h.peerId ? remoteButton(h, 'charging', r.charging) : r.charging) && !p.dead;
     }
     this.mods2Position(h);
     h.synergy.moving = p.speed > 1.2;

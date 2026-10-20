@@ -228,6 +228,13 @@ game.expose(e2);
 step(40);
 ob.closeTip();
 step(20);
+// Other first-time tips may be queued ahead of it by priority (the run is unseeded: a gear or status from the elite
+// fight, tips2's danger-first moments); close those until the EXPOSED tip has had its turn.
+for (let k = 0; k < 4 && !save.tips.includes('exposed'); k++) {
+  ob.closeTip();
+  game.expose(e2);
+  step(40);
+}
 ok(save.tips.includes('exposed') && $('#ob-tip')!.textContent!.includes('EXPOSED'), 'tips come back when turned on (queued behind the one showing)');
 ok(save.discovered.includes(`w:${h.loadoutPick.primary}`) && save.discovered.includes(`sp:${h.special.id}`) && save.discovered.includes('s:expose'), 'owned loadout and seen statuses are discovered');
 (document.querySelector('[data-act=ob-tip-x]') as HTMLElement).click();
