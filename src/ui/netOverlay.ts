@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import type { NetLevel } from '../net/netQuality';
 
 /**
@@ -183,11 +184,11 @@ export class NetOverlay {
           .map((r) => {
             const lvl = r.rc ? 'rc' : r.level;
             const ping = r.host ? 'HOST' : r.rc > 0 ? `${r.rc}S` : r.rc < 0 ? '...' : r.rtt > 0 ? `${Math.round(r.rtt)}<small>MS</small>` : '--';
-            return `<div class="row"><i class="c" style="--hc:${r.color}"></i><span class="nm">${esc(r.name.toUpperCase().slice(0, 10))}${r.you ? '<small>YOU</small>' : ''}</span><span class="v ${lvl}">${ping}</span><span class="v ${r.loss >= 2 ? (r.loss >= 6 ? 'bad' : 'poor') : ''}">${r.host ? '' : `${Math.round(r.loss)}<small>%</small>`}</span><span class="v">${r.host || !r.rate ? '' : `${Math.round(r.rate)}<small>/S</small>`}</span></div>`;
+            return `<div class="row"><i class="c" style="--hc:${r.color}"></i><span class="nm"><bdi>${esc(r.name.toUpperCase().slice(0, 10))}</bdi>${r.you ? '<small>YOU</small>' : ''}</span><span class="v ${lvl}">${ping}</span><span class="v ${r.loss >= 2 ? (r.loss >= 6 ? 'bad' : 'poor') : ''}">${r.host ? '' : `${Math.round(r.loss)}<small>%</small>`}</span><span class="v">${r.host || !r.rate ? '' : `${Math.round(r.rate)}<small>/S</small>`}</span></div>`;
           })
           .join('');
         const ft = v.buffer ? `<div class="ft">BUFFER ${Math.round(v.buffer.delay)} MS · JITTER ${Math.round(v.buffer.jitter)} MS</div>` : '';
-        this.panel.innerHTML = `<div class="hd">NETWORK · PING · LOSS · SNAPS</div>${rows}${ft}`;
+        this.panel.innerHTML = localizeHtml(`<div class="hd">NETWORK · PING · LOSS · SNAPS</div>${rows}${ft}`);
       }
     }
     // Tags over teammates
@@ -204,7 +205,7 @@ export class NetOverlay {
       const html = `${barsHtml(t.level)}${esc(t.text)}`;
       if (el.dataset.h !== html) {
         el.dataset.h = html;
-        el.innerHTML = html;
+        el.innerHTML = localizeHtml(html);
         el.className = `net-tag ${t.level}`;
       }
       el.style.left = `${Math.round(t.x)}px`;
@@ -220,7 +221,7 @@ export class NetOverlay {
     if (lk !== this.lostKey) {
       this.lostKey = lk;
       this.lost.hidden = !v.lost;
-      if (v.lost) this.lost.innerHTML = `CONNECTION LOST<b>RECONNECTING... ${v.lost.secs}S</b><small>YOUR HERO IS ON AUTOPILOT · TRY ${v.lost.tries}</small>`;
+      if (v.lost) this.lost.innerHTML = localizeHtml(`CONNECTION LOST<b>RECONNECTING... ${v.lost.secs}S</b><small>YOUR HERO IS ON AUTOPILOT · TRY ${v.lost.tries}</small>`);
     }
   }
 }

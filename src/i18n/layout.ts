@@ -65,6 +65,57 @@ const CSS = `
 [lang=ar] #scr-title .logo { font-size: clamp(72px, 12vw, 144px); }
 [lang=ar] .credits { font-size: 10px; line-height: 1.6; }
 [lang=ar] bdi { unicode-bidi: isolate; }
+/* New lane panels use Arabic line metrics and logical alignment. */
+[lang=ar] .screen :is(button,.section,.name,.desc,.note) { letter-spacing: 0; }
+[lang=ar] #scr-settings .settings-tabs button { font-size: 13px; line-height: 1.6; white-space: normal; }
+[lang=ar] #scr-settings .settings-description { font-size: 16px; line-height: 1.8; }
+[lang=ar] #scr-settings .settings button { text-align: start; }
+[lang=ar] #scr-settings .settings b { margin-left: 0; margin-inline-start: 8px; }
+[lang=ar] .settings-footer { flex-wrap: wrap; gap: 12px; }
+[lang=ar] .settings-hint { line-height: 1.7; }
+[lang=ar] .bst:not(:has(.sw)):not(.fusion-row) > :is(b,p,small) { grid-column: 1 / -1; }
+[lang=ar] :is(.lob-card,.lob-log,.gh-panel,.pty-row .vote) { text-align: start; }
+[lang=ar] :is(.lob-card .lob-flag,.lob-card .ping) { margin-left: 0; margin-inline-start: auto; }
+[lang=ar] .lob-card .lob-line { white-space: normal; overflow: visible; line-height: 1.6; }
+[lang=ar] .lob-card .lob-line.cos { flex-wrap: wrap; }
+[lang=ar] :is(.lob-chat-title,.fr-code-big,.lob-card .lob-flag,.lob-log .sys) { letter-spacing: 0; line-height: 1.7; }
+[lang=ar] .fr-code-big { direction: ltr; unicode-bidi: isolate; }
+[lang=ar] :is(#race-hud,.rr-row,.rk-sub,.tn-slot,.tn-status,.g-board) { line-height: 1.65; }
+[lang=ar] #race-hud { right: auto; left: 18px; }
+[lang=ar] #race-hud :is(.rc-top,.lb) { font-size: 11px; line-height: 1.6; }
+[lang=ar] .pty-row { grid-template-columns: 12px minmax(70px,1fr) auto minmax(40px,140px) 70px minmax(65px,auto); }
+[lang=ar] #scr-season button.sp-cell b { white-space: normal; overflow: visible; line-height: 1.6; }
+[lang=ar] :is(.rt-map,.rt-cards) .px-icon.glyph { font-family: 'Jersey 10', monospace; }
+[lang=ar] #scr-route .rn .glyph { font-size: 24px; line-height: 24px; }
+[lang=ar] #story-play h1 { white-space: normal; overflow-wrap: anywhere; line-height: 1.5; flex-shrink: 0; }
+[lang=ar] .tl-copy b { font-size: 18px; line-height: 1.6; }
+[lang=ar] .tl-tile { min-height: min-content; }
+[lang=ar] .tl-grid { grid-auto-rows: minmax(min-content, auto); }
+@media(max-height:550px) {
+  [lang=ar] #hud #ingame #minimap { left: 12px; right: auto; top: 82px; bottom: auto; }
+  [lang=ar] #hud:has(#race-hud:not([hidden])) #ingame #minimap { left: auto; right: 12px; top: auto; bottom: 90px; }
+  [lang=ar] .raid-hud { font-size: calc(12px * var(--text-scale, 1)); line-height: 1.5; max-width: 250px; padding: 8px; }
+  [lang=ar] #g-challenge { font-size: 14px; line-height: 1.5; }
+  [lang=ar] #race-hud { top: 90px; width: 220px; font-size: 13px; }
+  [lang=ar] #race-hud .rc-row { padding-block: 0; }
+  [lang=ar] #hud:has(#race-hud:not([hidden])) #ob-tip { left: 32%; top: 44%; width: 30%; }
+  [lang=ar] #hud:has(#race-hud:not([hidden])) #ob-tip p { font-size: 14px; line-height: 1.6; }
+  [lang=ar] #story-play { padding: 8px; gap: 4px; }
+  [lang=ar] #story-play h1 { font-size: 22px; padding: 0; }
+  [lang=ar] #story-play .story-comic { max-height: 40vh; }
+  [lang=ar] #story-play .story-caption { font-size: calc(14px * var(--text-scale, 1)); padding: 6px; }
+  [lang=ar] #story-play .story-controls { margin-top: 4px; gap: 8px; }
+  [lang=ar] #story-play .story-controls button { font-size: 16px; min-height: 34px; padding-block: 2px; }
+  [lang=ar] #scr-settings { gap: 6px; padding: 8px 18px; }
+  [lang=ar] #scr-settings h1 { font-size: 26px; }
+  [lang=ar] .settings-shell { gap: 8px; flex-shrink: 0; }
+  [lang=ar] .settings-shell > * { flex-shrink: 0; }
+  [lang=ar] #scr-settings .settings { max-height: 26vh; min-height: 90px; }
+  [lang=ar] #scr-settings .settings-description { min-height: 0; font-size: 14px; }
+  [lang=ar] #scr-settings .settings-tabs button { min-height: 36px; padding-block: 4px; }
+  [lang=ar] #scr-settings .settings-footer button { font-size: 15px; min-height: 36px; }
+}
+
 `;
 
 export function applyLanguage(language: Language): Promise<void> {

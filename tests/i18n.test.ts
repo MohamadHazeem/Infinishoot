@@ -52,6 +52,8 @@ assert.equal(localize('YOUR RELICS 3'), 'آثارك 3');
 assert.equal(localize('Right-click attacks deal x2.6.'), 'هجمات الزر الأيمن تسبب ضررا ×2.6.');
 assert.equal(localize('Unregistered message xyzzy'), 'Unregistered message xyzzy', 'unknown data falls back verbatim');
 assert.equal(localize('  BACK  '), '  رجوع  ');
+assert.equal(localize('BACK\n\nPLAY SOLO'), 'رجوع\n\nلعب فردي', 'record boards retain line breaks');
+assert.ok(!/[a-z]{3}/i.test(localize('The first machine drew a perfect world and forgot to leave room for choice. Its three orbiting cores hold the instructions that made Omega. Keep moving and watch its wind-up.')), 'rank templates never capture prose containing to');
 assert.equal(isolateNumbers('0 / 19'), '\u20660 / 19\u2069', 'fractions remain left-to-right');
 assert.equal(isolateNumbers(isolateNumbers('0 / 19')), isolateNumbers('0 / 19'), 'isolation is idempotent');
 const html = localizeHtml('<button data-act="BACK" title="BACK"><bdi>BACK</bdi>BACK</button>');
@@ -60,7 +62,11 @@ assert.equal(escapeHtml('<script>"&'), '&lt;script&gt;&quot;&amp;');
 assert.equal(localizeHtml('<span>&lt;img src=x&gt;</span>'), '<span>&lt;img src=x&gt;</span>', 'translation never turns escaped text into HTML');
 
 // All merged content is translated; missing copy is a release regression.
-const need = (ok: boolean, what: string): void => assert.ok(ok, what);
+const strict = process.env.I18N_STRICT !== '0'; // Strict by default; 0 is only for local inventory audits.
+const need = (ok: boolean, what: string): void => {
+  if (strict) assert.ok(ok, what);
+  else if (!ok) console.warn('[i18n audit] ' + what);
+};
 for (const text of [...Object.values(VOICE_TEXT), ...Object.values(ANNOUNCER_LINES), ...Object.values(BARKS).flatMap(b => b.captions)]) {
   need(/[\u0600-\u06ff]/.test(localize(text)), 'caption: ' + text);
   need(!/[a-z]{3}/i.test(localize(text)), 'no untranslated caption: ' + text);
@@ -106,6 +112,40 @@ Object.defineProperty(globalThis, 'window', { value: dom.window, configurable: t
 Object.defineProperty(globalThis, 'document', { value: dom.window.document, configurable: true });
 Object.defineProperty(globalThis, 'HTMLInputElement', { value: dom.window.HTMLInputElement, configurable: true });
 (dom.window.HTMLElement.prototype as any).scrollIntoView = () => {};
+await setLanguage('ar');
+// Newly merged tracks, achievement requirements and every settings focus description.
+const { HEROES } = await import('../src/data/heroes');
+const { ACHIEVEMENTS } = await import('../src/data/meta');
+const { ASCENSIONS } = await import('../src/data/ascension');
+const { STAT_NAMES } = await import('../src/data/profile');
+const { RANK_TIERS } = await import('../src/data/ranked');
+const { ELITE_MODS } = await import('../src/data/eliteMods');
+const { SETTINGS_ROWS, SETTINGS_TABS } = await import('../src/ui/settingsScreen');
+const { GOALS, nextTryFor } = await import('../src/game/firstten');
+const allowedCopy = /\b(?:UTC|ISO|F11|WebM|GPU|CPU|FPS|VSYNC|CRT|PTT|GHOST1|CTRL|BACKSPACE|SHIFT|ENTER|VIEW)\b/g;
+const complete = (text: string, where: string): void => need(!/[a-z]{3}/i.test(localize(text).replace(allowedCopy, '')), where + ': ' + text + ' => ' + localize(text));
+const displayFields = new Set(['name', 'desc', 'description', 'blurb', 'title', 'label', 'hint', 'subtitle', 'tagline', 'requirement', 'text']);
+const content = (value: unknown, path: string): void => {
+  if (!value || typeof value !== 'object') return;
+  for (const [key, child] of Object.entries(value)) {
+    if (typeof child === 'string' && displayFields.has(key)) complete(child, path + '.' + key);
+    else if (child && typeof child === 'object') content(child, path + '.' + key);
+  }
+};
+content({ WEAPONS, SPECIALS, HEROES, ACHIEVEMENTS, ASCENSIONS, GOALS, RANK_TIERS }, 'content');
+for (const mod of Object.values(ELITE_MODS)) complete(`Double ${mod.name}`, 'gauntlet.elite');
+for (const [stat, name] of Object.entries(STAT_NAMES)) complete(name, 'profile.' + stat);
+for (const row of SETTINGS_ROWS) {
+  complete(row.label, 'settings.' + row.key);
+  if (row.key !== 'language') complete(row.desc, 'settings.' + row.key + '.description');
+  for (const label of row.labels ?? row.options ?? []) if (row.key !== 'language') complete(label, 'settings.' + row.key + '.option');
+}
+for (const tab of SETTINGS_TABS) complete(tab, 'settings.tab');
+for (const enemy of Object.values(ENEMIES).filter(e => !e.hidden)) {
+  const advice = nextTryFor({ cause: enemy.name, stage: 2, stageTime: 100, level: 8, dashes: 5, boss: !!enemy.boss, runs: 4, keys: { dash: 'SPACE', parry: 'F', special: 'Q' } });
+  complete(advice.cheer, 'death.cheer'); complete(advice.tip.replace(/SPACE/g, ''), 'death.' + enemy.id);
+}
+
 const { MenuNav } = await import('../src/ui/menu');
 const { sfx } = await import('../src/audio/sfx');
 sfx.menuMove = () => {};
@@ -126,7 +166,7 @@ await setLanguage('en');
 // This catches new hardcoded labels (and data-driven English) even inside conditional expressions.
 const require = createRequire(import.meta.url);
 const { parsers } = require('prettier/plugins/typescript');
-for (const file of ['screens', 'hud', 'onboarding', 'metaScreens', 'mvpScreen', 'menu', 'loadingScreen']) {
+for (const file of ['screens', 'hud', 'onboarding', 'metaScreens', 'mvpScreen', 'menu', 'loadingScreen', 'settingsScreen', 'lobbyScreen', 'friendsScreen', 'partyScreen', 'raceUi', 'voiceUi', 'firstten', 'netOverlay', 'profileScreen', 'achievementsScreen']) {
   const source = readFileSync(`src/ui/${file}.ts`, 'utf8');
   const ast = parsers.typescript.parse(source);
   const inspect = (node: any): void => {
@@ -134,7 +174,7 @@ for (const file of ['screens', 'hud', 'onboarding', 'metaScreens', 'mvpScreen', 
     if (node.type === 'AssignmentExpression' && ['textContent', 'innerHTML'].includes(node.left?.property?.name)) {
       const text = source.slice(...node.right.range);
       const left = source.slice(...node.left.range);
-      if (!/^(?:''|CSS)$/.test(text) && !/\b(?:st|style|s)\.textContent$/.test(left) && left !== "el.querySelector('.code-big')!.textContent" && left !== 'd.nm.textContent') {
+      if (!/^(?:''|CSS)$/.test(text) && !/\b(?:st|style|s|css)\.textContent$/.test(left) && left !== "el.querySelector('.code-big')!.textContent" && left !== 'd.nm.textContent') {
         assert.match(text, /^(?:localize(?:Html)?\(|t\(|b\.dataset\.cycle === 'language')/, file + ': unlocalized DOM write: ' + text.slice(0, 90));
       }
     }

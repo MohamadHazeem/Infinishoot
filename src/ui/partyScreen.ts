@@ -1,3 +1,4 @@
+import { localize, localizeHtml } from '../i18n';
 import type { Game } from '../game/game';
 import { partyView } from '../game/systems/party';
 import { voteCounts } from '../game/lobby';
@@ -21,7 +22,7 @@ export class PartyUi {
   ) {
     injectCss();
     const t = document.createElement('template');
-    t.innerHTML = `<div id="scr-party" class="screen dim">
+    t.innerHTML = localizeHtml(`<div id="scr-party" class="screen dim">
       <h1>PARTY</h1>
       <p class="note pty-sum"></p>
       <div class="pty-rows"></div>
@@ -29,7 +30,7 @@ export class PartyUi {
       <div class="note pty-status"></div>
       <div class="menu row pty-host"><button data-nav data-act="pty-force" data-v="restart">RESTART NOW</button><button data-nav data-act="pty-force" data-v="lobby">LOBBY NOW</button></div>
       <div class="menu row"><button data-nav data-act="pty-gameover">RUN SUMMARY</button><button data-nav data-act="pty-leave">LEAVE PARTY</button></div>
-    </div>`;
+    </div>`);
     this.screen = t.content.firstElementChild as HTMLElement;
     this.chat = new ChatBox(game, 'pty');
     this.screen.appendChild(this.chat.el);
@@ -58,7 +59,7 @@ export class PartyUi {
     if (!go || !row) return;
     let b = row.querySelector<HTMLElement>('[data-act=party-open]');
     if (!b) {
-      row.insertAdjacentHTML('afterbegin', '<button data-nav data-act="party-open" class="continue">PARTY &#9654;</button>');
+      row.insertAdjacentHTML('afterbegin', localizeHtml('<button data-nav data-act="party-open" class="continue">PARTY &#9654;</button>'));
       b = row.querySelector<HTMLElement>('[data-act=party-open]')!;
     }
     b.hidden = !on;
@@ -78,33 +79,33 @@ export class PartyUi {
     const isHost = this.game.role === 'host';
     const [restart, lobby] = s.querySelectorAll<HTMLElement>('.pty-votes button');
     if (!v) {
-      s.querySelector('.pty-sum')!.textContent = 'Waiting for the host...';
+      s.querySelector('.pty-sum')!.textContent = localize('Waiting for the host...');
       s.querySelector('.pty-rows')!.innerHTML = '';
-      restart.textContent = 'VOTE RESTART';
-      lobby.textContent = 'BACK TO LOBBY';
+      restart.textContent = localize('VOTE RESTART');
+      lobby.textContent = localize('BACK TO LOBBY');
       this.chat.render();
       return;
     }
-    s.querySelector('.pty-sum')!.textContent = `STAGE ${v.stage} · TEAM LV ${v.level} · ${fmtScore(v.score)} PTS · ${v.kills.toLocaleString('en-US')} KILLS · ${clock(v.time)}`;
+    s.querySelector('.pty-sum')!.textContent = localize(`STAGE ${v.stage} · TEAM LV ${v.level} · ${fmtScore(v.score)} PTS · ${v.kills.toLocaleString('en-US')} KILLS · ${clock(v.time)}`);
     const top = Math.max(1, ...v.rows.map((r) => r.dmg));
-    s.querySelector('.pty-rows')!.innerHTML = v.rows
+    s.querySelector('.pty-rows')!.innerHTML = localizeHtml(v.rows
       .map(
         (r, i) => `<div class="lobby-player pty-row" style="--c:${/^#[0-9a-f]{3,8}$/i.test(r.c) ? r.c : '#f4f4f4'}">
-        <span class="dot"></span><b>${esc(r.n)}${i === v.you ? ' <small class="you">YOU</small>' : ''}</b>
+        <span class="dot"></span><b><bdi>${esc(r.n)}</bdi>${i === v.you ? ' <small class="you">YOU</small>' : ''}</b>
         <span class="hero">${esc(r.hero.toUpperCase())}${r.dead ? ' · K.O.' : ''}</span>
         <div class="bar"><div style="width:${Math.round((r.dmg / top) * 100)}%"></div></div><span class="dmg">${fmtScore(r.dmg)}</span>
         <span class="vote ${r.v}">${r.v === 'restart' ? 'RESTART' : r.v === 'lobby' ? 'LOBBY' : 'VOTING...'}</span>
       </div>`,
       )
-      .join('');
+      .join(''));
     // The buttons stay the same elements (the menu keeps its focus); only labels change.
     const n = voteCounts(v.rows.map((r) => r.v));
     const mine = v.rows[v.you]?.v ?? '';
-    restart.textContent = `VOTE RESTART ${n.restart}/${n.total}`;
-    lobby.textContent = `BACK TO LOBBY ${n.lobby}/${n.total}`;
+    restart.textContent = localize(`VOTE RESTART ${n.restart}/${n.total}`);
+    lobby.textContent = localize(`BACK TO LOBBY ${n.lobby}/${n.total}`);
     restart.classList.toggle('on', mine === 'restart');
     lobby.classList.toggle('on', mine === 'lobby');
-    s.querySelector('.pty-status')!.textContent = isHost ? 'When everyone votes the same, it happens. You can also decide now.' : 'When everyone votes the same, the host takes the party there.';
+    s.querySelector('.pty-status')!.textContent = localize(isHost ? 'When everyone votes the same, it happens. You can also decide now.' : 'When everyone votes the same, the host takes the party there.');
     this.chat.render();
   }
 

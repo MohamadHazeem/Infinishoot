@@ -1,3 +1,4 @@
+import { localize, localizeHtml } from '../i18n';
 import type { Game } from '../game/game';
 import { playerName } from '../game/game';
 import type { LobbyView } from './screens';
@@ -40,7 +41,7 @@ export class LobbyUi {
         code.value = c ?? code.value.slice(0, 5);
       });
     }
-    online?.querySelector('.mp-choice [data-act=mp-host]')?.insertAdjacentHTML('afterend', '<button data-nav data-act="fr-open">FRIENDS</button>');
+    online?.querySelector('.mp-choice [data-act=mp-host]')?.insertAdjacentHTML('afterend', localizeHtml('<button data-nav data-act="fr-open">FRIENDS</button>'));
     root.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
       switch (b?.dataset.act) {
@@ -59,7 +60,7 @@ export class LobbyUi {
     this.last = v;
     const inLobby = v.code !== '' || v.players.length > 0;
     if (!this.box) {
-      el.querySelector('.lobby .players')?.insertAdjacentHTML('afterend', '<div class="lob-x"><div class="menu row lob-acts"></div><div class="menu row lob-kicks"></div><div class="note lob-status"></div></div>');
+      el.querySelector('.lobby .players')?.insertAdjacentHTML('afterend', localizeHtml('<div class="lob-x"><div class="menu row lob-acts"></div><div class="menu row lob-kicks"></div><div class="note lob-status"></div></div>'));
       this.box = el.querySelector<HTMLElement>('.lob-x');
       el.appendChild(this.chat.el);
     }
@@ -72,10 +73,10 @@ export class LobbyUi {
     this.box!.hidden = false;
     const link = v.isHost && v.code ? this.link(v.code) : '';
     this.box!.querySelector('.lob-acts')!.innerHTML =
-      `<button data-nav data-act="lob-ready" class="lob-readybtn"></button>` +
-      (link ? `<button data-nav data-act="lob-invite">COPY INVITE LINK</button>` : '');
+      localizeHtml(`<button data-nav data-act="lob-ready" class="lob-readybtn"></button>` +
+      (link ? `<button data-nav data-act="lob-invite">COPY INVITE LINK</button>` : ''));
     // KICK buttons live here, not on the cards: cards redraw every ping, buttons only when the player list changes.
-    this.box!.querySelector('.lob-kicks')!.innerHTML = v.isHost ? v.players.map((p, i) => (i > 0 ? `<button data-nav data-act="lob-kick" data-i="${i}" class="lob-kick">KICK ${esc(p.name.toUpperCase())}</button>` : '')).join('') : '';
+    this.box!.querySelector('.lob-kicks')!.innerHTML = localizeHtml(v.isHost ? v.players.map((p, i) => (i > 0 ? `<button data-nav data-act="lob-kick" data-i="${i}" class="lob-kick">KICK <bdi>${esc(p.name.toUpperCase())}</bdi></button>` : '')).join('') : '');
     this.renderCards();
     this.chat.render();
   }
@@ -90,7 +91,7 @@ export class LobbyUi {
     const el = this.root.querySelector<HTMLElement>('#scr-online .lobby .players');
     if (!v || !el || (!v.code && !v.players.length)) return;
     const x = lobbyX(this.game);
-    el.innerHTML = v.players
+    el.innerHTML = localizeHtml(v.players
       .map((p, i) => {
         const c = x?.p[i];
         const hero = c?.hero ? heroOf(c.hero).name : '';
@@ -100,18 +101,18 @@ export class LobbyUi {
         const ping = i === 0 ? '<span class="ping host">HOST</span>' : c && c.ping >= 0 ? `<span class="ping ${pingBand(c.ping)}">${c.ping} MS</span>` : '<span class="ping">... MS</span>';
         const tags = x && x.you === i ? '<small class="you">YOU</small>' : '';
         return `<div class="lobby-player lob-card ${c?.ready ? 'ready' : ''}" style="--c:${p.color}">
-          <div class="lob-top"><span class="dot"></span><b>${esc(p.name)}</b>${tags}${titleChip((p as { title?: string }).title ?? '')}<span class="lob-flag">${c?.ready ? 'READY' : 'NOT READY'}</span></div>
+          <div class="lob-top"><span class="dot"></span><b><bdi>${esc(p.name)}</bdi></b>${tags}${titleChip((p as { title?: string }).title ?? '')}<span class="lob-flag">${c?.ready ? 'READY' : 'NOT READY'}</span></div>
           <div class="lob-line">${esc(hero.toUpperCase())}${prof ? ` · LV ${prof.lv} · BEST STAGE ${prof.best || '-'}` : ''}</div>
           ${p.kit ? `<div class="lob-line kit">${esc(p.kit)}</div>` : ''}
           <div class="lob-line cos">${esc([skin, pet].filter(Boolean).join(' · ').toUpperCase())}${ping}</div>
         </div>`;
       })
-      .join('');
+      .join(''));
     // READY button and status line.
     const me = x && x.you >= 0 ? x.p[x.you] : null;
     const btn = this.box?.querySelector<HTMLElement>('.lob-readybtn');
     if (btn) {
-      btn.textContent = me?.ready ? 'READY ✓' : 'READY UP';
+      btn.textContent = localize(me?.ready ? 'READY ✓' : 'READY UP');
       btn.classList.toggle('on', !!me?.ready);
     }
     const n = x ? x.p.filter((c) => c.ready).length : 0;
@@ -119,13 +120,13 @@ export class LobbyUi {
     const status = this.box?.querySelector<HTMLElement>('.lob-status');
     if (status)
       status.textContent =
-        x && x.cd >= 0
+        localize(x && x.cd >= 0
           ? `EVERYONE IS READY · STARTING IN ${x.cd}...`
           : total < 2
             ? v.isHost
               ? 'Share the code or the invite link. START GAME plays now.'
               : ''
-            : `${n}/${total} READY · the run starts when everyone is ready${v.isHost ? ' (or START GAME now)' : ''}`;
+            : `${n}/${total} READY · the run starts when everyone is ready${v.isHost ? ' (or START GAME now)' : ''}`);
     this.root.querySelector('#scr-online')?.classList.toggle('lob-counting', !!x && x.cd >= 0);
   }
 
@@ -202,12 +203,12 @@ export class ChatBox {
     kind: string,
   ) {
     const t = document.createElement('template');
-    t.innerHTML = `<div class="lob-chat ${kind}-chat">
+    t.innerHTML = localizeHtml(`<div class="lob-chat ${kind}-chat">
       <div class="lob-chat-title">CHAT</div>
       <div class="lob-log"></div>
       <div class="lob-quick">${QUICK_CHAT.map((q, i) => `<button data-nav data-act="chat-quick" data-q="${i}">${esc(q)}</button>`).join('')}</div>
       <div class="lob-say"><input type="text" class="lob-input" maxlength="${chatTuning.maxLen}" placeholder="TYPE HERE..." spellcheck="false" autocomplete="off"><button data-nav data-act="chat-say">SAY</button></div>
-    </div>`;
+    </div>`);
     this.el = t.content.firstElementChild as HTMLElement;
     this.log = this.el.querySelector('.lob-log')!;
     this.input = this.el.querySelector('.lob-input')!;
@@ -237,11 +238,17 @@ export class ChatBox {
 
   render(): void {
     const lines = chatLog(this.game).slice(-8);
-    this.log.innerHTML = lines.length
-      ? lines.map((l) => (l.sys ? `<div class="sys">${esc(l.s)}</div>` : `<div><b style="color:${safeColor(l.c)}">${esc(l.n)}:</b> ${esc(l.s)}</div>`)).join('')
-      : '<div class="sys">Say hi! Quick chat works on a gamepad.</div>';
+    this.log.innerHTML = localizeHtml(lines.length
+      ? lines.map((l) => (l.sys ? `<div class="sys">${systemChatHtml(l.s)}</div>` : `<div><b style="color:${safeColor(l.c)}"><bdi>${esc(l.n)}</bdi>:</b> <bdi>${esc(l.s)}</bdi></div>`)).join('')
+      : '<div class="sys">Say hi! Quick chat works on a gamepad.</div>');
     this.log.scrollTop = this.log.scrollHeight;
   }
+}
+
+/** System messages keep the player name verbatim, including names like BACK or Sky. */
+function systemChatHtml(text: string): string {
+  const match = /^(.*) (JOINED|LEFT)$/.exec(text);
+  return match ? `<bdi>${esc(match[1])}</bdi> ${localize(match[2] === 'LEFT' ? 'LEFT THE LOBBY' : 'JOINED')}` : esc(text);
 }
 
 export function esc(s: string): string {

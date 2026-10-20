@@ -1,3 +1,4 @@
+import { localize, localizeHtml } from '../../i18n';
 /** Solo endgame rules. Host-only loop mutators use normal enemy snapshots and the effects bus. */
 import type { Game } from '../game';
 import type { Enemy, SpawnOpts } from '../enemies';
@@ -196,8 +197,8 @@ export function gauntletMenuTick(g: Game, dt: number): void {
   if (g.runMode === 'bossrush' && g.mode === 'shop' && !g.preShop) {
     if (!g.paused) s.shopLeft -= dt;
     const clock = document.getElementById('g-shop-clock');
-    const label = `NEXT BOSS IN ${Math.max(0, Math.ceil(s.shopLeft))}s`;
-    if (clock && clock.textContent !== label) clock.textContent = label;
+    const label = localize(`NEXT BOSS IN ${Math.max(0, Math.ceil(s.shopLeft))}s`);
+    if (clock && clock.textContent !== label) clock.textContent = localize(label);
     if (s.shopLeft <= 0) g.closeShop();
   }
   if (!s.announced && g.mode === 'fight' && (g.runMode === 'gauntlet' || s.ascension)) {
@@ -263,7 +264,7 @@ export function openShop(this: Game): void {
     injectCss();
     document.getElementById('g-shop-clock')?.remove();
     const clock = document.createElement('div'); clock.id = 'g-shop-clock';
-    clock.textContent = `NEXT BOSS IN ${Math.ceil(challengeState(this).shopLeft)}s`;
+    clock.textContent = localize(`NEXT BOSS IN ${Math.ceil(challengeState(this).shopLeft)}s`);
     document.querySelector('#scr-shop h1')?.after(clock);
   } else Spice.openShop.call(this);
 }
@@ -360,7 +361,7 @@ export function renderGauntlet(g: Game): void {
   }
   for (let i = 0; i < 4; i++) if (s.mutators[i]) text += `\n${LOOP_MUTATORS[i]} ×${s.mutators[i]}`;
   if (gauntletProfile.title) text += `\n★ ${ASCENSION_TITLES[gauntletProfile.title - 1]}`;
-  if (text !== s.hudKey) { s.hudKey = text; s.hud.textContent = text; }
+  if (text !== s.hudKey) { s.hudKey = text; s.hud.textContent = localize(text); }
 }
 export function renderGauntletOptions(el: HTMLElement): void {
   injectCss();
@@ -372,10 +373,10 @@ export function renderGauntletOptions(el: HTMLElement): void {
   }
   const p = gauntletProfile, eligible = settings.mode === 'standard' || settings.mode === 'endless';
   const victory = p.victory || save.achievements.includes('victory');
-  box.innerHTML = `<button data-nav data-act="g-down" ${!eligible || !p.selected ? 'disabled' : ''}>−</button><button data-nav data-act="g-up" ${!eligible || p.selected >= p.unlocked ? 'disabled' : ''}>ASCENSION ${p.selected} / ${p.unlocked} +</button><button data-nav data-act="g-ng" ${!eligible || !victory ? 'disabled' : ''}>NEW GAME+ ${p.ng ? 'ON' : 'OFF'}</button><button data-nav data-act="g-records">CHALLENGE RECORDS</button>${p.cleared >= 5 ? '<button data-nav data-act="g-title">TITLE</button>' : ''}`;
+  box.innerHTML = localizeHtml(`<button data-nav data-act="g-down" ${!eligible || !p.selected ? 'disabled' : ''}>−</button><button data-nav data-act="g-up" ${!eligible || p.selected >= p.unlocked ? 'disabled' : ''}>ASCENSION ${p.selected} / ${p.unlocked} +</button><button data-nav data-act="g-ng" ${!eligible || !victory ? 'disabled' : ''}>NEW GAME+ ${p.ng ? 'ON' : 'OFF'}</button><button data-nav data-act="g-records">CHALLENGE RECORDS</button>${p.cleared >= 5 ? '<button data-nav data-act="g-title">TITLE</button>' : ''}`);
   const note = el.querySelector<HTMLElement>('.g-note')!;
-  note.textContent = !eligible ? 'Ascension and New Game+ apply to Standard and Endless solo runs.' : !p.unlocked ? 'Beat Omega on Hard to unlock Ascension 1. Clear each level to unlock the next.' : p.selected ? `A${p.selected}: ${ASCENSIONS[p.selected - 1].desc} All earlier modifiers apply. Hard difficulty.` : 'Ascension OFF. Choose + to climb. Rewards at 5 / 10 / 15 / 20.';
-  if (p.title) note.textContent += ` ★ ${ASCENSION_TITLES[p.title - 1]}`;
+  note.textContent = localize(!eligible ? 'Ascension and New Game+ apply to Standard and Endless solo runs.' : !p.unlocked ? 'Beat Omega on Hard to unlock Ascension 1. Clear each level to unlock the next.' : p.selected ? `A${p.selected}: ${ASCENSIONS[p.selected - 1].desc} All earlier modifiers apply. Hard difficulty.` : 'Ascension OFF. Choose + to climb. Rewards at 5 / 10 / 15 / 20.');
+  if (p.title) note.textContent += localize(` ★ ${ASCENSION_TITLES[p.title - 1]}`);
 }
 export function gauntletOption(action: string, screens: Screens): boolean {
   if (!action.startsWith('g-')) return false;
@@ -393,13 +394,13 @@ function initGauntletScreen(screens: Screens): void {
   if (screenSet.has(screens)) { screenSet.get(screens)!(); return; }
   injectCss();
   const el = document.createElement('div'); el.id = 'scr-gauntlet'; el.className = 'screen dim'; el.hidden = true;
-  el.innerHTML = '<h1>CHALLENGE RECORDS</h1><div class="g-board"></div><div class="menu row"><button data-nav class="g-local">LOCAL BESTS</button><button data-nav class="g-online">ONLINE GAUNTLET</button><button data-nav class="g-back">BACK</button></div>';
+  el.innerHTML = localizeHtml('<h1>CHALLENGE RECORDS</h1><div class="g-board"></div><div class="menu row"><button data-nav class="g-local">LOCAL BESTS</button><button data-nav class="g-online">ONLINE GAUNTLET</button><button data-nav class="g-back">BACK</button></div>');
   const board = el.querySelector<HTMLElement>('.g-board')!;
   const local = () => {
     const scores = loadGauntletScores();
     const raw = loadJson<unknown>('gauntlet.splits.v1', []);
     const splits = Array.isArray(raw) ? raw.filter(s => s && typeof s.name === 'string' && Number.isFinite(s.time) && Number.isFinite(s.total)).slice(0, 60) : [];
-    board.textContent = `SURVIVAL GAUNTLET · TOP 10\n${scores.length ? scores.map((s, i) => `${i + 1}. ${s.score.toLocaleString('en-US')} · ${s.kills} KILLS · ${s.label}`).join('\n') : 'YOUR FIRST RUN STARTS THE TABLE.'}\n\nLAST BOSS RUSH · COMBAT SPLITS\n${splits.length ? splits.map((s, i) => `${i + 1}. ${s.name} · ${formatTime(s.time)} · TOTAL ${formatTime(s.total)}`).join('\n') : 'NO SPLITS YET.'}`;
+    board.textContent = localize(`SURVIVAL GAUNTLET · TOP 10\n${scores.length ? scores.map((s, i) => `${i + 1}. ${s.score.toLocaleString('en-US')} · ${s.kills} KILLS · ${s.label}`).join('\n') : 'YOUR FIRST RUN STARTS THE TABLE.'}\n\nLAST BOSS RUSH · COMBAT SPLITS\n${splits.length ? splits.map((s, i) => `${i + 1}. ${s.name} · ${formatTime(s.time)} · TOTAL ${formatTime(s.total)}`).join('\n') : 'NO SPLITS YET.'}`);
   };
   local();
   screenSet.set(screens, local);
@@ -407,9 +408,9 @@ function initGauntletScreen(screens: Screens): void {
   const online = el.querySelector<HTMLButtonElement>('.g-online')!;
   online.disabled = !leaderboardEnabled;
   online.addEventListener('click', () => {
-    board.textContent = 'LOADING ONLINE GAUNTLET…';
+    board.textContent = localize('LOADING ONLINE GAUNTLET…');
     void fetchTop(`gauntlet-${settings.difficulty}`).then(rows => {
-      board.textContent = rows ? `ONLINE GAUNTLET · ${settings.difficulty.toUpperCase()}\n${rows.map((r, i) => `${i + 1}. ${r.name} · ${r.score.toLocaleString('en-US')} · ${formatTime(r.time)}`).join('\n') || 'NO RUNS YET.'}` : 'BOARD UNAVAILABLE. LOCAL BESTS ARE SAFE.';
+      board.textContent = localize(rows ? `ONLINE GAUNTLET · ${settings.difficulty.toUpperCase()}\n${rows.map((r, i) => `${i + 1}. ${r.name} · ${r.score.toLocaleString('en-US')} · ${formatTime(r.time)}`).join('\n') || 'NO RUNS YET.'}` : 'BOARD UNAVAILABLE. LOCAL BESTS ARE SAFE.');
     });
   });
   el.querySelector('.g-back')!.addEventListener('click', () => screens.show('modes'));
