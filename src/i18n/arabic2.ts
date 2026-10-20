@@ -133,7 +133,7 @@ export const arabic2En = {
   "arabic2.8434a18a7c": "Crushing Blows",
   "arabic2.5af54355fa": "Last Supplies",
   "arabic2.90fa1f5ec1": "Map chest cadence halves again.",
-  "arabic2.876eeb97ba": "Enemy life +30%; boss bonus rings have 24 bullets.",
+  "arabic2.876eeb97ba": "Enemy life +20%; boss bonus rings have 24 bullets.",
   "arabic2.ef7562d21e": "BRONZE CLIMBER",
   "arabic2.3a59026db8": "SKY CLIMBER",
   "arabic2.c2330d2218": "STAR CLIMBER",
