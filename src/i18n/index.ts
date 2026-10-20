@@ -31,7 +31,7 @@ export const getLanguage = (): Language => language;
 export const isRtl = (): boolean => language === 'ar';
 const listeners = new Set<() => void>();
 export function onLanguageChange(fn: () => void): () => void { listeners.add(fn); return () => listeners.delete(fn); }
-/** Loads once; failures remain retryable. English never requests a translation chunk. */
+/** Loads once. English never requests a translation chunk. */
 export function loadLanguage(next: Language): Promise<void> {
   if (catalogs.has(next)) return Promise.resolve();
   let work = pending.get(next);
@@ -54,7 +54,7 @@ export async function setLanguage(next: Language): Promise<void> {
   next = requested;
   if (!catalogs.has(next)) {
     try { await loadLanguage(next); }
-    catch (error) { console.warn(`[i18n] Could not load ${next}; keeping ${language}. Retry LANGUAGE to reload.`, error); return; }
+    catch (error) { console.warn(`[i18n] Could not load ${next}; keeping ${language}. Reload to retry the download.`, error); return; }
   }
   if (requested !== next) return;
   const previous = language;
@@ -174,6 +174,9 @@ export function localize(value: string | number | null | undefined): string {
   const hit = cache.get(input);
   if (hit !== undefined) return hit;
   const plain = normalize(input), key = exact.get(plain.toUpperCase());
+  // Mixed templates may already contain t() output. Preserve known translated
+  // phrases before the substring adapter can translate their words a second time.
+  if (!key && reverseCatalogs.get(language)?.reverse.has(plain)) return input;
   let result: string | undefined = key ? t(key) : undefined;
   if (result === undefined) {
     for (const p of patterns) {
@@ -222,7 +225,7 @@ export function relocalizeDom(root: HTMLElement, previous: Language): void {
       if (node.nodeType === 3) {
         const value = node.textContent ?? '';
         const saved = domText.get(node);
-        const source = saved?.rendered === value ? saved.source : toEnglish(value, previous === 'en' ? language : previous);
+        const source = saved?.rendered === value ? saved.source : domSource(value, previous);
         const rendered = isolateNumbers(localize(source));
         if (value !== rendered) node.textContent = rendered;
         domText.set(node, { source, rendered });
@@ -234,7 +237,7 @@ export function relocalizeDom(root: HTMLElement, previous: Language): void {
         let attrs = domAttrs.get(el);
         if (!attrs) { attrs = new Map(); domAttrs.set(el, attrs); }
         const saved = attrs.get(attr);
-        const source = saved?.rendered === value ? saved.source : toEnglish(value, previous === 'en' ? language : previous);
+        const source = saved?.rendered === value ? saved.source : domSource(value, previous);
         const rendered = localize(source);
         if (value !== rendered) el.setAttribute(attr, rendered);
         attrs.set(attr, { source, rendered });
@@ -242,6 +245,12 @@ export function relocalizeDom(root: HTMLElement, previous: Language): void {
     }
   };
   visit(root);
+}
+function domSource(value: string, previous: Language): string {
+  // Fresh screens mix canonical English with already-localized fragments. Prefer a
+  // known English phrase before trying inverse templates such as the seconds suffix.
+  if (previous === 'en' && exact.has(normalize(value).toUpperCase())) return value;
+  return toEnglish(value, previous === 'en' ? language : previous);
 }
 function toEnglish(s: string, previous: Language): string {
   const inverse = reverseCatalogs.get(previous);

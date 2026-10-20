@@ -8,7 +8,7 @@ import { fr } from '../src/i18n/fr';
 import { ptBR } from '../src/i18n/pt-BR';
 import { de } from '../src/i18n/de';
 import { tr } from '../src/i18n/tr';
-import { LANGUAGES, browserLanguage, getLanguage, isLanguage, loadLanguage, localize, onLanguageChange, setLanguage, t } from '../src/i18n';
+import { LANGUAGES, browserLanguage, getLanguage, isLanguage, loadLanguage, localize, onLanguageChange, relocalizeDom, setLanguage, t } from '../src/i18n';
 
 const catalogs = { en, ar, es, fr, 'pt-BR': ptBR, de, tr };
 const keys = Object.keys(en).sort() as (keyof typeof en)[];
@@ -66,6 +66,12 @@ button.addEventListener('click', () => clicks++);
 for (const locale of ['es','fr','pt-BR','de','tr','ar','en'] as const) {
   await setLanguage(locale);
   assert.equal(document.documentElement.lang, locale);
+  assert.equal(localize(t('text.twin_stick_arcade_roguelike_40bd5d')), t('text.twin_stick_arcade_roguelike_40bd5d'), `${locale}: translated copy survives mixed HTML templates`);
+  for (const source of ['SETTINGS', 'WEATHER EFFECTS', 'DAMAGE NUMBERS', 'FIRST-TIME TIPS']) {
+    const fresh = document.createElement('h1'); fresh.textContent = source;
+    relocalizeDom(fresh, 'en');
+    assert.equal(fresh.textContent, localize(source), `${locale}: fresh canonical label wins over inverse suffix templates`);
+  }
   assert.equal(document.documentElement.dir, locale === 'ar' ? 'rtl' : 'ltr');
   assert.equal(button.textContent, localize('PLAY SOLO'));
   assert.equal(button.title, localize('BACK'));

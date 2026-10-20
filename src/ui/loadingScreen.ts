@@ -71,10 +71,10 @@ export async function boot(load: () => Promise<unknown>): Promise<void> {
   const saved = loadJson<{ language?: string }>('settings.v1', {});
   const language = new URLSearchParams(location.search).get('lang') ?? saved.language;
   const screen = new LoadingScreen();
-  await applyLanguage(isLanguage(language) ? language : browserLanguage());
-  screen.progress(1, 3, 'menu.load.code');
-  await painted();
   try {
+    await applyLanguage(isLanguage(language) ? language : browserLanguage());
+    screen.progress(1, 3, 'menu.load.code');
+    await painted();
     await load();
     screen.progress(2, 3, 'menu.load.scene');
     await painted();

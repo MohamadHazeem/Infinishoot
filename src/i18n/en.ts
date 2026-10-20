@@ -3550,5 +3550,12 @@ export const en = {
   "eightp.run_full": "That run is full (8 players).",
   "eightp.versus_cap": "VERSUS TAKES UP TO 4 PLAYERS (CO-OP AND PVP TAKE 8)",
   "eightp.coop_cap": "CO-OP TAKES UP TO 8 PLAYERS",
-  "eightp.game_full": "That game is full."
+  "eightp.game_full": "That game is full.",
+  "langs.takeHero": "TAKE THE HERO",
+  "langs.pickCard": "PICK 1 CARD.",
+  "langs.cardHelp": "It's yours for the whole run. The ribbon says what it powers up:",
+  "langs.cardLegend": "NEW = something new · UPGRADE = level up what you have",
+  "langs.shopHelp": "Spend gold on Mods, or keep some: every 5 gold you hold pays 1 interest at the next clear.",
+  "langs.freeShopHelp": "Buy a Mod or two: Mods change how ALL your damage works. Gold left here isn't kept. Then",
+  "langs.goodPick": "GOOD FIRST PICK",
 } as const;
