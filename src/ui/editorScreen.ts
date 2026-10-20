@@ -49,7 +49,7 @@ const CSS = `
 .ae-msg { min-height:18px; font:16px var(--font); color:var(--lime); text-align:center; }
 .ae-msg.err { color:var(--orange); }
 #scr-arenaedit { justify-content:flex-start; gap:calc(2 * var(--p)); padding:10px 12px; overflow:hidden; }
-#scr-arenaedit.screen.dim { background-color:var(--ink); background-image:repeating-conic-gradient(#232539 0 25%, transparent 0 50%); }
+#scr-arenaedit.screen.dim { background-color:var(--ink); background-image:repeating-conic-gradient(var(--night) 0 25%, transparent 0 50%); }
 #scr-arenaedit .ae-top { display:flex; align-items:center; gap:calc(4 * var(--p)); width:100%; max-width:1500px; }
 #scr-arenaedit .ae-top h1 { font-size:calc(11 * var(--p)); line-height:1; white-space:nowrap; }
 #scr-arenaedit .ae-name { flex:0 1 280px; min-width:120px; font:22px var(--font); color:var(--white); background:var(--ink); border:0; outline:none; padding:4px 10px; box-shadow:0 0 0 var(--p) var(--slate); text-transform:uppercase; }

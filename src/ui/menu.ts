@@ -297,10 +297,18 @@ export function polishMenuScreen(el: HTMLElement): void {
   // A real back button gets the same live keyboard / controller prompt everywhere.
   for (const button of el.querySelectorAll<HTMLElement>('button')) {
     if (button.dataset.menuPrompt !== undefined || button.querySelector('[data-prompt]')) continue;
-    if ([localize('BACK'), localize('TITLE')].includes(button.textContent?.trim() ?? '')) {
+    if ([localize('BACK'), localize('TITLE')].includes(button.textContent?.trim() ?? '') || button.matches('[data-settings-back], [data-act$="back"]')) {
       button.dataset.menuPrompt = '';
       button.insertAdjacentHTML('afterbegin', localizeHtml(prompt('back') + ' '));
     }
+  }
+  // uipolish: BACK stays the last button of its row; lanes append theirs (TRIALS, HELP...) after it.
+  for (const button of el.querySelectorAll<HTMLElement>('button[data-menu-prompt]')) {
+    const row = button.parentElement;
+    if (!row || !(row.classList.contains('menu') || row.classList.contains('settings-footer')) || !button.nextElementSibling) continue;
+    let after: Element | null = button.nextElementSibling;
+    while (after && after.tagName === 'BUTTON') after = after.nextElementSibling;
+    if (!after) row.append(button);
   }
 }
 

@@ -61,7 +61,7 @@ body.spectating.sp-cast #sp-root .sp-watch { left: calc(18px + 104 * var(--p)); 
 @keyframes sp-pop { from { transform: translateX(calc(-10 * var(--p))); opacity: 0; } to { transform: none; opacity: 1; } }
 /* Lobby: spectators under the players. */
 .sp-lobby { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(3 * var(--p)); margin: calc(3 * var(--p)) 0; }
-.sp-lobby .sp-watcher { --bg: #3c2135; --hi: var(--plum); color: var(--mist); display: flex; align-items: center; gap: calc(2 * var(--p)); font-size: 17px; padding: 2px 12px; }
+.sp-lobby .sp-watcher { --bg: var(--plum); --hi: var(--red); color: var(--mist); display: flex; align-items: center; gap: calc(2 * var(--p)); font-size: 17px; padding: 2px 12px; }
 .sp-lobby .sp-watcher small { font: 10px var(--label); letter-spacing: 1px; color: var(--yellow); }
 .sp-lobby .eye { flex: none; display: inline-block; position: relative; }
 body.sp-lobbywatch #scr-online .lob-readybtn { display: none !important; }
@@ -103,7 +103,7 @@ body.sp-lobbywatch #scr-online .lob-readybtn { display: none !important; }
 #sp-root .sp-cast { position: absolute; left: 18px; top: calc(9 * var(--p)); zoom: var(--ui, 1); display: flex; flex-direction: column; gap: calc(4 * var(--p)); }
 #sp-root .sp-card { display: flex; gap: calc(2.5 * var(--p)); padding: calc(2 * var(--p)) calc(3 * var(--p)) calc(2 * var(--p)) calc(2 * var(--p)); width: calc(96 * var(--p)); --ring: transparent; }
 #sp-root .sp-card.focus { --ring: var(--hc); --bg: var(--navy); --hi: var(--blue); }
-#sp-root .sp-card.down { --bg: #3c2135; --hi: var(--plum); }
+#sp-root .sp-card.down { --bg: var(--plum); --hi: var(--red); }
 #sp-root .sp-card canvas { width: calc(14 * var(--p)); height: calc(14 * var(--p)); background: var(--hc); box-shadow: 0 0 0 var(--p) var(--ink); flex: none; }
 #sp-root .sp-card.down canvas { filter: grayscale(1); }
 #sp-root .sp-card .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--p); }

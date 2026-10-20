@@ -227,6 +227,39 @@ kbd.prompt:empty { display: none; }
   #hud #scr-loadout .lo-cards { flex-wrap: nowrap; }
   #hud #scr-loadout button.lo-card { width: auto; flex: 0 1 205px; min-width: 0; }
 }
+/* PLAY SOLO on 720p-class windows: one hero row, shorter mode cards, so DIFFICULTY and NEXT fit. */
+@media (min-width: 1000px) and (max-height: 820px) {
+  #hud #scr-modes { gap: calc(2 * var(--p)); padding-block: calc(3 * var(--p)); }
+  #hud #scr-modes > * { margin-block: 0; }
+  #hud #scr-modes > .note { line-height: 1.1; }
+  #hud #scr-modes > h1 { font-size: calc(14 * var(--p)); margin: 0; }
+  #hud #scr-modes .hero-row { flex-wrap: nowrap; gap: calc(2 * var(--p)); }
+  #hud #scr-modes .hero-row button { font-size: 18px; padding-inline: calc(3 * var(--p)); min-height: 0; }
+  #hud #scr-modes .hero-note, #hud #scr-modes .mode-note { min-height: 0; margin: 0; }
+  #hud #scr-modes .mode-grid { width: min(1180px, 96vw); grid-template-columns: repeat(4, minmax(0, 1fr)); gap: calc(3 * var(--p)); }
+  #hud #scr-modes button.mode { min-height: 0; padding: 6px 10px 8px; gap: 2px; }
+  #hud #scr-modes button.mode b { font-size: 21px; }
+  #hud #scr-modes button.mode small { font-size: 14px; line-height: 1.1; }
+  #hud #scr-modes .diff-row button, #hud #scr-modes > .menu.row:last-child button { font-size: 20px; min-height: 0; padding-block: 4px; }
+  #hud #scr-modes .casual-preset { padding-block: 0; }
+  #hud #scr-modes .casual-preset button { font-size: 20px; min-height: 0; padding-block: 4px; }
+  #hud #scr-modes .casual-preset small { font-size: 15px; }
+  #hud #scr-modes .ft-quick { padding-block: var(--p); }
+  #hud #scr-modes .ft-quick button { min-height: 0; padding-block: 4px; }
+}
+/* A first-time tip over the title sits bottom centre instead of on the profile badge / season banner. */
+.menu-open:has(#scr-title:not([hidden])) #ob-tip { top: auto; right: auto; bottom: calc(18 * var(--p)); left: calc(50% - min(125px, 15vw)); }
+/* Card slot ribbons stay on one line in long languages (AUTOMATISCHE WAFFE wrapped under the pick bar). */
+.card .slot-ribbon { white-space: nowrap; overflow: hidden; }
+:root:is([lang=de], [lang=fr], [lang=es], [lang=pt-BR], [lang=tr]) .card .slot-ribbon { letter-spacing: 0; font-size: 11px; gap: 5px; }
+/* LEVEL UP on 720p-class windows: smaller icons and text so the cards and REROLL / SKIP fit. */
+@media (min-width: 1000px) and (max-height: 820px) {
+  #hud #scr-levelup button.card { min-height: 0; gap: 6px; padding-bottom: 12px; }
+  #hud #scr-levelup .card .icon { width: 60px; height: 60px; }
+  #hud #scr-levelup .card .icon img.px-icon { width: 48px; height: 48px; }
+  #hud #scr-levelup .card .name { font-size: 24px; }
+  #hud #scr-levelup .card .desc { font-size: 17px; line-height: 1.2; }
+}
 /* The playable-title hint sits bottom centre, clear of the menu and the activity cards. */
 #cine .cn-tp { right: auto; left: 50%; bottom: calc(4 * var(--p)); transform: translateX(-50%); white-space: nowrap; }
 
@@ -239,6 +272,8 @@ kbd.prompt:empty { display: none; }
   #hud #ob-tip { top: 30%; }
   #hud #ingame > #toast { font-size: 16px; padding: 4px 10px; }
   #cine .cn-tp { display: none; }
+  /* Menus take the whole short screen: the life and XP bars hide too, or they collide with the headings. */
+  .menu-open #ingame > :is(#xpbar, #hp) { visibility: hidden !important; }
 }
 
 `;
@@ -312,9 +347,9 @@ export const HUD_DOCK: readonly (readonly [string, -1 | 0 | 1])[] = [
   ['#ingame > #pausebtn', 0], ['#ingame > #score', 0], ['#ingame > #loadout', 0], ['#ingame > #meters', 0],
   ['#ingame > #minimap', 0], ['#ingame > #bossbar', 0], ['#touch .tstick', 0], ['#touch .tbtn', 0],
   // Left column, then the chips by the weapon slots.
-  ['#ingame > #goals', 1], ['#ha-candy', -1], ['#vc-self', -1],
+  ['#ingame > #goals', 1], ['#ha-candy', -1], ['#vc-self', -1], ['#ingame > .pp-pop.left', 1],
   // Right column.
-  ['#ingame > #combo', 1], ['#stylemeter', 1], ['#gp-cash', 1], ['#vs-foe', 1], ['#lc-hud .lc-p', 1],
+  ['#ingame > #combo', 1], ['#stylemeter', 1], ['#ingame > .pp-pop.right', 1], ['#gp-cash', 1], ['#vs-foe', 1], ['#lc-hud .lc-p', 1],
   ['#s2-onair', 1], ['#s2-band', 1], ['#weather2', 1],
   // Bottom row.
   ['#ingame > #mods', -1], ['#co2-panel', -1], ['#petpanel', -1], ['#teammeter', -1], ['#gp-power', -1],
