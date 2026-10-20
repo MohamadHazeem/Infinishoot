@@ -1,0 +1,7 @@
+LANE: biome3 — two new areas with their own bosses
+
+1. CANDY KINGDOM: a bright sweets world (gumdrop hills, candy-cane fences, chocolate rivers that slow you, lollipop trees, sprinkles weather), candy-coloured enemy tints, a native enemy (Gummy Bear brute that splits into gummies), and a stage boss CAKE TYRANT (a giant layered cake: frosting waves, candle fireballs, layers that break off as phases).
+2. SUNKEN RUINS: an underwater-feel ruin (blue-green caustics on the ground, bubbles rising, kelp swaying, slow currents that push like wind, coral cover), a native enemy (Jellyfish that drifts and zaps in rings), and a stage boss KRAKEN KING (tentacles from the ground with telegraphs, ink clouds that hide the screen briefly, whirlpool phase).
+3. Integrate into BIOME_ORDER from loop 2-3 (keep stages 1-4 unchanged), biome data (audio, weather, look fields per CLAUDE.md), arena generation, colour grade, music style entries (src/audio/music/composition.ts, additive), ambience (reuse existing loops or synthesize), footsteps, boss portraits/finishers/codex/story copy (EN+AR), mini-boss variants, materials/gaits for new enemies, bot kill times in the existing band.
+4. Test links `&biome=candy` / `&biome=ruins`, screenshots that look great, co-op sync, tests.
+Owns: src/data/biomes.ts (additive), arena generation additions, new enemy/boss data and behaviours in new files, tests/biome3.test.ts.

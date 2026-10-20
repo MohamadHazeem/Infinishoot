@@ -1,0 +1,8 @@
+LANE: heroes3 — two new heroes with new ways to play
+
+1. RONIN (melee): a sword hero. Left click is a 3-hit sword combo (arcs in front, the 3rd hit is a heavy cleave), right click a charged dash-strike through enemies, perfect parries with the sword trigger a counter-slash; stays viable at range through sword waves at higher ranks. Make melee feel great: hit-stop, slash trails, knockback, enemy reactions. Ultimate: "Thousand Cuts" (time slows, rapid slashes everywhere around).
+2. TINKER (summoner): builds an army. Passive: periodically assembles small robot minions (cap grows with level) that follow and zap; right click places a repair/turret beacon; ultimate "Scrap Legion" summons a big temporary mech-army. Minions are cheap (pooled, instanced), synced in co-op, scale sensibly with 8 players.
+3. Both: hero data (src/data/heroes.ts), models with personality (src/game/heroModel.ts proportions/accessories), portraits (src/ui/portraitArt.ts), unlocks through new achievements, codex/arsenal entries, voice: recorded barks bark_ronin_<start|level|lowhp|bigkill|boss|revive|evolve|win> and bark_tinker_* exist in public/audio — add them to RECORDED_VOICES (src/audio/voices.ts); sword sounds sword_slash, sword_combo, sword_dash; summon sounds summon, minion_zap.
+4. Also move Duelist, Furnace and Twin to recorded voices: bark_duelist_*, bark_furnace_*, bark_twin_* now exist (keep the synthesized voice as the fallback for any missing line).
+5. Balance with the bot (boss kill times in the same band as other heroes; record).
+Owns: src/data/heroes.ts (additive), src/game/heroMechs.ts + systems/heroMechs.ts (additive) or a new src/game/systems/heroes3.ts, model/portrait additions, voices.ts list, tests/heroes3.test.ts.

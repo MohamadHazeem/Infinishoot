@@ -194,6 +194,19 @@ Built by 10 parallel lanes in two waves (details, knobs and test links in notes/
 - [x] Sound: boss music duels, comeback music, the arena crowd, radio DJ between stages, instrument pickups for the band, sound-reactive enemies, surround stingers, real sounds for the wave-1 features
 - [ ] Play-test by people, two-machine and local co-op with real pads, the worker routes deployed (lobbies, team board, ghosts), balance of mech/crates/cash-ins, real-GPU check of fog, reflections and shatter
 
+## Milestone 12: The overnight mega build, co-op first (built, needs play-testing, v2.0.0)
+Built overnight by about 60 parallel lanes (Codex, a second Claude account and Claude sub-agents, each in its own worktree with owned files), merged one at a time with typecheck, build, unit tests (117 files), the smoke test and the two-browser co-op test. Each lane's decisions, knobs and test links are in notes/lanes/<lane>.md; the briefs are in docs/parallel-builds/v2.0.
+- [x] Multiplayer: 8-player online co-op (Versus stays 4), host migration (the run survives the host leaving), reconnect within 60 s, a jitter-tolerant netcode with client-seen melee and dash checks, spectator seats (up to 8), invite links and friend codes, a party/lobby with ready flags and chat, proximity voice chat (off by default), co-op trading (gold, gears, relics), co-op objectives, dragging downed friends, a buddy link, AI squadmates for solo (0-3 bots with orders), RACE (2-8 players), PvP formats (free-for-all, 2 teams, best of 3, 4 symmetric arenas), the Hydra Engine RAID (1-8 heroes), end-of-run MVP awards
+- [x] Heroes and kits: Ronin (katana, iaido dash), Tinker, Medic (mending beam, revive drone, Field Hospital) and Brawler (punch combo, grapple, Wrecking Ball); reworked hero models; six new pets with skill trees
+- [x] Content: Candy Kingdom and Sunken Ruins (Cake Tyrant, Kraken King), stage bosses for Neon City, Toy Factory and Sky Fortress (Glitch DJ, Boxer Jack, Admiral Gale), the Architect true final boss after stage 12, six elite modifiers plus champions, new weapons and fusions, 18 new Mods, 8 item sets, secret puzzles and hidden bosses, Halloween season (Haunted Meadow, trick-or-treat booth)
+- [x] Modes and goals: Survival Gauntlet, two-lap Boss Rush, Ascension 1-20, 24 Trials with medals, an arena editor with share codes, about 100 achievements, profile levels, daily quests and a free cosmetic season track; every run still starts equal
+- [x] Director and world: adaptive pacing from the weakest teammate, new stage events, gameplay weather (sand, cold, lightning rods, heat)
+- [x] Onboarding and UI: PLAY menu, FIRST STEPS checklist, 64 new tips, Codex and Arsenal completed, tabbed settings with accessibility (game speed, one-stick mode and other assists), readable-chaos pass (effects governor, inked enemy bullets), phones and tablets, a final UI consistency pass
+- [x] Languages: Arabic covers everything again (strict test), plus Spanish, French, Brazilian Portuguese, German and Turkish
+- [x] Look and sound: optional dynamic sun shadows, muzzle shapes, chest bursts, a cinematic camera, a light story with comic pages and credits; a loudness pass over every sample and music arrangement with a soft master ceiling
+- [x] Platform and tools: desktop video options and update notice, lazy-loaded tools and audio (faster start), shareable highlight clips, JSON mod packs, run replays with checksums, visual baselines, balance sweep, fuzzer and soak tests, `npm run coop4` / `coop8` / `migrate`, and one-command server deploy (docs/ONLINE.md)
+- [ ] Play-test by people (nothing above was played by a person), 8 real players online, the online server deployed on a Cloudflare account, real-GPU check of shadows and clips, balance of the new heroes, sets and Architect
+
 ## Proposed folder structure
 ```
 src/

@@ -1,0 +1,6 @@
+LANE: balance2 — final balance after the night
+
+Tonight added new weapons, heroes, Mods, relics, bosses, enemies, modes, an adaptive director, 8-player scaling and more. Re-run the balance sweep (`npm run sweep`, from the balance lane; if missing, build a bot sweep across kits/heroes/difficulties) and tune outliers through data only: new heroes (Ronin, Tinker), new weapons, new Mods and relics, new bosses (Glitch DJ, Boxer Jack, Admiral Gale, Pumpking, Hydra Engine), Ascension levels, Legend difficulty, 5-8 player co-op scaling. Targets as in notes/lanes/balance.md. Record before/after in notes/lanes/balance2.md.
+Owns: tuning data/values only, tests/balance2.test.ts if needed.
+
+Also: the balance lane left one open item: Mega Barrage and Mirror Storm bullets skip the boss damage reduction (ultTuning.bossMul) in the bullet-hit code (src/game/systems/statuses.ts) — make them respect it and re-check Rookie/Twin boss times. New since then: set bonuses (src/data/sets.ts), elite modifiers and champions, AI squad scaling (systems/aisquad.ts), gameplay weather, the Architect (stage 12 final boss), Candy/Ruins bosses (Cake Tyrant, Kraken King), Trials medal targets, Medic/Brawler heroes if merged by then (heroes4). Use `npm run sweep` (scripts/balance-sweep.mjs) from the balance lane.

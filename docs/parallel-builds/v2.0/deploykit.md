@@ -1,0 +1,8 @@
+LANE: deploykit — make the online server one command away
+
+Several features only work when the optional Cloudflare Worker in server/leaderboard is deployed and VITE_LEADERBOARD_URL is set at build time (online leaderboards, public lobby browser, weekly co-op team board, ghost races, ranked ladder, weekly scores, raid boards...). The owner has never deployed it. Make deploying it trivial and safe:
+1. Audit server/leaderboard: worker.js, routes.js and every route module added tonight; make sure all routes are registered, validated (sizes, rate limits, plausibility), CORS-correct for the GitHub Pages origin and the desktop app, and covered by tests (tests with the fake KV in tests/fakeKv.ts).
+2. A deploy script and guide: docs/ONLINE.md with the exact steps (create a free Cloudflare account, `npx wrangler login`, one command `npm run server:deploy` that creates the KV namespace if missing, writes wrangler.toml from a template, deploys, and prints the URL), then how to set the GitHub Actions variable VITE_LEADERBOARD_URL (and where the Pages and release workflows read it) so the web build and downloads use it. No secrets in the repo.
+3. A `npm run server:dev` that runs the worker locally (wrangler dev) and a `?test&server=http://127.0.0.1:8787` override so features can be tried locally; a health endpoint and a small status line in SETTINGS > HELP showing whether online features are on.
+4. Tests pass; nothing deploys automatically.
+Owns: server/leaderboard/*, scripts/server-*.mjs, docs/ONLINE.md, package.json scripts (additive), workflow env wiring (careful), tests/deploykit.test.ts.

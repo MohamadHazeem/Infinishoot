@@ -1,0 +1,6 @@
+LANE: settings — settings that make sense, and accessibility
+
+1. SETTINGS redesign: tabs VIDEO, AUDIO, CONTROLS, GAMEPLAY, ACCESSIBILITY, CO-OP (there are 40+ toggles now in one long list). Keyboard/gamepad/touch navigable tab switching (LB/RB, Q/E), descriptions on focus, a RESET TAB button, search not needed. Every existing setting keeps its key and value (no save breakage).
+2. Accessibility: colour-blind modes (protanopia, deuteranopia, tritanopia) applied to ALL gameplay colour cues (enemy bullets, telegraphs, rarity colours, team colours, elite glows) not just bullets; text size (UI text scale separate from UI SCALE); hold-vs-toggle for charge, dash-run, rewind, team move; an AIM ASSIST option (soft snap toward nearest enemy for gamepad/touch, off by default for mouse); screen-reader friendly labels on menus (aria-labels); a "Reduce screen effects" master switch that turns down shake/flash/distortion/speed lines together.
+3. Make sure every new toggle respects co-op (local only) and has a test.
+Owns: the settings screen (move it into a new src/ui/settingsScreen.ts and keep a small hook in screens.ts), src/game/settings.ts (additive), new src/render/colorblind.ts, aim assist in a new src/game/systems/aimAssist.ts, tests/settings.test.ts.

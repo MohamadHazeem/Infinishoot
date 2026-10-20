@@ -1,0 +1,4 @@
+LANE: pets2 — more companions
+
+Pets level up and learn skills (src/game/pet.ts, src/data/pets.ts, systems/companion.ts). Add 6 new pets with distinct personalities, looks and skill trees (5 levels each): e.g. ROBO-PUP (fetches and barks to taunt), OWL-BOT (spots elites/secret rooms, reveals off-screen threats, night vision), SLIME BUDDY (absorbs a bullet now and then, splits into helpers), DRAGON HATCHLING (breathes fire bursts, grows wings at level 5), CAT DRONE (steals gold from enemies, lucky crits), MINI MECH (plants turrets, carries the bomb in co-op objectives). Unlock conditions via achievements; wardrobe/pet picker entries; pet hats/cosmetics compatibility; HUD pet panel; co-op sync; sounds (synthesized or existing samples); English + Arabic strings; models in the chunky cute style; tests and screenshots.
+Owns: src/data/pets.ts (additive), pet models/behaviours (src/game/pet.ts additive or new src/game/pets2.ts), tests/pets2.test.ts.

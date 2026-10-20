@@ -26,3 +26,7 @@ How the big updates (v1.5.0, v1.6.0) were built: 10-11 AI builders at once, each
 - New content must be registered in other lanes' tables after merging (enemy materials, animation gaits, music stems for new weapons).
 - Shared numbering (bullet kinds) and bit fields (the enemy record in `src/net/codec.ts`) need checking at merge; `tests/netCodec.test.ts` guards the bit fields.
 - The coop test's turret scenario is occasionally flaky (passes on rerun).
+- v2.0 (about 60 lanes overnight) adds the orchestration scripts in `v2.0/`: `launch.sh <lane> <codex|claude2>` (worktree, node_modules clone, brief, background builder), `watch.sh` (a Monitor that reports finished builders), `merge.sh <lane>`, `check.sh [coop]`, `next.sh` (pops `queue.txt`) and `resume.sh` (restarts a dead builder in its worktree). They use absolute paths from the build machine; adjust before reuse.
+- With ~10 builders the machine runs at load 20-100: co-op and timing tests get flaky, so rerun a failure before chasing it. Builders must never `pkill` broadly (one did and killed five other lanes).
+- `scripts/merge-union.py` resolves conflict blocks by keeping both sides, merges `type X = 'a' | ...` unions and adds the missing comma between joined entry lists. Run `npm run typecheck` before every merge commit: two bad merges were pushed by chaining commit after a failed check.
+- Tests that switch language must `await setLanguage(...)`: non-English catalogs load lazily since the langs lane.

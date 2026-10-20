@@ -1,0 +1,7 @@
+LANE: heroes4 — two more heroes: a healer and a brawler
+
+Build on the heroes3 lane's approach (fixed hero kits replacing clicks, src/game/heroMechs.ts / systems/heroes3.ts patterns, portraits, voices, unlocks).
+1. MEDIC (co-op healer, fun solo too): left click a healing/damage beam (damages enemies, heals allies it passes through), right click drops a revive drone that revives a downed teammate from range (cooldown) or shields you solo; passive: allies near the Medic regenerate; ultimate "Field Hospital": a big zone that heals, cleanses and briefly makes allies unkillable (1 HP floor). Solo balance: the beam's damage and self-sustain carry it.
+2. BRAWLER (melee grappler): left click a fast punch combo with knockback, right click GRAB an enemy and throw it into others (bosses: a heavy uppercut instead), dash becomes a shoulder charge; ultimate "Wrecking Ball": spins through the arena smashing everything. Makes environmental kills (lava, pillars) a big part of play.
+3. Both: models with personality, portraits, recorded-voice fallback to the synthesized hero voice (src/audio/voice.ts) since no recorded barks exist, unlock achievements, codex/arsenal/story copy (English + Arabic), co-op sync, bot-balanced (boss kill times in the hero band), tests, screenshots.
+Owns: src/data/heroes.ts (additive), new src/game/systems/heroes4.ts and src/game/heroes4.ts, model/portrait additions, tests/heroes4.test.ts.
