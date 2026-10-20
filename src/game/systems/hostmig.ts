@@ -505,7 +505,7 @@ function decide(g: Game, s: HostmigState, m: MigSnapshot): void {
   rc.code = migrationCode(m.code, m.ep + 1, cand);
   rc.until = Math.max(rc.until, now + (hostmigTuning.candidate + 50) * 1000);
   rc.next = now + 300;
-  const name = m.heroes.find((h) => h.i === cand)?.name ?? `P${cand + 1}`;
+  const name = String(m.heroes.find((h) => h.i === cand)?.name ?? `P${cand + 1}`);
   note(g, `client: new host is hero ${cand} (${name}), room ${rc.code}`);
   announce(g, name, false);
 }
@@ -887,7 +887,7 @@ function holdStep(g: Game, s: HostmigState): void {
 // ---------------------------------------------------------------- banner, sound, panel
 
 function announce(g: Game, name: string, me: boolean, solo = false, seconds = 2.6): void {
-  const title = solo ? t('hostmig.solo') : t('hostmig.newHost', { name: name.toUpperCase() });
+  const title = solo ? t('hostmig.solo') : t('hostmig.newHost', { name: String(name ?? '').toUpperCase() });
   const sub = t(solo ? 'hostmig.subSolo' : me ? 'hostmig.subMe' : 'hostmig.subOther');
   g.hud.showBanner(title, sub, seconds);
   try {

@@ -223,6 +223,6 @@ export function electHost(cands: readonly number[], oldHost: number, skip: Reado
 }
 
 /** The run's base invite code (a migrated room "ABCDE-M1H2" -> "ABCDE"). */
-export function baseCode(code: string): string {
-  return code.toUpperCase().replace(/-M\d+H\d+$/, '').replace(/[^A-Z0-9]/g, '').slice(0, 5);
+export function baseCode(code: string | undefined): string {
+  return String(code ?? '').toUpperCase().replace(/-M\d+H\d+$/, '').replace(/[^A-Z0-9]/g, '').slice(0, 5);
 }
