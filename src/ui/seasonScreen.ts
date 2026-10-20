@@ -9,6 +9,7 @@ import {
   seasonMsLeft,
   seasonParts,
   seasonTrack,
+  seasonView,
   themeFor,
   THEME_BY_ID,
   tierOf,
@@ -19,7 +20,7 @@ import {
   type SeasonItem,
   type TierReward,
 } from '../data/season';
-import { equipSeasonItem, isEquipped, seasonClaim } from '../game/systems/season';
+import { equipSeasonItem, isEquipped, seasonClaim, seasonRoll } from '../game/systems/season';
 
 /**
  * EXTRAS > SEASON (seasonpass lane): the month's 50-tier cosmetic track, the
@@ -212,11 +213,12 @@ export class SeasonScreen {
   }
 
   open(focus?: number): void {
+    seasonRoll(this.g);
     this.render();
     this.g.screens.show('season');
     const nav = this.g.screens.nav('season');
     // Focus the first tier to claim, else the next tier to reach.
-    const sp = save.seasonPass;
+    const sp = seasonView(save.seasonPass);
     const reached = tierOf(sp.xp).tier;
     const cells = [...this.el.querySelectorAll<HTMLElement>('[data-nav]')];
     const want = focus ?? cells.findIndex((c) => c.dataset.t === String(Math.min(seasonTuning.tiers, unclaimed(sp) ? sp.claimed + 1 : reached + 1)));
@@ -236,7 +238,7 @@ export class SeasonScreen {
   }
 
   private clickTier(tier: number, b: HTMLElement): void {
-    const sp = save.seasonPass;
+    const sp = seasonView(save.seasonPass);
     if (tier > sp.claimed && tier <= tierOf(sp.xp).tier) return this.claim(tier, b);
     const tr = seasonTrack(sp.season)[tier - 1];
     if (tier <= sp.claimed && tr?.item && sp.owned.includes(tr.item.id)) {
@@ -247,7 +249,7 @@ export class SeasonScreen {
 
   /** Claim tiers up to `upTo` (in order), then pop them and reveal the cosmetics. */
   private claim(upTo: number, from: HTMLElement): void {
-    const sp = save.seasonPass;
+    const sp = seasonView(save.seasonPass);
     const target = Math.min(upTo, tierOf(sp.xp).tier);
     const got: ClaimResult[] = [];
     while (sp.claimed < target) {
@@ -297,7 +299,7 @@ export class SeasonScreen {
   }
 
   private render(): void {
-    const sp = save.seasonPass;
+    const sp = seasonView(save.seasonPass);
     const theme = themeFor(sp.season);
     const tr = tierOf(sp.xp);
     const track = seasonTrack(sp.season);
@@ -358,7 +360,7 @@ export class SeasonScreen {
   private renderDetail(tier: number): void {
     const box = this.el.querySelector<HTMLElement>('.sp-detail');
     if (!box) return;
-    const sp = save.seasonPass;
+    const sp = seasonView(save.seasonPass);
     const r = tier ? seasonTrack(sp.season)[tier - 1] : null;
     if (!r) {
       box.innerHTML = localizeHtml(`<div><small>${t('season.detail.hint_title')}</small><span>${t('season.detail.hint')}</span></div>`);
@@ -406,7 +408,7 @@ export function seasonTitleBanner(onOpen: () => void): void {
     });
     (title.querySelector('.menu-primary') ?? title).appendChild(banner);
   }
-  const sp = save.seasonPass;
+  const sp = seasonView(save.seasonPass);
   const theme = themeFor(sp.season);
   const tr = tierOf(sp.xp);
   const ready = unclaimed(sp);

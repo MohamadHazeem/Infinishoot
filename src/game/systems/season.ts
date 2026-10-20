@@ -245,7 +245,8 @@ export function seasonFrame(g: Game, dt: number): void {
     s.lastScreen = cur;
     if (typeof document !== 'undefined' && (cur === 'title' || cur === 'extras' || cur === 'gameover')) {
       ensureSeasonEmotes();
-      seasonRoll(g);
+      // The title (and its attract demo) only reads: the banner shows a rolled copy, nothing is saved.
+      if (cur !== 'title') seasonRoll(g);
       seasonUi(g);
       if (cur === 'title') seasonTitleBanner(() => seasonUi(g).open());
     }

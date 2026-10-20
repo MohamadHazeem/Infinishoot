@@ -9,7 +9,7 @@ import { equipSeasonItem, seasonUi } from '../game/systems/season';
  * - `sptier=17` sets season XP to that tier (+ a little); `spclaim=12` claims that many tiers first.
  * - `spweek=0.5` sets the weekly challenges to that fraction (1 = all done).
  * - `spown=all` owns every season cosmetic; `spequip=sp_neon_hat,sp_neon_trail` wears them.
- * - `sppast` adds a few finished seasons; `spscroll` scrolls the SEASON screen down; `spclickclaim` presses CLAIM (the reveal); `spscreen=season` opens EXTRAS > SEASON (`screen=title` shows the title banner).
+ * - `sppast` adds a few finished seasons; `spscroll` scrolls the SEASON screen down; `spclickclaim` presses CLAIM (the reveal); `spgo=8` shows the game-over summary after 8 s (with `die=`); `spscreen=season` opens EXTRAS > SEASON (`screen=title` shows the title banner).
  */
 export function seasonLinks(game: Game, q: URLSearchParams): void {
   const m = /^(\d{4})-(\d{2})$/.exec(q.get('spmonth') ?? '');
@@ -35,6 +35,8 @@ export function seasonLinks(game: Game, q: URLSearchParams): void {
   }
   for (const id of (q.get('spequip') ?? '').split(',').filter(Boolean)) equipSeasonItem(game, id);
   if (q.has('sppast')) sp.past = ['2026-09', '2026-08', '2026-07'].map((season, i) => ({ season, theme: themeFor(season).id, tier: [34, 50, 12][i] }));
+  // With &die=0.5: skip past the MVP card to the game-over summary (its SEASON strip).
+  if (q.has('spgo')) setTimeout(() => game.screens.show('gameover'), Number(q.get('spgo')) * 1000 || 8000);
   if (q.get('spscreen') === 'season') {
     // Opened a moment later: the run's opening (sky fall, starting shop) may still switch screens.
     const open = () => {

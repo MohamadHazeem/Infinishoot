@@ -591,6 +591,14 @@ export function rollSeasonPass(sp: SeasonPassSave, now: Date = seasonClock.now()
   return { ended, newWeek };
 }
 
+/** The pass as it would be after a roll, without touching the saved one (title banner). */
+export function seasonView(sp: SeasonPassSave, now: Date = seasonClock.now()): SeasonPassSave {
+  if (sp.season === seasonKey(now) && sp.week === isoWeek(now) && sp.ch.length === 3) return sp;
+  const copy = normalizeSeasonPass(JSON.parse(JSON.stringify(sp)));
+  rollSeasonPass(copy, now);
+  return copy;
+}
+
 /** Fold counters into the week's challenges. Returns the challenges finished and the season XP they pay (not yet added). */
 export function applyChallenges(sp: SeasonPassSave, tally: Record<string, number>): { done: ChallengeDef[]; xp: number } {
   const done: ChallengeDef[] = [];
