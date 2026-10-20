@@ -45,8 +45,8 @@ function setIcon(host: Element, state: IconState): void {
   }
   if (i.dataset.s !== state) {
     i.dataset.s = state;
-    i.innerHTML = ICONS[state];
-    i.title = state === 'talk' ? 'Talking' : state === 'mute' ? 'Muted by you' : 'Voice chat on';
+    i.innerHTML = localizeHtml(ICONS[state]);
+    i.title = localize(state === 'talk' ? 'Talking' : state === 'mute' ? 'Muted by you' : 'Voice chat on');
   }
 }
 
@@ -73,7 +73,7 @@ class VoiceScreen {
   constructor(private g: Game) {
     this.el.id = 'scr-voicechat';
     this.el.className = 'screen dim';
-    this.el.setAttribute('aria-label', 'Voice chat');
+    this.el.setAttribute('aria-label', localize('Voice chat'));
     this.el.innerHTML = localizeHtml(`<h1>${t('voice.title')}</h1>
       <div class="vc-panel">
         <p class="vc-status" aria-live="polite"></p>
@@ -159,24 +159,24 @@ class VoiceScreen {
       opt('test', 'TEST MIC (HEAR YOURSELF)', voice.loopback ? 'ON' : 'OFF');
       opt('mode', 'VOICE MODE', settings.voiceMode === 'ptt' ? 'PUSH TO TALK' : 'OPEN MIC');
       opt('radio', 'TEAM RADIO', settings.teamRadio ? 'ON' : 'OFF');
-      this.list.innerHTML = rows.length
+      this.list.innerHTML = localizeHtml(rows.length
         ? rows
             .map((r) => {
               const n = esc(r.name);
               const vol = Math.round((voice.prefs.vol[r.name] ?? 1) * 100);
               const muted = !!voice.prefs.mute[r.name];
               return `<div class="vc-row ${r.on ? '' : 'novc'}" data-row="${n}"><span class="nm"><bdi>${n}</bdi></span><span class="st">${r.on ? '' : localize('NO VOICE')}</span>
-                <button data-nav data-vc="vol-" data-name="${n}" aria-label="Quieter ${n}">-</button><span class="vol">${vol}%</span><button data-nav data-vc="vol+" data-name="${n}" aria-label="Louder ${n}">+</button>
+                <button data-nav data-vc="vol-" data-name="${n}" aria-label="${esc(t('arabic2.quieter'))}">-</button><span class="vol">${vol}%</span><button data-nav data-vc="vol+" data-name="${n}" aria-label="${esc(t('arabic2.louder'))}">+</button>
                 <button data-nav data-vc="mute" data-name="${n}" class="${muted ? 'on' : ''}">${localize(muted ? 'MUTED' : 'MUTE')}</button></div>`;
             })
             .join('')
-        : `<p class="vc-empty">${t('voice.empty')}</p>`;
+        : `<p class="vc-empty">${t('voice.empty')}</p>`);
       const focus = this.nav.focus;
       this.nav.refresh(focus);
     }
     // Live: status line, meter, threshold, speaking lights on the rows.
     const st = this.statusText();
-    if (this.status.textContent !== st) this.status.textContent = st;
+    if (this.status.textContent !== st) this.status.textContent = localize(st);
     const segs = this.meter.children;
     const lit = Math.round(meterPos(voice.micLevel) * 20);
     const talking = voice.transmitting || voice.loopback;
@@ -218,7 +218,7 @@ class VoiceScreen {
 /** Talk key and pad button as plain text ("N / LS"). */
 function promptText(): string {
   const tmp = document.createElement('span');
-  tmp.innerHTML = promptHtml('talk');
+  tmp.innerHTML = localizeHtml(promptHtml('talk'));
   return tmp.textContent?.trim() || 'N';
 }
 
@@ -305,7 +305,7 @@ export function voiceUiTick(g: Game, dt: number): void {
       if (selfChip.dataset.k !== k) {
         selfChip.dataset.k = k;
         selfChip.className = s;
-        selfChip.innerHTML = `${ICONS[s]}<span>${localize(label)}</span>`;
+        selfChip.innerHTML = localizeHtml(`${ICONS[s]}<span>${localize(label)}</span>`);
       }
     }
   }

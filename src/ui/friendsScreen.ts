@@ -1,3 +1,4 @@
+import { localize, localizeHtml } from '../i18n';
 import type { Game } from '../game/game';
 import { playerName } from '../game/game';
 import { persist, save } from '../game/save';
@@ -28,7 +29,7 @@ export class FriendsUi {
   ) {
     injectCss();
     const t = document.createElement('template');
-    t.innerHTML = `<div id="scr-friends" class="screen dim">
+    t.innerHTML = localizeHtml(`<div id="scr-friends" class="screen dim">
       <h1>FRIENDS</h1>
       <div class="fr-me"></div>
       <div class="menu row"><button data-nav data-act="fr-copy">COPY MY INVITE LINK</button><button data-nav data-act="fr-usecode"></button></div>
@@ -37,10 +38,10 @@ export class FriendsUi {
       <div class="note fr-msg"></div>
       <div class="scroll fr-lists"></div>
       <div class="menu row"><button data-nav data-act="fr-back">BACK</button></div>
-    </div>`;
+    </div>`);
     this.screen = t.content.firstElementChild as HTMLElement;
     game.screens.addScreen('friends', this.screen, { columns: 3, onBack: () => this.close() });
-    root.querySelector('#scr-extras .menu [data-act=history]')?.insertAdjacentHTML('afterend', '<button data-nav data-act="fr-open-x">FRIENDS</button>');
+    root.querySelector('#scr-extras .menu [data-act=history]')?.insertAdjacentHTML('afterend', localizeHtml('<button data-nav data-act="fr-open-x">FRIENDS</button>'));
     for (const inp of this.screen.querySelectorAll('input')) inp.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Enter') this.add();
@@ -71,7 +72,7 @@ export class FriendsUi {
           if (list) {
             save.friends.saved = list;
             persist();
-            this.msg = `${r!.name.toUpperCase()} SAVED.`;
+            this.msg = 'FRIEND SAVED.';
           }
           return this.render();
         }
@@ -121,7 +122,7 @@ export class FriendsUi {
     } else {
       save.friends.saved = addSaved(save.friends.saved, name.value, c)!;
       persist();
-      this.msg = `${(name.value.trim() || c).toUpperCase()} SAVED.`;
+      this.msg = 'FRIEND SAVED.';
       name.value = code.value = '';
       sfx.ui('confirm', 0.5);
     }
@@ -138,23 +139,23 @@ export class FriendsUi {
   render(opening = false): void {
     const s = this.screen;
     const f = save.friends;
-    s.querySelector('.fr-me')!.innerHTML = `<div class="code-label">YOUR FRIEND CODE</div><div class="fr-code-big">${esc(f.code)}</div>`;
-    s.querySelector('[data-act=fr-usecode]')!.textContent = `HOST WITH MY CODE: ${f.useCode ? 'ON' : 'OFF'}`;
-    s.querySelector('.fr-msg')!.textContent = this.msg || (f.useCode ? 'Friends who save your code can join whenever you host.' : 'Hosting picks a new random code each time.');
+    s.querySelector('.fr-me')!.innerHTML = localizeHtml(`<div class="code-label">YOUR FRIEND CODE</div><div class="fr-code-big"><bdi>${esc(f.code)}</bdi></div>`);
+    s.querySelector('[data-act=fr-usecode]')!.textContent = localize(`HOST WITH MY CODE: ${f.useCode ? 'ON' : 'OFF'}`);
+    s.querySelector('.fr-msg')!.textContent = localize(this.msg || (f.useCode ? 'Friends who save your code can join whenever you host.' : 'Hosting picks a new random code each time.'));
     const day = today();
     const saved = f.saved.length
-      ? f.saved.map((x) => `<div class="fr-row"><b>${esc(x.name.toUpperCase())}</b><span>${x.code}</span><button data-nav data-act="fr-join" data-code="${x.code}">JOIN</button><button data-nav data-act="fr-del" data-code="${x.code}">REMOVE</button></div>`).join('')
+      ? f.saved.map((x) => `<div class="fr-row"><b><bdi>${esc(x.name.toUpperCase())}</bdi></b><span><bdi>${x.code}</bdi></span><button data-nav data-act="fr-join" data-code="${x.code}">JOIN</button><button data-nav data-act="fr-del" data-code="${x.code}">REMOVE</button></div>`).join('')
       : '<div class="fr-empty">No saved codes yet. Add one above, or save a recent teammate.</div>';
     const recent = f.recent.length
       ? f.recent
           .map((r, i) => {
             const known = !!r.code && !f.saved.some((x) => x.code === r.code);
-            return `<div class="fr-row"><b>${esc(r.name.toUpperCase())}</b><span>${lastPlayed(r.last, day)}${r.runs > 1 ? ` · ${r.runs} RUNS` : ''}${r.code ? ` · ${r.code}` : ''}</span>${r.code ? `<button data-nav data-act="fr-join" data-code="${r.code}">JOIN</button>` : '<i></i>'}${known ? `<button data-nav data-act="fr-save" data-i="${i}">SAVE</button>` : '<i></i>'}</div>`;
+            return `<div class="fr-row"><b><bdi>${esc(r.name.toUpperCase())}</bdi></b><span>${lastPlayed(r.last, day)}${r.runs > 1 ? ` · ${r.runs} RUNS` : ''}${r.code ? ` · <bdi>${r.code}</bdi>` : ''}</span>${r.code ? `<button data-nav data-act="fr-join" data-code="${r.code}">JOIN</button>` : '<i></i>'}${known ? `<button data-nav data-act="fr-save" data-i="${i}">SAVE</button>` : '<i></i>'}</div>`;
           })
           .join('')
       : '<div class="fr-empty">Play online and your teammates show up here.</div>';
     const focus = this.focusIndex();
-    s.querySelector('.fr-lists')!.innerHTML = `<div class="section">SAVED</div>${saved}<div class="section">RECENT PLAYERS</div>${recent}`;
+    s.querySelector('.fr-lists')!.innerHTML = localizeHtml(`<div class="section">SAVED</div>${saved}<div class="section">RECENT PLAYERS</div>${recent}`);
     if (!opening && this.game.screens.current === 'friends') this.game.screens.show('friends', focus);
   }
 

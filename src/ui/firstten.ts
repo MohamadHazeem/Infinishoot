@@ -1,3 +1,4 @@
+import { localizeHtml } from '../i18n';
 import { GOALS, FIRST_TEN_REWARD, type FirstTenSave, type NextTry } from '../game/firstten';
 import { SKINS } from '../data/skins';
 import type { Screens } from './screens';
@@ -29,26 +30,26 @@ export class FirstTenUi {
     injectCss();
     const q = <T extends HTMLElement>(s: string) => root.querySelector<T>(s);
     const title = q('#scr-title')!;
-    title.insertAdjacentHTML('beforeend', `<div class="ft-list px" hidden></div>`);
+    title.insertAdjacentHTML('beforeend', localizeHtml(`<div class="ft-list px" hidden></div>`));
     this.list = title.querySelector<HTMLElement>('.ft-list')!;
 
     const modes = q('#scr-modes')!;
     modes.querySelector('h1')!.insertAdjacentHTML(
       'afterend',
-      `<div class="ft-quick px" hidden><span><b>FIRST TIME?</b> ROOKIE · STANDARD · MEDIUM are picked for you.</span><button data-nav data-act="ft-quick" class="continue">QUICK START &#9654;</button></div>`,
+      localizeHtml(`<div class="ft-quick px" hidden><span><b>FIRST TIME?</b> ROOKIE · STANDARD · MEDIUM are picked for you.</span><button data-nav data-act="ft-quick" class="continue">QUICK START &#9654;</button></div>`),
     );
     this.quick = modes.querySelector<HTMLElement>('.ft-quick')!;
 
     const lv = q('#scr-levelup')!;
-    lv.querySelector('h1')!.insertAdjacentHTML('afterend', `<div class="ft-help px" hidden></div>`);
+    lv.querySelector('h1')!.insertAdjacentHTML('afterend', localizeHtml(`<div class="ft-help px" hidden></div>`));
     this.lvHelp = lv.querySelector<HTMLElement>('.ft-help')!;
 
     const shop = q('#scr-shop')!;
-    shop.querySelector('.shop-top')!.insertAdjacentHTML('afterend', `<div class="ft-help px" hidden></div>`);
+    shop.querySelector('.shop-top')!.insertAdjacentHTML('afterend', localizeHtml(`<div class="ft-help px" hidden></div>`));
     this.shopHelp = shop.querySelector<HTMLElement>('.ft-help')!;
 
     const go = q('#scr-gameover')!;
-    go.querySelector('.newbest')!.insertAdjacentHTML('afterend', `<div class="ft-next px" hidden></div>`);
+    go.querySelector('.newbest')!.insertAdjacentHTML('afterend', localizeHtml(`<div class="ft-next px" hidden></div>`));
     this.next = go.querySelector<HTMLElement>('.ft-next')!;
     // Quick retry: RETRY / TITLE sit right under the K.O. (they used to fall below the fold at 720p).
     const row = go.querySelector<HTMLElement>(':scope > .menu.row');
@@ -72,7 +73,7 @@ export class FirstTenUi {
     const n = GOALS.filter((g) => s.done.includes(g.id)).length;
     if (complete) {
       this.list.className = 'ft-list px done';
-      this.list.innerHTML = `<b class="ft-h">ALL DONE!</b><p>You finished FIRST STEPS. The <em>${FIRST_TEN_REWARD.name.toUpperCase()}</em> armour is yours: wear it in EXTRAS &gt; WARDROBE.</p><span class="ft-sw big">${sw}</span><button data-nav data-act="ft-claim" class="continue">AWESOME!</button>`;
+      this.list.innerHTML = localizeHtml(`<b class="ft-h">ALL DONE!</b><p>You finished FIRST STEPS. The <em>${FIRST_TEN_REWARD.name.toUpperCase()}</em> armour is yours: wear it in EXTRAS &gt; WARDROBE.</p><span class="ft-sw big">${sw}</span><button data-nav data-act="ft-claim" class="continue">AWESOME!</button>`);
       return;
     }
     this.list.className = 'ft-list px';
@@ -80,11 +81,11 @@ export class FirstTenUi {
       const on = s.done.includes(g.id);
       return `<li class="${on ? 'on' : ''}" title="${g.hint}"><i class="ft-box"></i><span>${g.label}</span>${on ? '' : `<small>${g.hint}</small>`}</li>`;
     }).join('');
-    this.list.innerHTML = `<div class="ft-top"><b class="ft-h">FIRST STEPS</b><span class="ft-n">${n}/${GOALS.length}</span></div>
+    this.list.innerHTML = localizeHtml(`<div class="ft-top"><b class="ft-h">FIRST STEPS</b><span class="ft-n">${n}/${GOALS.length}</span></div>
       <div class="ft-seg">${GOALS.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>
       <ul>${rows}</ul>
       <div class="ft-reward"><span class="ft-sw">${sw}</span><span>REWARD: ${FIRST_TEN_REWARD.name.toUpperCase()} ARMOUR</span></div>
-      <button data-nav data-act="ft-hide" class="ft-hide">HIDE</button>`;
+      <button data-nav data-act="ft-hide" class="ft-hide">HIDE</button>`);
   }
 
   setQuickStart(on: boolean): void {
@@ -97,7 +98,7 @@ export class FirstTenUi {
     this.root.querySelector('#scr-levelup')!.classList.toggle('ft-first', on);
     if (!on) return;
     const chip = (cls: string, t: string) => `<i class="ft-chip ${cls}">${t}</i>`;
-    this.lvHelp.innerHTML = `<b>PICK 1 CARD.</b> It's yours for the whole run. The ribbon says what it powers up: ${chip('left', 'LEFT CLICK')}${chip('right', 'RIGHT CLICK')}${chip('special', 'SPECIAL')}${chip('auto', 'AUTO WEAPON')}${chip('item', 'ITEM')} <small>NEW = something new · UPGRADE = level up what you have</small>`;
+    this.lvHelp.innerHTML = localizeHtml(`<b>PICK 1 CARD.</b> It's yours for the whole run. The ribbon says what it powers up: ${chip('left', 'LEFT CLICK')}${chip('right', 'RIGHT CLICK')}${chip('special', 'SPECIAL')}${chip('auto', 'AUTO WEAPON')}${chip('item', 'ITEM')} <small>NEW = something new · UPGRADE = level up what you have</small>`);
   }
 
   /** First shop: free gold (starting shop) or the real thing; marks the GOOD FIRST PICK offer. */
@@ -108,19 +109,19 @@ export class FirstTenUi {
     for (const b of shop.querySelectorAll('.ft-pick')) b.remove();
     if (!kind) return;
     this.shopHelp.innerHTML =
-      kind === 'pre'
+      localizeHtml(kind === 'pre'
         ? `<b>FREE GOLD!</b> Buy a Mod or two: Mods change how ALL your damage works. Gold left here isn't kept. Then <b>CONTINUE &#9654;</b>`
-        : `<b>STAGE CLEAR!</b> Spend gold on Mods, or keep some: every 5 gold you hold pays 1 interest at the next clear.`;
+        : `<b>STAGE CLEAR!</b> Spend gold on Mods, or keep some: every 5 gold you hold pays 1 interest at the next clear.`);
     if (pick < 0) return;
     const card = shop.querySelectorAll('.shop-offers > *')[pick];
-    card?.insertAdjacentHTML('afterbegin', `<i class="ft-pick">GOOD FIRST PICK</i>`);
+    card?.insertAdjacentHTML('afterbegin', localizeHtml(`<i class="ft-pick">GOOD FIRST PICK</i>`));
   }
 
   /** Game over: the encouraging line and one next-try suggestion (null hides it). */
   setNextTry(t: NextTry | null, steps: string): void {
     this.next.hidden = !t;
     if (!t) return;
-    this.next.innerHTML = `<b class="ft-cheer">${t.cheer}</b><div class="ft-tip"><i>NEXT TRY</i><span>${t.tip}</span></div>${steps ? `<small>${steps}</small>` : ''}`;
+    this.next.innerHTML = localizeHtml(`<b class="ft-cheer">${t.cheer}</b><div class="ft-tip"><i>NEXT TRY</i><span>${t.tip}</span></div>${steps ? `<small>${steps}</small>` : ''}`);
   }
 }
 

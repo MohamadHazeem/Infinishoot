@@ -59,12 +59,12 @@ export class RaceUi {
     private game: Game,
   ) {
     injectCss();
-    root.insertAdjacentHTML('beforeend', '<div id="race-hud" class="px" hidden><div class="rc-top"></div><div class="rc-rows"></div></div>');
+    root.insertAdjacentHTML('beforeend', localizeHtml('<div id="race-hud" class="px" hidden><div class="rc-top"></div><div class="rc-rows"></div></div>'));
     this.hud = root.querySelector<HTMLElement>('#race-hud')!;
 
     const make = (html: string) => {
       const t = document.createElement('template');
-      t.innerHTML = html;
+      t.innerHTML = localizeHtml(html);
       return t.content.firstElementChild as HTMLElement;
     };
     this.results = make(`<div id="scr-raceres" class="screen dim">
@@ -95,7 +95,7 @@ export class RaceUi {
     this.bracketNav = new MenuNav(this.bracket, { columns: 4, onBack: () => this.openCompete('tourney') });
     game.screens.addScreen('tourney', this.bracket, this.bracketNav);
 
-    root.querySelector('#scr-extras .menu [data-act=history]')?.insertAdjacentHTML('beforebegin', '<button data-nav data-act="cp-open">COMPETE</button>');
+    root.querySelector('#scr-extras .menu [data-act=history]')?.insertAdjacentHTML('beforebegin', localizeHtml('<button data-nav data-act="cp-open">COMPETE</button>'));
 
     for (const el of [this.compete, this.bracket])
       el.addEventListener('keydown', (e) => {
@@ -162,7 +162,7 @@ export class RaceUi {
           const w = b.dataset.side === 'b' ? nm.m.b : nm.m.a;
           recordWin(t, nm.round, nm.match, w);
           storeTourney(game);
-          this.tmsg = `${t.names[w].toUpperCase()} WINS THE MATCH.`;
+          this.tmsg = `<bdi>${esc(t.names[w].toUpperCase())}</bdi> WINS THE MATCH.`;
           sfx.ui('confirm', 0.5);
           return this.renderTourney();
         }
@@ -226,7 +226,7 @@ export class RaceUi {
     if (key === this.hudKey) return;
     this.hudKey = key;
     this.hud.querySelector('.rc-top')!.innerHTML = localizeHtml(top);
-    this.hud.querySelector('.rc-rows')!.innerHTML = rows;
+    this.hud.querySelector('.rc-rows')!.innerHTML = localizeHtml(rows);
   }
 
   // ---------------------------------------------------------------- results
@@ -239,19 +239,19 @@ export class RaceUi {
     const list = R.final ?? standings(R.rows);
     this.results.querySelector('h1')!.textContent = localize(waiting ? 'WAITING FOR THE RACE' : 'RACE RESULTS');
     const winner = list[0];
-    this.results.querySelector('.rr-sub')!.textContent = localize(
-      waiting ? `${fmtClock(Math.max(0, R.limit - R.clock))} LEFT · THE OTHERS ARE STILL RACING` : winner?.row.s === 'done' ? `${winner.row.n.toUpperCase()} BEAT THE BOSS FIRST` : 'TIME! FURTHEST RACER WINS',
+    this.results.querySelector('.rr-sub')!.innerHTML = localizeHtml(
+      waiting ? `${fmtClock(Math.max(0, R.limit - R.clock))} LEFT · THE OTHERS ARE STILL RACING` : winner?.row.s === 'done' ? `<bdi>${esc(winner.row.n.toUpperCase())}</bdi> BEAT THE BOSS FIRST` : 'TIME! FURTHEST RACER WINS',
     );
-    this.results.querySelector('.rr-list')!.innerHTML = list
+    this.results.querySelector('.rr-list')!.innerHTML = localizeHtml(list
       .map(({ row, place }, i) => {
         const me = row === R.rows[R.you];
         return `<div class="rr-row px ${me ? 'me' : ''} ${!waiting && i === 0 ? 'win' : ''}" style="--c:${row.c}"><span class="pl">${place}</span><span class="nm"><bdi>${esc(row.n)}</bdi>${me ? ' <small>YOU</small>' : ''}</span>${row.r >= 0 ? rankBadge(row.r, false) : '<span></span>'}<span class="lb">${localize(rowLabel(row))}</span><span class="lv">LV ${row.lv}</span></div>`;
       })
-      .join('');
+      .join(''));
     const rt = R.rating;
-    this.results.querySelector('.rr-rating')!.innerHTML = rt
+    this.results.querySelector('.rr-rating')!.innerHTML = localizeHtml(rt
       ? `${rankBadge(rt.after)} <span class="${rt.delta >= 0 ? 'up' : 'down'}">${rt.delta >= 0 ? '+' : ''}${rt.delta}</span>${rt.tierUp ? ' <b class="up">RANK UP!</b>' : rt.tierDown ? ' <b class="down">RANK DOWN</b>' : ''}`
-      : '';
+      : '');
     this.results.querySelector<HTMLElement>('[data-act=rr-title]')!.textContent = localize(waiting ? 'LEAVE RACE' : 'BACK TO TITLE');
     if (g.screens.current !== 'raceres') g.screens.show('raceres', 0);
   }
@@ -272,13 +272,13 @@ export class RaceUi {
     if (!st || !go || !row) return;
     let b = row.querySelector<HTMLElement>('[data-act=go-chal]');
     if (!b) {
-      row.insertAdjacentHTML('beforeend', '<button data-nav data-act="go-chal">CHALLENGE A FRIEND</button>');
+      row.insertAdjacentHTML('beforeend', localizeHtml('<button data-nav data-act="go-chal">CHALLENGE A FRIEND</button>'));
       b = row.querySelector<HTMLElement>('[data-act=go-chal]')!;
     }
     b.hidden = !st.lastCode;
     let line = go.querySelector<HTMLElement>('.go-chal-line');
     if (!line) {
-      row.insertAdjacentHTML('afterend', '<div class="note go-chal-line"></div>');
+      row.insertAdjacentHTML('afterend', localizeHtml('<div class="note go-chal-line"></div>'));
       line = go.querySelector<HTMLElement>('.go-chal-line')!;
     }
     const c = st.lastChal;
@@ -286,28 +286,28 @@ export class RaceUi {
     let text = '';
     if (c) {
       const beat = mine > c.score;
-      text = beat ? `YOU BEAT ${c.name.toUpperCase()} BY ${(mine - c.score).toLocaleString('en-US')}! SEND THEM YOUR CODE.` : `${c.name.toUpperCase()} STAYS AHEAD BY ${(c.score - mine).toLocaleString('en-US')}. RETRY THE SAME SETUP FROM EXTRAS > COMPETE.`;
+      text = beat ? `YOU BEAT <bdi>${esc(c.name.toUpperCase())}</bdi> BY ${(mine - c.score).toLocaleString('en-US')}! SEND THEM YOUR CODE.` : `<bdi>${esc(c.name.toUpperCase())}</bdi> STAYS AHEAD BY ${(c.score - mine).toLocaleString('en-US')}. RETRY THE SAME SETUP FROM EXTRAS > COMPETE.`;
       line.className = `note go-chal-line ${beat ? 'win' : 'lose'}`;
       if (beat) {
         raceSay('vo_victory', 'Victory!');
         raceSting('victory_fanfare');
       }
     } else if (st.lastHeat) text = 'HEAT RUNS CAN\'T MAKE CHALLENGE CODES.';
-    line.textContent = localize(text);
+    line.innerHTML = localizeHtml(text);
     line.hidden = !text;
   }
 
   private async copy(code: string, where: 'compete' | 'gameover'): Promise<void> {
     if (!code) return;
     const ok = await copyText(code);
-    const text = ok ? `CHALLENGE CODE COPIED: ${code}` : `COPY FAILED. YOUR CODE: ${code}`;
+    const text = ok ? `CHALLENGE CODE COPIED: <bdi>${esc(code)}</bdi>` : `COPY FAILED. YOUR CODE: <bdi>${esc(code)}</bdi>`;
     if (ok) sfx.ui('confirm', 0.5);
     if (where === 'gameover') {
       const line = this.root.querySelector<HTMLElement>('#scr-gameover .go-chal-line');
       if (line) {
         line.hidden = false;
         line.className = 'note go-chal-line code';
-        line.textContent = localize(text);
+        line.innerHTML = localizeHtml(text);
       }
     } else {
       this.msg = text;
@@ -354,7 +354,7 @@ export class RaceUi {
           <div class="kit">${esc(modeName(p.mode))} · ${esc(diffName(p.difficulty))} · ${esc(heroName(p.hero))}</div>
           <div class="kit">${esc(itemName(p.loadout.primary))} / ${esc(itemName(p.loadout.secondary))} / ${esc(itemName(p.loadout.special))}</div>
           <div class="menu row"><button data-nav data-act="cp-play" class="continue">ACCEPT CHALLENGE</button></div></div>` : ''}
-        ${last ? `<div class="section">YOUR LAST CODE</div><div class="cp-last"><code>${esc(last)}</code><button data-nav data-act="cp-copylast">COPY</button></div>` : ''}`);
+        ${last ? `<div class="section">YOUR LAST CODE</div><div class="cp-last"><code><bdi>${esc(last)}</bdi></code><button data-nav data-act="cp-copylast">COPY</button></div>` : ''}`);
       const inp = body.querySelector<HTMLInputElement>('.cp-code');
       if (inp) inp.value = keep;
     } else if (this.tab === 'ranked') {
@@ -371,7 +371,7 @@ export class RaceUi {
           <div class="rk-big">${rankBadge(r.rating, false)}</div>
           <div class="rk-info"><div class="rk-name">${t.name.toUpperCase()} <b>${r.rating}</b></div>
             <div class="rk-bar"><i style="width:${pct}%"></i></div>
-            <div class="rk-sub">${nx.next ? `${nx.need} TO ${nx.next.name.toUpperCase()}` : 'TOP TIER'} · SEASON ${seasonName(r.season).toUpperCase()} · ${r.games} GAMES · ${r.wins} WINS · PEAK ${r.peak}</div></div>
+            <div class="rk-sub">${nx.next ? `${nx.need} POINTS TO ${nx.next.name.toUpperCase()}` : 'TOP TIER'} · SEASON ${seasonName(r.season).toUpperCase()} · ${r.games} GAMES · ${r.wins} WINS · PEAK ${r.peak}</div></div>
         </div>
         <p class="note">Online RACE and PVP results move your rating (Elo: beating stronger players moves it more; your first 10 games of a season count extra). Each month is a new season: your rating moves halfway back to 1000.</p>
         <div class="rk-tiers">${RANK_TIERS.map((x) => `<span class="${x.id === t.id ? 'on' : ''}">${rankBadge(Math.max(x.min, 1), false)}<small>${x.name.toUpperCase()} ${x.min || ''}${x.min ? '+' : ''}</small></span>`).join('')}</div>
@@ -386,7 +386,7 @@ export class RaceUi {
         <div class="cp-card px">${t ? (t.champion >= 0 ? `CHAMPION: <b><bdi>${esc(t.names[t.champion].toUpperCase())}</bdi></b>` : nm ? `${roundName(t, nm.round)}: <b><bdi>${esc(t.names[nm.m.a].toUpperCase())}</bdi></b> VS <b><bdi>${esc(t.names[nm.m.b].toUpperCase())}</bdi></b>` : 'IN PROGRESS') : 'NO TOURNAMENT RUNNING'}
           <div class="menu row"><button data-nav data-act="tn-open" class="continue">${t ? 'OPEN BRACKET' : 'NEW TOURNAMENT'}</button></div></div>`);
     }
-    el.querySelector('.cp-msg')!.textContent = localize(this.msg);
+    el.querySelector('.cp-msg')!.innerHTML = localizeHtml(this.msg);
     if (this.game.screens.current === 'compete') this.competeNav.refresh(Math.min(this.competeNav.focus, 99));
   }
 
@@ -415,9 +415,9 @@ export class RaceUi {
     const t = this.tourney;
     if (after && t) {
       const r = after.turn.r;
-      this.tmsg = `${after.turn.name.toUpperCase()}: ${r.p >= 2 ? `BOSS DOWN IN ${fmtClock(r.t)}` : rowLabel({ n: '', c: '', p: r.p, s: 'run', t: r.t, b: -1, lv: 1, r: -1 })} · ${r.score.toLocaleString('en-US')} POINTS.`;
+      this.tmsg = `<bdi>${esc(after.turn.name.toUpperCase())}</bdi>: ${r.p >= 2 ? `BOSS DOWN IN ${fmtClock(r.t)}` : rowLabel({ n: '', c: '', p: r.p, s: 'run', t: r.t, b: -1, lv: 1, r: -1 })} · ${r.score.toLocaleString('en-US')} POINTS.`;
       if (after.won !== null && after.won >= 0) {
-        this.tmsg += ` ${t.names[after.won].toUpperCase()} WINS THE MATCH!`;
+        this.tmsg += ` <bdi>${esc(t.names[after.won].toUpperCase())}</bdi> WINS THE MATCH!`;
         if (t.champion < 0) raceSting('victory_fanfare');
       }
     }
@@ -464,7 +464,7 @@ export class RaceUi {
             .map((m, i) => {
               const cur = nm && nm.round === r && nm.match === i;
               const slot = (p: number, res?: TurnResult) => {
-                const name = p >= 0 ? esc(t.names[p]) : p === -1 ? 'BYE' : '...';
+                const name = p >= 0 ? esc(t.names[p]) : p === -1 ? localize('BYE') : '...';
                 const cls = p < 0 ? 'tbd' : m.w === p ? 'won' : m.w >= 0 ? 'lost' : '';
                 const tag = res ? `<small>${res.p >= 2 ? fmtClock(res.t) : `${Math.round(Math.min(res.p, 2) * 50)}%`}</small>` : '';
                 return `<div class="tn-slot ${cls}"><bdi>${name}</bdi>${tag}</div>`;
@@ -478,17 +478,17 @@ export class RaceUi {
       const champ = t.champion >= 0 ? `<div class="tn-col tn-champ"><div class="tn-round">CHAMPION</div><div class="tn-trophy px"><i></i><b><bdi>${esc(t.names[t.champion].toUpperCase())}</bdi></b></div></div>` : '';
       let status = '';
       let acts = '';
-      if (t.champion >= 0) status = `${t.names[t.champion].toUpperCase()} WINS THE TOURNAMENT!`;
+      if (t.champion >= 0) status = `<bdi>${esc(t.names[t.champion].toUpperCase())}</bdi> WINS THE TOURNAMENT!`;
       else if (nm) {
         const a = t.names[nm.m.a];
         const b = t.names[nm.m.b];
-        status = `${roundName(t, nm.round)}: ${a.toUpperCase()} VS ${b.toUpperCase()}`;
+        status = `${roundName(t, nm.round)}: <bdi>${esc(a.toUpperCase())}</bdi> VS <bdi>${esc(b.toUpperCase())}</bdi>`;
         if (t.kind === 'race') {
           const side = nm.m.ra ? 'b' : 'a';
-          acts = `<button data-nav data-act="tn-play" data-side="${side}" class="continue">PLAY: ${esc((side === 'a' ? a : b).toUpperCase())}'S TURN</button>`;
-        } else acts = `<button data-nav data-act="tn-win" data-side="a">${esc(a.toUpperCase())} WON</button><button data-nav data-act="tn-win" data-side="b">${esc(b.toUpperCase())} WON</button>`;
+          acts = `<button data-nav data-act="tn-play" data-side="${side}" class="continue">PLAY: <bdi>${esc((side === 'a' ? a : b).toUpperCase())}</bdi>'S TURN</button>`;
+        } else acts = `<button data-nav data-act="tn-win" data-side="a"><bdi>${esc(a.toUpperCase())}</bdi> WON</button><button data-nav data-act="tn-win" data-side="b"><bdi>${esc(b.toUpperCase())}</bdi> WON</button>`;
       }
-      body.innerHTML = localizeHtml(`<div class="tn-status">${esc(status)}</div><div class="tn-grid">${cols}${champ}</div>`);
+      body.innerHTML = localizeHtml(`<div class="tn-status">${status}</div><div class="tn-grid">${cols}${champ}</div>`);
       foot.innerHTML = localizeHtml(`${acts}<button data-nav data-act="tn-reset">NEW TOURNAMENT</button><button data-nav data-act="tn-back">BACK</button>`);
       if (t.champion >= 0 && this.championShown !== t.champion + t.seed) {
         this.championShown = t.champion + t.seed;
@@ -496,7 +496,7 @@ export class RaceUi {
         window.setTimeout(() => raceSay('vo_victory', 'Victory!'), 900);
       }
     }
-    el.querySelector('.tn-msg')!.textContent = localize(this.tmsg);
+    el.querySelector('.tn-msg')!.innerHTML = localizeHtml(this.tmsg);
     if (this.game.screens.current === 'tourney') this.bracketNav.refresh(Math.min(this.bracketNav.focus, 99));
   }
 
@@ -516,7 +516,7 @@ export class RaceUi {
       had?.remove();
       if (!want) return;
       const top = card.querySelector('.lob-top') ?? card;
-      top.insertAdjacentHTML('beforeend', rankBadge(r, false).replace('<span class="rk-badge', `<span data-r="${want}" class="rk-badge`));
+      top.insertAdjacentHTML('beforeend', localizeHtml(rankBadge(r, false).replace('<span class="rk-badge', `<span data-r="${want}" class="rk-badge`)));
     });
   }
 }

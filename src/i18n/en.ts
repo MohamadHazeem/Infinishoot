@@ -1,3 +1,4 @@
+import { arabic2En } from './arabic2';
 import { architectEn } from '../game/architect/strings';
 import { elites2En } from './elites2';
 import { integ2En } from './integ2';
@@ -3624,4 +3625,9 @@ export const en = {
   "langs.shopHelp": "Spend gold on Mods, or keep some: every 5 gold you hold pays 1 interest at the next clear.",
   "langs.freeShopHelp": "Buy a Mod or two: Mods change how ALL your damage works. Gold left here isn't kept. Then",
   "langs.goodPick": "GOOD FIRST PICK",
+  "arabic2.quieter": "Lower player volume",
+  "arabic2.louder": "Raise player volume",
+  // arabic2: complete display-boundary copy (stable keys).
+  ...arabic2En,
+
 } as const;

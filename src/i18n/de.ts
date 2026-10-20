@@ -1,7 +1,10 @@
+import { arabic2En } from './arabic2';
 import type { en } from './en';
 
 /** de glossary: Run = run; Abschnitt = stage; Level = level; Sprint = dash; Parade = parry; ultimative Fähigkeit = ultimate; Zahnrad = gear; Mod, Buster und Overdrive bleiben Eigennamen. */
 export const de = {
+  // Explicit English fallback for new copy; native editorial work is pending.
+  ...arabic2En,
   "architect.dataName": "Der Architekt",
   "architect.coreName": "Architektenkern",
   "architect.coreHint": "Zerstöre die drei leuchtenden Kerne nacheinander.",

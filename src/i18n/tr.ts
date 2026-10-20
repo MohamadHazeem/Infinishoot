@@ -1,7 +1,10 @@
+import { arabic2En } from './arabic2';
 import type { en } from './en';
 
 /** tr glossary: koşu = run; bölüm = stage; seviye = level; atılma = dash; savuşturma = parry; ulti = ultimate; dişli = gear; Mod, Buster ve Overdrive ekipman adlarıdır. */
 export const tr = {
+  // Explicit English fallback for new copy; native editorial work is pending.
+  ...arabic2En,
   "architect.dataName": "Mimar",
   "architect.coreName": "Mimarın Çekirdeği",
   "architect.coreHint": "Parlayan üç çekirdeği sırayla parçala.",

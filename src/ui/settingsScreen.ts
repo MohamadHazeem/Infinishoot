@@ -3,7 +3,7 @@ import { settings, SETTINGS_DEFAULTS, saveSettings, type Settings } from '../gam
 import { MenuNav } from './menu';
 import type { Screens } from './screens';
 import { promptHtml, promptState } from './prompts';
-import { t, localize, LANGUAGES, onLanguageChange } from '../i18n';
+import { t, localize, LANGUAGES, onLanguageChange, localizeHtml } from '../i18n';
 
 export const SETTINGS_TABS = ['VIDEO', 'AUDIO', 'CONTROLS', 'GAMEPLAY', 'ACCESSIBILITY', 'CO-OP'] as const;
 export type SettingsTab = typeof SETTINGS_TABS[number];
@@ -21,9 +21,9 @@ row('VIDEO', 'frameCap', 'FRAME CAP', 'Presentation limit: 30, 60, 120 or unlimi
 row('VIDEO', 'vsync', 'VSYNC', 'Desktop: synchronize presentation with the display. Restart the app to apply. Browsers always control synchronization.');
 row('VIDEO', 'graphics', 'QUALITY', 'AUTO adjusts visual detail to keep the game running smoothly. POTATO is the lightest, for very old PCs.', [0, 4, 1], undefined, ['LOW', 'MEDIUM', 'HIGH', 'AUTO', 'POTATO']);
 row('VIDEO', 'highlightClips', 'HIGHLIGHT CLIPS', 'Keeps the last 15 seconds of silent gameplay for WebM export. Off on LOW/POTATO. Saves last until the next run.');
-row('VIDEO', 'batterySaver', t('mobile.battery'), t('mobile.batteryDesc'));
-row('CONTROLS', 'touchOpacity', t('mobile.opacity'), t('mobile.opacityDesc'), [25, 100, 5]);
-row('CONTROLS', 'touchAutoHide', t('mobile.autoHide'), t('mobile.autoHideDesc'));
+rows.push({ tab: 'VIDEO', key: 'batterySaver', get label() { return t('mobile.battery'); }, get desc() { return t('mobile.batteryDesc'); } });
+rows.push({ tab: 'CONTROLS', key: 'touchOpacity', get label() { return t('mobile.opacity'); }, get desc() { return t('mobile.opacityDesc'); }, range: [25, 100, 5] });
+rows.push({ tab: 'CONTROLS', key: 'touchAutoHide', get label() { return t('mobile.autoHide'); }, get desc() { return t('mobile.autoHideDesc'); } });
 row('VIDEO', 'dynamicShadows', 'DYNAMIC SHADOWS', 'Real sun shadows for heroes, bosses and large props. HIGH quality only.');
 row('VIDEO', 'retro', 'RETRO LOOK', 'Pixel-era colour depth, dithering and vertex wobble.', [0, 1, 0.1]);
 row('VIDEO', 'glow', 'GLOW', 'Brightness of the soft glow around lights and effects.', [0, 1, 0.1]);
@@ -116,18 +116,18 @@ export class SettingsScreen {
     injectSettingsCss();
     this.el.id = 'scr-settings';
     this.el.className = 'screen dim';
-    this.el.setAttribute('aria-label', 'Settings');
-    this.el.innerHTML = `<h1>SETTINGS</h1><div class="settings-shell"><div class="settings-tabs" role="tablist" aria-label="Settings categories">${SETTINGS_TABS.map((tab, i) => `<button data-nav data-tab="${i}" role="tab" id="settings-tab-${i}" aria-controls="settings-panel-${i}">${tab}</button>`).join('')}</div>${SETTINGS_TABS.map((_, i) => `<div id="settings-panel-${i}" class="menu settings" role="tabpanel" aria-labelledby="settings-tab-${i}"></div>`).join('')}<p id="settings-description" class="settings-description" aria-live="polite"></p><div class="settings-footer"><button data-nav data-reset>RESET TAB</button><button data-nav data-settings-back>BACK</button></div><p class="settings-hint"></p></div>`;
+    this.el.setAttribute('aria-label', localize('Settings'));
+    this.el.innerHTML = localizeHtml(`<h1>SETTINGS</h1><div class="settings-shell"><div class="settings-tabs" role="tablist" aria-label="Settings categories">${SETTINGS_TABS.map((tab, i) => `<button data-nav data-tab="${i}" role="tab" id="settings-tab-${i}" aria-controls="settings-panel-${i}">${tab}</button>`).join('')}</div>${SETTINGS_TABS.map((_, i) => `<div id="settings-panel-${i}" class="menu settings" role="tabpanel" aria-labelledby="settings-tab-${i}"></div>`).join('')}<p id="settings-description" class="settings-description" aria-live="polite"></p><div class="settings-footer"><button data-nav data-reset>RESET TAB</button><button data-nav data-settings-back>BACK</button></div><p class="settings-hint"></p></div>`);
     this.panels = Array.from(this.el.querySelectorAll<HTMLElement>('[role=tabpanel]'));
     this.panel = this.panels[0];
     this.panels.forEach((panel, i) => {
-      panel.innerHTML = SETTINGS_ROWS.filter((r) => r.tab === SETTINGS_TABS[i]).map((r) => r.range
+      panel.innerHTML = localizeHtml(SETTINGS_ROWS.filter((r) => r.tab === SETTINGS_TABS[i]).map((r) => r.range
         ? `<label><span>${r.label} <b data-value="${r.key}"></b></span><input data-setting="${r.key}" aria-label="${r.label}" aria-describedby="settings-description" type="range" min="${r.range[0]}" max="${r.range[1]}" step="${r.range[2]}"></label>`
         : `<button data-setting="${r.key}" ${r.key === 'tips' ? 'data-act="ob-tips"' : ''} aria-describedby="settings-description">${r.label} <b data-value="${r.key}"></b></button>`).join('')
         + (SETTINGS_TABS[i] === 'CONTROLS' ? `<button data-touch-layout>${t('mobile.layout')}</button><button data-rebind aria-label="Rebind keyboard controls">REBIND KEYS…</button>` : '')
-        + (SETTINGS_TABS[i] === 'GAMEPLAY' ? '<button data-act="ob-tips-reset" aria-label="Reset first-time tips">RESET TIPS</button>' : '');
+        + (SETTINGS_TABS[i] === 'GAMEPLAY' ? '<button data-act="ob-tips-reset" aria-label="Reset first-time tips">RESET TIPS</button>' : ''));
     });
-    this.el.querySelector('[data-setting=gameSpeed]')!.insertAdjacentHTML('beforebegin', `<h2 class="casual-assists-heading">${t('casual.heading')}</h2><p class="casual-assists-note">${t('casual.note')}</p>`);
+    this.el.querySelector('[data-setting=gameSpeed]')!.insertAdjacentHTML('beforebegin', localizeHtml(`<h2 class="casual-assists-heading">${t('casual.heading')}</h2><p class="casual-assists-note">${t('casual.note')}</p>`));
     const touchLayoutButton = this.el.querySelector('[data-touch-layout]')!;
     touchLayoutButton.parentElement!.prepend(touchLayoutButton);
     this.description = this.el.querySelector('.settings-description')!;
@@ -135,7 +135,7 @@ export class SettingsScreen {
     this.nav = new MenuNav(this.el, { onBack: back });
     screens.addScreen('settings', this.el, this.nav);
     this.el.querySelector('[data-settings-back]')!.addEventListener('click', back);
-    this.el.querySelector('[data-reset]')!.addEventListener('click', () => { resetSettingsTab(SETTINGS_TABS[this.tabIndex]); saveSettings(); this.sync(); this.description.textContent = `${SETTINGS_TABS[this.tabIndex]} defaults restored.`; });
+    this.el.querySelector('[data-reset]')!.addEventListener('click', () => { resetSettingsTab(SETTINGS_TABS[this.tabIndex]); saveSettings(); this.sync(); this.description.textContent = localize(`${SETTINGS_TABS[this.tabIndex]} defaults restored.`); });
     this.el.querySelectorAll<HTMLElement>('[data-tab]').forEach((b) => b.addEventListener('click', () => this.selectTab(Number(b.dataset.tab))));
     this.el.addEventListener('focusin', (e) => this.describe(e.target as HTMLElement));
     this.el.addEventListener('keydown', (e) => {
@@ -183,7 +183,7 @@ export class SettingsScreen {
     });
     this.panel = this.panels[this.tabIndex];
     this.panel.scrollTop = 0;
-    this.description.textContent = `${localize(tab)} · ${t('langs.settings.saved')}`;
+    this.description.textContent = localize(`${localize(tab)} · ${t('langs.settings.saved')}`);
     this.lastFocus = null;
     this.sync(); this.nav.refresh(this.tabIndex);
     if (!this.el.hidden) this.focusTab();
@@ -198,7 +198,7 @@ export class SettingsScreen {
       const v = settings[r.key];
       const raw = r.key === 'gameSpeed' ? `${v}%` : r.key === 'language' ? LANGUAGES[settings.language] : r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' || r.key === 'resolutionScale' ? '%' : ''}` : String(v).toUpperCase();
       const value = r.key === 'language' ? raw : localize(raw);
-      this.el.querySelector(`[data-value="${r.key}"]`)!.textContent = value;
+      this.el.querySelector(`[data-value="${r.key}"]`)!.textContent = localize(value);
       el.setAttribute('aria-label', `${localize(r.label)}: ${value}`);
       if (el instanceof HTMLInputElement) { el.value = String(v); el.setAttribute('aria-valuetext', value); }
       else if (typeof v === 'boolean') el.setAttribute('aria-pressed', String(v));
@@ -212,8 +212,8 @@ export class SettingsScreen {
     else if (el.hasAttribute('data-rebind')) this.description.textContent = t('mobile.rebindDesc');
     else if (el.hasAttribute('data-touch-layout')) this.description.textContent = t('mobile.help');
     else if (el.hasAttribute('data-settings-back')) this.description.textContent = t('langs.settings.backDesc');
-    else if (el.dataset.act === 'ob-tips-reset') this.description.textContent = 'Show first-time tips again as you encounter each mechanic.';
-    else if (el.dataset.tab !== undefined) this.description.textContent = `${localize(SETTINGS_TABS[Number(el.dataset.tab)])} · ${t('langs.settings.saved')}`;
+    else if (el.dataset.act === 'ob-tips-reset') this.description.textContent = localize('Show first-time tips again as you encounter each mechanic.');
+    else if (el.dataset.tab !== undefined) this.description.textContent = localize(`${localize(SETTINGS_TABS[Number(el.dataset.tab)])} · ${t('langs.settings.saved')}`);
   }
   update(input: Input, dt: number): void {
     const tabFocused = this.el.querySelector('.focused')?.getAttribute('role') === 'tab';
@@ -227,7 +227,7 @@ export class SettingsScreen {
     }
     if (this.hintMode !== promptState.mode) {
       this.hintMode = promptState.mode;
-      this.hint.innerHTML = promptState.mode === 'kbm' ? `Q / E · ${t('langs.settings.switch')}` : promptState.mode === 'touch' ? t('langs.settings.touch') : `${promptHtml('dash')} / ${promptHtml('bomb')} · ${t('langs.settings.switch')}`;
+      this.hint.innerHTML = localizeHtml(promptState.mode === 'kbm' ? `Q / E · ${t('langs.settings.switch')}` : promptState.mode === 'touch' ? t('langs.settings.touch') : `${promptHtml('dash')} / ${promptHtml('bomb')} · ${t('langs.settings.switch')}`);
     }
   }
 }
