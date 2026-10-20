@@ -494,25 +494,38 @@ const clientTo = (kind) =>
   }, kind);
 /** heroes3 lane: the host Tinker's bots on both screens, the client Ronin's sword (and later its dash-strike) on the host. */
 const heroes3Check = (dash) => async () => {
+  // The scenario clock is wall time: on a loaded machine the run may be only a few game seconds in, the client's bot
+  // still swinging at enemies 15-20 m away (it holds the button whenever it has a target). Give the hits up to 20 s
+  // of wall time to land before calling it a failure.
+  const t0 = Date.now();
+  let h, c;
+  do {
+    if (h) await pause(1000);
+    [h, c] = await heroes3Probe();
+  } while (h.heroes === 'tinker,ronin' && (h.katana <= 0 || (dash && h.iaido <= 0) || h.bots < 1 || c.bots < 1) && Date.now() - t0 < 20000);
+  if (h.heroes !== 'tinker,ronin') return `skipped (heroes ${h.heroes})`;
+  if (h.bots < 1 || c.bots < 1) fail(`heroes3: bots host ${h.bots}, client ${c.bots}`);
+  if (h.katana <= 0 || c.swings <= 0) fail(`heroes3: client Ronin's sword: host damage ${h.katana}, client swings ${c.swings}`);
+  if (dash && h.iaido <= 0) fail(`heroes3: the client Ronin's dash-strike never cut anything on the host (client reported ${c.dashStrikes} strikes, host applied ${h.applied}, refused ${h.refused})`);
+  return { host: h, client: c };
+};
+const heroes3Probe = async () => {
   const h = await host(async () => {
     const { minionsOf } = await import('/src/game/heroes3.ts');
     const g = window.game;
     const d = (i, k) => Math.round(g.heroes[i]?.damageBy[k] ?? 0);
     const iai = g.heroes[1]?.weapons.find((w) => w.def.id === 'iaido');
     const strikes = iai?.cutSeq ?? 0;
-    return { heroes: g.heroes.map((x) => x.heroDef.id).join(), bots: minionsOf(g).count, minion: d(0, 'minion'), katana: d(1, 'katana'), iaido: d(1, 'iaido'), strikes, applied: iai?.remoteStrikes ?? 0, refused: iai?.remoteRefused ?? 0 };
+    return { heroes: g.heroes.map((x) => x.heroDef.id).join(), gameTime: +g.runTime.toFixed(1), bots: minionsOf(g).count, minion: d(0, 'minion'), katana: d(1, 'katana'), iaido: d(1, 'iaido'), strikes, applied: iai?.remoteStrikes ?? 0, refused: iai?.remoteRefused ?? 0 };
   });
-  if (h.heroes !== 'tinker,ronin') return `skipped (heroes ${h.heroes})`;
+  if (h.heroes !== 'tinker,ronin') return [h, { bots: 0, swings: 0, dashStrikes: 0 }];
   const c = await client(async () => {
     const { minionsOf } = await import('/src/game/heroes3.ts');
     const { heroes3ClientStats } = await import('/src/game/systems/heroes3.ts');
     const g = window.game;
     return { bots: minionsOf(g).count, swings: g.hero.weapons.find((w) => w.def.id === 'katana')?.seq ?? -1, dashStrikes: heroes3ClientStats.strikes };
   });
-  if (h.bots < 1 || c.bots < 1) fail(`heroes3: bots host ${h.bots}, client ${c.bots}`);
-  if (h.katana <= 0 || c.swings <= 0) fail(`heroes3: client Ronin's sword: host damage ${h.katana}, client swings ${c.swings}`);
-  if (dash && h.iaido <= 0) fail(`heroes3: the client Ronin's dash-strike never cut anything on the host (client reported ${c.dashStrikes} strikes, host applied ${h.applied}, refused ${h.refused})`);
-  return { host: h, client: c };
+  return [h, c];
 };
 
 /** Coopplay scenarios: wait until both machines fight, then hold level-ups off (restored by `coopEnd`). */
@@ -956,10 +969,19 @@ const SCENARIO = [
     let carried = [-1, -1];
     await client(() => window.botAuto(false));
     for (let k = 0; k < 12 && !(carried[0] === 1 && carried[1] === 1); k++) {
-      // Step next to them, let the host see where we are (input messages), then press INTERACT.
-      await client((at) => window.game.hero.player.teleport(at[0] + 1, at[1]), downed);
-      await pause(300);
-      await client(() => window.game.client.send({ t: 'carry' }));
+      // Step next to them, let the host see where we are (input messages), then press INTERACT. INTERACT toggles,
+      // so only press while the host has no carry yet: on the simulated slow link the client's mirror of a carry
+      // the host already started arrives a few hundred ms later, and pressing again would put the host down.
+      if ((await host(async () => (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).carriedBy[0] ?? -1)) !== 1) {
+        await client((at) => window.game.hero.player.teleport(at[0] + 1, at[1]), downed);
+        await pause(300);
+        await client(() => window.game.client.send({ t: 'carry' }));
+        // Give the press time to arrive (latency, a resent packet) before deciding it was refused.
+        for (let w = 0; w < 8; w++) {
+          await pause(250);
+          if ((await host(async () => (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).carriedBy[0] ?? -1)) === 1) break;
+        }
+      }
       await pause(250);
       carried = await Promise.all([
         host(async () => (await import('/src/game/systems/coopplay.ts')).coopPlayState(window.game).carriedBy[0] ?? -1),
