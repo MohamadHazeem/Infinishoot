@@ -133,7 +133,11 @@ export function coopPlayerId(): string {
   let id = loadJson<string>('coop.pid', '');
   if (!/^[a-z0-9]{8,16}$/.test(id)) {
     id = '';
-    for (let i = 0; i < 12; i++) id += 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 36)];
+    // crypto, not Math.random: the id is made at a wall-clock moment (first lobby or migration snapshot) and must not draw from replays' seeded stream.
+    const bytes = new Uint8Array(12);
+    if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(bytes);
+    else for (let i = 0; i < 12; i++) bytes[i] = Math.floor(Math.random() * 256);
+    for (let i = 0; i < 12; i++) id += 'abcdefghijklmnopqrstuvwxyz0123456789'[bytes[i] % 36];
     saveJson('coop.pid', id);
   }
   return id;

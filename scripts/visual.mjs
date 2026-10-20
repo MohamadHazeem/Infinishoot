@@ -15,7 +15,9 @@ const update = process.argv.includes('--update');
 const only = process.argv.indexOf('--only');
 const selected = only >= 0 ? fixtures.filter(([id]) => id === process.argv[only + 1]) : fixtures;
 if (!selected.length) throw new Error('Unknown visual fixture');
-mkdirSync('tests/visual', { recursive: true }); mkdirSync('shots/visual', { recursive: true });
+// Chromium renders a few percent differently on Linux (CI) than on macOS, so Linux keeps its own baselines.
+const BASE_DIR = process.platform === 'linux' ? 'tests/visual/linux' : 'tests/visual';
+mkdirSync(BASE_DIR, { recursive: true }); mkdirSync('shots/visual', { recursive: true });
 const h = await harness();
 const failures = [];
 try {
@@ -32,7 +34,7 @@ try {
       await document.fonts.ready;
     });
     const actual = await p.screenshot({ path: `shots/visual/${name}.png`, animations: 'disabled' });
-    const baseline = `tests/visual/${name}.png`;
+    const baseline = `${BASE_DIR}/${name}.png`;
     if (update) { writeFileSync(baseline, actual); console.log(`UPDATE ${name}`); }
     else if (!existsSync(baseline)) failures.push(`${name}: missing baseline`);
     else {
