@@ -127,11 +127,11 @@ for (const id of ['gummy', 'gumlet', 'jellyfish', 'cake', 'kraken', 'cupcake', '
     !!d && d.material === 'slime' && enemyGeometry(d).getAttribute('position').count > 30,
     id + ': real instanced geometry and material',
   );
-  setLanguage('ar');
+  await setLanguage('ar');
   ok(/[\u0600-\u06ff]/.test(localize(d.name)), id + ': Arabic name');
   const c = CODEX.find((c) => c.id === 'enemy:' + id)!;
   ok(/[\u0600-\u06ff]/.test(localize(c.text)), id + ': Arabic lore and tip');
-  setLanguage('en');
+  await setLanguage('en');
   if (d.boss || d.miniboss) {
     ok(
       STORY_BOSSES.some((b) => b.id === id),

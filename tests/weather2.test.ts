@@ -169,8 +169,8 @@ ok(!W.weather2Of(g).kind && !W.weather2Of(client).kind, 'event end clears both p
 W.startWeather2(g, 'lightning'); g.loadStage(2);
 ok(!W.weather2Of(g).kind && W.weather2Of(g).strikes.length === 0, 'stage transition clears pending strikes and pickups');
 for (const kind of ['sandstorm', 'blizzard', 'lightning', 'heatwave'] as const) {
-  setLanguage('ar'); ok(/[\u0600-\u06ff]/.test(t(`weather2.${kind}.hint`)), `${kind} Arabic HUD catalog present`);
+  await setLanguage('ar'); ok(/[\u0600-\u06ff]/.test(t(`weather2.${kind}.hint`)), `${kind} Arabic HUD catalog present`);
 }
-setLanguage('en'); settings.weather = true;
+await setLanguage('en'); settings.weather = true;
 ok(!errors.length, 'no runtime errors: ' + errors.join('\n'));
 process.exit(process.exitCode || 0);

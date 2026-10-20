@@ -3,7 +3,7 @@ import { settings, SETTINGS_DEFAULTS, saveSettings, type Settings } from '../gam
 import { MenuNav } from './menu';
 import type { Screens } from './screens';
 import { promptHtml, promptState } from './prompts';
-import { t, localize, relocalizeDom, getLanguage } from '../i18n';
+import { t, localize, LANGUAGES, onLanguageChange } from '../i18n';
 
 export const SETTINGS_TABS = ['VIDEO', 'AUDIO', 'CONTROLS', 'GAMEPLAY', 'ACCESSIBILITY', 'CO-OP'] as const;
 export type SettingsTab = typeof SETTINGS_TABS[number];
@@ -57,7 +57,7 @@ row('CONTROLS', 'teamMoveMode', 'TEAM MOVE MODE', 'HOLD: hold for 0.35 seconds t
 row('CONTROLS', 'aimAssist', 'AIM ASSIST', 'Gamepad and touch: gently turns aim toward the nearest visible enemy within 12 metres and 25 degrees.');
 row('CONTROLS', 'mouseAimAssist', 'MOUSE AIM ASSIST', 'Optional soft aim correction for mouse. Off by default; independent of gamepad and touch.');
 row('CO-OP', 'netOverlay', 'NETWORK STATS', 'Shows ping, packet loss and snapshot rate for every player in online games.');
-row('GAMEPLAY', 'language', 'LANGUAGE', 'English or Arabic (العربية). Arabic switches menus to right-to-left.', undefined, ['en', 'ar']);
+row('GAMEPLAY', 'language', 'LANGUAGE', 'English · العربية · Español · Français · Português (Brasil) · Deutsch · Türkçe', undefined, Object.keys(LANGUAGES));
 row('GAMEPLAY', 'autoFire', 'AUTO-FIRE', 'Automatically fires the primary weapon with keyboard and mouse.');
 row('GAMEPLAY', 'tips', 'FIRST-TIME TIPS', 'Shows help when you encounter a mechanic for the first time.');
 row('GAMEPLAY', 'damageNumbers', 'DAMAGE NUMBERS', 'AUTO: thins out in crowded fights. ALL: every hit. MINE: your hits only. OFF: hides hit numbers; important labels remain.', undefined, ['auto', 'all', 'mine', 'off']);
@@ -150,10 +150,8 @@ export class SettingsScreen {
       const r = SETTINGS_ROWS.find((x) => x.key === b.dataset.setting)!;
       if (r.key === 'tips') e.stopPropagation(); // The legacy onboarding delegate shares this action name.
       const values = settings as unknown as Record<string, unknown>;
-      const before = getLanguage();
       values[r.key] = r.options ? r.options[(r.options.indexOf(String(values[r.key])) + 1) % r.options.length] : !values[r.key];
       saveSettings(); this.sync();
-      if (r.key === 'language') relocalizeDom(this.el, before); // re-translate the open screen right away
     });
     this.el.addEventListener('input', (e) => {
       const inp = e.target as HTMLInputElement;
@@ -163,6 +161,8 @@ export class SettingsScreen {
     });
     this.el.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('[data-rebind]')) controls(); });
     this.el.querySelector('[data-touch-layout]')!.addEventListener('click', () => screens.show('touchlayout'));
+    this.el.querySelector('[data-value=language]')!.setAttribute('translate', 'no');
+    onLanguageChange(() => { this.hintMode = null; this.sync(); this.describe(this.el.querySelector('.focused')); });
     this.selectTab(0);
   }
   selectTab(index: number): void {
@@ -178,7 +178,7 @@ export class SettingsScreen {
     });
     this.panel = this.panels[this.tabIndex];
     this.panel.scrollTop = 0;
-    this.description.textContent = `${tab} · Changes save automatically on this device.`;
+    this.description.textContent = `${localize(tab)} · ${t('langs.settings.saved')}`;
     this.lastFocus = null;
     this.sync(); this.nav.refresh(this.tabIndex);
     if (!this.el.hidden) this.focusTab();
@@ -191,10 +191,10 @@ export class SettingsScreen {
     this.el.querySelectorAll<HTMLElement>('[data-setting]').forEach((el) => {
       const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting)!;
       const v = settings[r.key];
-      const raw = r.key === 'language' ? (v === 'ar' ? 'العربية' : 'ENGLISH') : r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' || r.key === 'resolutionScale' ? '%' : ''}` : String(v).toUpperCase();
-      const value = localize(raw);
+      const raw = r.key === 'language' ? LANGUAGES[settings.language] : r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' || r.key === 'resolutionScale' ? '%' : ''}` : String(v).toUpperCase();
+      const value = r.key === 'language' ? raw : localize(raw);
       this.el.querySelector(`[data-value="${r.key}"]`)!.textContent = value;
-      el.setAttribute('aria-label', `${r.label}: ${value}`);
+      el.setAttribute('aria-label', `${localize(r.label)}: ${value}`);
       if (el instanceof HTMLInputElement) { el.value = String(v); el.setAttribute('aria-valuetext', value); }
       else if (typeof v === 'boolean') el.setAttribute('aria-pressed', String(v));
     });
@@ -202,13 +202,13 @@ export class SettingsScreen {
   private describe(el: HTMLElement | null): void {
     if (!el) return;
     const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting);
-    if (r) this.description.textContent = ['windowMode', 'resolutionScale', 'frameCap', 'vsync'].includes(r.key) ? localize(r.desc) : r.desc;
-    else if (el.hasAttribute('data-reset')) this.description.textContent = 'Restore defaults for this tab only. Key bindings have their own reset on REBIND KEYS.';
+    if (r) this.description.textContent = localize(r.desc);
+    else if (el.hasAttribute('data-reset')) this.description.textContent = t('langs.settings.resetDesc');
     else if (el.hasAttribute('data-rebind')) this.description.textContent = t('mobile.rebindDesc');
     else if (el.hasAttribute('data-touch-layout')) this.description.textContent = t('mobile.help');
-    else if (el.hasAttribute('data-settings-back')) this.description.textContent = 'Return to the previous menu. Your changes are already saved.';
+    else if (el.hasAttribute('data-settings-back')) this.description.textContent = t('langs.settings.backDesc');
     else if (el.dataset.act === 'ob-tips-reset') this.description.textContent = 'Show first-time tips again as you encounter each mechanic.';
-    else if (el.dataset.tab !== undefined) this.description.textContent = `${SETTINGS_TABS[Number(el.dataset.tab)]} · Changes save automatically on this device.`;
+    else if (el.dataset.tab !== undefined) this.description.textContent = `${localize(SETTINGS_TABS[Number(el.dataset.tab)])} · ${t('langs.settings.saved')}`;
   }
   update(input: Input, dt: number): void {
     const tabFocused = this.el.querySelector('.focused')?.getAttribute('role') === 'tab';
@@ -222,7 +222,7 @@ export class SettingsScreen {
     }
     if (this.hintMode !== promptState.mode) {
       this.hintMode = promptState.mode;
-      this.hint.innerHTML = promptState.mode === 'kbm' ? 'Q / E · SWITCH TAB' : promptState.mode === 'touch' ? 'TAP TABS · SWIPE TO SCROLL' : `${promptHtml('dash')} / ${promptHtml('bomb')} · SWITCH TAB`;
+      this.hint.innerHTML = promptState.mode === 'kbm' ? `Q / E · ${t('langs.settings.switch')}` : promptState.mode === 'touch' ? t('langs.settings.touch') : `${promptHtml('dash')} / ${promptHtml('bomb')} · ${t('langs.settings.switch')}`;
     }
   }
 }

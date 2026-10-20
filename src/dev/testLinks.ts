@@ -309,6 +309,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('battery')) settings.batterySaver = true;
   const scr = q.get('screen');
   if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
+  if (scr === 'loadout') game.screens.showLoadout('solo'); // Language QA needs populated kit cards.
   // Menu lane: a pinned boot overlay for screenshots (?test&menuload=1, 2 or error).
   if (q.has('menuload')) {
     const loading = new LoadingScreen();

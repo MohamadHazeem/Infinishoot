@@ -240,9 +240,9 @@ assert(
 );
 (document.querySelector('[data-entry="rex"]') as HTMLElement).click();
 assert(document.querySelector('.story-detail')!.textContent!.includes(storyEn['story.locked']));
-setLanguage('ar');
+await setLanguage('ar');
 assert(document.querySelector('#scr-story h1')!.textContent === storyAr['story.menu']);
-setLanguage('en');
+await setLanguage('en');
 (document.querySelector('[data-tab=heroes]') as HTMLElement).click();
 (document.querySelector('[data-story=ending]') as HTMLElement).click();
 assert(g.story.tick(0.1) && g.story.active, 'unlocked endings replay from the title Story library');

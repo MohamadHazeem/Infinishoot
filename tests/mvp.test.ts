@@ -84,9 +84,9 @@ ok(game.screens.current === 'mvp' && !document.querySelector('#scr-mvp img'), 'M
 ok(document.querySelector('#scr-mvp')!.textContent!.includes(ally.name), 'user names are preserved as text');
 (document.querySelector('#scr-mvp button') as HTMLButtonElement).click();
 ok(game.screens.current === 'gameover', 'continue reaches the existing run summary');
-setLanguage('ar'); game.showMvp(demo);
+await setLanguage('ar'); game.showMvp(demo);
 ok(document.querySelector('#scr-mvp h1')!.textContent === 'ختام الفريق!', 'Arabic MVP screen is localized');
-setLanguage('en');
+await setLanguage('en');
 game.startSolo(); ok(game.mvp.rows.size === 1 && game.mvp.report === null && game.mvp.moments.length === 0, 'restart resets every run counter and highlight');
 // Slots are reused, each of eight players gets heard, and a large team cannot multiply the music voice budget.
 const players = Array.from({ length: 8 }, (_, index) => ({ index, left: false, player: { x: index, z: 0, dead: false }, weapons: ['buster', 'charge', 'drones', 'aura', 'well', 'laser'].map(id => ({ def: { id }, level: 10, evolved: true })) }));

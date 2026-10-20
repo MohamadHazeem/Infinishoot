@@ -218,10 +218,10 @@ client.lobbyReady();
 assert.deepEqual(ready, { t: 'lbready', on: false }, 'eighth player can unready using their own card');
 console.log('ok   eight-player PvP lobby cards and ready toggles survive validation');
 
-setLanguage('ar');
+await setLanguage('ar');
 (await import('../src/game/systems/halloween')).showHalloweenShop.call(g);
 assert(!/[a-z]{3}/i.test(g.halloween.shop!.textContent!.replace(/ESC/g, '')), 'seasonal shop copy and cosmetic names are translated: ' + g.halloween.shop!.textContent);
 for (const text of ['FIGHT AS 2 TEAMS', 'FREE-FOR-ALL', 'ROUND 2 · FIRST TO 2', 'RING CLOSES IN 12', 'Thorn Garden', 'Highest Ascension cleared']) assert(!/[a-z]{3}/i.test(localize(text)), text);
 assert(t('followups.pvp.wins', { name: '<bdi>BACK</bdi>' }).includes('<bdi>BACK</bdi>'));
-setLanguage('en');
+await setLanguage('en');
 console.log('ok   PvP UI translations retain isolated user names');

@@ -13,7 +13,7 @@ const { sfx } = await import('../src/audio/sfx');
 for (const key of ['menuMove', 'menuBack', 'menuSelect', 'ui']) (sfx as any)[key] = () => {};
 const { loadingPercent, loadingTip, LoadingScreen, withLoading } = await import('../src/ui/loadingScreen');
 const { setLanguage } = await import('../src/i18n');
-setLanguage('en');
+await setLanguage('en');
 const root = document.createElement('div'); document.body.append(root);
 root.innerHTML = '<button data-nav>A</button><div hidden><button data-nav>HIDDEN</button></div><button data-nav disabled>DISABLED</button><button data-nav>B</button>';
 let backs = 0;
@@ -58,5 +58,5 @@ screens.update(input('',1),1/60);assert.equal(screens.current,'title');assert.ok
 screens.show('play');assert.equal(hud.querySelectorAll('#scr-play [data-act=ob-training]').length,1,'reopening retains exactly one training launcher');
 screens.show('title');screens.show('extras');screens.update(input('ArrowRight'),1/60);const focused=hud.querySelector('#scr-extras .focused')?.textContent;screens.show('history');screens.update(input('Escape'),1/60);assert.equal(hud.querySelector('#scr-extras .focused')?.textContent,focused,'submenu Back remembers parent focus');
 screens.show('online');const nameField=hud.querySelector<HTMLInputElement>('#mp-name')!;nameField.focus();screens.show('extras');assert.notEqual(document.activeElement,nameField,'leaving a screen releases its text field focus');
-setLanguage('ar');screens.show('title');assert.match(hud.querySelector('.menu-profile')!.textContent!,/المستوى/);setLanguage('en');
+await setLanguage('ar');screens.show('title');assert.match(hud.querySelector('.menu-profile')!.textContent!,/المستوى/);await setLanguage('en');
 console.log('ok menu: navigation, empty/async menus, title integration, profile, loading progress and recovery');

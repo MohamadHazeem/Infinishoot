@@ -25,7 +25,7 @@ for (const id of ['robopup', 'owlbot', 'slimebuddy', 'hatchling', 'catdrone', 'm
       Object.values(petRanks(def, level)).reduce((a, b) => a + b, 0) === level,
       id + ': one skill per level ' + level,
     );
-  setLanguage('ar');
+  await setLanguage('ar');
   ok(
     !/[a-z]{3}/i.test(localize(def.name) + localize(def.desc)),
     id + ': Arabic name and personality',
@@ -38,7 +38,7 @@ for (const id of ['robopup', 'owlbot', 'slimebuddy', 'hatchling', 'catdrone', 'm
       id + ': localized skill ' + skill,
     );
 }
-setLanguage('en');
+await setLanguage('en');
 ok(new Set(PETS.map((p) => p.id)).size === PETS.length, 'pet ids are unique');
 const html = readFileSync(`${process.cwd()}/index.html`, 'utf8');
 const dom = new JSDOM(html, { url: 'http://localhost/', pretendToBeVisual: true });

@@ -1,7 +1,17 @@
-import { getLanguage, setLanguage, relocalizeDom, type Language } from './index';
+import { setLanguage, type Language } from './index';
 
 /** Locally bundled OFL font: no network requests, including in Electron/offline builds. */
 const CSS = `
+:root:is([lang=es],[lang=fr],[lang=pt-BR],[lang=de],[lang=tr]) :is(.lo-card,.card) .name { hyphens: auto; letter-spacing: 0; }
+/* Longer Latin copy uses the existing wrapping/scrolling menus, preserving text scale. */
+:root:is([lang=es],[lang=fr],[lang=pt-BR],[lang=de],[lang=tr]) .screen :is(button,.name,.desc,.note) { overflow-wrap: anywhere; }
+:root:is([lang=es],[lang=fr],[lang=pt-BR],[lang=de],[lang=tr]) .settings-tabs button { white-space: normal; min-width: 0; padding-inline: calc(2 * var(--p)); }
+:root:is([lang=es],[lang=fr],[lang=pt-BR],[lang=de],[lang=tr]) .settings-footer { flex-wrap: wrap; }
+
+@font-face { font-family: 'Infini Turkish Text'; src: url('${(import.meta.env?.BASE_URL ?? '/')}fonts/jersey-15-latin-ext-400-normal.woff2') format('woff2'); font-weight:400; font-display:swap; unicode-range:U+011E-011F,U+0130,U+015E-015F; }
+@font-face { font-family: 'Infini Turkish Display'; src: url('${(import.meta.env?.BASE_URL ?? '/')}fonts/jersey-10-latin-ext-400-normal.woff2') format('woff2'); font-weight:400; font-display:swap; unicode-range:U+011E-011F,U+0130,U+015E-015F; }
+:root[lang=tr] { --font:'Infini Turkish Text','Jersey 15',monospace; --display:'Infini Turkish Display','Jersey 10',monospace; --label:'Silkscreen','Infini Turkish Text','Jersey 15',monospace; }
+
 @font-face { font-family: 'Infini Arabic'; src: url('${(import.meta.env?.BASE_URL ?? '/')}fonts/NotoSansArabic.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: swap; }
 :root[lang=ar] { --font: 'Infini Arabic', sans-serif; --display: 'Infini Arabic', sans-serif; --label: 'Infini Arabic', sans-serif; }
 [lang=ar] #hud, [lang=ar] #hud * { letter-spacing: 0; }
@@ -57,15 +67,13 @@ const CSS = `
 [lang=ar] bdi { unicode-bidi: isolate; }
 `;
 
-export function applyLanguage(language: Language): void {
-  if (typeof document === 'undefined') { setLanguage(language); return; }
+export function applyLanguage(language: Language): Promise<void> {
+  if (typeof document === 'undefined') return setLanguage(language);
   if (!document.getElementById('i18n-css')) {
     const style = document.createElement('style');
     style.id = 'i18n-css';
     style.textContent = CSS;
     document.head.appendChild(style);
   }
-  const previous = getLanguage();
-  setLanguage(language);
-  if (previous !== language) relocalizeDom(document.body, previous);
+  return setLanguage(language);
 }
