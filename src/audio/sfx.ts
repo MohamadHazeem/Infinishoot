@@ -662,6 +662,27 @@ class Sfx {
     this.noise(ctx, 0.15, 0.12, 5000, 2500, 3, 0.18);
   }
 
+  // heroes4 lane: Field Hospital, Wrecking Ball and the revive drone's pickup (samples in mix.ts cueSamples).
+  fieldHospital(pitch = 1): void {
+    const ctx = this.begin('fieldHospital', 0.4);
+    if (!ctx) return;
+    [523, 659, 784, 1047].forEach((f, i) => this.tone(ctx, 'triangle', f * pitch, f * pitch, 0.3, 0.07, i * 0.07));
+    this.noise(ctx, 0.5, 0.1, 4000, 8000, 3, 0.1);
+  }
+
+  wreckingBall(pitch = 1): void {
+    const ctx = this.begin('wreckingBall', 0.25);
+    if (!ctx) return;
+    this.tone(ctx, 'sawtooth', 110 * pitch, 45, 0.4, 0.3);
+    this.noise(ctx, 0.5, 0.45, 900, 80, 0.7);
+  }
+
+  droneRevive(pitch = 1): void {
+    const ctx = this.begin('droneRevive', 0.3);
+    if (!ctx) return;
+    [392, 523, 784].forEach((f, i) => this.tone(ctx, 'square', f * pitch, f * pitch * 1.02, 0.1, 0.06, i * 0.06));
+  }
+
   minionZap(pitch = 1): void {
     const ctx = this.begin('minionZap', 0.05);
     if (!ctx) return;
@@ -853,6 +874,28 @@ class Sfx {
         break;
       case 'minionZap':
         this.tone(ctx, 'square', 1500 * p, 2600 * p, 0.05, 0.05);
+        break;
+      // heroes4 lane: the Medic's beam, the Brawler's fists and grab (samples in mix.ts weaponSamples).
+      case 'healBeam':
+        this.tone(ctx, 'triangle', 660 * p, 990 * p, 0.14, 0.035);
+        this.tone(ctx, 'sine', 1320 * p, 1480 * p, 0.12, 0.02, 0.04);
+        break;
+      case 'punch':
+        this.noise(ctx, 0.06, 0.32, 1400 * p, 300, 1.2);
+        this.tone(ctx, 'sine', 180 * p, 70, 0.07, 0.18);
+        break;
+      case 'punchHeavy':
+        this.noise(ctx, 0.14, 0.45, 900 * p, 120, 1);
+        this.tone(ctx, 'sine', 130 * p, 40, 0.18, 0.3);
+        this.tone(ctx, 'square', 300 * p, 90, 0.08, 0.06);
+        break;
+      case 'grab':
+        this.tone(ctx, 'square', 220 * p, 330 * p, 0.08, 0.06);
+        this.noise(ctx, 0.08, 0.15, 600, 1500, 2);
+        break;
+      case 'throw':
+        this.noise(ctx, 0.22, 0.3, 500 * p, 3000, 2);
+        this.tone(ctx, 'triangle', 300 * p, 700 * p, 0.15, 0.06);
         break;
       case 'mine':
         this.tone(ctx, 'square', 200, 160, 0.05, 0.06);

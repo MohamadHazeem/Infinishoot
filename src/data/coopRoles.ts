@@ -35,6 +35,8 @@ export const HERO_ROLES: Record<string, CoopRole> = {
   twin: 'support',
   ronin: 'damage',
   tinker: 'support',
+  medic: 'healer',
+  brawler: 'tank',
 };
 
 export function roleOf(heroId: string): CoopRole {

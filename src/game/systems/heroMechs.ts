@@ -12,6 +12,7 @@ import type { Hero } from '../hero';
 import { power } from '../ultimates';
 import { commit } from '../../render/instancing';
 import { heroes3Achievements, heroes3Parry, renderHeroes3, updateHeroes3 } from './heroes3';
+import { heroes4Achievements, renderHeroes4, updateHeroes4 } from './heroes4';
 
 const FIRE_TAGS = ['fire', 'area'] as const;
 
@@ -20,6 +21,7 @@ export const MECH_SOURCE_NAMES: Record<string, string> = {
   furnace: 'Furnace Aura',
   roller: 'Snowball',
   minion: 'Tinker Bots',
+  shoulder: 'Shoulder Charge',
 };
 
 /** Make sure a Twin hero has its clone (host and clients; lazily, the hero's ctx comes after its def). */
@@ -78,6 +80,7 @@ export function updateHeroMechs(this: Game, dt: number): void {
     }
   }
   updateHeroes3(this, dt); // Ronin and Tinker (systems/heroes3.ts)
+  updateHeroes4(this, dt); // Medic and Brawler (systems/heroes4.ts)
 }
 
 /** A hero landed a parry (from systems/skill.ts): the run's count, and the Duelist's chain. */
@@ -209,6 +212,7 @@ export function renderHeroMechs(this: Game, alpha: number, frameDt: number): voi
   }
   commit(am.instanceMatrix, am.count);
   renderHeroes3(this, frameDt); // Tinker bots (systems/heroes3.ts)
+  renderHeroes4(this, frameDt); // Medic auras, Field Hospital wards, Wrecking Ball spin (systems/heroes4.ts)
 }
 
 /** Achievements that unlock the mechanic heroes (appended to checkAchievements). */
@@ -220,6 +224,7 @@ export function heroMechAchievements(this: Game): [string, boolean][] {
     ['immovable', h.mech.stillBest >= 20],
     ['double_trouble', clicks.length >= 2 && clicks.every((w) => w.evolved)],
     ...heroes3Achievements(this),
+    ...heroes4Achievements(this),
   ];
 }
 

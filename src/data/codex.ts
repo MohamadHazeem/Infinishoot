@@ -4,6 +4,7 @@ import { ENEMY_TIPS } from './bestiary';
 import { BIOMES } from './biomes';
 import { HEROES } from './heroes';
 import type { Loadout } from './loadout';
+import { heroes4Lore } from '../i18n/heroes4';
 import { BIOME_LORE2, ENEMY_LORE2, ENEMY_TIPS2, EXTRA_CODEX, VETERAN_LORE } from './codex2';
 
 const ENEMY_LORE: Record<string, string> = {
@@ -82,6 +83,7 @@ const HERO_LORE: Record<string, string> = {
     'A wandering sword-saint who left the old dojo when its training bots went rogue. The arm blade was forged from the dojo bell, and it still rings on every cut.',
   tinker:
     'The islands\' youngest mechanic builds friends out of whatever the robots leave behind. Every bot gets a name, a number and a tiny hand-painted smile.',
+  ...heroes4Lore, // Medic and Brawler (heroes4 lane)
 };
 
 /** Lore + field tip (tips2 lane fills the gaps; veterans reuse their base enemy's text). */

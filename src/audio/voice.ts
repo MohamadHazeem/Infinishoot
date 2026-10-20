@@ -46,6 +46,8 @@ export const HERO_VOICES: Readonly<Record<string, VoiceProfile>> = {
   twin: { f0: 290, tract: 1.16, syl: 0.075, wave: 'triangle', consonants: 'pnmt' },
   ronin: { f0: 140, tract: 0.9, syl: 0.1, wave: 'square', consonants: 'tkdn' },
   tinker: { f0: 310, tract: 1.2, syl: 0.068, wave: 'triangle', consonants: 'pbkt' },
+  medic: { f0: 270, tract: 1.12, syl: 0.078, wave: 'triangle', consonants: 'mnwt' },
+  brawler: { f0: 112, tract: 0.8, syl: 0.105, wave: 'sawtooth', consonants: 'bdkp' },
 };
 /** Co-op: each player slot shifts the voice so two Rookies still sound like two people. */
 export const PLAYER_SHIFT = [1, 1.13, 0.88, 1.26];

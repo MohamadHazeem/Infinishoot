@@ -415,6 +415,27 @@ function paintHero(p: Painter, look: PortraitLook, expr: Expression, blink: bool
     p.dots([13, 3 + hurt, 15, 2 + hurt, 18, 4 + hurt, 11, 5 + hurt], mix(STRAW, 0xfff6d0, 0.4));
     p.poly([26, 16 + hurt, 31, 19 + hurt, 30, 21 + hurt, 25, 18 + hurt], 0xb13e53, { ink: true });
   }
+  if (id === 'medic') {
+    // heroes4 lane: a white field cap with a red cross over the helmet, and a head mirror.
+    p.rect(6, 3 + hurt, 25, 9 + hurt, WHITE, { ink: true, clip: (x, y) => ((x - 15.5) / 10.6) ** 2 + ((y - 12.5 - hurt) / 10) ** 2 <= 1 });
+    p.line(7, 9 + hurt, 24, 9 + hurt, 0x94b0c2);
+    p.rect(15, 3 + hurt, 16, 8 + hurt, 0xb13e53, { shade: 'flat' });
+    p.rect(13, 5 + hurt, 18, 6 + hurt, 0xb13e53, { shade: 'flat' });
+    p.ellipse(25.5, 6.5 + hurt, 2.6, 2.6, 0x94b0c2, { ink: true });
+    p.ellipse(25.5, 6.5 + hurt, 1.4, 1.4, WHITE, { shade: 'flat' });
+    p.dot(24.5, 5.5 + hurt, 0xa7f070);
+  }
+  if (id === 'brawler') {
+    // heroes4 lane: spiky dark crest, a yellow headband with a tail, and a sticking plaster on the cheek.
+    p.poly([9, 4 + hurt, 11, -1 + hurt, 13, 4 + hurt], 0x333c57, { ink: true });
+    p.poly([13, 3 + hurt, 16, -2 + hurt, 19, 3 + hurt], 0x333c57, { ink: true });
+    p.poly([18, 4 + hurt, 21, -1 + hurt, 23, 4 + hurt], 0x333c57, { ink: true });
+    p.line(5, 10 + hurt, 26, 10 + hurt, 0xffcd75);
+    p.line(5, 11 + hurt, 26, 11 + hurt, mix(0xffcd75, 0x1a1c2c, 0.3));
+    p.poly([26, 10 + hurt, 31, 8 + hurt, 31, 12 + hurt, 26, 12 + hurt], 0xffcd75, { ink: true });
+    p.rect(20, 19 + hurt, 23, 20 + hurt, 0xf2e2b8, { ink: true, shade: 'flat' });
+    p.dots([21, 19 + hurt, 22, 20 + hurt], 0xd9876f);
+  }
 }
 
 // ---------------------------------------------------------------- bosses

@@ -52,6 +52,7 @@ import { contentLinks } from './contentLinks';
 import { raceLinks } from './raceLinks';
 import { weapons3Links } from './weapons3Links';
 import { heroes3Links } from './heroes3Links';
+import { heroes4Links } from './heroes4Links';
 import { graphicsLinks } from './graphicsLinks';
 import { gameplayLinks } from './gameplayLinks';
 import { bossLinks } from './bossLinks';
@@ -134,6 +135,7 @@ import { fuzzMonkey } from './fuzzLinks';
  *
  * Content lane (src/dev/contentLinks.ts): &foe=shark:windup:4:1 pins biome foes in a state; &evo=scatter:1 evolves.
  * Heroes3 lane (src/dev/heroes3Links.ts): &hero=ronin&aim=0,-1 (swings), &rank=katana:2:3, &strikego=2, &beacongo=1, &bots=5.
+ * Heroes4 lane (src/dev/heroes4Links.ts): &hero=medic|brawler, &holdgo=1:1.4, &lowlife=0.15, &envkills=19.
  *
  * Modes lane (src/dev/modesLinks.ts): &rhythm, &pacifist&pact=40, &minigame=gallery|coins|whack&mgt=6, &ghost=demo&ghostlead=3, &modescreen=ghosts.
  *
@@ -270,6 +272,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   contentLinks(game, q);
   weapons3Links(game, q);
   heroes3Links(game, q); // rank=, strikego=, beacongo=, bots= (src/dev/heroes3Links.ts)
+  heroes4Links(game, q); // holdgo=, lowlife=, envkills= (src/dev/heroes4Links.ts)
   companionLinks(game, q); // pet=, petlv=, mate, teamfull, teamgo=, teammove=, taunt, downmate=
   // Readability stress: &heroes=4 (up to 8), with real rigs, weapons and local effect replay.
   const heroCount = Math.min(8, Math.max(1, Number(q.get('heroes')) || 1));

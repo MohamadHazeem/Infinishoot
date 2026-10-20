@@ -3,6 +3,7 @@ import type { Tag } from './tags';
 import type { Upgradable } from './tracks';
 import { FUSION_FEEL, fusionWeaponDefs } from './fusions';
 import { HERO_WEAPON_FEEL, HERO_WEAPONS } from './heroWeapons';
+import { HERO_WEAPON_FEEL4, HERO_WEAPONS4 } from './heroWeapons4';
 
 /**
  * Weapon definitions. Each level lists its full parameter set (not deltas)
@@ -941,6 +942,9 @@ Object.assign(WEAPON_FEEL, FUSION_FEEL);
 // Hero-only clicks (src/data/heroWeapons.ts): the Ronin's sword and dash-strike, the Tinker's beacon.
 Object.assign(WEAPONS, HERO_WEAPONS);
 Object.assign(WEAPON_FEEL, HERO_WEAPON_FEEL);
+// heroes4 lane: the Medic's beam and revive drone, the Brawler's fists and grab.
+Object.assign(WEAPONS, HERO_WEAPONS4);
+Object.assign(WEAPON_FEEL, HERO_WEAPON_FEEL4);
 
 for (const [id, f] of Object.entries(WEAPON_FEEL)) if (WEAPONS[id]) WEAPONS[id].feel = { ...DEFAULT_FEEL, ...f };
 

@@ -34,6 +34,10 @@ import { FusionWeapon } from './fusion';
 import { Katana } from './katana';
 import { Iaido } from './iaido';
 import { Beacon } from './beacon';
+import { MedBeam } from './medbeam';
+import { RevDrone } from './revdrone';
+import { Fists } from './fists';
+import { Grab } from './grab';
 import type { WeaponDef } from '../../data/weapons';
 
 export { Weapon } from './base';
@@ -104,6 +108,15 @@ export function createWeapon(id: string, scene: THREE.Scene, def: WeaponDef = WE
       return new Iaido(def, scene);
     case 'beacon':
       return new Beacon(def, scene);
+    // heroes4 lane: the Medic's beam and revive drone, the Brawler's fists and grab.
+    case 'medbeam':
+      return new MedBeam(def, scene);
+    case 'revdrone':
+      return new RevDrone(def, scene);
+    case 'fists':
+      return new Fists(def, scene);
+    case 'grab':
+      return new Grab(def, scene);
     default:
       throw new Error(`Unknown weapon: ${id}`);
   }

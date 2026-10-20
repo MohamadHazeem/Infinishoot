@@ -6,6 +6,7 @@ import { SCAR_COLORS } from './scars';
 import { bossLike } from './bossRules';
 import { bladeDance, meltdown, mirrorStorm } from './heroUlts';
 import { scrapLegion, thousandCuts } from './heroes3Ults';
+import { fieldHospital, wreckingBall } from './heroes4Ults';
 
 /**
  * Hero ultimates: one per hero (src/data/heroes.ts `ult`), charged by damage
@@ -110,6 +111,25 @@ export const ULTS: Record<string, UltDef> = {
     color: '#ffcd75',
     color2: '#73eff7',
     duration: 1.2,
+    invuln: true,
+  },
+  // heroes4 lane (src/game/systems/heroes4.ts).
+  hospital: {
+    id: 'hospital',
+    name: 'FIELD HOSPITAL',
+    desc: 'A big healing zone for 6 s: allies inside heal fast, enemy shots fizzle, nobody inside can drop below 1 life, downed teammates get up and enemies inside are worn down.',
+    color: '#a7f070',
+    color2: '#f4f4f4',
+    duration: 6,
+    invuln: false,
+  },
+  wrecking: {
+    id: 'wrecking',
+    name: 'WRECKING BALL',
+    desc: 'A ground pound, then you spin through the arena for 4 s, untouchable, pulling enemies in and launching everything you hit.',
+    color: '#ef7d57',
+    color2: '#ffcd75',
+    duration: 4,
     invuln: true,
   },
 };
@@ -262,6 +282,12 @@ export function updateUlt(g: Game, h: Hero, dt: number): void {
       break;
     case 'legion':
       scrapLegion(g, h, age);
+      break;
+    case 'hospital':
+      fieldHospital(g, h, def.duration);
+      break;
+    case 'wrecking':
+      wreckingBall(g, h, dt, pw);
       break;
   }
   if (sk.ultT <= 0) endUlt(g, h);

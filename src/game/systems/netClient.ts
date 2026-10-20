@@ -45,6 +45,7 @@ import { onCoverMsg } from '../coverBreak';
 import { applySoundLaneNet } from './sound2';
 import { applyNq, clientViewStep, netcodeBullets, netcodeClientMsg, netcodeSnapshot, netcodeStep, snapIfTeleported } from './netcode';
 import { applyHeroes3Net, heroes3ClientStep } from './heroes3';
+import { applyHeroes4Net } from './heroes4';
 import { applyCoopPlayNet, coopPlayClientInput, coopPlayLocal } from './coopplay';
 import { voiceClientMsg } from './voicechat';
 import { applySpectateNet, spectateClientMsg, spectateClientUpdate, spectating } from './spectate';
@@ -459,6 +460,7 @@ export function applySnapshot(this: Game, m: Record<string, unknown>): void {
   applySecretsNet(this, s.ss);
   if (s.mvp) this.mvp.report = s.mvp as MvpReport; // the reliable over message opens the screen
   applyHeroes3Net(this, s.h3); // Tinker bots (systems/heroes3.ts)
+  applyHeroes4Net(this, s.h4); // Field Hospital wards (systems/heroes4.ts)
   applyPvp2Net(this, s.p2); // PvP rounds, teams and ring (systems/pvp2.ts)
   applyCoopPlayNet(this, s.cy); // co-op objectives, carried heroes, tethers (systems/coopplay.ts)
   applySpectateNet(this, s.sp); // watchers and their emotes (systems/spectate.ts)

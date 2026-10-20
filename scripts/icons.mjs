@@ -259,6 +259,19 @@ const ART = {
   beacon: 'radar-dish',
   beacon_evo: 'laser-turret',
   beacon_evo2: 'auto-repair',
+  // hero kits (heroes4 lane): the Medic's beam and drone, the Brawler's fists and grab
+  medbeam: 'health-normal',
+  medbeam_evo: 'lightning-helix',
+  medbeam_evo2: 'health-increase',
+  revdrone: 'helicopter',
+  revdrone_evo: 'bolt-shield',
+  revdrone_evo2: 'sunbeams',
+  fists: 'boxing-glove',
+  fists_evo: 'fulguro-punch',
+  fists_evo2: 'fire-punch',
+  grab: 'grasping-claws',
+  grab_evo: 'hammer-drop',
+  grab_evo2: 'spinning-top',
 };
 
 const set = JSON.parse(readFileSync(new URL('../node_modules/@iconify-json/game-icons/icons.json', import.meta.url), 'utf8'));
