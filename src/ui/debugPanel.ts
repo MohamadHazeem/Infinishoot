@@ -1,3 +1,4 @@
+import { assistTuning } from '../game/systems/assists';
 import { architectTuning } from '../game/architect/model';
 import { elites2Tuning } from '../data/eliteMods';
 import { squadTuning as aiSquadTuning } from '../game/aisquadBrain';
@@ -99,6 +100,9 @@ export function createDebugPanel(renderer: RetroRenderer, game: Game, onResize: 
   mvp.add(bandTuning, 'near', 0, 10, 1);
   mvp.add(bandTuning, 'range', 12, 40, 1);
   mvp.add(bandTuning, 'slots', 1, 8, 1);
+
+  const casual = gui.addFolder('Casual assists').close();
+  for (const key of Object.keys(assistTuning) as (keyof typeof assistTuning)[]) casual.add(assistTuning, key);
 
   const noise = gui.addFolder('Readable chaos').close();
   for (const key of Object.keys(noiseTuning) as (keyof typeof noiseTuning)[]) noise.add(noiseTuning, key);

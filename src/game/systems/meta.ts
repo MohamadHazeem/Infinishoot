@@ -1,4 +1,5 @@
 /** Run metadata is small, immutable between starts, and mirrored in host snapshots. */
+import { assistedRun } from './assists';
 import type { Game } from '../game';
 import { cleanHeat, heatMultiplier, heatPoints, boltReward, type HeatId } from '../../data/heat';
 import { weeklyChallenge, type WeeklyRule } from '../../data/weekly';
@@ -66,7 +67,7 @@ export function bankMeta(g: Game, sum: RunSummary): number {
   recordHeatClear(g, sum.clears ?? g.victories);
   const bolts = boltReward(sum.kills, sum.bosses ?? g.bossesRun, g.meta.heat);
   save.meta.bolts += bolts;
-  if (g.meta.week) recordWeekly(g.meta.week, sum.score, sum.stage);
+  if (g.meta.week && !assistedRun(g)) recordWeekly(g.meta.week, sum.score, sum.stage);
   unlockMeta();
   persist();
   return bolts;

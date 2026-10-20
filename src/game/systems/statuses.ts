@@ -1,3 +1,4 @@
+import { assistDamage, assistHurtFrames, slowAssistBullets } from './assists';
 import { reflectEliteBullet } from './elites2';
 import { CHAMPION_CHEST, elites2Tuning } from '../../data/eliteMods';
 import { saveLock } from '../save';
@@ -437,6 +438,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   // One hit never takes more than maxHitFrac of max life (curses scale it before the cap).
   let dmg = Math.max(1, Math.round(Math.min((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken')), p.maxHp * playerTuning.maxHitFrac)));
   if (this.meta.rule('glass')) dmg = Math.ceil(p.hp);
+  dmg = assistDamage(this, dmg);
   // Frost Totem relic: once per stage a lethal hit leaves you at 1 life and freezes everything nearby.
   if (!this.meta.rule('glass') && dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
     h.phoenixUsed = true;
@@ -462,6 +464,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   const d = Math.hypot(dx, dz) || 1;
   const mvpHp = p.hp;
   if (!p.hurt(dmg, dx / d, dz / d)) return;
+  assistHurtFrames(this, h);
   this.director2Hurt(h, dmg);
   this.mvpHurt(h, Math.min(mvpHp, dmg));
   this.damagedThisStage = true;
@@ -567,6 +570,7 @@ export function updateBullets(this: Game, dt: number): void {
   const b = this.bullets;
   const candidates = bulletCandidates(this);
   b.integrate(dt);
+  slowAssistBullets(this);
   for (let i = 0; i < b.count; i++) {
     const x = b.x[i];
     const z = b.z[i];
