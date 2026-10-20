@@ -882,7 +882,7 @@ export class Screens {
     const rows: [LoadoutSlot, string][] = [
       ['primary', 'LEFT CLICK'],
       ['secondary', 'RIGHT CLICK'],
-      ['special', 'SPECIAL (Q/E)'],
+      ['special', `SPECIAL ${prompt('bomb')}`], // uipolish: the real key / pad button, not a hard-coded Q/E
     ];
     this.els.loadout.querySelector('.lo-rows')!.innerHTML = localizeHtml(rows
       .map(([slot, label]) => {

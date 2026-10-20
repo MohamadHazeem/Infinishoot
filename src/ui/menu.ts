@@ -219,6 +219,7 @@ export class TitleMenu {
   private readonly profile: HTMLElement;
   private readonly launch: HTMLElement;
   private playChild: ScreenName | null = null;
+  private titleChild: ScreenName | null = null;
 
   constructor(private readonly root: HTMLElement, screens: Screens) {
     ensureMenuCss();
@@ -251,6 +252,12 @@ export class TitleMenu {
   }
 
   destination(name: ScreenName, from: ScreenName): ScreenName {
+    // uipolish: EXTRAS pages opened straight from the title (season banner, profile/quests card) go back to the title.
+    if (from === 'title' && ['season', 'profile', 'achievements'].includes(name)) this.titleChild = name;
+    else if (name === 'extras' && from === this.titleChild) {
+      this.titleChild = null;
+      return 'title';
+    } else if (name !== this.titleChild) this.titleChild = null;
     if (from === 'play' && ['modes', 'online', 'localcoop'].includes(name)) this.playChild = name;
     if (name === 'title' && from === this.playChild) return 'play';
     if (name === 'none' || (name === 'title' && from === 'play')) this.playChild = null;

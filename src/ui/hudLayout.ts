@@ -214,6 +214,22 @@ kbd.prompt:empty { display: none; }
 .menu-open > :is(#ha-candy, #co2-panel, #co2-buy, #net-panel, #weather2), .menu-open ~ #vc-self,
 .cinematic > :is(#ha-candy, #co2-panel, #net-panel) { visibility: hidden !important; }
 
+/* ---------------- uipolish: menus. */
+/* Title, 1280x720-class windows: the activity cards (training offer, FIRST STEPS,
+ * Halloween booth, quests) flow into two columns instead of running off the bottom. */
+@media (min-width: 1100px) and (max-height: 900px) {
+  #hud #scr-title.menu-home .menu-activity { display: block; columns: 2; column-gap: calc(5 * var(--p)); width: calc(213 * var(--p)); }
+  #hud #scr-title.menu-home .menu-activity > * { break-inside: avoid; margin-bottom: calc(5 * var(--p)); }
+}
+/* LOADOUT on wide windows: each slot's cards share one row, so START and BACK fit at 1280x720. */
+@media (min-width: 1100px) {
+  #hud #scr-loadout .lo-rows { max-width: min(1320px, 100%); }
+  #hud #scr-loadout .lo-cards { flex-wrap: nowrap; }
+  #hud #scr-loadout button.lo-card { width: auto; flex: 0 1 205px; min-width: 0; }
+}
+/* The playable-title hint sits bottom centre, clear of the menu and the activity cards. */
+#cine .cn-tp { right: auto; left: 50%; bottom: calc(4 * var(--p)); transform: translateX(-50%); white-space: nowrap; }
+
 /* Short windows (phones in landscape, 844x390): side panels shrink so the dock
  * finds room for them between the top row, the sticks and the bottom row. */
 @media (max-height: 500px) {
@@ -222,6 +238,7 @@ kbd.prompt:empty { display: none; }
   #hud #ob-tip, #hud > #ha-candy, #vc-self { zoom: calc(var(--ui) * 0.72); }
   #hud #ob-tip { top: 30%; }
   #hud #ingame > #toast { font-size: 16px; padding: 4px 10px; }
+  #cine .cn-tp { display: none; }
 }
 
 `;
