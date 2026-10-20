@@ -1,3 +1,4 @@
+import { readBody, saneRun } from './validation.js';
 // Weekly co-op challenge: one team board per ISO week.
 //
 //   GET  /teamboard?week=2026-W43  -> { teams: [{ team, members, score, stage, date }] } (top 20)
@@ -14,7 +15,7 @@ const WEEK_RE = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/;
 
 function cleanTeam(name) {
   return (
-    String(name ?? '')
+    (typeof name === 'string' ? name : '')
       .replace(/[^\p{L}\p{N} _.'-]/gu, '')
       .trim()
       .slice(0, 16) || 'Team'
@@ -33,25 +34,27 @@ export async function teamboard(req, env, url, { json, clean }) {
   }
 
   if (req.method === 'POST') {
-    const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
-    if (await kv.get(`tip:${ip}`)) return json({ error: 'slow down' }, 429);
-    await kv.put(`tip:${ip}`, '1', { expirationTtl: 60 });
     let b;
     try {
-      b = await req.json();
-    } catch {
-      return json({ error: 'bad json' }, 400);
+      b = await readBody(req);
+    } catch (error) {
+      return json({ error: error.status === 413 ? 'too big' : 'bad json' }, error.status ?? 400);
     }
+    if (typeof b.week !== 'string' || !Array.isArray(b.members) || b.members.some(m => typeof m !== 'string') || ['score', 'stage', 'kills', 'time'].some(k => typeof b[k] !== 'number')) return json({ error: 'bad score' }, 400);
     const week = String(b.week ?? '');
     const score = Math.floor(Number(b.score));
     const stage = Math.floor(Number(b.stage));
     const kills = Math.floor(Number(b.kills));
     const time = Number(b.time);
-    const members = Array.isArray(b.members) ? b.members.slice(0, 4).map((m) => clean(m)) : [];
+    const members = Array.isArray(b.members) ? b.members.slice(0, 8).map((m) => clean(m)) : [];
     if (!WEEK_RE.test(week)) return json({ error: 'bad week' }, 400);
-    if (members.length < 2) return json({ error: 'a team needs 2+ players' }, 400);
-    if (!(score > 0 && stage >= 1 && stage < 200 && kills >= 0 && time > 0 && time < 86400)) return json({ error: 'bad score' }, 400);
+    if (members.length < 2 || b.members.length > 8) return json({ error: 'a team needs 2-8 players' }, 400);
+    if (!saneRun(score, stage, kills, time)) return json({ error: 'bad score' }, 400);
     if (score > (kills + 50) * 40 * stage * 3 * members.length) return json({ error: 'implausible' }, 400);
+
+    const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
+    if (await kv.get(`tip:${ip}`)) return json({ error: 'slow down' }, 429);
+    await kv.put(`tip:${ip}`, '1', { expirationTtl: 60 });
 
     const team = cleanTeam(b.team);
     const id = `${team.toLowerCase()}|${members.map((m) => m.toLowerCase()).sort().join(',')}`;

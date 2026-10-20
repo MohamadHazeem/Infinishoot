@@ -1,3 +1,4 @@
+import { readBody } from './validation.js';
 // Public lobby list (PLAY ONLINE > BROWSE). Hosts that mark their lobby PUBLIC
 // register it here and send a heartbeat every ~45 s; a lobby that misses its
 // heartbeats drops off after TTL seconds (KV expiry plus an `exp` stamp, since
@@ -31,6 +32,7 @@ export async function lobbies(req, env, url, { json, clean }) {
   if (req.method === 'GET') {
     const p = url.searchParams;
     const want = { region: p.get('region') ?? '', difficulty: p.get('difficulty') ?? '', mode: p.get('mode') ?? '', version: p.get('version') ?? '' };
+    if ((want.region && !REGIONS.includes(want.region)) || (want.difficulty && !DIFFS.includes(want.difficulty)) || (want.mode && !MODES.includes(want.mode)) || want.version.length > 16) return json({ error: 'bad filter' }, 400);
     const rows = [];
     let cursor;
     // Lobby metadata rides on the KV keys, so one list() call reads the directory (no per-lobby get).
@@ -55,10 +57,11 @@ export async function lobbies(req, env, url, { json, clean }) {
   if (req.method === 'POST') {
     let b;
     try {
-      b = await req.json();
-    } catch {
-      return json({ error: 'bad json' }, 400);
+      b = await readBody(req);
+    } catch (error) {
+      return json({ error: error.status === 413 ? 'too big' : 'bad json' }, error.status ?? 400);
     }
+    if (typeof b.code !== 'string' || typeof b.token !== 'string') return json({ error: 'bad lobby' }, 400);
     const code = String(b.code ?? '').toUpperCase();
     const token = String(b.token ?? '');
     if (!CODE_RE.test(code) || !TOKEN_RE.test(token)) return json({ error: 'bad lobby' }, 400);
@@ -69,6 +72,7 @@ export async function lobbies(req, env, url, { json, clean }) {
       if (old) await kv.delete(key);
       return json({ ok: true });
     }
+    if (['players', 'max'].some(k => typeof b[k] !== 'number') || ['mode', 'difficulty', 'region', 'version'].some(k => typeof b[k] !== 'string')) return json({ error: 'bad lobby' }, 400);
     const players = Math.floor(Number(b.players));
     const max = Math.floor(Number(b.max));
     const mode = String(b.mode ?? '');

@@ -1,0 +1,6 @@
+# Machine/account-specific generated config and local Worker data.
+wrangler.toml
+wrangler.local.toml
+.wrangler/
+.dev.vars*
+wrangler*.toml.tmp

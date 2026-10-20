@@ -1,3 +1,4 @@
+import { readBody } from './validation.js';
 // RANKED ladder (race lane): one board per season (calendar month).
 //
 //   GET  /ranked?season=2026-10  -> { players: [{ name, rating, games, wins }] } (top 50)
@@ -27,15 +28,13 @@ export async function ranked(req, env, url, { json, clean }) {
   }
 
   if (req.method === 'POST') {
-    const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
-    if (await kv.get(`rkip:${ip}`)) return json({ error: 'slow down' }, 429);
-    await kv.put(`rkip:${ip}`, '1', { expirationTtl: 20 });
     let b;
     try {
-      b = await req.json();
-    } catch {
-      return json({ error: 'bad json' }, 400);
+      b = await readBody(req);
+    } catch (error) {
+      return json({ error: error.status === 413 ? 'too big' : 'bad json' }, error.status ?? 400);
     }
+    if (typeof b.season !== 'string' || typeof b.id !== 'string' || ['rating', 'games', 'wins'].some(k => typeof b[k] !== 'number')) return json({ error: 'bad rating' }, 400);
     const season = String(b.season ?? '');
     const id = String(b.id ?? '');
     const rating = Math.round(Number(b.rating));
@@ -45,6 +44,10 @@ export async function ranked(req, env, url, { json, clean }) {
     if (!ID_RE.test(id)) return json({ error: 'bad id' }, 400);
     if (!(rating >= 100 && rating <= 4000 && games >= 1 && games < 100000 && wins >= 0 && wins <= games)) return json({ error: 'bad rating' }, 400);
     if (Math.abs(rating - 1000) > 40 * games + 500) return json({ error: 'implausible' }, 400); // a season starts within 500 of 1000
+
+    const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
+    if (Number(await kv.get(`rkip:${ip}`)) > Date.now()) return json({ error: 'slow down' }, 429);
+    await kv.put(`rkip:${ip}`, String(Date.now() + 20000), { expirationTtl: 60 });
 
     const key = `ranked:${season}`;
     const list = (await kv.get(key, 'json')) ?? [];
