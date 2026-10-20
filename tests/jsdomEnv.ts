@@ -28,7 +28,7 @@ const noop: any = new Proxy(function () {}, {
 };
 (dom.window.HTMLCanvasElement.prototype as any).toDataURL = () => 'data:image/png;base64,';
 (dom.window.HTMLCanvasElement.prototype as any).toBlob = function (cb: (b: Blob | null) => void) { cb(null); };
-for (const k of ['window', 'document', 'navigator', 'localStorage', 'location', 'HTMLElement', 'HTMLCanvasElement', 'HTMLInputElement', 'Event', 'KeyboardEvent', 'requestAnimationFrame', 'cancelAnimationFrame', 'getComputedStyle', 'innerWidth', 'innerHeight', 'addEventListener', 'removeEventListener', 'dispatchEvent', 'Node', 'MouseEvent', 'PointerEvent', 'WheelEvent', 'Image', 'HTMLImageElement']) {
+for (const k of ['window', 'document', 'navigator', 'localStorage', 'location', 'HTMLElement', 'HTMLCanvasElement', 'HTMLInputElement', 'Event', 'KeyboardEvent', 'requestAnimationFrame', 'cancelAnimationFrame', 'getComputedStyle', 'innerWidth', 'innerHeight', 'addEventListener', 'removeEventListener', 'dispatchEvent', 'Node', 'MouseEvent', 'PointerEvent', 'WheelEvent', 'Image', 'HTMLImageElement', 'MutationObserver', 'ResizeObserver', 'CustomEvent', 'HTMLButtonElement', 'TouchEvent']) {
   try { (globalThis as any)[k] = (dom.window as any)[k]; } catch { Object.defineProperty(globalThis, k, { value: (dom.window as any)[k], configurable: true }); }
 }
 (globalThis as any).Path2D = (dom.window as any).Path2D = class { constructor(_d?: string) {} };
