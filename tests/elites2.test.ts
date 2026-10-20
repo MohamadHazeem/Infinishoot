@@ -37,6 +37,7 @@ const { SnapEncoder, SnapDecoder } = await import('../src/net/snapCodec');
 const { Rng } = await import('../src/core/rng');
 const { setLanguage, localize } = await import('../src/i18n');
 const { settings } = await import('../src/game/settings');
+const { save, saveLock } = await import('../src/game/save');
 const { PickupType } = await import('../src/game/pickups');
 const { Timeline } = await import('../src/game/timeline');
 const { installBot } = await import('../src/dev/bot');
@@ -69,6 +70,11 @@ for (let i = 0; i < 100; i++) {
 }
 ok(true, 'both slots exclude duplicates and incompatible splitting/blinking');
 
+const seenBefore = JSON.stringify(save.meta.codex);
+saveLock.on = true; E2.discoverElite(spawn('gravity', 'frostbite')); saveLock.on = false;
+ok(JSON.stringify(save.meta.codex) === seenBefore, 'title demo cannot discover elite/champion codex entries');
+clear();
+
 // Every pair, all adjacent legacy bits, raw records AND keyframe/delta snapshots.
 const enc = new SnapEncoder(), dec = new SnapDecoder();
 let wireOK = true;
@@ -99,6 +105,7 @@ e = spawn('mirrored');
 const b = g.bullets;
 b.spawn({ x: 3, z: 0, dirX: 1, dirZ: 0, speed: 40, life: 9, damage: 1000, radius: 0.2, knockback: 2, color: '#fff36b', width: 0.2, length: 0.4, team: 0, blast: 4, homing: 5, pierce: 9 });
 for (let i = 1; i <= 4; i++) ok(E2.reflectEliteBullet(g, e, 0) === (i === 4), `mirror collision ${i}: fourth shot reflects`);
+ok(!b.hasHit(0, e.uid), 'a reflected bullet can be parried back into the mirror elite');
 ok(b.team[0] === 1 && b.vx[0] === -14 && b.damage[0] === 12 && b.blast[0] === 0 && b.homing[0] === 0 && b.life[0] === 2 && b.colorOf(0) === '#ff3df0', 'reflected shot changes team, caps damage/speed/life and strips explosive/homing effects');
 clear();
 e = spawn('gravity');

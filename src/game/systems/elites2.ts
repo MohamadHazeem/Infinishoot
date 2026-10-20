@@ -4,7 +4,7 @@ import type { Enemy } from '../enemies';
 import type { Player } from '../player';
 import { ELITE_MODS, elites2Tuning as T, berserkBonus, pickEliteMod, CHAMPION_DESC, type EliteModId } from '../../data/eliteMods';
 import { ENEMIES } from '../../data/enemies';
-import { markCodex } from '../save';
+import { markCodex, saveLock } from '../save';
 import { localize, t } from '../../i18n';
 
 const FROST_CAP = 64;
@@ -21,6 +21,7 @@ function state(g: Game): State {
 }
 export function hasEliteMod(e: Enemy, id: EliteModId): boolean { return e.mod?.id === id || e.mod2?.id === id; }
 export function discoverElite(e: Enemy): void {
+  if (saveLock.on) return; // title demo must never discover profile entries
   if (e.mod) markCodex(`elite:${e.mod.id}`);
   if (e.mod2) { markCodex(`elite:${e.mod2.id}`); markCodex('elite:champion'); }
 }
@@ -142,7 +143,7 @@ export function reflectEliteBullet(g: Game, e: Enemy, i: number): boolean {
   b.damage[i] = Math.max(1, Math.min(T.reflectMaxDamage, b.damage[i] * T.reflectDamage));
   b.life[i] = Math.min(b.life[i], 2);
   b.setColor(i, '#ff3df0');
-  b.markHit(i, e.uid);
+  // Do not mark this as a hit: a hero can parry the reflected shot back into its source.
   g.vfx.ring(e.x, e.z, e.radius, e.radius * 2, ELITE_MODS.mirrored.color, 0.2);
   g.vfx.sound('parry', e.x, e.z);
   return true;
