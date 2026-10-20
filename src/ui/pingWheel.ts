@@ -1,6 +1,6 @@
 import { localizeHtml } from '../i18n';
 import { PING_KINDS } from '../game/teamPlay';
-import { EMOTES } from '../game/coop2';
+import { emoteWheel, emoteWheelKey } from '../game/systems/season';
 
 /**
  * The co-op ping wheel (src/game/teamPlay.ts drives it): six pixel-framed
@@ -29,6 +29,8 @@ export class PingWheel {
   private pages: HTMLElement[][] = [];
   private tabs: HTMLElement[] = [];
   page = 0;
+  /** Which season emote (if any) this wheel was built with (src/game/systems/season.ts). */
+  readonly key = emoteWheelKey();
 
   constructor() {
     if (!document.getElementById('ping-wheel-css')) {
@@ -42,7 +44,7 @@ export class PingWheel {
     this.el.hidden = true;
     const R = 110;
     let html = '<div class="pw-hub"></div><div class="pw-tabs"><span>PINGS</span><span>EMOTES</span></div>';
-    const pages = [PING_KINDS.map((k) => ({ label: k.label.replace('!', ''), color: k.color })), EMOTES.map((e) => ({ label: e.label, color: e.color }))];
+    const pages = [PING_KINDS.map((k) => ({ label: k.label.replace('!', ''), color: k.color })), emoteWheel().map((e) => ({ label: e.label, color: e.color }))];
     pages.forEach((items, pg) =>
       items.forEach((k, i) => {
         const a = (i / items.length) * Math.PI * 2; // 0 = up, clockwise
@@ -80,5 +82,9 @@ export class PingWheel {
 
   hide(): void {
     this.el.hidden = true;
+  }
+
+  destroy(): void {
+    this.el.remove();
   }
 }

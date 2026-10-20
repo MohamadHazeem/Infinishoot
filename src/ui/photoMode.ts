@@ -4,6 +4,8 @@ import { samples } from '../audio/samples';
 import { sfx } from '../audio/sfx';
 import { retroGlobals } from '../render/retroMaterial';
 import { access } from '../game/settings';
+import { save } from '../game/save';
+import { SEASON_STICKERS } from '../data/season';
 import {
   PHOTO_FILTERS,
   applyPhotoFilter,
@@ -42,7 +44,9 @@ export const PHOTO_FRAMES = [
 type FrameId = (typeof PHOTO_FRAMES)[number]['id'];
 
 export const PHOTO_STICKERS = ['none', 'star', 'heart', 'bolt', 'crown', 'skull', 'pow', 'gg', 'wow', 'oneup'] as const;
-type StickerId = (typeof PHOTO_STICKERS)[number];
+type StickerId = (typeof PHOTO_STICKERS)[number] | `sp_${string}`;
+/** Stock stickers plus the SEASON track word stickers you own (seasonpass lane). */
+const stickerList = (): StickerId[] => [...PHOTO_STICKERS, ...save.seasonPass.owned.filter((id): id is `sp_${string}` => !!SEASON_STICKERS[id])];
 /** Word stickers: text, colour, burst colour (or none). */
 const WORDS = {
   pow: ['POW!', '#b13e53', '#ffcd75'],
@@ -50,7 +54,8 @@ const WORDS = {
   wow: ['WOW!', '#a7f070', '#5d275d'],
   oneup: ['1UP', '#a7f070', ''],
 } as const;
-const STICKER_NAMES: Record<StickerId, string> = { none: 'OFF', star: 'STAR', heart: 'HEART', bolt: 'BOLT', crown: 'CROWN', skull: 'SKULL', pow: 'POW!', gg: 'GG!', wow: 'WOW!', oneup: '1UP' };
+const wordOf = (id: StickerId): readonly [string, string, string] | undefined => (WORDS as Record<string, readonly [string, string, string]>)[id] ?? SEASON_STICKERS[id];
+const STICKER_NAMES: Record<(typeof PHOTO_STICKERS)[number], string> = { none: 'OFF', star: 'STAR', heart: 'HEART', bolt: 'BOLT', crown: 'CROWN', skull: 'SKULL', pow: 'POW!', gg: 'GG!', wow: 'WOW!', oneup: '1UP' };
 
 interface Placed {
   id: StickerId;
@@ -189,8 +194,8 @@ export class PhotoMode {
   configure(o: { filter?: string; frame?: string; sticker?: string; stickers?: { id: string; u: number; v: number }[]; logo?: boolean; yaw?: number; pitch?: number; dist?: number; hideUi?: boolean }): void {
     if (PHOTO_FILTERS.some((f) => f.id === o.filter)) this.filter = o.filter as PhotoFilter;
     if (PHOTO_FRAMES.some((f) => f.id === o.frame)) this.frameId = o.frame as FrameId;
-    if ((PHOTO_STICKERS as readonly string[]).includes(o.sticker ?? '')) this.sticker = o.sticker as StickerId;
-    if (o.stickers) for (const st of o.stickers) if ((PHOTO_STICKERS as readonly string[]).includes(st.id) && st.id !== 'none') this.stickers.push({ id: st.id as StickerId, u: st.u, v: st.v });
+    if ((stickerList() as string[]).includes(o.sticker ?? '')) this.sticker = o.sticker as StickerId;
+    if (o.stickers) for (const st of o.stickers) if ((stickerList() as string[]).includes(st.id) && st.id !== 'none') this.stickers.push({ id: st.id as StickerId, u: st.u, v: st.v });
     if (o.logo !== undefined) this.logo = o.logo;
     if (o.yaw !== undefined) this.cam.yaw = o.yaw;
     if (o.pitch !== undefined) this.cam.pitch = o.pitch;
@@ -272,8 +277,9 @@ export class PhotoMode {
     this.changed();
   }
   cycleSticker(): void {
-    const i = PHOTO_STICKERS.indexOf(this.sticker);
-    this.sticker = PHOTO_STICKERS[(i + 1) % PHOTO_STICKERS.length];
+    const list = stickerList();
+    const i = list.indexOf(this.sticker);
+    this.sticker = list[(i + 1) % list.length];
     this.changed();
   }
   toggleLogo(): void {
@@ -539,7 +545,7 @@ export class PhotoMode {
   private drawSticker(x: CanvasRenderingContext2D, id: StickerId, cx: number, cy: number, u: number, alpha: number): void {
     if (id === 'none') return;
     const sp = this.sprite(`st-${getLanguage()}-${id}`, () => this.makeSticker(id));
-    const s = u * (WORDS[id as keyof typeof WORDS] ? 3 : 2);
+    const s = u * (wordOf(id) ? 3 : 2);
     x.globalAlpha = alpha;
     x.drawImage(sp, Math.round(cx - (sp.width * s) / 2), Math.round(cy - (sp.height * s) / 2), sp.width * s, sp.height * s);
     x.globalAlpha = 1;
@@ -725,8 +731,11 @@ export class PhotoMode {
       case 'pow':
       case 'gg':
       case 'wow':
-      case 'oneup': {
-        const [source, color, burst] = WORDS[id];
+      case 'oneup':
+      default: {
+        const w = wordOf(id);
+        if (!w) break;
+        const [source, color, burst] = w;
         const word = localize(source);
         const arabic = /[\u0600-\u06ff]/.test(word);
         const font = `8px "${arabic ? 'Infini Arabic' : 'Silkscreen'}", monospace`;
@@ -913,7 +922,7 @@ export class PhotoMode {
     };
     set('filter', PHOTO_FILTERS.find((f) => f.id === this.filter)?.name ?? '');
     set('frame', PHOTO_FRAMES.find((f) => f.id === this.frameId)?.name ?? '');
-    set('sticker', STICKER_NAMES[this.sticker]);
+    set('sticker', STICKER_NAMES[this.sticker as keyof typeof STICKER_NAMES] ?? SEASON_STICKERS[this.sticker]?.[0] ?? '');
     set('logo', this.logo ? 'ON' : 'OFF');
   }
 

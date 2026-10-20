@@ -3,6 +3,7 @@ import { trialsEn } from './trials';
 import { pets2En } from './pets2';
 import { followupsEn } from './followups';
 import { biome3En } from './biome3';
+import { seasonEn } from './season';
 import { storyEn } from '../game/story/strings';
 import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
@@ -34,6 +35,7 @@ export const en = {
   ...trialsEn,
   ...pets2En,
   ...biome3En,
+  ...seasonEn,
   "clips.title": "HIGHLIGHT CLIPS",
   "clips.hint": "Silent gameplay · Save the last 15 seconds:",
   "clips.empty": "Highlights appear here after big moments. Enable HIGHLIGHT CLIPS and use MEDIUM quality or higher.",

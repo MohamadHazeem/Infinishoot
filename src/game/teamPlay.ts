@@ -19,7 +19,7 @@ import type { Game } from './game';
 import type { Hero } from './hero';
 import type { Enemy } from './enemies';
 import { PingWheel } from '../ui/pingWheel';
-import { EMOTES } from './coop2';
+import { emoteWheel, emoteWheelKey } from './systems/season';
 
 export const teamTuning = {
   /** Overload damage multiplier when two different heroes made it. */
@@ -124,9 +124,8 @@ export function pingKind(k: unknown): (typeof PING_KINDS)[number] | null {
 }
 
 /** Which slice (index into PING_KINDS) a pointer offset (dx right, dy down, px or stick units) selects, or -1 inside the dead zone. Slice 0 is straight up, then clockwise. */
-export function wheelSlice(dx: number, dy: number, dead: number): number {
+export function wheelSlice(dx: number, dy: number, dead: number, n = PING_KINDS.length): number {
   if (Math.hypot(dx, dy) < dead) return -1;
-  const n = PING_KINDS.length;
   const a = Math.atan2(dx, -dy); // 0 = up, clockwise positive
   return ((Math.round(a / ((Math.PI * 2) / n)) % n) + n) % n;
 }
@@ -191,6 +190,7 @@ export function pingInput(g: Game): void {
     } else w.held += 1 / 60;
     if (!w.open && w.held >= teamTuning.holdTime) {
       w.open = true;
+      if (w.ui && w.ui.key !== emoteWheelKey()) w.ui = (w.ui.destroy(), null); // a season emote was equipped since
       w.ui ??= new PingWheel();
       w.ui.show(input.device === 'pad' ? innerWidth / 2 : w.mx, input.device === 'pad' ? innerHeight / 2 : w.my);
       w.ui.setPage(w.page);
@@ -206,14 +206,15 @@ export function pingInput(g: Game): void {
         w.page = 1 - w.page;
         w.ui?.setPage(w.page);
       }
-      w.pick = input.device === 'pad' ? wheelSlice(input.padAim.x, input.padAim.y, teamTuning.pickStick) : wheelSlice(input.mouse.x - w.mx, input.mouse.y - w.my, teamTuning.pickPx);
+      const n = w.page === 1 ? emoteWheel().length : PING_KINDS.length;
+      w.pick = input.device === 'pad' ? wheelSlice(input.padAim.x, input.padAim.y, teamTuning.pickStick, n) : wheelSlice(input.mouse.x - w.mx, input.mouse.y - w.my, teamTuning.pickPx, n);
       w.ui?.select(w.pick);
     }
     return;
   }
   if (w.held < 0) return;
   // Released.
-  const emote = w.open && w.page === 1 && w.pick >= 0 ? EMOTES[w.pick] : null;
+  const emote = w.open && w.page === 1 && w.pick >= 0 ? emoteWheel()[w.pick] : null;
   if (emote) {
     w.held = -1;
     w.open = false;

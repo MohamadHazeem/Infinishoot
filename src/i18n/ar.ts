@@ -3,6 +3,7 @@ import { trialsAr } from './trials';
 import { pets2Ar } from './pets2';
 import { followupsAr } from './followups';
 import { biome3Ar } from './biome3';
+import { seasonAr } from './season';
 import { storyAr } from '../game/story/strings';
 import { tips2Ar } from './tips2';
 import { spectateAr } from '../game/spectateStrings';
@@ -35,6 +36,7 @@ export const ar = {
   ...trialsAr,
   ...pets2Ar,
   ...biome3Ar,
+  ...seasonAr,
   "clips.title": "لقطات مميزة",
   "clips.hint": "لعب بلا صوت · احفظ آخر 15 ثانية:",
   "clips.empty": "تظهر اللقطات هنا بعد اللحظات المميزة. فعّل اللقطات المميزة واختر جودة متوسطة أو أعلى.",

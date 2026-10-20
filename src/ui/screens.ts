@@ -44,7 +44,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending';
+export type ExtraScreen = 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
@@ -181,6 +181,7 @@ export interface RunSummary {
 /** A skin is wearable once its achievement is done. */
 export function skinUnlocked(id: string): boolean {
   const s = SKINS.find((x) => x.id === id);
+  if (s?.season) return save.seasonPass.owned.includes(s.id); // SEASON track skins (seasonpass lane)
   return !!s && (!s.unlock || save.achievements.includes(s.unlock));
 }
 
@@ -1522,7 +1523,7 @@ export class Screens {
 
   private renderWardrobe(): void {
     const el = this.els.wardrobe;
-    el.querySelector('.skin-grid')!.innerHTML = localizeHtml(SKINS.map((s) => {
+    el.querySelector('.skin-grid')!.innerHTML = localizeHtml(SKINS.filter((s) => !s.season || skinUnlocked(s.id)).map((s) => {
       const open = skinUnlocked(s.id);
       const ach = s.unlock ? ACHIEVEMENTS.find((a) => a.id === s.unlock) : null;
       const sw = (c: string) => `<i style="background:${c}"></i>`;
