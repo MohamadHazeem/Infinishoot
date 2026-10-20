@@ -17,6 +17,7 @@ function nearby(a: Hero, b: Hero): boolean {
 
 export function mods2Event(this: Game, h: Hero, kind: ModEvent): void {
   this.meta2Event(h, kind); // profile stats (systems/meta2.ts)
+  this.setsEvent(h, kind); // Duelist set
   if (this.role === 'client' || h.left || h.player.dead || this.pvp?.phase === 'duel') return;
   h.synergy.event(kind);
   const ally =

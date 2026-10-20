@@ -41,6 +41,7 @@ import { cameraTuning } from '../cameraRig';
 import { Hero } from '../hero';
 import { type Player } from '../player';
 import { access, settings } from '../settings';
+import { setsFrame } from './sets';
 import { ChargeShot } from '../weapons';
 import { bossTuning, omegaTuning } from '../enemies';
 import { streaks } from '../streaks';
@@ -346,6 +347,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
     : local.synergy.slots.map((sl, i) => ({ def: sl.def, ro: local.synergy.readout(i) }));
   this.hud.setMods(mods.map((m) => ({ id: m.def.id, icon: m.def.icon, color: m.def.color, name: m.def.name, readout: m.ro, cursed: !!m.def.cursed })));
   lap('ren.camera+reticle');
+  setsFrame(this); // item sets: own counts for the card chips, tier flourish (systems/sets.ts)
   eightpFrame(this); // render LOD focus, teammate weapon mix, lane CSS (systems/eightp.ts)
   this.renderTeam();
   this.renderCompanion(rdt);

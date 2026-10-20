@@ -47,6 +47,7 @@ import { vampHeal } from '../lifesteal';
 import { noteShock, overloadPartner, teamCombo, teamGame, teamTuning } from '../teamPlay';
 import { bossVoiceCue } from '../../audio/voices';
 import { COOP2_SOURCE_NAMES } from '../coop2';
+import { SET_SOURCE_NAMES } from './sets';
 
 export function ignite(this: Game, e: Enemy, dps: number, by: Hero): void {
   if (!e.active || e.hp <= 0) return;
@@ -152,6 +153,7 @@ export function sourceName(this: Game, id: string): string {
   if (ARENA_SOURCE_NAMES[id]) return ARENA_SOURCE_NAMES[id];
   if (PASSIVES[id]) return PASSIVES[id].name;
   if (id === 'parry' || id === 'ult') return id === 'parry' ? 'Parry' : 'Ultimate'; // skill layer
+  if (SET_SOURCE_NAMES[id]) return SET_SOURCE_NAMES[id]; // item sets
   if (MECH_SOURCE_NAMES[id]) return MECH_SOURCE_NAMES[id]; // hero mechanics, biome foes
   if (GP_SOURCE_NAMES[id]) return GP_SOURCE_NAMES[id]; // gameplay lane: mech, super weapons, relics
   if (id === 'pet' || id === 'team') return id === 'pet' ? 'Pet' : 'Team Moves'; // companion lane
@@ -269,6 +271,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.onEnemyKilled(e, by); // Goldbug jackpot, elite squads scatter
   this.director2Kill(e, by);
   coopPlayKill(this, e, by); // co-op banter: nice save, great shot (systems/coopplay.ts)
+  this.setsKill(e, source, by); // item set kill bonuses (systems/sets.ts)
   this.gpOnKill(e, source, by); // mutant rewards, mech drops, finale spots, Nova Heart, Powder Keg (systems/gameplay.ts)
   this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
   gauntletKill(this, e);
@@ -300,6 +303,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
 export function blast(this: Game, x: number, z: number, r: number, base: number, color: string, source: string, tags: readonly Tag[] = ['explosive'], noStatus = false, by: Hero = this.hero): void {
   const explosive = tags.includes('explosive');
   if (explosive) r *= 1 + by.synergy.flags.explosiveArea * by.synergy.tagCount('explosive');
+  if (explosive) r *= this.setsBlastMul(by); // Boomsmith set
   this.vfx.sound('explode', x, z);
   this.vfx.ring(x, z, 1, r * 2, color, 0.25);
   this.vfx.star(x, 1, z, r, color, 0.12);
@@ -435,6 +439,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   if (cheats.god || p.dead || p.invuln > 0) return;
   h.lastHitBy = cause || src?.def.name || 'Enemy fire';
   if (this.petShield(h, raw, fromX, fromZ)) return; // pet shield: blocks one big hit per stage
+  if (this.setsBlock(h)) return; // Bulwark set barrier
   // One hit never takes more than maxHitFrac of max life (curses scale it before the cap).
   let dmg = Math.max(1, Math.round(Math.min((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken')), p.maxHp * playerTuning.maxHitFrac)));
   if (this.meta.rule('glass')) dmg = Math.ceil(p.hp);
@@ -470,6 +475,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   this.damagedThisStage = true;
   this.skillHurt(h);
   h.synergy.hurt();
+  this.setsHurt(h);
   if (this.combo >= 25) this.vfx.num(p.x, 3, p.z, 'COMBO BREAK', 'player');
   this.combo = 0;
   this.vfx.sound('playerHurt', p.x, p.z);

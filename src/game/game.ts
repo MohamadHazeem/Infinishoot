@@ -14,6 +14,7 @@ import * as MvpSys from './systems/mvp';
 import * as StorySys from './systems/story';
 import type { Story } from './story/controller';
 import * as Mods2Sys from './systems/mods2';
+import * as SetsSys from './systems/sets';
 import { accessibilityInput, assistAim } from './systems/aimAssist';
 import { metaSkin } from '../data/codex';
 import { MetaRun } from './systems/meta';
@@ -610,6 +611,15 @@ export class Game implements HeroWorld {
   mods2Auras = Mods2Sys.mods2Auras;
   mods2Crit = Mods2Sys.mods2Crit;
   mods2Heal = Mods2Sys.mods2Heal;
+  setsStep = SetsSys.setsStep;
+  setsDamageMul = SetsSys.setsDamageMul;
+  setsHit = SetsSys.setsHit;
+  setsKill = SetsSys.setsKill;
+  setsBlastMul = SetsSys.setsBlastMul;
+  setsBlock = SetsSys.setsBlock;
+  setsHurt = SetsSys.setsHurt;
+  setsDash = SetsSys.setsDash;
+  setsEvent = SetsSys.setsEvent;
   updateSkill = SkillSys.updateSkill;
   weaponFeel = SkillSys.weaponFeel;
   muzzleScale = SkillSys.muzzleScale;
@@ -1634,6 +1644,7 @@ export class Game implements HeroWorld {
     this.mods2Position(h);
     h.synergy.moving = p.speed > 1.2;
     if (!p.dead) h.synergy.tick(dt);
+    this.setsStep(h, dt); // item sets: counts, tiers, timers, support bot, carpet bomb
     h.refreshLive();
     if (this.heroes.length > 1 && !p.dead) this.applyTeamAuras(h, dt);
     this.mods2Auras(h);
@@ -1685,6 +1696,7 @@ export class Game implements HeroWorld {
     this.skillDash(h);
     this.gpOnDash(h);
     this.director2Dash(h);
+    this.setsDash(h);
     if (h.hasRelic('r_dashbomb')) this.blast(p.x, p.z, 2.6, 30 + 8 * this.stage, '#ffb627', 'r_dashbomb', ['explosive'], false, h);
     this.vfx.sound('dash', p.x, p.z);
     if (h === this.hero) {

@@ -3,6 +3,7 @@ import { elites2Ar } from './elites2';
 import { trialsAr } from './trials';
 import { pets2Ar } from './pets2';
 import { editorAr } from './editor';
+import { setsAr } from './sets';
 import { followupsAr } from './followups';
 import { biome3Ar } from './biome3';
 import { seasonAr } from './season';
@@ -100,6 +101,7 @@ export const ar = {
   "squad.modes": "متاح في النمط العادي واللانهائي وتحدي الزعماء",
 
   ...editorAr,
+  ...setsAr,
   ...biome3Ar,
   ...seasonAr,
   "clips.title": "لقطات مميزة",

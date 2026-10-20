@@ -3,6 +3,7 @@ import { elites2En } from './elites2';
 import { trialsEn } from './trials';
 import { pets2En } from './pets2';
 import { editorEn } from './editor';
+import { setsEn } from './sets';
 import { followupsEn } from './followups';
 import { biome3En } from './biome3';
 import { seasonEn } from './season';
@@ -99,6 +100,7 @@ export const en = {
   "squad.modes": "Available in Standard, Endless and Boss Rush",
 
   ...editorEn,
+  ...setsEn,
   ...biome3En,
   ...seasonEn,
   "clips.title": "HIGHLIGHT CLIPS",
