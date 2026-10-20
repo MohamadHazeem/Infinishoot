@@ -18,6 +18,7 @@ const CSS = `
 #ingame > #petpanel, #ingame > #teammeter,
 #ingame > #downed, #ingame > #meters, #ingame > #banner, #ingame > #stylemeter,
 .casual-run-badge, #architect-hud, #ha-candy, #hud > #navhint, #ob-tip, #ob-train, #caps, #ingame > #gp-power, #ingame > #gp-cash, #ingame > #gp-comeback,
+#hud > #co2-panel, #hud > #net-panel, #vc-self, #lc-hud > .lc-p, #vs-foe, #s2-onair, #s2-band, #weather2, #secret-hint,
 .screen:not(.hud-pick-layer):not(#scr-settings) > * {
   zoom: var(--ui);
 }
@@ -210,7 +211,18 @@ kbd.prompt:empty { display: none; }
   box-shadow: inset var(--p) var(--p) 0 0 var(--night), 0 calc(-1 * var(--p)) 0 0 var(--ink), 0 var(--p) 0 0 var(--ink), calc(-1 * var(--p)) 0 0 0 var(--ink), var(--p) 0 0 0 var(--ink);
 }
 /* HUD chips that live outside #ingame hide with the rest of the HUD under menus and cinematics. */
-.menu-open > #ha-candy, .menu-open ~ #vc-self, .cinematic > #ha-candy { visibility: hidden !important; }
+.menu-open > :is(#ha-candy, #co2-panel, #co2-buy, #net-panel, #weather2), .menu-open ~ #vc-self,
+.cinematic > :is(#ha-candy, #co2-panel, #net-panel) { visibility: hidden !important; }
+
+/* Short windows (phones in landscape, 844x390): side panels shrink so the dock
+ * finds room for them between the top row, the sticks and the bottom row. */
+@media (max-height: 500px) {
+  #hud #ingame > #goals { zoom: calc(var(--ui) * 0.8); }
+  #hud #ingame > :is(#petpanel, #teammeter, #stylemeter, #gp-power, #gp-cash), #hud #co2-panel, #hud #net-panel,
+  #hud #ob-tip, #hud > #ha-candy, #vc-self { zoom: calc(var(--ui) * 0.72); }
+  #hud #ob-tip { top: 30%; }
+  #hud #ingame > #toast { font-size: 16px; padding: 4px 10px; }
+}
 
 `;
 
@@ -308,33 +320,59 @@ export const dockTuning = {
 /** A panel box in screen px at its CSS (un-nudged) spot; `dir` 0 = anchored, 1 = may move down, -1 = up. `off` is the result. */
 export interface DockBox { x: number; y: number; w: number; h: number; dir: -1 | 0 | 1; off: number }
 
-const hits = (a: DockBox, ay: number, b: DockBox): boolean =>
-  Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 1 && Math.min(ay + a.h, b.y + b.off + b.h) - Math.max(ay, b.y + b.off) > 1;
+/** Overlap area of box a (placed at top ay) with box b (placed at its resolved spot). */
+function overlap(a: DockBox, ay: number, b: DockBox): number {
+  const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+  const h = Math.min(ay + a.h, b.y + b.off + b.h) - Math.max(ay, b.y + b.off);
+  return w > 1 && h > 1 ? w * h : 0;
+}
 
 /**
- * Resolve the dock: boxes[0..n) in priority order. Each movable box slides
- * along its `dir` until it covers none of the boxes before it, then is
- * clamped inside the view (0..viewH). Writes `off` (px) on every box.
+ * Resolve the dock: boxes[0..n) in priority order. A movable box keeps its
+ * CSS spot when that spot covers none of the boxes before it. Otherwise it
+ * tries the spots right below / above each box it could touch (and the view
+ * edges) and takes the nearest free one, moving against its `dir` only when
+ * that is 3x nearer. When no spot is free (a crowded phone screen) it takes
+ * the one covering the least area (anchors weigh 4x). Writes `off` (px) on every box.
  */
 export function resolveDock(boxes: DockBox[], n: number, gap: number, viewH: number): void {
   for (let i = 0; i < n; i++) {
     const b = boxes[i];
     b.off = 0;
     if (!b.dir) continue;
-    let y = b.y;
-    // Every pass moves the box past one blocker; n passes are always enough.
-    for (let pass = 0; pass < n; pass++) {
-      let moved = false;
+    best.y = b.y;
+    best.area = Infinity;
+    best.cost = Infinity;
+    consider(boxes, i, b.y, viewH);
+    if (best.area > 0) {
       for (let j = 0; j < i; j++) {
         const o = boxes[j];
-        if (!hits(b, y, o)) continue;
-        y = b.dir > 0 ? o.y + o.off + o.h + gap : o.y + o.off - gap - b.h;
-        moved = true;
+        if (Math.min(b.x + b.w, o.x + o.w) - Math.max(b.x, o.x) <= 1) continue;
+        consider(boxes, i, o.y + o.off + o.h + gap, viewH);
+        consider(boxes, i, o.y + o.off - gap - b.h, viewH);
       }
-      if (!moved) break;
+      consider(boxes, i, 0, viewH);
+      consider(boxes, i, viewH, viewH);
     }
-    y = Math.max(0, Math.min(viewH - b.h, y));
-    b.off = Math.round(y - b.y);
+    b.off = Math.round(best.y - b.y);
+  }
+}
+
+const best = { y: 0, area: 0, cost: 0 };
+
+/** Score spot y for box i against the boxes before it; keeps the best in `best`. */
+function consider(boxes: DockBox[], i: number, y: number, viewH: number): void {
+  const b = boxes[i];
+  y = Math.max(0, Math.min(viewH - b.h, y));
+  let area = 0;
+  // Covering an anchor (life, clock, sticks, buttons) counts 4x: crowded panels rather overlap each other.
+  for (let j = 0; j < i; j++) area += overlap(b, y, boxes[j]) * (boxes[j].dir ? 1 : 4);
+  const d = y - b.y;
+  const cost = Math.abs(d) * (d * b.dir < 0 ? 3 : 1);
+  if (area < best.area - 0.5 || (Math.abs(area - best.area) <= 0.5 && cost < best.cost)) {
+    best.area = area;
+    best.cost = cost;
+    best.y = y;
   }
 }
 
