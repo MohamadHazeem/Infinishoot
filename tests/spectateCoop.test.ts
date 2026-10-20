@@ -137,23 +137,25 @@ ok(SP.spectateState(B).lobbyNames.join() === 'Watcher' && SP.spectateState(S).lo
 const row = document.querySelector('#scr-online .sp-lobby');
 ok(!!row && (row.textContent ?? '').includes('Watcher') && (row.textContent ?? '').includes('WATCHING'), 'the lobby screen draws WATCHING rows');
 
-// ---- A full lobby seats the 5th friend as a spectator
+// ---- A full lobby seats the next friend as a spectator
+// Co-op takes 8 players since the eightp lane (lobbyCap), so six fillers make the lobby full; the 9th friend watches.
+const FILLERS = ['P3', 'P4', 'P5', 'P6', 'P7', 'P8'];
 const fillers: G[] = [];
-for (const n of ['P3', 'P4']) {
+for (const n of FILLERS) {
   const g = mk();
   connect(g, 'peer' + n);
   q.push([A, hello(n, 'pid' + n + '0000001'), 'peer' + n]);
   fillers.push(g);
 }
 flush();
-ok(A.lobby.length === 4, 'the lobby fills up to 4 players');
+ok(A.lobby.length === 8, 'the lobby fills up to 8 players');
 const F = mk();
 connect(F, 'peerF');
-q.push([A, hello('Fifth', 'pidfifth0001'), 'peerF']);
+q.push([A, hello('Ninth', 'pidninth0001'), 'peerF']);
 flush();
-ok(A.lobby.length === 4 && sA.specs.length === 2 && SP.spectateState(F).on && SP.spectateState(F).why === 'full', 'a 5th friend in a full lobby becomes a spectator ("THE GAME IS FULL")');
-// The two fillers leave again (a 2-player run keeps slots open for later).
-for (const n of ['P3', 'P4']) drop('peer' + n);
+ok(A.lobby.length === 8 && sA.specs.length === 2 && SP.spectateState(F).on && SP.spectateState(F).why === 'full', 'a 9th friend in a full lobby becomes a spectator ("THE GAME IS FULL")');
+// The fillers leave again (a 2-player run keeps slots open for later).
+for (const n of FILLERS) drop('peer' + n);
 flush();
 ok(A.lobby.length === 2, 'the fillers left the lobby');
 
@@ -238,7 +240,7 @@ ok(A.heroes.length === before && Math.abs(A.heroes[1].player.x - hx) < 0.5, 'pla
 drop('peerF');
 ok(sA.specs.length === 1, 'a dropped spectator frees its seat');
 connect(F, 'peerF2');
-q.push([A, hello('Fifth', 'pidfifth0001'), 'peerF2']); // the netcode lane's reconnect hello has no spec flag
+q.push([A, hello('Ninth', 'pidninth0001'), 'peerF2']); // the netcode lane's reconnect hello has no spec flag
 step(10);
 ok(sA.specs.length === 2 && SP.spectateState(F).why === 'back' && SP.spectating(F) && F.mode === 'fight' && A.heroes.length === 2, 'reconnecting: back in a spectator seat (not a player), watching the run again');
 
