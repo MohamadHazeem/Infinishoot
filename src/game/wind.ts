@@ -86,6 +86,8 @@ interface Clock {
   arena: unknown;
 }
 const clocks = new WeakMap<Game, Clock>();
+/** Wind on any biome (custom arenas' WIND rule, src/game/systems/editor.ts); set on every machine. */
+export const windForce = { on: false };
 const states = new WeakMap<Game, WindState>();
 
 /** The current wind for this game (zero strength off the Sky Fortress). Cheap; call any time. */
@@ -113,7 +115,7 @@ function stageClock(game: Game, dt: number): number {
 /** Sample the wind for this frame/step. `dt` only advances a client's clock during the boss. */
 export function sampleWind(game: Game, dt: number): WindState {
   const w = windOf(game);
-  if (biomeForStage(game.arenaStage).kind !== 'sky' || game.mode === 'title') {
+  if ((biomeForStage(game.arenaStage).kind !== 'sky' && !windForce.on) || game.mode === 'title') {
     w.s = 0;
     w.gust = 0;
     return w;

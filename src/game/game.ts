@@ -1,4 +1,5 @@
 import { installTrials } from './systems/trials';
+import { installEditor } from './systems/editor';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
 import * as RaidSys from './systems/raid';
@@ -1018,6 +1019,7 @@ export class Game implements HeroWorld {
     HalloweenSys.installHalloween.call(this, hudRoot);
     this.story = StorySys.installStory.call(this, hudRoot);
     installTrials(this);
+    installEditor(this); // EXTRAS > ARENA EDITOR custom arenas (systems/editor.ts)
     this.goTitle();
   }
 

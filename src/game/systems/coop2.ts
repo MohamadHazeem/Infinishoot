@@ -1,5 +1,6 @@
 import { markClip } from './clips';
 import { trialsNet } from './trials';
+import { editorNet } from './editor';
 import { modSession } from '../../mods/manager';
 /**
  * Co-op, wave 2 (coop2 lane): drop-in/drop-out, the shared revive pool, team
@@ -460,7 +461,7 @@ function admit(g: Game, s: CoopState, p: Pending): void {
   if (li >= 1) g.lobby[li] = p.entry;
   else g.lobby.push(p.entry);
   // The joiner: the run, the arena, then its spawn and the world's one-off state.
-  host.send(p.peerId, { t: 'start', mods: modSession.hash, runMode: g.runMode, trial: trialsNet(g), join: 1, season: g.halloween.season, candyBaseline: g.halloween.earned, meta: { heat: g.meta.heat, week: g.meta.week, clears: g.victories }, seed: g.seed, difficulty: g.difficulty.id, you: h.index, players: rosterOf(g) });
+  host.send(p.peerId, { t: 'start', mods: modSession.hash, runMode: g.runMode, arena: editorNet(g), trial: trialsNet(g), join: 1, season: g.halloween.season, candyBaseline: g.halloween.earned, meta: { heat: g.meta.heat, week: g.meta.week, clears: g.victories }, seed: g.seed, difficulty: g.difficulty.id, you: h.index, players: rosterOf(g) });
   host.send(p.peerId, { t: 'stage', season: g.halloween.season, stage: g.stage, seed: g.seed });
   host.send(p.peerId, {
     t: 'cojoin',

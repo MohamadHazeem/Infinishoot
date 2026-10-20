@@ -1,4 +1,5 @@
 import { trialsNet } from './trials';
+import { editorArena, editorNet, editorScores } from './editor';
 import { resetClips } from './clips';
 import { modSession } from '../../mods/manager';
 import { resetSecrets, clearSecrets } from './secrets';
@@ -77,7 +78,7 @@ export function loadArena(this: Game, seed: number, stage = 1): void {
   disposeObject(this.arena.group);
   const biome = this.runMode === 'raid' && this.mode !== 'title' ? BIOME_BY_ID.factory : biomeForStage(stage);
   this.arenaStage = stage;
-  this.arena = this.runMode === 'raid' && this.mode !== 'title' ? createRaidArena(seed) : createFieldArena(seed, biome, { conveyors: stage >= 2 ? 3 : 0 });
+  this.arena = editorArena(this, seed) ?? (this.runMode === 'raid' && this.mode !== 'title' ? createRaidArena(seed) : createFieldArena(seed, biome, { conveyors: stage >= 2 ? 3 : 0 })); // custom arena (systems/editor.ts)
   dressHalloween.call(this);
   applyBiomeLook(biome);
   this.scene.add(this.arena.group);
@@ -191,7 +192,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.role === 'host') {
     for (const h of this.heroes) {
       if (!h.peerId) continue;
-      this.host!.send(h.peerId, { t: 'start', trial: trialsNet(this), mods: modSession.hash, runMode: this.runMode, season: this.halloween.season, meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
+      this.host!.send(h.peerId, { t: 'start', arena: editorNet(this), trial: trialsNet(this), mods: modSession.hash, runMode: this.runMode, season: this.halloween.season, meta: { heat: this.meta.heat, week: this.meta.week, clears: 0 }, seed: this.seed, difficulty: this.difficulty.id, you: h.index, players: this.heroes.map((x) => ({ name: x.name, skin: x.skin.id, pet: x.pet, hero: x.heroDef.id, look: x.player.look })) });
     }
   }
   if (this.runMode === 'raid') this.mode = 'fight';
@@ -349,16 +350,17 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   persist();
   if (quit) { this.goTitle(); return; }
   this.hud.toast(`+${bolts} BOLTS · COSMETICS ONLY`, 4);
-  if (leaderboardEnabled && this.role !== 'client' && (this.runMode !== 'raid' || this.victories > 0)) {
+  const custom = editorScores(this, sum); // custom arenas keep their own best (systems/editor.ts)
+  if (leaderboardEnabled && !custom && this.role !== 'client' && (this.runMode !== 'raid' || this.victories > 0)) {
     const board = this.meta.week ? weeklyChallenge(this.meta.week).board : boardId(this.runMode, this.difficulty.id, this.runDate);
     void submitGlobal(board, { name: this.hero.name, score: Math.floor(sum.score), stage: sum.stage, kills: sum.kills, time: sum.time }).then((r) => {
       if (r) this.hud.toast(`GLOBAL RANK #${r}!`, 4);
       this.refreshGlobal(board, r ? r - 1 : -1);
     });
   }
-  const rank = this.runMode === 'raid' ? -1 : this.runMode === 'gauntlet' ? challengeState(this).bankRank : this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
+  const rank = custom ? custom.rank : this.runMode === 'raid' ? -1 : this.runMode === 'gauntlet' ? challengeState(this).bankRank : this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
   if (this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
-  this.screens.showGameOver(sum, rank, this.runMode === 'gauntlet' ? loadGauntletScores() : loadHighScores(), this.role === 'client');
+  this.screens.showGameOver(sum, rank, custom ? custom.list : this.runMode === 'gauntlet' ? loadGauntletScores() : loadHighScores(), this.role === 'client');
   if (sum.mvp) { this.mvp.report = sum.mvp; this.showMvp(sum.mvp); }
 }
 
