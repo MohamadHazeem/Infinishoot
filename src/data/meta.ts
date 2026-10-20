@@ -91,6 +91,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   // heroes3 lane: Ronin and Tinker (checked in src/game/systems/heroes3.ts).
   { id: 'point_blank', name: 'Point Blank', desc: 'Defeat 150 enemies within 2.5 m of you in one run' },
   { id: 'workshop', name: 'Workshop', desc: 'Hold 4 auto weapons at level 5 or higher in one run' },
+  // heroes4 lane: Medic and Brawler (checked in src/game/systems/heroes4.ts).
+  { id: 'lifesaver', name: 'Lifesaver', desc: 'Clear a stage after dropping below 20% life in it' },
+  { id: 'wrecking_crew', name: 'Wrecking Crew', desc: 'Defeat 20 enemies with the arena (lava, thorns, pillars, barrels, ice, crushers) in one run' },
   // ---------------------------------------------------------------- meta2: long-term goals (cosmetic only)
   // Combat
   m('m2_kills_10k', 'Crowd Control', 'Defeat 10,000 enemies yourself', 'bronze', 'combat', 'kills', 10000),

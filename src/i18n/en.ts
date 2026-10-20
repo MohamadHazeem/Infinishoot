@@ -6,6 +6,7 @@ import { pets2En } from './pets2';
 import { editorEn } from './editor';
 import { setsEn } from './sets';
 import { followupsEn } from './followups';
+import { heroes4En } from './heroes4';
 import { biome3En } from './biome3';
 import { seasonEn } from './season';
 import { storyEn } from '../game/story/strings';
@@ -135,6 +136,7 @@ export const en = {
   "clips.binding": "Save last 15 seconds",
 
   ...followupsEn,
+  ...heroes4En,
   "mods.category.weapons": "weapons",
   "mods.category.enemies": "enemies",
   "mods.category.relics": "relics",

@@ -20,6 +20,7 @@ import { lagOut, lagSteps, lagTuning, rewindEnemy } from './netcode';
 import { ARENA_SOURCE_NAMES } from './arena';
 import { MECH_SOURCE_NAMES } from './heroMechs';
 import { heroes3OnKill } from './heroes3';
+import { heroes4HitCare, heroes4OnKill } from './heroes4';
 import { gpBulletBlast } from './gameplay';
 import { GP_SOURCE_NAMES } from '../gameplay';
 import { copyOrbPulse } from './enemyAi';
@@ -276,6 +277,7 @@ export function killEnemy(this: Game, e: Enemy, source: string, by: Hero | null)
   this.modesOnKill(e, source, by); // on-beat kill bonus, pacifist kill check (systems/modes.ts)
   gauntletKill(this, e);
   heroes3OnKill(this, e, by); // Point Blank kills (systems/heroes3.ts)
+  heroes4OnKill(this, e, source, by); // Wrecking Crew environmental kills (systems/heroes4.ts)
   this.meta2Kill(e, source, by); // profile stats: kills by tag/enemy, bosses (systems/meta2.ts)
   this.enemies.kill(e);
   // Enemies are pooled: the next spawn may reuse this object, so the boss references must go now
@@ -444,6 +446,8 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   let dmg = Math.max(1, Math.round(Math.min((raw - h.stats.armor) * (1 + this.curseSum('dmgTaken')), p.maxHp * playerTuning.maxHitFrac)));
   if (this.meta.rule('glass')) dmg = Math.ceil(p.hp);
   dmg = assistDamage(this, dmg);
+  dmg = heroes4HitCare(this, h, dmg, src); // revive-drone shields, Field Hospital's 1-life floor (systems/heroes4.ts)
+  if (dmg <= 0) return;
   // Frost Totem relic: once per stage a lethal hit leaves you at 1 life and freezes everything nearby.
   if (!this.meta.rule('glass') && dmg >= p.hp && h.hasRelic('r_phoenix') && !h.phoenixUsed) {
     h.phoenixUsed = true;

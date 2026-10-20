@@ -100,6 +100,15 @@ export const EVO_LAYERS: Readonly<Record<string, EvoLayer>> = {
   'iaido.raijin': { char: 'thunder', pitch: 1.1 },
   'beacon.fortress': { char: 'shock', pitch: 0.9 },
   'beacon.medbay': { char: 'radiant', pitch: 1.3, gain: 0.8 },
+  // Hero kits (heroes4 lane): the Medic's beam and drone, the Brawler's fists and grab.
+  'medbeam.surge': { char: 'shock', pitch: 1.2 },
+  'medbeam.lifeline': { char: 'radiant', pitch: 1.1, gain: 0.8 },
+  'revdrone.guardian': { char: 'thunder', pitch: 1.3, gain: 0.8 },
+  'revdrone.phoenix': { char: 'fire', pitch: 1.1 },
+  'fists.thunder': { char: 'thunder', pitch: 0.9 },
+  'fists.meteor': { char: 'fire', pitch: 0.8, gain: 0.9 },
+  'grab.suplex': { char: 'swarm', pitch: 0.7 },
+  'grab.cyclone': { char: 'mirror', pitch: 0.9, gain: 0.8 },
 };
 
 /** Fallback for evolutions added later without a layer entry: a bright sparkle. */

@@ -32,6 +32,7 @@ import { preloadSkillAudio, skillSound } from '../skillAudio';
 import { SkillHud } from '../../ui/styleMeter';
 import { bossLike } from '../bossRules';
 import { bulletWasInReach, clientHeartbeat, clientRtt, heroParryLag, markParryPredicted, onlineStop, parryPredicted, refundRewoundHits, remoteParry } from '../netFeel';
+import { heroes4Tuning } from '../heroes4';
 
 /** Skill events: [seq, kind, hero index, x, z, extra]. pd = perfect dash, pa = parry, ul = ultimate, rk = rank up (extra = rank), hs = online hit-stop (extra = seconds), sw = parry swing (every attempt). */
 type SkillEvent = [number, 'pd' | 'pa' | 'ul' | 'rk' | 'hs' | 'sw', number, number, number, number];
@@ -613,7 +614,7 @@ export function applySkillNet(this: Game, data: unknown): void {
     sk.ult = a[2];
     sk.ultT = a[3] * def.duration;
     sk.buffT = a[4] ? 1 : 0;
-    if (h === this.hero) h.player.ultSpeed = sk.ultT > 0 && def.id === 'blitz' ? ultTuning.blitzSpeed : 1;
+    if (h === this.hero) h.player.ultSpeed = sk.ultT > 0 && def.id === 'blitz' ? ultTuning.blitzSpeed : sk.ultT > 0 && def.id === 'wrecking' ? heroes4Tuning.wrecking.speed : 1; // (heroes4: Wrecking Ball)
   });
   if (s.n) {
     const [seq, ...notes] = s.n;

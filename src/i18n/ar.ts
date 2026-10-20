@@ -6,6 +6,7 @@ import { pets2Ar } from './pets2';
 import { editorAr } from './editor';
 import { setsAr } from './sets';
 import { followupsAr } from './followups';
+import { heroes4Ar } from './heroes4';
 import { biome3Ar } from './biome3';
 import { seasonAr } from './season';
 import { storyAr } from '../game/story/strings';
@@ -136,6 +137,7 @@ export const ar = {
   "clips.binding": "حفظ آخر 15 ثانية",
 
   ...followupsAr,
+  ...heroes4Ar,
   "mods.category.weapons": "الأسلحة",
   "mods.category.enemies": "الأعداء",
   "mods.category.relics": "الآثار",

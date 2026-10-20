@@ -35,6 +35,7 @@ import { noteParryLag } from '../netFeel';
 import { soundLaneNet } from './sound2';
 import { netcodeHello, netcodeHostMsg, netcodeNote, netcodeStep, netNq, noteViewStep, remoteButtonsIn } from './netcode';
 import { heroes3Net, heroes3StrikeMsg } from './heroes3';
+import { heroes4Net } from './heroes4';
 import { coopPlayMessage, coopPlayNet } from './coopplay';
 import { lobbyCap } from '../eightp';
 import { eightpSnapTick, heroWeaponsFor } from './eightp';
@@ -309,6 +310,7 @@ export function buildSnapshot(this: Game, forHero: Hero, events: VfxEvent[], vie
     s2: soundLaneNet(this, forHero),
     nq: netNq(this), // everyone's ping / loss / snapshot rate (systems/netcode.ts)
     h3: heroes3Net(this, forHero, R), // Tinker bots (systems/heroes3.ts)
+    h4: heroes4Net(this, forHero), // Field Hospital wards, Wrecking Crew count (systems/heroes4.ts)
     p2: pvp2Net(this), // PvP rounds, teams and ring (systems/pvp2.ts)
     cy: coopPlayNet(this), // co-op objectives, carried heroes, tethers (systems/coopplay.ts)
     sp: spectateNet(this, view), // watchers and their emotes (systems/spectate.ts)

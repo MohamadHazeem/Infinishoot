@@ -6,6 +6,7 @@ import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial
 import { createHero, type HeroRig } from './heroModel';
 import type { Player } from './player';
 import { createWeapon, type Weapon, type WeaponCtx } from './weapons';
+import { heroes4Gear, isHeroes4 } from './heroes4';
 
 /**
  * Hero mechanics (src/data/heroes.ts `mech`), pure state and presentation.
@@ -343,6 +344,7 @@ export function attachHeroGear(rig: HeroRig, mech: HeroDef['mech'] | undefined):
     out.push(o);
     return o;
   };
+  heroes4Gear(rig, mech, mat, put); // Medic and Brawler (src/game/heroes4.ts)
   switch (mech) {
     case 'duelist': {
       const red = mat('#b13e53');
@@ -440,7 +442,7 @@ export function attachHeroGear(rig: HeroRig, mech: HeroDef['mech'] | undefined):
   // These kits arrived after the layered rigs: merge only static pieces on the
   // same joint/material to keep their outline/x-ray inside the 40-part budget.
   // Named animated parts (blade, cog, etc.) retain their own transforms.
-  if (mech === 'ronin' || mech === 'tinker') for (let i = 0; i < out.length; i++) {
+  if (mech === 'ronin' || mech === 'tinker' || isHeroes4(mech)) for (let i = 0; i < out.length; i++) {
     const first = out[i] as THREE.Mesh;
     if (first.name) continue;
     const parts = out.filter((o) => !o.name && o.parent === first.parent && (o as THREE.Mesh).material === first.material) as THREE.Mesh[];

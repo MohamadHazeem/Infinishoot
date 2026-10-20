@@ -17,7 +17,7 @@ export interface HeroDef {
   /** Ultimate id (src/game/ultimates.ts ULTS). */
   ult: string;
   /** A unique hero mechanic (src/game/heroMechs.ts), on top of the stat quirks. */
-  mech?: 'duelist' | 'furnace' | 'twin' | 'ronin' | 'tinker';
+  mech?: 'duelist' | 'furnace' | 'twin' | 'ronin' | 'tinker' | 'medic' | 'brawler';
   /** Hero kit clicks (src/data/heroWeapons.ts) that replace the loadout's left / right click. */
   clicks?: { primary?: string; secondary?: string };
 }
@@ -111,6 +111,31 @@ export const HEROES: HeroDef[] = [
     ult: 'legion',
     mech: 'tinker',
     clicks: { secondary: 'beacon' },
+  },
+  // heroes4 lane (src/game/systems/heroes4.ts): a healer and a melee grappler.
+  {
+    id: 'medic',
+    name: 'Medic',
+    desc: 'Healer. LEFT CLICK is a mending beam that burns through enemies, heals every teammate it passes through and mends you with every hit; RIGHT CLICK sends a drone that revives a downed teammate from range (or shields you). Teammates near you regenerate. +0.4 life/s, faster revives. ULTIMATE: Field Hospital.',
+    start: [],
+    add: { regen: 0.4, reviveSpeed: 0.5 },
+    build: [0.95, 1.0],
+    unlock: 'lifesaver',
+    ult: 'hospital',
+    mech: 'medic',
+    clicks: { primary: 'medbeam', secondary: 'revdrone' },
+  },
+  {
+    id: 'brawler',
+    name: 'Brawler',
+    desc: 'Melee grappler. LEFT CLICK is a 3-punch combo whose haymaker sends enemies flying, RIGHT CLICK grabs an enemy to throw into the others (bosses get an uppercut), and the dash is a shoulder charge. Knock enemies into lava, thorns and pillars! +50 life, +3 armor, +25% knockback, a little life per kill, 5% slower. ULTIMATE: Wrecking Ball.',
+    start: [],
+    add: { maxHp: 50, armor: 3, knockbackMul: 0.25, killHeal: 0.05, moveSpeedMul: -0.05 },
+    build: [1.2, 0.98],
+    unlock: 'wrecking_crew',
+    ult: 'wrecking',
+    mech: 'brawler',
+    clicks: { primary: 'fists', secondary: 'grab' },
   },
 ];
 

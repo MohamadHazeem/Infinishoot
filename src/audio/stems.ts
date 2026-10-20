@@ -39,6 +39,11 @@ const BASE_STEMS: Readonly<Record<string, Instrument>> = {
   katana: { patch: 'pluck', steps: [0, 3, 6, 12], degrees: [0, 4, 7, 4], octave: 12, length: 0.5, cutoff: 7000, pan: -0.1 },
   iaido: { patch: 'wide', steps: [8], degrees: [7], octave: 12, length: 3, cutoff: 5200, pan: 0.15, sweep: true },
   beacon: { patch: 'square', steps: [2, 6, 10, 14], degrees: [4, 4, 7, 4], octave: 24, length: 0.4, cutoff: 3600, pan: 0.2 },
+  // Hero kits (heroes4 lane)
+  medbeam: { patch: 'bell', steps: [0, 4, 8, 12], degrees: [0, 2, 4, 7], octave: 24, length: 0.8, cutoff: 6000, pan: -0.2 },
+  revdrone: { patch: 'pluck', steps: [6, 14], degrees: [4, 7], octave: 24, length: 1, cutoff: 5000, pan: 0.25 },
+  fists: { patch: 'square', steps: [0, 2, 8, 10], degrees: [0, 0, 3, 0], octave: 0, length: 0.25, cutoff: 1800, pan: -0.15 },
+  grab: { patch: 'wide', steps: [12], degrees: [5], octave: 0, length: 1.5, cutoff: 2400, pan: 0.15, sweep: true },
 };
 /** A fused weapon plays its first part's rhythm through its second part's patch, merged rhythms, an octave up. */
 function fusedStem(a: Instrument, b: Instrument): Instrument {

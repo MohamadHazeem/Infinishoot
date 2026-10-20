@@ -45,6 +45,10 @@ export const weaponSamples: Readonly<Record<string, string>> = {
   swordDash: 'sword_dash',
   summon: 'summon',
   minionZap: 'minion_zap',
+  // heroes4 lane: the Brawler's fists and grab (the Medic's beam is synth only).
+  punchHeavy: 'finisher_hit',
+  grab: 'carry_lift',
+  throw: 'finisher_whoosh',
   explode: 'explode_small',
 };
 export const cueSamples: Readonly<Record<string, string>> = {
@@ -90,6 +94,10 @@ export const cueSamples: Readonly<Record<string, string>> = {
   swordDash: 'sword_dash',
   summon: 'summon',
   minionZap: 'minion_zap',
+  // heroes4 lane: Field Hospital, Wrecking Ball, the revive drone's pickup.
+  fieldHospital: 'team_charge',
+  wreckingBall: 'boss_slam',
+  droneRevive: 'pet_level',
 };
 /**
  * 0 swarm noise .. 4 big moments, then the sound lane's bands: 6 = off-screen
