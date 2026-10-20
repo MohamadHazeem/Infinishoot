@@ -273,6 +273,8 @@ kbd.prompt:empty { display: none; }
   /* Phones in Arabic: the mobile layout's right-hand pause/score/combo meet the mirrored face and life bar. */
   [lang=ar] #hud #ingame #pausebtn { right: auto; left: 12px; }
   [lang=ar] #hud #ingame #score, [lang=ar] #hud #ingame #combo { right: auto; left: 76px; }
+  /* The mirrored goals stack starts under the phone minimap (right: 12px, top: 82px) instead of on it. */
+  [lang=ar] #hud #ingame #goals { top: 160px; }
 }
 
 /* Short windows (phones in landscape, 844x390): side panels shrink so the dock
@@ -396,7 +398,7 @@ function overlap(a: DockBox, ay: number, b: DockBox): number {
  * CSS spot when that spot covers none of the boxes before it. Otherwise it
  * tries the spots right below / above each box it could touch (and the view
  * edges) and takes the nearest free one, moving against its `dir` only when
- * that is 3x nearer. When no spot is free (a crowded phone screen) it takes
+ * that is 6x nearer. When no spot is free (a crowded phone screen) it takes
  * the one covering the least area (anchors weigh 4x). Writes `off` (px) on every box.
  */
 export function resolveDock(boxes: DockBox[], n: number, gap: number, viewH: number): void {
@@ -432,7 +434,7 @@ function consider(boxes: DockBox[], i: number, y: number, viewH: number): void {
   // Covering an anchor (life, clock, sticks, buttons) counts 4x: crowded panels rather overlap each other.
   for (let j = 0; j < i; j++) area += overlap(b, y, boxes[j]) * (boxes[j].dir ? 1 : 4);
   const d = y - b.y;
-  const cost = Math.abs(d) * (d * b.dir < 0 ? 3 : 1);
+  const cost = Math.abs(d) * (d * b.dir < 0 ? 6 : 1);
   if (area < best.area - 0.5 || (Math.abs(area - best.area) <= 0.5 && cost < best.cost)) {
     best.area = area;
     best.cost = cost;
@@ -459,11 +461,28 @@ export class HudDock {
     for (const el of this.applied.keys()) if (!el.isConnected) this.applied.delete(el);
   }
 
+  private pending = false;
+  private readonly run = (): void => {
+    this.pending = false;
+    this.layout();
+  };
+
+  /**
+   * Call once per frame. The measuring runs in a task right after this frame
+   * is painted, when layout is already clean, so reading the boxes never
+   * forces a synchronous layout inside the game frame.
+   */
   tick(dt: number): void {
     if (typeof document === 'undefined' || typeof window === 'undefined') return;
     this.t -= dt;
-    if (this.t > 0) return;
+    if (this.t > 0 || this.pending) return;
     this.t = dockTuning.every;
+    this.pending = true;
+    setTimeout(this.run, 0);
+  }
+
+  /** One layout pass: measure the docked panels and nudge the ones that overlap. */
+  layout(): void {
     this.scanT -= dockTuning.every;
     if (this.scanT <= 0) {
       this.scanT = dockTuning.rescan;
