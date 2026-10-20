@@ -4,6 +4,7 @@
  *   &relics=r_cinder,r_keg       own these relics
  *   &set=inferno:4,storm:2       own that many pieces of each set (relics, then items, Mods, auto weapons)
  *   &setpause=2                  open the pause screen (build + SETS panel) after 2 s
+ *   &setat=4                     apply &set after 4 s instead of at once (plays the tier flourish)
  *
  *   ?test&god&set=inferno:6&setpause=3      ?test&set=boomsmith:3&levelup      ?test&set=storm:3&shop&gold=60
  */
@@ -18,6 +19,14 @@ import { setsView } from '../ui/setsUi';
 import type { Game } from '../game/game';
 
 export function setsLinks(game: Game, q: URLSearchParams): void {
+  const at = Number(q.get('setat'));
+  if (at > 0) setTimeout(() => give(game, q), at * 1000);
+  else give(game, q);
+  const p = Number(q.get('setpause'));
+  if (p > 0) setTimeout(() => game.pause(), p * 1000);
+}
+
+function give(game: Game, q: URLSearchParams): void {
   const h = game.hero;
   const list = (k: string) => (q.get(k) ?? '').split(',').map((x) => x.trim()).filter(Boolean);
   for (const id of list('relics')) if (RELIC_BY_ID[id] && !h.relics.includes(id)) h.relics.push(id);
@@ -47,6 +56,4 @@ export function setsLinks(game: Game, q: URLSearchParams): void {
   }
   countPieces(h, h.sets.counts);
   setsView.counts = h.sets.counts; // the level-up/shop chips may render before the first frame
-  const p = Number(q.get('setpause'));
-  if (p > 0) setTimeout(() => game.pause(), p * 1000);
 }

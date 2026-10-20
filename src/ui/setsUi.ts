@@ -71,16 +71,17 @@ export function setsPanelHtml(): string {
 const CSS = `
 .set-chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 2px; }
 .set-chip { display: inline-flex; align-items: center; gap: 3px; padding: 1px 5px; font: 10px var(--label); color: var(--c);
-  background: var(--ink); box-shadow: inset 0 0 0 var(--p) var(--night), inset calc(2 * var(--p)) 0 0 0 var(--c); white-space: nowrap; }
+  background: var(--ink); box-shadow: inset 0 0 0 var(--p) var(--night), inset calc(2 * var(--p)) 0 0 0 var(--c); white-space: nowrap;
+  max-width: 100%; flex-wrap: wrap; justify-content: center; }
 .set-chip i { font-style: normal; font-family: var(--font); font-size: 13px; }
 .set-chip b { color: var(--white); font-weight: normal; }
 .set-chip.adds b { color: var(--lime); }
 .set-chip.on { background: var(--c); color: var(--ink); box-shadow: inset 0 0 0 var(--p) var(--ink); animation: set-blink 0.8s steps(2) infinite; }
 .set-chip.on b { color: var(--ink); }
-.set-chip em { font-style: normal; color: var(--yellow); background: var(--ink); padding: 0 3px; margin-inline-start: 2px; }
+.set-chip em { font-style: normal; color: var(--yellow); background: var(--ink); padding: 0 3px; flex-basis: 100%; text-align: center; }
 @keyframes set-blink { 50% { background: var(--white); } }
 .reduce-flash .set-chip.on { animation: none; }
-#scr-pause .sets-col { position: absolute; inset-inline-end: 16px; top: 72px; width: 330px; min-width: 0; max-height: calc(100% - 110px); overflow-y: auto; }
+#scr-pause .sets-col { position: absolute; inset-inline-end: 16px; top: 72px; width: 300px; min-width: 0; max-height: calc(100% - 110px); overflow-y: auto; }
 @media (max-width: 1100px) { #scr-pause .sets-col { position: static; width: auto; max-height: none; } }
 .set-row { display: grid; gap: 1px; padding: 3px 6px 4px; background: rgba(26, 28, 44, 0.7); box-shadow: inset calc(2 * var(--p)) 0 0 0 var(--c); }
 .set-h { display: flex; align-items: center; gap: 6px; font: 18px var(--display); color: var(--c); }
