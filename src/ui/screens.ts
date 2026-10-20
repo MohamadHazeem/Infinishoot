@@ -1,3 +1,4 @@
+import { renderCasualPreset } from '../game/systems/assists';
 import { eliteGuide } from '../game/systems/elites2';
 import { ModsScreen } from './modsScreen';
 import { gauntletOption, renderGauntletOptions } from '../game/systems/gauntlet';
@@ -1452,7 +1453,7 @@ export class Screens {
     const rows = save.history.map(
       (r) => `<tr>
         <td>${r.date}</td>
-        <td>${r.label}<br><small>HEAT ${r.heat ?? 0} · +${r.bolts ?? 0} BOLTS</small><br><small>${r.hero.toUpperCase()}</small></td>
+        <td>${r.label} ${r.assisted ? `<small class="casual-badge">${t('casual.badge')}</small>` : ''}<br><small>HEAT ${r.heat ?? 0} · +${r.bolts ?? 0} BOLTS</small><br><small>${r.hero.toUpperCase()}</small></td>
         <td>STAGE ${r.stage}<br><small>LV ${r.level} · ${fmtTime(r.time)}</small></td>
         <td class="sc">${fmtScore(r.score)}<br><small>${r.kills.toLocaleString('en-US')} KILLS</small></td>
         <td class="ws">${r.weapons.map((w) => `<span class="badge${w.evo ? ' evo' : ''}" style="--c:${WEAPONS[w.id]?.color ?? '#fff'}">${iconHtml(w.id, WEAPONS[w.id]?.color ?? '#fff', WEAPONS[w.id]?.icon ?? '?')}<i>${w.evo ? 'E' : w.level}</i></span>`).join('')}</td>
@@ -1519,6 +1520,7 @@ export class Screens {
       : diff.desc.toUpperCase());
     if (mode.id === 'weekly') el.querySelector('.mode-note')!.textContent = localize(`${weeklyChallenge().week}: ${weeklyChallenge().rules.map(r => r.name).join(' + ')} · FIXED ROOKIE KIT`);
     renderGauntletOptions(el);
+    renderCasualPreset(el);
     this.navs.modes.refresh(this.navs.modes.focus);
   }
 

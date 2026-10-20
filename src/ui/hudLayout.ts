@@ -17,7 +17,7 @@ const CSS = `
 #ingame > #score, #ingame > #combo, #ingame > #loadout, #ingame > #mods, #ingame > #minimap,
 #ingame > #petpanel, #ingame > #teammeter,
 #ingame > #downed, #ingame > #meters, #ingame > #banner, #ingame > #stylemeter,
-#architect-hud, #ha-candy, #hud > #navhint, #ob-tip, #ob-train, #caps, #ingame > #gp-power, #ingame > #gp-cash, #ingame > #gp-comeback,
+.casual-run-badge, #architect-hud, #ha-candy, #hud > #navhint, #ob-tip, #ob-train, #caps, #ingame > #gp-power, #ingame > #gp-cash, #ingame > #gp-comeback,
 .screen:not(.hud-pick-layer):not(#scr-settings) > * {
   zoom: var(--ui);
 }

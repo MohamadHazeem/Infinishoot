@@ -82,6 +82,7 @@ export class Input {
       this.device = 'kbm';
     });
     canvas.addEventListener('mousedown', (e) => {
+      this.setMouse(e.clientX, e.clientY); // Click-to-move also works without a preceding mousemove.
       this.mouseButtons |= 1 << e.button;
       this.mousePressedBits |= 1 << e.button;
       this.device = 'kbm';

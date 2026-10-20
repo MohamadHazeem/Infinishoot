@@ -20,6 +20,8 @@ import { rewardHook } from '../data/profile';
  */
 /** One finished run, newest first in `history`. */
 export interface RunRecord {
+  /** Any casual option was active during this run (v10). */
+  assisted?: boolean;
   heat?: number;
   weekly?: string;
   bolts?: number;
@@ -149,7 +151,8 @@ const KEY = 'save';
 // v5: seasonal candy + cosmetics (halloween), `friends` (lobby); v6: merged; v7: meta2 profile (XP, stats, best runs, cosmetics), daily quests and achievement dates;
 // v8: `ranked` (race lane: rating, monthly seasons, ladder id). Each lane normalises its own fields, so any older save loads.
 // v9: `seasonPass` (seasonpass lane: the free cosmetic SEASON track); older saves start the current season at tier 0.
-const VERSION = 9;
+// v10: history records carry an assist badge; old runs migrate to unassisted.
+const VERSION = 10;
 const CODE_PREFIX = 'ISAVE1:';
 
 function fresh(): SaveData {
@@ -188,7 +191,7 @@ export function normalize(raw: unknown): SaveData {
   if (Array.isArray(r.discovered)) d.discovered = r.discovered.filter((x): x is string => typeof x === 'string');
   if (r.training && typeof r.training === 'object') d.training = { offered: !!r.training.offered, done: !!r.training.done };
   d.friends = cleanFriends(r.friends);
-  if (Array.isArray(r.history)) d.history = r.history.filter((x) => x && typeof x === 'object' && Number.isFinite((x as RunRecord).score)).slice(0, 30);
+  if (Array.isArray(r.history)) d.history = r.history.filter((x) => x && typeof x === 'object' && Number.isFinite((x as RunRecord).score)).slice(0, 30).map((x) => ({ ...x, assisted: x.assisted === true }));
   if (r.lifetime && typeof r.lifetime === 'object') {
     for (const k of Object.keys(d.lifetime) as (keyof SaveData['lifetime'])[]) {
       const v = Number((r.lifetime as Record<string, unknown>)[k]);

@@ -68,6 +68,10 @@ row('GAMEPLAY', 'deathReplay', 'DEATH REPLAY', 'Replays the final moments before
 row('GAMEPLAY', 'cinematics', 'CINEMATICS', 'Choose full, shorter or no cinematic sequences.', undefined, ['full', 'short', 'off']);
 row('GAMEPLAY', 'finishers', 'BOSS FINISHERS', 'Comic panels on a stage boss finishing blow.');
 row('GAMEPLAY', 'portraitPops', 'CHARACTER POP-INS', 'Portraits for announcer calls, bosses and pings.');
+// Resolve casual copy when read so live language switching also updates focus descriptions.
+for (const [key, name] of [['gameSpeed', 'speed'], ['oneStick', 'oneStick'], ['assistDash', 'dash'], ['assistIframes', 'iframes'], ['assistDamage', 'damage'], ['assistBullets', 'bullets'], ['assistMagnet', 'magnet']] as const) {
+  rows.push({ tab: 'ACCESSIBILITY', key, get label() { return t(`casual.${name}`); }, get desc() { return t(`casual.${name}Desc`); }, options: key === 'gameSpeed' ? ['100', '85', '70'] : undefined });
+}
 row('ACCESSIBILITY', 'colorblindMode', 'COLOUR VISION', 'Local colour assistance for the whole scene and UI: bullets, danger zones, rarity, team colours and elite glows.', undefined, ['off', 'protanopia', 'deuteranopia', 'tritanopia']);
 row('ACCESSIBILITY', 'colorblind', 'ALT BULLET PALETTE', 'Legacy high-contrast enemy bullet colours. Kept separately so your saved preference is preserved.');
 row('ACCESSIBILITY', 'textScale', 'TEXT SIZE', 'Enlarges text independently of panel and icon scale. Menus scroll when needed.', [100, 150, 25]);
@@ -123,6 +127,7 @@ export class SettingsScreen {
         + (SETTINGS_TABS[i] === 'CONTROLS' ? `<button data-touch-layout>${t('mobile.layout')}</button><button data-rebind aria-label="Rebind keyboard controls">REBIND KEYS…</button>` : '')
         + (SETTINGS_TABS[i] === 'GAMEPLAY' ? '<button data-act="ob-tips-reset" aria-label="Reset first-time tips">RESET TIPS</button>' : '');
     });
+    this.el.querySelector('[data-setting=gameSpeed]')!.insertAdjacentHTML('beforebegin', `<h2 class="casual-assists-heading">${t('casual.heading')}</h2><p class="casual-assists-note">${t('casual.note')}</p>`);
     const touchLayoutButton = this.el.querySelector('[data-touch-layout]')!;
     touchLayoutButton.parentElement!.prepend(touchLayoutButton);
     this.description = this.el.querySelector('.settings-description')!;
@@ -191,7 +196,7 @@ export class SettingsScreen {
     this.el.querySelectorAll<HTMLElement>('[data-setting]').forEach((el) => {
       const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting)!;
       const v = settings[r.key];
-      const raw = r.key === 'language' ? (v === 'ar' ? 'العربية' : 'ENGLISH') : r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' || r.key === 'resolutionScale' ? '%' : ''}` : String(v).toUpperCase();
+      const raw = r.key === 'gameSpeed' ? `${v}%` : r.key === 'language' ? (v === 'ar' ? 'العربية' : 'ENGLISH') : r.labels ? r.labels[Number(v)] : typeof v === 'boolean' ? (v ? 'ON' : 'OFF') : r.range ? `${Number(v).toFixed(r.range[2] < 1 ? 2 : 0)}${r.key === 'textScale' || r.key === 'uiScale' || r.key === 'resolutionScale' ? '%' : ''}` : String(v).toUpperCase();
       const value = localize(raw);
       this.el.querySelector(`[data-value="${r.key}"]`)!.textContent = value;
       el.setAttribute('aria-label', `${r.label}: ${value}`);

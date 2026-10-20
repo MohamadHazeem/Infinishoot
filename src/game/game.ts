@@ -1,5 +1,6 @@
 import * as ArchitectSys from './systems/architect';
 import { updateElites2 } from './systems/elites2';
+import * as Assists from './systems/assists';
 import { installTrials } from './systems/trials';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
@@ -1024,6 +1025,7 @@ export class Game implements HeroWorld {
     HalloweenSys.installHalloween.call(this, hudRoot);
     this.story = StorySys.installStory.call(this, hudRoot);
     installTrials(this);
+    Assists.installAssists(this, hudRoot);
     this.goTitle();
   }
 
@@ -1318,6 +1320,7 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    dt = Assists.assistStep.call(this, dt);
     this.mvpStep();
     voiceTick(this, dt); // voice chat: roster, calls, push to talk, proximity (systems/voicechat.ts)
     accessibilityInput(this.input, this.isCombatMode && !this.paused && this.screens.current === 'none' && !this.photo?.active, dt, this.stage, this.hero.player.dead);
@@ -1492,7 +1495,7 @@ export class Game implements HeroWorld {
     lap('sim.bullets');
     this.barrels.update(dt, (i, b) => this.explodeBarrel(i, b));
     this.collectors.length = 0;
-    for (const h of this.heroes) this.collectors.push({ x: h.player.x, z: h.player.z, magnet: h.stats.magnet, alive: !h.player.dead && !h.left });
+    for (const h of this.heroes) this.collectors.push({ x: h.player.x, z: h.player.z, magnet: h.stats.magnet * Assists.magnetScale(this), alive: !h.player.dead && !h.left });
     this.pickups.update(
       dt,
       this.collectors,
@@ -1582,13 +1585,15 @@ export class Game implements HeroWorld {
         } else if (this.mouseAimPoint()) p.setAimPoint(this.aimHit.x, this.aimHit.z);
       }
       if (control) assistAim.call(this, h, input);
+      if (control) Assists.assistInput.call(this, h, input, dt);
       const wantDash =
         control &&
         (input.actionPressed('dash') || input.padButtonPressed(4) || input.padButtonPressed(6) || input.padButtonPressed(0));
       this.groundAt(p.x, p.z, p.ground);
       if (p.update(dt, control ? input : null, this.arena.colliders, wantDash)) this.onDash(h);
+      Assists.restoreAssistInput(this, h, input);
       const padFiring = input.padAim.x !== 0 || input.padAim.y !== 0 || input.padButton(7);
-      h.ctx.firing = control && (input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
+      h.ctx.firing = control && (Assists.oneStickActive(this) || input.mouseDown(0) || padFiring || (settings.autoFire && input.device === 'kbm'));
       h.ctx.charging = rightClickHeld(input, control);
       const wantBomb =
         control && (input.actionPressed('bomb') || input.mousePressed(1) || input.padButtonPressed(3) || input.padButtonPressed(5));

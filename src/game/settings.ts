@@ -49,6 +49,14 @@ export interface Settings extends DisplayOptions {
   retro: number;
   shake: number;
   autoFire: boolean;
+  /** Casual lane: local solo/shared-screen preferences; ignored online. */
+  gameSpeed: '100' | '85' | '70';
+  oneStick: boolean;
+  assistDash: boolean;
+  assistIframes: boolean;
+  assistDamage: boolean;
+  assistBullets: boolean;
+  assistMagnet: boolean;
   showFps: boolean;
   /** Hero skin id (src/data/skins.ts). */
   skin: string;
@@ -178,6 +186,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   retro: 0.5,
   shake: 1,
   autoFire: false,
+  gameSpeed: '100', oneStick: false, assistDash: false, assistIframes: false, assistDamage: false, assistBullets: false, assistMagnet: false,
   showFps: false,
   skin: 'classic',
   glow: 0.4,
@@ -245,6 +254,8 @@ export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS
 Object.assign(settings, displayOptions(settings));
 settings.highlightClips = settings.highlightClips !== false;
 settings.damageNumbers ??= 'auto';
+settings.gameSpeed = settings.gameSpeed === '85' || settings.gameSpeed === '70' ? settings.gameSpeed : '100';
+for (const key of ['oneStick', 'assistDash', 'assistIframes', 'assistDamage', 'assistBullets', 'assistMagnet'] as const) settings[key] = settings[key] === true;
 settings.batterySaver = settings.batterySaver === true;
 settings.touchOpacity = Number.isFinite(settings.touchOpacity) ? Math.max(25, Math.min(100, settings.touchOpacity)) : 70;
 settings.touchAutoHide = settings.touchAutoHide !== false;

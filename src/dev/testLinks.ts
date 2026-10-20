@@ -1,3 +1,4 @@
+import { casualLinks } from '../game/systems/assists';
 import { architectLinks } from '../game/systems/architect';
 import { weather2Links } from '../game/systems/weather2';
 import { trialsTest } from '../game/systems/trials';
@@ -159,6 +160,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const q = new URLSearchParams(search);
   biome3Force.move = q.get('biome3move') ?? '';
   if (!q.has('test')) return false;
+  casualLinks(q); // &casual, &onestick, &gamespeed=70, &assists=dash,iframes,damage,bullets,magnet
   const list = (k: string) => (q.get(k) ?? '').split(',').map((x) => x.trim()).filter(Boolean);
   const pair = (s: string): [string, number] => {
     const [id, n] = s.split(':');
