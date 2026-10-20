@@ -316,9 +316,9 @@ function squadCss(): void {
   const style = document.createElement('style');
   style.id = 'squad-css';
   style.textContent = `.squad-options { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:calc(2 * var(--p)); margin-block:var(--p); }
-.squad-options button { font-size:18px; padding:var(--p) calc(2 * var(--p)); }
-.squad-options span { font:12px var(--label); color:var(--mist); }
-.squad-status { max-width:75vw; font:12px var(--label); color:var(--cyan); background:var(--ink); padding:var(--p) calc(2 * var(--p)); }
+.squad-options button { font-size:calc(4.5 * var(--p)); padding:var(--p) calc(2 * var(--p)); }
+.squad-options span { font:calc(3 * var(--p)) var(--label); color:var(--mist); }
+.squad-status { max-width:75vw; font:calc(3 * var(--p)) var(--label); color:var(--cyan); background:var(--ink); padding:var(--p) calc(2 * var(--p)); }
 .squad-status[hidden] { display:none; }`;
   document.head.append(style);
 }
