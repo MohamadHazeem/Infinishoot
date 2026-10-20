@@ -4,7 +4,7 @@ A re-run of the balance sweep over everything the overnight build added, an evid
 
 ## What players get
 
-- **Mega Barrage (Rookie) and Mirror Storm (Twin) now take the ultimate boss multiplier** (`ultTuning.bossMul`, 0.35) like every other ultimate. Their bullets (kind 14) dealt full damage to bosses, so these two ultimates did 43-48% of all boss damage in the hero bench (the others 7-11%).
+- **Mega Barrage (Rookie) and Mirror Storm (Twin) now take the ultimate boss multiplier** (`ultTuning.bossMul`, 0.35) like every other ultimate. Their bullets (kind 14) dealt full damage to bosses, so these two ultimates did 43-48% of all boss damage in the hero bench (the other ultimates 7-11%, the Tinker's Scrap Legion 33% with the multiplier already applied).
 - **The Architect has the life of a final boss.** It had 450,000, a tenth of the stage-12 Omega Overlord that comes right before it (4.35M solo Medium); real stage-12 god runs cleared all three phases in about 19 s. Now 3,600,000 (still x(1 + 0.65 per extra hero) x difficulty), about 43 s for the god bot with a real build.
 - **Admiral Gale** 2,500 -> 2,800 life (it was the quickest biome boss).
 - **Ronin**: katana 27 -> 30 damage, sword waves 0.55 -> 0.65 of it (the slowest hero on bosses).
