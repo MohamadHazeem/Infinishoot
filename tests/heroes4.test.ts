@@ -93,7 +93,7 @@ for (const id of ['medic', 'brawler']) {
   ok(!!(storyEn as Record<string, string>)[`story.hero.${id}`] && !!(storyAr as Record<string, string>)[`story.end.${id}`], `${id}: story bio and ending in English and Arabic`);
   ok(cx!.text === (heroes4En as Record<string, string>)[`heroes4.${id}.codex`] && heroOf(id).desc === (heroes4En as Record<string, string>)[`heroes4.${id}.desc`], `${id}: the catalog matches the data copy exactly`);
 }
-setLanguage('ar');
+await setLanguage('ar');
 {
   const strings: string[] = [medic.name, brawler.name, medic.desc, brawler.desc, ULTS.hospital.name, ULTS.hospital.desc, ULTS.wrecking.name, ULTS.wrecking.desc];
   for (const id of ['medbeam', 'revdrone', 'fists', 'grab']) {
@@ -105,7 +105,7 @@ setLanguage('ar');
   const missed = strings.filter((s) => /[a-z]{3}/i.test(localize(s)));
   ok(missed.length === 0, 'every new string translates to Arabic: ' + missed.join(' || '));
 }
-setLanguage('en');
+await setLanguage('en');
 
 // ---------------------------------------------------------------- pure helpers
 ok(Math.abs(segPoint(1, 1, 0, 0, 2, 0).d - 1) < 1e-6 && Math.abs(segPoint(1, 1, 0, 0, 2, 0).t - 0.5) < 1e-6, 'segment distance and position');
