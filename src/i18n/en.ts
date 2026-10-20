@@ -2,6 +2,7 @@ import { architectEn } from '../game/architect/strings';
 import { elites2En } from './elites2';
 import { trialsEn } from './trials';
 import { pets2En } from './pets2';
+import { editorEn } from './editor';
 import { followupsEn } from './followups';
 import { biome3En } from './biome3';
 import { seasonEn } from './season';
@@ -48,6 +49,7 @@ export const en = {
   "squad.boss": "FOCUS BOSS",
   "squad.modes": "Available in Standard, Endless and Boss Rush",
 
+  ...editorEn,
   ...biome3En,
   ...seasonEn,
   "clips.title": "HIGHLIGHT CLIPS",

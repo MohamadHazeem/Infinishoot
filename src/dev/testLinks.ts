@@ -4,6 +4,7 @@ import { trialsTest } from '../game/systems/trials';
 import { pets2Links } from './pets2Links';
 import { squadCount } from '../game/aisquadBrain';
 import { pinWheel } from '../game/teamPlay';
+import { editorLinks } from '../game/systems/editor';
 import { biome3Force } from '../game/biome3Brain';
 import { clipsFor, markClip } from '../game/systems/clips';
 import { secretsLinks } from '../game/systems/secrets';
@@ -224,6 +225,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   }
   gauntletTest(game, q);
   trialsTest(game, q);
+  editorLinks(game, q); // arena=demo|<code>, arenaboss, editor[=demo], editorscreen= (systems/editor.ts)
   raidTestLink(game, q);
   const h = game.hero;
   for (const p of list('passives')) {
