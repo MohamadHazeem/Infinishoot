@@ -49,4 +49,22 @@ const ultMob = hitWith({ ...mob, hp: 1e6 }, 14, 100);
 ok(plainMob > 0 && Math.abs(ultMob / plainMob - 1) < 0.02, `ordinary enemies still take full ultimate bullet damage (${(ultMob / plainMob).toFixed(3)})`);
 Math.random = rnd;
 
+// ---------------------------------------------------------------- trials: survive trials can medal
+const { TRIAL_BY_ID, TRIALS, medalFor } = await import('../src/data/trials');
+// A survive trial's time is summed from 1/60 s steps and finishes at 89.99999999999618 (the finish check has a 1e-5 slack).
+const survived = { time: 89.99999999999618, damage: 0, kills: 210, combo: 210, progress: 89.99999999999618, success: true };
+ok(medalFor(TRIAL_BY_ID.buster, survived) === 3, 'a survive trial finished on summed time still earns its medal');
+ok(medalFor(TRIAL_BY_ID.combo, survived) === 3 && medalFor(TRIAL_BY_ID.combo, { ...survived, combo: TRIAL_BY_ID.combo.medals[0] - 1 }) === 0, 'combo medals use the tuned targets');
+ok(medalFor(TRIAL_BY_ID.buster, { ...survived, progress: 80 }) === 0, 'an unfinished survive trial still earns nothing');
+for (const d of TRIALS) if (d.metric === 'time') ok(d.medals[2] < d.medals[1] && d.medals[1] < d.medals[0] && d.medals[0] <= d.seconds, `${d.id}: gold < silver < bronze <= limit`);
+
+// ---------------------------------------------------------------- the Architect is the final boss, not a tenth of Omega
+const { architectTuning, architectHp } = await import('../src/game/architect/model');
+const { directorTuning } = await import('../src/game/director');
+const { bossTuning } = await import('../src/game/bosses');
+const s12 = 11;
+const omega12 = ENEMIES.omega.hp * bossTuning.hp * (1 + directorTuning.bossPerStage * s12 + directorTuning.bossPerStage2 * s12 * s12) * directorTuning.bossLoopHp ** 2;
+ok(architectHp(1) >= 0.6 * omega12, `the Architect (${architectHp(1)}) has at least 60% of the stage-12 Omega's life (${Math.round(omega12)})`);
+ok(architectTuning.hp <= 1.5 * omega12, 'and no more than 1.5x of it');
+
 process.exit(process.exitCode ?? 0);

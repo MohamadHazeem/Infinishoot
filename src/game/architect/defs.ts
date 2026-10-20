@@ -8,6 +8,6 @@ const target: EnemyDef = {
 export const architectDefs: Record<string, EnemyDef> = {
   architect_core: target,
   architect: { ...target, id: 'architect', name: 'The Architect', title: 'THE MIND BEHIND THE OVERLORD',
-    titanPart: undefined, boss: true, secret: true, phases: [0.66, 0.33], radius: 2.1, hp: 450000,
+    titanPart: undefined, boss: true, secret: true, phases: [0.66, 0.33], radius: 2.1, hp: 3600000, // startArchitect sets the real life (architectTuning.hp, balance2)
     bodyColor: '#29366f', accentColor: '#73eff7', xp: 800, score: 150000 },
 };

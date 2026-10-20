@@ -93,7 +93,7 @@ export function bosses3Defs(): Record<string, EnemyDef> {
       boss: true,
       phases: [0.66, 0.33],
       title: 'TERROR OF THE TRADE WINDS',
-      hp: 2500,
+      hp: 2800, // balance2: was 2500 (the quickest biome boss)
       speed: 4.2,
       radius: 2.0,
       bodyColor: '#b13e53',

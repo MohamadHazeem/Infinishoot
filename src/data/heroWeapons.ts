@@ -20,7 +20,8 @@ export const HERO_WEAPONS: Record<string, WeaponDef> = {
     desc: 'LEFT CLICK: a 3-hit sword combo in front of you; the third hit is a heavy cleave. Swings cut enemy bullets.',
     starter: false,
     // reach (m), arc (deg), rate (swings/s), cleave (3rd hit x), wave (0 none, 1 third hit, 2 every hit), waveDmg (x dmg), waveSize, knock
-    levels: [{ text: 'A 3-hit sword combo; the third hit cleaves.', p: { dmg: 27, reach: 2.6, arc: 130, rate: 2.9, cleave: 2.4, wave: 0, waveDmg: 0.55, waveSize: 1, knock: 7 } }],
+    // balance2: dmg 27 -> 30, waveDmg 0.55 -> 0.65 (the Ronin was the slowest hero on bosses, hero bench index 0.63)
+    levels: [{ text: 'A 3-hit sword combo; the third hit cleaves.', p: { dmg: 30, reach: 2.6, arc: 130, rate: 2.9, cleave: 2.4, wave: 0, waveDmg: 0.65, waveSize: 1, knock: 7 } }],
     tracks: [
       {
         id: 'edge',

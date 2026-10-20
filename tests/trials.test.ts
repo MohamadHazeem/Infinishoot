@@ -53,7 +53,7 @@ for (const d of TRIALS) {
 const result = (patch = {}) => ({ time: 40, damage: 0, kills: 100, combo: 70, progress: 1, success: true, medal: 3 as const, ...patch });
 ok(medalFor(TRIAL_BY_ID.king, result()) === 3, 'gold threshold inclusive');
 ok(medalFor(TRIAL_BY_ID.king, result({ time: 40.1 })) === 2, 'time medals ordered lower is better');
-ok(medalFor(TRIAL_BY_ID.combo, result({ combo: 35, progress: 90 })) === 2, 'combo medals ordered higher is better');
+ok(medalFor(TRIAL_BY_ID.combo, result({ combo: TRIAL_BY_ID.combo.medals[1], progress: 90 })) === 2, 'combo medals ordered higher is better');
 ok(medalFor(TRIAL_BY_ID.clean, result({ damage: 1 })) === 0, 'no-hit is a hard fail');
 ok(medalFor(TRIAL_BY_ID.king, result({ success: false })) === 0, 'failure cannot medal');
 ok(medalFor(TRIAL_BY_ID.king, result({ progress: 0 })) === 0, 'incomplete objective cannot medal');
