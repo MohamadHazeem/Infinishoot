@@ -153,14 +153,23 @@ const { A, clients } = T;
 await new Promise((r) => setTimeout(r, 0));
 T.flush();
 ok(A.lobby.length === 8, `the lobby takes 8 players (${A.lobby.length})`);
-// A 9th is refused in the lobby.
+// A 9th never takes a player slot. Since the spectate lane a full lobby seats them as a spectator ('spwelcome',
+// why 'full'); with spectators switched off they are refused ('full').
 let refused = '';
+let watching = '';
 (A as any).host.send = ((orig) => (id: string, m: any) => {
   if (id === 'peer9' && m.t === 'full') refused = String(m.reason ?? 'full');
+  if (id === 'peer9' && m.t === 'spwelcome') watching = String(m.why ?? '');
   orig(id, m);
 })((A as any).host.send);
+const SPEC = await import('../src/game/systems/spectate');
 A.onHostMessage('peer9', { t: 'hello', name: 'Nine', unlocked: [], hero: 'rookie' });
-ok(A.lobby.length === 8 && !!refused, `a 9th player is refused (${refused})`);
+ok(A.lobby.length === 8 && watching === 'full' && !refused, `a 9th player gets a spectator seat, not a lobby slot (${watching})`);
+SPEC.spectateLeft(A, 'peer9');
+settings.spectators = false;
+A.onHostMessage('peer9', { t: 'hello', name: 'Nine', unlocked: [], hero: 'rookie' });
+settings.spectators = true;
+ok(A.lobby.length === 8 && !!refused, `with spectators off, a 9th player is refused (${refused})`);
 // Versus keeps 4.
 A.lobbyKind = 'versus';
 A.hostStart();
