@@ -3542,7 +3542,7 @@ export const en = {
   "eightp.run_full": "That run is full (8 players).",
   "eightp.versus_cap": "VERSUS TAKES UP TO 4 PLAYERS (CO-OP AND PVP TAKE 8)",
   "eightp.coop_cap": "CO-OP TAKES UP TO 8 PLAYERS",
-  "eightp.game_full": "That game is full."
+  "eightp.game_full": "That game is full.",
   "hostmig.newHost": "NEW HOST: ⟪name⟫",
   "hostmig.solo": "YOU CARRY ON",
   "hostmig.subSolo": "THE HOST LEFT · THE RUN GOES ON SOLO",

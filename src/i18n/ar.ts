@@ -3543,7 +3543,7 @@ export const ar = {
   "eightp.run_full": "هذه الجولة ممتلئة (8 لاعبين).",
   "eightp.versus_cap": "المواجهة تتسع حتى 4 لاعبين (اللعب الجماعي وPVP حتى 8)",
   "eightp.coop_cap": "اللعب الجماعي يتسع حتى 8 لاعبين",
-  "eightp.game_full": "هذه اللعبة ممتلئة."
+  "eightp.game_full": "هذه اللعبة ممتلئة.",
   "hostmig.newHost": "مضيف جديد: ⟪name⟫",
   "hostmig.solo": "تابع وحدك",
   "hostmig.subSolo": "غادر المضيف · تستمر الجولة بلاعب واحد",
