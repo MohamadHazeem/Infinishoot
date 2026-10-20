@@ -105,7 +105,6 @@ heroes4Hooks.hospital = (g, h, x, z, seconds) => {
   g.vfx.sound('fieldHospital', x, z);
   g.vfx.ring(x, z, 1, HT.radius * 2, '#a7f070', 0.5);
   g.vfx.burst(x, 0.5, z, { count: 30, color: '#a7f070', color2: '#ffffff', speed: [3, 9], size: [0.15, 0.3], life: [0.4, 0.8], up: 6, gravity: 6 });
-  g.vfx.banner('FIELD HOSPITAL', `${h.name.toUpperCase()} OPENS THE WARD`, 1.4);
 };
 
 const weaponOf = <T>(h: Hero, id: string): T | undefined => h.weapons.find((w) => w.def.id === id) as T | undefined;

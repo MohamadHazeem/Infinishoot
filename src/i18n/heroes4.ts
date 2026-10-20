@@ -10,7 +10,7 @@ const BRAWLER_LORE =
 const MEDIC_DESC =
   'Healer. LEFT CLICK is a mending beam that burns through enemies, heals every teammate it passes through and mends you with every hit; RIGHT CLICK sends a drone that revives a downed teammate from range (or shields you). Teammates near you regenerate. +0.4 life/s, faster revives. ULTIMATE: Field Hospital.';
 const BRAWLER_DESC =
-  'Melee grappler. LEFT CLICK is a 3-punch combo whose haymaker sends enemies flying, RIGHT CLICK grabs an enemy to throw into the others (bosses get an uppercut), and the dash is a shoulder charge. Knock enemies into lava, thorns and pillars! +40 life, +2 armor, +25% knockback, 5% slower. ULTIMATE: Wrecking Ball.';
+  'Melee grappler. LEFT CLICK is a 3-punch combo whose haymaker sends enemies flying, RIGHT CLICK grabs an enemy to throw into the others (bosses get an uppercut), and the dash is a shoulder charge. Knock enemies into lava, thorns and pillars! +50 life, +3 armor, +25% knockback, a little life per kill, 5% slower. ULTIMATE: Wrecking Ball.';
 
 export const heroes4Lore = { medic: MEDIC_LORE, brawler: BRAWLER_LORE };
 
@@ -45,7 +45,6 @@ export const heroes4En = {
   'heroes4.pop.up': 'BACK ON YOUR FEET!',
   'heroes4.pop.slam': 'SLAM!',
   'heroes4.pop.strike': 'STRIKE!',
-  'heroes4.pop.ward': '⟪name⟫ OPENS THE WARD',
   'heroes4.src.shoulder': 'Shoulder Charge',
   // Mending Beam
   'heroes4.medbeam': 'Mending Beam',
@@ -56,9 +55,9 @@ export const heroes4En = {
   'heroes4.medbeam.t0': 'Intensity',
   'heroes4.medbeam.t1': 'Wide Lens',
   'heroes4.medbeam.t2': 'Bedside Manner',
-  'heroes4.medbeam.r1': '+2 damage per tick.',
-  'heroes4.medbeam.r2': '+2 damage per tick, ticks faster.',
-  'heroes4.medbeam.r3': '+3 damage per tick.',
+  'heroes4.medbeam.r1': '+3 damage per tick.',
+  'heroes4.medbeam.r2': '+3 damage per tick, ticks faster.',
+  'heroes4.medbeam.r3': '+4 damage per tick.',
   'heroes4.medbeam.r4': 'Longer beam.',
   'heroes4.medbeam.r5': 'Wider beam, burns through 1 more enemy.',
   'heroes4.medbeam.r6': 'Wider beam, burns through 2 more enemies.',
@@ -147,7 +146,7 @@ const BRAWLER_LORE_AR =
 const MEDIC_DESC_AR =
   'معالجة. الزر الأيسر شعاع علاج يخترق الأعداء ويعالج كل زميل يمر عبره ويرمم حياتك مع كل إصابة؛ والزر الأيمن يرسل طائرة تنعش زميلا ساقطا من بعيد (أو تحميك بدرع). يستعيد الزملاء القريبون منك حياتهم تدريجيا. حياة +0.4 في الثانية، وإنعاش أسرع. القدرة القصوى: المستشفى الميداني.';
 const BRAWLER_DESC_AR =
-  'مصارع قتال قريب. الزر الأيسر سلسلة من 3 لكمات تطيّر ثالثتها القاضية الأعداء، والزر الأيمن يمسك عدوا ليقذفه على الآخرين (والزعماء يتلقون لكمة صاعدة)، والاندفاع صدمة كتف. اقذف الأعداء في الحمم والأشواك والأعمدة! حياة +40، ودرع +2، وارتداد +25%، وأبطأ بنسبة 5%. القدرة القصوى: الكرة المدمرة.';
+  'مصارع قتال قريب. الزر الأيسر سلسلة من 3 لكمات تطيّر ثالثتها القاضية الأعداء، والزر الأيمن يمسك عدوا ليقذفه على الآخرين (والزعماء يتلقون لكمة صاعدة)، والاندفاع صدمة كتف. اقذف الأعداء في الحمم والأشواك والأعمدة! حياة +50، ودرع +3، وارتداد +25%، وقليل من الحياة مع كل إطاحة، وأبطأ بنسبة 5%. القدرة القصوى: الكرة المدمرة.';
 
 export const heroes4LoreAr = { medic: MEDIC_LORE_AR, brawler: BRAWLER_LORE_AR };
 
@@ -179,7 +178,6 @@ export const heroes4Ar: Record<keyof typeof heroes4En, string> = {
   'heroes4.pop.up': 'انهض من جديد!',
   'heroes4.pop.slam': 'ارتطام!',
   'heroes4.pop.strike': 'إصابة كاملة!',
-  'heroes4.pop.ward': '⟪name⟫ تفتح الجناح',
   'heroes4.src.shoulder': 'صدمة الكتف',
   'heroes4.medbeam': 'شعاع العلاج',
   'heroes4.medbeam.desc': 'الزر الأيسر: شعاع يخترق الأعداء ويعالج كل زميل يمر عبره. كل إصابة ترمم حياتك قليلا.',
@@ -189,9 +187,9 @@ export const heroes4Ar: Record<keyof typeof heroes4En, string> = {
   'heroes4.medbeam.t0': 'الشدة',
   'heroes4.medbeam.t1': 'عدسة واسعة',
   'heroes4.medbeam.t2': 'لطف الطبيب',
-  'heroes4.medbeam.r1': 'ضرر +2 لكل نبضة.',
-  'heroes4.medbeam.r2': 'ضرر +2 لكل نبضة، ونبضات أسرع.',
-  'heroes4.medbeam.r3': 'ضرر +3 لكل نبضة.',
+  'heroes4.medbeam.r1': 'ضرر +3 لكل نبضة.',
+  'heroes4.medbeam.r2': 'ضرر +3 لكل نبضة، ونبضات أسرع.',
+  'heroes4.medbeam.r3': 'ضرر +4 لكل نبضة.',
   'heroes4.medbeam.r4': 'شعاع أطول.',
   'heroes4.medbeam.r5': 'شعاع أعرض، يخترق عدوا إضافيا.',
   'heroes4.medbeam.r6': 'شعاع أعرض، يخترق عدوين إضافيين.',

@@ -128,9 +128,9 @@ export const HEROES: HeroDef[] = [
   {
     id: 'brawler',
     name: 'Brawler',
-    desc: 'Melee grappler. LEFT CLICK is a 3-punch combo whose haymaker sends enemies flying, RIGHT CLICK grabs an enemy to throw into the others (bosses get an uppercut), and the dash is a shoulder charge. Knock enemies into lava, thorns and pillars! +40 life, +2 armor, +25% knockback, 5% slower. ULTIMATE: Wrecking Ball.',
+    desc: 'Melee grappler. LEFT CLICK is a 3-punch combo whose haymaker sends enemies flying, RIGHT CLICK grabs an enemy to throw into the others (bosses get an uppercut), and the dash is a shoulder charge. Knock enemies into lava, thorns and pillars! +50 life, +3 armor, +25% knockback, a little life per kill, 5% slower. ULTIMATE: Wrecking Ball.',
     start: [],
-    add: { maxHp: 40, armor: 2, knockbackMul: 0.25, moveSpeedMul: -0.05 },
+    add: { maxHp: 50, armor: 3, knockbackMul: 0.25, killHeal: 0.05, moveSpeedMul: -0.05 },
     build: [1.2, 0.98],
     unlock: 'wrecking_crew',
     ult: 'wrecking',

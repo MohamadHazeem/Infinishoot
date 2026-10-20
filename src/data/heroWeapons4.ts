@@ -20,16 +20,16 @@ export const HERO_WEAPONS4: Record<string, WeaponDef> = {
     desc: 'LEFT CLICK: a beam that burns through enemies and heals every teammate it passes through. Every hit mends you a little.',
     starter: false,
     // dmg per tick, rate (ticks/s), range (m), width (half, m), pierce (enemies per tick), heal (ally life per tick), leech (share of damage back to you)
-    levels: [{ text: 'A beam that hurts enemies and heals teammates.', p: { dmg: 9, rate: 10, range: 10, width: 0.55, pierce: 3, heal: 1.4, leech: 0.05 } }],
+    levels: [{ text: 'A beam that hurts enemies and heals teammates.', p: { dmg: 16, rate: 10, range: 12, width: 0.55, pierce: 3, heal: 1.4, leech: 0.05 } }],
     tracks: [
       {
         id: 'power',
         name: 'Intensity',
         ranks: [
-          { text: '+2 damage per tick.', p: { dmg: 2 } },
-          { text: '+2 damage per tick.', p: { dmg: 2 } },
-          { text: '+2 damage per tick, ticks faster.', p: { dmg: 2, rate: 1 } },
           { text: '+3 damage per tick.', p: { dmg: 3 } },
+          { text: '+3 damage per tick.', p: { dmg: 3 } },
+          { text: '+3 damage per tick, ticks faster.', p: { dmg: 3, rate: 1 } },
+          { text: '+4 damage per tick.', p: { dmg: 4 } },
         ],
       },
       {
@@ -122,7 +122,7 @@ export const HERO_WEAPONS4: Record<string, WeaponDef> = {
     desc: 'LEFT CLICK: a fast 3-punch combo in front of you; the third punch is a haymaker that sends enemies flying (into lava, thorns, walls and each other).',
     starter: false,
     // reach (m), arc (deg), rate (punches/s), finisher (3rd punch x), knock (m/s), launch (x knock on the haymaker), quake (haymaker shockwave radius, 0 = none)
-    levels: [{ text: 'A 3-punch combo; the haymaker sends enemies flying.', p: { dmg: 24, reach: 2, arc: 95, rate: 3.6, finisher: 2.6, knock: 9, launch: 3, quake: 0 } }],
+    levels: [{ text: 'A 3-punch combo; the haymaker sends enemies flying.', p: { dmg: 30, reach: 2, arc: 95, rate: 4, finisher: 2.6, knock: 9, launch: 3, quake: 0 } }],
     tracks: [
       {
         id: 'knuckles',
@@ -173,7 +173,7 @@ export const HERO_WEAPONS4: Record<string, WeaponDef> = {
     desc: 'RIGHT CLICK: grab the enemy in front of you, hold to carry it, release to throw it through the crowd. Bosses get a heavy uppercut instead.',
     starter: false,
     // dmg (thrown impact / uppercut base), speed (throw m/s), flight (s), splash (m around the thrown enemy), cd (s), hold (max s), upper (uppercut x dmg), reach (m)
-    levels: [{ text: 'Grab, carry and throw enemies; uppercut bosses.', p: { dmg: 34, speed: 24, flight: 0.5, splash: 1.1, cd: 1.3, hold: 1.6, upper: 4, reach: 2.4 } }],
+    levels: [{ text: 'Grab, carry and throw enemies; uppercut bosses.', p: { dmg: 40, speed: 24, flight: 0.5, splash: 1.1, cd: 1.3, hold: 1.6, upper: 6.5, reach: 2.4 } }],
     tracks: [
       {
         id: 'impact',

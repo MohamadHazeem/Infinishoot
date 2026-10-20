@@ -23,6 +23,7 @@ export const heroes4Tuning = {
     auraR: 6, // teammates within this many metres of the Medic regenerate...
     auraRegen: 2, // ...this much life per second (never the Medic itself)
     leechCap: 8, // the beam mends the Medic at most this much life per second
+    beamBoss: 1.75, // bosses and mini-bosses take x this from the beam (the Medic's right click deals no damage, so no Expose)
     droneSpeed: 26, // m/s, flying to a downed teammate
     shieldOrbit: 1.25, // m, the shield drone circles its hero
     aimPick: 4, // m: a shield goes to the living teammate this close to the cursor (else the Medic)
@@ -171,15 +172,27 @@ export const heroes4Hooks = {
  * Autopilot (dev bot, co-op drop-out autopilot): the Brawler fights a boss up
  * close (hit and run), like the Ronin, so the melee kit gets used.
  */
-export function pilotHeroes4(mech: string | undefined, px: number, pz: number, mv: { mx: number; mz: number }, boss: { x: number; z: number; radius: number; state?: string } | null): void {
+export function pilotHeroes4(mech: string | undefined, px: number, pz: number, mv: { mx: number; mz: number }, boss: { x: number; z: number; radius: number; state?: string } | null, ring: { x: number; z: number; r: number } | null = null): void {
   if (mech !== 'brawler' || !boss) return;
   const dx = px - boss.x;
   const dz = pz - boss.z;
   const d = Math.hypot(dx, dz) || 1;
   const busy = boss.state === 'windup' || boss.state === 'attack';
-  const want = (boss.radius + (busy ? 6 : 1.6) - d) * 0.6;
+  // Just inside fist reach (it counts the boss's radius) while it walks or recovers, well clear while it winds up or attacks.
+  const want = (boss.radius + (busy ? 6 : 1.8) - d) * 0.6;
   mv.mx = mv.mx * 0.5 + (-dz / d) * 0.7 + (dx / d) * want;
   mv.mz = mv.mz * 0.5 + (dx / d) * 0.7 + (dz / d) * want;
+  // A boss duel's ring of fire (src/game/bossDuel.ts): backing off never leaves it.
+  if (ring) {
+    const rx = px - ring.x;
+    const rz = pz - ring.z;
+    const rd = Math.hypot(rx, rz) || 1;
+    const over = rd - (ring.r - 2);
+    if (over > 0) {
+      mv.mx -= (rx / rd) * (1 + over);
+      mv.mz -= (rz / rd) * (1 + over);
+    }
+  }
 }
 
 // ---------------------------------------------------------------- gear (silhouettes)

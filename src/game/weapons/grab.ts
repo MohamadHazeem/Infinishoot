@@ -242,7 +242,7 @@ export class Grab extends Weapon {
     ctx.fx.ring(e.x, e.z, e.radius, e.radius + 2.5, '#ffffff', 0.2);
     ctx.shake(e.x, e.z, 0.35);
     ctx.sound('punchHeavy');
-    this.startCooldown((p.cd * 1.4) / this.rightClickSpeed(ctx));
+    this.startCooldown((p.cd * 1.2) / this.rightClickSpeed(ctx));
     this.armFx(ctx, this.evoColor, 1);
     pl.bounce(6);
   }

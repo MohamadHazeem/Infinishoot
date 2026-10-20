@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Tag } from '../../data/tags';
 import type { WeaponDef } from '../../data/weapons';
 import type { Enemy } from '../enemies';
+import { bossLike } from '../bossRules';
 import { heroes4Tuning, leechHeal, onBeam } from '../heroes4';
 import { Weapon, type WeaponCtx } from './base';
 
@@ -125,13 +126,23 @@ export class MedBeam extends Weapon {
       list.push(e);
     }
     list.sort((u, v) => (u.x - this.ox) * ca + (u.z - this.oz) * sa - ((v.x - this.ox) * ca + (v.z - this.oz) * sa));
-    const n = Math.min(list.length, Math.round(p.pierce));
+    // Bosses on the beam always take the tick; they never use up the pierce budget (the swarm in front would starve them).
+    let n = 0;
+    let small = 0;
+    const pierce = Math.round(p.pierce);
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      const big = bossLike(e);
+      if (!big && small >= pierce) continue;
+      if (!big) small++;
+      list[n++] = e;
+    }
     const dmg = p.dmg * (mega ? 3 : 1);
     let dealt = 0;
     const tags = evo === 'surge' ? SHOCK : evo === 'lifeline' ? FROST : undefined;
     for (let i = 0; i < n; i++) {
       const e = list[i];
-      dealt += ctx.damage(e, dmg, { source: 'medbeam', tags, dirX: ca, dirZ: sa, knockback: 0.6, hx: e.x - ca * e.radius, hz: e.z - sa * e.radius, canCrit: true, loud: i === 0 && this.ticks % 2 === 0 });
+      dealt += ctx.damage(e, dmg * (bossLike(e) ? M.beamBoss : 1), { source: 'medbeam', tags, dirX: ca, dirZ: sa, knockback: 0.6, hx: e.x - ca * e.radius, hz: e.z - sa * e.radius, canCrit: true, loud: i === 0 && this.ticks % 2 === 0 });
       if (evo === 'lifeline' && e.active) {
         e.slowT = Math.max(e.slowT, 0.3);
         e.slowAmt = Math.max(e.slowAmt, M.lifelineSlow);

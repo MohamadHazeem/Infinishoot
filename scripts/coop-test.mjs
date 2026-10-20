@@ -513,6 +513,27 @@ const heroes3Check = (dash) => async () => {
   return { host: h, client: c };
 };
 
+/** heroes4 lane (COOP_HEROES=medic,brawler): the client Brawler's punches and grabs land on the host; the host Medic's beam and drone reach the client. */
+const heroes4Check = (grab) => async () => {
+  const h = await host(() => {
+    const g = window.game;
+    const d = (i, k) => Math.round(g.heroes[i]?.damageBy[k] ?? 0);
+    return { heroes: g.heroes.map((x) => x.heroDef.id).join(), beam: d(0, 'medbeam'), fists: d(1, 'fists'), grab: d(1, 'grab') + d(1, 'shoulder') };
+  });
+  if (h.heroes !== 'medic,brawler') return `skipped (heroes ${h.heroes})`;
+  const c = await client(() => {
+    const g = window.game;
+    const medic = g.heroes[0];
+    const drone = medic?.weapons.find((w) => w.def.id === 'revdrone');
+    return { punches: g.hero.weapons.find((w) => w.def.id === 'fists')?.seq ?? -1, drone: drone ? [Math.round(drone.x), Math.round(drone.z)] : null, medicAt: medic ? [Math.round(medic.player.x), Math.round(medic.player.z)] : null };
+  });
+  if (h.beam <= 0) fail(`heroes4: the host Medic's beam dealt no damage`);
+  if (h.fists <= 0 || c.punches <= 0) fail(`heroes4: client Brawler's fists: host damage ${h.fists}, client punches ${c.punches}`);
+  if (!c.drone) fail('heroes4: the client does not see the host Medic\'s drone');
+  if (grab && h.grab <= 0) fail('heroes4: the client Brawler never grabbed, threw or charged anything on the host');
+  return { host: h, client: c };
+};
+
 /** Coopplay scenarios: wait until both machines fight, then hold level-ups off (restored by `coopEnd`). */
 async function coopFight() {
   for (let k = 0; k < 60; k++) {
@@ -539,6 +560,8 @@ async function coopEnd() {
 const SCENARIO = [
   [20, 'heroes3: Tinker bots on both screens, the client Ronin swings', heroes3Check(false)],
   [70, 'heroes3: the client Ronin has dash-struck too', heroes3Check(true)],
+  [24, 'heroes4: host Medic beam and drone, the client Brawler punches', heroes4Check(false)],
+  [74, 'heroes4: the client Brawler has grabbed, thrown or charged too', heroes4Check(true)],
   [8, 'new enemy types, an elite and the Goldbug near the client', async () => {
     const spawned = await host(async () => {
       const g = window.game;
