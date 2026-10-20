@@ -12,6 +12,11 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "deploykit.off": "Online features: OFF · Invite codes still work.",
+  "deploykit.checking": "Online features: checking…",
+  "deploykit.on": "Online features: ON",
+  "deploykit.unavailable": "Online features: unavailable · Try again later.",
+
   "casual.clickDash": "Click to dash",
   "casual.clickSpecial": "Click to use your special",
   "casual.presetScores": "Local play only. Achievements count; leaderboard scores do not.",

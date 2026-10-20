@@ -1,3 +1,4 @@
+import { onlineServer } from './onlineServer';
 import { loadJson, saveJson } from '../core/storage';
 
 /**
@@ -16,7 +17,7 @@ export interface TeamEntry {
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
-const ENV_BASE = (import.meta.env?.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const ENV_BASE = onlineServer;
 
 /** Team names: letters, digits, spaces and a little punctuation, 16 characters. */
 export function cleanTeam(name: unknown): string {

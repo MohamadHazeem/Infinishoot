@@ -1,3 +1,4 @@
+import { readBody } from './validation.js';
 // Help ghosts (coop2 lane): share a friend's "help ghost" with a short code.
 //
 //   POST /ghost          <- { ghost: { name, hero, color, look, level, stage, boss, kit, date } }
@@ -20,14 +21,16 @@ function makeCode() {
 }
 
 function cleanGhost(g, clean) {
-  if (!g || typeof g !== 'object') return null;
+  if (!g || typeof g !== 'object' || typeof g.level !== 'number' || typeof g.stage !== 'number') return null;
+  if (['hero', 'color', 'look', 'boss', 'date'].some(k => g[k] !== undefined && typeof g[k] !== 'string')) return null;
+  if (g.kit !== undefined && (!Array.isArray(g.kit) || g.kit.some(k => typeof k !== 'string'))) return null;
   const level = Math.floor(Number(g.level));
   const stage = Math.floor(Number(g.stage));
   if (!(level >= 1 && level <= 999 && stage >= 1 && stage <= 999)) return null;
   return {
     v: 1,
     name: clean(g.name),
-    hero: ID.test(String(g.hero)) ? String(g.hero) : 'rookie',
+    hero: typeof g.hero === 'string' && ID.test(g.hero) ? g.hero : 'rookie',
     color: /^#[0-9a-f]{6}$/i.test(String(g.color)) ? String(g.color) : '#73eff7',
     look: String(g.look ?? '---00').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 8),
     level,
@@ -47,22 +50,22 @@ export async function ghostRoute(req, env, url, { json, clean }) {
     return ghost ? json({ ghost }) : json({ error: 'not found' }, 404);
   }
   if (req.method === 'POST') {
+    let body;
+    try {
+      body = await readBody(req, 2000);
+    } catch (error) {
+      return json({ error: error.status === 413 ? 'too big' : 'bad json' }, error.status ?? 400);
+    }
+    const ghost = cleanGhost(body?.ghost, clean);
+    if (!ghost) return json({ error: 'bad ghost' }, 400);
     const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
     const n = Number((await env.SCORES.get(`ghostip:${ip}`)) ?? 0);
     if (n >= 10) return json({ error: 'slow down' }, 429);
     await env.SCORES.put(`ghostip:${ip}`, String(n + 1), { expirationTtl: 3600 });
-    let body;
-    try {
-      const text = await req.text();
-      if (text.length > 2000) return json({ error: 'too big' }, 400);
-      body = JSON.parse(text);
-    } catch {
-      return json({ error: 'bad json' }, 400);
-    }
-    const ghost = cleanGhost(body?.ghost, clean);
-    if (!ghost) return json({ error: 'bad ghost' }, 400);
+
     let code = makeCode();
     for (let i = 0; i < 3 && (await env.SCORES.get(`ghost:${code}`)); i++) code = makeCode();
+    if (await env.SCORES.get(`ghost:${code}`)) return json({ error: 'try again' }, 503);
     await env.SCORES.put(`ghost:${code}`, JSON.stringify(ghost), { expirationTtl: TTL });
     return json({ code });
   }

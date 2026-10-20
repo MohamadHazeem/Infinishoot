@@ -1,3 +1,4 @@
+import { onlineServer } from './onlineServer';
 /**
  * Shared RANKED ladder (race lane), only when the build has VITE_LEADERBOARD_URL
  * (server/leaderboard/ranked.js). Each save posts its current season rating
@@ -13,7 +14,7 @@ export interface LadderEntry {
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
-const ENV_BASE = (import.meta.env?.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const ENV_BASE = onlineServer;
 
 export class RankedLadder {
   constructor(

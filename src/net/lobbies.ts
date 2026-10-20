@@ -1,3 +1,4 @@
+import { onlineServer } from './onlineServer';
 /**
  * Public lobby list (MP lane). Hosts that mark their lobby PUBLIC register it on
  * the optional online service (server/leaderboard/lobbies.js) and keep it alive
@@ -66,7 +67,7 @@ function safeTz(): string {
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
-const ENV_BASE = (import.meta.env?.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const ENV_BASE = onlineServer;
 
 /** Client for the lobby routes; `base` and `fetch` are injectable for tests. */
 export class LobbyService {

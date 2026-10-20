@@ -13,6 +13,11 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "deploykit.off": "الميزات عبر الإنترنت: معطّلة · رموز الدعوة ما زالت تعمل.",
+  "deploykit.checking": "الميزات عبر الإنترنت: جارٍ التحقّق…",
+  "deploykit.on": "الميزات عبر الإنترنت: مفعّلة",
+  "deploykit.unavailable": "الميزات عبر الإنترنت: غير متاحة · حاول لاحقًا.",
+
   "casual.clickDash": "انقر للاندفاع",
   "casual.clickSpecial": "انقر لاستخدام قدرتك الخاصة",
   "casual.presetScores": "للعب المحلي فقط. تُحتسب الإنجازات ولا تُحتسب نقاط لوحات الصدارة.",

@@ -33,6 +33,7 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1 # web build only
       - run: npm run build
         env:
+          VITE_LEADERBOARD_URL: ${{ vars.VITE_LEADERBOARD_URL }}
           # Optional TURN relay for online play (docs/TURN.md).
           VITE_TURN_URLS: ${{ vars.VITE_TURN_URLS }}
           VITE_TURN_USERNAME: ${{ vars.VITE_TURN_USERNAME }}

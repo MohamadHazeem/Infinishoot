@@ -1,3 +1,4 @@
+import { onlineStatusLine } from '../ui/onlineStatus';
 import { installControllerKeyboard } from './keyboard';
 import type { Screens } from '../ui/screens';
 import { settings, saveSettings } from '../game/settings';
@@ -14,7 +15,8 @@ export function installDesktopUi(screens: Screens): void {
   const button = (key: string, action: () => void) => {
     const b = document.createElement('button'); b.dataset.nav = ''; b.dataset.desktopLabel = key; b.textContent = t(key); b.onclick = action; menu.append(b); return b;
   };
-  menu.append(info);
+  const online = onlineStatusLine();
+  menu.append(info, online.el);
   button('desktop.export', () => {
     status.textContent = t('desktop.saving');
     void exportErrorLog().then(result => { status.textContent = t(`desktop.${result}`); });
@@ -28,6 +30,8 @@ export function installDesktopUi(screens: Screens): void {
   button('desktop.back', () => screens.show('settings'));
   menu.append(status); el.append(heading, menu);
   screens.addScreen('desktopHelp', el, { onBack: () => screens.show('settings') });
+  const previousShow = screens.onShow;
+  screens.onShow = name => { previousShow?.(name); if (name === 'desktopHelp') online.refresh(); };
   const help = document.createElement('button'); help.dataset.nav = ''; help.textContent = t('desktop.help');
   help.onclick = () => { refresh(); screens.show('desktopHelp'); };
   screens.settingsScreen.el.querySelector('.settings-footer')!.append(help);

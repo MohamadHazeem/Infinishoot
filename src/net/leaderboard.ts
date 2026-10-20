@@ -1,3 +1,4 @@
+import { onlineServer } from './onlineServer';
 /**
  * Optional online leaderboard (server/leaderboard). Only active when the build
  * was made with VITE_LEADERBOARD_URL set; otherwise every call is a no-op and
@@ -12,7 +13,7 @@ export interface GlobalScore {
   date: string;
 }
 
-const BASE = (import.meta.env?.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const BASE = onlineServer;
 
 export const leaderboardEnabled = BASE !== '';
 

@@ -1,3 +1,4 @@
+import { onlineServer } from './onlineServer';
 /**
  * Help ghosts over the optional worker (server/leaderboard/ghost.js): upload
  * your ghost for a 6-character code, or fetch a friend's by theirs. Only active
@@ -6,7 +7,7 @@
  */
 import { cleanGhost, type HelpGhost } from '../game/coop2';
 
-const BASE = (import.meta.env?.VITE_LEADERBOARD_URL as string | undefined)?.replace(/\/$/, '') ?? '';
+const BASE = onlineServer;
 
 export const ghostShareEnabled = BASE !== '';
 

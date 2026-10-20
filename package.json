@@ -8,6 +8,8 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
+    "server:deploy": "node scripts/server-deploy.mjs",
+    "server:dev": "node scripts/server-dev.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

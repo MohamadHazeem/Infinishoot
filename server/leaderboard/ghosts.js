@@ -1,3 +1,4 @@
+import { readBody } from './validation.js';
 // Weekly ghost board (modes lane): players upload their weekly run's ghost and race other people's.
 //
 //   GET  /ghosts?week=<YYYY-Www>           -> { ghosts: [{ id, name, score, stage, time }] } (best first, top 10)
@@ -29,15 +30,13 @@ export async function ghostsRoute(req, env, url, { json, clean }) {
     return json({ ghosts: list });
   }
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
-  const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
-  if (await env.SCORES.get(`gip:${ip}`)) return json({ error: 'slow down' }, 429);
-  await env.SCORES.put(`gip:${ip}`, '1', { expirationTtl: 60 });
   let b;
   try {
-    b = await req.json();
-  } catch {
-    return json({ error: 'bad json' }, 400);
+    b = await readBody(req, 204096);
+  } catch (error) {
+    return json({ error: error.status === 413 ? 'too big' : 'bad json' }, error.status ?? 400);
   }
+  if (typeof b.week !== 'string' || typeof b.code !== 'string' || ['score', 'stage', 'time'].some(k => typeof b[k] !== 'number')) return json({ error: 'bad run' }, 400);
   const w = String(b.week ?? '');
   const code = String(b.code ?? '');
   const score = Math.floor(Number(b.score));
@@ -45,7 +44,11 @@ export async function ghostsRoute(req, env, url, { json, clean }) {
   const time = Number(b.time);
   if (!WEEK_RE.test(w)) return json({ error: 'bad week' }, 400);
   if (!CODE_RE.test(code) || code.length > MAX_CODE) return json({ error: 'bad ghost' }, 400);
-  if (!(score >= 0 && stage >= 1 && stage < 200 && time > 0 && time < 86400)) return json({ error: 'bad run' }, 400);
+  if (!(Number.isSafeInteger(score) && score >= 0 && score <= time * 10000000 * stage && stage >= 1 && stage < 200 && time > 0 && time < 86400)) return json({ error: 'bad run' }, 400);
+  const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
+  if (await env.SCORES.get(`gip:${ip}`)) return json({ error: 'slow down' }, 429);
+  await env.SCORES.put(`gip:${ip}`, '1', { expirationTtl: 60 });
+
   const id = Math.random().toString(36).slice(2, 12).padEnd(8, '0');
   const entry = { id, name: clean(b.name), score, stage, time: Math.round(time) };
   const list = (await env.SCORES.get(`ghosts:${w}`, 'json')) ?? [];
@@ -54,6 +57,6 @@ export async function ghostsRoute(req, env, url, { json, clean }) {
   const rank = list.indexOf(entry) + 1;
   if (rank > KEEP) return json({ rank: 0 });
   await env.SCORES.put(`ghost:${w}:${id}`, code, { expirationTtl: TTL });
-  await env.SCORES.put(`ghosts:${w}`, JSON.stringify(list.slice(0, KEEP)));
+  await env.SCORES.put(`ghosts:${w}`, JSON.stringify(list.slice(0, KEEP)), { expirationTtl: TTL });
   return json({ rank });
 }
