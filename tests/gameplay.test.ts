@@ -243,7 +243,7 @@ ok(g.gpCashIn(h, 0) === '' && g.combo === 0 && p.hp > 30, 'cash-in: HEAL spends 
 g.combo = 50;
 ok(g.gpCashIn(h, 0) !== '' && g.combo === 50, 'cash-in: the second heal this stage costs more (60)');
 g.combo = 300;
-ring('bopper', 6, 3);
+ring('bopper', 6, 3, { hpMul: 200 }); // tough: the maxed weapons (and their item sets) from the overload check would clear them first
 step(2);
 g.combo = 300;
 g.comboT = 10; // the heal's cash-in emptied the combo timer too

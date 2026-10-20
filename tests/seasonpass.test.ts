@@ -123,11 +123,11 @@ ok(PROFILE_REWARDS.includes(REWARD_BY_ID[hatId]) && !PROFILE_REWARDS.includes(RE
 resetSave();
 
 // ---------------------------------------------------------------- Arabic
-setLanguage('ar');
+await setLanguage('ar');
 const texts = [...THEMES.flatMap((t) => [t.name, t.tagline, t.title, t.champion, t.hat.name, t.skin.name, t.set.name, t.emote.label, t.emote.say, t.stickers[0][0], t.stickers[1][0]]), ...CHALLENGES.map(challengeText)];
 const missing = texts.filter((x) => /[a-z]{3}/i.test(localize(x)) || !/[؀-ۿ]/.test(localize(x)));
 ok(missing.length === 0, `every season name, line and challenge translates (${missing.slice(0, 4).join(' | ')})`);
-setLanguage('en');
+await setLanguage('en');
 
 // ---------------------------------------------------------------- DOM for the modules that need one
 const html = readFileSync(`${process.cwd()}/index.html`, 'utf8');
@@ -266,11 +266,11 @@ ok(save.seasonPass.claimed === 43 && !!document.querySelector('#scr-season .sp-r
 ui.tick();
 ok(!!document.querySelector('#scr-season .sp-detail b')?.textContent, 'detail panel follows the focused tier');
 // Arabic screen.
-setLanguage('ar');
+await setLanguage('ar');
 ui.open();
 const arText = document.querySelector('#scr-season')!.textContent ?? '';
 ok(/[؀-ۿ]/.test(arText) && !/WEEKLY CHALLENGES|HOW TO EARN|PAST SEASONS/.test(arText), 'SEASON screen in Arabic');
-setLanguage('en');
+await setLanguage('en');
 // Per-frame cost.
 g.screens.show('none');
 {

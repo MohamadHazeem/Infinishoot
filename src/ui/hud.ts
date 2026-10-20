@@ -565,8 +565,9 @@ export class Hud {
       }
       b.el.style.transform = `translate(${Math.round(t.x)}px, ${Math.round(t.y)}px) translate(-50%, -100%)`;
       const name = b.el.querySelector('.elite-name')!, detail = b.el.querySelector('.elite-detail')!;
-      if (name.textContent !== (t.name ?? '')) name.textContent = t.name ?? '';
-      if (detail.textContent !== (t.detail ?? '')) detail.textContent = t.detail ?? '';
+      const nm = localize(t.name ?? ''), dt = localize(t.detail ?? '');
+      if (name.textContent !== nm) name.textContent = localize(t.name ?? '');
+      if (detail.textContent !== dt) detail.textContent = localize(t.detail ?? '');
       // Whole UI pixels only (16 across the bar); any drop flashes and leaves a white trail.
       const hp = Math.ceil(Math.max(0, Math.min(1, t.hp01)) * 16) / 16;
       if (hp < b.hp) b.hitT = now;

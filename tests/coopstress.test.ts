@@ -174,7 +174,11 @@ const send0 = (A as any).host.send;
 (A as any).host.send = (id: string, m: any) => (id === 'pE' ? toE.push(m) : send0(id, m));
 A.onHostMessage('pE', { t: 'hello', pid: 'pid-Eve', name: 'Eve', hero: 'rookie', loadout: A.hero.loadoutPick });
 (A as any).host.send = send0;
-ok(A.lobby.length === 4 && toE.some((m) => m.t === 'full'), `a 5th player in the lobby is refused (${JSON.stringify(toE)})`);
+// Online co-op takes 8 since the eightp lane: the 5th player is seated, then leaves again so this test stays a 4-player run.
+ok(A.lobby.length === 5 && !toE.some((m) => m.t === 'full'), `a 5th player in the lobby is seated (${A.lobby.length}, ${JSON.stringify(toE.map((m) => m.t))})`);
+A.lobbyLeft('pE');
+A.onClientLeft('pE');
+ok(A.lobby.length === 4, `the 5th player left the lobby (${A.lobby.length})`);
 A.hostStart();
 flush();
 cheats.god = true;

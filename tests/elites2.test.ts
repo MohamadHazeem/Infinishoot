@@ -152,10 +152,10 @@ ok(chest >= 0 && g.pickups.value[chest] === CHAMPION_CHEST, 'champion death drop
 const gold = g.hero.gold, pending = g.hero.chestsPending;
 g.collect(g.hero, PickupType.Chest, CHAMPION_CHEST);
 ok(g.hero.chestsPending === pending + 2 && g.hero.gold === gold + 12, 'champion chest grants two rewards and 12 gold');
-setLanguage('ar');
+await setLanguage('ar');
 for (const id of ELITE_MOD_IDS.slice(6)) ok(!/[a-z]{3}/i.test(localize(ELITE_MODS[id].desc)), `${id} guide translates to Arabic`);
 ok(!/[a-z]{3}/i.test(localize(E2.eliteToast(e))), 'champion toast translates on receiver');
-setLanguage('en');
+await setLanguage('en');
 
 // Exercise the actual host builder and client apply hook, including a delta and trail expiry.
 clear(); e = spawn('phasing', 'frostbite'); step(0.1);
