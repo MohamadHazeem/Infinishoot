@@ -170,10 +170,9 @@ export class MedBeam extends Weapon {
   render(_alpha: number, ctx: WeaponCtx): void {
     const pl = ctx.player;
     const show = this.on && !pl.dead && pl.rig.root.visible;
-    if (!show) {
-      for (const m of [this.beam, this.core, this.tip]) m.scale.set(0.0001, 1, 0.0001);
-      return;
-    }
+    // Hidden while idle (they were drawn once at run start, so their shaders are compiled).
+    for (const m of [this.beam, this.core, this.tip]) m.visible = show;
+    if (!show) return;
     const t = now();
     // From the drawn hand (interpolated rig), not the sim position.
     const rx = pl.rig.root.position.x;

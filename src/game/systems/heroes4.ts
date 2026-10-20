@@ -637,11 +637,11 @@ class H4View {
     const auraGeo = mergeFlat(dash);
     for (const g of dash) g.dispose();
     this.auras = new THREE.InstancedMesh(auraGeo, glow('#a7f070', 0.35), 8);
-    this.discs = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2), glow('#a7f070', 0.16), MAX_ZONES);
+    this.discs = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2), glow('#a7f070', 0.22), MAX_ZONES);
     this.rings = new THREE.InstancedMesh(new THREE.RingGeometry(0.94, 1, 40, 1).rotateX(-Math.PI / 2), glow('#f4f4f4', 0.7), MAX_ZONES);
-    // A big floating cross over each ward (a plus made of two boxes).
-    const cross = mergeFlat([new THREE.BoxGeometry(1.4, 0.36, 0.36), new THREE.BoxGeometry(0.36, 1.4, 0.36)]);
-    this.crosses = new THREE.InstancedMesh(cross, glow('#f4f4f4', 0.85), MAX_ZONES * 2);
+    // A big flat plus hovering over each ward (the camera looks down, so it lies flat and turns slowly).
+    const cross = mergeFlat([new THREE.BoxGeometry(1.5, 0.18, 0.46), new THREE.BoxGeometry(0.46, 0.18, 1.5)]);
+    this.crosses = new THREE.InstancedMesh(cross, glow('#a7f070', 0.9), MAX_ZONES);
     for (const m of [this.auras, this.discs, this.rings, this.crosses]) {
       m.frustumCulled = false;
       m.count = 0;
@@ -678,12 +678,9 @@ class H4View {
       this.rings.setMatrixAt(nz++, this.m4);
       const bob = Math.sin(t * 2.5) * 0.2;
       const cs = 1.4 * open * close;
-      // Two crosses back to back, turning slowly, so it reads from every side.
-      for (let k = 0; k < 2; k++) {
-        this.q.setFromAxisAngle(this.up, t * 0.9 + k * (Math.PI / 2));
-        this.m4.compose(this.v.set(zn.x, 3.4 + bob, zn.z), this.q, this.s.set(cs, cs, cs));
-        this.crosses.setMatrixAt(nc++, this.m4);
-      }
+      this.q.setFromAxisAngle(this.up, t * 0.7);
+      this.m4.compose(this.v.set(zn.x, 3.6 + bob, zn.z), this.q, this.s.set(cs, cs, cs));
+      this.crosses.setMatrixAt(nc++, this.m4);
       // Rising sparkles inside the ward (local, cosmetic).
       if (zn.t > 0 && !g.paused && Math.random() < 0.5) {
         const a = Math.random() * Math.PI * 2;
@@ -691,10 +688,13 @@ class H4View {
         g.particles.burst(zn.x + Math.cos(a) * d, 0.2, zn.z + Math.sin(a) * d, { count: 1, color: '#a7f070', color2: '#ffffff', speed: [0.2, 0.6], size: [0.12, 0.22], life: [0.6, 1], up: 3, drag: 1 });
       }
     }
-    (this.discs.material as THREE.MeshBasicMaterial).opacity = settings.reduceFlash ? 0.12 : 0.16 + Math.sin(t * 4) * 0.03;
+    (this.discs.material as THREE.MeshBasicMaterial).opacity = settings.reduceFlash ? 0.16 : 0.22 + Math.sin(t * 4) * 0.03;
     this.auras.count = na;
     this.discs.count = this.rings.count = nz;
     this.crosses.count = nc;
+    this.auras.visible = na > 0;
+    this.discs.visible = this.rings.visible = nz > 0;
+    this.crosses.visible = nc > 0;
     commit(this.auras.instanceMatrix, na);
     commit(this.discs.instanceMatrix, nz);
     commit(this.rings.instanceMatrix, nz);

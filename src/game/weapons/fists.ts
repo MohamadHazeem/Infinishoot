@@ -195,8 +195,8 @@ export class Fists extends Weapon {
     const life = hay ? 0.2 : 0.11;
     const rx = pl.rig.root.position.x;
     const rz = pl.rig.root.position.z;
-    if (pl.dead || age > life || !pl.rig.root.visible) this.swoosh.scale.set(0.0001, 1, 0.0001);
-    else {
+    this.swoosh.visible = !(pl.dead || age > life || !pl.rig.root.visible);
+    if (this.swoosh.visible) {
       const k = age / life;
       const r = this.reach * (0.75 + 0.25 * k);
       this.swoosh.position.set(rx, hay ? 0.9 : 1.05, rz);
@@ -207,8 +207,8 @@ export class Fists extends Weapon {
       sm.color.set(hay ? this.evoColor : '#ffffff');
     }
     const sl = 0.3;
-    if (pl.dead || !hay || age > sl || !pl.rig.root.visible) this.shock.scale.set(0.0001, 1, 0.0001);
-    else {
+    this.shock.visible = !(pl.dead || !hay || age > sl || !pl.rig.root.visible);
+    if (this.shock.visible) {
       const k = age / sl;
       const r = 0.6 + k * (this.reach + 1.2);
       this.shock.position.set(rx + Math.cos(this.angle) * this.reach * 0.7, 0.08, rz + Math.sin(this.angle) * this.reach * 0.7);

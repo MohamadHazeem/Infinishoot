@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { WeaponDef } from '../../data/weapons';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createRetroMaterial } from '../../render/retroMaterial';
+import { paint } from '../../render/geometry';
 import { Weapon, type WeaponCtx } from './base';
 
 const now = () => performance.now() / 1000;
@@ -39,7 +41,6 @@ export class RevDrone extends Weapon {
   private wasHeld = false;
   // Drawing
   private root = new THREE.Group();
-  private rotors: THREE.Mesh[] = [];
   private tether: THREE.Mesh;
   private bubble: THREE.Mesh;
   private ring: THREE.Mesh;
@@ -50,24 +51,23 @@ export class RevDrone extends Weapon {
   constructor(def: WeaponDef, private scene: THREE.Scene) {
     super(def);
     this.cd = 0;
-    const m = (color: string, unlit = 0) => createRetroMaterial({ color, unlit });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.5), m('#f4f4f4'));
-    const crossA = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.09), m('#b13e53', 0.4));
-    const crossB = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.04, 0.3), m('#b13e53', 0.4));
-    crossA.position.y = crossB.position.y = 0.13;
-    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.04), m('#73eff7', 0.8));
-    eye.position.set(0, 0.01, 0.26);
-    const belly = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), m('#a7f070', 1));
-    belly.position.y = -0.16;
-    this.root.add(body, crossA, crossB, eye, belly);
+    // One vertex-coloured mesh (one draw call): a white body with a red cross on top, a cyan eye,
+    // a mint belly light, four arms and dark rotor discs (they read as spinning blades from above).
+    const part = (g: THREE.BufferGeometry, color: string, x: number, y: number, z: number) => paint((g.index ? g.toNonIndexed() : g).translate(x, y, z), color);
+    const parts = [
+      part(new THREE.BoxGeometry(0.5, 0.22, 0.5), '#f4f4f4', 0, 0, 0),
+      part(new THREE.BoxGeometry(0.3, 0.04, 0.09), '#b13e53', 0, 0.13, 0),
+      part(new THREE.BoxGeometry(0.09, 0.04, 0.3), '#b13e53', 0, 0.13, 0),
+      part(new THREE.BoxGeometry(0.2, 0.08, 0.04), '#73eff7', 0, 0.01, 0.26),
+      part(new THREE.OctahedronGeometry(0.11, 0), '#a7f070', 0, -0.16, 0),
+    ];
     for (const [x, z] of [[-0.36, -0.36], [0.36, -0.36], [-0.36, 0.36], [0.36, 0.36]]) {
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.05, 0.06), m('#566c86'));
-      arm.position.set(x * 0.7, 0.08, z * 0.7);
-      const rotor = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.02, 0.06), m('#333c57'));
-      rotor.position.set(x, 0.14, z);
-      this.rotors.push(rotor);
-      this.root.add(arm, rotor);
+      parts.push(part(new THREE.BoxGeometry(0.06, 0.05, 0.06), '#566c86', x * 0.7, 0.08, z * 0.7));
+      parts.push(part(new THREE.CylinderGeometry(0.17, 0.17, 0.02, 8), '#333c57', x, 0.14, z));
     }
+    const body = new THREE.Mesh(mergeGeometries(parts)!, createRetroMaterial({ vertexColors: true }));
+    for (const g of parts) g.dispose();
+    this.root.add(body);
     const glow = (color: string, opacity: number) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide });
     this.tether = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.18, 1, 6, 1, true).translate(0, -0.5, 0), glow('#a7f070', 0.55));
     this.bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), glow('#73eff7', 0.18));
@@ -177,7 +177,6 @@ export class RevDrone extends Weapon {
     const y = (this.mode === DroneMode.Idle ? 1.9 : 2.2) + bob;
     this.root.position.set(this.dx, y, this.dz);
     this.root.rotation.set(0, t * (this.mode === DroneMode.Flying ? 6 : 1.2), Math.sin(t * 3) * 0.08);
-    for (let i = 0; i < this.rotors.length; i++) this.rotors[i].rotation.y = t * 30 + i;
     if (this.mode === DroneMode.Reviving) {
       // A green tether down to the downed teammate, and a ring that closes as the revive completes.
       this.tether.position.set(this.dx, y - 0.1, this.dz);

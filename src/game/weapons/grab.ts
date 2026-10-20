@@ -272,7 +272,8 @@ export class Grab extends Weapon {
     const rz = rig.root.position.z;
     const aim = Math.atan2(pl.aim.z, pl.aim.x);
     // Grip ring under the held enemy.
-    if (this.holding && !pl.dead) {
+    this.grip.visible = this.holding && !pl.dead;
+    if (this.grip.visible) {
       const a = this.p.swing ? this.swingA : aim;
       const r = this.p.swing ? B.swingR : B.holdDist + 0.5;
       this.grip.position.set(rx + Math.cos(a) * r, 0.07, rz + Math.sin(a) * r);
@@ -283,9 +284,10 @@ export class Grab extends Weapon {
       rig.armR.rotation.order = rig.armL.rotation.order = 'YXZ';
       rig.armR.rotation.x = rig.armL.rotation.x = -Math.PI * 0.62;
       if (this.p.swing) rig.body.rotation.y = -a + Math.PI / 2;
-    } else this.grip.scale.set(0.0001, 1, 0.0001);
+    }
     const ua = t - this.upAt;
-    if (ua < 0.25 && !pl.dead) {
+    this.upper.visible = ua < 0.25 && !pl.dead;
+    if (this.upper.visible) {
       const k = ua / 0.25;
       this.upper.position.set(rx + Math.cos(aim) * 1.3, 0.6 + k * 1.2, rz + Math.sin(aim) * 1.3);
       this.upper.rotation.set(0, -aim + Math.PI / 2, 0);
@@ -295,7 +297,7 @@ export class Grab extends Weapon {
       // The uppercut arm swings up.
       rig.armR.rotation.order = 'YXZ';
       rig.armR.rotation.x = -Math.PI * (0.3 + 0.6 * Math.min(1, ua / 0.08));
-    } else this.upper.scale.set(0.0001, 0.0001, 0.0001);
+    }
     const ta = t - this.throwAt;
     if (ta < 0.2 && !pl.dead) {
       // The throwing arm follows through.
