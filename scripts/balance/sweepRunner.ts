@@ -29,6 +29,8 @@ const noop: any = new Proxy(function () {}, {
 for (const k of ['window', 'document', 'navigator', 'localStorage', 'HTMLElement', 'HTMLCanvasElement', 'HTMLInputElement', 'Event', 'KeyboardEvent', 'requestAnimationFrame', 'cancelAnimationFrame', 'getComputedStyle', 'innerWidth', 'innerHeight', 'addEventListener', 'dispatchEvent', 'Node', 'MouseEvent', 'PointerEvent']) {
   try { (globalThis as any)[k] = (dom.window as any)[k]; } catch { Object.defineProperty(globalThis, k, { value: (dom.window as any)[k], configurable: true }); }
 }
+// balance2: the season is read from location.search (runFlow, halloween), which Node doesn't have.
+try { (globalThis as any).location = dom.window.location; } catch { Object.defineProperty(globalThis, 'location', { value: dom.window.location, configurable: true }); }
 (globalThis as any).Path2D = (dom.window as any).Path2D = class { constructor(_d?: string) {} };
 (globalThis as any).__APP_VERSION__ = 'sweep';
 (dom.window.HTMLElement.prototype as any).scrollIntoView = () => {};
@@ -60,6 +62,8 @@ interface Cfg {
   /** A Trial id: play that trial (practice) instead of a run. */
   trial?: string;
   noRoute?: boolean;
+  /** Run mode (default 'standard'; 'raid' plays the Hydra Engine). */
+  mode?: string;
 }
 const cfg = JSON.parse(process.env.SWEEP_CFG ?? '{}') as Cfg;
 cfg.kit ??= ['buster', 'charge', 'bomb'];
@@ -152,7 +156,7 @@ const input = new Input(canvas);
 const game = new Game(input, 16 / 9, document.getElementById('hud')!, document.getElementById('reticle')!);
 installBot(game, input);
 const botStep = (globalThis as any).window.botStep as () => void;
-settings.mode = 'standard';
+settings.mode = (cfg.mode ?? 'standard') as typeof settings.mode;
 settings.difficulty = cfg.diff;
 settings.hero = cfg.hero;
 settings.pet = 'none';
@@ -200,6 +204,7 @@ if (cfg.bench) {
 // stage a plain stage with its boss, no pacifist/stealth/mini-game nodes) for the boss-focused sets.
 const TR = await import('../../src/game/systems/trials');
 const AR = await import('../../src/game/systems/architect');
+const RD = await import('../../src/game/systems/raid');
 if (cfg.trial) TR.startTrial(game, cfg.trial, true);
 else game.startSolo();
 if (cfg.noRoute) game.route.on = false;
@@ -444,6 +449,8 @@ out(
       trialResult: cfg.trial ? TR.trialsState(game).run?.result ?? null : undefined,
       trialMetric: cfg.trial ? TR.trialsState(game).run?.def.metric : undefined,
       trialMedals: cfg.trial ? TR.trialsState(game).run?.def.medals : undefined,
+      raid: cfg.mode === 'raid' ? (() => { const st = (RD.raidRuntime(game).state ?? {}) as any; return { phase: st.phase, time: Math.round(st.time ?? 0) }; })() : undefined,
+      seasonApplied: game.halloween.season,
       ascApplied: (await import('../../src/game/systems/gauntlet')).challengeState(game).ascension,
       endMode: game.mode,
       unstuck,

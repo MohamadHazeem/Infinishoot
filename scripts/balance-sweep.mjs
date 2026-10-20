@@ -40,7 +40,7 @@ const seed0 = Number(args.seed0 ?? 1);
 const jobs = Number(args.jobs ?? Math.max(2, Math.min(10, Math.floor(cpus().length / 2))));
 const secs = Number(args.secs ?? 1500);
 const stages = Number(args.stages ?? 4);
-const sets = (args.sets ?? (quick ? 'bench' : 'bench,herobench,kits,mortal,heroes,diff,asc,team,loops,haunt,trials')).split(',');
+const sets = (args.sets ?? (quick ? 'bench' : 'bench,herobench,kits,mortal,heroes,diff,asc,team,loops,haunt,trials,raid')).split(',');
 const date = new Date().toISOString().slice(0, 10);
 const tag = args.tag ? `-${args.tag}` : '';
 
@@ -118,6 +118,11 @@ function configs() {
   // Halloween: Pumpking on the Haunted stage 2 (compare with Rex in the kits set).
   if (sets.includes('haunt'))
     for (const k of [DEF, ['scatter', 'grenade', 'storm'], ['laser', 'well', 'meteor'], ['whip', 'sentry', 'blizzard']]) cfg('haunt', { season: 'halloween', stages: 2, noRoute: true }, seeds + 1, true, k);
+  // Raid (the Hydra Engine, solo with role helpers), Medium, default kit.
+  if (sets.includes('raid')) {
+    cfg('raid', { mode: 'raid', secs: 960 }, seeds, true);
+    cfg('raid', { mode: 'raid', secs: 960 }, seeds + 1, false);
+  }
   // Trials (solo ones; practice attempts), god and mortal bot.
   if (sets.includes('trials'))
     for (const trial of TRIAL_IDS) {
@@ -470,6 +475,14 @@ function report(results) {
       const cell = (g) => rs.filter((r) => r.god === g).map((r) => { const t = r.trialResult; return t ? `${t.success ? 'ok' : 'fail'} ${f1(t[m] ?? t.time)} (${t.medal})` : 'no result'; }).join(', ');
       L.push(`| ${id} | ${m} | ${(rs[0].trialMedals ?? []).join(' / ')} | ${cell(true)} | ${cell(false)} |`);
     }
+    L.push('');
+  }
+  const raid = ok.filter((r) => r.set === 'raid');
+  if (raid.length) {
+    L.push('## Raid (Hydra Engine, solo + role helpers, Medium, default kit)', '');
+    L.push('Enrage at 780 s, meltdown at 900 s.', '');
+    L.push('| bot | result per seed (phase, encounter s) |', '|---|---|');
+    for (const g of [true, false]) L.push(`| ${g ? 'god' : 'mortal'} | ${raid.filter((r) => r.god === g).map((r) => `${r.raid?.phase ?? '?'} ${r.raid?.time ?? '-'}${r.died && r.raid?.phase !== 'won' ? ' (died: ' + r.deathCause + ')' : ''}`).join('; ')} |`);
     L.push('');
   }
   const haunt = ok.filter((r) => r.set === 'haunt');
