@@ -183,4 +183,162 @@ for (const id of ['momentum', 'kindling', 'hoarder']) {
 await setLanguage('en');
 assert.match(nextLevelHtml(MOD_BY_ID.momentum, 1), /<b>/, 'changed words are still highlighted');
 
-console.log('ok uxpass: scroll cue, menu-fit CSS rules, shop 720p markup');
+// ================= menuhud lane (src/ui/menuHud.ts)
+{
+  const { HUD_DOCK, injectHudCss } = await import('../src/ui/hudLayout');
+  const { MENU_KEEP, MENU_COVER_EXTRA, freeSpot, placeTip, MenuTip, columnsHeight, syncShopLife, STICKY_BARS, stickyBarTop } = await import('../src/ui/menuHud');
+  injectHudCss();
+  const win = dom.window;
+  // Build every corner HUD panel from its dock selector (inside #hud), plus the chips that live beside #hud.
+  const build = (sel: string, parent: Element): HTMLElement => {
+    let at: Element = parent;
+    for (const tok of sel.split(/\s*>\s*|\s+/)) {
+      const id = tok.match(/#([\w-]+)/)?.[1];
+      const classes = [...tok.matchAll(/\.([\w-]+)/g)].map((m) => m[1]);
+      let el = (id ? document.getElementById(id) : null) ?? (!id ? at.querySelector(`:scope > ${tok}`) : null);
+      if (!el) {
+        el = document.createElement('div');
+        if (id) el.id = id;
+        el.classList.add(...classes);
+        at.append(el);
+      }
+      at = el;
+    }
+    return at as HTMLElement;
+  };
+  const panels = new Map<string, HTMLElement>();
+  for (const [sel] of HUD_DOCK) if (!MENU_KEEP.includes(sel)) panels.set(sel, build(sel, hud));
+  for (const sel of MENU_COVER_EXTRA) panels.set(sel, build(sel, hud));
+  const vc = document.getElementById('vc-self') ?? Object.assign(document.createElement('div'), { id: 'vc-self' });
+  hud.after(vc); // the voice chip is #hud's sibling in the game
+  const visible = (el: HTMLElement) => win.getComputedStyle(el).visibility !== 'hidden';
+  const MENUS = ['shop', 'relic', 'levelup', 'pause', 'route', 'gameover', 'settings', 'title'] as const;
+  for (const name of MENUS) {
+    screens.show(name as any);
+    assert.ok(hud.classList.contains('menu-open'), `${name}: #hud is marked menu-open`);
+    for (const [sel, el] of panels) assert.equal(visible(el), false, `${name}: corner HUD panel ${sel} is hidden under the menu`);
+    assert.equal(visible(vc), false, `${name}: the voice chip beside #hud hides too`);
+  }
+  screens.show('none');
+  for (const [sel, el] of panels) assert.equal(visible(el), true, `in play: ${sel} shows again`);
+  assert.ok(panels.has('#ingame > #xpbar') && panels.has('#ingame > #hp') && panels.has('#hudface'), 'life bar, XP bar and the LV/face badge are covered');
+  assert.ok(HUD_DOCK.filter(([s]) => !MENU_KEEP.includes(s)).length >= 30, 'every docked panel is covered (generated from the dock list)');
+
+  // ---- tips over menus: a free spot, else the title chip, else hidden (never over content)
+  // The 5-Mod shop at 1280x720 (recorded): title, gold line, the offer row reaching the right edge, owned row, extras.
+  const shopBoxes = [
+    { x: 540, y: 6, w: 200, h: 38 }, { x: 348, y: 50, w: 583, h: 32 }, { x: 262, y: 88, w: 755, h: 29 },
+    { x: 97, y: 123, w: 1084, h: 293 }, { x: 21, y: 433, w: 1054, h: 229 }, { x: 1090, y: 542, w: 168, h: 120 }, { x: 356, y: 674, w: 567, h: 38 },
+  ];
+  const sizes = [{ w: 250, h: 128, chipH: 32 }, { w: 340, h: 104, chipH: 32 }, { w: 460, h: 92, chipH: 32 }];
+  const hit = (a: any, b: any) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  const spot = placeTip(shopBoxes, sizes, 1280, 720)!;
+  assert.ok(spot, 'the shop leaves room for at least the tip chip');
+  assert.equal(spot.fold, true, 'MOD ORDER MATTERS folds to its title chip over the 5-Mod shop (no room for the full panel)');
+  assert.ok(!shopBoxes.some((b) => hit(spot.rect, b)), 'the tip chip covers no card, button or line of the shop');
+  assert.ok(spot.rect.x + spot.rect.w > 1000 && spot.rect.y < 60, 'the chip keeps the old top-right corner');
+  const roomy = placeTip([{ x: 300, y: 150, w: 680, h: 420 }], sizes, 1280, 720)!;
+  assert.deepEqual([roomy.fold, roomy.rect.x, roomy.rect.y], [false, 1280 - 250 - 8, 8], 'with room the full tip keeps the top-right corner');
+  const left = placeTip([{ x: 700, y: 0, w: 580, h: 720 }, { x: 300, y: 300, w: 400, h: 420 }], sizes, 1280, 720)!;
+  assert.equal(left.fold, false, 'a full tip moves to the free left side');
+  assert.ok(left.rect.x < 300 && !hit(left.rect, { x: 700, y: 0, w: 580, h: 720 }), 'left side, clear of the menu');
+  assert.equal(placeTip([{ x: 0, y: 0, w: 1280, h: 720 }], sizes, 1280, 720), null, 'a menu with no free space hides the tip');
+  assert.equal(freeSpot([], 2000, 50, 1280, 720), null, 'a box wider than the window never fits');
+
+  // MenuTip on a real DOM: content boxes and tip sizes stubbed (jsdom has no layout).
+  const rect = (el: Element, f: () => { x: number; y: number; w: number; h: number }) =>
+    Object.defineProperty(el, 'getBoundingClientRect', { configurable: true, value: () => { const r = f(); return { left: r.x, top: r.y, right: r.x + r.w, bottom: r.y + r.h, width: r.w, height: r.h, x: r.x, y: r.y }; } });
+  const tipRoot = document.createElement('div');
+  tipRoot.id = 'hud';
+  const menu = document.createElement('div');
+  menu.className = 'screen';
+  menu.id = 'scr-fake';
+  const card = document.createElement('button');
+  card.textContent = 'BUY';
+  rect(card, () => ({ x: 97, y: 123, w: 1084, h: 293 }));
+  const row2 = document.createElement('button');
+  row2.textContent = 'SELL';
+  rect(row2, () => ({ x: 21, y: 433, w: 1054, h: 250 }));
+  menu.append(card, row2);
+  const tipEl = document.createElement('div');
+  tipEl.id = 'ob-tip';
+  tipEl.innerHTML = '<div class="ob-tip-h"><b>MOD ORDER MATTERS</b></div><p>Damage flows left to right.</p>';
+  rect(tipEl, () => ({ x: Number.parseFloat(tipEl.style.left) || 1022, y: Number.parseFloat(tipEl.style.top) || 8, w: Number.parseFloat(tipEl.style.width) || 250, h: tipEl.hasAttribute('data-mh-fold') ? 32 : 128 }));
+  tipRoot.append(menu, tipEl);
+  document.body.append(tipRoot);
+  Object.defineProperty(globalThis, 'window', { value: dom.window, configurable: true });
+  (dom.window as any).innerWidth = 1280;
+  (dom.window as any).innerHeight = 720;
+  const placer = new MenuTip(tipRoot);
+  placer.watch(menu);
+  assert.ok(tipEl.hasAttribute('data-mh'), 'MenuTip takes over the tip while a menu is open');
+  assert.equal(tipEl.getAttribute('data-mh-fold'), '', 'the tip folds to its chip when the full panel would cover the card');
+  const tr = tipEl.getBoundingClientRect();
+  assert.ok(tr.bottom + 8 <= 123, `the chip sits above the card row (bottom ${tr.bottom})`);
+  rect(card, () => ({ x: 97, y: 300, w: 900, h: 300 }));
+  rect(row2, () => ({ x: 97, y: 610, w: 900, h: 100 }));
+  placer.update(true);
+  assert.equal(tipEl.hasAttribute('data-mh-fold'), false, 'with room the full tip shows');
+  placer.watch(null);
+  assert.equal(tipEl.hasAttribute('data-mh'), false, 'no menu: the HUD dock places the tip again');
+  assert.equal(tipEl.style.left, '', 'inline placement cleared');
+  tipRoot.remove();
+
+  // ---- the shop shows the hero's life (the HUD life bar is hidden under it)
+  await setLanguage('en');
+  screens.showShop(view as any);
+  const hpNum = build('#ingame > #hp', hud).appendChild(Object.assign(document.createElement('div'), { className: 'num', textContent: '30/100' }));
+  syncShopLife(hud);
+  assert.match(shop.querySelector('.shop-top .mh-life')?.textContent ?? '', /LIFE\s*30\/100/, 'the shop shows LIFE hp/max next to the gold');
+  assert.equal(shop.querySelector('.mh-life')!.classList.contains('low'), true, 'low life is marked');
+  await setLanguage('ar');
+  syncShopLife(hud);
+  assert.match(shop.querySelector('.mh-life')?.textContent ?? '', /الحياة/, 'Arabic life label');
+  await setLanguage('en');
+  hpNum.remove();
+  screens.show('none');
+
+  // ---- game over: RETRY and the score on the first screen, result panels in .go-body, and the recorded 720p blocks fit
+  const go = hud.querySelector<HTMLElement>('#scr-gameover')!;
+  const kids = [...go.children];
+  assert.ok(kids.indexOf(go.querySelector('.menu.row')!) < kids.indexOf(go.querySelector('.go-body')!), 'RETRY / TITLE come before the result panels');
+  for (const sel of ['.summary', '.dmg-table', '.build', '.unlocked', '.hiscores', '.hiscores.global']) assert.ok(go.querySelector(`.go-body ${sel}`), `${sel} lives in .go-body (the column layout)`);
+  assert.ok(go.querySelector('.go-body > .hiscores'), 'the high scores stay a direct child (clips insert before them)');
+  const css2 = menuFitCss();
+  assert.match(css2, /\(min-width: 1000px\) and \(max-height: 1200px\)[\s\S]*#scr-gameover \.go-body \{ display: block;[^}]*columns: 3/, 'game over: three balanced columns on 720p/1080p-class windows');
+  assert.match(css2, /#hud #scr-gameover \.go-body \{ display: contents; \}/, 'big windows: .go-body is transparent (old layout)');
+  assert.match(css2, /\(max-height: 820px\)[\s\S]*\.ob-recap:not\(:hover, :focus-within, \.focused\) tbody/, 'the 720p timeline folds to a strip, full table on hover/focus');
+  const { GAME_OVER_720 } = await import('./menuhudCases');
+  assert.equal(columnsHeight([100, 100, 100], 3), 100, 'three blocks, three columns');
+  assert.equal(columnsHeight([100, 100, 100, 100], 2, 10), 190, 'a column break drops the last margin');
+  for (const c of GAME_OVER_720) {
+    const body = columnsHeight(c.items.map(([, h]) => h), 3, c.margin);
+    assert.ok(Math.abs(body - c.bodyH) <= 12, `${c.lang}: the column model matches the browser (${body} vs ${c.bodyH})`);
+    const total = c.padTop + c.head.reduce((a, [, h]) => a + h, 0) + c.gap * c.head.length + body + c.padBottom;
+    assert.ok(total <= 720, `${c.lang}: game over fits one 1280x720 screen (${total} px, was ${c.before})`);
+    const oneColumn = c.items.reduce((a, [, h]) => a + h, 0);
+    assert.ok(c.padTop + c.head.reduce((a, [, h]) => a + h, 0) + oneColumn > 720, `${c.lang}: the same blocks in one column would not fit (the check can fail)`);
+    assert.ok(c.head.findIndex(([n]) => n === 'menu') >= 0 && c.items[0][0] === 'summary', `${c.lang}: RETRY in the header, the score first in the columns`);
+  }
+  // The recap folds to a strip with a details hint, and is focusable for pads.
+  const { OnboardingUi } = await import('../src/ui/onboarding');
+  const ob = new OnboardingUi(hud, screens, new Proxy({}, { get: () => () => {} }) as any);
+  ob.renderGameOver([], [1, 2, 3].map((n) => ({ stage: n, level: n * 5, kills: 100 * n, damage: 9000 * n, gold: n, time: 240, bossTime: 30 })));
+  const recap = go.querySelector<HTMLElement>('.go-body .ob-recap');
+  assert.ok(recap, 'the run timeline sits in the game-over columns');
+  assert.ok(recap!.hasAttribute('data-nav'), 'the folded timeline can take pad/keyboard focus (focus opens the full table)');
+  assert.equal(recap!.querySelectorAll('tr').length, 4, 'header + one row per stage');
+  assert.match(recap!.querySelector('.mh-more')?.textContent ?? '', /DETAILS/, 'the strip says how to open the details');
+
+  // ---- phones: the primary action rows are sticky, and the cue sits above them
+  assert.match(css2, /\(max-height: 500px\)[\s\S]*position: sticky/, 'phone action bars are sticky');
+  for (const sel of STICKY_BARS) assert.ok(css2.includes(`#hud ${sel}`), `${sel} is a sticky bar on phones`);
+  screens.show('loadout');
+  const lo = hud.querySelector<HTMLElement>('#scr-loadout')!;
+  const startRow = lo.querySelector<HTMLElement>(':scope > .menu.row:last-of-type');
+  assert.ok(startRow?.querySelector('[data-act=lo-start], [data-act=lo-back], button'), 'LOADOUT has its START row last');
+  assert.equal(stickyBarTop(lo), null, 'jsdom applies no phone media rules: no sticky bar, so the cue keeps its spot');
+  screens.show('none');
+}
+
+console.log('ok uxpass: scroll cue, menu-fit CSS rules, shop 720p markup; menuhud: HUD under menus, tips, game over, phones');

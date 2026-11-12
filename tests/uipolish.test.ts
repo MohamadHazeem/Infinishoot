@@ -250,4 +250,30 @@ ok(toastEl.textContent === 'ELITE INCOMING', 'then follows');
 for (let i = 0; i < 30; i++) hud.update(state, 0.1);
 ok(!toastEl.classList.contains('show'), 'and the toast hides when the queue is empty');
 
+// menuhud: under a menu the dock leaves the first-time tip to MenuTip (src/ui/menuHud.ts) and clears its nudge.
+{
+  const { HudDock } = await import('../src/ui/hudLayout');
+  const root = document.createElement('div');
+  root.id = 'hud';
+  const ingame = Object.assign(document.createElement('div'), { id: 'ingame' });
+  const hp = Object.assign(document.createElement('div'), { id: 'hp' });
+  const tipEl = Object.assign(document.createElement('div'), { id: 'ob-tip' });
+  ingame.append(hp);
+  root.append(ingame, tipEl);
+  document.body.append(root);
+  const at = (el: Element, x: number, y: number, w: number, h: number) =>
+    Object.defineProperty(el, 'getBoundingClientRect', { configurable: true, value: () => ({ left: x, top: y + (parseFloat((el as HTMLElement).style.translate?.split(' ')[1] ?? '0') || 0), width: w, height: h, right: x + w, bottom: y + h }) });
+  at(hp, 0, 0, 300, 60);
+  at(tipEl, 0, 20, 250, 100); // over the life bar: the dock pushes it down in play
+  (dom.window as any).innerWidth = 1280;
+  (dom.window as any).innerHeight = 720;
+  const dock = new HudDock();
+  dock.layout();
+  ok(!!tipEl.style.translate, 'in play the dock nudges the tip off the life bar');
+  root.classList.add('menu-open');
+  dock.layout();
+  ok(!tipEl.style.translate, 'under a menu the dock leaves the tip alone (MenuTip places it) and clears its nudge');
+  root.remove();
+}
+
 console.log('uipolish: dock, toast queue');

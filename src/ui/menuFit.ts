@@ -12,6 +12,7 @@
  * shared box-shadow frame, no radii, blur or gradient shading, steps() animations.
  */
 import { t } from '../i18n';
+import { MENUHUD_CSS, MenuTip, SHOP_PARTS, stickyBarTop, syncShopLife } from './menuHud';
 
 /** Pixels of hidden content below the fold before the cue shows. */
 export const moreCueTuning = { minHidden: 12, every: 0.3 };
@@ -57,8 +58,11 @@ export class MoreCue {
   private screen: HTMLElement | null = null;
   private scroller: HTMLElement | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
+  /** menuhud: first-time tips over the open menu go where it has no content. */
+  readonly tip: MenuTip;
 
-  constructor(root: HTMLElement) {
+  constructor(private readonly root: HTMLElement) {
+    this.tip = new MenuTip(root);
     this.el = document.createElement('button');
     this.el.className = 'mf-more px';
     this.el.type = 'button';
@@ -78,6 +82,7 @@ export class MoreCue {
   watch(screen: HTMLElement | null): void {
     this.screen = screen;
     this.scroller = null;
+    this.tip.watch(screen);
     if (!screen) {
       this.el.hidden = true;
       if (this.timer) clearInterval(this.timer);
@@ -98,6 +103,8 @@ export class MoreCue {
       this.el.hidden = true;
       return;
     }
+    this.tip.update();
+    syncShopLife(this.root);
     // Lanes that add a button after the screen was first shown (the raid lane's RAID RECORDS) land after BACK.
     if (scr.id !== 'scr-title') keepBackLast(scr);
     // Re-pick the scroller when it stops scrolling (content changed) or none was found yet.
@@ -113,14 +120,16 @@ export class MoreCue {
       const r = s!.getBoundingClientRect();
       const zoom = (s as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom ?? 1;
       this.el.style.left = `${(r.left + r.width / 2) / zoom}px`;
-      this.el.style.top = `${Math.min(r.bottom, s!.ownerDocument.defaultView?.innerHeight ?? r.bottom) / zoom}px`;
+      // menuhud: above a phone menu's sticky action bar, not on its buttons.
+      const bar = stickyBarTop(scr);
+      this.el.style.top = `${Math.min(r.bottom, s!.ownerDocument.defaultView?.innerHeight ?? r.bottom, bar ?? Infinity) / zoom}px`;
     }
     this.el.hidden = !show;
   }
 }
 
-/** The shop when it holds only its own parts (so the 720p grid can place every child). */
-export const SHOP_PARTS = ['h1', '.shop-top', '.ft-help', '.shop-offers', '.shop-extras', '.owned-title', '.mod-preview', '.owned-mods', '.relic-title', '.shop-relics'] as const;
+/** The shop when it holds only its own parts (so the 720p grid can place every child); defined in menuHud.ts. */
+export { SHOP_PARTS };
 const G = `#hud #scr-shop:not([hidden]):not(:has(> :not(${SHOP_PARTS.join(', ')})))`;
 
 const CSS = `
@@ -377,7 +386,7 @@ const CSS = `
 
 /** The lane's injected menu CSS (tests check it keeps the pixel-art rules). */
 export function menuFitCss(): string {
-  return CSS;
+  return CSS + MENUHUD_CSS;
 }
 
 /** Inject (or move last) the lane's menu CSS. Cheap; call on every menu show. */
@@ -387,7 +396,7 @@ export function ensureMenuFitCss(): void {
   if (!st) {
     st = document.createElement('style');
     st.id = 'menu-fit-css';
-    st.textContent = CSS;
+    st.textContent = menuFitCss();
   }
   if (document.head.lastElementChild !== st) document.head.appendChild(st);
 }
