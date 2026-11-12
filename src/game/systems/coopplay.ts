@@ -198,7 +198,13 @@ function clearAt(g: Game, x: number, z: number, r: number): boolean {
   return true;
 }
 
-/** After the arena's toys load (systems/arena.ts loadToys): roll and place a co-op objective (host/solo). */
+/**
+ * After the arena's toys load (systems/arena.ts loadToys): roll and place a co-op objective, on every machine.
+ * The roll and the layout only read the shared arena (seed, spots, walls, hazards, pads, turrets) and the team
+ * size, so a client builds the host's pieces itself from the first frame instead of showing the solo objective
+ * (totems with their colliders, shards, the beacon) until the first snapshot replaced it (coopsync lane). The
+ * host's snapshot (`applyCoopPlayNet`) still wins: a forced objective (trials, debug) or another layout moves it.
+ */
 export function coopObjectiveLoad(g: Game): void {
   const s = coopPlayState(g);
   resetObjective(s, g.arenaStage);
@@ -212,8 +218,8 @@ export function coopObjectiveLoad(g: Game): void {
     s.brain.reset();
     s.replies.length = 0;
   }
-  if (!g.authority || !coopOn(g)) return;
-  const kind = s.force ?? pickCoopObjective(g.arena.seed, g.arenaStage);
+  if (!coopOn(g)) return;
+  const kind = (g.authority ? s.force : null) ?? pickCoopObjective(g.arena.seed, g.arenaStage);
   if (!kind) return;
   const lay = layoutCoop(kind, g.arena.spots, (x, z, r) => clearAt(g, x, z, r), (g.arena.seed ^ Math.imul(g.arenaStage, 0x2545f491)) >>> 0);
   if (lay) install(g, s, kind, lay);
@@ -873,7 +879,9 @@ export function applyCoopPlayNet(g: Game, data: unknown): void {
   if (!Array.isArray(o) || o[0] !== g.arenaStage) return;
   const kind = KINDS[o[1]];
   if (!kind) return;
-  if (s.kind !== kind || s.stage !== g.arenaStage || g.toys.objective.kind !== kind) {
+  const L = s.lay;
+  const moved = !L || [L.a.x, L.a.z, L.b.x, L.b.z, L.v.x, L.v.z].some((v, i) => Math.abs(v - o[2 + i]) > 1e-6);
+  if (s.kind !== kind || s.stage !== g.arenaStage || g.toys.objective.kind !== kind || moved) {
     dropBox(g, s.box);
     resetObjective(s, g.arenaStage);
     install(g, s, kind, { a: { x: o[2], z: o[3] }, b: { x: o[4], z: o[5] }, v: { x: o[6], z: o[7] } });
