@@ -314,8 +314,11 @@ export function injectHudCss(): void {
  * `fitH` of height per 100% (1280x720 allows about 120%, 1920x1080 all 150%).
  * Windows narrower than `tinyW` shrink the HUD a little more (never under
  * `tinyMin`), so the level badge, life and clock still fit side by side.
+ * Short desktop windows (`shortFrom`..`shortH` px tall, e.g. 960x540) shrink the
+ * same way by height, so level-up cards and their SKIP/BANISH row stay on screen;
+ * phones (under `shortFrom`) keep their own media-query layout.
  */
-export const uiScaleTuning = { min: 75, max: 150, fitW: 950, fitH: 600, tinyW: 760, tinyMin: 0.75 };
+export const uiScaleTuning = { min: 75, max: 150, fitW: 950, fitH: 600, tinyW: 760, tinyMin: 0.75, shortH: 720, shortFrom: 500 };
 
 /** Zoom factor for a stored UI SCALE (percent) in a w x h window; bad values fall back to 100%. */
 export function uiZoom(pct: number, w = 1920, h = 1080): number {
@@ -324,7 +327,8 @@ export function uiZoom(pct: number, w = 1920, h = 1080): number {
   const want = Math.max(t.min, Math.min(t.max, pct)) / 100;
   const fit = Math.max(1, Math.min(w / t.fitW, h / t.fitH));
   const tiny = w < t.tinyW ? Math.max(t.tinyMin, w / t.tinyW) : 1;
-  return Math.round(Math.max(t.min / 100, Math.min(want, fit) * tiny) * 100) / 100;
+  const short = h >= t.shortFrom && h < t.shortH ? Math.max(t.tinyMin, h / t.shortH) : 1;
+  return Math.round(Math.max(t.min / 100, Math.min(want, fit) * Math.min(tiny, short)) * 100) / 100;
 }
 
 let lastPct = 100;
