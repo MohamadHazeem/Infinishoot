@@ -219,7 +219,8 @@ export function coopObjectiveLoad(g: Game): void {
     s.replies.length = 0;
   }
   if (!coopOn(g)) return;
-  const kind = (g.authority ? s.force : null) ?? pickCoopObjective(g.arena.seed, g.arenaStage);
+  // Clients learn a forced objective (trials, debug) from the snapshot's `f`, so they predict it too.
+  const kind = s.force ?? pickCoopObjective(g.arena.seed, g.arenaStage);
   if (!kind) return;
   const lay = layoutCoop(kind, g.arena.spots, (x, z, r) => clearAt(g, x, z, r), (g.arena.seed ^ Math.imul(g.arenaStage, 0x2545f491)) >>> 0);
   if (lay) install(g, s, kind, lay);
@@ -854,6 +855,7 @@ export function coopPlayNet(g: Game): Record<string, unknown> | null {
     t: g.heroes.map((h) => Math.ceil(s.link[h.index] ?? 0)), // whole seconds: the HUD bar and bonus don't need more
     p: s.pairs,
   };
+  if (s.force) out.f = KINDS.indexOf(s.force); // clients build the forced objective at the next stage load too
   if (s.kind && s.lay) {
     const L = s.lay;
     const b = s.bomb;
@@ -871,7 +873,8 @@ export function coopPlayNet(g: Game): Record<string, unknown> | null {
 export function applyCoopPlayNet(g: Game, data: unknown): void {
   if (!data || typeof data !== 'object') return;
   const s = coopPlayState(g);
-  const n = data as { c?: number[]; t?: number[]; p?: number; o?: number[] };
+  const n = data as { c?: number[]; t?: number[]; p?: number; o?: number[]; f?: number };
+  s.force = (typeof n.f === 'number' ? KINDS[n.f] : null) ?? null;
   s.carriedBy = Array.isArray(n.c) ? n.c.map(Number) : [];
   s.link = Array.isArray(n.t) ? n.t.map(Number) : [];
   s.pairs = Number(n.p) || 0;

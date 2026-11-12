@@ -183,6 +183,14 @@ ok(coopRuns >= 6 && atStart === seeds.length * 2, `objective props match at the 
   sA.lay = { a: { x: sA.lay!.a.x + 2, z: sA.lay!.a.z }, b: sA.lay!.b, v: sA.lay!.v };
   steps(12);
   ok(JSON.stringify(sA.lay) === JSON.stringify(sB.lay), `the client follows a moved layout of the same kind (${JSON.stringify(sB.lay?.a)})`);
+  // The force lasts for the next stages: the client learned it from the snapshot and builds it at the next stage load.
+  ok(sB.force === kind, `the client knows the host's forced objective (${sB.force})`);
+  const stage = A.stage + 1;
+  A.stage = stage;
+  A.loadArena((A.seed ^ Math.imul(stage, 0x9e3779b1)) >>> 0, stage);
+  B.clientStage(stage, A.seed);
+  const d2 = diff(objectiveView(A), objectiveView(B));
+  ok(!d2 && sB.kind === kind, `the next stage load builds the forced ${kind} on both machines${d2 ? ` (${d2})` : ''}`);
 }
 
 // Turrets (the coop script's flaky "client switches on a turret"): a client standing on an idle pad while the host
