@@ -17,7 +17,7 @@ const noop: any = new Proxy(function () {}, {
 (globalThis as any).Path2D = class {};
 (globalThis as any).__APP_VERSION__ = 'test';
 
-const { resolveDock, HUD_DOCK, dockTuning, uiZoom } = await import('../src/ui/hudLayout');
+const { resolveDock, HUD_DOCK, DOCK_FREE, dockTuning, uiZoom } = await import('../src/ui/hudLayout');
 type Box = Parameters<typeof resolveDock>[0][number];
 const box = (x: number, y: number, w: number, h: number, dir: -1 | 0 | 1): Box => ({ x, y, w, h, dir, off: 0 });
 const top = (b: Box) => b.y + b.off;
@@ -97,6 +97,99 @@ const G = dockTuning.gap;
   }
   ok(clean === runs, `random panel columns at UI SCALE 75-150% resolve without overlaps (${clean}/${runs})`);
 }
+// ---------------------------------------------------------------- hudfit: columns that don't fit degrade in steps
+const { FitEngine, fitDecide, fitFlags, fitTuning, newFitColumn, FIT_MAX, columnOf, centreBox } = await import('../src/ui/hudFit');
+{
+  const f = [0, 1, 2, 3, 4, FIT_MAX].map(fitFlags);
+  ok(!f[0].tight && f[1].tight && !f[1].fold && f[2].fold && !f[2].chip && f[3].chip && f[3].scale === 1, 'fit levels: TIGHT, FOLD, CHIP, in that order');
+  ok(f[4].scale === 0.95 && f[5].scale === fitTuning.minScale, `then SCALE steps down to ${fitTuning.minScale * 100}% and no further`);
+  ok(columnOf(box(18, 84, 190, 300, 1), 1280) === 0 && columnOf(box(1060, 100, 200, 90, 1), 1280) === 1 && columnOf(box(480, 520, 320, 70, -1), 1280) === -1 && columnOf(box(18, 18, 64, 64, 0), 1280) === -1, 'columns: left, right, middle row and anchors');
+}
+{
+  // Hysteresis: one overlapping pass is not enough, two are; a column steps down only after it has fit for a while.
+  const c = newFitColumn();
+  ok(fitDecide(c, true, false, 0.1) === 0 && fitDecide(c, true, false, 0.1) === 1 && c.level === 1, 'a column steps up after two overflowing passes');
+  ok(fitDecide(c, true, false, 0.1) === 1 && c.level === 2, 'and keeps climbing one pass per step while it overflows');
+  let downs = 0;
+  for (let i = 0; i < 10; i++) downs += fitDecide(c, false, true, 0.1) < 0 ? 1 : 0;
+  ok(downs === 0, 'no step down before minDwell, even when the estimate fits');
+  for (let i = 0; i < 12; i++) downs += fitDecide(c, false, true, 0.1) < 0 ? 1 : 0;
+  ok(downs === 1 && c.level === 1, 'then one step down once the estimate has fit for downHold');
+  // The step down didn't hold: it overflows right away, so step-downs pause for the cooldown.
+  fitDecide(c, true, false, 0.1);
+  fitDecide(c, true, false, 0.1);
+  ok(c.level === 2 && c.cool > 0, 'a step down that overflows again is taken back and starts the cooldown');
+  let flips = 0;
+  for (let i = 0; i < 40; i++) flips += fitDecide(c, false, true, 0.1) ? 1 : 0;
+  ok(flips === 0, `no step down during the ${fitTuning.cooldown} s cooldown`);
+  // Content hovering at the limit: overflow blinking every other pass keeps climbing (leaky count), never flips down.
+  const d = newFitColumn();
+  let ups = 0;
+  let back = 0;
+  for (let i = 0; i < 200; i++) {
+    const s = fitDecide(d, i % 2 === 0, false, 0.1);
+    if (s > 0) ups++;
+    if (s < 0) back++;
+  }
+  ok(ups > 0 && back === 0, 'an overlap that blinks on and off still steps up, and the column never flips back while the estimate says no');
+}
+
+/** Replay the dock and the fit engine on recorded boxes: each panel takes its box at its column's level. */
+function replay(c: { w: number; h: number; panels: { sel: string; dir: -1 | 0 | 1; boxes: (number[] | null)[] }[] }, passes = 400) {
+  const eng = new FitEngine();
+  const n = c.panels.length;
+  const keys = c.panels.map((_, i) => i);
+  const bs: Box[] = c.panels.map(() => box(0, 0, 0, 0, 0));
+  const levelOf = (i: number) => {
+    const col = eng.cols[i];
+    return col === 0 || col === 1 ? eng.columns[col].level : 0;
+  };
+  const place = () => {
+    for (let i = 0; i < n; i++) {
+      const p = c.panels[i];
+      // null: the panel is hidden at that level (HIDE); it takes no room.
+      const [x, y, w, h] = p.boxes[Math.min(levelOf(i), p.boxes.length - 1)] ?? [-9999, 0, 0, 0];
+      Object.assign(bs[i], { x, y, w, h, dir: p.dir, off: 0, free: DOCK_FREE.has(p.sel) });
+    }
+    resolveDock(bs, n, G, c.h, centreBox(c.w, c.h));
+  };
+  const history: string[] = [];
+  for (let k = 0; k < passes; k++) {
+    place();
+    eng.update(bs, keys, n, c.w, c.h, G, 0.1);
+    history.push(eng.columns.map((col) => col.level).join('/'));
+  }
+  place();
+  const bad: string[] = [];
+  const centre = centreBox(c.w, c.h);
+  for (let i = 0; i < n; i++) {
+    const a = bs[i];
+    if (a.dir && !a.free && hit(a, centre)) bad.push(`${c.panels[i].sel} on the centre`);
+    if (a.dir && (top(a) < -0.5 || top(a) + a.h > c.h + 0.5)) bad.push(`${c.panels[i].sel} off screen`);
+    for (let j = 0; j < i; j++) if ((a.dir || bs[j].dir) && hit(a, bs[j])) bad.push(`${c.panels[i].sel} on ${c.panels[j].sel}`);
+  }
+  const tail = new Set(history.slice(-150));
+  return { bad, levels: history[history.length - 1], stable: tail.size === 1, anchorsStill: bs.every((b) => b.dir || b.off === 0) };
+}
+{
+  const { HUDFIT_CASES } = await import('../src/ui/hudFitCases');
+  const need = ['1280x720 125% en', '1280x720 125% ar', '1280x720 150% en', '1280x720 150% ar', '844x390', '667x375', '1920x1080'];
+  ok(need.every((k) => HUDFIT_CASES.some((c) => c.name.includes(k))), 'hudfit fixtures cover the stress combo at 720p 125/150%, 1080p, both phones, English and Arabic');
+  for (const c of HUDFIT_CASES) {
+    const r = replay(c);
+    ok(r.bad.length === 0, `${c.name}: no HUD panel overlaps another, an anchor, the centre or the screen edge (levels ${r.levels})${r.bad.length ? ': ' + r.bad.join('; ') : ''}`);
+    ok(r.stable && r.anchorsStill, `${c.name}: the fit settles (no flicker) and anchors never move`);
+    if (c.name.startsWith('ordinary')) ok(r.levels === '0/0', `${c.name}: ordinary play keeps the full layout (no fit step taken)`);
+  }
+  // Without the fit (level 0 everywhere) the stress combo does overlap: the fixtures really exercise it.
+  const raw = HUDFIT_CASES.filter((c) => c.name.startsWith('stress')).filter((c) => {
+    const bs = c.panels.map((p) => box(p.boxes[0]![0], p.boxes[0]![1], p.boxes[0]![2], p.boxes[0]![3], p.dir));
+    resolveDock(bs, bs.length, G, c.h);
+    return bs.some((a, i) => bs.some((b, j) => j < i && (a.dir || b.dir) && hit(a, b)));
+  });
+  ok(raw.length >= 6, `the stress fixtures overlap without the fit (${raw.length} cases), so the check above means something`);
+}
+
 ok(new Set(HUD_DOCK.map(([s]) => s)).size === HUD_DOCK.length, 'HUD_DOCK lists each panel once');
 let selectorsOk = true;
 for (const [s] of HUD_DOCK) {
