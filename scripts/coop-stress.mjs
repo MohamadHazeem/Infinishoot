@@ -148,7 +148,8 @@ async function host_(name) {
         return true;
       } catch (e) {
         err = String(e?.type ?? e);
-        for (let k = 0; k < 50 && window.game.host === h; k++) await new Promise((r) => setTimeout(r, 100));
+        // hostGame clears game.host, awaits the relay prefetch, then sets the retry's host: wait through that gap.
+        for (let k = 0; k < 100 && (!window.game.host || window.game.host === h); k++) await new Promise((r) => setTimeout(r, 100));
         if (!window.game.host || window.game.host === h) return err;
       }
     }
