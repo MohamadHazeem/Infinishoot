@@ -23,7 +23,8 @@ export const ASCENSIONS = [
   { name: 'Fortified', desc: 'Enemy life +20%.', hp: 0.2 },
   { name: 'Packed House', desc: 'Enemy count +25%.', count: 0.25 },
   { name: 'Crushing Blows', desc: 'Enemy damage +15%.', damage: 0.15 },
-  { name: 'Last Supplies', desc: 'Map chest cadence halves again.', chest: 0.5 },
+  // 90 -> 150 seconds: the interval step is at most twice the earlier +30s steps.
+  { name: 'Last Supplies', desc: 'Map chests arrive one fifth as often.', chest: 1 / 5 },
   { name: 'Summit', desc: 'Enemy life +20%; boss bonus rings have 24 bullets.', hp: 0.2, attacks: 1 },
 ] as const;
 export function ascensionLevel(n: unknown): number {
@@ -36,12 +37,11 @@ export function ascensionRules(level: number) {
     if ('hp' in r) out.hp += r.hp;
     if ('count' in r) out.count += r.count;
     if ('damage' in r) out.damage += r.damage;
-    if ('chest' in r) out.chest = Math.min(out.chest, r.chest); // A19 halves the A13 cadence below
+    if ('chest' in r) out.chest = Math.min(out.chest, r.chest);
     if ('doubleElites' in r) out.doubleElites = true;
     if ('noHeal' in r) out.noHeal = true;
     if ('attacks' in r) out.attacks += r.attacks;
   }
-  if (level >= 19) out.chest *= 0.5;
   return out;
 }
 export const ASCENSION_TITLES = ['BRONZE CLIMBER', 'SKY CLIMBER', 'STAR CLIMBER', 'SUMMIT LEGEND'] as const;

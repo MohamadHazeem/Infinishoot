@@ -23,8 +23,9 @@
 //   --bundle=out.mjs                 only bundle the runner (to compare against older data later)
 //   --runner=out.mjs                 run with a runner bundled earlier instead of the current source
 //   --only=regex                     only the configs whose id matches (e.g. --only='team:.*nightmare')
+//   --asc=0,10,15,18,20              Ascension levels (default 0,5,10,15,20)
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -101,7 +102,7 @@ function configs() {
   };
   // Ascension (solo Standard, forces Hard): A0 = plain Hard.
   if (sets.includes('asc'))
-    for (const asc of [0, 5, 10, 15, 20]) {
+    for (const asc of (args.asc ?? '0,5,10,15,20').split(',').map(Number)) {
       cfg('asc', { asc }, seeds + 2, false, DEF, 'rookie', 'hard');
       cfg('asc', { asc }, seeds, true, DEF, 'rookie', 'hard');
     }
@@ -158,6 +159,10 @@ function runOne(runner, cfg) {
 
 async function runAll(cfgs) {
   const runner = bundle();
+  // Preserve completed measurements if a long sweep is interrupted.
+  mkdirSync(`${root}notes/balance`, { recursive: true });
+  const partial = `${root}notes/balance/sweep-${date}${tag}.partial.jsonl`;
+  writeFileSync(partial, '');
   const results = [];
   let next = 0;
   let done = 0;
@@ -167,6 +172,7 @@ async function runAll(cfgs) {
       const cfg = cfgs[next++];
       const r = await runOne(runner, cfg);
       results.push(r);
+      appendFileSync(partial, JSON.stringify(r) + '\n');
       done++;
       const eta = Math.round(((Date.now() - t0) / done) * (cfgs.length - done) / 1000);
       process.stdout.write(`\r[${done}/${cfgs.length}] ${cfg.id}${r.error ? ' ERROR' : ''} (eta ${eta}s)          `);
@@ -174,6 +180,7 @@ async function runAll(cfgs) {
   };
   await Promise.all(Array.from({ length: jobs }, worker));
   process.stdout.write('\n');
+  unlinkSync(partial);
   return results;
 }
 

@@ -24,6 +24,8 @@ export class Shield extends Weapon {
   /** Durability fraction 0..1, synced for clients. */
   private energy = 1;
   private tickT = 0;
+  /** One reward per deployment: actually blocking or bashing earns a faster recharge. */
+  private defended = false;
   private hits: Enemy[] = [];
   private group = new THREE.Group();
   private arcMesh: THREE.Mesh;
@@ -90,6 +92,7 @@ export class Shield extends Weapon {
       this.hp = p.hp;
       this.upT = p.dur;
       this.tickT = 0; // shove whatever is in front right away
+      this.defended = false;
       this.armFx(ctx, this.color, 1.2);
       ctx.fx.ring(pl.x, pl.z, 0.6, this.radius(ctx) * 4, this.color, 0.25);
       ctx.sound('shieldUp');
@@ -107,6 +110,7 @@ export class Shield extends Weapon {
       const dz = b.z[i] - pl.z;
       const d = Math.hypot(dx, dz);
       if (d > r + 0.3 || !this.inArc(ctx, dx, dz)) continue;
+      this.defended = true;
       this.hp -= b.damage[i];
       if (reflect) {
         const sp = Math.max(14, Math.hypot(b.vx[i], b.vz[i]) * 1.5);
@@ -143,7 +147,8 @@ export class Shield extends Weapon {
         const d = Math.hypot(dx, dz) || 1;
         const ux = dx / d;
         const uz = dz / d;
-        ctx.damage(e, dmg, { source: 'shield', dirX: ux, dirZ: uz, knockback: p.knock, canCrit: true, loud: true });
+        const dealt = ctx.damage(e, dmg, { source: 'shield', dirX: ux, dirZ: uz, knockback: p.knock, canCrit: true, loud: true });
+        if (dealt > 0) this.defended = true;
         this.hp -= e.contactDamage * CONTACT;
         if (n++ < 4) {
           const hx = pl.x + ux * Math.min(d, r);
@@ -183,7 +188,8 @@ export class Shield extends Weapon {
     this.energy = Math.max(0, this.hp / p.hp);
     if (this.hp <= 0 || this.upT <= 0 || pl.dead || ctx.flags.busterDisabled) {
       this.up = 0;
-      this.startCooldown((p.cd * ctx.stats.cooldownMul) / this.rightClickSpeed(ctx));
+      const refund = this.defended ? p.refund : 0;
+      this.startCooldown((p.cd * (1 - refund) * ctx.stats.cooldownMul) / this.rightClickSpeed(ctx));
     } else this.ready = Math.min(this.energy, this.upT / p.dur); // ends at whichever runs out first
   }
 
