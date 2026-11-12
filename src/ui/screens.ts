@@ -42,6 +42,7 @@ import type { CardNum } from '../game/cardNumbers';
 import { canBanish } from '../game/banish';
 import type { PreviewRow, ShopPreview } from '../game/shopPreview';
 import { buyDamageNums, ensureShopCss, numsHtml, previewPanelHtml, type PreviewFocus } from './shopUi';
+import { MoreCue, ensureMenuFitCss, keepBackLast } from './menuFit';
 import { mountRelayField, showRelayField } from './relayField';
 import { RouteMapView, type RouteView } from './routeMap';
 
@@ -248,9 +249,11 @@ function modChip({ def: m, level }: { def: ModDef; level: number }): string {
 }
 
 /** Next level's text with the words that change highlighted. */
-function nextLevelHtml(def: ModDef, level: number): string {
-  const now = modDesc(def, level).split(' ');
-  const next = modDesc(def, level + 1).split(' ');
+export function nextLevelHtml(def: ModDef, level: number): string {
+  // uxpass: diff the localized sentences; wrapping English words in <b> first split the sentence,
+  // so the catalog couldn't match it and Arabic showed "for each" / "take" in English.
+  const now = localize(modDesc(def, level)).split(' ');
+  const next = localize(modDesc(def, level + 1)).split(' ');
   if (now.length !== next.length) return next.join(' ');
   return next.map((w, i) => (w === now[i] ? w : `<b>${w}</b>`)).join(' ');
 }
@@ -300,9 +303,14 @@ export class Screens {
   private shopFollow: { act: string; index: number } | null = null;
   private movedFrom: PreviewRow[] | null = null;
 
+  /** uxpass lane: the "▼ MORE" cue on menus taller than the window (src/ui/menuFit.ts). */
+  readonly moreCue: MoreCue;
+
   constructor(root: HTMLElement, private readonly actions: ScreenActions) {
     this.root = root;
     ensureShopCss();
+    ensureMenuFitCss();
+    this.moreCue = new MoreCue(root);
     root.insertAdjacentHTML(
       'beforeend',
       localizeHtml(`
@@ -497,18 +505,20 @@ export class Screens {
 <div id="scr-gameover" class="screen dim" hidden>
   <h1 class="ko">K.O.!</h1>
   <div class="newbest" hidden>${t("text.new_high_score_3f07c6")}</div>
-  <div class="go-cols">
-    <div class="summary"></div>
-    <div class="dmg-table"></div>
-  </div>
-  <div class="build"></div>
-  <div class="unlocked"></div>
   <div class="menu row">
     <button data-nav data-act="retry">${t("text.retry_c0cc02")}</button>
     <button data-nav data-act="title">${t("text.title_6f9dcc")}</button>
   </div>
-  <div class="hiscores"></div>
-  <div class="hiscores global" hidden></div>
+  <div class="go-body">
+    <div class="go-cols">
+      <div class="summary"></div>
+      <div class="dmg-table"></div>
+    </div>
+    <div class="build"></div>
+    <div class="unlocked"></div>
+    <div class="hiscores"></div>
+    <div class="hiscores global" hidden></div>
+  </div>
 </div>
 <div id="scr-route" class="screen dim" hidden></div>`),
     );
@@ -817,8 +827,11 @@ export class Screens {
     this.onShow?.(name);
     this.titleMenu.show(name);
     if (name !== 'none') polishMenuScreen(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]);
+    if (name !== 'none' && name !== 'title') keepBackLast(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]); // uxpass
     if (name !== 'none') relocalizeDom(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named], 'en');
     if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'settings' ? this.settingsScreen.selectedTab : name === 'levelup' ? 1 : this.menuFocus.get(name) ?? 0));
+    ensureMenuFitCss();
+    this.moreCue.watch(name === 'none' ? null : this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]);
   }
 
   /** Route map between stages (src/ui/routeMap.ts); `statusOnly` just refreshes the countdown. */
@@ -1054,7 +1067,7 @@ export class Screens {
           ${o.replaces ? replaceStrip(o.replaces) : ''}
           ${o.partner ? partnerStrip(o.partner) : ''}
           ${o.fuses ? fuseStrip(o.fuses) : ''}
-          <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? ` · ${o.label}` : ''}</div>
+          <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? `<span class="kind-sep">${o.rarity ? ' · ' : ''}</span><span class="kind-label">${o.label}</span>` : ''}</div>
           ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
           <div class="key" data-prompt="pick:${i + 1}">${promptHtml(`pick:${i + 1}`)}</div>
           <i class="lock"></i>
@@ -1283,7 +1296,8 @@ export class Screens {
     // Owned relics get their own section: always on, and they don't take a Mod slot.
     const owned = v.relics.filter((id) => RELIC_BY_ID[id]).map((id) => relicChip(RELIC_BY_ID[id])).join('');
     el.querySelector('.relic-title')!.textContent = localize(owned ? `YOUR RELICS ${v.relics.length} — always on, no Mod slot` : '');
-    el.querySelector('.shop-relics')!.innerHTML = localizeHtml(owned ? `<div class="mod-strip">${owned}</div>` : '');
+    // uxpass: the strip carries its own short label for short windows, where the section title is hidden (menuFit.ts).
+    el.querySelector('.shop-relics')!.innerHTML = localizeHtml(owned ? `<div class="mod-strip"><b class="strip-t mf-short">${localize(`YOUR RELICS ${v.relics.length}`)}</b>${owned}</div>` : '');
     el.querySelector('.shop-extras')!.innerHTML =
       localizeHtml(`<button data-nav data-act="shop-reroll" class="${v.rerollCost > v.gold ? 'cant' : ''}">REROLL ${v.rerollCost ? `<span class="gold-dot"></span> ${v.rerollCost}` : 'FREE'}</button>` +
       `<button data-nav data-act="shop-heal" class="${v.healed || v.healCost > v.gold ? 'cant' : ''}">${t("text.heal_40_da23d4")} <span class="gold-dot"></span> ${v.healCost}</button>` +

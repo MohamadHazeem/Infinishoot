@@ -39,7 +39,9 @@ export const titanTuning = {
   // Arm sweep
   sweepTele: 1.3, // telegraph (the arm rises)
   sweepTime: 0.7, // the swing
-  sweepHold: 0.35,
+  // Keep both hand cores in reach together after a double sweep. The old .35s
+  // hold was shorter than the .75s stagger: there was no shared still window.
+  sweepHold: 3.0,
   sweepBack: 1.4, // raised and harmless on the way back
   sweepArc: 1.75, // radians swept
   sweepWidth: 1.3, // half-thickness that hurts (plus the hero's radius)
@@ -62,7 +64,10 @@ export const titanTuning = {
 
 /** Body layout in local metres (+z = south, toward the camera). Right side shown; left mirrors x. */
 export const titanLayout = {
-  torso: { x: 0, z: -2, hx: 7, hz: 4 },
+  // Leave a route around the body from both the eye and core. The former
+  // 14x8m torso caught an 8m approach at the head/shoulder corner. Arms and
+  // shoulders retain the arena-wide silhouette; mesh and walls share this box.
+  torso: { x: 0, z: 0.25, hx: 6.25, hz: 1.75 },
   head: { x: 0, z: 3.6, hx: 3, hz: 1.9 },
   core: { x: 0, z: 3.4 },
   plate: { x: 6.2, z: 2.9 },

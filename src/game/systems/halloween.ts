@@ -530,7 +530,10 @@ export function renderHalloween(this: Game, calm = false): void {
   if (s.label) {
     s.label.hidden = !s.season || this.mode === 'title';
     const text = localize(`${save.seasonal.candy} CANDY · +${s.earned} THIS RUN`);
-    if (s.label.textContent !== text) s.label.textContent = text;
+    if (s.label.textContent !== text) {
+      s.label.textContent = text;
+      s.label.dataset.chip = String(save.seasonal.candy); // hudfit: the folded candy chip shows just the count
+    }
   }
   if (s.candies) {
     let i = 0;

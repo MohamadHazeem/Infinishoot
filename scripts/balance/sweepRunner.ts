@@ -205,6 +205,7 @@ if (cfg.bench) {
 const TR = await import('../../src/game/systems/trials');
 const AR = await import('../../src/game/systems/architect');
 const RD = await import('../../src/game/systems/raid');
+const TL = await import('../../src/game/systems/bossLane');
 if (cfg.trial) TR.startTrial(game, cfg.trial, true);
 else game.startSolo();
 if (cfg.noRoute) game.route.on = false;
@@ -241,14 +242,34 @@ type Num = Record<string, number>;
 const add = (o: Num, k: string, v: number) => (o[k] = (o[k] ?? 0) + v);
 const bossDmg: Num = {};
 let bossDmgCur: Num = {};
+// Read-only diagnostics: count vulnerable time without a successful Titan hit,
+// distance to the nearest open target, and each phase separately.
+const titanPhases: Record<string, { seconds: number; idle: number; far: number; blocked: number; damage: number; maxGap: number }> = {};
+let titanHit = false;
+let titanGap = 0;
 const dmg0 = game.damage;
 game.damage = function (e, base, o, by) {
   const n = dmg0.call(this, e, base, o, by);
+  if ((e.def.titanPart || e.def.id === 'titan') && n > 0) {
+    titanHit = true;
+    const ph = TL.titanDebug.call(this).titan?.phase ?? 4;
+    const r = titanPhases[ph];
+    if (r) r.damage += n;
+  }
   if (by === h && e.def.boss && n > 0) {
     add(bossDmg, o.source, n);
     add(bossDmgCur, o.source, n);
   }
   return n;
+};
+const hits: { time: number; stage: number; source: string; raw: number; hp: number; maxHp: number; lost: number; invuln: number; afterInvuln: number }[] = [];
+const hurt0 = game.hurtHero;
+game.hurtHero = function (hh, raw, x, z, src, cause) {
+  const hp = hh.player.hp, invuln = hh.player.invuln;
+  hurt0.call(this, hh, raw, x, z, src, cause);
+  if (hh === h && hh.player.hp < hp) hits.push({ time: +this.runTime.toFixed(3), stage: this.stage,
+    source: cause || src?.def.name || 'Enemy fire', raw: +raw.toFixed(3), hp: +hp.toFixed(3),
+    maxHp: hh.player.maxHp, lost: +(hp - hh.player.hp).toFixed(3), invuln, afterInvuln: hh.player.invuln });
 };
 let cashIns = 0;
 const cash0 = game.gpCashIn;
@@ -333,7 +354,25 @@ game.update = (dt: number) => {
   const wasMech = h.play.mechT > 0;
   const wasSuper = !!h.play.superId;
   const wasOver = h.play.overloadT > 0;
+  const td = TL.titanDebug.call(game);
+  const phase = td.titan?.phase;
+  titanHit = false;
   upd0(dt);
+  if (phase && td.titan!.rise >= 1 && game.mode === 'fight') {
+    const r = titanPhases[phase] ??= { seconds: 0, idle: 0, far: 0, blocked: 0, damage: 0, maxGap: 0 };
+    r.seconds += dt;
+    if (!titanHit) r.idle += dt;
+    titanGap = titanHit ? 0 : titanGap + dt;
+    r.maxGap = Math.max(r.maxGap, titanGap);
+    const targets = phase < 4 ? td.parts.filter((e) => e?.alive && !e.under) : [game.boss];
+    if (targets.length && targets.every((e) => !e || Math.hypot(e.x - h.player.x, e.z - h.player.z) > 12 + e.radius)) r.far += dt;
+    const nearest = targets.reduce<NonNullable<typeof game.boss> | null>((best, e) => e && (!best || Math.hypot(e.x - h.player.x, e.z - h.player.z) < Math.hypot(best.x - h.player.x, best.z - h.player.z)) ? e : best, null);
+    if (nearest) {
+      const dx = nearest.x - h.player.x, dz = nearest.z - h.player.z, d = Math.hypot(dx, dz);
+      const reach = Math.max(0, d - nearest.radius - 0.12) / (d || 1);
+      if (!game.walls.segmentClear(h.player.x, h.player.z, h.player.x + dx * reach, h.player.z + dz * reach, 0.12)) r.blocked += dt;
+    }
+  } else titanGap = 0;
   if (h.gold > g0) goldEarned += h.gold - g0;
   if (!wasMech && h.play.mechT > 0) lane.mechs++;
   if (h.play.mechT > 0) lane.mechT += dt;
@@ -469,6 +508,8 @@ out(
       firstEvo,
       goldEarned,
       bosses,
+      titanPhases,
+      hits,
       stages,
       dps,
       bossDmg: Object.fromEntries(Object.entries(bossDmg).map(([k, v]) => [k, Math.round(v)])),

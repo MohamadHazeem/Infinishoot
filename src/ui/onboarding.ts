@@ -1,4 +1,4 @@
-import { localizeHtml, localize } from '../i18n';
+import { localizeHtml, localize, t } from '../i18n';
 import { CODEX_TABS, codexCount, codexTab, type CodexTab } from '../data/arsenal';
 import { RARITY } from '../data/rarity';
 import { tagChips } from '../data/tags';
@@ -259,7 +259,7 @@ export class OnboardingUi {
     box.innerHTML =
       localizeHtml((ul ? `<div class="ob-unlocks px"><div class="hs-title">CLOSEST UNLOCKS</div>${ul}</div>` : '') +
       (rows
-        ? `<div class="ob-recap px"><div class="hs-title">RUN TIMELINE</div><table><tr><th></th><th>LV</th><th>DPS</th><th>KILLS</th><th>GOLD</th><th>TIME</th><th>BOSS</th></tr>${rows}</table></div>`
+        ? `<div class="ob-recap px" data-nav tabindex="-1"><div class="hs-title">RUN TIMELINE</div><table><tr><th></th><th>LV</th><th>DPS</th><th>KILLS</th><th>GOLD</th><th>TIME</th><th>BOSS</th></tr>${rows}</table><small class="mh-more">${t('menuhud.details')}</small></div>`
         : ''));
   }
 }

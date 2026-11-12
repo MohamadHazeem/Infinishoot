@@ -158,6 +158,16 @@ function run(id: string, phase: number, seconds: number): Record<string, number>
   }
   ok(!hurtEarly && hurtAny && Math.abs(maxK - 1) < 1e-6, 'a sweep only hurts while the arm swings low');
   ok(Math.abs(doneAt - TI.sweepLength()) < 0.05, `a sweep ends after ${TI.sweepLength().toFixed(2)} s`);
+  // After the staggered double sweep, both hands give a stationary, harmless
+  // punish window; they must not retreat before the second fist arrives.
+  let sharedHold = 0;
+  const otherPose = { k: 0, lift: 0, hurt: false, tele: 0 };
+  for (let t = 0; t < TI.sweepLength() + TI.titanTuning.stagger; t += 1 / 60) {
+    TI.sweepPose(t, pose);
+    TI.sweepPose(t - TI.titanTuning.stagger, otherPose);
+    if (pose.k === 1 && otherPose.k === 1 && !pose.hurt && !otherPose.hurt) sharedHold += 1 / 60;
+  }
+  ok(sharedHold >= 2, `both hand cores stay still and harmless together for ${sharedHold.toFixed(2)} s`);
   ok(Math.abs(TI.segDist(0, 1, -1, 0, 1, 0) - 1) < 1e-9 && Math.abs(TI.segDist(3, 0, -1, 0, 1, 0) - 2) < 1e-9, 'segment distance');
   // Net round trip.
   const s = new TI.TitanState();
@@ -191,6 +201,7 @@ function run(id: string, phase: number, seconds: number): Record<string, number>
 // ---------------------------------------------------------------- in a real game: host + client
 const { Input } = await import('../src/core/input');
 const { Game, cheats } = await import('../src/game/game');
+const { Autopilot } = await import('../src/game/autopilot');
 const { unlockedWeapons } = await import('../src/game/save');
 const { settings } = await import('../src/game/settings');
 const L = await import('../src/game/systems/bossLane');
@@ -236,6 +247,32 @@ step(10);
 L.bossLaneForce.titan = false;
 const dA = () => L.titanDebug.call(A);
 const dB = () => L.titanDebug.call(B);
+// Use the real pilot against the body collider, with no horde steering. The
+// former deep torso trapped the eye/core orbit shooting through stone.
+const checkBodyOrbit = (target: typeof A.boss, head: boolean, label: string) => {
+  if (!target) throw new Error('missing Titan target');
+  const pilot = new Autopilot();
+  for (const e of A.enemies.list) if (e !== A.boss && e !== target && e.active) A.enemies.kill(e);
+  A.bullets.clear();
+  const p = A.player, saved = { x: p.x, z: p.z };
+  const s = dA().titan!;
+  const body = new StaticBoxGrid(TI.titanBoxes(s.cx, s.cz, head));
+  p.teleport(target.x - 8, target.z);
+  let behind = false, opposite = false, aimed = true;
+  let minZ = p.z;
+  for (let i = 0; i < 60 * 30; i++) {
+    const o = pilot.decide(A), len = Math.hypot(o.mx, o.mz) || 1;
+    aimed &&= o.target === target;
+    const next = { x: p.x + o.mx / len * 6 / 60, z: p.z + o.mz / len * 6 / 60 };
+    body.resolveCircle(next, p.radius);
+    p.teleport(next.x, next.z);
+    minZ = Math.min(minZ, p.z);
+    behind ||= p.z < s.cz + TI.titanLayout.torso.z - TI.titanLayout.torso.hz;
+    opposite ||= p.x > target.x + 7;
+  }
+  ok(behind && opposite && aimed, `the ${label} orbit rounds the torso and reaches the opposite side (${(p.x - s.cx).toFixed(2)}, ${(p.z - s.cz).toFixed(2)}; minZ ${(minZ - s.cz).toFixed(2)}, target ${(target.x - s.cx).toFixed(2)},${(target.z - s.cz).toFixed(2)}, behind ${behind}, opposite ${opposite}, aimed ${aimed})`);
+  p.teleport(saved.x, saved.z);
+};
 ok(A.boss?.def.id === 'titan' && !!dA().titan && dA().parts.length === 5, 'the Titan spawns as the stage boss with five weak points');
 const before = A.arena.colliders.length;
 step(Math.ceil(TI.titanTuning.rise * 60) + 30);
@@ -267,6 +304,7 @@ kill(parts[2]);
 kill(parts[3]);
 step(15);
 ok(dA().titan!.phase === 3 && parts[4]!.alive && !A.boss!.alive, 'hands down: phase 3, the eye opens');
+checkBodyOrbit(parts[4]!, true, 'eye');
 kill(parts[4]);
 step(15);
 ok(dA().titan!.phase === 4 && A.boss!.alive && dA().walls === 1, 'eye down: the head opens (its wall goes) and the core can be hit');
@@ -274,6 +312,7 @@ const core = A.boss!;
 ok(core.hp / core.maxHp <= R.TITAN_CORE_SHARE + 1e-3 && core.hp / core.maxHp > R.TITAN_CORE_SHARE - 0.05, `the core holds the last ${Math.round(R.TITAN_CORE_SHARE * 100)}% of the bar (${(core.hp / core.maxHp).toFixed(3)})`);
 step(30);
 ok(dB().walls === 1 && dB().titan?.phase === 4, 'the client drops the head wall too');
+checkBodyOrbit(core, false, 'core');
 // Mid-fight the bar shows weak points.
 const bar = A.bossHud({ name: 'Titan Goliath', hp01: 0.3 });
 ok(!!bar && bar.phase === 4 && /CORE EXPOSED/.test(bar.name) && bar.ticks?.length === 3, `the boss bar says what's left (${bar?.name})`);

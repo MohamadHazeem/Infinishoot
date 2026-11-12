@@ -1,3 +1,4 @@
+import { uxpassAr } from './uxpass';
 import { architectAr } from '../game/architect/strings';
 import { elites2Ar } from './elites2';
 import { integ2Ar } from './integ2';
@@ -542,9 +543,9 @@ export const ar = {
   "text.shared_pool_everyone_chips_in_168f11": "أرواح مشتركة · ⟪1⟫ ⟪2⟫ · يتشارك الجميع التكلفة",
   "text.lives_0a0344": "أرواح",
   "text.life_5ecda6": "حياة",
-  "text.revive_pool_7b151b": "الأدوار",
-  "text.join_anytime_425ffe": "أرواح الإحياء",
-  "text.pick_different_heroes_for_a_team_bonus_382364": "الانضمام في أي وقت",
+  "text.revive_pool_7b151b": "أرواح الإحياء",
+  "text.join_anytime_425ffe": "الانضمام في أي وقت",
+  "text.pick_different_heroes_for_a_team_bonus_382364": "اختاروا أبطالًا مختلفين لمكافأة الفريق",
   "text.roles_team_bonus_for_everyone_15f010": "⟪0⟫ أدوار: مكافأة للجميع",
   "text.shared_lives_f65920": "أرواح مشتركة",
   "text.off_88559a": "إيقاف",
@@ -2213,8 +2214,8 @@ export const ar = {
   "text.cryo_well_37bb8a": "بئر الجليد",
   "text.an_icy_vortex_that_grinds_with_frost_and_freezes_3e72a8": "دوامة جليدية تسحق بالصقيع وتجمد كل من داخلها عند إغلاقها (صقيع).",
   "text.aegis_shield_e6f7ac": "درع الحماية",
-  "text.right_click_deploy_a_shield_toward_your_aim_that_d06c97": "الزر الأيمن: انشر درعا باتجاه تصويبك يصد الطلقات (ويعكسها) ويدفع الأعداء حتى ينكسر أو تنتهي مدته.",
-  "text.press_to_deploy_a_shield_that_follows_your_aim_aa2905": "اضغط لنشر درع يتبع تصويبك.",
+  "text.right_click_deploy_a_shield_toward_your_aim_that_d06c97": "الزر الأيمن: انشر درعًا يعكس الطلقات ويدفع الأعداء. صد طلقة أو إصابة عدو بالدرع يخفض وقت الشحن التالي بنسبة 75%.",
+  "text.press_to_deploy_a_shield_that_follows_your_aim_aa2905": "اعكس الطلقات وادفع الأعداء. صد طلقة أو إصابة ناجحة بالدرع يخفض وقت الشحن التالي بنسبة 75%.",
   "text.shield_bash_d225c8": "ضربة الدرع",
   "text.12_damage_harder_shoves_3e87ce": "+12 ضرر ودفع أقوى.",
   "text.15_damage_harder_shoves_86307c": "+15 ضرر ودفع أقوى.",
@@ -3300,7 +3301,7 @@ export const ar = {
   "text.left_click_slow_orbs_that_zap_the_nearest_enemie_414aa3.body": "كرات بطيئة تصعق أقرب الأعداء وهي تطفو.",
   "text.right_click_lob_grenades_over_the_crowd_9aa574.body": "اقذف القنابل فوق الحشد.",
   "text.right_click_throw_a_vortex_that_drags_enemies_in_3addad.body": "ارم دوامة تجذب الأعداء للداخل.",
-  "text.right_click_deploy_a_shield_toward_your_aim_that_d06c97.body": "انشر درعا باتجاه تصويبك يصد الطلقات (ويعكسها) ويدفع الأعداء حتى ينكسر أو تنتهي مدته.",
+  "text.right_click_deploy_a_shield_toward_your_aim_that_d06c97.body": "انشر درعًا يعكس الطلقات ويدفع الأعداء. صد طلقة أو إصابة عدو بالدرع يخفض وقت الشحن التالي بنسبة 75%.",
   "text.left_click_a_hyper_velocity_rail_that_pierces_ev_471db7.body": "قذيفة فائقة السرعة تخترق كل شيء في خط طويل.",
   "text.right_click_call_a_satellite_beam_down_from_the__ca7de0.body": "استدع شعاع قمر صناعي من السماء.",
   // meta2 lane: achievements, profile, quests (src/data/meta.ts, profile.ts, quests.ts)
@@ -3762,7 +3763,7 @@ export const ar = {
   "arabic2.34e078069a": "حشد مكتظ",
   "arabic2.8434a18a7c": "ضربات ساحقة",
   "arabic2.5af54355fa": "آخر الإمدادات",
-  "arabic2.90fa1f5ec1": "ينخفض معدل ظهور صناديق الخريطة إلى النصف مجددًا.",
+  "arabic2.90fa1f5ec1": "تظهر صناديق الخريطة بخُمس معدلها المعتاد.",
   "arabic2.876eeb97ba": "صحة الأعداء +20%؛ حلقات الزعماء الإضافية تطلق 24 مقذوفًا.",
   "arabic2.ef7562d21e": "متسلّق برونزي",
   "arabic2.3a59026db8": "متسلّق السماء",
@@ -4262,4 +4263,6 @@ export const ar = {
   "arabic2.ef2c6613c5": "يستعيد شحنته أسرع بمقدار 1.5 ثانية.",
   "arabic2.e6a00992b8": "يستعيد شحنته أسرع بمقدار ثانيتين.",
 
+  // uxpass lane: menu fit and scroll cue.
+  ...uxpassAr,
 } satisfies Record<keyof typeof en, string>;
