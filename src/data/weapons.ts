@@ -686,9 +686,9 @@ export const WEAPONS: Record<string, WeaponDef> = {
     name: 'Aegis Shield',
     icon: '◗',
     color: '#5ce1ff',
-    desc: 'RIGHT CLICK: deploy a shield toward your aim that blocks bullets (bouncing them back) and slams enemies away until it breaks or times out.',
+    desc: 'RIGHT CLICK: deploy a shield that reflects bullets and bashes enemies. Blocking a shot or landing a bash cuts the next recharge by 75%.',
     starter: false, // unlocked by an achievement (src/data/meta.ts)
-    levels: [{ text: 'Press to deploy a shield that follows your aim and bounces bullets back.', p: { dmg: 40, arc: 100, radius: 1.6, knock: 22, dur: 3, cd: 4.5, hp: 60, reflect: 1 } }],
+    levels: [{ text: 'Reflect bullets and bash enemies. A block or successful bash cuts the next recharge by 75%.', p: { dmg: 40, arc: 100, radius: 1.6, knock: 22, dur: 3, cd: 4.5, hp: 60, reflect: 1, refund: 0.75 } }],
     tracks: [
       {
         id: 'bash',

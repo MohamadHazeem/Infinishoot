@@ -132,7 +132,7 @@ export const arabic2En = {
   "arabic2.34e078069a": "Packed House",
   "arabic2.8434a18a7c": "Crushing Blows",
   "arabic2.5af54355fa": "Last Supplies",
-  "arabic2.90fa1f5ec1": "Map chest cadence halves again.",
+  "arabic2.90fa1f5ec1": "Map chests arrive one fifth as often.",
   "arabic2.876eeb97ba": "Enemy life +20%; boss bonus rings have 24 bullets.",
   "arabic2.ef7562d21e": "BRONZE CLIMBER",
   "arabic2.3a59026db8": "SKY CLIMBER",

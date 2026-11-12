@@ -206,7 +206,7 @@ export function bossLaneDefs(base: Readonly<Record<string, EnemyDef>>): Record<s
     boss: true,
     phases: titanTicks(),
     title: 'THE MOUNTAIN THAT WOKE UP',
-    hp: 8500, // ~3.5x King for the whole body, weak points included (TITAN_PARTS shares): 3400 fell in 17 s to a god bot (AoE hits two weak points at once)
+    hp: 2500, // Five targets and traversal add time beyond this life budget; see notes/lanes/balance3.md.
     speed: 0,
     radius: 2.2,
     bodyColor: '#566c86',
