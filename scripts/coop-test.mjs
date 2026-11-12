@@ -246,6 +246,9 @@ await Promise.all(
     }),
   ),
 );
+// Coopsync lane: every machine notes the objective props it built for each stage the moment the arena loads
+// (before any snapshot can correct them); `objectiveLoads()` compares host and client stage by stage.
+await Promise.all([A, B].map((p) => p.page.evaluate(objectiveLoadHook)));
 await lobbyPhase();
 await B.page.waitForFunction(() => window.game.role === 'client' && window.game.mode !== 'title' && window.game.heroes.length === 2, null, { timeout: 60000 }).catch(() => fail('client never started the run'));
 // Optional weapons3 coverage: both fork choices plus all four evolved auto weapons.
@@ -325,6 +328,9 @@ await Promise.all(
   ),
 );
 log('run started, bots on');
+// The client builds the stage-1 objective props itself from the start: equal to the host's before any snapshot.
+await until(B, () => Object.keys(window.__objLoads ?? {}).length > 0, undefined, 15000);
+log(`objective props at the first stage load: ${JSON.stringify(await objectiveLoads('run start'))}`);
 
 // ---------------------------------------------------------------- state probes
 /** Host: the authoritative view, seen from the client's hero. */
@@ -638,20 +644,58 @@ const SCENARIO = [
     return { host: h, client: c };
   }],
   [14, 'client switches on a turret', async () => {
-    const at = await clientTo('turret');
-    if (!at) return 'no idle turrets';
-    // Poll: a level-up on the host can hold the world for a moment.
-    let h, c;
-    for (let k = 0; k < 12; k++) {
-      await pause(250);
-      [h, c] = await Promise.all([
-        host((at) => window.game.toys.turrets.find((t) => t.x === at[0] && t.z === at[1])?.owner, at),
-        client((at) => window.game.toys.turrets.find((t) => t.x === at[0] && t.z === at[1])?.t, at),
-      ]);
-      if (h === 1 && c > 0) break;
+    // Coopsync lane: this used to fail now and then ("host owner 0, client timer 0"). Turrets only switch on in
+    // fight mode, and the host often sat in a team level-up (it waits for the client's pick over UI messages) for
+    // the whole 3 s of wall time the client stood on the pad; then the bot walked it off. So: both machines
+    // fighting, level-ups held (coopFight), the host bot parked, an idle turret the host hero isn't near (the host
+    // decides, it owns the state), the client hero kept on it, and the wait counted in the host's game seconds.
+    // A client that lost the host (a stalled host page: it migrates and plays on alone) can't switch on the host's
+    // turret: say that instead of blaming the turret (seen once in 12 runs under load average 55+).
+    const role = await client(() => window.game.role);
+    if (role !== 'client') {
+      fail(`turret: the client is no longer connected to the host (client role ${role}), skipped`);
+      return 'client not connected';
     }
-    if (h !== 1 || !(c > 0)) fail(`turret: host owner ${h} (want 1), client timer ${c}`);
-    return { owner: h, clientT: c };
+    let fighting = false;
+    for (let k = 0; k < 4 && !fighting; k++) fighting = await coopFight(); // a slow machine can sit in a level-up for a while: wait for it to close
+    if (!fighting) {
+      await coopEnd();
+      fail('turret: host and client never both in fight mode');
+      return 'not fighting';
+    }
+    try {
+      const at = await host(() => {
+        const g = window.game;
+        const p = g.heroes[0].player;
+        let best = null;
+        for (const t of g.toys.turrets) if (t.t <= 0 && t.cd <= 0 && (!best || Math.hypot(t.x - p.x, t.z - p.z) > Math.hypot(best.x - p.x, best.z - p.z))) best = t;
+        return best && Math.hypot(best.x - p.x, best.z - p.z) > 4 ? [best.x, best.z, g.runTime] : null;
+      });
+      if (!at) return 'no idle turret away from the host hero';
+      const onPad = (at) =>
+        client((at) => {
+          const g = window.game;
+          const p = g.hero.player;
+          g.toys.jumps[g.local] = null; // not mid-flight from an earlier pad
+          if (Math.hypot(p.x - at[0], p.z - at[1]) > 0.5) p.teleport(at[0], at[1]); // back on it if a hit knocked it off
+        }, at);
+      let h, c;
+      for (let wall = Date.now(); ; ) {
+        await onPad(at);
+        await pause(250);
+        [h, c] = await Promise.all([
+          host((at) => { const g = window.game; const t = g.toys.turrets.find((t) => t.x === at[0] && t.z === at[1]); return { owner: t?.owner, t: t?.t, mode: g.mode, game: g.runTime - at[2] }; }, at),
+          client((at) => window.game.toys.turrets.find((t) => t.x === at[0] && t.z === at[1])?.t, at),
+        ]);
+        if (h.owner === 1 && h.t > 0 && c > 0) break;
+        // 3 s of host game time is ~10 snapshots after it switches on; the wall-clock cap only catches a stalled host.
+        if (h.game > 3 || Date.now() - wall > 60000) break;
+      }
+      if (h.owner !== 1 || !(h.t > 0) || !(c > 0)) fail(`turret: host owner ${h.owner} (want 1), host timer ${h.t}, client timer ${c}, host mode ${h.mode}, ${h.game.toFixed(1)} game s`);
+      return { owner: h.owner, clientT: c, gameSecs: +h.game.toFixed(2) };
+    } finally {
+      await coopEnd();
+    }
   }],
   [20, 'host topples the pillar nearest the client', async () => {
     const i = await host(() => {
@@ -1426,6 +1470,11 @@ while ((Date.now() - t0) / 1000 < SECS) {
 }
 if (!A.errors.length && !B.errors.length) {
   try {
+    log(`objective props at every stage load: ${JSON.stringify(await objectiveLoads('end of run'))}`);
+  } catch (e) {
+    fail(`objective props check threw: ${e.message}`);
+  }
+  try {
     if (args.includes('--raid')) await raidPhase();
     await partyPhase();
   } catch (e) {
@@ -1433,6 +1482,44 @@ if (!A.errors.length && !B.errors.length) {
   }
 }
 await done();
+
+// ---------------------------------------------------------------- coopsync lane
+/** Page side: note the objective props this machine built for each stage as its arena loads (before any snapshot). */
+async function objectiveLoadHook() {
+  const { coopPlayState } = await import('/src/game/systems/coopplay.ts');
+  const g = window.game;
+  const load = g.loadArena;
+  window.__objLoads ??= {};
+  const box = (b) => [b.minX, b.maxX, b.minZ, b.maxZ].map((v) => v.toFixed(3)).join(',');
+  g.loadArena = function (...a) {
+    load.apply(this, a);
+    if ((this.role !== 'host' && this.role !== 'client') || this.heroes.length < 2 || this.pvp) return;
+    const s = coopPlayState(this);
+    window.__objLoads[`${this.arenaStage}:${this.arena.seed}`] = JSON.stringify({
+      colliders: this.arena.colliders.map(box).sort().join(';'),
+      kind: this.toys.objective.kind,
+      max: this.toys.objective.max,
+      totems: this.toys.totems.map((t) => [+t.x.toFixed(3), +t.z.toFixed(3)]),
+      shards: this.toys.shards.map((t) => [+t.x.toFixed(3), +t.z.toFixed(3)]),
+      beacon: this.toys.beacon && [+this.toys.beacon.x.toFixed(3), +this.toys.beacon.z.toFixed(3)],
+      coop: s.kind,
+      lay: s.lay,
+    });
+  };
+}
+/** Host vs client: the objective props each built at every stage load both saw. Fails on any difference. */
+async function objectiveLoads(tag) {
+  const [h, c] = await Promise.all([A, B].map((p) => p.page.evaluate(() => window.__objLoads ?? {}))); // (host()/client() aren't defined yet at the run start)
+  const keys = Object.keys(h).filter((k) => k in c);
+  for (const k of keys) {
+    if (h[k] === c[k]) continue;
+    const a = JSON.parse(h[k]);
+    const b = JSON.parse(c[k]);
+    const what = Object.keys(a).filter((f) => JSON.stringify(a[f]) !== JSON.stringify(b[f]));
+    fail(`objective props at stage load ${k} (${tag}) differ: ${what.map((f) => `${f} host ${JSON.stringify(a[f]).slice(0, 90)} vs client ${JSON.stringify(b[f]).slice(0, 90)}`).join(' | ')}`);
+  }
+  return { stages: keys.map((k) => `${k.split(':')[0]}:${JSON.parse(h[k]).coop ?? JSON.parse(h[k]).kind}`), hostOnly: Object.keys(h).length - keys.length, clientOnly: Object.keys(c).length - keys.length };
+}
 
 // ---------------------------------------------------------------- lobby lane
 /** Poll `fn` on a page until it returns truthy (or time runs out); returns the last value. */

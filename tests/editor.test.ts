@@ -452,8 +452,11 @@ function customOk(game: InstanceType<typeof Game>): boolean {
   const ka = key(g.arena.colliders).split(';');
   const kb = key(B.arena.colliders).split(';');
   const mine = key(D.pieceColliders(pit)).split(';');
-  // Objective props (1.2 m totem boxes) can sit on the client a snapshot after the host removed them, so only the arena's own pieces are compared.
-ok(mine.every((k) => ka.includes(k) && kb.includes(k)), `host and client built the same arena colliders (${mine.length} pieces; host ${ka.length}, client ${kb.length})`);
+  // Strict, before any snapshot: the client builds the stage's objective props (solo totems or the co-op objective's
+  // vault) itself from the shared seed, so every collider matches from the first frame (coopsync lane).
+  ok(mine.every((k) => ka.includes(k) && kb.includes(k)) && ka.join(';') === kb.join(';'), `host and client built the same arena colliders (${mine.length} pieces; host ${ka.length}, client ${kb.length})`);
+  const obj = (x: InstanceType<typeof Game>) => JSON.stringify([x.toys.objective.kind, x.toys.objective.max, x.toys.totems.map((t) => [t.x, t.z]), x.toys.shards.map((t) => [t.x, t.z]), x.toys.beacon]);
+  ok(obj(B) === obj(g), `and the same objective props (${obj(g).slice(0, 80)})`);
   ok(B.arena.halfSize === g.arena.halfSize, 'and the same size');
   ok(same(B.arena.hazards, g.arena.hazards) && same(B.arena.pads, g.arena.pads) && same(B.arena.conveyors, g.arena.conveyors), 'and the same hazards, pads and belts');
   ok(biomeForce.key === 'magma' && editorNet(g) === start.arena, 'every machine is on the arena biome');
