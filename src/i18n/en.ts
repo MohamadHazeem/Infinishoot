@@ -1,3 +1,4 @@
+import { uxpassEn } from './uxpass';
 import { arabic2En } from './arabic2';
 import { architectEn } from '../game/architect/strings';
 import { elites2En } from './elites2';
@@ -3632,4 +3633,6 @@ export const en = {
   // arabic2: complete display-boundary copy (stable keys).
   ...arabic2En,
 
+  // uxpass lane: menu fit and scroll cue.
+  ...uxpassEn,
 } as const;
