@@ -7,6 +7,7 @@
  */
 import type { CardNum } from '../game/cardNumbers';
 import { activeRows, diffRows, rowLabel, rowValue, type PreviewRow, type ShopPreview } from '../game/shopPreview';
+import { t } from '../i18n';
 
 /** "DPS 70 ▸ 84" lines; the new number is highlighted (lime better, orange worse). */
 export function numsHtml(nums: CardNum[] | undefined, cls = ''): string {
@@ -41,16 +42,18 @@ export function previewPanelHtml(p: ShopPreview, f: PreviewFocus, before?: Previ
   const chips =
     f.after
       ? diffRows(p, base, f.after)
-          .map((d) => `<span class="pv ${d.changed ? 'chg' : ''} ${cond(d.k)}"><i>${rowLabel(d.k)}</i>${d.a && d.changed ? `<s>${rowValue(d.a)}</s><em>▸</em>` : ''}<b class="${d.changed && d.a ? (better(d.a, d.b) ? 'up' : 'down') : ''}">${rowValue(d.b)}</b></span>`)
+          .map((d) => `<span class="pv ${d.changed ? 'chg' : ''} ${cond(d.k)}"><i>${ifWord(d.k)}${rowLabel(d.k)}</i>${d.a && d.changed ? `<s>${rowValue(d.a)}</s><em>▸</em>` : ''}<b class="${d.changed && d.a ? (better(d.a, d.b) ? 'up' : 'down') : ''}">${rowValue(d.b)}</b></span>`)
           .join('')
       : activeRows(p, base)
-          .map((r) => `<span class="pv ${cond(r.k)}"><i>${rowLabel(r.k)}</i><b>${rowValue(r)}</b></span>`)
+          .map((r) => `<span class="pv ${cond(r.k)}"><i>${ifWord(r.k)}${rowLabel(r.k)}</i><b>${rowValue(r)}</b></span>`)
           .join('');
   const live = p.live.length ? `<div class="pv-note">LIVE IN FIGHTS (SHOWN NOW): ${p.live.join(', ').toUpperCase()}</div>` : '';
   return `<div class="pv-head"><b>${f.title}</b>${f.note ? `<span class="pv-why">${f.note}</span>` : ''}</div><div class="pv-rows">${chips}</div>${live}`;
 }
 
 const cond = (k: string) => (k === 'all' || k.startsWith('w:') ? '' : 'cond');
+/** Condition rows start with a localized "IF" (it was CSS `content: 'IF '`, which Arabic couldn't translate). */
+const ifWord = (k: string) => (cond(k) ? `<u class="pv-if">${t('text.if_de6ee2')}</u> ` : '');
 const better = (a: PreviewRow, b: PreviewRow) => b.m > a.m + 1e-9 || (Math.abs(b.m - a.m) < 1e-9 && b.a > a.a);
 
 const CSS = `
@@ -87,7 +90,7 @@ const CSS = `
 .mod-preview .pv-rows { display: flex; flex-wrap: wrap; gap: calc(1.5 * var(--p)) calc(4 * var(--p)); }
 .mod-preview .pv { display: inline-flex; align-items: baseline; gap: calc(1.5 * var(--p)); font-size: 20px; line-height: 1; color: var(--white); }
 .mod-preview .pv i { font: 10px var(--label); font-style: normal; color: var(--mist); letter-spacing: 1px; }
-.mod-preview .pv.cond i::before { content: 'IF '; color: var(--slate); }
+.mod-preview .pv i .pv-if { text-decoration: none; color: var(--slate); }
 .mod-preview .pv s { text-decoration: none; color: var(--slate); }
 .mod-preview .pv em { font-style: normal; color: var(--slate); }
 .mod-preview .pv b { font-weight: normal; }

@@ -1,3 +1,4 @@
+import { uxpassAr } from './uxpass';
 import { architectAr } from '../game/architect/strings';
 import { elites2Ar } from './elites2';
 import { integ2Ar } from './integ2';
@@ -542,9 +543,9 @@ export const ar = {
   "text.shared_pool_everyone_chips_in_168f11": "أرواح مشتركة · ⟪1⟫ ⟪2⟫ · يتشارك الجميع التكلفة",
   "text.lives_0a0344": "أرواح",
   "text.life_5ecda6": "حياة",
-  "text.revive_pool_7b151b": "الأدوار",
-  "text.join_anytime_425ffe": "أرواح الإحياء",
-  "text.pick_different_heroes_for_a_team_bonus_382364": "الانضمام في أي وقت",
+  "text.revive_pool_7b151b": "أرواح الإحياء",
+  "text.join_anytime_425ffe": "الانضمام في أي وقت",
+  "text.pick_different_heroes_for_a_team_bonus_382364": "اختاروا أبطالًا مختلفين لمكافأة الفريق",
   "text.roles_team_bonus_for_everyone_15f010": "⟪0⟫ أدوار: مكافأة للجميع",
   "text.shared_lives_f65920": "أرواح مشتركة",
   "text.off_88559a": "إيقاف",
@@ -4262,4 +4263,6 @@ export const ar = {
   "arabic2.ef2c6613c5": "يستعيد شحنته أسرع بمقدار 1.5 ثانية.",
   "arabic2.e6a00992b8": "يستعيد شحنته أسرع بمقدار ثانيتين.",
 
+  // uxpass lane: menu fit and scroll cue.
+  ...uxpassAr,
 } satisfies Record<keyof typeof en, string>;
