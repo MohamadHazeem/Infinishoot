@@ -1,4 +1,5 @@
 import { FIT_CSS, HudFit, centreBox } from './hudFit';
+import { menuCoverCss } from './menuHud';
 /**
  * HUD layout pass (HUD lane): the level badge under the XP bar, the goals
  * stack on the left (teammates, objective, stage event, side challenge,
@@ -303,7 +304,7 @@ export function injectHudCss(): void {
   if (typeof document === 'undefined' || document.getElementById('hud-layout-css')) return;
   const st = document.createElement('style');
   st.id = 'hud-layout-css';
-  st.textContent = CSS + FIT_CSS;
+  st.textContent = CSS + FIT_CSS + menuCoverCss(HUD_DOCK.map(([s]) => s));
   document.head.appendChild(st);
 }
 
@@ -518,9 +519,11 @@ export class HudDock {
     const dt = this.lastRun < 0 ? dockTuning.every : Math.min(0.25, Math.max(0, now - this.lastRun));
     this.lastRun = now;
     const viewH = window.innerHeight;
+    // menuhud: under a menu the first-time tip is placed by MenuTip (src/ui/menuHud.ts), not the dock.
+    const menuOpen = !!document.querySelector('#hud.menu-open');
     let n = 0;
     for (const { el, dir, free } of this.items) {
-      const shown = el.isConnected && !el.hidden && (typeof el.checkVisibility !== 'function' || el.checkVisibility({ visibilityProperty: true }));
+      const shown = el.isConnected && !el.hidden && !(menuOpen && el.id === 'ob-tip') && (typeof el.checkVisibility !== 'function' || el.checkVisibility({ visibilityProperty: true }));
       const off = this.applied.get(el) ?? 0;
       if (!shown) {
         if (off) this.set(el, 0);

@@ -57,9 +57,10 @@ export function installClipsUi(g: Game): void {
     } else {
       const all = document.createElement('button'); all.dataset.nav = ''; all.textContent = t('clips.gallery'); all.onclick = () => screens.show('clips'); panel.append(all);
       const root = document.getElementById(`scr-${name}`)!;
-      const parent = name === 'mvp' ? root.querySelector('.mvp-shell')! : root;
+      // menuhud: game over keeps its result panels in .go-body (the 720p/1080p column layout).
+      const parent = name === 'mvp' ? root.querySelector('.mvp-shell')! : root.querySelector('.go-body') ?? root;
       // Preserve Continue/Retry as the first navigation action on result screens.
-      const next = name === 'mvp' ? null : parent.querySelector('.hiscores');
+      const next = name === 'mvp' ? null : parent.querySelector(':scope > .hiscores');
       parent.insertBefore(panel, next);
     }
     screens.nav(name).refresh();

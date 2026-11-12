@@ -505,18 +505,20 @@ export class Screens {
 <div id="scr-gameover" class="screen dim" hidden>
   <h1 class="ko">K.O.!</h1>
   <div class="newbest" hidden>${t("text.new_high_score_3f07c6")}</div>
-  <div class="go-cols">
-    <div class="summary"></div>
-    <div class="dmg-table"></div>
-  </div>
-  <div class="build"></div>
-  <div class="unlocked"></div>
   <div class="menu row">
     <button data-nav data-act="retry">${t("text.retry_c0cc02")}</button>
     <button data-nav data-act="title">${t("text.title_6f9dcc")}</button>
   </div>
-  <div class="hiscores"></div>
-  <div class="hiscores global" hidden></div>
+  <div class="go-body">
+    <div class="go-cols">
+      <div class="summary"></div>
+      <div class="dmg-table"></div>
+    </div>
+    <div class="build"></div>
+    <div class="unlocked"></div>
+    <div class="hiscores"></div>
+    <div class="hiscores global" hidden></div>
+  </div>
 </div>
 <div id="scr-route" class="screen dim" hidden></div>`),
     );
