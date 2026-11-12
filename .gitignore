@@ -6,3 +6,4 @@ release
 .env
 .env.*
 shots/
+.agent-logs/
