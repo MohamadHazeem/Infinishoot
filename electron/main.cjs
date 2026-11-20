@@ -15,6 +15,33 @@ if (state.options?.vsync === false) {
   app.commandLine.appendSwitch('disable-gpu-vsync');
   app.commandLine.appendSwitch('disable-frame-rate-limit');
 }
+const { configuredId } = require('./steam-flag.cjs');
+const depot = !!require('../package.json').steamDistribution;
+// Steam supplies SteamAppId when launching an installed depot. Local tests use the explicit flag or file.
+if (depot && process.env.STEAM_APP_ID === undefined && process.env.SteamAppId) process.env.STEAM_APP_ID = process.env.SteamAppId;
+const steamId = app.isPackaged && !depot ? null : configuredId(process.env, () => fs.readFileSync(path.join(path.dirname(process.execPath), 'steam_appid.txt'), 'utf8'));
+const steamMode = depot || !!steamId;
+const steamPolicy = steamMode ? require('./steam.cjs') : null;
+const primary = !steamMode || app.requestSingleInstanceLock();
+let steamReady = false, queuedJoin = null, cloud, steamError;
+function receiveJoin(code) {
+  if (!code) return;
+  if (steamReady && win && !win.isDestroyed()) {
+    win.webContents.send('steam:join', code);
+    win.focus();
+  } else queuedJoin = code;
+}
+if (!primary) app.quit();
+if (steamMode && primary) {
+  process.argv.forEach(arg => receiveJoin(steamPolicy.connectCode(arg)));
+  app.on('second-instance', (_event, argv) => argv.forEach(arg => receiveJoin(steamPolicy.connectCode(arg))));
+}
+const steam = primary && steamId && steamPolicy.startSteam(steamId,
+  () => depot ? require(path.join(process.resourcesPath, 'steamworks.js')) : require('steamworks.js'),
+  receiveJoin, active => { if (active && win && !win.isDestroyed()) win.webContents.send('steam:overlay'); },
+  error => { steamError = error.message; });
+const account = steam?.account ?? state.steamAccount;
+if (steamMode && primary) cloud = steamPolicy.cloudStore(path.join(app.getPath('appData'), 'InfiniShoot'), account);
 const activeVsync = state.options?.vsync !== false;
 function write(file, value) {
   try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file + '.tmp', JSON.stringify(value)); fs.renameSync(file + '.tmp', file); } catch { /* Read-only/full disks must never prevent play. */ }
@@ -54,7 +81,7 @@ function trusted(event) { return win && !win.isDestroyed() && event.sender === w
 function handle(name, fn) { ipcMain.handle(name, (event, ...args) => trusted(event) ? fn(...args) : null); }
 function context() { return { version: app.getVersion(), os: `${os.platform()} ${os.release()} ${os.arch()}`, settings: state.settings || {}, display: state.options, activeVsync }; }
 async function checkUpdate() {
-  if (!state.options.autoUpdate || !app.isPackaged) return null;
+  if (steamMode || !state.options.autoUpdate || !app.isPackaged) return null;
   if (checking) return checking;
   if (Date.now() - lastCheck < 60_000) return available;
   lastCheck = Date.now();
@@ -82,10 +109,15 @@ function createWindow() {
   const height = Math.max(360, Math.min(valid ? b.height : 800, area.height));
   normalBounds = { width, height, x: valid ? Math.max(area.x, Math.min(b.x, area.x + area.width - width)) : area.x + Math.round((area.width - width) / 2), y: valid ? Math.max(area.y, Math.min(b.y, area.y + area.height - height)) : area.y + Math.round((area.height - height) / 2) };
   win = new BrowserWindow({ ...normalBounds, minWidth: 640, minHeight: 360, frame: false, backgroundColor: '#1a1c2c', title: 'InfiniShoot', autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false },
+    webPreferences: { additionalArguments: [
+      ...(steam ? ['--infinishoot-steam'] : []),
+      ...(cloud ? ['--infinishoot-cloud'] : []),
+      ...(process.env.SteamDeck === '1' || steam?.deck ? ['--infinishoot-deck'] : []),
+    ], preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false },
   });
   const initialMode = state.options.windowMode;
   setMode(initialMode);
+  win.webContents.on('did-start-navigation', (_event, _url, inPlace, mainFrame) => { if (mainFrame && !inPlace) steamReady = false; });
   win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   for (const event of ['resize', 'move']) win.on(event, () => {
     clearTimeout(boundsTimer);
@@ -129,10 +161,39 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { if (url.startsWith('https://')) void shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 }
-void import('./logic.mjs').then((module) => {
+if (primary) void import('./logic.mjs').then((module) => {
   logic = module;
   ring = new logic.LogRing(read(logPath, []));
   state.options = logic.displayOptions(state.options);
+  if (steamError) log('steam', steamError);
+  if (steam) {
+    handle('steam:ready', () => { steamReady = true; const code = queuedJoin; queuedJoin = null; return code; });
+    handle('steam:unlock', ids => steam.unlock(ids));
+    handle('steam:presence', (status, code) => steam.presence(status, code));
+  }
+  if (cloud) {
+    ipcMain.on('steam:cloud-read', event => {
+      if (!trusted(event)) { event.returnValue = null; return; }
+      const switched = !!state.steamAccount && account !== state.steamAccount;
+      const profile = { switched, keys: steamPolicy.cloudKeys, records: null, writable: true };
+      try { profile.records = cloud.read(); }
+      catch (error) { log('steam-cloud-read', error); profile.writable = false; }
+      event.returnValue = profile;
+    });
+    ipcMain.on('steam:cloud-restored', event => {
+      if (trusted(event) && state.steamAccount !== account) {
+        state.steamAccount = account;
+        write(statePath, state);
+      }
+      event.returnValue = null;
+    });
+    ipcMain.on('steam:cloud-write', (event, data) => {
+      let saved = false;
+      try { if (trusted(event)) saved = cloud.write(data); }
+      catch (error) { log('steam-cloud-write', error); }
+      event.returnValue = saved;
+    });
+  }
   handle('desktop:info', () => ({ version: app.getVersion(), os: `${os.platform()} ${os.release()} ${os.arch()}`, activeVsync, windowMode: mode }));
   handle('desktop:configure', (options, settings) => {
     const next = logic.displayOptions(options);
@@ -169,4 +230,5 @@ void import('./logic.mjs').then((module) => {
   createWindow();
 });
 app.on('before-quit', flush);
+app.once('will-quit', () => steam && steam.close());
 app.on('window-all-closed', () => app.quit());

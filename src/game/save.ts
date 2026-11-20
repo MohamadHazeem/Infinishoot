@@ -1,3 +1,4 @@
+import { steamUnlock } from '../platform/steam';
 import { normalizeSeason, type SeasonSave } from '../data/seasons';
 import { loadJson, saveJson } from '../core/storage';
 import { ACHIEVEMENTS } from '../data/meta';
@@ -322,6 +323,7 @@ function grantFromLifetime(d: SaveData): void {
 
 export const save: SaveData = normalize(loadJson<unknown>(KEY, null));
 grantFromLifetime(save);
+steamUnlock(save.achievements);
 // Season track cosmetics (titles, banners, HUD themes, trails, hats) are owned through the track, not by profile level.
 rewardHook.owns = (id) => save.seasonPass.owned.includes(id);
 
@@ -405,6 +407,7 @@ export function grantAchievement(id: string) {
   const def = ACHIEVEMENTS.find((a) => a.id === id);
   if (!def) return null;
   save.achievements.push(id);
+  steamUnlock([id]);
   save.achDates[id] = new Date().toISOString().slice(0, 10);
   persist();
   return def;
@@ -439,6 +442,7 @@ export function importFile(text: string): void {
   if (parsed?.game !== 'InfiniShoot' || !parsed.save) throw new Error('That file is not an InfiniShoot save.');
   Object.assign(save, normalize(parsed.save));
   grantFromLifetime(save);
+  steamUnlock(save.achievements);
   persist();
 }
 
@@ -457,6 +461,7 @@ export function importCode(code: string): void {
   }
   Object.assign(save, normalize(parsed));
   grantFromLifetime(save);
+  steamUnlock(save.achievements);
   persist();
 }
 
