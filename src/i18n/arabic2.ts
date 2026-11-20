@@ -1,5 +1,7 @@
 /** New Arabic-lane base copy. Other locales deliberately retain English until translated. */
 export const arabic2En = {
+  "steam.stage": "Stage ⟪stage⟫ · ⟪biome⟫ · ⟪hero⟫",
+  "steam.menu": "Main menu",
   "arabic2.c551f7d47e": "COPY FAILED: SHARE YOUR CODE INSTEAD.",
   "arabic2.206743d970": "INVITE LINK COPIED. IT WORKS WHENEVER YOU HOST WITH YOUR CODE.",
   "arabic2.c51e3ca66f": "THAT'S YOUR OWN CODE.",

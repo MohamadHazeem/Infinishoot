@@ -1,0 +1,13 @@
+"AppBuild"
+{
+    "AppID" "{{APP_ID}}"
+    "Desc" "InfiniShoot {{VERSION}}"
+    "ContentRoot" "../../steam"
+    "BuildOutput" "../cache"
+    "SetLive" "{{BETA_BRANCH}}"
+    "Depots"
+    {
+        "{{WIN_DEPOT}}" "depot_build_windows.vdf"
+        "{{MAC_DEPOT}}" "depot_build_macos.vdf"
+    }
+}

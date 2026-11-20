@@ -33,7 +33,11 @@
     "app": "npm run build && electron .",
     "dist": "npm run build && electron-builder --win portable --publish never -c.electronDist=node_modules/electron/dist",
     "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64 --publish never",
-    "sweep": "node scripts/balance-sweep.mjs"
+    "sweep": "node scripts/balance-sweep.mjs",
+    "dist:steam": "npm run build && node scripts/steam/dist.mjs",
+    "steam:achievements": "npm ci --prefix scripts/steam --ignore-scripts --no-audit --no-fund && node scripts/steam/achievements.mjs",
+    "steam:upload": "node scripts/steam/upload.mjs",
+    "steam:ship": "node scripts/steam/upload.mjs --build"
   },
   "allowScripts": {
     "electron@44.7.2": true,
@@ -47,7 +51,10 @@
     },
     "files": [
       "dist/**",
-      "electron/**"
+      "electron/**",
+      "!node_modules/steamworks.js{,/**}",
+      "!electron/steam.cjs",
+      "!electron/steam-achievements.json"
     ],
     "win": {
       "target": "portable"
@@ -86,5 +93,8 @@
     "three": "^0.186.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.2"
+  },
+  "optionalDependencies": {
+    "steamworks.js": "0.4.0"
   }
 }

@@ -16,6 +16,8 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "steam.stage": "المرحلة ⟪stage⟫ · ⟪biome⟫ · ⟪hero⟫",
+  "steam.menu": "القائمة الرئيسية",
   "deploykit.off": "الميزات عبر الإنترنت: معطّلة · رموز الدعوة ما زالت تعمل.",
   "deploykit.checking": "الميزات عبر الإنترنت: جارٍ التحقّق…",
   "deploykit.on": "الميزات عبر الإنترنت: مفعّلة",
