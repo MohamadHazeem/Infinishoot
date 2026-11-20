@@ -11,7 +11,7 @@ WT="$ROOT/.agent-logs/wt/$L"
 cd "$ROOT"
 [ -d "$WT" ] || { git worktree add -q "$WT" -b "lane/$L" "$BASE"; cp -Rc node_modules "$WT/node_modules"; }
 { sed "s/<LANE>/$L/g" .agent-logs/briefs/_common.md; echo; cat ".agent-logs/briefs/$L.md"; } > "$WT/.lane-brief.md"
-nohup "$HOME/.claude/tools/delegate.sh" "$K" "$WT" "$WT/.lane-brief.md" "$ROOT/.agent-logs/$L.log" --add-dir "$ROOT/.git" \
+nohup perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' "$HOME/.claude/tools/delegate.sh" "$K" "$WT" "$WT/.lane-brief.md" "$ROOT/.agent-logs/$L.log" --add-dir "$ROOT/.git" \
   > "$ROOT/.agent-logs/$L.delegate.log" 2>&1 &
 echo "$!" > "$ROOT/.agent-logs/$L.pid"
 echo "launched $L ($K) pid $! in $WT"
