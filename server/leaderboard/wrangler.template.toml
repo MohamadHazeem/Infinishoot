@@ -1,7 +1,7 @@
 # Generated as wrangler.toml by npm run server:deploy (never commit the generated file).
 {{ACCOUNT}}
 name = "infinishoot-leaderboard"
-main = "worker.js"
+main = "telemetry.js"
 compatibility_date = "2026-10-01"
 workers_dev = true
 preview_urls = false
@@ -10,3 +10,9 @@ send_metrics = false
 [[kv_namespaces]]
 binding = "SCORES"
 id = "{{KV_ID}}"
+
+[[d1_databases]]
+binding = "TELEMETRY"
+database_name = "infinishoot-telemetry"
+database_id = "00000000-0000-4000-8000-000000000000"
+migrations_dir = "migrations"

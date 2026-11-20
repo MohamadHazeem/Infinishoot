@@ -1,4 +1,5 @@
 import { installSteam } from '../platform/steam';
+import { installTelemetry } from './systems/telemetry';
 import * as ArchitectSys from './systems/architect';
 import { updateElites2 } from './systems/elites2';
 import * as Assists from './systems/assists';
@@ -1048,6 +1049,7 @@ export class Game implements HeroWorld {
     Assists.installAssists(this, hudRoot);
     this.goTitle();
     installSteam(this, playerName, Coop2Sys.joinable);
+    installTelemetry(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
