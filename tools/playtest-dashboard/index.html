@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>InfiniShoot · Playtest</title>
+<style>
+:root{color-scheme:dark;--ink:#1a1c2c;--navy:#29366f;--sky:#73eff7;--white:#f4f4f4;--slate:#566c86;--p:2px}
+*{box-sizing:border-box}body{margin:auto;max-width:1280px;padding:clamp(16px,4vw,56px);font:16px/1.45 system-ui,sans-serif;background:var(--ink);color:var(--white)}
+h1,h2{line-height:1.15}h1{font-size:clamp(28px,4vw,50px);margin:0 0 22px}h2{font-size:21px}header,form,.grid{display:flex;gap:16px;align-items:end;flex-wrap:wrap}header{justify-content:space-between;align-items:start}
+form{border-block:var(--p) solid var(--slate);padding:18px 0}label{display:grid;gap:5px;flex:1;min-width:180px}
+input,button,select{font:inherit;background:var(--ink);color:var(--white);border:var(--p) solid var(--slate);padding:7px 11px}button{background:var(--navy);cursor:pointer}button:focus-visible,input:focus-visible{outline:var(--p) solid var(--sky)}
+.grid{align-items:stretch;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr))}
+section{min-width:0;overflow:auto;border-top:var(--p) solid var(--slate);padding:0 0 15px}table{width:100%;border-collapse:collapse}td,th{text-align:start;padding:6px;border-bottom:1px solid var(--slate);overflow-wrap:anywhere}th{font-size:13px;color:var(--sky)}svg{width:70px;height:9px;vertical-align:middle;margin-inline-start:7px}#overview{font-size:23px}#inbox td{white-space:pre-wrap}#inbox button{margin:2px}.empty{color:#94b0c2}
+</style></head><body><header><h1></h1><select id="language" aria-label="Language / اللغة"><option value="en">English</option><option value="ar">العربية</option></select></header>
+<form><label><span id="serverLabel"></span><input id="server" type="url" required placeholder="https://…" autocomplete="off" spellcheck="false"></label>
+<label><span id="tokenLabel"></span><input id="token" type="password" required autocomplete="off"></label><button id="load"></button></form>
+<p id="status" role="status"></p><p id="overview"></p><main class="grid"></main><section id="inbox" hidden></section>
+<script src="aggregate.js"></script><script src="dashboard.js"></script></body></html>

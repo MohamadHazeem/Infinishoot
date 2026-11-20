@@ -1,3 +1,4 @@
+import { finishTelemetry } from './telemetry';
 import { assistedRun, resetAssists } from './assists';
 import { clearArchitect, architectState } from './architect';
 import { trialsNet } from './trials';
@@ -101,6 +102,7 @@ export function spawnSpot(this: Game, i: number): { x: number; z: number } {
 }
 
 export function goTitle(this: Game): void {
+  finishTelemetry(this, 'quit');
   this.paused = false;
   this.mode = 'title';
   this.loadArena(TITLE_SEED, 1);
@@ -119,6 +121,7 @@ export function goTitle(this: Game): void {
 
 /** Back to a single local hero on the title screen, closing any connection. */
 export function leaveToTitle(this: Game): void {
+  finishTelemetry(this, 'quit');
   hostmigLeaving(this); // a host leaving mid-run hands the run over (systems/hostmig.ts)
   this.resetSquad();
   if (this.role === 'client' && this.mode !== 'title') this.client?.send({ t: 'bye' }); // leaving on purpose: no autopilot wait (systems/coop2.ts)
@@ -323,6 +326,7 @@ export function summary(this: Game, h: Hero): RunSummary {
 
 /** Bank lifetime stats into this machine's save, then show game over. */
 export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
+  finishTelemetry(this, quit ? 'quit' : this.hero.player.dead ? 'death' : 'victory');
   if (this.meta.banked) return;
   if (!assistedRun(this)) bankGauntlet(this, sum);
   if (!assistedRun(this)) this.modesRunEnd(); // keep this week's ghost (systems/modes.ts)

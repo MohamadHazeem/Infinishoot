@@ -1,3 +1,4 @@
+import { installTelemetry } from './systems/telemetry';
 import * as ArchitectSys from './systems/architect';
 import { updateElites2 } from './systems/elites2';
 import * as Assists from './systems/assists';
@@ -1046,6 +1047,7 @@ export class Game implements HeroWorld {
     installEditor(this); // EXTRAS > ARENA EDITOR custom arenas (systems/editor.ts)
     Assists.installAssists(this, hudRoot);
     this.goTitle();
+    installTelemetry(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors

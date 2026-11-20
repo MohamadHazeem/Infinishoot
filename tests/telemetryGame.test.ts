@@ -1,0 +1,50 @@
+// Exercise the game's real action boundaries: consent, offers, spending, stage exit and lethal hit.
+import './jsdomEnv';
+import assert from 'node:assert/strict';
+(globalThis as any).__APP_VERSION__ = '2.0.1';
+const { Game, cheats } = await import('../src/game/game');
+const { Input } = await import('../src/core/input');
+const { queue, choose } = await import('../src/net/telemetryClient');
+const { installReplay } = await import('../src/game/systems/ci2');
+const { shareReplay } = await import('../src/net/telemetryReport');
+const game = new Game(new Input(document.querySelector('canvas')!),16/9,document.getElementById('hud')!,document.getElementById('reticle')!);
+assert.equal(game.screens.current,'consent');
+document.querySelector<HTMLButtonElement>('#scr-consent [data-no]')!.click();
+game.startSolo();game.quitRun();assert.equal(queue().length,0);
+choose('yes');game.startSolo();
+const h=game.hero;
+h.gold=1000;const item=h.shopOffers[0]!.id;
+game.heroAction(h,'buy',0,1);game.closeShop();
+h.pendingLevels++;game.openLevelUp();const picked=h.offers[0].pick || h.offers[0].id;game.heroAction(h,'pick',0,1);
+game.loadStage(2);cheats.god=false;h.player.invuln=0;h.player.hp=3;h.revivesLeft=0;game.runTime=31;
+game.hurtHero(h,25,0,0,null,'Lava');game.endRun();game.leaveToTitle();
+const [run]=queue();
+assert.equal(queue().length,1);assert.equal(run.outcome,'death');assert.equal(run.fatal?.[0],'lava');assert.equal(run.fatal?.[2],3);
+assert.ok(run.fatal![1]>3);assert.equal(run.stage,2);assert.equal(run.stages[1].damage.lava,3);assert.ok(Object.keys(run.stages[0].ranks).length>=3);
+assert.equal(run.purchases[0][1],item);assert.equal(run.offers[0][1][run.offers[0][2]],picked);
+assert.deepEqual(run.hits.at(-1),[31,'lava',run.fatal![1],0]);
+game.startSolo();game.quitRun();assert.equal(queue().at(-1)?.outcome,'quit');
+
+const { versusEnd } = await import('../src/game/systems/versus');
+game.versusSolo();
+versusEnd.call(game,'heroes');
+game.leaveToTitle();
+assert.equal(queue().at(-1)?.mode,'versus');
+assert.equal(queue().at(-1)?.outcome,'victory');
+const { raceBegin } = await import('../src/game/systems/race');
+raceBegin(game,{net:'local',seed:7,difficulty:'normal',names:['P1'],you:0});
+game.race!.rows[0].s='ko';
+game.leaveToTitle();
+assert.equal(queue().at(-1)?.mode,'race');
+assert.equal(queue().at(-1)?.outcome,'death');
+
+// Verify the privacy projection still plays through the recorder's real deterministic checks.
+choose('no');
+Object.assign(window,{fetch});
+Object.assign(globalThis,{Storage:window.Storage});
+installReplay(game);
+game.startSolo();game.closeShop();for(let i=0;i<125;i++)game.update(1/60);
+const api=(window as any).replay;
+const tape=shareReplay(api.export());assert.equal(tape.steps,125);
+api.play(tape);const result=api.run();assert.equal(result.failed,'');assert.equal(result.hash,tape.hash);assert.equal(result.steps,125);
+console.log('PASS actual game consent, run end, stage ranks, offers, purchases, fatal hit, quit and checksum-verified redacted replay');
