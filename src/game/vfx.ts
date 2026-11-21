@@ -1,3 +1,7 @@
+import { labelLift, rewardSlow, stackAnchor } from '../data/juice';
+import { WEAPONS } from '../data/weapons';
+import type { DamageOpts } from './weapons';
+import { crowd } from '../audio/crowd';
 import { pet2Sound } from '../audio/pets2';
 import { sfx } from '../audio/sfx';
 import { threatAt } from '../audio/captions';
@@ -59,12 +63,25 @@ export interface VfxTargets {
   portrait?(who: string, expression: string, text: string, seconds: number): void;
   /** A cinematics moment (kind, hero index, where, data): jackpot, flawless, ending (src/game/systems/cinematics.ts). */
   cine?(kind: string, hero: number, x: number, z: number, data: string): void;
+  rewardSlow?(seconds: number): void;
+  hurtBeat?(x: number, z: number, amount: number): void;
   listener(): { x: number; z: number };
 }
 
 const HEAR_RANGE = 32;
+const PHASE_CHIPS: BurstOptions = {
+  shape: 'chip', count: 5, color: '#ffcd75', color2: '#ef7d57', speed: [1, 3],
+  size: [0.14, 0.22], life: [0.36, 0.54], up: 9, gravity: 16, drag: 1,
+};
+const FINISHER_CHIPS: BurstOptions = {
+  shape: 'chip', count: 18, color: '#ffcd75', color2: '#73eff7', speed: [3, 6],
+  size: [0.13, 0.26], life: [0.55, 0.85], up: 10, gravity: 21, drag: 2,
+};
 
 export class Vfx {
+  // Scoped to one damage call, including any nested damage caused by Mods.
+  contact?: DamageOpts;
+  contactPending = false;
   recording = false;
   events: VfxEvent[] = [];
   /** Every gameplay sound played here (solo/host): sound-reactive enemies listen (src/game/systems/sound2.ts). */
@@ -84,8 +101,18 @@ export class Vfx {
   }
 
   burst(x: number, y: number, z: number, o: BurstOptions): void {
-    this.t.particles.burst(x, y, z, o);
+    if (o.flourish === 'level' || o.flourish === 'evolution') this.t.rewardSlow?.(rewardSlow(o.flourish === 'evolution'));
+    this.playBurst(x, y, z, o);
     this.rec(['b', x, y, z, o]);
+  }
+
+  private playBurst(x: number, y: number, z: number, o: BurstOptions): void {
+    this.t.particles.burst(x, y, z, o);
+    if ((o.flourish === 'level' || o.flourish === 'evolution') && !this.t.juice.noise?.calm) {
+      // The glint sits above the column when a pick returns to combat.
+      const evolved = o.flourish === 'evolution';
+      this.t.fx.star(x, evolved ? 3.3 : 2.1, z, evolved ? 1.8 : 0.95, '#ffcd75', evolved ? 0.38 : 0.22);
+    }
   }
 
   ring(x: number, z: number, size: number, grow: number, color: string, life = 0.3): void {
@@ -94,12 +121,37 @@ export class Vfx {
   }
 
   star(x: number, y: number, z: number, size: number, color = '#ffffff', life = 0.12): void {
+    if (this.contactPending) {
+      this.contactPending = false;
+      const hit = this.contact;
+      if (hit) {
+        const tint = WEAPONS[hit.source]?.color;
+        if (color === '#ffffff' && tint) {
+          color = tint;
+          size *= 1.22;
+          life += 0.035;
+        }
+        // The smaller glint follows the bolt past the entry wound. The bus records both positions.
+        if ((hit.source === 'charge' || hit.source === 'rail') && (hit.dirX || hit.dirZ)) {
+          this.star(x + (hit.dirX ?? 0) * 0.65, y, z + (hit.dirZ ?? 0) * 0.65, size * 0.58, tint, 0.16);
+        }
+      }
+    }
     this.t.fx.star(x, y, z, size, color, life);
     this.rec(['s', x, y, z, size, color, life]);
   }
 
   /** Floating number or label. `by`: index of the hero whose hit it is (DAMAGE NUMBERS: MINE / OFF); left off for messages. */
   num(x: number, y: number, z: number, value: string | number, kind: NumKind = 'hit', by?: number): void {
+    if (by !== undefined && (kind === 'hit' || kind === 'crit')) {
+      this.contactPending = !!this.contact;
+      y += labelLift(value, kind, by);
+      if (kind === 'hit') {
+        x = stackAnchor(x);
+        z = stackAnchor(z);
+      }
+    }
+    if (kind === 'player' && typeof value === 'number') this.t.hurtBeat?.(x, z, value);
     this.t.dmg.spawn(x, y, z, value, kind, by);
     // Older clients ignore the extra element; events without it always show.
     this.rec(by === undefined ? ['n', x, y, z, value, kind] : ['n', x, y, z, value, kind, by]);
@@ -183,6 +235,15 @@ export class Vfx {
     }
     const d = this.near(x, z);
     if (d > HEAR_RANGE) return;
+    // These accents replay from the same positioned sound record, including with audio muted.
+    if (name === 'bossPhase' && Number.isFinite(x)) {
+      // Flank the silhouette. A plume at its centre disappears inside the boss during the roar.
+      this.t.particles.burst(x - 1.5, 0.3, z, PHASE_CHIPS);
+      this.t.particles.burst(x + 1.5, 0.3, z, PHASE_CHIPS);
+    } else if (name === 'bossFinisher' && Number.isFinite(x)) {
+      this.t.particles.burst(x, 0.6, z, FINISHER_CHIPS);
+      crowd.react('applause', 0.92);
+    }
     // Pan by the sideways offset from the listener and fade with distance.
     let gain = d < 6 ? 1 : 1 - ((d - 6) / (HEAR_RANGE - 6)) * 0.7;
     // Co-op: teammates' weapon cues are thinned and ducked under yours (src/audio/mix.ts, eightp lane).
@@ -215,7 +276,7 @@ export class Vfx {
   apply(e: VfxEvent): void {
     switch (e[0]) {
       case 'b':
-        this.t.particles.burst(e[1], e[2], e[3], e[4]);
+        this.playBurst(e[1], e[2], e[3], e[4]);
         break;
       case 'r':
         this.t.fx.ring(e[1], e[2], e[3], e[4], e[5], e[6]);

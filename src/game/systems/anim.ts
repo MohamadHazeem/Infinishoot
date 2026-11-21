@@ -5,6 +5,7 @@
  * state; corpses reach clients through the effects bus ('c' events).
  */
 import type { Game } from '../game';
+import { streakTier } from '../../data/juice';
 import { ENEMIES } from '../../data/enemies';
 import { autoZoom, teamFrame, viewBand } from '../animMath';
 import { settings } from '../settings';
@@ -54,4 +55,17 @@ export function onCorpse(this: Game, id: string, x: number, y: number, z: number
   if (!def) return;
   if (!def.hidden) this.enemies.fling(def, x, y, z, scale, facing, dirX, dirZ); // hidden ones (the Titan) have their own view
   if (def.boss) this.cam.killCam(x, z);
+  if (!this.authority || def.hidden) return;
+  const radius = def.radius * scale;
+  if (scale > 1.2 || radius >= 0.85) {
+    // Place the chip on the exit side of the body so the direction reads through the debris.
+    const size = Math.min(2.8, 0.8 + radius);
+    this.vfx.star(x + dirX * radius, y + radius, z + dirZ * radius, size, def.accentColor, 0.20);
+    this.vfx.ring(x, z, radius * 1.2, 3.4, def.accentColor, 0.32);
+  }
+  const tier = streakTier(this.combo);
+  if (tier) {
+    this.vfx.ring(x, z, 0.9 + tier * 0.22, 2.5 + tier * 0.55, tier < 3 ? '#73eff7' : '#ffcd75', 0.32 + tier * 0.035);
+    if (tier < 3) this.vfx.sound('streakStep', x, z, tier === 1 ? 1 : 1.25);
+  }
 }
