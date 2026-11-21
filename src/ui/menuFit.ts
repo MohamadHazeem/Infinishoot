@@ -11,6 +11,7 @@
  * Pixel-art rules (CLAUDE.md): Sweetie 16 variables only, sizes in --p, the
  * shared box-shadow frame, no radii, blur or gradient shading, steps() animations.
  */
+import { MENU_LAYOUT } from './menuLayout';
 import { t } from '../i18n';
 import { MENUHUD_CSS, MenuTip, SHOP_PARTS, stickyBarTop, syncShopLife } from './menuHud';
 
@@ -78,8 +79,15 @@ export class MoreCue {
     root.appendChild(this.el);
   }
 
+  private readonly resized = () => {
+    this.scroller = null;
+    this.update();
+  };
+
   /** Follow this menu screen (null: no menu open). */
   watch(screen: HTMLElement | null): void {
+    if (!this.screen && screen) this.root.ownerDocument.defaultView?.addEventListener('resize', this.resized);
+    if (this.screen && !screen) this.root.ownerDocument.defaultView?.removeEventListener('resize', this.resized);
     this.screen = screen;
     this.scroller = null;
     this.tip.watch(screen);
@@ -386,7 +394,7 @@ const CSS = `
 
 /** The lane's injected menu CSS (tests check it keeps the pixel-art rules). */
 export function menuFitCss(): string {
-  return CSS + MENUHUD_CSS;
+  return CSS + MENUHUD_CSS + MENU_LAYOUT;
 }
 
 /** Inject (or move last) the lane's menu CSS. Cheap; call on every menu show. */

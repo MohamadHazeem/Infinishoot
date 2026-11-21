@@ -15,14 +15,14 @@ export class ModsScreen {
     this.nav = new MenuNav(this.el, { onBack: () => screens.show('settings') });
     screens.addScreen('contentmods', this.el, this.nav);
     const button = document.createElement('button');
-    button.dataset.nav = ''; button.textContent = t('mods.title');
+    button.dataset.nav = ''; button.textContent = t('menus.packs');
     button.addEventListener('click', () => screens.show('contentmods'));
     screens.settingsScreen.el.querySelector('.settings-footer')!.prepend(button);
   }
   open(): void { this.render(); }
   private render(focus = 0): void {
     this.el.replaceChildren();
-    const title = document.createElement('h1'); title.textContent = t('mods.title'); this.el.append(title);
+    const title = document.createElement('h1'); title.textContent = t('menus.packs'); this.el.append(title);
     const shell = document.createElement('div'); shell.className = 'content-mod-shell'; this.el.append(shell);
     const text = (parent: HTMLElement, content: string, className = '') => {
       const el = document.createElement('p'); el.textContent = content; el.className = className; parent.append(el); return el;

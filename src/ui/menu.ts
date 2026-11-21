@@ -201,8 +201,13 @@ export function menuItemAvailable(el: HTMLElement): boolean {
 
 import type { Screens, ScreenName } from './screens';
 import { save } from '../game/save';
+import { settings } from '../game/settings';
 import { levelOf } from '../data/profile';
 import { prompt } from './prompts';
+import { acknowledgeMode, chooseMode, played, playModes, runSummary } from './menuRun';
+import { CollectionMenu, onlineMenu, pauseMenu } from './menuSections';
+import type { ModeId } from '../data/modes';
+import { desktop } from '../platform/desktop';
 
 /** Cosmetic title earned from the same profile level shown in the online lobby. */
 export function profileTitle(level: number): string {
@@ -218,6 +223,9 @@ export class TitleMenu {
   private readonly activity: HTMLElement;
   private readonly profile: HTMLElement;
   private readonly launch: HTMLElement;
+  private readonly collection: CollectionMenu;
+  private onlineChild = false;
+  private collectionChild: ScreenName | null = null;
   private playChild: ScreenName | null = null;
   private titleChild: ScreenName | null = null;
 
@@ -232,45 +240,113 @@ export class TitleMenu {
       <div class="menu-home-body"><section class="menu-primary"></section><aside class="menu-activity"></aside></div>
       <div class="menu-launch-stash" hidden></div>
       <div class="menu-profile px"></div>
-      <footer class="menu-footer"><span>${prompt('confirm')} ${t('menu.select')}</span><span>${t('menu.demo')}</span></footer>`));
+      <footer class="menu-footer"><span>${prompt('confirm')} ${t('menu.select')}</span></footer>`));
     this.primary = this.title.querySelector('.menu-primary')!;
     this.activity = this.title.querySelector('.menu-activity')!;
     this.profile = this.title.querySelector('.menu-profile')!;
     this.stash = this.title.querySelector('.menu-launch-stash')!;
     const menu = this.title.querySelector<HTMLElement>('.menu')!;
     this.primary.append(menu);
-    menu.insertAdjacentHTML('afterbegin', localizeHtml(`<button data-nav data-menu-play class="menu-play continue"><b>${t('menu.play')}</b><small>${t('menu.play.desc')}</small></button>`));
+    menu.insertAdjacentHTML('afterbegin', localizeHtml(`<button data-nav data-menu-play class="menu-play continue"><b>${t('menu.play')}</b><small>${t('menus.playHint')}</small></button>`));
     menu.querySelector('[data-menu-play]')!.addEventListener('click', () => screens.show('play'));
-    this.activity.insertAdjacentHTML('beforeend', localizeHtml(`<div class="menu-news px"><small>${t('menu.news')}</small><b>${t('menu.news.title')}</b><span>${t('menu.news.desc')}</span></div>`));
+    this.activity.hidden = true;
+    this.profile.hidden = true;
+    menu.querySelector('[data-act=extras]')!.textContent = t('menus.collection');
+    menu.querySelector('[data-act=online]')!.textContent = t('menus.online');
+    if (desktop) {
+      const quit = document.createElement('button');
+      quit.dataset.nav = ''; quit.dataset.desktopQuit = '';
+      quit.textContent = t('menus.quit'); quit.onclick = () => void desktop?.windowAction('close');
+      menu.append(quit);
+    }
+    this.collection = new CollectionMenu(root, screens);
     this.play = document.createElement('div');
     this.play.id = 'scr-play';
     this.play.className = 'screen dim menu-hub';
-    this.play.innerHTML = localizeHtml(`<h1>${t('menu.play')}</h1><p class="note">${t('menu.choose')}</p><div class="menu menu-launch"></div><div class="menu row"><button data-nav data-menu-back>${prompt('back')} ${t('text.back_1dd26f')}</button></div>`);
+    this.play.innerHTML = localizeHtml(`<h1>${t('menu.play')}</h1>
+      <div class="run-layout"><section class="run-card px"><h2>${t('menus.use')}</h2><p class="run-summary"></p>
+      <button data-nav data-act="start" class="continue">${t('menus.start')} ▶</button>
+      <p class="run-help" hidden>${t('menus.firstKit')}</p><div class="menu menu-launch"></div></section>
+      <section class="run-list px"><h2>${t('menus.mode')}</h2><div class="run-modes"></div></section></div>
+      <div class="menu row"><button data-nav data-menu-back>${prompt('back')} ${t('text.back_1dd26f')}</button></div>`);
     this.launch = this.play.querySelector('.menu-launch')!;
+    this.play.addEventListener('click', e => {
+      const extra = (e.target as HTMLElement).closest<HTMLElement>('[data-run-extra]')?.dataset.runExtra;
+      if (extra === 'trials') {
+        acknowledgeMode('trials');
+        return this.root.querySelector<HTMLElement>('#scr-modes .tl-entry')?.click();
+      }
+      if (extra === 'ascension') {
+        acknowledgeMode('ascension');
+        if (!['standard', 'endless'].includes(settings.mode)) chooseMode('standard');
+        screens.show('modes');
+        this.root.querySelector<HTMLElement>('#scr-modes [data-act=g-up]:not(:disabled), #scr-modes [data-act=g-down]:not(:disabled)')?.focus();
+        return;
+      }
+      const id = (e.target as HTMLElement).closest<HTMLElement>('[data-run-mode]')?.dataset.runMode;
+      if (id) { chooseMode(id as ModeId); this.show('play'); screens.refreshNav(); }
+    });
     this.play.querySelector('[data-menu-back]')!.addEventListener('click', () => screens.show('title'));
     screens.addScreen('play', this.play, { onBack: () => screens.show('title') });
   }
 
   destination(name: ScreenName, from: ScreenName): ScreenName {
+    if (from === 'online' && name === 'localcoop') this.onlineChild = true;
+    if (from === 'localcoop' && name === 'title' && this.onlineChild) { this.onlineChild = false; return 'online'; }
+    if (from === 'extras' && ['unlocks','codex','halloween'].includes(name)) this.collectionChild = name;
+    if (from === this.collectionChild && (name === 'title' || name === 'bestiary')) {
+      this.collectionChild = null;
+      return 'extras';
+    }
+    if (from === 'trials' && name === 'modes' && this.playChild === 'trials') return 'play';
     // uipolish: EXTRAS pages opened straight from the title (season banner, profile/quests card) go back to the title.
     if (from === 'title' && ['season', 'profile', 'achievements'].includes(name)) this.titleChild = name;
     else if (name === 'extras' && from === this.titleChild) {
       this.titleChild = null;
       return 'title';
     } else if (name !== this.titleChild) this.titleChild = null;
-    if (from === 'play' && ['modes', 'online', 'localcoop'].includes(name)) this.playChild = name;
+    if (from === 'play' && ['modes', 'trials', 'online', 'localcoop'].includes(name)) this.playChild = name;
     if (name === 'title' && from === this.playChild) return 'play';
     if (name === 'none' || (name === 'title' && from === 'play')) this.playChild = null;
     return name;
   }
 
   show(name: ScreenName): void {
+    if (name !== 'play') this.play.removeAttribute('data-training-offer');
+    if (name === 'activity') this.collection.showActivity();
+    if (name === 'extras') this.collection.open();
+    if (name === 'pause') pauseMenu(this.root.querySelector('#scr-pause')!, true);
+    if (name === 'online') {
+      const online = this.root.querySelector<HTMLElement>('#scr-online')!;
+      const local = this.root.querySelector<HTMLElement>('[data-act=lc-open]');
+      if (local) online.querySelector('.mp-choice')!.append(local);
+      onlineMenu(online);
+    }
     if (name !== 'title' && name !== 'play') return;
-    // Other lanes inject their launchers during Game construction. Move their actual nodes, not copies.
     const target = name === 'play' ? this.launch : this.stash;
-    for (const el of this.root.querySelectorAll<HTMLElement>('#scr-title .menu-launch-stash > *, #scr-title [data-act="modes"], #scr-title [data-act="online"], #scr-title [data-act="lc-open"], #scr-title .menu-primary > .menu > [data-act="ob-training"], #scr-play .menu-launch > *')) {
+    for (const el of this.root.querySelectorAll<HTMLElement>('#scr-title .menu-launch-stash > *, #scr-title [data-act=modes], #scr-title .menu-primary > .menu > [data-act=ob-training], #scr-play .menu-launch > [data-act]')) {
       if (el.parentElement !== target) target.append(el);
     }
+    const change = target.querySelector<HTMLElement>('[data-act=modes]');
+    if (change) { change.textContent = t('menus.change'); target.prepend(change); }
+    const local = this.title.querySelector<HTMLElement>('[data-act=lc-open]');
+    if (local) this.root.querySelector('#scr-online .mp-choice')!.append(local);
+    if (name === 'play') {
+      this.play.querySelector<HTMLElement>('.run-help')!.hidden = played() || settings.mode !== 'standard';
+      this.play.querySelector('.run-summary')!.textContent = localize(runSummary());
+      this.play.querySelector('.run-modes')!.innerHTML = localizeHtml(playModes(!!this.root.querySelector('#scr-modes .tl-entry')));
+      const trainer = this.launch.querySelector<HTMLElement>('[data-act=ob-training]');
+      const offer = this.title.querySelector<HTMLElement>('.ob-offer[data-play-offer]');
+      if (offer) {
+        delete offer.dataset.playOffer;
+        this.play.dataset.trainingOffer = '';
+      }
+      if (trainer) trainer.textContent = localize(this.play.hasAttribute('data-training-offer') ? t('menus.training') : 'TRAINING');
+    }
+    const quit = this.title.querySelector<HTMLElement>('[data-desktop-quit]');
+    if (quit) quit.hidden = !played();
+    const unlock = this.title.querySelector<HTMLElement>('[data-act=unlocks]');
+    if (unlock) this.root.querySelector('#scr-extras > .menu')!.append(unlock);
     if (name !== 'title') return;
     for (const sel of ['.ob-offer', '.ft-list', '.ha-booth']) {
       const el = this.title.querySelector<HTMLElement>(sel);
@@ -285,6 +361,7 @@ export class TitleMenu {
         if (el.parentElement !== this.primary) this.primary.append(el);
       }
     }
+    this.title.querySelector('.desktop-update')?.setAttribute('inert', '');
     const level = levelOf(save.profile.xp).level;
     this.profile.innerHTML = localizeHtml(`<span class="menu-profile-star" aria-hidden="true">★</span><span><small>${t('menu.profile', { level })}</small><b>${t(profileTitle(level))}</b></span>`);
   }
@@ -302,6 +379,11 @@ export function polishMenuScreen(el: HTMLElement): void {
       button.insertAdjacentHTML('afterbegin', localizeHtml(prompt('back') + ' '));
     }
   }
+  // Pin the real Back action. Its existing listeners, prompt and navigation order stay intact.
+  const back = Array.from(el.querySelectorAll<HTMLElement>('button')).find(b =>
+    !b.hidden && (b.matches('[data-menu-back],[data-settings-back],[data-act=mp-leave],[data-act$="-back"]') ||
+      b.textContent?.trim() === localize('BACK') || b.dataset.menuPrompt !== undefined));
+  if (back && !['scr-gameover', 'scr-pause', 'scr-report', 'scr-consent', 'scr-training'].includes(el.id)) back.dataset.shellBack = '';
   // uipolish: BACK stays the last button of its row; lanes append theirs (TRIALS, HELP...) after it.
   for (const button of el.querySelectorAll<HTMLElement>('button[data-menu-prompt]')) {
     const row = button.parentElement;

@@ -1,4 +1,4 @@
-import { localizeHtml } from '../i18n';
+import { localizeHtml, t } from '../i18n';
 import { GOALS, FIRST_TEN_REWARD, type FirstTenSave, type NextTry } from '../game/firstten';
 import { SKINS } from '../data/skins';
 import type { Screens } from './screens';
@@ -73,13 +73,14 @@ export class FirstTenUi {
     const n = GOALS.filter((g) => s.done.includes(g.id)).length;
     if (complete) {
       this.list.className = 'ft-list px done';
-      this.list.innerHTML = localizeHtml(`<b class="ft-h">ALL DONE!</b><p>You finished FIRST STEPS. The <em>${FIRST_TEN_REWARD.name.toUpperCase()}</em> armour is yours: wear it in EXTRAS &gt; WARDROBE.</p><span class="ft-sw big">${sw}</span><button data-nav data-act="ft-claim" class="continue">AWESOME!</button>`);
+      this.list.innerHTML = localizeHtml(`<b class="ft-h">ALL DONE!</b><p>${t('menus.reward')}</p><span class="ft-sw big">${sw}</span><button data-nav data-act="ft-claim" class="continue">AWESOME!</button>`);
       return;
     }
     this.list.className = 'ft-list px';
     const rows = GOALS.map((g) => {
       const on = s.done.includes(g.id);
-      return `<li class="${on ? 'on' : ''}" title="${g.hint}"><i class="ft-box"></i><span>${g.label}</span>${on ? '' : `<small>${g.hint}</small>`}</li>`;
+      const hint = g.id === 'training' ? t('menus.trainPath') : g.id === 'run' ? t('menus.runPath') : g.id === 'coop' ? t('menus.coopPath') : g.hint;
+      return `<li class="${on ? 'on' : ''}" title="${hint}"><i class="ft-box"></i><span>${g.label}</span>${on ? '' : `<small>${hint}</small>`}</li>`;
     }).join('');
     this.list.innerHTML = localizeHtml(`<div class="ft-top"><b class="ft-h">FIRST STEPS</b><span class="ft-n">${n}/${GOALS.length}</span></div>
       <div class="ft-seg">${GOALS.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>

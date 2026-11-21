@@ -1,3 +1,4 @@
+import { menusAr } from './menus';
 import { uxpassAr } from './uxpass';
 import { architectAr } from '../game/architect/strings';
 import { elites2Ar } from './elites2';
@@ -4298,5 +4299,6 @@ export const ar = {
   "arabic2.e6a00992b8": "يستعيد شحنته أسرع بمقدار ثانيتين.",
 
   // uxpass lane: menu fit and scroll cue.
+  ...menusAr,
   ...uxpassAr,
 } satisfies Record<keyof typeof en, string>;
