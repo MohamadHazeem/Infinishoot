@@ -1,9 +1,11 @@
+import { menusEn } from './menus';
 import { arabic2En } from './arabic2';
 import type { en } from './en';
 
 /** es glossary: partida = run; fase = stage; impulso = dash; desvío = parry; definitiva = ultimate; engranaje = gear; Mod, Buster and Overdrive are equipment names. */
 export const es = {
   // Explicit English fallback for new copy; native editorial work is pending.
+  ...menusEn,
   ...arabic2En,
   "architect.dataName": "El Arquitecto",
   "architect.coreName": "Núcleo del Arquitecto",

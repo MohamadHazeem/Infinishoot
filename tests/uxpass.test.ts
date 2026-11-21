@@ -130,6 +130,8 @@ assert.match(shop.querySelector('.shop-relics .strip-t.mf-short')?.textContent ?
 assert.equal(shop.querySelectorAll('[data-act=lock]').length, 4, 'one LOCK per offer');
 assert.equal(document.head.lastElementChild?.id, 'menu-fit-css', 'menu-fit CSS is last in <head>, so it wins ties with other injected menu rules');
 assert.ok(hud.querySelector('.mf-more'), 'Screens mounts the scroll cue');
+assert.match(css, /\.run-modes[^{}]*\{[^{}]*overflow:auto/, 'long mode lists keep a bounded scroll area for MORE');
+assert.match(css, /\[data-shell-back\][^{}]*\{[^{}]*inset-inline-start/, 'Back mirrors to the leading corner in RTL');
 await setLanguage('ar');
 screens.showShop(view as any);
 assert.match(shop.querySelector('.shop-relics .strip-t.mf-short')?.textContent ?? '', /3/, 'Arabic relic label keeps the count');

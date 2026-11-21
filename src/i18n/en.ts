@@ -1,3 +1,4 @@
+import { menusEn } from './menus';
 import { uxpassEn } from './uxpass';
 import { arabic2En } from './arabic2';
 import { architectEn } from '../game/architect/strings';
@@ -3666,5 +3667,6 @@ export const en = {
   ...arabic2En,
 
   // uxpass lane: menu fit and scroll cue.
+  ...menusEn,
   ...uxpassEn,
 } as const;
