@@ -105,7 +105,7 @@ export interface HudState {
   /** Level-up rerolls held (max MAX_GEARS). */
   gears: number;
   /** Boss (or mini-boss) bar; `ticks` = HP fractions where phases change, `phase` = current phase. */
-  boss: { name: string; hp01: number; ticks?: number[]; phase?: number; mini?: boolean } | null;
+  boss: { name: string; hp01: number; ticks?: number[]; phase?: number; mini?: boolean; enrage?: string } | null;
   /** Event, challenge and power-up lines under the timer. */
   spice: { text: string; kind: 'event' | 'challenge' | 'done' | 'buff' }[];
   lowHp: boolean;
@@ -246,7 +246,7 @@ export class Hud {
          <div id="timer"><div class="clock"></div><div class="stage"></div></div>
          <div id="goals"><div id="team"></div><div id="spice"></div></div>
          <button id="pausebtn" title="Pause (Esc)" aria-label="Pause">${t("text.ii_66cc12")}</button>
-         <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div><div class="ticks"></div></div><div class="ph"></div></div>
+         <div id="bossbar" hidden><div class="name"></div><div class="bar"><div class="fill"></div><div class="ticks"></div></div><div class="ph"></div><div class="enrage"></div></div>
          <div id="toast"></div>
          <div id="chestreveal" hidden></div>
          <div id="score">0</div>
@@ -700,6 +700,7 @@ export class Hud {
       }
       const n = (s.boss.ticks?.length ?? 0) + 1;
       const ph = s.boss.phase ?? 1;
+      this.text('#bossbar .enrage', s.boss.enrage ?? '');
       this.text('#bossbar .ph', n > 1 ? `PHASE ${ph} / ${n}` : '');
       bb.classList.toggle('mini', !!s.boss.mini);
     }

@@ -4111,6 +4111,8 @@ table.history .cause {
   letter-spacing: 2px;
 }
 
+#bossbar .enrage { font: calc(6 * var(--p)) var(--label); color: var(--yellow); }
+
 #bossbar.mini {
   width: min(360px, 60vw);
 }

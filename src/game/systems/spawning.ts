@@ -11,6 +11,7 @@ import { RECYCLE_DIST } from '../game';
 import { pickEliteMod, championRoll, type EliteModId } from '../../data/eliteMods';
 import { type EnemyDef } from '../../data/enemies';
 import { spawnCue } from './sound';
+import { directorTuning } from '../director';
 import { bossLike } from '../bossRules';
 import { spawnTitan, stageBossDef } from './bossLane';
 
@@ -35,9 +36,16 @@ export function ringPoint(this: Game, rMin: number, rMax: number, r = 0.6): { x:
   return null;
 }
 
+/** Double the existing chance at full pressure, with the same stage unlock and one RNG draw. */
+export function pressureChampion(stage: number, roll: number, intensity: number): boolean {
+  return championRoll(stage, roll / (1 + intensity));
+}
+
 export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: number; z: number } | null = null, forceMod?: EliteModId, championMod?: EliteModId) {
   if (this.bossDuel) return null; // boss duel: nobody joins the one-on-one (stage events included; systems/bossLane.ts)
   if (def.treasure) return this.spawnGolden(def);
+  if (!elite && !def.special && def.id !== 'reaper' && this.enemies.activeCount >= directorTuning.aliveCap) return null;
+  if (!elite && def.maxAlive !== undefined && this.enemies.countOf(def.id) >= def.maxAlive) return null;
   if (this.meta.rule('elites') && !def.boss && !def.miniboss) elite = true;
   let pos: { x: number; z: number } | null = null;
   if (near) {
@@ -49,7 +57,7 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
   if (!pos) return null;
   const eliteMod = elite ? (forceMod ?? this.rollEliteMod(def)) : undefined;
   const spawned = this.enemies.spawn(def, pos.x, pos.z, this.spawnOpts({ elite, eliteMod }));
-  if (elite && (championMod || (!forceMod && championRoll(this.stage, this.rng.next())))) makeChampion(this, spawned, championMod);
+  if (elite && (championMod || (!forceMod && pressureChampion(this.stage, this.rng.next(), this.director.adaptive.intensity)))) makeChampion(this, spawned, championMod);
   if (elite) discoverElite(spawned);
   gauntletElite(this, spawned);
   if (def.special) {
@@ -81,6 +89,7 @@ export function spawnRing(this: Game, def: EnemyDef, count: number): void {
   if (!alive.length || this.bossDuel) return;
   const p = alive[Math.floor(this.rng.next() * alive.length)].player;
   const lim = this.arena.halfSize - 2;
+  count = Math.min(count, directorTuning.aliveCap - this.enemies.activeCount);
   const R = 15;
   let placed = 0;
   for (let i = 0; i < count; i++) {

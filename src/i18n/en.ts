@@ -269,6 +269,8 @@ export const en = {
   "raid.online": "ONLINE RAID BOARD",
   "raid.offline": "Board unavailable. Local records are safe.",
   "raid.empty": "Defeat the Hydra Engine to set your first record.",
+  "pressure.next": "ENRAGED +⟪damage⟫% · NEXT IN ⟪time⟫",
+  "pressure.ring": "SWARM INCOMING!",
   "raid.enrage": "ENRAGE IN",
   "raid.enraged": "ENRAGED!",
   "raid.fire": "FIRE",

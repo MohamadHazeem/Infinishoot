@@ -1472,7 +1472,8 @@ export class Game implements HeroWorld {
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
     GauntletSys.gauntletTick(this, dt);
-    ArchitectSys.updateArchitect(this, dt);
+    if (this.director.enrageStep && this.boss?.def.id === 'architect') BossFightSys.enragedArchitectStep(this, dt);
+    else ArchitectSys.updateArchitect(this, dt);
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
     weather2Local(this);

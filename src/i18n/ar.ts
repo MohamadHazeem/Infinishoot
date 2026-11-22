@@ -271,6 +271,8 @@ export const ar = {
   "raid.online": "ترتيب الغارات عبر الإنترنت",
   "raid.offline": "الترتيب غير متاح. سجلاتك المحلية محفوظة.",
   "raid.empty": "اهزم محرّك الهيدرا لتسجيل أول إنجاز لك.",
+  "pressure.next": "غاضب! ‎+⟪damage⟫٪ · التصعيد التالي بعد ⟪time⟫",
+  "pressure.ring": "السرب يقترب!",
   "raid.enrage": "الغضب بعد",
   "raid.enraged": "غاضب!",
   "raid.fire": "النار",
