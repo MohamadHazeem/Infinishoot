@@ -1,3 +1,4 @@
+import { LifePulse } from '../game/juiceVitals';
 import type { NoiseGovernor } from '../render/noiseGovernor';
 import { localizeHtml, t, localize } from '../i18n';
 import { shortName } from '../game/eightp';
@@ -230,6 +231,7 @@ export class Hud {
   private lastMult = 1;
   private bannerT = 0;
   private toastT = 0;
+  private lifePulse = new LifePulse();
   private hurtV = 0;
   private flashV = 0;
   private lastText: Record<string, string> = {};
@@ -768,7 +770,7 @@ export class Hud {
 
     // Vignette: hurt pulse plus a heartbeat when low on life.
     this.hurtV = Math.max(0, this.hurtV - dt * 2.5);
-    const beat = s.lowHp ? still ? 0.16 : 0.25 + 0.2 * Math.max(0, Math.sin(performance.now() / 180)) : 0;
+    const beat = this.lifePulse.update(dt, s.hp, s.maxHp, s.lowHp, still);
     this.el('#vignette').style.opacity = String(Math.max(this.hurtV, beat));
     this.flashV = Math.max(0, this.flashV - dt * 4);
     this.el('#flash').style.opacity = String(this.flashV);

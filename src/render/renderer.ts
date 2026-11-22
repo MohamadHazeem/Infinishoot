@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { prepareShadows } from './shadows';
+import { shadowRigs, type RigOverlay } from './rigOverlay';
 import { retroGlobals } from './retroMaterial';
 import { renderQuality } from './quality';
 import { setOutlines } from './outlines';
@@ -52,6 +53,7 @@ export class RetroRenderer {
   private blurMat: THREE.ShaderMaterial;
   /** Empty instanced pools hidden for this frame (three.js still binds their program and uniforms). */
   private idle: THREE.Object3D[] = [];
+  private batchedShadows: RigOverlay[] = [];
 
   constructor(canvas: HTMLCanvasElement) {
     THREE.ColorManagement.enabled = false;
@@ -149,7 +151,7 @@ export class RetroRenderer {
 
   render(scene: THREE.Scene, camera: THREE.Camera): void {
     this.gl.info.reset();
-    prepareShadows(this.gl, scene);
+    const shadowUpdate = prepareShadows(this.gl, scene);
     setOutlines(renderQuality.outlines, this.height.value);
     const u = this.postMat.uniforms;
     const glowMode = postSettings.glow > 0 ? renderQuality.glow : 0;
@@ -174,14 +176,23 @@ export class RetroRenderer {
     const kids = scene.children;
     for (let i = 0; i < kids.length; i++) {
       const o = kids[i] as THREE.InstancedMesh;
+      if (shadowUpdate && o.visible && (kids[i] as THREE.Group).isGroup) {
+        const rig = shadowRigs.get(o);
+        if (rig?.batchShadow()) this.batchedShadows.push(rig);
+      }
       if (o.visible && o.isInstancedMesh && o.count === 0) {
         o.visible = false;
         this.idle.push(o);
       }
     }
-    this.gl.render(scene, camera);
-    for (const o of this.idle) o.visible = true;
-    this.idle.length = 0;
+    try {
+      this.gl.render(scene, camera);
+    } finally {
+      for (const rig of this.batchedShadows) rig.restoreShadow();
+      this.batchedShadows.length = 0;
+      for (const o of this.idle) o.visible = true;
+      this.idle.length = 0;
+    }
     if (glowMode === 2) {
       this.brightMat.uniforms.uThreshold.value = postfxTuning.bloomThreshold;
       this.brightMat.uniforms.uKnee.value = postfxTuning.bloomKnee;

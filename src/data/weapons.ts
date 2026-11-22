@@ -904,13 +904,13 @@ export const DEFAULT_FEEL: WeaponFeel = { kick: 0, recoil: 0, flash: 1, hitStop:
 /** Feel per weapon id (missing fields use DEFAULT_FEEL). Heavy, slow weapons kick and stop; fast ones stay light. */
 export const WEAPON_FEEL: Record<string, Partial<WeaponFeel>> = {
   // Left click
-  buster: { kick: 2, recoil: 1, flash: 1, knock: 1, critFlash: 1.15, critPitch: 1.7 },
+  buster: { kick: 2.8, recoil: 1.3, flash: 1.22, knock: 1, critFlash: 1.15, critPitch: 1.7, critStop: 0.016 },
   scatter: { kick: 6, recoil: 2.4, flash: 1.7, knock: 1.4, critFlash: 1.25, critPitch: 1.35, critStop: 0.012 },
   laser: { kick: 0.6, recoil: 0.5, flash: 0.75, knock: 0.6, critFlash: 1, critPitch: 2.3 },
   orb: { kick: 3, recoil: 1.3, flash: 1.3, knock: 1, critFlash: 1.3, critPitch: 1.9 },
   rail: { kick: 10, recoil: 3, flash: 2.2, hitStop: 0.05, knock: 1.6, critFlash: 1.8, critPitch: 1.1, critStop: 0.05 },
   // Right click
-  charge: { kick: 9, recoil: 2.6, flash: 1.9, hitStop: 0.045, knock: 1.35, critFlash: 1.7, critPitch: 1.2, critStop: 0.04 },
+  charge: { kick: 10, recoil: 3, flash: 2.15, hitStop: 0.05, knock: 1.35, critFlash: 1.7, critPitch: 1.2, critStop: 0.075 },
   grenade: { kick: 5, recoil: 2, flash: 1.4, hitStop: 0.03, knock: 1.3, critFlash: 1.5, critPitch: 1.25, critStop: 0.025 },
   well: { kick: 3, recoil: 1.5, flash: 1.2, knock: 0.5, critFlash: 1.3, critPitch: 1.5 },
   shield: { kick: 4, recoil: 1.8, flash: 1.3, hitStop: 0.02, knock: 1.25, critFlash: 1.3, critPitch: 1.3, critStop: 0.02 },

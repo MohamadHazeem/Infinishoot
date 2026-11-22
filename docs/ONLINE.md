@@ -1,6 +1,6 @@
 # Turn on InfiniShoot's online features
 
-The optional Cloudflare Worker provides global/daily/weekly/raid/gauntlet scores, public lobby discovery, weekly team scores, shared help ghosts, ghost races and the ranked ladder. Invite-code co-op uses PeerJS/WebRTC and works without this Worker. This is not a gameplay server or TURN relay.
+The optional Cloudflare Worker provides global/daily/weekly/raid/gauntlet scores, public lobby discovery, weekly team scores, shared help ghosts, ghost races, the ranked ladder, opt-in playtest summaries and player-submitted problem reports. Invite-code co-op uses PeerJS/WebRTC and works without this Worker. This is not a gameplay server or TURN relay.
 
 ## First deployment
 
@@ -18,7 +18,7 @@ The optional Cloudflare Worker provides global/daily/weekly/raid/gauntlet scores
    npm run server:deploy
    ```
 
-   The script downloads a pinned Wrangler 4 CLI with `npx` (development tooling only), lists KV namespaces, reuses `infinishoot-leaderboard-SCORES` or creates it once, writes `server/leaderboard/wrangler.toml` from `wrangler.template.toml`, and deploys `infinishoot-leaderboard`. Wrangler can ask you to choose a `workers.dev` subdomain on first use; the terminal stays interactive. It prints a URL such as:
+   The script downloads a pinned Wrangler 4 CLI with `npx` (development tooling only), lists KV namespaces, reuses `infinishoot-leaderboard-SCORES` or creates it once, creates or reuses the playtest D1 database, applies its migrations, writes `server/leaderboard/wrangler.toml` from `wrangler.template.toml`, and deploys `infinishoot-leaderboard`. Wrangler can ask you to choose a `workers.dev` subdomain on first use; the terminal stays interactive. It prints a URL such as:
 
    ```text
    https://infinishoot-leaderboard.YOUR-SUBDOMAIN.workers.dev
@@ -70,7 +70,7 @@ In one terminal at the repo root:
 npm run server:dev
 ```
 
-This runs `wrangler dev --local` at **http://127.0.0.1:8787**, with its own generated `wrangler.local.toml` and local KV in `server/leaderboard/.wrangler/`. It never reads or writes production KV and does not require Cloudflare login. The first run needs Internet access to download the CLI. Stop with Ctrl+C.
+This runs `wrangler dev --local` at **http://127.0.0.1:8787**, with its own generated `wrangler.local.toml` and local KV and D1 in `server/leaderboard/.wrangler/`. It never reads or writes production KV and does not require Cloudflare login. The first run needs Internet access to download the CLI. Stop with Ctrl+C.
 
 In another terminal:
 
@@ -113,9 +113,9 @@ All feature modules are explicitly registered in `server/leaderboard/routes.js`;
 | `GET/POST /ghost` | Sanitized build, levels/stages 1–999; 10 uploads/hour/IP | Random 6-character code, 30 days; collisions retried |
 | `GET/POST /ghosts` | Valid week, finite safe score/time/stage, share-code shape and ≤200,000 characters; 1 upload/minute/IP | Top 10; board and codes expire in 60 days |
 
-POST streams are capped **before JSON parsing** at 4,096 bytes, except `/ghost` (2,000) and `/ghosts` (204,096). Null, arrays and malformed JSON return `400`; oversized bodies `413`. URLs over 2,048 characters return `414`. A bounded per-isolate burst guard permits 120 requests/minute/IP (including GETs and invalid submissions); OPTIONS is exempt. Invalid submissions do not consume persistent KV write quotas. Error responses retain CORS, and `429`/`503` include a retry hint.
+On the public leaderboard and lobby routes, POST streams are capped **before JSON parsing** at 4,096 bytes, except `/ghost` (2,000) and `/ghosts` (204,096). Null, arrays and malformed JSON return `400`; oversized bodies `413`. URLs over 2,048 characters return `414`. A bounded per-isolate burst guard permits 120 requests/minute/IP (including GETs and invalid submissions); OPTIONS is exempt. Invalid submissions do not consume persistent KV write quotas. Error responses retain CORS, and `429`/`503` include a retry hint.
 
-The API deliberately allows `Access-Control-Allow-Origin: *`, `GET, POST, OPTIONS`, and the `Content-Type` header **without credentials**. This supports the GitHub Pages origin (including forks), local Vite, and Electron's opaque `Origin: null` from `file://`. There are no cookies or private reads. CORS is not authentication; lobby ownership uses a random host token, and score/rating submissions are self-reported. Do not deploy this as an authenticated or private service.
+The API deliberately allows `Access-Control-Allow-Origin: *`, `GET, POST, OPTIONS`, and the `Content-Type` header **without credentials**. This supports the GitHub Pages origin (including forks), local Vite, and Electron's opaque `Origin: null` from `file://`. These public routes use no cookies. The separate telemetry dashboard requires a bearer token for all reads. CORS is not authentication; lobby ownership uses a random host token, and score/rating submissions are self-reported. Do not deploy this as an authenticated or private service.
 
 ## Free tier and known limits
 
@@ -126,3 +126,28 @@ KV is eventually consistent and board updates are read/modify/write: simultaneou
 If deployment fails, first check login (`npx wrangler login`), account selection, and the `workers.dev` first-use setup. If health fails, check the Worker's SCORES binding, namespace existence, and quotas. If health works in a tab but the game stays OFF, rebuild with the GitHub variable. If the game says unavailable, inspect its network request to `/health` and verify the full HTTPS URL. Existing clients built without the URL stay offline until rebuilt.
 
 CLI/config reference: [Wrangler KV commands](https://developers.cloudflare.com/kv/reference/kv-commands/), [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/), and [KV TTL rules](https://developers.cloudflare.com/kv/api/write-key-value-pairs/). The ranked cooldown stores an expiry timestamp for 20 seconds with a **60-second KV TTL**, the platform minimum.
+
+## Playtest telemetry
+
+On first launch, including an existing installation’s first launch after this update, the player can accept or decline anonymous playtest summaries. **Settings → Gameplay → Share Playtest Data** reopens the choice. Declining clears unsent runs. Only consenting solo players and co-op hosts contribute a summary. It describes the local hero, team size and whether teammates were human or AI. An automatic summary never includes a replay, screenshot, player name, room code, IP address, chat or notes.
+
+Each summary records the build, mode, difficulty, heat points, ascension, kit, stage, loop victories, elapsed simulation time, per-stage ranks, upgrade offers and choices, shop spending, Mods and relics, boss outcomes, damage sources, the last ten seconds of hits, fatal damage and life immediately before it, rescues, frame times, quality, language and coarse platform. Enemy and boss shots carry their shooter’s catalog ID where the spawn path supplies it. Unattributed bullets use the enemy-fire category. The most recent 24 completed runs wait locally for a configured server and connectivity. Run IDs make retries idempotent. Telemetry always uses the build-time URL; a test link cannot redirect the queue or the deletion request. Summaries target 8,000 JSON bytes and drop oldest detail first on very long runs. The omitted count is retained. Simulations and gameplay never wait for the server.
+
+**Report a Problem** is available from pause and game over even with sharing off. Players choose a category, an optional 500-character note, a replay (on by default where the local recorder is available) and an optional gameplay-only screenshot. The report includes only those choices and an anonymous install ID. Shareable replays retain the numeric input tape and checksums, use numbered seats, and omit profile history, friends, peer identities, chat and unknown network commands. Online clients can send a note and screenshot. The host has the replay. Without a configured server, **Save Report to File** produces JSON with base64 attachments. Failed or oversized uploads can also be saved. The file omits the installation identifier. Removing an attachment allows a smaller retry.
+
+**Delete My Data** in Gameplay turns sharing off, clears the local queue and requests deletion of all run rows, reports and attachments from the configured server for the current install. Retry on that installation if offline. Once acknowledged, the client forgets the ID. Clearing browser/app storage first loses the ability to identify older submissions. Local report downloads are ordinary files.
+
+### Storage and operator access
+
+The explicit deploy command creates or reuses D1 **infinishoot-telemetry**, binds it as **TELEMETRY**, and applies the SQL in `server/leaderboard/migrations/` before publishing. `npm run server:dev` applies the same migrations locally. Working from `server/leaderboard`, set the dashboard credential interactively with `npx wrangler secret put TELEMETRY_ADMIN_TOKEN`. For local admin testing, pass a disposable local binding to Wrangler or use its supported local secrets mechanism. Keep all admin credentials out of builds, source control and URLs.
+
+| Route | Contract |
+| --- | --- |
+| POST /telemetry/run | Version-allowlisted summary. Stream cap 16 KiB. 60 accepted unique runs per installation per rolling hour. |
+| POST /telemetry/report | Cap 1.5 MiB including JSON/base64. Six unique reports per installation per rolling hour. |
+| POST /telemetry/delete | Installation UUID only. Deletes rows in one D1 batch. A short-lived digest blocks late uploads for 24 hours. Expired entries are pruned on subsequent deletions. |
+| GET /telemetry/summary | Requires `Authorization: Bearer …`. Lists up to 100 runs and 100 report headers per page, advanced with `runAfter` and `reportAfter`. `report=<seq>&part=replay` or `part=screenshot` downloads one attachment. |
+
+The application hashes the installation UUID before writing it to D1. The install UUID is an anonymous deletion capability. Public submissions are self-reported. D1 enforces per-install quotas inside the insert statement. Keep the exact client-version allowlist in `telemetry.js` in step with playtest releases. Gzipped ISR replays and JPEG screenshots (maximum 300 KiB) are stored as binary columns in the report row. The total wire limit gives ample headroom below D1’s 2 MB row limit. Dashboard list queries exclude the blobs and install digest. The telemetry entry point handles its own CORS preflight, including Authorization, and delegates existing online routes to the original Worker.
+
+Open **tools/playtest-dashboard/index.html** directly in a browser. Enter the server URL and admin token and choose **Load dashboard**. Successful connections keep credentials in sessionStorage for that tab. The dashboard reads every page on demand, displays the UTC run-day counts, median durations, stage and difficulty distributions, and ranks deaths within each stage. Boss death rates exclude abandoned fights. Hero and loadout pick rates use all runs; card pick rates use offers. Win rates count a terminal victory or at least one cleared loop, with one vote per run per chosen card. Platform tables show the median and maximum of each run’s worst frame. The inbox downloads individual ISR/JPEG files on request. Watch ISR files in **Settings → Help → Watch Replay** on the matching game build.

@@ -1,3 +1,5 @@
+import { played, refreshSetup } from './menuRun';
+import { onlineMenu } from './menuSections';
 import { renderCasualPreset } from '../game/systems/assists';
 import { eliteGuide } from '../game/systems/elites2';
 import { renderSquadOptions } from '../game/systems/aisquad';
@@ -49,7 +51,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
+export type ExtraScreen = 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
@@ -574,10 +576,19 @@ export class Screens {
         case 'rewards': return this.show('rewards');
         case 'meta-back': return this.show(this.current === 'heat' ? this.metaReturn : this.current === 'weekly' ? 'modes' : this.current === 'codex' ? 'bestiary' : 'extras');
         case 'meta-weekly': settings.mode = 'weekly'; saveSettings(); return actions.start();
-        case 'start':
-          return actions.start();
+        case 'start': {
+          const firstRun = this.current === 'play' && !played() && settings.mode === 'standard';
+          actions.start();
+          if (firstRun && this.shopShown?.pre && this.current === 'shop') {
+            const shop = this.shopShown;
+            const pick = shop.offers.findIndex(o => o && !o.def.cursed && o.price <= shop.gold);
+            if (pick >= 0) actions.buy(pick);
+            actions.shopDone();
+          }
+          return;
+        }
         case 'play':
-          return this.showLoadout('solo');
+          return actions.start();
         case 'lo-online':
           return this.showLoadout('online');
         case 'lo-pick':
@@ -824,12 +835,14 @@ export class Screens {
       el.setAttribute('role', 'region');
       el.setAttribute('aria-label', el.querySelector('h1')?.textContent?.trim() || name);
     }
+    if (name === 'shop') this.els.shop.querySelector('.owned-title')!.setAttribute('title', t('menus.mods'));
+    if (name === 'relic') this.els.relic.querySelector<HTMLElement>('.note')!.title = t('menus.relics');
     this.onShow?.(name);
     this.titleMenu.show(name);
     if (name !== 'none') polishMenuScreen(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]);
     if (name !== 'none' && name !== 'title') keepBackLast(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]); // uxpass
     if (name !== 'none') relocalizeDom(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named], 'en');
-    if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'settings' ? this.settingsScreen.selectedTab : name === 'levelup' ? 1 : this.menuFocus.get(name) ?? 0));
+    if (name !== 'none') this.nav(name).refresh(focus ?? (name === 'settings' ? this.settingsScreen.selectedTab : name === 'play' && previous === 'title' ? 0 : name === 'levelup' ? 1 : this.menuFocus.get(name) ?? 0));
     ensureMenuFitCss();
     this.moreCue.watch(name === 'none' ? null : this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]);
   }
@@ -983,6 +996,7 @@ export class Screens {
             : 'Play the run together. Team XP, your own gold, shop and Mods.');
     el.querySelector('.mp-status')!.textContent = localize(v.status);
     this.onLobby?.(el, v);
+    onlineMenu(el);
     relocalizeDom(el, 'en');
     if (this.current !== 'online') this.show('online');
     else this.navs.online.refresh(this.navs.online.focus);
@@ -1060,7 +1074,7 @@ export class Screens {
             .join('')}</div></div></div>
           <div class="name">${o.name}</div>
           ${levelPips(o)}
-          <div class="desc">${o.text}</div>
+          <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${o.text}${o.kind === 'overdrive' ? ' ' + t('menus.overdrive') : ''}</div>
           ${numsHtml(o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
           ${offerSetChips(o)}
@@ -1543,6 +1557,7 @@ export class Screens {
     renderSquadOptions(el, () => this.navs.modes.refresh(this.navs.modes.focus));
     renderGauntletOptions(el);
     renderCasualPreset(el);
+    refreshSetup(el, () => this.renderModes());
     this.navs.modes.refresh(this.navs.modes.focus);
   }
 

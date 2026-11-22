@@ -189,10 +189,13 @@ export function mergeRigParts(parts: { geometry: THREE.BufferGeometry; index: nu
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
 const WHITE = new THREE.Color(1, 1, 1);
 
+export const shadowRigs = new WeakMap<THREE.Object3D, RigOverlay>();
+
 export class RigOverlay {
   private parts: THREE.Mesh[] = [];
   private modelRevision = -1;
-  private mats: THREE.Matrix4[] = [];
+  // All overlay passes upload the same packed matrices directly to WebGL.
+  private mats = new Float32Array(MAX_RIG_PARTS * 16);
   private hull: THREE.Mesh | null = null;
   private xray: THREE.Mesh | null = null;
   private xrayRim: THREE.Mesh | null = null;
@@ -201,6 +204,7 @@ export class RigOverlay {
   private hullMat: THREE.ShaderMaterial;
   private xrayMat: THREE.ShaderMaterial;
   private xrayRimMat: THREE.ShaderMaterial;
+  private depthMat: THREE.MeshDepthMaterial | null = null;
   private meshCount = 0;
   private syncedFrame = -1;
   private frame = 0;
@@ -209,7 +213,6 @@ export class RigOverlay {
   detail = true;
 
   constructor(private root: THREE.Object3D) {
-    for (let i = 0; i < MAX_RIG_PARTS; i++) this.mats.push(new THREE.Matrix4().copy(ZERO));
     const shared = {
       uParts: { value: this.mats },
       uSnapRes: retroGlobals.uSnapRes,
@@ -248,6 +251,7 @@ export class RigOverlay {
     this.ring.raycast = () => {};
     root.add(this.ring);
     this.build();
+    shadowRigs.set(root, this);
   }
 
   /** (Re)build the merged meshes from the rig's current parts. */
@@ -288,6 +292,7 @@ export class RigOverlay {
     const xgeo = mergeRigParts(all);
     this.xrayRim = make(xgeo, this.xrayRimMat, 49, 'heroXrayRim');
     this.xray = make(xgeo, this.xrayMat, 50, 'heroXray');
+    this.xray.onBeforeShadow = sync;
     this.hull = make(mergeRigParts(big), this.hullMat, 52, 'heroOutline');
   }
 
@@ -297,7 +302,7 @@ export class RigOverlay {
     this.syncedFrame = this.frame;
     for (let i = 0; i < this.parts.length; i++) {
       const p = this.parts[i];
-      this.mats[i].copy(shown(p, this.root) ? p.matrixWorld : ZERO);
+      this.mats.set((shown(p, this.root) ? p.matrixWorld : ZERO).elements, i * 16);
     }
   }
 
@@ -333,7 +338,53 @@ export class RigOverlay {
     this.ring.scale.setScalar(T.ringRadius); // the ring is a child of the rig root, so its notch turns with the aim
   }
 
+  /**
+   * Depth ignores armour colours. When every solid part uses the ordinary
+   * back-face depth pass, the x-ray geometry can cast the exact same pose in
+   * one draw. Face decals and geometry outside the merged rig cast separately.
+   */
+  batchShadow(): boolean {
+    const proxy = this.xray;
+    if (!proxy?.visible || !this.xrayMat.visible || this.parts.length < 2) return false;
+    for (const p of this.parts) {
+      const mat = p.material as THREE.Material;
+      if (!p.castShadow || !mat.visible || mat.side !== THREE.FrontSide || mat.shadowSide !== null ||
+          p.customDepthMaterial || p.morphTargetInfluences || (p as THREE.SkinnedMesh).isSkinnedMesh ||
+          (p as THREE.InstancedMesh).isInstancedMesh || p.layers.mask !== proxy.layers.mask ||
+          p.geometry.drawRange.start !== 0 || p.geometry.drawRange.count !== Infinity) return false;
+      // Three reverses the front face for mirrored objects. The merged draw
+      // shares the root winding, so leave independently mirrored parts alone.
+      for (let a: THREE.Object3D | null = p; a && a !== this.root; a = a.parent) {
+        if (!a.matrixAutoUpdate || a.scale.x * a.scale.y * a.scale.z < 0) return false;
+      }
+    }
+    if (!this.depthMat) {
+      this.depthMat = new THREE.MeshDepthMaterial();
+      this.depthMat.onBeforeCompile = shader => {
+        shader.uniforms.uParts = { value: this.mats };
+        shader.vertexShader = `attribute float partIndex;
+uniform mat4 uParts[${MAX_RIG_PARTS}];
+` + shader.vertexShader.replace(
+          '#include <project_vertex>',
+          'vec4 mvPosition = viewMatrix * (uParts[int(partIndex + 0.5)] * vec4(transformed, 1.0)); gl_Position = projectionMatrix * mvPosition;',
+        );
+      };
+    }
+    proxy.customDepthMaterial = this.depthMat;
+    this.xrayMat.shadowSide = THREE.BackSide;
+    for (const p of this.parts) p.castShadow = false;
+    proxy.castShadow = true;
+    return true;
+  }
+
+  restoreShadow(): void {
+    if (this.xray) this.xray.castShadow = false;
+    for (const p of this.parts) p.castShadow = true;
+  }
+
   dispose(): void {
+    shadowRigs.delete(this.root);
+    this.depthMat?.dispose();
     for (const m of [this.hull, this.xray, this.xrayRim, this.ring]) {
       if (!m) continue;
       m.removeFromParent();

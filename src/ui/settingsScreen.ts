@@ -11,6 +11,15 @@ export interface SettingRow {
   key: keyof Settings; label: string; desc: string; tab: SettingsTab;
   range?: readonly [number, number, number]; options?: readonly string[]; labels?: readonly string[];
 }
+export const commonSettings: Record<SettingsTab, readonly (keyof Settings)[]> = {
+  GAMEPLAY: ['language', 'autoFire', 'tips'],
+  CONTROLS: ['aimAssist', 'rumble'],
+  VIDEO: ['graphics', 'windowMode', 'uiScale'],
+  AUDIO: ['volume', 'musicVolume', 'sfxVolume'],
+  ACCESSIBILITY: ['textScale', 'reduceScreenEffects', 'colorblindMode', 'captions'],
+  'CO-OP': ['lobbyPublic', 'coopJoinable', 'voiceChat'],
+};
+const tabLabel = (tab: SettingsTab) => tab === 'GAMEPLAY' ? t('menus.game') : tab === 'CO-OP' ? t('menus.net') : localize(tab);
 const rows: SettingRow[] = [];
 function row(tab: SettingsTab, key: keyof Settings, label: string, desc: string, range?: SettingRow['range'], options?: readonly string[], labels?: readonly string[]): void {
   rows.push({ tab, key, label, desc, range, options, labels });
@@ -117,7 +126,7 @@ export class SettingsScreen {
     this.el.id = 'scr-settings';
     this.el.className = 'screen dim';
     this.el.setAttribute('aria-label', localize('Settings'));
-    this.el.innerHTML = localizeHtml(`<h1>SETTINGS</h1><div class="settings-shell"><div class="settings-tabs" role="tablist" aria-label="Settings categories">${SETTINGS_TABS.map((tab, i) => `<button data-nav data-tab="${i}" role="tab" id="settings-tab-${i}" aria-controls="settings-panel-${i}">${tab}</button>`).join('')}</div>${SETTINGS_TABS.map((_, i) => `<div id="settings-panel-${i}" class="menu settings" role="tabpanel" aria-labelledby="settings-tab-${i}"></div>`).join('')}<p id="settings-description" class="settings-description" aria-live="polite"></p><div class="settings-footer"><button data-nav data-reset>RESET TAB</button><button data-nav data-settings-back>BACK</button></div><p class="settings-hint"></p></div>`);
+    this.el.innerHTML = localizeHtml(`<h1>SETTINGS</h1><div class="settings-shell"><div class="settings-tabs" role="tablist" aria-label="Settings categories">${SETTINGS_TABS.map((tab, i) => `<button data-nav data-tab="${i}" role="tab" id="settings-tab-${i}" aria-controls="settings-panel-${i}">${tabLabel(tab)}</button>`).join('')}</div>${SETTINGS_TABS.map((_, i) => `<div id="settings-panel-${i}" class="menu settings" role="tabpanel" aria-labelledby="settings-tab-${i}"></div>`).join('')}<p id="settings-description" class="settings-description" aria-live="polite"></p><div class="settings-footer"><button data-nav data-reset>RESET TAB</button><button data-nav data-settings-back>BACK</button></div><p class="settings-hint"></p></div>`);
     this.panels = Array.from(this.el.querySelectorAll<HTMLElement>('[role=tabpanel]'));
     this.panel = this.panels[0];
     this.panels.forEach((panel, i) => {
@@ -130,6 +139,36 @@ export class SettingsScreen {
     this.el.querySelector('[data-setting=gameSpeed]')!.insertAdjacentHTML('beforebegin', localizeHtml(`<h2 class="casual-assists-heading">${t('casual.heading')}</h2><p class="casual-assists-note">${t('casual.note')}</p>`));
     const touchLayoutButton = this.el.querySelector('[data-touch-layout]')!;
     touchLayoutButton.parentElement!.prepend(touchLayoutButton);
+    this.panels.forEach((panel, i) => {
+      const tab = SETTINGS_TABS[i];
+      const advanced = document.createElement('div');
+      advanced.className = 'settings-advanced';
+      advanced.id = `settings-advanced-${i}`;
+      const common = commonSettings[tab];
+      const members = Array.from(panel.children);
+      for (const child of members) {
+        const control = child.matches('[data-setting]') ? child : child.querySelector('[data-setting]');
+        if (common.includes(control?.getAttribute('data-setting') as keyof Settings) || child.matches('[data-rebind],[data-touch-layout]')) continue;
+        advanced.append(child);
+      }
+      for (const key of [...common].reverse()) {
+        const control = panel.querySelector<HTMLElement>(`[data-setting="${key}"]`)!;
+        panel.prepend(control.closest('label') ?? control);
+      }
+      const toggle = document.createElement('button');
+      toggle.dataset.advanced = '';
+      toggle.setAttribute('aria-controls', advanced.id);
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.textContent = localize('+ ' + t('menus.advanced'));
+      advanced.hidden = true;
+      toggle.onclick = () => {
+        advanced.hidden = !advanced.hidden;
+        toggle.setAttribute('aria-expanded', String(!advanced.hidden));
+        toggle.textContent = localize((advanced.hidden ? '+ ' : '− ') + t('menus.advanced'));
+        this.selectTab(i, true);
+      };
+      panel.append(toggle, advanced);
+    });
     this.description = this.el.querySelector('.settings-description')!;
     this.hint = this.el.querySelector('.settings-hint')!;
     this.nav = new MenuNav(this.el, { onBack: back });
@@ -148,7 +187,10 @@ export class SettingsScreen {
         this.nav.refresh(next); items[next].focus({ preventScroll: true }); items[next].scrollIntoView({ block: 'nearest' });
       }
     });
-    this.el.addEventListener('mouseover', (e) => this.describe((e.target as HTMLElement).closest('[data-setting]') as HTMLElement));
+    this.el.addEventListener('mouseover', e => {
+      const target = e.target as HTMLElement;
+      this.describe(target.closest('label')?.querySelector('input') ?? target.closest('button,input'));
+    });
     this.el.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('button[data-setting]');
       if (!b) return;
@@ -168,30 +210,39 @@ export class SettingsScreen {
     this.el.querySelector('[data-touch-layout]')!.addEventListener('click', () => screens.show('touchlayout'));
     this.el.querySelector('[data-value=language]')!.setAttribute('translate', 'no');
     onLanguageChange(() => { this.hintMode = null; this.sync(); this.describe(this.el.querySelector('.focused')); });
-    this.selectTab(0);
+    this.selectTab(SETTINGS_TABS.indexOf('GAMEPLAY'));
   }
-  selectTab(index: number): void {
+  selectTab(index: number, keepFocus = false): void {
     this.tabIndex = (index + SETTINGS_TABS.length) % SETTINGS_TABS.length;
     const tab = SETTINGS_TABS[this.tabIndex];
     this.el.querySelectorAll<HTMLElement>('[data-tab]').forEach((b, i) => { b.setAttribute('aria-selected', String(i === this.tabIndex)); b.classList.toggle('on', i === this.tabIndex); });
     this.panels.forEach((panel, i) => {
       panel.hidden = i !== this.tabIndex;
       panel.querySelectorAll<HTMLElement>('button, input').forEach((el) => {
-        if (i === this.tabIndex) el.setAttribute('data-nav', '');
+        if (i === this.tabIndex && !el.closest('.settings-advanced[hidden]')) el.setAttribute('data-nav', '');
         else { el.removeAttribute('data-nav'); el.classList.remove('focused'); }
       });
     });
     this.panel = this.panels[this.tabIndex];
-    this.panel.scrollTop = 0;
-    this.description.textContent = localize(`${localize(tab)} · ${t('langs.settings.saved')}`);
+    if (!keepFocus) this.panel.scrollTop = 0;
+    this.description.textContent = localize(`${tabLabel(tab)} · ${t('langs.settings.saved')}`);
     this.lastFocus = null;
-    this.sync(); this.nav.refresh(this.tabIndex);
-    if (!this.el.hidden) this.focusTab();
+    this.sync(); this.nav.refresh(keepFocus ? this.nav.focus : this.tabIndex);
+    if (!keepFocus && !this.el.hidden) this.focusTab();
   }
   private focusTab(): void {
     this.el.querySelector<HTMLElement>(`[data-tab="${this.tabIndex}"]`)?.focus({ preventScroll: true });
   }
-  open(): void { this.sync(); this.focusTab(); }
+  open(): void {
+    // Consent and voice modules insert their own controls after this screen is constructed.
+    for (const panel of this.panels) {
+      const advanced = panel.querySelector('.settings-advanced')!;
+      for (const b of panel.querySelectorAll(':scope > button:not([data-setting],[data-advanced],[data-rebind],[data-touch-layout],[data-voice-open])')) advanced.append(b);
+      const mic = panel.querySelector('[data-voice-open]');
+      if (mic) panel.querySelector('[data-advanced]')!.before(mic);
+    }
+    this.selectTab(this.tabIndex);
+  }
   sync(): void {
     this.el.querySelectorAll<HTMLElement>('[data-setting]').forEach((el) => {
       const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting)!;
@@ -208,12 +259,18 @@ export class SettingsScreen {
     if (!el) return;
     const r = SETTINGS_ROWS.find((x) => x.key === el.dataset.setting);
     if (r) this.description.textContent = localize(r.desc);
+    else if (el.hasAttribute('data-advanced')) this.description.textContent = t('menus.advancedDesc');
     else if (el.hasAttribute('data-reset')) this.description.textContent = t('langs.settings.resetDesc');
     else if (el.hasAttribute('data-rebind')) this.description.textContent = t('mobile.rebindDesc');
     else if (el.hasAttribute('data-touch-layout')) this.description.textContent = t('mobile.help');
+    else if (el.hasAttribute('data-voice-open')) this.description.textContent = t('menus.micDesc');
+    else if (el.textContent === t('menus.packs')) this.description.textContent = t('menus.packsDesc');
+    else if (el.textContent === t('desktop.help')) this.description.textContent = t('menus.helpDesc');
+    else if (el.textContent?.startsWith(t('playtest.share'))) this.description.textContent = t('playtest.explain');
+    else if (el.textContent === t('playtest.delete')) this.description.textContent = t('menus.deleteDesc');
     else if (el.hasAttribute('data-settings-back')) this.description.textContent = t('langs.settings.backDesc');
     else if (el.dataset.act === 'ob-tips-reset') this.description.textContent = localize('Show first-time tips again as you encounter each mechanic.');
-    else if (el.dataset.tab !== undefined) this.description.textContent = localize(`${localize(SETTINGS_TABS[Number(el.dataset.tab)])} · ${t('langs.settings.saved')}`);
+    else if (el.dataset.tab !== undefined) this.description.textContent = localize(`${tabLabel(SETTINGS_TABS[Number(el.dataset.tab)])} · ${t('langs.settings.saved')}`);
   }
   update(input: Input, dt: number): void {
     const tabFocused = this.el.querySelector('.focused')?.getAttribute('role') === 'tab';

@@ -1,0 +1,7 @@
+"DepotBuild"
+{
+    "DepotID" "{{WIN_DEPOT}}"
+    "ContentRoot" "../../steam/win-unpacked"
+    "FileMapping" { "LocalPath" "*" "DepotPath" "." "Recursive" "1" }
+    "FileExclusion" "steam_appid.txt"
+}

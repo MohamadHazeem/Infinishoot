@@ -162,7 +162,7 @@ class Sfx {
   }
 
   /** Returns a ready context, or null if muted / locked / rate-limited. */
-  private begin(name: string, minGap: number, bus: Bus = 'sfx'): AudioContext | null {
+  private begin(name: string, minGap: number, bus: Bus = 'sfx', samplePitch = 1): AudioContext | null {
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running' || audioSettings.muted) return null;
     const now = ctx.currentTime;
@@ -214,7 +214,7 @@ class Sfx {
     }
     const sample = name.startsWith('w:') ? weaponSamples[name.slice(2)] : cueSamples[name];
     const layered = sample ? samples.play(sample, { bus: bus === 'ui' ? 'ui' : 'sfx', pan: this.pan,
-      distance: posGain, x: this.sourceX, z: this.sourceZ, priority, cooldown: minGap, limit: priority === 0 ? 2 : 3 }) : null;
+      distance: posGain, x: this.sourceX, z: this.sourceZ, pitch: samplePitch, priority, cooldown: minGap, limit: priority === 0 ? 2 : 3 }) : null;
     const g = ctx.createGain();
     // A telegraph's synth stays at full level: its sample rides the (duckable) effects bus.
     g.gain.value = synthMasterGain(name) * (placed ? posGain : 1) * (layered && bus !== 'threat' ? soundTuning.synthLayer : 1);
@@ -238,7 +238,7 @@ class Sfx {
     pressure = audioSettings.lowHealth ? pressure : 0;
     if (pressure === this.healthPressure || (pressure > 0 && Math.abs(pressure - this.healthPressure) < 0.005)) return;
     this.healthPressure = pressure;
-    this.healthFilter.frequency.setTargetAtTime(healthCutoff(pressure), ctx.currentTime, pressure ? 0.12 : 0.3);
+    this.healthFilter.frequency.setTargetAtTime(healthCutoff(pressure), ctx.currentTime, pressure ? 0.12 : 0.18);
   }
 
   /** Dedicated bed gains leave effects/UI readable and preserve all volume controls. */
@@ -560,6 +560,12 @@ class Sfx {
     this.noise(ctx, 0.45, 0.16, 2000, 9000, 2, 0.28);
   }
 
+  /** A short pickup chime at 12 / 25 kills, below the voiced milestones. */
+  streakStep(pitch = 1): void {
+    samples.play('round_bell', { gain: 0.55, pan: this.pan, x: this.sourceX, z: this.sourceZ, distance: this.posGain, pitch, priority: 1, cooldown: 0.12, limit: 1 });
+    if (pitch > 1) announcer.say('combo');
+  }
+
   /** Every 50 combo. */
   comboUp(): void {
     const ctx = this.begin('combo', 0.3);
@@ -572,6 +578,8 @@ class Sfx {
     if (!audioSettings.lowHealth) return;
     const ctx = this.begin('heart', 0.3);
     if (!ctx) return;
+    // The existing sine pair is below many laptop speakers' range. Give the first pulse a quiet overtone.
+    this.tone(ctx, 'triangle', 146, 86, 0.085, 0.035 + 0.035 * Math.max(0, this.healthPressure));
     this.tone(ctx, 'sine', 70, 40, 0.12, 0.2);
     this.tone(ctx, 'sine', 60, 35, 0.14, 0.14, 0.18);
   }
@@ -616,7 +624,7 @@ class Sfx {
   }
 
   enemyDie(pitch = 1): void {
-    const ctx = this.begin('die', 0.03);
+    const ctx = this.begin('die', 0.03, 'sfx', Math.min(1.5, pitch));
     if (!ctx) return;
     this.tone(ctx, 'square', 300 * pitch, 1200 * pitch, 0.1, 0.15);
     this.tone(ctx, 'square', 1200 * pitch, 600 * pitch, 0.08, 0.1, 0.08);

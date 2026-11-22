@@ -1,3 +1,5 @@
+import { installSteam } from '../platform/steam';
+import { installTelemetry } from './systems/telemetry';
 import * as ArchitectSys from './systems/architect';
 import { updateElites2 } from './systems/elites2';
 import * as Assists from './systems/assists';
@@ -49,6 +51,7 @@ import { Enemies, type Enemy, type EnemyCtx, type SpawnOpts } from './enemies';
 import { Fx } from './fx';
 import { HERO_COLORS, Hero, MAX_GEARS, type HeroWorld } from './hero';
 import { Juice } from './juice';
+import { damageWithFeedback, escapeBeat, hurtBeat } from './juiceCombat';
 import { Particles } from './particles';
 import { PickupType, Pickups, type Collector } from './pickups';
 import { Portal } from './portal';
@@ -102,7 +105,7 @@ import { FirstTen } from './systems/firstten';
 import { earlyXpMul } from './firstten';
 import { weaponCue, windupCue } from './systems/sound';
 import { soundLaneStep } from './systems/sound2';
-import { coopPlayStats, coopPlayStep, coopPlayTargets } from './systems/coopplay';
+import { coopPlayState, coopPlayStats, coopPlayStep, coopPlayTargets } from './systems/coopplay';
 import { rightClickHeld } from './chargeMode';
 import * as BiomeFoesSys from './systems/biomeFoes';
 import * as HeroMechsSys from './systems/heroMechs';
@@ -371,7 +374,15 @@ export class Game implements HeroWorld {
   applyRaidNet = RaidSys.applyRaidNet;
   renderRaid = RaidSys.renderRaid;
   raidClientMessage = RaidSys.raidClientMessage;
-  startRun = RunFlowSys.startRun;
+  startRun: typeof RunFlowSys.startRun = function (fixed) {
+    // An abandoned arcade round must not holster the next run's weapons or open its portal.
+    this.modes.mg = null;
+    this.modes.holster = false;
+    // A forced co-op objective (trials, tests, debug) belongs to one run; clients kept it into the next one and
+    // built a different objective from the host's (Gate 1 co-op check). Trials re-force after this.
+    coopPlayState(this).force = null;
+    RunFlowSys.startRun.call(this, fixed);
+  };
   restart = RunFlowSys.restart;
   retry = RunFlowSys.retry;
   stageSub = RunFlowSys.stageSub;
@@ -439,7 +450,7 @@ export class Game implements HeroWorld {
   recycleFarEnemies = SpawningSys.recycleFarEnemies;
   nearestEnemy = CombatSys.nearestEnemy;
   enemiesInRadius = CombatSys.enemiesInRadius;
-  damage = CombatSys.damage;
+  damage = damageWithFeedback;
   updatePets = CompanionSys.updatePets;
   updateEliteMods = CombatSys.updateEliteMods;
   groundAt = CombatSys.groundAt;
@@ -971,6 +982,10 @@ export class Game implements HeroWorld {
       hud: this.hud,
       zones: this.enemies.zones,
       scars: this.scars,
+      rewardSlow: seconds => {
+        if (!this.online && !this.race && !this.pvp && settings.slowMo !== false && !access.reduceFlash) this.slowMoT = Math.max(this.slowMoT, seconds);
+      },
+      hurtBeat: (x, z, amount) => hurtBeat(this, x, z, amount),
       corpse: (id, x, y, z, s, f, dx, dz) => this.onCorpse(id, x, y, z, s, f, dx, dz),
       finisher: (id, hi, x, z) => this.onFinisher(id, hi, x, z),
       portrait: (who, ex, text, sec) => portraits.popIn(who, ex as Parameters<typeof portraits.popIn>[1], text, sec),
@@ -1046,6 +1061,8 @@ export class Game implements HeroWorld {
     installEditor(this); // EXTRAS > ARENA EDITOR custom arenas (systems/editor.ts)
     Assists.installAssists(this, hudRoot);
     this.goTitle();
+    installSteam(this, playerName, Coop2Sys.joinable);
+    installTelemetry(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1709,6 +1726,7 @@ export class Game implements HeroWorld {
     this.setsDash(h);
     if (h.hasRelic('r_dashbomb')) this.blast(p.x, p.z, 2.6, 30 + 8 * this.stage, '#ffb627', 'r_dashbomb', ['explosive'], false, h);
     this.vfx.sound('dash', p.x, p.z);
+    escapeBeat(this, h);
     if (h === this.hero) {
       this.juice.shake(0.05);
       this.input.rumble(0, 0.25, 70);

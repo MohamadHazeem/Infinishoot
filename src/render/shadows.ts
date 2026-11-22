@@ -72,14 +72,15 @@ export class DynamicShadows {
 }
 
 /** Renderer bridge: disabled presets spend no shadow draw calls. */
-export function prepareShadows(renderer: THREE.WebGLRenderer, scene: THREE.Scene): void {
+export function prepareShadows(renderer: THREE.WebGLRenderer, scene: THREE.Scene): boolean {
   const s = states.get(scene);
   renderer.shadowMap.enabled = !!s?.enabled;
   renderer.shadowMap.type = THREE.BasicShadowMap;
   shadowUniforms.uGfxShadow.value.x = 0;
-  if (!s?.enabled) return;
+  if (!s?.enabled) return false;
   const shadow = s.light.shadow;
   shadowUniforms.uGfxShadowMap.value = shadow.map?.depthTexture ?? null;
   shadowUniforms.uGfxShadowMatrix.value = shadow.matrix;
   shadowUniforms.uGfxShadow.value.set(shadow.map ? shadowTuning.strength : 0, shadowTuning.bias, 1 / shadowTuning.mapSize, shadowTuning.normalBias);
+  return shadow.needsUpdate;
 }

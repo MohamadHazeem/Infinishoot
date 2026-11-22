@@ -200,7 +200,11 @@ export class OnboardingUi {
 
   setOffer(on: boolean): void {
     const o = this.root.querySelector<HTMLElement>('#scr-title .ob-offer');
-    if (o) o.hidden = !on;
+    if (o) {
+      o.hidden = !on;
+      // The first title can be covered by consent or story before the player opens Play.
+      if (on) o.dataset.playOffer = '';
+    }
   }
 
   syncSettings(tipsOn: boolean): void {

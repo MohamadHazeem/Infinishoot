@@ -8,3 +8,4 @@ import { teamboard } from './teamboard.js'; // MP lane: weekly co-op team board
 import { ranked } from './ranked.js'; // race lane: RANKED season ladder (/ranked)
 
 export const ROUTES = [ghostRoute, ghostsRoute, lobbies, teamboard, ranked];
+import { telemetryRoute } from './telemetry.js'; ROUTES.push(telemetryRoute);
