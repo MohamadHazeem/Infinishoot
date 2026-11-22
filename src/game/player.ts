@@ -1,3 +1,4 @@
+import { assistedAction } from '../data/modes';
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { resolveCircleVsBoxes, type AABB } from '../world/collision';
@@ -25,7 +26,7 @@ export const playerTuning = {
   dashTrainedLevel: 20,
   dashIframesExtra: 0.06, // invulnerability lingers slightly after the dash
   hurtIframes: 0.7,
-  maxHitFrac: 0.35, // no single hit takes more than this share of max life
+  get maxHitFrac() { return assistedAction ? 0.35 : 0.50; },
   hurtKnockback: 7,
 };
 

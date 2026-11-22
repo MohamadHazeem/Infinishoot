@@ -1,4 +1,13 @@
 export const menusEn = {
+  'difficulty.totem': 'Survive a lethal hit and freeze nearby enemies. Shares one save per run with Phoenix Plume. On Easy and Assist, this totem recharges each stage.',
+  'difficulty.plume': 'Survive a lethal hit at full life with a fire nova (Fire, Explosive). Shares one save per run with Frost Totem. On Easy and Assist, this plume recharges each stage.',
+  'difficulty.assist': "Level-ups heal. Rewind and last stand recharge each stage. Score x1.",
+  'difficulty.normal': "One rewind and one shared Phoenix save per run. No last stand, comeback or level-up heal. Score x1.5.",
+  'difficulty.hard': "Stronger enemies, larger hordes. Score x2.2.",
+  'difficulty.nightmare': "Relentless hordes. Score x3.23.",
+  'difficulty.legend': "Co-op only, above Nightmare. Bonus relic per boss, a gear per clear. Score x4.4.",
+  'difficulty.daily': "Today's seed, Normal difficulty. Same arenas for everyone; beat your best of the day.",
+  'difficulty.spent': "REWIND USED THIS RUN",
   'menus.collection': 'COLLECTION',
   'menus.secondary': 'Secondary',
   'menus.primary': 'Primary',
@@ -60,6 +69,15 @@ export const menusEn = {
 } as const;
 
 export const menusAr: Record<keyof typeof menusEn, string> = {
+  'difficulty.totem': 'تنجو من ضربة قاتلة وتجمّد الأعداء القريبين. يشترك الطوطم مع ريشة العنقاء في فرصة نجاة واحدة لكل جولة. على السهل والمساعدة، يتجدد الطوطم في كل مرحلة.',
+  'difficulty.plume': 'تنجو من ضربة قاتلة بكامل حياتك وتطلق انفجارًا ناريًا (نار، تفجير). تشترك الريشة مع طوطم الصقيع في فرصة نجاة واحدة لكل جولة. على السهل والمساعدة، تتجدد الريشة في كل مرحلة.',
+  'difficulty.assist': "تستعيد حياة عند رفع المستوى. يتجدد إرجاع الزمن والصمود الأخير في كل مرحلة. النقاط ×1.",
+  'difficulty.normal': "لك إرجاع زمني واحد وفرصة نجاة واحدة مشتركة بين تأثيرات العنقاء في الجولة. لا صمود أخير ولا عودة قتالية ولا علاج عند رفع المستوى. النقاط ×1.5.",
+  'difficulty.hard': "أعداء أقوى وحشود أكبر. النقاط ×2.2.",
+  'difficulty.nightmare': "حشود لا تهدأ. النقاط ×3.23.",
+  'difficulty.legend': "للتعاون فقط، أصعب من الكابوس. أثر إضافي لكل زعيم وترس لكل مرحلة تجتازها. النقاط ×4.4.",
+  'difficulty.daily': "بذرة اليوم على الصعوبة العادية. الساحات نفسها للجميع، فحاول تحطيم رقمك اليومي.",
+  'difficulty.spent': "استخدمت إرجاع الزمن في هذه الجولة",
   'menus.collection': 'المجموعة',
   'menus.secondary': 'ثانوي',
   'menus.primary': 'أساسي',

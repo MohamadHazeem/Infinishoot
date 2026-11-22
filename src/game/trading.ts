@@ -153,10 +153,10 @@ export class TradePools {
  * damage, since four heroes revive each other easily.
  */
 export const legendTuning = {
-  hp: [0, 0, 2.6, 2.5, 2.4],
-  dmg: [0, 0, 1.9, 2.0, 2.1],
-  count: [0, 0, 1.45, 1.4, 1.35],
-  score: 3,
+  hp: [0, 0, 3.71, 3.57, 3.43],
+  dmg: [0, 0, 2.34, 2.46, 2.58],
+  count: [0, 0, 1.64, 1.58, 1.53],
+  score: 4.4,
   /** Boss bounty: each hero rolls one more relic per boss, with this much extra luck. */
   relicLuck: 1.5,
   /** Gears given to every hero at each stage clear. */
