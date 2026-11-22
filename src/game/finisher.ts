@@ -13,6 +13,7 @@
  * Reduce flashes / reduced motion: no white flash, no shake or slams, a
  * shorter calm version.
  */
+import { t, localize } from '../i18n';
 import { PORTRAIT, portraitCanvas, type Expression, type PortraitLook } from '../ui/portraitArt';
 
 export const finisherTuning = {
@@ -210,12 +211,14 @@ export class FinisherView {
     this.flashSil = null;
     this.padDown = anyPadButton();
     this.resize();
-    const ko = cast.omega ? 'FINAL K.O.!' : 'K.O.!';
-    this.title.querySelector('.t')!.textContent = ko;
-    this.title.querySelector('.s')!.textContent = cast.omega ? `${cast.bossName.toUpperCase()} FALLS!` : `${cast.bossName.toUpperCase()} DEFEATED!`;
+    // Localized (juice lane review: the panel stayed English in Arabic play).
+    const boss = localize(cast.bossName).toUpperCase();
+    this.title.querySelector('.t')!.textContent = cast.omega ? t('text.final_k_o_e658cc') : t('ui.ko');
+    this.title.querySelector('.s')!.textContent = t(cast.omega ? 'text.falls_d208bb' : 'text.defeated_834b2b', { 0: boss });
     this.title.classList.remove('show');
-    this.capL.textContent = cast.heroName.toUpperCase();
-    this.capR.textContent = cast.bossName.toUpperCase();
+    this.capL.textContent = localize(cast.heroName).toUpperCase();
+    this.capR.textContent = boss;
+    this.root.querySelector('.fin-skip')!.textContent = t('text.skip_a2b998');
     this.capL.style.setProperty('--c', cast.heroColor);
     this.capR.style.setProperty('--c', cast.bossColor);
     this.root.classList.toggle('calm', cast.calm);
