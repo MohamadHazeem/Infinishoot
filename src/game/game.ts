@@ -105,7 +105,7 @@ import { FirstTen } from './systems/firstten';
 import { earlyXpMul } from './firstten';
 import { weaponCue, windupCue } from './systems/sound';
 import { soundLaneStep } from './systems/sound2';
-import { coopPlayStats, coopPlayStep, coopPlayTargets } from './systems/coopplay';
+import { coopPlayState, coopPlayStats, coopPlayStep, coopPlayTargets } from './systems/coopplay';
 import { rightClickHeld } from './chargeMode';
 import * as BiomeFoesSys from './systems/biomeFoes';
 import * as HeroMechsSys from './systems/heroMechs';
@@ -378,6 +378,9 @@ export class Game implements HeroWorld {
     // An abandoned arcade round must not holster the next run's weapons or open its portal.
     this.modes.mg = null;
     this.modes.holster = false;
+    // A forced co-op objective (trials, tests, debug) belongs to one run; clients kept it into the next one and
+    // built a different objective from the host's (Gate 1 co-op check). Trials re-force after this.
+    coopPlayState(this).force = null;
     RunFlowSys.startRun.call(this, fixed);
   };
   restart = RunFlowSys.restart;

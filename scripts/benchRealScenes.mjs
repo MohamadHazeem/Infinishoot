@@ -216,6 +216,6 @@ export async function measureScene(page, base, config, options) {
   } finally {
     page.off('pageerror', onError);
     page.off('console', onConsole);
-    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 }).finally(() => cdp.detach());
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 }).catch(() => {}).finally(() => cdp.detach().catch(() => {}));
   }
 }

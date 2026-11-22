@@ -13,7 +13,9 @@ import { measureDesktop } from './benchRealDesktop.mjs';
 const { values } = parseArgs({
   options: {
     check: { type: 'boolean' },
+    // Headless by default so no window ever comes to the front (user, 22 Nov 2026); --headed only for a manual look.
     headless: { type: 'boolean' },
+    headed: { type: 'boolean' },
     'from-report': { type: 'string' },
     'skip-build': { type: 'boolean' },
     cdp: { type: 'string' },
@@ -57,7 +59,7 @@ async function run() {
       : await chromium.launch({
           executablePath: values.chrome,
           channel: values.chrome ? undefined : 'chromium',
-          headless: !!values.headless,
+          headless: !values.headed,
           ignoreDefaultArgs: ['--enable-unsafe-swiftshader'],
           args: ['--enable-gpu', '--use-angle=metal', '--disable-software-rasterizer'],
         });
@@ -92,12 +94,8 @@ async function run() {
       await server.close();
     }
   }
-  const packaged =
-    values.electron ??
-    [
-      'release/mac-arm64/InfiniShoot.app/Contents/MacOS/InfiniShoot',
-      'release/mac/InfiniShoot.app/Contents/MacOS/InfiniShoot',
-    ].find((p) => existsSync(p));
+  // The packaged app opens a real window, so it is measured only when asked for with --electron <path>.
+  const packaged = values.electron;
   if (packaged) {
     report.desktopRequested = true;
     try {
