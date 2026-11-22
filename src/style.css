@@ -2464,6 +2464,17 @@ h1.ko {
 }
 
 /* ---------------------------------------------------------------- pause info */
+.card.passive .pi-t {
+  color: var(--night);
+  letter-spacing: 0;
+}
+.pause-info .build-totals {
+  align-content: start;
+  min-width: 0;
+  padding: calc(2 * var(--p)) calc(3 * var(--p));
+  background: var(--ink);
+}
+
 .pause-info {
   display: flex;
   gap: 28px;

@@ -17,6 +17,14 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "ceiling.baseRank": "Base per rank: ⟪effect⟫",
+  "ceiling.lifePercent": "% MAX LIFE / KILL",
+  "ceiling.cooldownCut": "WEAPON COOLDOWN REDUCTION",
+  "ceiling.lastHit": "MOD MULTIPLIER ON LAST HIT",
+  "ceiling.buildStats": "EFFECTIVE BUILD STATS",
+  "ceiling.killLimit": "MAX LIFE FROM KILLS / S",
+  "ceiling.overdrive": "+⟪0⟫% base damage · rank ⟪1⟫/⟪2⟫",
+  "ceiling.momentum": "x⟪0⟫ more damage for each level gained after buying this (max x⟪1⟫, 8 levels).",
   "playtest.share": "SHARE PLAYTEST DATA",
   "playtest.explain": "Help us tune InfiniShoot? Share anonymous run results, upgrade choices, hits, frame times, device type and language under a random install ID. You can change this or delete your data in Settings → Gameplay.",
   "playtest.no": "NO",

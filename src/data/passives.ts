@@ -1,6 +1,90 @@
 import type { Stats } from '../game/stats';
 import type { Rarity } from './rarity';
 
+/** Raw bonuses keep their full value through the knee. The rational tail has
+ * unit slope at the join and approaches the limit without reaching it. */
+export function softBonus(raw: number, knee: number, limit: number): number {
+  if (raw <= knee) return raw;
+  const room = limit - knee;
+  return knee + room * (raw - knee) / (room + raw - knee);
+}
+
+/** Extend an already-curved bonus (nearby teammates or a conditional Mod).
+ * Invert once, so the existing build never takes the same penalty twice. */
+export function rawBonus(effective: number, knee: number, limit: number): number {
+  if (effective <= knee) return effective;
+  const room = limit - knee;
+  return knee + room * (effective - knee) / (limit - effective);
+}
+
+export function addAuraBonus(effective: number, extra: number, knee: number, limit: number): number {
+  if (!extra || effective >= limit) return effective;
+  return softBonus(rawBonus(effective, knee, limit) + extra, knee, limit);
+}
+
+export const curvedStats: readonly (keyof Stats)[] = [
+  'damageMul', 'chargeDmg', 'cooldownMul', 'chargeSpeed', 'critChance', 'critMult',
+  'areaMul', 'specialCooldownMul', 'dashCooldownMul', 'armor', 'moveSpeedMul', 'killHeal',
+];
+
+/** Permanent build bonuses only. Timed skill rewards retain their duration and strength. */
+export function applyBuildCurves(s: Stats, modDamage: number, modCooldown: number, chargeBoost = 0): void {
+  s.damageMul = modDamage * (1 + softBonus(s.damageMul / modDamage - 1, 0.30, 0.85));
+  s.chargeDmg = 1 + softBonus(s.chargeDmg - 1, 0.60, 1.30);
+  // A single cursed Mod still delivers its advertised tradeoff.
+  s.cooldownMul = 1 - softBonus(1 - s.cooldownMul, Math.max(0.24, 1 - modCooldown), 0.70);
+  s.chargeSpeed = 1 + softBonus(s.chargeSpeed * (1 + chargeBoost) - 1, chargeBoost ? 0.50 : 0.45, 1.10);
+  s.critChance = 0.05 + softBonus(s.critChance - 0.05, 0.24, 0.65);
+  s.critMult = 2 + softBonus(s.critMult - 2, 0.90, 2.10);
+  s.areaMul = 1 + softBonus(s.areaMul - 1, 0.30, 0.75);
+  s.specialCooldownMul = 1 - softBonus(1 - s.specialCooldownMul, 0.36, 0.55);
+  s.dashCooldownMul = 1 - softBonus(1 - s.dashCooldownMul, 0.30, 0.50);
+  s.killHeal = softBonus(s.killHeal, 0.15, 0.24);
+  s.armor = softBonus(s.armor, 3, 8);
+  s.moveSpeedMul = 1 + softBonus(s.moveSpeedMul - 1, 0.24, 0.65);
+}
+
+export const killHealLimit = (maxHp: number): number => Math.min(3, maxHp * 0.03);
+
+/** One second of actual kill recovery per hero. Same-step kills share a
+ * timestamp. If finely spaced events fill the ring, merge at the later time. */
+export class KillHealWindow {
+  private times = new Float64Array(64);
+  private gains = new Float64Array(64);
+  private head = 0;
+  private size = 0;
+  private total = 0;
+  private last = -1;
+
+  reset(): void {
+    this.head = this.size = this.total = 0;
+    this.last = -1;
+  }
+
+  grant(now: number, amount: number, maxHp: number): number {
+    if (now < this.last) this.reset();
+    this.last = now;
+    const capacity = this.times.length;
+    while (this.size && now - this.times[this.head] >= 1) {
+      this.total -= this.gains[this.head];
+      this.head = (this.head + 1) % capacity;
+      this.size--;
+    }
+    if (!this.size) this.total = 0;
+    const gain = Math.min(amount, Math.max(0, killHealLimit(maxHp) - this.total));
+    if (gain <= 0) return 0;
+    let tail = (this.head + this.size - 1 + capacity) % capacity;
+    if (this.size < capacity && (!this.size || this.times[tail] !== now)) {
+      tail = (this.head + this.size++) % capacity;
+      this.gains[tail] = 0;
+    }
+    this.times[tail] = now;
+    this.gains[tail] += gain;
+    this.total += gain;
+    return gain;
+  }
+}
+
 /** Passive items: simple stat boosts, 5 levels each. `add` is applied once per level. */
 export interface PassiveDef {
   id: string;

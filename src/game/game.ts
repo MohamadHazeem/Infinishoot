@@ -33,6 +33,8 @@ import type { Tag } from '../data/tags';
 import { SPECIALS } from '../data/specials';
 import { WEAPONS } from '../data/weapons';
 import { type Loadout } from '../data/loadout';
+import { addAuraBonus } from '../data/passives';
+import { Synergy } from './synergy';
 import { passiveTuning } from './stats';
 import { isSpecialRunning, updateSpecials, type SpecialApi } from './specials';
 import { NetClient, NetHost } from '../net/peer';
@@ -466,7 +468,15 @@ export class Game implements HeroWorld {
   zap = StatusesSys.zap;
   updateStatuses = StatusesSys.updateStatuses;
   sourceName = StatusesSys.sourceName;
-  killEnemy = StatusesSys.killEnemy;
+  private killDepth = 0;
+  killEnemy(e: Enemy, source: string, by: Hero | null): void {
+    this.killDepth++;
+    try {
+      StatusesSys.killEnemy.call(this, e, source, by);
+    } finally {
+      this.killDepth--;
+    }
+  }
   blast = StatusesSys.blast;
   explodeBarrel = StatusesSys.explodeBarrel;
   removeBarrelCollider = StatusesSys.removeBarrelCollider;
@@ -508,13 +518,21 @@ export class Game implements HeroWorld {
   onHostMessage = NetHostSys.onHostMessage;
   onClientLeft = NetHostSys.onClientLeft;
   hostTick = NetHostSys.hostTick;
-  buildSnapshot = NetHostSys.buildSnapshot;
+  buildSnapshot: typeof NetHostSys.buildSnapshot = (h, events, view) => {
+    const snap = NetHostSys.buildSnapshot.call(this, h, events, view);
+    if (!view && h.synergy.slots.length && h.synergy.lastModHit !== null)
+      snap.modHit = Math.round(h.synergy.lastModHit * 100);
+    return snap;
+  };
   onClientMessage = NetClientSys.onClientMessage;
   shopFromNet = NetClientSys.shopFromNet;
   clientStart = NetClientSys.clientStart;
   clientStage = NetClientSys.clientStage;
   clientUpdate = NetClientSys.clientUpdate;
-  applySnapshot = NetClientSys.applySnapshot;
+  applySnapshot(m: Record<string, unknown>): void {
+    NetClientSys.applySnapshot.call(this, m);
+    this.hero.synergy.lastModHit = typeof m.modHit === 'number' ? m.modHit / 100 : null;
+  }
   syncWeapons = NetClientSys.syncWeapons;
   eliteTrails = RenderSys.eliteTrails;
   spectateTarget = RenderSys.spectateTarget;
@@ -993,6 +1011,13 @@ export class Game implements HeroWorld {
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {
+      lastModHit: () => this.hero.synergy.lastModHit,
+      buildStats: (mods) => {
+        const h = this.hero;
+        if (this.role !== 'client') return h.statsWithPassives(h.passives);
+        const syn = Synergy.sandbox(mods.map((m) => ({ ...m, st: { n: 0, t: 0 }, paid: 0 })), h);
+        return h.statsWithPassives(h.passives, syn);
+      },
       start: () => this.startSolo(),
       loadoutChanged: () => this.onLoadoutChanged(),
       resume: () => this.resume(),
@@ -1119,6 +1144,12 @@ export class Game implements HeroWorld {
 
   makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet, heroId = localHero()): Hero {
     const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, (metaSkin(skin) ?? skinOf(skin)), pet, heroId);
+    // All kill rewards (including shared healing and nested explosions) go
+    // through this hero's own budget. Pickups and regeneration run outside it.
+    const heal = h.player.heal.bind(h.player);
+    h.player.heal = (amount) => heal(this.killDepth && amount > 0
+      ? h.synergy.killHealing.grant(this.runTime, Math.min(amount, h.player.maxHp - h.player.hp), h.player.maxHp)
+      : amount);
     h.player.setSkin(h.skin.armor, h.skin);
     return h;
   }
@@ -1683,14 +1714,19 @@ export class Game implements HeroWorld {
   /** Co-op items worn by teammates near h: Rally Banner, Medic Link, Bond of Steel. */
   applyTeamAuras(h: Hero, dt: number): void {
     let near = 0;
+    let rally = 0;
     for (const o of this.heroes) {
       if (o === h || o.left || o.player.dead) continue;
       if (Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) > passiveTuning.teamRadius) continue;
       near++;
-      h.stats.damageMul += o.stats.teamDmgAura;
+      rally += o.stats.teamDmgAura;
       if (o.stats.teamHeal > 0) h.player.heal(o.stats.teamHeal * dt);
     }
-    if (near > 0) h.stats.armor += h.stats.nearMateArmor;
+    if (rally) {
+      const mod = h.synergy.staticDamageMul;
+      h.stats.damageMul = mod * (1 + addAuraBonus(h.stats.damageMul / mod - 1, rally / mod, 0.30, 0.85));
+    }
+    if (near > 0) h.stats.armor = addAuraBonus(h.stats.armor, h.stats.nearMateArmor, 3, 8);
   }
 
   updateTransition(): void {

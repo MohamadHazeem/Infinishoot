@@ -6,7 +6,7 @@ import type { Tag } from './tags';
  * of one ladder of levels, an item has a few tracks of ranks; each rank adds
  * to the item's base params (its `levels[0].p`). After `evoAt` ranks you pick
  * one of two evolutions, which changes the look and behaviour (weapon classes
- * read `evoId`). Once everything is maxed, Overdrive ranks repeat forever.
+ * read `evoId`). Once everything is maxed, Overdrive has a final, capped ladder.
  */
 export interface TrackRank {
   text: string;
@@ -47,8 +47,25 @@ export interface Build {
 }
 
 export const trackTuning = {
-  overdrive: 0.08, // damage per Overdrive rank
+  overdrive: 0.08,
+  overdriveMax: 8,
 };
+
+function overdriveRanks(n: number): number {
+  return Number.isFinite(n) ? Math.min(trackTuning.overdriveMax, Math.max(0, Math.floor(n))) : 0;
+}
+
+export function overdriveStep(rank: number): number {
+  if (rank < 1 || rank > trackTuning.overdriveMax) return 0;
+  return Math.max(0.02, trackTuning.overdrive - 0.01 * (rank - 1));
+}
+
+export function overdriveBonus(ranks: number): number {
+  let bonus = 0;
+  const n = overdriveRanks(ranks);
+  for (let rank = 1; rank <= n; rank++) bonus += overdriveStep(rank);
+  return bonus;
+}
 
 /** Card rarity of a track's rank (0-based): later ranks are rarer, evolutions legendary. */
 export const RANK_RARITY: Rarity[] = ['common', 'common', 'uncommon', 'rare'];
@@ -57,7 +74,15 @@ export const RANK_RARITY: Rarity[] = ['common', 'common', 'uncommon', 'rare'];
 const DAMAGE_KEYS = ['dmg', 'dps'];
 
 export function newBuild(def: Upgradable): Build {
-  return { ranks: (def.tracks ?? []).map(() => 0), evo: -1, od: 0 };
+  // Both Weapon.overdrive() and special picks increment this same field.
+  // Keep it enumerable so existing build keys, object spreads and JSON agree.
+  let od = 0;
+  return {
+    ranks: (def.tracks ?? []).map(() => 0),
+    evo: -1,
+    get od() { return od; },
+    set od(value: number) { od = overdriveRanks(value); },
+  };
 }
 
 export function totalRanks(b: Build): number {
@@ -88,13 +113,16 @@ export function buildParams(base: Record<string, number>, def: Upgradable, b: Bu
     for (const [k, v] of Object.entries(evo.p ?? {})) p[k] = (p[k] ?? 0) + v;
     for (const [k, v] of Object.entries(evo.mul ?? {})) p[k] = (p[k] ?? 0) * v;
   }
-  if (b.od) for (const k of DAMAGE_KEYS) if (k in p) p[k] *= 1 + trackTuning.overdrive * b.od;
+  if (b.od) {
+    const factor = 1 + overdriveBonus(b.od);
+    for (const k of DAMAGE_KEYS) if (k in p) p[k] *= factor;
+  }
   return p;
 }
 
 /** Compact form for the network: "evo:r1,r2,r3:od". */
 export function buildKey(b: Build): string {
-  return `${b.evo}:${b.ranks.join(',')}:${b.od}`;
+  return `${b.evo}:${b.ranks.join(',')}:${overdriveRanks(b.od)}`;
 }
 
 export function parseBuild(key: string, def: Upgradable): Build {
@@ -104,6 +132,6 @@ export function parseBuild(key: string, def: Upgradable): Build {
   b.ranks = b.ranks.map((_, i) => rs[i] || 0);
   b.evo = Number(evo);
   if (!Number.isFinite(b.evo)) b.evo = -1;
-  b.od = Number(od) || 0;
+  b.od = Number(od);
   return b;
 }
