@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Input } from '../core/input';
 import { cheats, type Game } from '../game/game';
+import { createSkillRun } from './skillBot';
 import { Autopilot } from '../game/autopilot';
 
 /**
@@ -175,5 +176,6 @@ export function installBot(game: Game, input: Input): void {
     };
   };
 
+  Object.assign(window, { skillRun: createSkillRun(game, input) });
   Object.assign(window, { botStep: step, botRun: run, botAuto: auto });
 }
