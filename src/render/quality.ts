@@ -1,3 +1,5 @@
+import { displayState } from '../platform/display';
+
 /**
  * Graphics quality ladder and the auto-quality governor.
  *
@@ -68,6 +70,8 @@ export const governorTuning = {
   /** Frames slower than this count as stutters; too many make a window bad. */
   slowMs: 26,
   slowFrac: 0.2,
+  /** Reserve the last 2.7 ms of a 60 Hz frame for browser/compositor work. */
+  busyMs: 14,
   /** Consecutive bad windows before stepping down. */
   downWindows: 3,
   /** A window averaging faster than this (with almost no stutters) counts as good. 60 Hz vsync is 16.7 ms. */
@@ -88,6 +92,13 @@ export const governorTuning = {
   /** Frames longer than this are hitches (tab switch, GC, loading) and ignored. */
   ignoreMs: 200,
 };
+
+// Called after GL submission, outside the replay clock. The animation timeline
+// uses the rAF timestamp, so this includes late dispatch, simulation and rendering.
+function frameWorkMs(): number {
+  const start = typeof document !== 'undefined' ? document.timeline?.currentTime : null;
+  return typeof start === 'number' ? (performance.now() - start) * (displayState.cap === 30 ? 0.5 : 1) : 0;
+}
 
 /**
  * Steps quality down when frames are slow and back up after a long calm, with
@@ -120,8 +131,8 @@ export class QualityGovernor {
     this.backoff = new Array(max + 1).fill(t.backoff);
   }
 
-  /** Feed one frame time (seconds). Returns the new rung when it changes, else -1. */
-  sample(dt: number): number {
+  /** Feed a frame interval (seconds) and optionally its elapsed work (ms, normalized to 60 Hz). Returns the new rung when it changes, else -1. */
+  sample(dt: number, workMs = frameWorkMs()): number {
     const t = this.t;
     this.clock += dt;
     if (this.cool > 0) {
@@ -132,7 +143,7 @@ export class QualityGovernor {
     if (ms > t.ignoreMs || ms <= 0) return -1;
     this.acc += ms;
     this.n++;
-    if (ms > t.slowMs) this.slow++;
+    if (ms > t.slowMs || (workMs >= t.busyMs && workMs <= t.ignoreMs)) this.slow++;
     this.winT += dt;
     if (this.winT < t.window) return -1;
 
