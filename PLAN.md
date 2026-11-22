@@ -207,6 +207,15 @@ Built overnight by about 60 parallel lanes (Codex, a second Claude account and C
 - [x] Platform and tools: desktop video options and update notice, lazy-loaded tools and audio (faster start), shareable highlight clips, JSON mod packs, run replays with checksums, visual baselines, balance sweep, fuzzer and soak tests, `npm run coop4` / `coop8` / `migrate`, and one-command server deploy (docs/ONLINE.md)
 - [ ] Play-test by people (nothing above was played by a person), 8 real players online, the online server deployed on a Cloudflare account, real-GPU check of shadows and clips, balance of the new heroes, sets and Architect
 
+## Gate 1: Players in hands (built, v2.1.0 candidate)
+The first of the 10 gates agreed on 2026-11-20 (the game must feel hard; gameplay, graphics and innovation first). Five lanes in worktrees (Codex, plus the second Claude until its weekly limit), reviewed and merged one at a time into the `gate1` branch:
+- [x] Steam-ready desktop build: 125 achievements mapped to Steam, rich presence and friends join (cold launch; invite codes always), Steam Cloud, Deck prompts, SteamPipe scripts and a store kit (docs/STEAM.md)
+- [x] Playtest telemetry: opt-in consent (leaving the screen means no), anonymous install id, per-run summary, DELETE MY DATA, REPORT A PROBLEM on pause and game over (replay and screenshot, saved to a file offline), a D1 route on the Worker and a static dashboard (tools/playtest-dashboard)
+- [x] Juice: per-weapon kick and hit-stop, hit flinch by weight, rising streak pitch, level-up / evolution / boss-kill beats, low-life escape cue
+- [x] Menu rework: four-choice title, two presses to a fight, one run-setup screen, six settings tabs with ADVANCED sections, a short pause menu; every feature still within three presses
+- [x] Real-GPU performance: `npm run bench:real` with an enforced budget (notes/perf/BUDGET.md), batched hero shadows, earlier AUTO quality step-down
+- [ ] Online server deployed (needs the owner's Cloudflare sign-in), Steam app and store art, code-signing certificates, play-testing by people
+
 ## Proposed folder structure
 ```
 src/
@@ -440,3 +449,11 @@ The actual stage-12 Omega clear now opens a three-phase Architect encounter in S
   - Forced co-op objectives (trials, debug) reach clients in the snapshot (`f`), so clients build them at the next stage load too (the final `npm run coop` caught a door/escort mismatch at stage 2). Short desktop windows (500-719 px tall, e.g. 960x540) shrink the UI by height down to 75%, so level-up cards keep their ribbons on screen and the boss banner clears the top row; the 20 visual baselines were refreshed (reviewed) for that and the menu changes.
   - Checks on the merged branch: typecheck, build, 122 unit test files, smoke, visual, balance, coop4, coop8 and host migration (3 in a row) pass.
   - Still open: play-testing by people, phones checked only in headless Chromium, the 4-player stress test's lagged client once showed the portal while the host was already in the transition (under load).
+
+- 2026-11-22: Gate 1 (user: "Agreed on all 10 gates, start Gate 1", plus a simpler menu). Review decisions worth keeping:
+  - Steam: the lane picked an unofficial fork of steamworks.js published days earlier; replaced with the official 0.4.0 package (native code ships inside the game, so supply chain wins over features). Callbacks are feature-detected, so a friend's Join works on a cold launch only.
+  - Telemetry: the Worker accepted reports from 2.0.1 only; it now accepts any x.y.z release (the schema checks the shape). Telemetry lives in D1, not KV; the dashboard keeps its admin token in session storage only.
+  - Menus: button labels were mixed case next to existing caps; all menu buttons are caps again. The lane's intermittent smoke failure was a leftover arcade mini-game opening the next run's portal, already fixed by the juice lane's `startRun` reset.
+  - Juice: frame CPU 2.41 -> 2.59 ms in the stress capture; the boss finisher panel (K.O., DEFEATED, names, SKIP) is now localized.
+  - Performance (Apple M5 Pro, Metal): 60 fps in all 48 unthrottled cases (worst p99 16.8 ms), all 12 throttled LOW cases above 30 fps; cold title 1.50 MB, ready in 1.0 s on broadband.
+  - The co-op test's vault scenario failed once and passed on re-run (timing); known flaky like the turret scenario was.
