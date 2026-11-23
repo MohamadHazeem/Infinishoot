@@ -604,11 +604,13 @@ export class Hero implements SynergyHost {
         cands.push({ kind: 'overdrive', id: evoIconId(def.iconBase, b.evo), pick: `${ref}|od`, name: 'Overdrive', icon: def.icon, color, tag: `OVERDRIVE ${b.od + 1}`, text, rarity: 'uncommon', label, slot, w: 1.2 * upgrade('uncommon') });
         return;
       }
+      // The default primary's three tracks share one family weight in the hand.
+      const rankWeight = ref === 'buster' ? 4 / 3 : 4;
       (def.tracks ?? []).forEach((t, k) => {
         const r = b.ranks[k];
         if (r >= t.ranks.length) return;
         const rarity = RANK_RARITY[Math.min(r, RANK_RARITY.length - 1)];
-        cands.push({ kind: 'track', id: evoIconId(def.iconBase, b.evo), pick: `${ref}|t|${k}`, name: t.name, icon: def.icon, color, tag: `RANK ${r + 1}`, text: t.ranks[r].text, rarity, level: r, maxLevel: t.ranks.length, label, slot, w: 4 * upgrade(rarity) });
+        cands.push({ kind: 'track', id: evoIconId(def.iconBase, b.evo), pick: `${ref}|t|${k}`, name: t.name, icon: def.icon, color, tag: `RANK ${r + 1}`, text: t.ranks[r].text, rarity, level: r, maxLevel: t.ranks.length, label, slot, w: rankWeight * upgrade(rarity) });
       });
     };
     for (const w of this.weapons) {
@@ -631,6 +633,8 @@ export class Hero implements SynergyHost {
     }
     // New auto weapons, while slots are free. Loadout weapons are picked before the run.
     const autoCount = this.weapons.filter((w) => !w.def.slot).length;
+    // New auto cards compete at full weight in an empty kit, a quarter weight for its last slot.
+    const newAutoShare = (MAX_WEAPONS - autoCount) / MAX_WEAPONS;
     for (const id of this.unlocked) {
       if (id === 'crafted') continue;
       const d = WEAPONS[id];
@@ -640,6 +644,7 @@ export class Hero implements SynergyHost {
       const made = WEAPON_COMBOS.filter((c) => c.weapons.includes(id) && owned.includes(c.weapons[0] === id ? c.weapons[1] : c.weapons[0]));
       const hint = made.length ? ` COMBO: ${made.map((c) => c.name).join(', ')}!` : '';
       cands.push({ kind: 'weapon', id, name: d.name, icon: d.icon, color: d.color, tag: 'NEW!', text: d.desc + hint, tags: d.tags, rarity: d.rarity, slot: 'auto', partner: this.partnerOf(id), w: (made.length ? 3.2 : 2.4) * fresh(d.rarity) });
+      cands[cands.length - 1].w *= newAutoShare;
     }
     // The special: its tracks, or its next level.
     const sp = this.specialDef;

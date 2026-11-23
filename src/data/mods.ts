@@ -550,7 +550,7 @@ export const MODS: ModDef[] = [
     icon: '☢',
     color: '#ffd23f',
     rarity: 'common',
-    price: 5,
+    price: 7,
     maxLevel: 3,
     desc: (n) => `Every ${8 - 2 * (n - 1)}th left-click shot is a MEGA shot: x4 damage, huge, pierces 5.`,
     synergy: ['projectile'],
