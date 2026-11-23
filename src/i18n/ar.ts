@@ -18,6 +18,11 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  'renderer.label': 'محرّك الرسم',
+  'renderer.help': 'أعد التشغيل لتطبيق التغيير. يستخدم الوضع التلقائي ويب جي إل ٢، وهو الأسرع حالياً. ويب جي بي يو اختياري، ويعود إلى ويب جي إل ٢ عند تعذّره.',
+  'renderer.active': 'محرّك الرسم الحالي: ⟪backend⟫',
+  'renderer.gpu': 'ويب جي بي يو',
+  'renderer.gl': 'ويب جي إل',
   ...craftAr,
   "armour.plated": "مصفّح",
   "armour.ethereal": "طيفي",

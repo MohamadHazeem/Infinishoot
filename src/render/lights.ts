@@ -1,3 +1,5 @@
+import { cluster, clusterAvailable, publishCluster } from './lightCluster';
+import { renderQuality } from './quality';
 /**
  * Dynamic point lights for the retro material.
  *
@@ -72,6 +74,7 @@ export class LightPicker {
   private fLife = new Float32Array(FLASH_CAP);
   flashCount = 0;
 
+  private clustered = false;
   private cx = 0;
   private cz = 0;
   private view = 30;
@@ -81,6 +84,9 @@ export class LightPicker {
 
   /** Start a frame: rank lights by distance to (cx, cz). */
   begin(cx: number, cz: number, view = lightTuning.viewRadius, cell = lightTuning.cell): void {
+    this.clustered = renderQuality.level >= 3 && clusterAvailable();
+    if (this.clustered) cluster.begin(cx, cz, view);
+    else cluster.transform.w = 0;
     this.n = 0;
     this.cx = cx;
     this.cz = cz;
@@ -96,6 +102,7 @@ export class LightPicker {
    * the score so must-have lights (hero lanterns) always win a slot.
    */
   add(x: number, y: number, z: number, radius: number, r: number, g: number, b: number, intensity: number, priority = 0): void {
+    if (this.clustered) cluster.offer(x, y, z, radius, r, g, b, intensity, priority);
     if (intensity <= 0.001 || radius <= 0) return;
     const dx = x - this.cx;
     const dz = z - this.cz;
@@ -123,6 +130,7 @@ export class LightPicker {
 
   /** Offer a small emitter; small emitters in one grid cell merge into one light. */
   addSmall(x: number, y: number, z: number, radius: number, r: number, g: number, b: number, intensity: number): void {
+    if (this.clustered) cluster.offer(x, y, z, radius, r, g, b, intensity);
     const gx = Math.floor((x - this.ox) / this.cell);
     const gz = Math.floor((z - this.oz) / this.cell);
     if (gx < 0 || gz < 0 || gx >= GRID || gz >= GRID || intensity <= 0) return;
@@ -195,6 +203,10 @@ export class LightPicker {
    * into the packed uniform arrays. Returns how many were written.
    */
   pick(max: number, pos: Float32Array, col: Float32Array, scale = 1): number {
+    if (this.clustered) {
+      publishCluster(scale);
+      this.clustered = false; // the legacy grid below remains available to fog and water
+    }
     if (max <= 0) return 0;
     // Grid cells become candidates first.
     for (let c = 0; c < GRID * GRID; c++) {

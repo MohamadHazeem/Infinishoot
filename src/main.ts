@@ -25,7 +25,7 @@ import { prof } from './core/prof';
 import type { PhotoMode } from './ui/photoMode';
 
 performance.mark('infinishoot:modules');
-const canvas = document.getElementById('game') as HTMLCanvasElement;
+const gameCanvas = document.getElementById('game') as HTMLCanvasElement;
 const hudEl = document.getElementById('hud')!;
 const statsEl = document.getElementById('stats')!;
 const reticleEl = document.getElementById('reticle')!;
@@ -37,7 +37,9 @@ const modPreview = modQuery.has('test') && modQuery.has('modexample')
   : undefined;
 await mods.initialize(modPreview);
 applySettings();
-const renderer = new RetroRenderer(canvas);
+const renderer = await RetroRenderer.create(gameCanvas, settings.renderer);
+const canvas = renderer.gl.domElement;
+if (modQuery.has('test') && modQuery.has('bench')) Object.assign(window, { __renderer: renderer });
 performance.mark('infinishoot:renderer');
 renderer.gl.setClearColor(retroGlobals.uFogColor.value);
 
@@ -155,7 +157,7 @@ const loop = new GameLoop({
     if (prof.on) {
       const t2 = performance.now();
       const info = renderer.gl.info.render;
-      prof.frames.push([profUpdate, t1 - t0, t2 - t1, frameDt * 1000, profSteps, info.calls, info.triangles]);
+      prof.frames.push([profUpdate, t1 - t0, t2 - t1, frameDt * 1000, profSteps, renderer.draws, info.triangles]);
       profUpdate = profSteps = 0;
     }
     // Auto quality: measured while actually playing (menus and pauses don't count).
@@ -170,7 +172,7 @@ const loop = new GameLoop({
         const info = renderer.gl.info.render;
         statsEl.textContent =
           `FPS ${Math.round(fpsFrames / fpsAcc)}\n` +
-          `draws ${info.calls}  tris ${info.triangles}\n` +
+          `draws ${renderer.draws}  tris ${info.triangles}\n` +
           `enemies ${game.enemies.activeCount}  bullets ${game.bullets.count}\n` +
           `quality ${renderQuality.name}${renderQuality.auto ? ' (auto)' : ''}  ${renderer.height.value}p`;
       }

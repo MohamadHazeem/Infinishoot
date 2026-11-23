@@ -1,6 +1,6 @@
 // Wall time and frame counters are independent so a stalled sample cannot pass
 // by reporting a few perfectly spaced frames at one end of the window.
-import { hardware, matrix, scenes } from './benchRealScenes.mjs';
+import { hardware, matrix, rendererStress, scenes } from './benchRealScenes.mjs';
 export function sceneFailures(r) {
   const issues = [];
   const require = (condition, label) => {
@@ -22,10 +22,15 @@ export function sceneFailures(r) {
   if (r.gpuExtension) require(r.gpu?.p95 <= 12, 'GPU p95');
   require(r.calls?.p95 <= 420 && r.triangles?.p95 <= 650000, 'draw budget');
   require(r.heapBytes?.end <= 240 * 1048576, 'JS heap');
+  if (r.scene === 'lights') {
+    require(r.activeBackend === (r.backend === 'webgpu' ? 'WebGPU' : 'WebGL2'), 'requested backend');
+    require(r.friendly?.median >= 1000 && r.localLights?.median >= 1000, 'friendly projectiles and local lights');
+  }
   if (r.scene !== 'titan') {
-    require(r.enemies?.median >= (r.scene === 'double' ? 300 : 150), 'enemy population');
-    const target = r.scene === 'double' ? 1000 : 500;
-    require(r.bullets?.median >= target * 0.95 && r.bullets?.max >= target, 'projectile population');
+    require(r.enemies?.median >= (['double', 'lights'].includes(r.scene) ? 300 : 150), 'enemy population');
+    const target = ['double', 'lights'].includes(r.scene) ? 1000 : 500;
+    const minimum = r.scene === 'lights' ? target : target * 0.95;
+    require(r.bullets?.median >= minimum && r.bullets?.max >= target, 'projectile population');
   }
   if (r.scene === 'team') require(r.heroes?.min === 4, 'four heroes');
   if (['titan', 'boss'].includes(r.scene))
@@ -47,6 +52,8 @@ export function gate(report) {
   for (const cfg of matrix()) {
     if (!report.rows.some((r) => key(r) === key(cfg))) failures.push(key(cfg) + ': missing');
   }
+  if (report.rendererGate) for (const cfg of rendererStress)
+    if (!report.extendedRows?.some(r => key(r) === key(cfg) && r.backend === cfg.backend)) failures.push(cfg.backend + '/lights: missing');
   if (report.desktopRequested) {
     for (const scene of Object.keys(scenes)) {
       if (!report.desktop?.rows?.some((r) => r.scene === scene)) failures.push('Electron/' + scene + ': missing');

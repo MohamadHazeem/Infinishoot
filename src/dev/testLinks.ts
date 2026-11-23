@@ -496,6 +496,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const threat = ({pool: Zone.Pool, mine: Zone.Mine, wall: Zone.Wall, ring: Zone.Ring} as const)[q.get('threats') as 'pool' | 'mine' | 'wall' | 'ring'];
   if (typeof threat === 'number') setTimeout(() => previewThreats(game, threat, q.has('threathold')), 2200);
   architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
+  // Combat profilers and the crafting preview both historically use &bench.
+  if (q.has('bench') && q.has('circle')) q.delete('bench');
   craftLink(game, q);
   return true;
 }
@@ -582,19 +584,29 @@ function animLinks(game: Game, q: URLSearchParams): void {
   }
   if (q.get('bullets')) {
     // bullets=500: keep that many enemy bullets in flight (spirals around the hero; god mode recommended).
+    const litShots = q.has('litshots');
     const want = Math.min(2000, Number(q.get('bullets')) || 300);
     let k = 0;
     setInterval(() => {
       if (game.paused || !game.isCombatMode) return;
       const p = game.hero.player;
-      for (let i = game.bullets.count; i < want; i++, k++) {
+      let present = game.bullets.count;
+      if (litShots) {
+        for (let i = 0; i < game.bullets.count; i++) if (game.bullets.team[i] !== Team.Player) present--;
+      }
+      for (let i = present; i < want; i++, k++) {
         const a = k * 2.399;
         const r = 6 + (k % 11);
         const x = p.x + Math.cos(a) * r;
         const z = p.z + Math.sin(a) * r;
+        if (litShots) {
+          game.bullets.spawn({ x, z, dirX: -Math.sin(a), dirZ: Math.cos(a), speed: 5, life: 2.5, radius: 0.1, pierce: 3,
+            damage: 1, knockback: 0, team: Team.Player, color: k % 2 ? '#7df9ff' : '#ffcd75', width: 0.5, length: 0.5 });
+          continue;
+        }
         game.bullets.spawn({ x, z, dirX: -Math.sin(a), dirZ: Math.cos(a), speed: 5, life: 2.5, radius: 0.26, damage: 1, knockback: 0, team: Team.Enemy, color: '#ff3df0', width: 0.5, length: 0.5 });
       }
-    }, 100);
+    }, litShots ? 32 : 100);
   }
   if (q.has('frozen')) for (const e of game.enemies.list) e.speedMul = 0;
   const later = (k: string, fn: () => void) => {

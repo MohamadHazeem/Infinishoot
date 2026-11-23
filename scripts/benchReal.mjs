@@ -5,7 +5,7 @@ import { arch, release, type } from 'node:os';
 import { chromium } from 'playwright-core';
 import { build, preview } from 'vite';
 import { gate, sceneFailures } from './benchRealBudget.mjs';
-import { matrix, measureScene, hardware } from './benchRealScenes.mjs';
+import { matrix, rendererStress, measureScene, hardware } from './benchRealScenes.mjs';
 import { measureLoad, networks } from './benchRealLoad.mjs';
 import { writeReport } from './benchRealReport.mjs';
 import { measureDesktop } from './benchRealDesktop.mjs';
@@ -50,6 +50,8 @@ async function run() {
     seconds: options.seconds,
     warmup: options.warmup,
     rows: [],
+    extendedRows: [],
+    rendererGate: 1,
     loads: [],
   };
   let browser;
@@ -64,18 +66,18 @@ async function run() {
           args: ['--enable-gpu', '--use-angle=metal', '--disable-software-rasterizer'],
         });
     report.browser = browser.version();
-    for (const config of matrix()) {
+    for (const config of [...matrix(), ...rendererStress]) {
       const ctx = await browser.newContext({ serviceWorkers: 'block' });
       try {
         const page = await ctx.newPage();
         const row = await measureScene(page, base, config, options);
         if (!hardware(row.renderer)) throw Error('Metal required. Observed ' + row.renderer);
-        report.rows.push(row);
+        (config.scene === 'lights' ? report.extendedRows : report.rows).push(row);
         console.log(
           config.size,
           config.preset,
           config.rate + 'x',
-          config.scene,
+          config.backend ?? 'webgl', config.scene,
           row.fps.toFixed(1) + ' fps',
           sceneFailures(row).join(', '),
         );

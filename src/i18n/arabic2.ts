@@ -2,6 +2,11 @@ import { craftEn } from './g5craft';
 /** New Arabic-lane base copy. Other locales deliberately retain English until translated. */
 export const arabic2En = {
   ...craftEn,
+  'renderer.label': 'RENDERER',
+  'renderer.help': 'Restart to apply. Auto uses WebGL2, the faster path today. WebGPU is optional and falls back to WebGL2.',
+  'renderer.active': 'Active renderer: ⟪backend⟫',
+  'renderer.gpu': 'WEBGPU',
+  'renderer.gl': 'WEBGL',
   "steam.stage": "Stage ⟪stage⟫ · ⟪biome⟫ · ⟪hero⟫",
   "steam.menu": "Main menu",
   "arabic2.c551f7d47e": "COPY FAILED: SHARE YOUR CODE INSTEAD.",

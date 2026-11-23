@@ -61,13 +61,14 @@ export async function measureLoad(browser, base, network, target) {
       const firstMs = performance.getEntriesByName(m)[0].startTime;
       await document.fonts.ready;
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const gl = document.querySelector('#game').getContext('webgl2');
-      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const canvas = document.querySelector('#game');
+      const gl = canvas.dataset.backend === 'WebGPU' ? null : canvas.getContext('webgl2');
+      const ext = gl?.getExtension('WEBGL_debug_renderer_info');
       return {
         firstMs,
         readyMs: performance.now(),
         epochMs: performance.timeOrigin + firstMs,
-        renderer: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'unknown',
+        renderer: canvas.dataset.adapter || (ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'unknown'),
       };
     }, mark);
     const workerInitial = [...workerEntries.values()].filter((r) => r.epochMs <= timing.epochMs);
