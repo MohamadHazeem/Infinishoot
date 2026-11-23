@@ -1,8 +1,9 @@
+import { maestroTempos, maestroTheme } from '../../game/bossesMaestroTheme';
 import { Rng } from '../../core/rng';
 import { biomeForStage } from '../../data/biomes';
 import { BIOME_BOSSES, DJ_BPM } from '../../data/bosses3';
 
-export type TrackId = 'architect' | 'candy' | 'ruins' | 'cake' | 'kraken' | 'raid' | 'pvp' | 'gauntlet' | 'titleRemix' | 'pumpking' | 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover' | 'glitch' | 'boxer' | 'gale';
+export type TrackId = 'maestro' | 'architect' | 'candy' | 'ruins' | 'cake' | 'kraken' | 'raid' | 'pvp' | 'gauntlet' | 'titleRemix' | 'pumpking' | 'halloween' | 'title' | 'meadow' | 'dunes' | 'frost' | 'magma' | 'neon' | 'factory' | 'sky' | 'boss' | 'rex' | 'queen' | 'omega' | 'shop' | 'victory' | 'gameover' | 'glitch' | 'boxer' | 'gale';
 export type Patch = OscillatorType | 'pluck' | 'bell' | 'wide' | 'organ';
 export type Section = 'intro' | 'verse' | 'chorus' | 'bridge' | 'final' | 'turnaround';
 
@@ -131,6 +132,7 @@ export const TRACKS: { id: TrackId; name: string; stage: number; boss?: boolean;
   { id: 'candy', stage: 9, name: 'Candy Kingdom', boss: false, style: { name: 'candy', bpm: 132, root: 48, scale: MAJOR, lead: 'bell', arp: 'bell', bass: 'triangle', padCut: 1600, swing: 0.08, drums: 'break', density: 6 } },
   { id: 'ruins', stage: 10, name: 'Sunken Ruins', boss: false, style: { name: 'ruins', bpm: 108, root: 40, scale: DORIAN, lead: 'pluck', arp: 'bell', bass: 'triangle', padCut: 1600, swing: 0.08, drums: 'break', density: 6 } },
   { id: 'cake', stage: 9, name: 'Cake Tyrant · Sugar Rush', boss: true, style: { name: 'cake', bpm: 150, root: 43, scale: MIXO, lead: 'square', arp: 'bell', bass: 'triangle', padCut: 1600, swing: 0.08, drums: 'break', density: 6 } },
+  { id: 'maestro', stage: 2, boss: true, name: 'Maestro · Brass Buttons', theme: maestroTheme, style: { name: 'maestro', bpm: maestroTempos[0], root: 43, scale: MIXO, lead: 'organ', arp: 'bell', bass: 'triangle', padCut: 2100, swing: 0, drums: 'four', density: 6 } },
   { id: 'kraken', stage: 10, name: 'Kraken King · Deep Current', boss: true, style: { name: 'kraken', bpm: 138, root: 38, scale: HARM_MINOR, lead: 'organ', arp: 'bell', bass: 'triangle', padCut: 1600, swing: 0.08, drums: 'break', density: 6 } },
 ];
 

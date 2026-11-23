@@ -1,3 +1,5 @@
+import { BeatCombat, beatCombatTuning } from './beatCombat';
+import { registerMaestro, routeConductor } from './bossesMaestro';
 import { NemesisUi } from '../ui/nemesisUi';
 import { installOverworld } from './overworld';
 import { Nemesis } from './nemesis';
@@ -398,6 +400,7 @@ export class Game implements HeroWorld {
   raidClientMessage = RaidSys.raidClientMessage;
   startRun: typeof RunFlowSys.startRun = function (fixed) {
     // An abandoned arcade round must not holster the next run's weapons or open its portal.
+    this.beatCombat.reset();
     this.modes.mg = null;
     this.modes.holster = false;
     // A forced co-op objective (trials, tests, debug) belongs to one run; clients kept it into the next one and
@@ -483,7 +486,8 @@ export class Game implements HeroWorld {
   spawnEnemy = SpawningSys.spawnEnemy;
   rollEliteMod = SpawningSys.rollEliteMod;
   spawnRing = SpawningSys.spawnRing;
-  spawnBoss = SpawningSys.spawnBoss;
+  readonly beatCombat = new BeatCombat();
+  spawnBoss: typeof SpawningSys.spawnBoss = function (def) { SpawningSys.spawnBoss.call(this, routeConductor(this, def)); };
   recycleFarEnemies = SpawningSys.recycleFarEnemies;
   nearestEnemy = CombatSys.nearestEnemy;
   enemiesInRadius = CombatSys.enemiesInRadius;
@@ -553,7 +557,14 @@ export class Game implements HeroWorld {
   pvpOver = PvpFlowSys.pvpOver;
   saveName = PvpFlowSys.saveName;
   heroByPeer = NetHostSys.heroByPeer;
-  onHostMessage = NetHostSys.onHostMessage;
+  onHostMessage: typeof NetHostSys.onHostMessage = function (from, msg) {
+    if (msg.t === 'beatPref') {
+      const h = this.heroByPeer(from);
+      if (h && from && typeof msg.enabled === 'boolean') h.beatEnabled = msg.enabled;
+      return;
+    }
+    NetHostSys.onHostMessage.call(this, from, msg);
+  };
   onClientLeft = NetHostSys.onClientLeft;
   hostTick = NetHostSys.hostTick;
   buildSnapshot: typeof NetHostSys.buildSnapshot = (h, events, view) => {
@@ -564,6 +575,9 @@ export class Game implements HeroWorld {
     if (field) snap.island = field;
     const machinery = this.setPieces.snapshotFor(this, view?.enc ?? h);
     if (machinery) snap.machinery = machinery;
+    snap.beat = this.beatCombat.snapshot(h);
+    const marks = this.beatCombat.score.snapshot();
+    if (marks) snap.beatMarks = marks;
     const contracts = !view && contractView(h);
     if (contracts) snap.contract = contracts;
     return snap;
@@ -572,6 +586,7 @@ export class Game implements HeroWorld {
   shopFromNet = NetClientSys.shopFromNet;
   clientStart: typeof NetClientSys.clientStart = function (seed, you, players) {
     this.phoenixOwners.clear();
+    this.beatCombat.reset();
     TimeSys.startTimeRun(this);
     this.biomeRules.reset();
     this.setPieces.resetRun();
@@ -584,6 +599,8 @@ export class Game implements HeroWorld {
     NetClientSys.applySnapshot.call(this, m);
     this.biomeRules.mirror(this, m.island);
     this.setPieces.mirror(this, m.machinery);
+    this.beatCombat.mirror(this, m.beat);
+    if (m.beatMarks || this.netBoss) this.beatCombat.score.mirror(this, m.beatMarks);
     if (mirrorContracts(this.hero, m.contract)) this.screens.refreshPacts();
     this.hero.synergy.lastModHit = typeof m.modHit === 'number' ? m.modHit / 100 : null;
   }
@@ -597,7 +614,10 @@ export class Game implements HeroWorld {
   ping = RenderSys.ping;
   refreshGlobal = RenderSys.refreshGlobal;
   updateSky = RenderSys.updateSky;
-  updateMusic = RenderSys.updateMusic;
+  updateMusic: typeof RenderSys.updateMusic = function (dt, boss) {
+    this.beatCombat.present(this);
+    RenderSys.updateMusic.call(this, dt, boss);
+  };
   localAudio = RenderSys.localAudio;
   render: typeof RenderSys.render = function (alpha, dt) {
     this.setPieces.prepareView(this);
@@ -740,7 +760,10 @@ export class Game implements HeroWorld {
   updateBiomeFoes = BiomeFoesSys.updateBiomeFoes;
   biomeFoesClient = BiomeFoesSys.biomeFoesClient;
   updateHeroMechs = HeroMechsSys.updateHeroMechs;
-  onParryLanded = HeroMechsSys.onParryLanded;
+  onParryLanded: typeof HeroMechsSys.onParryLanded = function (h) {
+    this.beatCombat.refund(this, h, beatCombatTuning.parrySeconds);
+    HeroMechsSys.onParryLanded.call(this, h);
+  };
   heroMechNet = HeroMechsSys.heroMechNet;
   applyHeroMechNet = HeroMechsSys.applyHeroMechNet;
   renderHeroMechs = HeroMechsSys.renderHeroMechs;
@@ -1045,6 +1068,7 @@ export class Game implements HeroWorld {
     hudRoot: HTMLElement,
     readonly reticle: HTMLElement,
   ) {
+    registerMaestro();
     this.arena = createFieldArena(TITLE_SEED);
     this.scene.add(this.arena.group);
     this.walls = new StaticBoxGrid(this.arena.colliders);
@@ -1293,7 +1317,7 @@ export class Game implements HeroWorld {
       hostileBullet: (i) => hostileBullet(this, hero.index, i),
       firing: false,
       charging: false,
-      damage: (e, base, o) => this.damage(e, base, o, hero),
+      damage: (e, base, o) => this.damage(e, this.beatCombat.hitscan(this, hero, base, o.source), o, hero),
       // PvP: a hero's weapons never aim at or hit its own stand-in.
       nearest: (x, z, r, skip) => this.nearestEnemy(x, z, r, (e) => pvpFriendly(this.pvp?.teams, e.pvpOwner, hero.index) || !!skip?.(e)),
       inRadius: (x, z, r, out) => {
@@ -1542,6 +1566,7 @@ export class Game implements HeroWorld {
     }
     if (this.role === 'client') {
       this.biomeRules.tips(this, dt);
+      if (this.mode === 'fight') this.beatCombat.clientTick(dt);
       this.clientUpdate(dt);
       return;
     }
@@ -1578,6 +1603,7 @@ export class Game implements HeroWorld {
       return;
     }
     this.modesTick(dt); // the rhythm stage's beat clock runs in real time (systems/modes.ts)
+    this.beatCombat.tick(this, dt);
     if (this.juice.hitStop > 0) {
       this.juice.hitStop -= dt;
       this.hostTick(false);
@@ -1634,7 +1660,9 @@ export class Game implements HeroWorld {
       for (const w of h.weapons) {
         if (this.meta.rule('right') && w.def.slot === 'primary') continue;
         h.ctx.soundSource = w; // evolved weapons layer their sound (systems/sound.ts weaponCue)
+        const firstBullet = this.bullets.count;
         w.update(dt, h.ctx);
+        if (w.def.slot) this.beatCombat.release(this, h, w, firstBullet);
       }
       h.ctx.soundSource = null;
       if (h === this.hero || (this.localCoop && !this.squadRun)) observeDiscoveries(this, h);
@@ -1681,6 +1709,7 @@ export class Game implements HeroWorld {
     lap('sim.hazards+arena');
     for (const h of this.heroes) if (!h.player.dead && !h.left) this.contactDamage(h);
     this.updateStatuses(dt);
+    this.beatCombat.score.step(this, dt);
     this.updateStrikes(dt);
     lap('sim.statuses');
     if (this.runMode !== 'raid') this.updateBossFight(dt);
@@ -1881,6 +1910,7 @@ export class Game implements HeroWorld {
 
   onDash(h: Hero): void {
     const p = h.player;
+    this.beatCombat.refund(this, h, beatCombatTuning.dashSeconds);
     h.dashes++;
     h.synergy.dash();
     this.skillDash(h);

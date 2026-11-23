@@ -18,6 +18,17 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "beat.maestro": "المايسترو",
+  "beat.subtitle": "قائد الأوركسترا الآلي",
+  "beat.phase2": "الحركة الثانية · راقب العلامة الجانبية",
+  "beat.phase3": "الختام · تحرّك بين الطبول",
+  "beat.strike": "ضربة طبل المايسترو",
+  "beat.tip": "اخرج من دوائر الطبول قبل الضربة القوية.",
+  "beat.lore": "يضبط قائد الفرقة الآلي إيقاع موكب الجزيرة بعصاه الذهبية الصغيرة.",
+  "beat.track": "المايسترو · أزرار نحاسية",
+  "beat.setting": "القتال على الإيقاع",
+  "beat.help": "أطلق النار عند التقاء علامتي التصويب لتقوية طلقاتك. أطلق أداة أو اندفع أو اصدُد هجومًا مع الإيقاع لتستعيد التحمّل أسرع. يعمل حتى عند كتم الموسيقى.",
+  "beat.reticle": "توقيت النبضة",
   "cine.titan": "الجبل يستيقظ.",
   "photo.controls": "أدوات التصوير",
   "photo.pose": "الوقفة",

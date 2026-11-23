@@ -78,6 +78,11 @@ interface Playing {
 export class Music {
   pulse = 0;
   beats = 0;
+  /** Authoritative encounter tempo, zero outside Maestro. The jukebox uses the written tempo. */
+  conductorBpm = 0;
+  private tempo(p: Playing): number {
+    return p.id === 'maestro' && !this.jukebox && this.conductorBpm > 0 ? this.conductorBpm : p.song.style.bpm;
+  }
   jukebox: TrackId | null = null;
   readonly heard = new Set<TrackId>(['title']);
   /** Scheduled, not-yet-audible beats. Entries are recycled; don't retain them. */
@@ -182,15 +187,19 @@ export class Music {
    * scheduling by at most `maxShift` seconds per call (call once per frame), so the tempo bends
    * slightly while it locks on. No-op without a playing song. Gameplay never reads the audio.
    */
-  alignBeat(phase: number, maxShift = 0.002): void {
+  alignBeat(phase: number, maxShift = 0.002, barPosition?: number): void {
     const p = this.cur;
     const ctx = this.synth?.ctx;
     if (!p || !ctx || ctx.state !== 'running' || TRACK_BY_ID[p.id].bars || !Number.isFinite(phase)) return;
-    const beat = 60 / p.song.style.bpm;
+    const beat = 60 / this.tempo(p);
     const now = ctx.currentTime;
     const audio = ((((p.step % 4) / 4 - (p.nextTime - now) / beat) % 1) + 1) % 1;
     let err = phase - audio;
     err -= Math.round(err);
+    if (barPosition !== undefined && p.id === 'maestro') {
+      const scheduled = Math.round(barPosition + (p.nextTime - now) / beat - p.step / 4);
+      p.step += ((scheduled % 4 + 4) % 4) * 4;
+    }
     const shift = Math.max(-maxShift, Math.min(maxShift, err * beat));
     p.nextTime = Math.max(now + 0.005, p.nextTime - shift);
   }
@@ -212,7 +221,7 @@ export class Music {
         this.old.splice(i, 1);
       }
     }
-    this.desiredTrack = this.jukebox ?? want.track;
+    this.desiredTrack = this.jukebox ?? (this.conductorBpm && want.track && TRACK_BY_ID[want.track].boss ? 'maestro' : want.track);
     this.desiredSeed = this.jukebox ? 7 + TRACKS.findIndex((t) => t.id === this.jukebox) : want.seed;
     this.desiredStage = this.jukebox || want.track === 'title' ? 1 : want.stage ?? 1;
     this.duck = !this.jukebox && want.duck;
@@ -255,7 +264,7 @@ export class Music {
         if (p.finished) break;
         this.arrange(p, p.nextTime, want.keyUp ?? false);
       }
-      const dur = 60 / p.song.style.bpm / 4;
+      const dur = 60 / this.tempo(p) / 4;
       const step = p.step % 16;
       this.playStep(p, p.nextTime + (step % 2 ? p.song.style.swing * dur : 0), dur);
       if (step % 4 === 0) {

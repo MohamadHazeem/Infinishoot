@@ -264,6 +264,12 @@ export function updateBoss(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: 
     }
     return false;
   }
+  if (e.def.id === 'maestro') {
+    e.facing = Math.atan2(nx, nz);
+    e.vx = dist > 6 ? nx * speed : 0;
+    e.vz = dist > 6 ? nz * speed : 0;
+    return false; // The score owns all attacks, including their wind-ups.
+  }
   const sp = bossSpeed(e, speed);
   if (e.def.id === 'prince' || e.def.id === 'rexling' || e.def.id === 'princess') return miniStep(e, dt, ctx, nx, nz, sp);
   if ((isAct(e.move) || e.move === 'brakeRush') && ctx.boss?.acts) return ctx.boss.acts.step(e, ctx, nx, nz);

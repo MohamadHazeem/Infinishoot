@@ -68,6 +68,7 @@ row('CONTROLS', 'aimAssist', 'AIM ASSIST', 'Gamepad and touch: gently turns aim 
 row('CONTROLS', 'mouseAimAssist', 'MOUSE AIM ASSIST', 'Optional soft aim correction for mouse. Off by default; independent of gamepad and touch.');
 row('CO-OP', 'netOverlay', 'NETWORK STATS', 'Shows ping, packet loss and snapshot rate for every player in online games.');
 row('GAMEPLAY', 'language', 'LANGUAGE', 'English · العربية · Español · Français · Português (Brasil) · Deutsch · Türkçe', undefined, Object.keys(LANGUAGES));
+rows.push({ tab: 'GAMEPLAY', key: 'beatCombat', get label() { return t('beat.setting'); }, get desc() { return t('beat.help'); } });
 row('GAMEPLAY', 'autoFire', 'AUTO-FIRE', 'Automatically fires the primary weapon with keyboard and mouse.');
 row('GAMEPLAY', 'tips', 'FIRST-TIME TIPS', 'Shows help when you encounter a mechanic for the first time.');
 row('GAMEPLAY', 'damageNumbers', 'DAMAGE NUMBERS', 'AUTO: thins out in crowded fights. ALL: every hit. MINE: your hits only. OFF: hides hit numbers; important labels remain.', undefined, ['auto', 'all', 'mine', 'off']);
