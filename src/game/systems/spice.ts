@@ -1,5 +1,6 @@
 import { hasSafetyNets } from '../../data/modes';
 import { coopState } from './coop2';
+import { hostmigState } from './hostmig';
 import { weatherEligible, isWeatherKind } from '../../data/weather2';
 import { biomeForStage } from '../../data/biomes';
 import { settings } from '../settings';
@@ -31,7 +32,13 @@ MOD_BY_ID.phoenix.desc = 'Survive a lethal hit at full life with a fire nova (Fi
 // A stashed co-op build can return on a replacement Hero or a different seat.
 export function runPhoenixUsed(this: Game, h: Hero, spend = false): boolean {
   if (!spend && this.phoenixOwners.size === 0) return false;
-  const owner = this.online ? coopState(this).pids[h.index] || (h.peerId ? 'name:' + h.name : h.index) : h.index;
+  // A guest on autopilot temporarily has no peerId. Legacy guests reclaim by name.
+  let owner: string | number = h.index;
+  if (this.online) {
+    // Promotion rebuilds heroes before it installs the checkpoint's roster in coopState.
+    const restored = this.role === 'client' && spend ? hostmigState(this).mig?.heroes[h.index]?.pid : '';
+    owner = restored || coopState(this).pids[h.index] || (h === this.hero ? h.index : 'name:' + h.name);
+  }
   if (spend) this.phoenixOwners.add(owner);
   return this.phoenixOwners.has(owner);
 }

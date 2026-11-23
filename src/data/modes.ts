@@ -36,7 +36,7 @@ export interface DifficultyDef {
 export const DIFFICULTIES: DifficultyDef[] = [
   { id: 'easy', name: 'Easy', desc: 'Softer enemies, fewer of them. Score x0.6.', enemyHp: 0.7, enemyDmg: 0.6, enemyCount: 0.8, score: 0.6 },
   { id: 'assist', name: 'Assist', desc: 'Level-ups heal. Rewind and last stand recharge each stage. Score x1.', enemyHp: 1, enemyDmg: 1, enemyCount: 1, score: 1 },
-  { id: 'normal', name: 'Normal', desc: 'One rewind and one shared Phoenix save per run. No last stand, comeback or level-up heal. Score x1.5.', enemyHp: 1.4, enemyDmg: 1.3, enemyCount: 1.15, score: 1.5 },
+  { id: 'normal', name: 'Normal', desc: 'One team rewind per run. Phoenix items can save each hero once per run. No last stand, comeback or level-up heal. Score x1.5.', enemyHp: 1.4, enemyDmg: 1.3, enemyCount: 1.15, score: 1.5 },
   { id: 'hard', name: 'Hard', desc: 'Stronger enemies, larger hordes. Score x2.2.', enemyHp: 2, enemyDmg: 1.6, enemyCount: 1.3, score: 2.2 },
   { id: 'nightmare', name: 'Nightmare', desc: 'Relentless hordes. Score x3.23.', enemyHp: 2.86, enemyDmg: 1.97, enemyCount: 1.47, score: 3.23, unlock: 'hard_stage3' },
   // Trading lane (src/game/trading.ts `legendTuning`): co-op only; these base numbers are rescaled for 2/3/4+ players at run start.

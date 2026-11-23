@@ -515,6 +515,7 @@ export class Game implements HeroWorld {
   shopFromNet = NetClientSys.shopFromNet;
   clientStart: typeof NetClientSys.clientStart = function (seed, you, players) {
     this.phoenixOwners.clear();
+    TimeSys.startTimeRun(this);
     NetClientSys.clientStart.call(this, seed, you, players);
   };
   clientStage = NetClientSys.clientStage;

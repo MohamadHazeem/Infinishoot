@@ -8,6 +8,7 @@ const { DIFFICULTIES, savedDifficulty } = await import('../src/data/modes');
 const { Game, cheats, dropTuning } = await import('../src/game/game');
 const { Input } = await import('../src/core/input');
 const { coopState } = await import('../src/game/systems/coop2');
+const { buildMig, restoreRun } = await import('../src/game/systems/hostmig');
 const { timeState } = await import('../src/game/systems/time');
 const { timeTuning, rewindBlock } = await import('../src/game/timeRules');
 const { ENEMIES } = await import('../src/data/enemies');
@@ -74,11 +75,13 @@ for (const d of DIFFICULTIES) {
   s.tl.record(g);
   g.requestRewind(h);
   assert.equal(s.hold?.kind, 'rewind');
+  assert.equal((g.timeNet(h).m as number[])[0], 1, d.id + ' charge spent before playback can migrate');
   g.timeStep(timeTuning.rewindPlay + .01);
   assert.equal(s.rewindsUsed, 1);
   g.runTime = 1;
   g.timeStep(0);
   assert.equal(s.rewindsUsed, 1, 'only a run or stage boundary may replenish rewind');
+  assert.ok(s.tl.span < timeTuning.rewindMin, 'future frames are discarded after a clock correction');
   const request = { used: 1, history: 5, pvp: false, fighting: true, dead: false };
   assert.equal(rewindBlock(request, d.id), assisted ? 'REWIND USED THIS STAGE' : 'REWIND USED THIS RUN');
   h.relics.push('r_phoenix');
@@ -101,18 +104,25 @@ for (const d of DIFFICULTIES) {
   assert.equal(h.phoenixUsed, !assisted, d.id + ' build restoration cannot refund the run charge');
   g.startRun({ seed: 42, difficulty: d.id });
   g.closeShop();
+  h.synergy.add(MOD_BY_ID.echo);
   h.synergy.add(MOD_BY_ID.phoenix);
-  p.hp = 0;
-  p.dead = true;
-  h.synergy.hurt();
+  p.hp = 1;
+  p.invuln = 0;
+  g.hurtHero(h, 999, p.x + 1, p.z);
   assert.equal(p.dead, false);
   assert.equal(p.hp, p.maxHp);
   h.synergy.stageClear();
-  assert.equal(h.synergy.readout(0), assisted ? 'READY' : 'SPENT');
-  h.synergy.remove(0);
+  assert.equal(h.synergy.readout(1), assisted ? 'READY' : 'SPENT');
+  h.synergy.remove(1);
   h.synergy.add(MOD_BY_ID.phoenix);
-  assert.equal(h.synergy.readout(0), assisted ? 'READY' : 'SPENT', d.id + ' repurchased plume');
+  assert.equal(h.synergy.readout(1), assisted ? 'READY' : 'SPENT', d.id + ' repurchased plume');
+  assert.equal(h.phoenixUsed, !assisted, d.id + ' plume also governs a later Frost Totem');
 
+  h.openShop();
+  h.gold = 3;
+  assert.equal(h.shopView(g.stage).healCost, 3);
+  assert.equal(h.heal(), 'ALREADY HEALED');
+  assert.equal(h.gold, 3, 'full health costs nothing');
   g.stage = 4;
   h.openShop();
   p.hp = 1;
@@ -128,6 +138,7 @@ for (const d of DIFFICULTIES) {
   client.role = 'client';
   client.onClientMessage({ t: 'start', mods: 'vanilla', seed: 42, difficulty: d.id, you: 0, players: [{ name: 'Guest' }] });
   assert.equal(client.difficulty.id, d.id);
+  assert.equal(timeState(client).net.used, false, d.id + ' new client run clears the previous meter');
   client.applyTimeNet({ m: afterStage });
   assert.equal(timeState(client).net.used, !assisted);
   assert.equal(timeState(client).rewindsUsed, assisted ? 0 : 1, 'promotion keeps the mirrored charge');
@@ -146,7 +157,40 @@ assert.equal(replacement.phoenixUsed, false, 'same seat and name, different play
 const returning = g.makeHero(2, 'Guest', [], 'peer-three');
 roster.pids[2] = 'returning';
 assert.equal(returning.phoenixUsed, true, 'reconnect retains the shared run charge');
-for (const guest of [first, replacement, returning]) guest.dispose();
+// Older guests matched by name can spend a charge while the disconnect autopilot is in control.
+const legacy = g.makeHero(3, 'Legacy', []);
+legacy.phoenixUsed = true;
+const legacyReturn = g.makeHero(4, 'Legacy', [], 'new-peer');
+assert.equal(legacyReturn.phoenixUsed, true);
+for (const guest of [first, replacement, returning, legacy, legacyReturn]) guest.dispose();
+
+// Start through the host transport, buy healing from the guest's shop and promote the mirror.
+const guest = g.makeHero(1, 'Guest', [], 'peerB');
+g.setHeroes([h, guest]);
+const deliver = (packet: unknown) => client.onClientMessage(structuredClone(packet) as Record<string, unknown>);
+g.host = { send: (_peer: string, packet: unknown) => deliver(packet), broadcast: deliver } as typeof g.host;
+settings.difficulty = 'easy';
+g.startRun({ seed: 42, difficulty: 'normal' });
+assert.equal(client.local, 1);
+assert.equal(client.difficulty.id, 'normal');
+g.closeShop();
+g.loadStage(4);
+g.openShop();
+guest.gold = 6;
+guest.player.hp = 1;
+g.onHostMessage('peerB', { t: 'ui', a: 'heal', i: 0 });
+assert.equal(guest.gold, 0);
+assert.equal(guest.player.hp, 1 + .4 * guest.player.maxHp);
+g.closeShop();
+roster.pids[1] = 'returning';
+guest.phoenixUsed = true;
+const checkpoint = buildMig(g);
+deliver(checkpoint);
+restoreRun(client, checkpoint);
+client.role = 'host';
+coopState(client).pids = checkpoint.heroes.map(hero => hero.pid);
+client.hero.startRun(); // rebuild from a stash after migration
+assert.equal(client.hero.phoenixUsed, true, 'promoted host retains the rescue under the returning player ID');
 
 await setLanguage('ar');
 for (const d of DIFFICULTIES) {

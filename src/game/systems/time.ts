@@ -233,6 +233,8 @@ export function timeStep(this: Game, dt: number): boolean {
     if (timeTuning.standPerStage) for (const ht of s.heroes) if (ht) ht.standUsed = false;
     s.tl.clear();
   }
+  // A corrected clock invalidates recorded frames, but never refunds a charge.
+  if (!s.hold && this.runTime < s.lastRec) timeBarrier(this);
   if (s.hold) {
     advanceHold(this, s, dt);
     return true;
@@ -272,6 +274,11 @@ function resetRun(s: TimeState): void {
   s.lastRec = -1;
   s.stage = -1;
   s.rewindsUsed = 0;
+  s.events.length = 0;
+  s.lastCombo = 0;
+  s.net.used = false;
+  s.net.hold = s.net.k = s.net.hist = 0;
+  s.net.stand = s.net.vote = s.net.so = null;
   s.vote = null;
   s.heroes = [];
   s.hold = null;
@@ -369,6 +376,8 @@ function startRewind(g: Game, s: TimeState, h: Hero): void {
   const to = tl.indexBack(timeTuning.rewindSeconds);
   const from = tl.count - 1;
   if (to < 0 || from <= to) return;
+  // The first snapshot of playback must already show the charge spent on a new host.
+  s.rewindsUsed++;
   s.hold = { kind: 'rewind', t: 0, dur: timeTuning.rewindPlay, from, to, hero: h.index, secs: r2(tl.at(from).t - tl.at(to).t), dead: [] };
   emit(g, 'rw', h, s.hold.secs);
 }
@@ -388,7 +397,6 @@ function advanceHold(g: Game, s: TimeState, dt: number): void {
     tl.restore(g, tl.at(Math.max(H.to, Math.min(H.from, idx))), 'visual');
     if (pinned || H.t < H.dur) return;
     tl.restore(g, tl.at(H.to), 'full');
-    s.rewindsUsed++;
     for (const h of g.heroes) g.mods2Event(h, 'rewind');
     s.hold = null;
     for (const ht of s.heroes) if (ht && ht.standT > 0) ht.standT = 0; // the stand is undone (it stays used)
