@@ -1,4 +1,5 @@
 import { hasSafetyNets, type DifficultyDef } from '../data/modes';
+import { resetDamageLog } from './damageLog';
 import { setHeroModel } from './heroModel';
 import type * as THREE from 'three';
 import type { Rng } from '../core/rng';
@@ -294,6 +295,7 @@ export class Hero implements SynergyHost {
 
   /** Fresh run: the loadout's two clicks and special, no passives or Mods. */
   startRun(): void {
+    resetDamageLog(this);
     this.combosSeen.clear();
     this.relics = [];
     this.phoenixSpent = false;

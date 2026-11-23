@@ -1,3 +1,4 @@
+import { forgetRewoundDamage } from './damageLog';
 import { ELITES2_HISTORY_SIZE, recordElites2, restoreElites2 } from './systems/elites2';
 /**
  * Time lane: a compact ring buffer of the world, recorded a few times a
@@ -121,6 +122,13 @@ export class TimeFrame {
       this.rowsFor = stamp;
     }
     return this.rows.get(uid) ?? -1;
+  }
+
+  /** Read the hostile positions already recorded by the time lane, without restoring the world. */
+  visitThreats(dot: (kind: number, x: number, z: number, radius: number) => void): void {
+    for (let i = 0; i < this.enN * EN; i += EN) dot(0, this.en[i + E.x], this.en[i + E.z], this.en[i + E.radius]);
+    for (let i = 0; i < this.buN; i++) if (this.bu[i * BU] === Team.Enemy) dot(1, this.bf[i * BF], this.bf[i * BF + 1], this.bf[i * BF + 5]);
+    for (let i = 0; i < this.stN * SF; i += SF) if (this.st[i + 4] > 0) dot(2, this.st[i], this.st[i + 1], this.st[i + 2]);
   }
 
   heroX(i: number): number {
@@ -541,6 +549,7 @@ export class Timeline {
         p.hp = a[o + H_HP];
         continue;
       }
+      forgetRewoundDamage(h, f.t);
       p.prev.x = x;
       p.prev.z = z;
       if (h.remote) {
