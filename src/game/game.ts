@@ -140,6 +140,8 @@ import * as CompanionSys from './systems/companion';
 import * as CharSys from './systems/characters';
 import * as GameplaySys from './systems/gameplay';
 import * as WorldEventsSys from './systems/worldEvents';
+import { StreamMode } from './streamMode';
+import { StreamUi } from '../ui/streamUi';
 import * as TimeSys from './systems/time';
 import * as Coop2Sys from './systems/coop2';
 import * as TradingSys from './systems/trading';
@@ -415,6 +417,7 @@ export class Game implements HeroWorld {
   startRun: typeof RunFlowSys.startRun = function (fixed) {
     // An abandoned arcade round must not holster the next run's weapons or open its portal.
     this.beatCombat.reset();
+    this.stream.reset();
     this.modes.mg = null;
     this.modes.holster = false;
     // A forced co-op objective (trials, tests, debug) belongs to one run; clients kept it into the next one and
@@ -506,6 +509,8 @@ export class Game implements HeroWorld {
   readonly asym = new AsymRoles();
   readonly stationHud: AsymRoleHud;
   readonly beatCombat = new BeatCombat();
+  readonly stream = new StreamMode();
+  readonly streamUi: StreamUi;
   spawnBoss: typeof SpawningSys.spawnBoss = function (def) { SpawningSys.spawnBoss.call(this, routeConductor(this, def)); };
   recycleFarEnemies = SpawningSys.recycleFarEnemies;
   nearestEnemy = CombatSys.nearestEnemy;
@@ -1250,6 +1255,7 @@ export class Game implements HeroWorld {
     this.bossMaker.install(this);
     this.bossMakerUi = new BossMakerUi(this, hudRoot);
     this.stationHud = new AsymRoleHud(this, hudRoot);
+    this.streamUi = new StreamUi(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1572,6 +1578,8 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.echoes.hud.input();
+    this.stream.session(this, dt);
+    this.streamUi.tick(dt);
     this.stepN++;
     updatePatrolBadges(this);
     dt = Assists.assistStep.call(this, dt);
@@ -1804,6 +1812,7 @@ export class Game implements HeroWorld {
     if (this.runMode !== 'raid' && this.mode === 'fight' && anyAlive) {
       this.nemesis.step(dt);
       this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
+      this.stream.fight(this, dt);
       this.updateDirector2(dt);
       this.updateEliteMods(dt);
       this.updatePets(dt);

@@ -10,3 +10,4 @@ import { ranked } from './ranked.js'; // race lane: RANKED season ladder (/ranke
 export const ROUTES = [ghostRoute, ghostsRoute, lobbies, teamboard, ranked];
 import { telemetryRoute } from './telemetry.js'; ROUTES.push(telemetryRoute);
 import { bosses } from './bosses.js'; ROUTES.push(bosses);
+import { goals } from './goals.js'; ROUTES.push(goals);
