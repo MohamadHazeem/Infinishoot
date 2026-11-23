@@ -1,3 +1,4 @@
+import { stations, stationIndex } from '../data/asymRoles';
 import { spawnPatrol } from '../game/systems/spawning';
 import { craftLink } from '../game/crafting';
 import { previewThreats } from '../game/enemyBullets';
@@ -227,6 +228,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   biomeForce.key = bk && allBiomeKeys().includes(bk) ? bk : null;
   settings.squadBots = squadCount(Number(q.get('squad')));
   if (q.has('squadheroes')) settings.squadHeroes = q.get('squadheroes')!;
+  if (q.has('roles')) {
+    game.asym.squadMode = true;
+    game.asym.squadPick = stations[stationIndex(q.get('roles'))];
+  }
   game.startSolo();
   if (q.has('squadwheel')) setTimeout(() => pinWheel(game, 2, 1), 800);
   // Skip the starting shop.

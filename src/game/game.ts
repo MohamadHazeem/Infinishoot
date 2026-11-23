@@ -1,3 +1,6 @@
+import { AsymRoles } from './asymRoles';
+import { AsymRoleHud } from '../ui/asymRoleHud';
+import { validRoles, type Station } from '../data/asymRoles';
 import { BeatCombat, beatCombatTuning } from './beatCombat';
 import { BossMaker } from './bossMaker';
 import { BossMakerUi } from '../ui/bossMakerUi';
@@ -319,6 +322,7 @@ export function clock(seconds: number): string {
 }
 
 export interface LobbyEntry {
+  station?: Station;
   peerId: string; // '' = host
   name: string;
   unlocked: string[];
@@ -390,7 +394,13 @@ export class Game implements HeroWorld {
   readonly setPieces = new FieldMachines();
   loadArena = RunFlowSys.loadArena;
   spawnSpot = RunFlowSys.spawnSpot;
-  goTitle = RunFlowSys.goTitle;
+  goTitle: typeof RunFlowSys.goTitle = function () {
+    this.asym.reset();
+    this.asym.lobbyMode = false;
+    this.asym.lobbyWord = 0;
+    this.asym.guestPick = 'gunner';
+    RunFlowSys.goTitle.call(this);
+  };
   leaveToTitle = RunFlowSys.leaveToTitle;
   startSolo = RunFlowSys.startSolo;
   pickDifficulty = RunFlowSys.pickDifficulty;
@@ -416,6 +426,7 @@ export class Game implements HeroWorld {
     this.biomeRules.reset();
     this.setPieces.resetRun();
     this.nemesis.reset();
+    this.asym.start(this);
     RunFlowSys.startRun.call(this, fixed);
   };
   restart = RunFlowSys.restart;
@@ -492,6 +503,8 @@ export class Game implements HeroWorld {
   spawnEnemy = SpawningSys.spawnEnemy;
   rollEliteMod = SpawningSys.rollEliteMod;
   spawnRing = SpawningSys.spawnRing;
+  readonly asym = new AsymRoles();
+  readonly stationHud: AsymRoleHud;
   readonly beatCombat = new BeatCombat();
   spawnBoss: typeof SpawningSys.spawnBoss = function (def) { SpawningSys.spawnBoss.call(this, routeConductor(this, def)); };
   recycleFarEnemies = SpawningSys.recycleFarEnemies;
@@ -564,6 +577,7 @@ export class Game implements HeroWorld {
   saveName = PvpFlowSys.saveName;
   heroByPeer = NetHostSys.heroByPeer;
   onHostMessage: typeof NetHostSys.onHostMessage = function (from, msg) {
+    if (msg.t === 'station') { if (from) this.asym.pick(this, from, msg.pick); return; }
     if (msg.t === 'beatPref') {
       const h = this.heroByPeer(from);
       if (h && from && typeof msg.enabled === 'boolean') h.beatEnabled = msg.enabled;
@@ -577,6 +591,7 @@ export class Game implements HeroWorld {
     const snap = NetHostSys.buildSnapshot.call(this, h, events, view);
     if (!view && h.synergy.slots.length && h.synergy.lastModHit !== null)
       snap.modHit = Math.round(h.synergy.lastModHit * 100);
+    if (this.asym.word) snap.stations = this.asym.snapshot(this);
     const field = this.biomeRules.snapshotFor(this, view?.enc ?? h);
     if (field) snap.island = field;
     const machinery = this.setPieces.snapshotFor(this, view?.enc ?? h);
@@ -591,7 +606,10 @@ export class Game implements HeroWorld {
     if (contracts) snap.contract = contracts;
     return snap;
   };
-  onClientMessage = NetClientSys.onClientMessage;
+  onClientMessage: typeof NetClientSys.onClientMessage = function (msg) {
+    if (msg.t === 'lobby') this.asym.lobbyWord = validRoles(msg.stations);
+    NetClientSys.onClientMessage.call(this, msg);
+  };
   shopFromNet = NetClientSys.shopFromNet;
   clientStart: typeof NetClientSys.clientStart = function (seed, you, players) {
     this.phoenixOwners.clear();
@@ -601,12 +619,14 @@ export class Game implements HeroWorld {
     this.setPieces.resetRun();
     this.nemesis.reset();
     this.echoes.reset();
+    this.asym.reset();
     NetClientSys.clientStart.call(this, seed, you, players);
   };
   clientStage = NetClientSys.clientStage;
   clientUpdate = NetClientSys.clientUpdate;
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
+    if (m.stations || this.asym.word) this.asym.mirror(this, m.stations);
     this.echoes.receive(m.echo);
     if (m.maker) this.bossMaker.mirror(this, m.maker, this.stage);
     this.biomeRules.mirror(this, m.island);
@@ -635,6 +655,8 @@ export class Game implements HeroWorld {
     this.setPieces.prepareView(this);
     RenderSys.render.call(this, alpha, dt);
     this.setPieces.render(this);
+    if (this.asym.word) this.asym.render();
+    this.stationHud.draw();
   };
   renderMuzzleFlashes = RenderSys.renderMuzzleFlashes;
   renderChestPointer = RenderSys.renderChestPointer;
@@ -890,7 +912,11 @@ export class Game implements HeroWorld {
   mpTick = MpSys.mpTick;
   mpFrame = MpSys.mpFrame;
   mpReset = MpSys.mpReset;
-  mpLobbyExtra = MpSys.mpLobbyExtra;
+  mpLobbyExtra: typeof MpSys.mpLobbyExtra = function () {
+    const extra = MpSys.mpLobbyExtra.call(this);
+    if (this.asym.lobbyMode) extra.stations = this.asym.room(this);
+    return extra;
+  };
   mpClientMessage = MpSys.mpClientMessage;
   mpRunBanked = MpSys.mpRunBanked;
   // Lobby lane: ready-up, chat, kick, pings, party after game over, friends (systems/party.ts).
@@ -1223,6 +1249,7 @@ export class Game implements HeroWorld {
     this.echoes = new EchoRuns(this, hudRoot);
     this.bossMaker.install(this);
     this.bossMakerUi = new BossMakerUi(this, hudRoot);
+    this.stationHud = new AsymRoleHud(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1439,6 +1466,7 @@ export class Game implements HeroWorld {
     for (const h of this.heroes) hpExtra += h.synergy.flags.enemyHp;
     const hpMul = (extra.hpMul ?? this.director.hpMul) * (1 + hpExtra);
     const out = { dmgMul: this.director.dmgMul, speedMul: this.director.speedMul, ...extra, hpMul };
+    if (this.asym.word) out.hpMul *= this.asym.enemyHealth(this);
     out.hpMul *= (1 + this.curseSum('enemyHp')) * this.difficulty.enemyHp;
     out.speedMul *= 1 + this.curseSum('enemySpeed');
     out.dmgMul *= (1 + this.curseSum('enemyDmg')) * this.difficulty.enemyDmg;
@@ -1585,6 +1613,7 @@ export class Game implements HeroWorld {
     if (this.role === 'client') {
       this.biomeRules.tips(this, dt);
       if (this.mode === 'fight') this.beatCombat.clientTick(dt);
+      if (this.asym.word) this.asym.clientInput(this.hero);
       this.clientUpdate(dt);
       return;
     }
@@ -1672,11 +1701,13 @@ export class Game implements HeroWorld {
     for (const e of this.enemies.list) if (e.alive) this.hash.insert(e, e.x, e.z, e.radius);
     lap('sim.hash');
 
+    if (this.asym.word) this.asym.step(this, dt);
     this.gameplayPreWeapons(dt); // mech suit, super weapon, overload; idles the clicks they replace (systems/gameplay.ts)
     this.modesPreWeapons(dt); // enemy beat pulse, holstered weapons (systems/modes.ts)
     for (const h of this.heroes) {
       if (h.player.dead || h.left) continue;
       for (const w of h.weapons) {
+        if (this.asym.word && this.asym.replaces(h, w.def.slot)) continue;
         if (this.meta.rule('right') && w.def.slot === 'primary') continue;
         h.ctx.soundSource = w; // evolved weapons layer their sound (systems/sound.ts weaponCue)
         const firstBullet = this.bullets.count;
@@ -1878,6 +1909,7 @@ export class Game implements HeroWorld {
     h.refreshLive();
     if (this.heroes.length > 1 && !p.dead) this.applyTeamAuras(h, dt);
     this.mods2Auras(h);
+    if (this.asym.word) this.asym.stats(h);
     this.coopRoleStats(h); // co-op roles: a mixed party's team bonus (systems/coop2.ts)
     coopPlayStats(this, h); // buddy tether bonus (systems/coopplay.ts)
     this.updateFootsteps(h, dt);

@@ -1,3 +1,5 @@
+import { t as stationText } from '../i18n';
+import { stations, stationIndex, stationAt } from '../data/asymRoles';
 import { localizeHtml, localize } from '../i18n';
 import type { Game } from '../game/game';
 import { HERO_COLORS } from '../game/hero';
@@ -71,7 +73,7 @@ export class LocalCoopUi {
         const pad = Number(b.dataset.pad);
         const s = this.lobby.slots[this.lobby.slotOf(pad)];
         if (s && !s.ready) s.row = Number(b.dataset.row ?? s.row);
-        this.lobby.nav(pad, 0, Number(b.dataset.dv ?? 0));
+        this.navSlot(pad, 0, Number(b.dataset.dv ?? 0));
         this.renderScreen();
       } else if (act === 'lc-ready' && b) {
         this.lobby.toggleReady(Number(b.dataset.pad));
@@ -82,6 +84,7 @@ export class LocalCoopUi {
 
   open(): void {
     this.lobby.slots = [];
+    this.game.asym.couchPicks.clear();
     this.countdown = -1;
     // Seed the pad edges, so the A press that opened the screen doesn't also join.
     this.prev.clear();
@@ -96,7 +99,19 @@ export class LocalCoopUi {
     this.game.screens.show('title');
   }
 
+  private navSlot(pad: number, dr: number, dv: number): void {
+    if (this.mode !== 'standard') return this.lobby.nav(pad, dr, dv);
+    const s = this.lobby.slots[this.lobby.slotOf(pad)];
+    if (!s || s.ready) return;
+    const count = SLOT_ROWS.length + 1;
+    s.row = (s.row + dr + count) % count;
+    if (s.row < SLOT_ROWS.length) return this.lobby.nav(pad, 0, dv);
+    const picks = this.game.asym.couchPicks;
+    if (dv) picks.set(pad, stations[(stationIndex(picks.get(pad)) + dv + stations.length) % stations.length]);
+  }
+
   private toggleMode(): void {
+    for (const slot of this.lobby.slots) slot.row = Math.min(slot.row, SLOT_ROWS.length - 1);
     this.mode = this.mode === 'weekly' ? 'standard' : 'weekly';
     sfx.menuMove();
     this.renderScreen();
@@ -121,7 +136,7 @@ export class LocalCoopUi {
       if (key('Backspace', 'Escape')) (L.leave(KBM), (changed = true));
       const dr = (key('ArrowDown', 'KeyS') ? 1 : 0) - (key('ArrowUp', 'KeyW') ? 1 : 0);
       const dv = (key('ArrowRight', 'KeyD') ? 1 : 0) - (key('ArrowLeft', 'KeyA') ? 1 : 0);
-      if (dr || dv) (L.nav(KBM, dr, dv), (changed = true));
+      if (dr || dv) (this.navSlot(KBM, dr, dv), (changed = true));
     }
     if (key('KeyM')) this.toggleMode();
     // Pads.
@@ -140,7 +155,7 @@ export class LocalCoopUi {
       if (pr(3)) this.toggleMode();
       const dr = (pr(13) ? 1 : 0) - (pr(12) ? 1 : 0);
       const dv = (pr(15) ? 1 : 0) - (pr(14) ? 1 : 0);
-      if (dr || dv) (L.nav(p.index, dr, dv), (changed = true));
+      if (dr || dv) (this.navSlot(p.index, dr, dv), (changed = true));
     }
     if (changed) {
       sfx.menuMove();
@@ -187,8 +202,10 @@ export class LocalCoopUi {
         (_, r) =>
           `<div class="lc-row ${r === s.row && !s.ready ? 'on' : ''}"><small>${ROW_NAMES[r]}</small><button ${fixed(r) ? 'disabled' : ''} data-act="lc-nav" data-pad="${s.pad}" data-row="${r}" data-dv="-1">&#9664;</button><span>${(val[r] ?? '').toUpperCase()}</span><button ${fixed(r) ? 'disabled' : ''} data-act="lc-nav" data-pad="${s.pad}" data-row="${r}" data-dv="1">&#9654;</button></div>`,
       ).join('');
+      const station = this.game.asym.couchPicks.get(s.pad) ?? 'gunner';
+      const stationRow = this.mode === 'standard' ? `<div class="lc-row ${s.row === SLOT_ROWS.length && !s.ready ? 'on' : ''}"><small>${stationText('stations.role')}</small><button data-nav data-act="lc-nav" data-pad="${s.pad}" data-row="${SLOT_ROWS.length}" data-dv="-1" aria-label="${stationText('stations.prev')}">◀</button><span>${stationText('stations.' + station)}</span><button data-nav data-act="lc-nav" data-pad="${s.pad}" data-row="${SLOT_ROWS.length}" data-dv="1" aria-label="${stationText('stations.next')}">▶</button></div>` : '';
       cells.push(`<div class="lc-slot px ${s.ready ? 'ready' : ''}" style="--c:${c}">
-        <b>P${i + 1}</b><em>${s.pad === KBM ? 'KEYBOARD + MOUSE' : `GAMEPAD ${s.pad + 1}`}</em>${rows}
+        <b>P${i + 1}</b><em>${s.pad === KBM ? 'KEYBOARD + MOUSE' : `GAMEPAD ${s.pad + 1}`}</em>${rows}${stationRow}
         <button class="lc-readybtn" data-act="lc-ready" data-pad="${s.pad}">${s.ready ? 'READY!' : 'NOT READY'}</button></div>`);
     }
     this.screen.querySelector('.lc-slots')!.innerHTML = localizeHtml(cells.join(''));
@@ -212,13 +229,13 @@ export class LocalCoopUi {
       this.turnEl.style.setProperty('--c', h?.color ?? '#fff');
     }
     if (this.hudEl.hidden) return;
-    const key = g.heroes.map((h) => h.index).join();
+    const key = g.heroes.map((h) => h.index).join() + '/' + g.asym.word;
     if (key !== this.shown) {
       this.shown = key;
       this.hudEl.innerHTML = localizeHtml(g.heroes
         .map(
           (h, i) =>
-            `<div class="lc-p px" style="--c:${h.color}"><b>P${i + 1}</b><small>${deviceLabel(g, i)}</small><div class="lc-bar"><i></i></div><div class="lc-sp"><i></i></div><span class="lc-st"></span></div><i class="lc-aim" style="--c:${h.color}"></i>`,
+            `<div class="lc-p px" style="--c:${h.color}"><b>P${i + 1}</b><small>${deviceLabel(g, i)}${g.asym.word ? ' · ' + stationText('stations.' + stationAt(g.asym.word, i)) : ''}</small><div class="lc-bar"><i></i></div><div class="lc-sp"><i></i></div><span class="lc-st"></span></div><i class="lc-aim" style="--c:${h.color}"></i>`,
         )
         .join(''));
     }
