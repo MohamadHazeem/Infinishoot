@@ -1,3 +1,4 @@
+import { HeroPaths, shopPathHints } from './archetypes';
 import { hasSafetyNets, type DifficultyDef } from '../data/modes';
 import { resetDamageLog } from './damageLog';
 import { setHeroModel } from './heroModel';
@@ -192,6 +193,7 @@ export class Hero implements SynergyHost {
   lastSeen = 0;
   loadoutDirty = true;
   /** Skill layer: style meter, perfect dash, parry and ultimate (src/game/style.ts). */
+  readonly paths = new HeroPaths();
   readonly skill = new HeroSkill();
   /** Hero mechanic state: Furnace heat, Duelist chain, Twin clone (src/game/heroMechs.ts). */
   readonly mech = new HeroMech();
@@ -299,6 +301,7 @@ export class Hero implements SynergyHost {
 
   /** Fresh run: the loadout's two clicks and special, no passives or Mods. */
   startRun(): void {
+    this.paths.reset();
     resetDamageLog(this);
     this.combosSeen.clear();
     this.relics = [];
@@ -402,6 +405,7 @@ export class Hero implements SynergyHost {
 
   /** Rebuild static stats (passives + Mods) and the live copy. */
   recomputeStats(): void {
+    this.paths.refresh(this);
     this.statBase = this.statsWithPassives(this.passives);
     this.refreshLive();
     this.player.stats = this.stats;
@@ -727,6 +731,7 @@ export class Hero implements SynergyHost {
     } else if (o.kind === 'gold') this.gold += 2 * this.skipGold;
     else if (o.kind === 'heal') this.player.heal(40);
     this.player.hp = Math.min(this.player.hp, this.player.maxHp);
+    this.paths.refresh(this);
     this.loadoutDirty = true;
     return o.color;
   }
@@ -780,6 +785,7 @@ export class Hero implements SynergyHost {
     if (weapons.length) {
       const w = weapons[Math.floor(this.rng.next() * weapons.length)];
       w.levelUp();
+      this.paths.refresh(this);
       this.loadoutDirty = true;
       return { id: w.iconId, name: w.name, color: w.color, icon: w.def.icon, text: `AUTO WEAPON LV ${w.level}`, rarity: w.def.rarity };
     }
@@ -889,6 +895,7 @@ export class Hero implements SynergyHost {
     return {
       craft: benchView(this),
       pre,
+      pathHints: shopPathHints(this),
       gold: this.gold,
       interest: this.interest,
       interestCap: this.interestCap,
