@@ -60,7 +60,7 @@ const flush = () => {
   }
 };
 A.setHeroes([A.makeHero(0, 'Host', unlockedWeapons()), A.makeHero(1, 'Guest', [], 'peerB')]);
-A.startRun();
+A.startRun({ seed: 42, difficulty: 'assist' }); // The guest's comeback is decided on the host.
 flush();
 if (A.mode === 'shop') A.closeShop();
 flush();

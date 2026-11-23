@@ -24,7 +24,7 @@ export function isRun(r: unknown): r is Run {
   return fields(r, 'id version mode difficulty ascension heat hero loadout party team stage loop clears seconds outcome day stages offerIds offers purchases mods relics bosses hits fatal deathCause breaking rewinds stands revives avgMs worstMs quality platform mobile language omitted')
     && uuid(r.id) && typeof r.version === 'string' && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(r.version)
     && one('standard endless bossrush daily weekly gauntlet raid pvp versus race')(r.mode)
-    && one('easy normal hard nightmare legend')(r.difficulty) && id(r.hero) && tuple(r.loadout, id, id, id)
+    && one('easy assist normal hard nightmare legend')(r.difficulty) && id(r.hero) && tuple(r.loadout, id, id, id)
     && one('solo coop squad')(r.party) && positive(r.team) && r.team <= 8 && one('death victory quit defeat draw')(r.outcome)
     && typeof r.day === 'string' && /^\d{4}-\d\d-\d\d$/.test(r.day) && positive(r.stage) && positive(r.loop)
     && [r.clears,r.ascension,r.heat,r.rewinds,r.stands,r.revives,r.omitted,r.quality].every(int)

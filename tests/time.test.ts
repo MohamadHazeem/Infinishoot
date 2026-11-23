@@ -87,6 +87,7 @@ const TS = await import('../src/game/systems/time');
 const input = new Input(document.getElementById('game') as HTMLCanvasElement);
 const game = new Game(input, 16 / 9, document.getElementById('hud')!, document.getElementById('reticle')!);
 cheats.unlockAll = true;
+settings.difficulty = 'assist'; // Stage rewind replenishment and last stand.
 settings.deathReplay = true;
 settings.slowMo = true;
 const step = (n: number) => {

@@ -30,7 +30,7 @@ assert.equal(available(menu()).length, 4, 'only four launchers on a fresh title'
 press('[data-menu-play]');
 assert.equal(screens.current, 'play');
 assert.equal(available(menu(), '[data-run-mode]').length, 1);
-assert.match(menu().querySelector('.run-summary')!.textContent!, /Rookie.*Buster.*Charge Shot.*Bomb.*Medium/);
+assert.match(menu().querySelector('.run-summary')!.textContent!, /Rookie.*Buster.*Charge Shot.*Bomb.*Normal/);
 assert.equal(screens.nav('play').element?.dataset.act, 'start');
 press('[data-act=start]');
 assert.equal(game.mode, 'fight', 'two presses reach the arena on a fresh save');
