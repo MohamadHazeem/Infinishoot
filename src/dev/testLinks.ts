@@ -302,6 +302,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
   if (q.has('boss')) game.debugSkipToBoss();
+  if (q.has('streampoll')) game.stream.previewPoll();
   if (q.has('echoboss')) game.echoes.preview('echo');
   if (q.has('timeisland')) game.echoes.preview('clock');
   routeLinks(game, q);
