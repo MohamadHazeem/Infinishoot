@@ -275,7 +275,7 @@ export function seasonUi(g: Game): SeasonScreen {
     const b = document.createElement('button');
     b.dataset.nav = '';
     b.dataset.act = 'sp-season';
-    b.textContent = localize('SEASON');
+    b.textContent = t('rank.track');
     b.addEventListener('click', () => ui.open());
     menu.prepend(b);
   }

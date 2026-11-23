@@ -1,3 +1,4 @@
+import { rankEn } from './seasons2';
 import { makerEn } from './bossMaker';
 import { craftEn } from './g5craft';
 /** New Arabic-lane base copy. Other locales deliberately retain English until translated. */
@@ -22,6 +23,7 @@ export const arabic2En = {
   "world.won": "Comet Pennant unlocked for everyone this week!",
   "world.flag": "Comet Pennant",
   ...makerEn,
+  ...rankEn,
   "cine.titan": "The mountain is waking.",
   "photo.controls": "STUDIO CONTROLS",
   "photo.pose": "POSE",

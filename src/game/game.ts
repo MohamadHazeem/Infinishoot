@@ -1,3 +1,4 @@
+import { RankedSeasonRun } from './seasons2';
 import { AsymRoles } from './asymRoles';
 import { AsymRoleHud } from '../ui/asymRoleHud';
 import { validRoles, type Station } from '../data/asymRoles';
@@ -414,6 +415,7 @@ export class Game implements HeroWorld {
   applyRaidNet = RaidSys.applyRaidNet;
   renderRaid = RaidSys.renderRaid;
   raidClientMessage = RaidSys.raidClientMessage;
+  readonly rankedSeason = new RankedSeasonRun();
   startRun: typeof RunFlowSys.startRun = function (fixed) {
     // An abandoned arcade round must not holster the next run's weapons or open its portal.
     this.beatCombat.reset();
@@ -431,6 +433,7 @@ export class Game implements HeroWorld {
     this.nemesis.reset();
     this.asym.start(this);
     RunFlowSys.startRun.call(this, fixed);
+    this.rankedSeason.start(this);
   };
   restart = RunFlowSys.restart;
   retry = RunFlowSys.retry;
@@ -444,6 +447,7 @@ export class Game implements HeroWorld {
   mvp = MvpSys.createMvp();
   mvpStep = MvpSys.mvpStep;
   mvpKill: typeof MvpSys.mvpKill = function (e, h) {
+    this.rankedSeason.kill(this, e, h);
     this.echoes.killed(e);
     this.biomeRules.kill(this, e.uid);
     MvpSys.mvpKill.call(this, e, h);
@@ -1256,6 +1260,7 @@ export class Game implements HeroWorld {
     this.bossMakerUi = new BossMakerUi(this, hudRoot);
     this.stationHud = new AsymRoleHud(this, hudRoot);
     this.streamUi = new StreamUi(this, hudRoot);
+    this.rankedSeason.install(this);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1582,6 +1587,7 @@ export class Game implements HeroWorld {
     this.streamUi.tick(dt);
     this.stepN++;
     updatePatrolBadges(this);
+    this.rankedSeason.checkFairPlay();
     dt = Assists.assistStep.call(this, dt);
     this.mvpStep();
     voiceTick(this, dt); // voice chat: roster, calls, push to talk, proximity (systems/voicechat.ts)
