@@ -338,6 +338,8 @@ export class Screens {
   private extra: Partial<Record<ExtraScreen, { el: HTMLElement; nav: MenuNav }>> = {};
   /** Called on every show(), before the menu's focus is set (other modules fill or extend screens here). */
   onShow: ((name: ScreenName) => void) | null = null;
+  /** Add the station picker after the squad options have been drawn. */
+  onSquadRoles?: (el: HTMLElement, redraw: () => void) => void;
   /** After the lobby view is drawn (MP lane rows: Overlord pick, weekly team, PUBLIC). */
   onLobby: ((el: HTMLElement, v: LobbyView) => void) | null = null;
 
@@ -1658,7 +1660,11 @@ export class Screens {
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`
       : diff.desc.toUpperCase());
     if (mode.id === 'weekly') el.querySelector('.mode-note')!.textContent = localize(`${weeklyChallenge().week}: ${weeklyChallenge().rules.map(r => r.name).join(' + ')} · FIXED ROOKIE KIT`);
-    renderSquadOptions(el, () => this.navs.modes.refresh(this.navs.modes.focus));
+    renderSquadOptions(el, () => {
+      this.onSquadRoles?.(el, () => this.renderModes());
+      this.navs.modes.refresh(this.navs.modes.focus);
+    });
+    this.onSquadRoles?.(el, () => this.renderModes());
     renderGauntletOptions(el);
     renderCasualPreset(el);
     refreshSetup(el, () => this.renderModes());
