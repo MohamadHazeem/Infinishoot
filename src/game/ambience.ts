@@ -4,6 +4,7 @@ import { Rng } from '../core/rng';
 import { commit, instanceMatrix } from '../render/instancing';
 import { viewCull } from '../render/viewCull';
 import { createRetroMaterial, retroGlobals } from '../render/retroMaterial';
+import { StylisedLight } from '../render/stylisedLight';
 import { Surfaces, inPatch } from '../render/surfaces';
 import type { Particles } from './particles';
 import type { BiomeDef, Weather as BiomeWeather } from '../data/biomes';
@@ -122,7 +123,9 @@ export class Ambience {
   private tz = new Float32Array(MAX_TUFTS);
   private ts = new Float32Array(MAX_TUFTS);
   private tr = new Float32Array(MAX_TUFTS);
-  private tBend = new Float32Array(MAX_TUFTS);
+  private bendX = new Float32Array(MAX_TUFTS);
+  private bendZ = new Float32Array(MAX_TUFTS);
+  private light: StylisedLight;
   /** Tuft colours (rgb); visible tufts are packed to the front of the instance buffers each frame. */
   private tCol = new Float32Array(MAX_TUFTS * 3);
   private nTufts = 0;
@@ -164,6 +167,7 @@ export class Ambience {
 
   constructor(scene: THREE.Scene) {
     this.noise = noiseFor(scene);
+    this.light = new StylisedLight(scene);
     this.surfaces = new Surfaces(scene);
     this.motes = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), createRetroMaterial({ unlit: 1 }), MAX_MOTES);
     this.motes.setColorAt(0, this.c.set('#ffffff'));
@@ -187,6 +191,7 @@ export class Ambience {
   load(biome: BiomeDef, seed: number, halfSize: number, blocked: (x: number, z: number) => boolean): void {
     const biomeId = biome.id;
     this.biomeId = biomeId;
+    this.light.biome = biomeId;
     this.biome = biome;
     this.seed = seed;
     const f = weatherForce.mode;
@@ -211,7 +216,7 @@ export class Ambience {
         this.tz[i] = z;
         this.ts[i] = rng.range(0.7, 1.4);
         this.tr[i] = rng.next() * Math.PI * 2;
-        this.tBend[i] = 0;
+        this.bendX[i] = this.bendZ[i] = 0;
         this.c.set(rng.pick(greens)).toArray(this.tCol, i * 3);
       }
     }
@@ -259,7 +264,7 @@ export class Ambience {
       this.tz[k] = this.tz[i];
       this.ts[k] = this.ts[i];
       this.tr[k] = this.tr[i];
-      this.tBend[k] = 0;
+      this.bendX[k] = this.bendZ[k] = 0;
       this.tCol.copyWithin(k * 3, i * 3, i * 3 + 3);
       k++;
     }
@@ -357,9 +362,14 @@ export class Ambience {
   }
 
   /** `cx, cz`: camera target. `walkers`: positions that push grass aside. */
-  render(dt: number, cx: number, cz: number, walkers: { x: number; z: number; speed?: number }[]): void {
+  render(dt: number, cx: number, cz: number, walkers: { x: number; z: number; speed?: number; rig?: { materials: THREE.ShaderMaterial[] } }[]): void {
     this.t += dt;
     this.updateRain(dt, cx, cz);
+    this.light.x = cx;
+    this.light.z = cz;
+    this.light.rain = weatherSettings.enabled ? this.rain : 0;
+    this.light.pressure = this.noise.pressure;
+    for (const walker of walkers) if (walker.rig) this.light.watchRig(walker.rig);
     const st = this.style;
     const rainK = this.weather === 'rain' ? this.rain : 1;
     const n = st && weatherSettings.enabled ? Math.floor(st.count * this.density * fxQuality.ambience * rainK) : 0;
@@ -404,30 +414,32 @@ export class Ambience {
     // Only tufts in view are written (packed to the front with their colours), so off-screen grass costs no vertex work.
     // Lower quality thins the grass (tufts are scattered at random, so a prefix is an even thinning).
     const nt = Math.ceil(this.nTufts * Math.min(1, Math.max(0, fxQuality.ambience)));
+    const attack = 1 - Math.exp(-dt * 20);
+    const release = 1 - Math.exp(-dt * 4);
     const col = this.tufts.instanceColor!.array as Float32Array;
     let vis = 0;
     for (let i = 0; i < nt; i++) {
       const x = this.tx[i];
       const z = this.tz[i];
       if (Math.abs(x - cx) > 30 || Math.abs(z - cz) > 24 || !viewCull.sphere(x, 0.3, z, 0.5)) {
-        this.tBend[i] = 0;
+        this.bendX[i] = this.bendZ[i] = 0;
         continue;
       }
-      let push = 0;
-      let ang = 0;
+      let closest = 1.44;
+      let dx = 0, dz = 0;
       for (const w of walkers) {
-        const dx = x - w.x;
-        const dz = z - w.z;
-        const d2 = dx * dx + dz * dz;
-        if (d2 < 1.4) {
-          push = Math.max(push, 1 - Math.sqrt(d2) / 1.2);
-          ang = Math.atan2(dz, dx);
-        }
+        const wx = x - w.x, wz = z - w.z;
+        const d2 = wx * wx + wz * wz;
+        if (d2 < closest) { closest = d2; dx = wx; dz = wz; }
       }
-      this.tBend[i] += (push - this.tBend[i]) * Math.min(1, dt * (push > this.tBend[i] ? 20 : 4));
+      const distance = Math.sqrt(closest);
+      const force = 1.1 * (1 - distance / 1.2) / Math.max(.08, distance);
+      const ease = force > 0 ? attack : release;
+      this.bendX[i] += (dx * force - this.bendX[i]) * ease;
+      this.bendZ[i] += (dz * force - this.bendZ[i]) * ease;
       const sway = Math.sin(this.t * 2.1 + x * 0.35 + z * 0.22) * 0.18 + Math.sin(this.t * 3.7 + x) * 0.05;
-      const b = this.tBend[i] * 1.1;
-      this.e.set(Math.sin(ang) * b, this.tr[i], sway - Math.cos(ang) * b, 'YXZ');
+      // Yaw the blades first. The contact and its recovery stay in world space.
+      this.e.set(this.bendZ[i], this.tr[i], sway - this.bendX[i], 'ZXY');
       this.q.setFromEuler(this.e);
       const s = this.ts[i];
       this.m4.compose(this.v.set(x, 0, z), this.q, this.s.set(s, s, s));

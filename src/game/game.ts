@@ -1022,6 +1022,7 @@ export class Game implements HeroWorld {
     this.fx = new Fx(this.scene);
     this.scars = new Scars(this.scene);
     this.ambience = new Ambience(this.scene);
+    this.ambience.surfaces.shots = this.bullets;
     streaks.attach(this.scene);
     this.portal = new Portal(this.scene);
     this.barrels = new Barrels(this.scene);

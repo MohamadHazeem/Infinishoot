@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { commit, instanceMatrix } from '../render/instancing';
+import { renderQuality } from '../render/quality';
 import { GroundScars, type ScarKind } from '../render/groundScars';
 
 /**
@@ -11,6 +12,39 @@ import { GroundScars, type ScarKind } from '../render/groundScars';
  * shrink away over the end of their life.
  */
 const MAX = 160;
+const IMPRINTS = 48;
+
+/** Sparse stage-long marks under the fading heat and loose earth of the scar map. */
+export class StageImprints {
+  readonly x = new Float32Array(IMPRINTS);
+  readonly z = new Float32Array(IMPRINTS);
+  readonly radius = new Float32Array(IMPRINTS);
+  readonly crater = new Uint8Array(IMPRINTS);
+  count = 0;
+  private next = 0;
+
+  add(x: number, z: number, radius: number, crater: boolean): boolean {
+    if (!(radius >= .8) || !Number.isFinite(x + z + radius)) return false;
+    radius = Math.min(3, radius);
+    for (let i = 0; i < this.count; i++) {
+      if ((x - this.x[i]) ** 2 + (z - this.z[i]) ** 2 > (.65 * this.radius[i]) ** 2) continue;
+      if (radius <= this.radius[i] && (!crater || this.crater[i])) return false;
+      this.radius[i] = Math.max(radius, this.radius[i]);
+      if (crater) this.crater[i] = 1;
+      return true;
+    }
+    const i = this.next;
+    this.next = (i + 1) % IMPRINTS;
+    this.count = Math.min(this.count + 1, IMPRINTS);
+    this.x[i] = x;
+    this.z[i] = z;
+    this.radius[i] = radius;
+    this.crater[i] = Number(crater);
+    return true;
+  }
+
+  clear(): void { this.count = this.next = 0; }
+}
 
 /** How strongly a persistent scar of each kind is stamped (the `life` a caller passes hints at how big a deal it was). */
 export const scarKindTuning = {
@@ -28,6 +62,10 @@ export const SCAR_COLORS = {
 
 export class Scars {
   private mesh: THREE.InstancedMesh;
+  private imprints = new StageImprints();
+  private imprintCount = 0;
+  private dirty = false;
+  private colors = new Float32Array(MAX * 3);
   private x = new Float32Array(MAX);
   private z = new Float32Array(MAX);
   private r = new Float32Array(MAX);
@@ -56,7 +94,7 @@ export class Scars {
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
     });
-    this.mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), mat, MAX);
+    this.mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), mat, MAX + IMPRINTS * 2);
     this.mesh.setColorAt(0, this.c.set('#ffffff'));
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
@@ -69,6 +107,7 @@ export class Scars {
     if (kind) {
       const T = scarKindTuning;
       const k = kind === 'crater' ? T.craterR : kind === 'frost' ? T.frostR : T.scorchR;
+      if (renderQuality.worldEffects && kind !== 'frost' && this.imprints.add(x, z, r, kind === 'crater')) this.dirty = true;
       this.ground.stamp(kind, x, z, r * k, Math.min(1, 0.55 + life / 30));
       return;
     }
@@ -81,31 +120,63 @@ export class Scars {
     this.rot[i] = Math.random() * Math.PI * 2;
     this.age[i] = 0;
     this.life[i] = life;
-    this.mesh.setColorAt(i, this.c.set(color));
-    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    this.c.set(color).toArray(this.colors, i * 3);
   }
 
   clear(): void {
-    this.used = this.next = 0;
+    this.imprints.clear();
+    this.dirty = false;
+    this.imprintCount = this.used = this.next = 0;
     this.mesh.count = 0;
     this.ground.clear();
   }
 
+  // Two small tangent strokes read as chipped earth or soot after the hot
+  // centre cools. They share the temporary splat draw and stage reset.
+  private writeImprints(): void {
+    const marks = this.imprints;
+    for (let i = 0; i < marks.count; i++) {
+      const r = marks.radius[i];
+      const angle = marks.x[i] * 1.6 + marks.z[i] * 2.3;
+      for (let j = 0; j < 2; j++) {
+        const a = angle + j * 1.3;
+        const x = marks.x[i] + Math.cos(a) * r * .61;
+        const z = marks.z[i] + Math.sin(a) * r * .61;
+        this.q.setFromAxisAngle(this.up, -a);
+        this.m4.compose(this.v.set(x, .026, z), this.q, this.s.set(r * .10, 1, r * (j ? .20 : .32)));
+        instanceMatrix(this.mesh, i * 2 + j, this.m4);
+        this.mesh.setColorAt(i * 2 + j, this.c.setHex(marks.crater[i] && j ? 0xb19877 : 0x514653));
+      }
+    }
+  }
+
   render(dt: number): void {
     this.ground.render(dt);
+    const persistent = renderQuality.worldEffects ? this.imprints.count * 2 : 0;
+    const changed = this.dirty || persistent !== this.imprintCount;
+    if (changed && persistent) this.writeImprints();
+    this.dirty = false;
+    this.imprintCount = persistent;
+    let visible = persistent;
     const n = this.used;
     for (let i = 0; i < n; i++) {
       this.age[i] += dt;
       const left = this.life[i] - this.age[i];
+      if (left <= 0) continue;
       // Pop in fast, shrink out over the last 25% of life.
-      const k = left <= 0 ? 0 : Math.min(1, this.age[i] * 10, left / (this.life[i] * 0.25));
+      const k = Math.min(1, this.age[i] * 10, left / (this.life[i] * 0.25));
       this.q.setFromAxisAngle(this.up, this.rot[i]);
       const r = this.r[i] * k;
       this.m4.compose(this.v.set(this.x[i], 0.02, this.z[i]), this.q, this.s.set(r, 1, r));
-      instanceMatrix(this.mesh, i, this.m4);
+      instanceMatrix(this.mesh, visible, this.m4);
+      this.mesh.setColorAt(visible++, this.c.fromArray(this.colors, i * 3));
     }
-    this.mesh.count = n;
-    commit(this.mesh.instanceMatrix, n);
+    this.mesh.count = visible;
+    if (visible === persistent) this.used = this.next = 0;
+    if (visible && (changed || visible > persistent)) {
+      commit(this.mesh.instanceMatrix, visible);
+      commit(this.mesh.instanceColor!, visible);
+    }
   }
 }
 
