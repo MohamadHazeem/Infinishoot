@@ -97,6 +97,7 @@ import * as NetHostSys from './systems/netHost';
 import { voiceTick } from './systems/voicechat';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
+import { updatePatrolBadges } from './squads';
 import * as EnemyAiSys from './systems/enemyAi';
 import * as AnimSys from './systems/anim';
 import * as LookSys from './systems/look';
@@ -1331,6 +1332,7 @@ export class Game implements HeroWorld {
       },
       fireBullet: (e, dx, dz, speed, damage) => {
         if (patternedShot(this, e, dx, dz, speed, damage)) return;
+        const slot = this.bullets.count;
         this.bullets.spawn({
           x: e.x + dx * (e.radius + 0.2),
           z: e.z + dz * (e.radius + 0.2),
@@ -1346,6 +1348,10 @@ export class Game implements HeroWorld {
           width: access.colorblind ? 0.62 : 0.5,
           length: access.colorblind ? 0.62 : 0.5,
         });
+        // The patrol's 20 m aim line also bounds its shot, including on Barrage roads.
+        if (e.def.patrolRole === 'marksman' && slot < this.bullets.count) {
+          this.bullets.life[slot] = (20 - e.radius - 0.2) / Math.hypot(this.bullets.vx[slot], this.bullets.vz[slot]);
+        }
         this.vfx.sound('enemyShoot', e.x, e.z);
       },
       spawnChild: (id, x, z) => {
@@ -1477,6 +1483,7 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    updatePatrolBadges(this);
     dt = Assists.assistStep.call(this, dt);
     this.mvpStep();
     voiceTick(this, dt); // voice chat: roster, calls, push to talk, proximity (systems/voicechat.ts)
@@ -1631,8 +1638,10 @@ export class Game implements HeroWorld {
     this.companionTargets();
     coopPlayTargets(this); // the escorted core draws enemies too (systems/coopplay.ts)
     updateElites2.call(this, dt);
+    const previousLure = EnemyAiSys.preparePatrols(this, dt);
     if (this.director.enrageStep && this.boss?.active) BossFightSys.enragedEnemyStep(this, dt);
     else this.enemies.update(dt, this.enemyCtx);
+    this.enemyCtx.lure = previousLure;
     HalloweenSys.halloweenStep.call(this, dt);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
@@ -1703,6 +1712,8 @@ export class Game implements HeroWorld {
       const reqs = secretsHolding(this) ? NO_SECRET_REQUESTS : this.runMode === 'gauntlet' ? GauntletSys.gauntletRequests(this, dt) : this.runMode === 'bossrush' ? GauntletSys.rushRequests(this, dt) : this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
       for (const r of reqs) {
+        if (SpawningSys.holdPatrolRefill(this, r)) continue;
+        if (r.kind === 'ring') r.count -= SpawningSys.patrolRing(this, r.count);
         if (r.kind === 'boss') this.spawnBoss(r.def);
         else if (r.kind === 'ring') this.spawnRing(r.def, r.count);
         else {

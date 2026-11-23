@@ -1,3 +1,6 @@
+import { ENEMY_TIPS } from './bestiary';
+import { ENEMY_LORE2 } from './codex2';
+import { en } from '../i18n/en';
 import { familyArmour, type Armour, type WeakPoint } from './armour';
 import type { ShotFamily } from './patterns';
 import { architectDefs } from '../game/architect/defs';
@@ -14,7 +17,10 @@ export type Model = 'cake' | 'kraken' | 'gummy' | 'jellyfish' | 'pumpkin' | 'pum
 export type BiomeBehavior = 'diver' | 'shark' | 'roller' | 'slug' | 'marcher' | 'kite';
 export type BiomeModel = 'bee' | 'shark' | 'snowball' | 'slug' | 'soldier' | 'kite';
 
+export type PatrolRole = 'commander' | 'marksman' | 'bulwark' | 'baiter' | 'hunter';
+
 export interface EnemyDef {
+  patrolRole?: PatrolRole;
   armour?: Armour;
   weakPoint?: WeakPoint;
   id: string;
@@ -1032,6 +1038,48 @@ Object.assign(ENEMIES, bossLaneDefs(ENEMIES));
 Object.assign(ENEMIES, bosses3Defs());
 Object.assign(ENEMIES, biome3Defs());
 Object.assign(ENEMIES, secretBossDefs(ENEMIES));
+
+/** Appended after the original roster to preserve its wire indices. Patrols spend ring slots. */
+export const patrolRoles = ['commander', 'marksman', 'bulwark', 'baiter', 'hunter'] as const;
+export const patrolDefs: Record<PatrolRole, EnemyDef> = {
+  commander: {
+    id: 'field_commander', patrolRole: 'commander', name: 'Field Commander', model: 'king', behavior: 'chase',
+    hp: 76, speed: 3.8, radius: 0.85, bodyColor: '#5d275d', accentColor: '#ffcd75', material: 'metal',
+    death: 'robot', contactDamage: 0, knockbackResist: 0.35, xp: 24, score: 320, minMinute: -1, minStage: 1, weight: 0,
+  },
+  marksman: {
+    ...ENEMIES.sniper, id: 'squad_marksman', patrolRole: 'marksman', name: 'Squad Marksman',
+    bodyColor: '#29366f', accentColor: '#ef7d57', hp: 36, contactDamage: 0, material: 'metal',
+    shoot: { keepDistance: 13, interval: 3.6, bullets: 1, spreadDeg: 0, speed: 20, damage: 15, pattern: 'sniper' },
+    minMinute: -1, minStage: 2, weight: 0,
+  },
+  bulwark: {
+    ...ENEMIES.shielder, id: 'wall_guard', patrolRole: 'bulwark', name: 'Wall Guard',
+    bodyColor: '#257179', accentColor: '#73eff7', hp: 68, speed: 3.3, radius: 0.78, contactDamage: 0, material: 'shield',
+    // The paired plates intercept frontal hits. A clear shot through the gap stays clear.
+    guard: { arcDeg: 65, frontMul: 0, behindMul: 0.5, range: 0, turn: 2 },
+    minMinute: -1, minStage: 1, weight: 0,
+  },
+  baiter: {
+    id: 'trap_runner', patrolRole: 'baiter', name: 'Trap Runner', model: 'golden', behavior: 'chase',
+    bodyColor: '#ef7d57', accentColor: '#ffcd75', hp: 34, speed: 5.5, radius: 0.54, material: 'metal',
+    death: 'shards', contactDamage: 0, knockbackResist: 0.2, xp: 5, score: 180, minMinute: -1, minStage: 2, weight: 0,
+  },
+  hunter: {
+    ...ENEMIES.leaper, id: 'dusk_hunter', patrolRole: 'hunter', name: 'Dusk Hunter',
+    model: 'reaper', bodyColor: '#5d275d', accentColor: '#f4f4f4', hp: 105, speed: 5.8, radius: 0.8,
+    contactDamage: 0, ears: undefined, pack: undefined, voice: 'ghost', xp: 9, score: 450,
+    leap: { range: 9, windup: 1.2, air: 0.75, height: 3, radius: 1.9, damage: 18, recover: 1.25, cooldown: 3.6 },
+    minMinute: -1, minStage: 3, weight: 0,
+  },
+};
+// Register with the same discovery, lore and field-tip tables as the original roster.
+for (const role of patrolRoles) {
+  const def = patrolDefs[role];
+  ENEMIES[def.id] = def;
+  ENEMY_TIPS[def.id] = en[`patrol.guide.${role}`];
+  ENEMY_LORE2[def.id] = en[`patrol.lore.${role}`];
+}
 
 /** Every enemy's hit material (veterans use their base enemy's). Unlisted enemies sound like flesh. */
 export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {
