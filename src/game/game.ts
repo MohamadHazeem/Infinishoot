@@ -101,6 +101,7 @@ import * as AnimSys from './systems/anim';
 import * as LookSys from './systems/look';
 import * as BossFightSys from './systems/bossFight';
 import { BossField } from './bossField';
+import { BossActs } from './bossesActs';
 import { BossIntro } from './bossIntro';
 import type { BossApi } from './bosses';
 import type { BossDuel } from './bossDuel';
@@ -1033,6 +1034,11 @@ export class Game implements HeroWorld {
     this.dmg.localHero = () => this.hero?.index ?? 0;
     this.hud = new Hud(hudRoot);
     this.bossField = new BossField(this.scene, access);
+    const bossActs = this.bossApi.acts = new BossActs(this, hudRoot);
+    this.renderBossFight = (dt, paused) => {
+      BossFightSys.renderBossFight.call(this, dt, paused);
+      bossActs.render();
+    };
     this.bossIntro = new BossIntro(hudRoot);
     this.bossIntro.onSkip = () => this.skipBossIntro();
     this.vfx = new Vfx({

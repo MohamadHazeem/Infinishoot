@@ -18,6 +18,16 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "g4.hint.crown": "قف على اللوح الأزرق",
+  "g4.last.crown": "التاج المتساقط",
+  "g4.hint.brake": "اجذب ريكس وراء الحاجز الأزرق",
+  "g4.last.brake": "الفرن الجامح",
+  "g4.hint.brood": "اعبر الخيط الذهبي أو دمّر خليته",
+  "g4.last.brood": "الفقس الأخير",
+  "g4.hint.dodge": "ابتعد عن خط الاندفاع",
+  "g4.hint.scan": "اثبت مكانك حين تضيق الحلقة الزرقاء",
+  "g4.last.scan": "السكون التام",
+  "g4.counter": "انكشفت النواة • هاجم",
   ...craftAr,
   "armour.plated": "مصفّح",
   "armour.ethereal": "طيفي",
