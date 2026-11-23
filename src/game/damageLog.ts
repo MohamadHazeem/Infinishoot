@@ -132,7 +132,7 @@ export function recordHit(g: Game, h: Hero, before: number, amount: number, src:
     attack = 'bullet';
     const slot = impacts.get(g), s = shots.get(g);
     if (slot !== undefined && s) {
-      const uid = g.bullets.uid[slot], n = uid % s.uid.length;
+      const uid = g.bullets.parentUid[slot] || g.bullets.uid[slot], n = uid % s.uid.length;
       if (uid === s.uid[n] && s.def[n]) { source = s.def[n]!.id; warned = !!s.warned[n]; }
     }
   }

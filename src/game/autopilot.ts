@@ -1,3 +1,4 @@
+import { dodgeThreats } from './enemyBulletDodge';
 import { pilotArchitect } from './systems/architect';
 import { pilotRaid } from './systems/raid';
 import type { Game } from './game';
@@ -133,6 +134,7 @@ export class Autopilot {
     }
     pilotRaid(g, o);
     pilotArchitect(g, o);
+    dodgeThreats(g, o);
     return o;
   }
 

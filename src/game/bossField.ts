@@ -1,3 +1,4 @@
+import { Denial, type DenialNet } from './denial';
 import type { Biome3Net } from './systems/biome3';
 import { dangerLayer } from '../render/noiseGovernor';
 import * as THREE from 'three';
@@ -33,6 +34,7 @@ export interface FirePatch {
 
 /** What clients get each snapshot (see BossField.pack / unpack). */
 export interface BossNet {
+  denial?: DenialNet;
   bi3?: Biome3Net;
   /** Bosses and mini-bosses: uid, phase, move index, roaring (0/1), intro seconds left. */
   b: [number, number, number, number, number][];
@@ -100,7 +102,9 @@ export class BossField {
   private p = { x: 0, z: 0 };
   private list: Enemy[] = [];
 
-  constructor(scene: THREE.Scene) {
+  readonly denial: Denial;
+  constructor(scene: THREE.Scene, private access = {colorblind: false}) {
+    this.denial = new Denial(scene);
     const add = <T extends THREE.Mesh>(m: T): T => {
       m.frustumCulled = false;
       dangerLayer(m);
@@ -144,6 +148,7 @@ export class BossField {
   }
 
   clear(): void {
+    this.denial.clear();
     this.waves.length = 0;
     this.fires.length = 0;
     this.pendingHives.length = 0;
@@ -157,6 +162,7 @@ export class BossField {
   pack(bosses: Enemy[], introLeft: (e: Enemy) => number): BossNet {
     const mini = this.mini && this.mini.active ? this.mini : null;
     return {
+      denial: this.denial.pack(),
       b: bosses.map((e) => [e.uid, e.phase, Math.max(0, BOSS_MOVES.indexOf(e.move as never)), e.roarT > 0 ? 1 : 0, r2(introLeft(e))]),
       m: mini ? [mini.def.name, r2(Math.max(0, mini.hp / mini.maxHp)), mini.phase, mini.def.id] : null,
       w: this.waves.map((w) => w.color ? [r2(w.x), r2(w.z), r2(w.r), r2(w.delay), w.color] : [r2(w.x), r2(w.z), r2(w.r), r2(w.delay)]),
@@ -166,6 +172,7 @@ export class BossField {
 
   /** Client: mirror the host's arena state. */
   unpack(n: BossNet, byUid: (uid: number) => Enemy | undefined): void {
+    this.denial.unpack(n.denial);
     for (const [uid, phase, move, roar] of n.b) {
       const e = byUid(uid);
       if (!e) continue;
@@ -183,6 +190,7 @@ export class BossField {
 
   /** Client: move shockwaves on between snapshots. */
   advance(dt: number): void {
+    this.denial.advance(dt);
     for (const w of this.waves) {
       if (w.delay > 0) w.delay -= dt;
       else w.r += bossMoveTuning.shockSpeed * dt;
@@ -191,6 +199,7 @@ export class BossField {
   }
 
   render(enemies: readonly Enemy[], time: number): void {
+    this.denial.render(this.access.colorblind);
     const T = bossMoveTuning;
     // Shockwave ring walls: blocks around the circle, bobbing like a wave.
     let n = 0;

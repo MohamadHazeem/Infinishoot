@@ -1,3 +1,5 @@
+import { enemyKind } from '../data/patterns';
+import { flightTime } from '../game/enemyBullets';
 import { ByteReader, ByteWriter, type NetBytes } from './bytes';
 import { BULLET_COLORS } from './codec';
 import type { Bullets } from '../game/bullets';
@@ -51,6 +53,8 @@ export class BulletDeltaEncoder {
   private qz = new Float64Array(CAP);
   private qvx = new Float64Array(CAP);
   private qvz = new Float64Array(CAP);
+  private teamShape = new Uint8Array(CAP);
+  private life = new Float32Array(CAP);
   private t0 = new Float64Array(CAP);
   private seen = new Uint32Array(CAP);
   private gen = 0;
@@ -90,10 +94,12 @@ export class BulletDeltaEncoder {
       const i = idx[k];
       const uid = b.uid[i];
       let slot = this.slotOf.get(uid);
-      if (slot === undefined) {
-        slot = this.alloc();
+      const identity = b.team[i] | (b.shape[i] << 1);
+      if (slot === undefined || this.teamShape[slot] !== identity) {
+        slot ??= this.alloc();
         if (slot < 0) continue; // more bullets than we track: skip it this time
         this.slotOf.set(uid, slot);
+        this.teamShape[slot] = identity;
         this.uidOf[slot] = uid;
         this.store(slot, b, i, btMs, true);
         this.seen[slot] = this.gen;
@@ -102,7 +108,8 @@ export class BulletDeltaEncoder {
         continue;
       }
       this.seen[slot] = this.gen;
-      const dt = (btMs - this.t0[slot]) / 1000;
+      const elapsed = (btMs - this.t0[slot]) / 1000;
+      const dt = b.team[i] ? flightTime(b.shape[i], this.life[slot], elapsed) : elapsed;
       const px = this.qx[slot] + this.qvx[slot] * dt;
       const pz = this.qz[slot] + this.qvz[slot] * dt;
       const velChanged = Math.abs(b.vx[i] - this.qvx[slot]) > T.velTol || Math.abs(b.vz[i] - this.qvz[slot]) > T.velTol;
@@ -155,6 +162,7 @@ export class BulletDeltaEncoder {
       this.qvx[slot] = qv(b.vx[i]) / 20;
       this.qvz[slot] = qv(b.vz[i]) / 20;
     }
+    this.life[slot] = b.life[i];
     this.t0[slot] = btMs;
   }
 
@@ -184,8 +192,9 @@ export class BulletDeltaDecoder {
       const err = bt - this.lastBt - (b.simTime - this.lastSim);
       if (err !== 0 && Math.abs(err) < 0.5) {
         for (let i = 0; i < b.count; i++) {
-          b.x[i] += b.vx[i] * err;
-          b.z[i] += b.vz[i] * err;
+          const dt = !b.team[i] ? err : err < 0 ? -flightTime(b.shape[i], b.life[i]-err, -err) : flightTime(b.shape[i], b.life[i], err);
+          b.x[i] += b.vx[i] * dt;
+          b.z[i] += b.vz[i] * dt;
           b.life[i] -= err;
         }
       }
@@ -227,7 +236,13 @@ export class BulletDeltaDecoder {
       const bits = r.u8();
       const life = r.u16() / 1000;
       if (i !== undefined) {
-        // Already have it (shouldn't happen): the host's word wins.
+        // In-place parry or mirror reflection: same uid, new team and silhouette.
+        b.team[i] = bits & 1;
+        b.owner[i] = (bits >> 4) & 7;
+        b.setColor(i, color);
+        b.shape[i] = (bits >> 1) & 7;
+        b.kind[i] = b.team[i] ? enemyKind(b.shape[i]) : 0;
+        b.width[i] = width; b.length[i] = length;
         b.x[i] = b.px[i] = x;
         b.z[i] = b.pz[i] = z;
         b.vx[i] = vx;
