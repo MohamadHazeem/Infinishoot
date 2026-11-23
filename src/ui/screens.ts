@@ -150,6 +150,9 @@ export interface ShopView {
 
 export interface Offer {
   paths?: PathHint[];
+  draft?: ReturnType<typeof import('../game/ruleCards').draftPrices>;
+  /** Distinct bonus-card type. The wire kind keeps older card scorers compatible. */
+  cardType?: 'rule';
   kind: 'weapon' | 'passive' | 'special' | 'gold' | 'heal' | 'track' | 'evo' | 'overdrive' | 'evolve' | 'fusion';
   /** Icon id. */
   id: string;
@@ -912,10 +915,20 @@ export class Screens {
   /** Route map between stages (src/ui/routeMap.ts); `statusOnly` just refreshes the countdown. */
   route!: RouteMapView;
   onRoutePick: ((i: number) => void) | null = null;
+  onRoutePacts?: (el: HTMLElement, v: RouteView) => void;
+  private pactRoute?: RouteView;
+  refreshPacts(): void {
+    if (this.current === 'route' && this.pactRoute) {
+      this.onRoutePacts?.(this.els.route, this.pactRoute);
+      this.refreshNav();
+    }
+  }
   showRoute(v: RouteView, statusOnly = false): void {
     if (statusOnly && this.current === 'route') return this.route.setStatus(v);
     const focus = this.current === 'route' ? this.navs.route.focus : 0;
     this.route.render(v);
+    this.pactRoute = v;
+    this.onRoutePacts?.(this.els.route, v);
     this.show('route', focus);
   }
 
@@ -1127,7 +1140,7 @@ export class Screens {
     });
     el.querySelector('.cards')!.innerHTML = localizeHtml(offers
       .map(
-        (o, i) => `<button class="card rolling ${o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)} ${canBanish(o) ? 'ban-ok' : 'ban-no'}" data-nav data-act="pick" data-index="${i}">
+        (o, i) => `<button class="card rolling ${o.cardType ?? o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)} ${canBanish(o) ? 'ban-ok' : 'ban-no'}" data-nav data-act="pick" data-index="${i}">
           <i class="fx"></i><i class="card-shine" aria-hidden="true"></i>
           <div class="tag ${cardMode(o)}">${cardMode(o) === 'upgrade' ? '▲ UPGRADE' : o.tag}</div>
           ${cardMode(o) === 'new' ? '<div class="ribbon">NEW</div>' : ''}
@@ -1154,7 +1167,17 @@ export class Screens {
         </button>`,
       )
       .join(''));
-    el.querySelector('.reroll-row')!.innerHTML =
+    const costs = offers[0]?.draft;
+    if (costs) {
+      const wallet = t('g5.wallet', { n: costs.gold });
+      const roll = t(costs.gear ? 'g5.gearRoll' : 'g5.roll', { n: costs.reroll });
+      const ban = t('g5.banish', { n: costs.banish, left: banish });
+      const skip = costs.healSkip ? t('g5.skipHeal') : skipGold ? t('g5.skipGold', { n: skipGold }) : t('g5.skip');
+      el.querySelector('.reroll-row')!.innerHTML =
+        localizeHtml(`<span class="draft-wallet">${wallet}</span><button data-nav data-act="reroll" ${costs.gold < costs.reroll ? 'disabled' : ''}>${roll} ${prompt('reroll')}</button>` +
+        `<button data-nav data-act="skip" class="skip">${skip}</button>` +
+        `<button data-nav data-act="banish" class="banish ${costs.gold >= costs.banish && banish > 0 && offers.some(canBanish) ? '' : 'cant'}">${ban}</button>`);
+    } else el.querySelector('.reroll-row')!.innerHTML =
       localizeHtml((rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} ${prompt('reroll')}</button>` : '') +
       (skipGold > 0 ? `<button data-nav data-act="skip" class="skip">SKIP +${skipGold}<span class="gold-dot"></span></button>` : '') +
       (banish >= 0 ? `<button data-nav data-act="banish" class="banish ${banish > 0 && offers.some(canBanish) ? '' : 'cant'}">BANISH ✕${banish}</button>` : ''));

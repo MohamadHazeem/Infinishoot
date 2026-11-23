@@ -59,6 +59,8 @@ import { Enemies, type Enemy, type EnemyCtx, type SpawnOpts } from './enemies';
 import { Fx } from './fx';
 import { HERO_COLORS, Hero, MAX_GEARS, type HeroWorld } from './hero';
 import { Juice } from './juice';
+import { contractView, mirrorContracts, prepareRejoins, withRuleDamage, ruleKill } from './ruleCards';
+import { couchHeat, payPacts, showPacts } from './pacts';
 import { damageWithFeedback, escapeBeat, hurtBeat } from './juiceCombat';
 import { Particles } from './particles';
 import { PickupType, Pickups, type Collector } from './pickups';
@@ -409,7 +411,10 @@ export class Game implements HeroWorld {
   bankAndShow = RunFlowSys.bankAndShow;
   mvp = MvpSys.createMvp();
   mvpStep = MvpSys.mvpStep;
-  mvpKill = MvpSys.mvpKill;
+  mvpKill: typeof MvpSys.mvpKill = function (e, h) {
+    MvpSys.mvpKill.call(this, e, h);
+    if (h?.play.ruleId) ruleKill.call(this, e, h);
+  };
   mvpHurt = MvpSys.mvpHurt;
   mvpRevive = MvpSys.mvpRevive;
   mvpShared = MvpSys.mvpShared;
@@ -471,7 +476,7 @@ export class Game implements HeroWorld {
   recycleFarEnemies = SpawningSys.recycleFarEnemies;
   nearestEnemy = CombatSys.nearestEnemy;
   enemiesInRadius = CombatSys.enemiesInRadius;
-  damage = damageWithFeedback;
+  damage = withRuleDamage(damageWithFeedback);
   updatePets = CompanionSys.updatePets;
   updateEliteMods = CombatSys.updateEliteMods;
   groundAt = CombatSys.groundAt;
@@ -544,6 +549,8 @@ export class Game implements HeroWorld {
     const snap = NetHostSys.buildSnapshot.call(this, h, events, view);
     if (!view && h.synergy.slots.length && h.synergy.lastModHit !== null)
       snap.modHit = Math.round(h.synergy.lastModHit * 100);
+    const contracts = !view && contractView(h);
+    if (contracts) snap.contract = contracts;
     return snap;
   };
   onClientMessage = NetClientSys.onClientMessage;
@@ -558,6 +565,7 @@ export class Game implements HeroWorld {
   clientUpdate = NetClientSys.clientUpdate;
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
+    if (mirrorContracts(this.hero, m.contract)) this.screens.refreshPacts();
     this.hero.synergy.lastModHit = typeof m.modHit === 'number' ? m.modHit / 100 : null;
   }
   syncWeapons: typeof NetClientSys.syncWeapons = function (h, list) {
@@ -606,7 +614,10 @@ export class Game implements HeroWorld {
   routeChest = RouteSys.routeChest;
   routeGears = RouteSys.routeGears;
   updateRoute = RouteSys.updateRoute;
-  routeClearRewards = RouteSys.routeClearRewards;
+  routeClearRewards(): void {
+    RouteSys.routeClearRewards.call(this);
+    payPacts.call(this);
+  }
   openRoute = RouteSys.openRoute;
   routeBeginVote = RouteSys.routeBeginVote;
   routePick = RouteSys.routePick;
@@ -1105,6 +1116,8 @@ export class Game implements HeroWorld {
     this.hud.onPause = () => this.pause();
     this.onboarding = new Onboarding(this, hudRoot);
     this.firstten = new FirstTen(this, hudRoot);
+    this.screens.onRoutePacts = (el, v) => showPacts(this, el, v);
+    this.hud.couchHeat = () => couchHeat(this);
     this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
     SkillSys.installHands(this);
@@ -1184,7 +1197,7 @@ export class Game implements HeroWorld {
     // The current weapon stays on the context throughout its update. Beam
     // leech and kill rewards (including nested kills) spend one recipient budget.
     const heal = h.player.heal.bind(h.player);
-    h.player.heal = (amount) => heal((this.killDepth || h.ctx.soundSource?.def.id === 'medbeam') && amount > 0
+    h.player.heal = (amount) => h.play.ruleId === 'tithe' && amount > 0 ? 0 : heal((this.killDepth || h.ctx.soundSource?.def.id === 'medbeam') && amount > 0
       ? h.synergy.killHealing.grant(this.runTime, Math.min(amount, h.player.maxHp - h.player.hp), h.player.maxHp)
       : amount);
     h.player.setSkin(h.skin.armor, h.skin);
@@ -1457,7 +1470,9 @@ export class Game implements HeroWorld {
     if (this.pvp) this.pvpTick();
     this.coopInput();
     AisquadSys.squadStep.call(this);
+    const rejoin = this.role === 'host' ? prepareRejoins(this, Coop2Sys.coopState(this)) : undefined;
     this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
+    rejoin?.();
     this.tradingStep(dt); // co-op trading, shop pools, titles, LEGEND scaling (systems/trading.ts)
     this.mpTick(dt); // MP lane: Versus command view, local co-op menu turns, lobby heartbeat (systems/mp.ts)
     this.partyTick(dt); // lobby lane: pings, ready-up countdown, party votes (systems/party.ts)

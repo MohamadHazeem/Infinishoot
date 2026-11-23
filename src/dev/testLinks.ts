@@ -1,6 +1,7 @@
 import { craftLink } from '../game/crafting';
 import { previewThreats } from '../game/enemyBullets';
 import { Zone } from '../data/patterns';
+import { ruleOffer } from '../game/ruleCards';
 import { personalDeaths } from '../game/damageLog';
 import { casualLinks } from '../game/systems/assists';
 import { architectLinks } from '../game/systems/architect';
@@ -452,7 +453,27 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
   setsLinks(game, q); // item sets: &relics, &set=inferno:4, &setpause (src/dev/setsLinks.ts)
+  if (q.has('ration') && q.has('levelup')) h.player.hp = h.player.maxHp / 4;
   shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
+  const rule = ruleOffer(q.get('rulecard') ?? '');
+  if (rule && game.mode === 'levelup') {
+    const existing = h.offers.findIndex(o => o.cardType === 'rule');
+    const slot = existing >= 0 ? existing : h.offers.map(o => !['evo', 'evolve', 'fusion'].includes(o.kind)).lastIndexOf(true);
+    if (slot >= 0) {
+      h.offers[slot] = rule;
+      game.presentLevelUp(h);
+    }
+  }
+  if (q.get('pactheat') === '1') {
+    for (const seat of game.localCoop ? game.heroes : [game.hero]) {
+      seat.play.pactStage = 1;
+      if (seat.index % 2) seat.play.pactShop = 1;
+      else seat.play.pactBoots = 1;
+      seat.loadoutDirty = true;
+      seat.refreshLive();
+    }
+  }
+
   tradingLinks(game, q); // trading lane: &tradedemo, &trade=<s>, &traderelic, &tradepool, &tradelobby (src/dev/tradingLinks.ts)
   mods2Links(game, q);
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).

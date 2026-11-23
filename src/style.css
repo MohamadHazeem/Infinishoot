@@ -4438,3 +4438,13 @@ table.history .cause {
 @media (max-width: 600px) {
   .path-panel { grid-template-columns: 1fr; }
 }
+/* Gate 5 contracts use the existing route map, loadout dock and card frames. */
+#scr-levelup .card.rule { --hi: var(--yellow); --lo: var(--plum); }
+#scr-levelup .card.rule .tag { background: var(--plum); color: var(--yellow); }
+#scr-levelup .card.rule .name { color: var(--plum); }
+#scr-levelup .card.rule .icon { --bg: var(--plum); --lo: var(--ink); color: var(--yellow); }
+.draft-wallet { color: var(--yellow); }
+.draft-wallet { align-self: center; font-family: var(--label); }
+#runinfo .pact-heat { color: var(--orange); }
+#scr-route .pact-row { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(3 * var(--p)); }
+#scr-route .pact-row button { max-width: 92vw; color: var(--yellow); white-space: normal; font-family: var(--font); }

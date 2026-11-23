@@ -244,7 +244,7 @@ export class Hud {
       localizeHtml(`<div id="ingame">
          <div id="xpbar"><div class="fill"></div><i class="spark" aria-hidden="true"></i><div class="lv px"><span>${t("text.lv_a7bdee")}</span><b></b></div></div>
          <div id="hp"><div class="bar"><div class="chunk"></div><div class="fill"></div></div><div class="num"></div></div>
-         <div id="runinfo"><span class="kills"></span><span class="gold"></span><span class="gears"></span></div>
+         <div id="runinfo"><span class="kills"></span><span class="gold"></span><span class="gears"></span><span class="pact-heat" hidden></span></div>
          <div id="timer"><div class="clock"></div><div class="stage"></div></div>
          <div id="goals"><div id="team"></div><div id="spice"></div></div>
          <button id="pausebtn" title="Pause (Esc)" aria-label="Pause">${t("text.ii_66cc12")}</button>
@@ -407,10 +407,22 @@ export class Hud {
     this.el('#combo').classList.remove('broken');
   }
 
+  couchHeat?: () => string | undefined;
   setLoadout(items: LoadoutItem[]): void {
+    const pact = items.find(i => i.id === 'pact_heat');
+    const heat = this.el('#runinfo .pact-heat');
+    const teamHeat = this.couchHeat?.();
+    heat.hidden = !teamHeat && !pact;
+    if (teamHeat) {
+      heat.textContent = localize(teamHeat);
+      heat.title = teamHeat;
+    } else if (pact) {
+      heat.textContent = t('g5.heat', { n: pact.level });
+      heat.title = localize(pact.desc ?? '');
+    }
     const html = (kind: LoadoutItem['kind']) =>
       items
-        .filter((i) => i.kind === kind)
+        .filter((i) => i.kind === kind && i !== pact)
         .map(
           (i) =>
             `<div class="slot ${i.max ? 'max' : ''} ${i.evo ? 'evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" title="${i.name}${i.slot ? ' (' + SLOT_LABEL[i.slot] + ')' : ''}">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'EVO' : i.max ? 'MAX' : i.level}</i></div>`,

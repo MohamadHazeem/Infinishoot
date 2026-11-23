@@ -35,6 +35,9 @@ import { HeroSkill } from './style';
 import { banishTuning, canBanish, offerKey } from './banish';
 import { HeroMech, attachHeroGear, detachHeroGear } from './heroMechs';
 import { fuseWeapons, fusionOfferFor, placeFusion } from './fusion';
+import { buyRation, freshContracts, ruleLive, ruleLoadout } from './ruleCards';
+import { pactLoadout, pactTuning } from './pacts';
+import { RULE_BY_ID, ruleTuning } from '../data/ruleCards';
 import { HeroPlay } from './gameplay';
 
 /** Auto-weapon slots (the loadout's clicks don't use them). */
@@ -198,7 +201,7 @@ export class Hero implements SynergyHost {
   /** Hero mechanic state: Furnace heat, Duelist chain, Twin clone (src/game/heroMechs.ts). */
   readonly mech = new HeroMech();
   /** Gameplay lane: mech suit, super weapon, overload, comeback and relic state (src/game/gameplay.ts). */
-  readonly play = new HeroPlay();
+  readonly play = Object.assign(new HeroPlay(), freshContracts());
   /** Item sets: piece counts, tiers and bonus timers (src/game/systems/sets.ts). */
   readonly sets = new HeroSets();
   /** Comeback mode: at death's door with no revives left (x2 damage, red screen). For the music and sound. */
@@ -336,6 +339,7 @@ export class Hero implements SynergyHost {
     this.skill.reset();
     this.mech.reset();
     this.play.reset();
+    Object.assign(this.play, freshContracts());
     this.player.noDash = this.mech.id === 'duelist'; // a mech suit from the last run may have switched the dash off
     this.petState.reset();
     this.recomputeStats();
@@ -439,6 +443,8 @@ export class Hero implements SynergyHost {
     this.play.applyLive(this.stats);
     this.world.director2Live?.(this);
     applySetLive(this);
+    ruleLive(this);
+    this.stats.dashCooldownMul *= 1 + pactTuning.penalty * this.play.pactBoots;
   }
 
   get specialDef(): SpecialDef {
@@ -521,6 +527,7 @@ export class Hero implements SynergyHost {
         kind: 'weapon' as const,
         slot: weaponSlot(w.def.slot),
       })),
+      ...ruleLoadout(this), ...pactLoadout(this),
       ...Object.entries(this.passives).map(([id, lv]) => {
         const d = PASSIVES[id];
         return { id, icon: d.icon, color: d.color, level: lv, max: lv >= d.maxLevel, name: d.name, rarity: d.rarity, desc: `${d.desc} (x${lv})${this.weapons.filter((w) => w.def.evolution?.passive === id && !w.evolved).map((w) => ` Partner of ${w.def.name}: max it to evolve into ${w.def.evolution!.name}.`).join('')}`, kind: 'passive' as const, slot: 'item' as const };
@@ -717,6 +724,10 @@ export class Hero implements SynergyHost {
       const w = this.weapons.find((x) => x.def.id === id);
       if (w) w.levelUp();
       else this.weapons.push(createWeapon(id, this.world.scene));
+    } else if (o.cardType === 'rule') {
+      const card = RULE_BY_ID.get(o.id);
+      if (card && !this.play.ruleId) this.play.ruleId = card.id;
+      this.refreshLive();
     } else if (o.kind === 'fusion') {
       fuseWeapons(this.weapons, o.id, this.world.scene);
     } else if (o.kind === 'evolve') {
@@ -729,6 +740,7 @@ export class Hero implements SynergyHost {
       const heal = PASSIVES[o.id].healOnPick;
       if (heal) this.player.heal(heal);
     } else if (o.kind === 'gold') this.gold += 2 * this.skipGold;
+    else if (o.kind === 'heal' && o.id === 'field_ration') buyRation(this, this.world.stage ?? 1);
     else if (o.kind === 'heal') this.player.heal(40);
     this.player.hp = Math.min(this.player.hp, this.player.maxHp);
     this.paths.refresh(this);
@@ -861,12 +873,14 @@ export class Hero implements SynergyHost {
   }
 
   price(m: ModDef): number {
-    return Math.max(1, Math.round(m.price * (this.world.shopPriceMul ?? 1) * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1)));
+    const base = m.price + (this.play.ruleId === 'salvage' ? ruleTuning.salvageMarkup : 0);
+    const heat = 1 + pactTuning.penalty * this.play.pactShop;
+    return Math.max(1, Math.round(base * heat * (this.world.shopPriceMul ?? 1) * (1 - Math.min(0.5, this.synergy.flags.shopDiscount)) * (this.secretShop ? 0.75 : 1)));
   }
 
   /** Half of what you actually paid (purchase + upgrades). */
   sellPrice(paid: number): number {
-    return this.synergy.flags.sellFull ? paid : Math.floor(paid / 2);
+    return this.synergy.flags.sellFull || this.play.ruleId === 'pawn' ? paid : Math.floor(paid / 2);
   }
 
   /** Gold to take an owned Mod from `level` to level + 1: its price, then 1.5x. */
@@ -884,6 +898,7 @@ export class Hero implements SynergyHost {
   }
 
   get interest(): number {
+    if (this.play.ruleId === 'pawn' || this.play.ruleId === 'reserve') return 0;
     return Math.min(this.interestCap, Math.floor(this.gold / this.interestPer));
   }
 
@@ -912,7 +927,7 @@ export class Hero implements SynergyHost {
       slots: MAX_MOD_SLOTS,
       rerollCost: this.rerollCost,
       healCost: this.healPrice(stage),
-      healed: this.shopHealed || this.player.hp >= this.player.maxHp,
+      healed: this.play.ruleId === 'tithe' || this.shopHealed || this.player.hp >= this.player.maxHp,
       loadout: this.loadout(),
       stage,
       secret: this.secretShop,
@@ -988,6 +1003,7 @@ export class Hero implements SynergyHost {
   }
 
   heal(): string {
+    if (this.play.ruleId === 'tithe') return 'HEALING SEALED';
     const price = this.healPrice(this.world.stage ?? 1);
     if (this.shopHealed || this.player.hp >= this.player.maxHp) return 'ALREADY HEALED';
     if (this.gold < price) return 'NOT ENOUGH GOLD';
