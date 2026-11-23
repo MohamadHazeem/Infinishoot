@@ -4,6 +4,7 @@ import { offerPathHints, pathDamageName } from './archetypes';
 import { registerKinds } from './gameplay';
 import { patternedShot } from './enemyBullets';
 import { installSteam } from '../platform/steam';
+import { IslandField } from './biomeRules';
 import { installTelemetry } from './systems/telemetry';
 import * as ArchitectSys from './systems/architect';
 import { updateElites2 } from './systems/elites2';
@@ -375,6 +376,7 @@ export class Game implements HeroWorld {
   worldEventLocal = WorldEventsSys.worldEventLocal;
   renderWorldEvent = WorldEventsSys.renderWorldEvent;
   clearWorld = RunFlowSys.clearWorld;
+  readonly biomeRules = new IslandField();
   loadArena = RunFlowSys.loadArena;
   spawnSpot = RunFlowSys.spawnSpot;
   goTitle = RunFlowSys.goTitle;
@@ -398,6 +400,7 @@ export class Game implements HeroWorld {
     coopPlayState(this).force = null;
     this.phoenixOwners.clear();
     TimeSys.startTimeRun(this);
+    this.biomeRules.reset();
     this.nemesis.reset();
     RunFlowSys.startRun.call(this, fixed);
   };
@@ -413,6 +416,7 @@ export class Game implements HeroWorld {
   mvp = MvpSys.createMvp();
   mvpStep = MvpSys.mvpStep;
   mvpKill: typeof MvpSys.mvpKill = function (e, h) {
+    this.biomeRules.kill(this, e.uid);
     MvpSys.mvpKill.call(this, e, h);
     if (h?.play.ruleId) ruleKill.call(this, e, h);
   };
@@ -550,6 +554,8 @@ export class Game implements HeroWorld {
     const snap = NetHostSys.buildSnapshot.call(this, h, events, view);
     if (!view && h.synergy.slots.length && h.synergy.lastModHit !== null)
       snap.modHit = Math.round(h.synergy.lastModHit * 100);
+    const field = this.biomeRules.snapshotFor(this, view?.enc ?? h);
+    if (field) snap.island = field;
     const contracts = !view && contractView(h);
     if (contracts) snap.contract = contracts;
     return snap;
@@ -559,6 +565,7 @@ export class Game implements HeroWorld {
   clientStart: typeof NetClientSys.clientStart = function (seed, you, players) {
     this.phoenixOwners.clear();
     TimeSys.startTimeRun(this);
+    this.biomeRules.reset();
     this.nemesis.reset();
     NetClientSys.clientStart.call(this, seed, you, players);
   };
@@ -566,6 +573,7 @@ export class Game implements HeroWorld {
   clientUpdate = NetClientSys.clientUpdate;
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
+    this.biomeRules.mirror(this, m.island);
     if (mirrorContracts(this.hero, m.contract)) this.screens.refreshPacts();
     this.hero.synergy.lastModHit = typeof m.modHit === 'number' ? m.modHit / 100 : null;
   }
@@ -1141,6 +1149,7 @@ export class Game implements HeroWorld {
     Assists.installAssists(this, hudRoot);
     this.goTitle();
     installSteam(this, playerName, Coop2Sys.joinable);
+    this.biomeRules.installView(this);
     installTelemetry(this, hudRoot);
     this.nemesis = new Nemesis(this);
     new NemesisUi(this, hudRoot);
@@ -1497,6 +1506,7 @@ export class Game implements HeroWorld {
       return;
     }
     if (this.role === 'client') {
+      this.biomeRules.tips(this, dt);
       this.clientUpdate(dt);
       return;
     }
@@ -1624,6 +1634,7 @@ export class Game implements HeroWorld {
     this.updateArena(dt);
     coopPlayStep(this, dt); // carrying teammates, buddy tether, co-op banter (systems/coopplay.ts)
     this.updateWind(dt);
+    this.biomeRules.update(this, dt);
     updateWeather2.call(this, dt);
     if (this.runMode !== 'raid') this.updateWorldEvent(dt);
     this.updateRaid(dt);

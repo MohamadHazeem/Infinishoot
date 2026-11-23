@@ -17,6 +17,21 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "g7.roots": "Green roots slow enemies inside the four stones.",
+  "g7.prism": "Violet diamonds expose enemies. Hit them while they glow.",
+  "g7.spring": "Stand on the amber bolt to recharge your special faster.",
+  "g7.shelter": "The cyan shield catches one enemy shot at a time while you stand inside.",
+  "g7.tide": "The blue ripple pushes enemies out in pulses.",
+  "g7.magnet": "Stand on the copper magnet to draw in nearby XP gems.",
+  "g7.ice": "White ice skids carry moving enemies past their turns.",
+  "g7.prize.duplicate": "Lair cleared · 12 gold for a duplicate relic",
+  "g7.crack": "Shoot the gold crack, or follow your pet’s trail to the door.",
+  "g7.open.vault": "Hidden vault! Step inside for gold and an Iron Heart if you need one.",
+  "g7.open.shrine": "Puzzle shrine! Cross the gold tiles in order, one mark then two.",
+  "g7.open.lair": "Guardian lair! Stand still on the crown to challenge its keeper.",
+  "g7.lair.warn": "Guardian waking! Leave the marked landing circle.",
+  "g7.prize.vault": "Vault · 2 gold each. A new Iron Heart adds 30 life and heals 30.",
+  "g7.prize.shrine": "Shrine solved · 4 gold each",
   "armour.plated": "Plated",
   "armour.ethereal": "Ethereal",
   "armour.swarm": "Swarm",
