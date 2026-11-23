@@ -204,6 +204,7 @@ export function spawnRing(this: Game, def: EnemyDef, count: number): void {
 }
 
 export function spawnBoss(this: Game, def: EnemyDef): void {
+  if (this.runMode === 'abyss') return; // floor exits are survival timers
   def = halloweenBoss.call(this, def);
   if (this.runMode !== 'bossrush') def = stageBossDef.call(this, def); // rematches and the Titan (systems/bossLane.ts)
   def = gauntletBoss(this, def) ?? def;

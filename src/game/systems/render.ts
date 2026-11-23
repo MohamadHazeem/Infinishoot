@@ -389,7 +389,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
       dashLabel: p.noDash ? 'PARRY' : undefined,
       bomb01: local.bombCharge,
       special: local.specialDef.short,
-      score: this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : this.score * this.meta.multiplier,
+      score: this.runMode === 'abyss' ? this.stage : this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : this.score * this.meta.multiplier,
       metaLabel: this.meta.label,
       combo: this.combo,
       multiplier: this.multiplier,

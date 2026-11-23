@@ -112,6 +112,7 @@ export interface HeroWorld {
   readonly fireRateBuff: number;
   readonly damageBuff: number;
   readonly dashCurse: number;
+  readonly ascensionTier?: number;
   readonly shopPriceMul?: number;
   /** Curse ids already in effect (not offered again). */
   readonly activeCurses: readonly string[];
@@ -823,7 +824,7 @@ export class Hero implements SynergyHost {
   /** `pre`: the starting shop before stage 1 (its gold isn't kept, so no curse deals there). */
   openShop(secret = false, pre = false): void {
     this.shopRerolls = 0;
-    this.shopHealed = false;
+    this.shopHealed = (this.world.ascensionTier ?? 0) >= 12;
     this.shopDone = false;
     this.secretShop = secret;
     this.relicOffers = [];
@@ -894,6 +895,7 @@ export class Hero implements SynergyHost {
   }
 
   get rerollCost(): number {
+    if ((this.world.ascensionTier ?? 0) >= 3 && this.shopRerolls >= 1) return Infinity;
     if (this.shopRerolls < this.synergy.flags.freeRerolls) return 0;
     return economyTuning.rerollBase + this.shopRerolls - this.synergy.flags.freeRerolls;
   }
@@ -903,6 +905,7 @@ export class Hero implements SynergyHost {
   }
 
   get interest(): number {
+    if ((this.world.ascensionTier ?? 0) >= 15) return 0;
     if (this.play.ruleId === 'pawn' || this.play.ruleId === 'reserve') return 0;
     return Math.min(this.interestCap, Math.floor(this.gold / this.interestPer));
   }
