@@ -5,11 +5,11 @@ import type * as THREE from 'three';
 import type { Rng } from '../core/rng';
 import { DEFAULT_LOADOUT, type Loadout } from '../data/loadout';
 import { MOD_RARITY_WEIGHT, MODS } from '../data/mods';
-import { PASSIVES } from '../data/passives';
+import { applyBuildCurves, PASSIVES } from '../data/passives';
 import { SPECIALS, cooldownText, specialCooldown, type SpecialDef } from '../data/specials';
 import { RARITY, rarityWeight, type Rarity } from '../data/rarity';
 import type { Tag } from '../data/tags';
-import { RANK_RARITY, buildKey, buildMaxed, buildParams, canEvolve, newBuild, parseBuild, totalRanks, trackTuning, type Build, type Upgradable } from '../data/tracks';
+import { RANK_RARITY, buildKey, buildMaxed, buildParams, canEvolve, hasOverdriveDamage, newBuild, overdriveStep, parseBuild, totalRanks, trackTuning, type Build, type Upgradable } from '../data/tracks';
 import { WEAPONS } from '../data/weapons';
 import type { LoadoutItem, Slot } from '../ui/hud';
 import type { Offer, ShopView } from '../ui/screens';
@@ -65,7 +65,7 @@ export interface ChestFind {
 }
 
 /** A loadout item with upgrade tracks, as the level-up cards need it. */
-type UpgradeItem = Upgradable & { name: string; icon: string; color: string; iconBase: string };
+type UpgradeItem = Upgradable & { name: string; icon: string; color: string; iconBase: string; levels: { p: Record<string, number> }[] };
 
 /** The slot a weapon fills: its click, or an auto-weapon slot. */
 function weaponSlot(slot: string | undefined): Slot {
@@ -139,6 +139,7 @@ export class Hero implements SynergyHost {
   /** Live stats (static + per-step Mod effects). Shared by reference with the player. */
   readonly stats: Stats = computeStats({});
   private statBase: Stats = computeStats({});
+  get equipmentStats(): Readonly<Stats> { return this.statBase; }
   gold = 0;
   /** Gears held (each rerolls one level-up). */
   rerollsLeft = 0;
@@ -405,7 +406,7 @@ export class Hero implements SynergyHost {
   }
 
   /** Static stats for these passive levels (and Mods): what recomputeStats builds, without applying it (card previews). */
-  statsWithPassives(passives: Record<string, number>, syn: Pick<Synergy, 'applyStatic'> = this.synergy): Stats {
+  statsWithPassives(passives: Record<string, number>, syn: Pick<Synergy, 'applyStatic' | 'staticDamageMul' | 'strongestCooldownMul' | 'chargeBoost'> = this.synergy): Stats {
     const s = computeStats(
       passives,
       this.heroDef.add,
@@ -415,6 +416,7 @@ export class Hero implements SynergyHost {
     s.critChance = Math.min(1, s.critChance + this.petState.ranks.lucky * pets2Tuning.luckyCrit);
     syn.applyStatic(s);
     applySetStatic(this, s, passives); // item set bonuses (src/data/sets.ts)
+    applyBuildCurves(s, syn.staticDamageMul, syn.strongestCooldownMul, syn.chargeBoost);
     return s;
   }
 
@@ -583,7 +585,8 @@ export class Hero implements SynergyHost {
       }
       const color = def.evos?.[b.evo]?.color ?? def.color;
       if (buildMaxed(def, b)) {
-        const text = `+${Math.round(trackTuning.overdrive * 100)}% damage, repeatable.`;
+        if (b.od >= trackTuning.overdriveMax || !hasOverdriveDamage(def.levels[0].p)) return;
+        const text = `+${Math.round(overdriveStep(b.od + 1) * 100)}% base damage · rank ${b.od + 1}/${trackTuning.overdriveMax}`;
         cands.push({ kind: 'overdrive', id: evoIconId(def.iconBase, b.evo), pick: `${ref}|od`, name: 'Overdrive', icon: def.icon, color, tag: `OVERDRIVE ${b.od + 1}`, text, rarity: 'uncommon', label, slot, w: 1.2 * upgrade('uncommon') });
         return;
       }

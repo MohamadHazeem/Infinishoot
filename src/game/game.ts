@@ -33,6 +33,8 @@ import type { Tag } from '../data/tags';
 import { SPECIALS } from '../data/specials';
 import { WEAPONS } from '../data/weapons';
 import { type Loadout } from '../data/loadout';
+import { addAuraBonus } from '../data/passives';
+import { shockDamageTuning, Synergy } from './synergy';
 import { passiveTuning } from './stats';
 import { isSpecialRunning, updateSpecials, type SpecialApi } from './specials';
 import { NetClient, NetHost } from '../net/peer';
@@ -192,10 +194,9 @@ export const nukeTuning = {
 };
 
 /** Status effects and their combos. */
-export const statusTuning = {
+export const statusTuning = Object.assign(shockDamageTuning, {
   burnTime: 3,
   shockTime: 2,
-  shockMult: 0.2, // shocked enemies take +20% damage
   // Combo damage grows with team level (enemy HP grows ~6-9x by stage 4; flat numbers fell off).
   shatterDamage: 12,
   shatterPerLevel: 2,
@@ -206,7 +207,7 @@ export const statusTuning = {
   // Right-click hits Expose: everyone's hits on that enemy deal more for a while (user: the right click got ignored).
   exposeTime: 4,
   exposeMult: 0.3,
-};
+});
 
 /** Dev cheats: `god` ignores damage; `unlockAll` lets test links use locked loadout items. */
 export const cheats = { god: false, unlockAll: false };
@@ -468,7 +469,16 @@ export class Game implements HeroWorld {
   zap = StatusesSys.zap;
   updateStatuses = StatusesSys.updateStatuses;
   sourceName = StatusesSys.sourceName;
-  killEnemy = withDifficulty(StatusesSys.killEnemy);
+  private killDepth = 0;
+  private readonly killScoped = withDifficulty(StatusesSys.killEnemy);
+  killEnemy(e: Enemy, source: string, by: Hero | null): void {
+    this.killDepth++;
+    try {
+      this.killScoped(e, source, by);
+    } finally {
+      this.killDepth--;
+    }
+  }
   blast = StatusesSys.blast;
   explodeBarrel = StatusesSys.explodeBarrel;
   removeBarrelCollider = StatusesSys.removeBarrelCollider;
@@ -510,7 +520,12 @@ export class Game implements HeroWorld {
   onHostMessage = NetHostSys.onHostMessage;
   onClientLeft = NetHostSys.onClientLeft;
   hostTick = NetHostSys.hostTick;
-  buildSnapshot = NetHostSys.buildSnapshot;
+  buildSnapshot: typeof NetHostSys.buildSnapshot = (h, events, view) => {
+    const snap = NetHostSys.buildSnapshot.call(this, h, events, view);
+    if (!view && h.synergy.slots.length && h.synergy.lastModHit !== null)
+      snap.modHit = Math.round(h.synergy.lastModHit * 100);
+    return snap;
+  };
   onClientMessage = NetClientSys.onClientMessage;
   shopFromNet = NetClientSys.shopFromNet;
   clientStart: typeof NetClientSys.clientStart = function (seed, you, players) {
@@ -520,7 +535,10 @@ export class Game implements HeroWorld {
   };
   clientStage = NetClientSys.clientStage;
   clientUpdate = NetClientSys.clientUpdate;
-  applySnapshot = NetClientSys.applySnapshot;
+  applySnapshot(m: Record<string, unknown>): void {
+    NetClientSys.applySnapshot.call(this, m);
+    this.hero.synergy.lastModHit = typeof m.modHit === 'number' ? m.modHit / 100 : null;
+  }
   syncWeapons = NetClientSys.syncWeapons;
   eliteTrails = RenderSys.eliteTrails;
   spectateTarget = RenderSys.spectateTarget;
@@ -1001,6 +1019,13 @@ export class Game implements HeroWorld {
       listener: () => this.heroes[this.local]?.player ?? { x: 0, z: 0 },
     });
     this.screens = new Screens(hudRoot, {
+      lastModHit: () => this.hero.synergy.lastModHit,
+      buildStats: (mods) => {
+        const h = this.hero;
+        if (this.role !== 'client') return h.equipmentStats;
+        const syn = Synergy.sandbox(mods.map((m) => ({ ...m, st: { n: 0, t: 0 }, paid: 0 })), h);
+        return h.statsWithPassives(h.passives, syn);
+      },
       start: () => this.startSolo(),
       loadoutChanged: () => this.onLoadoutChanged(),
       resume: () => this.resume(),
@@ -1127,6 +1152,12 @@ export class Game implements HeroWorld {
 
   makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet, heroId = localHero()): Hero {
     const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, (metaSkin(skin) ?? skinOf(skin)), pet, heroId);
+    // The current weapon stays on the context throughout its update. Beam
+    // leech and kill rewards (including nested kills) spend one recipient budget.
+    const heal = h.player.heal.bind(h.player);
+    h.player.heal = (amount) => heal((this.killDepth || h.ctx.soundSource?.def.id === 'medbeam') && amount > 0
+      ? h.synergy.killHealing.grant(this.runTime, Math.min(amount, h.player.maxHp - h.player.hp), h.player.maxHp)
+      : amount);
     h.player.setSkin(h.skin.armor, h.skin);
     return h;
   }
@@ -1691,14 +1722,23 @@ export class Game implements HeroWorld {
   /** Co-op items worn by teammates near h: Rally Banner, Medic Link, Bond of Steel. */
   applyTeamAuras(h: Hero, dt: number): void {
     let near = 0;
+    let rally = 0;
     for (const o of this.heroes) {
       if (o === h || o.left || o.player.dead) continue;
       if (Math.hypot(o.player.x - h.player.x, o.player.z - h.player.z) > passiveTuning.teamRadius) continue;
       near++;
-      h.stats.damageMul += o.stats.teamDmgAura;
+      rally += o.stats.teamDmgAura;
       if (o.stats.teamHeal > 0) h.player.heal(o.stats.teamHeal * dt);
     }
-    if (near > 0) h.stats.armor += h.stats.nearMateArmor;
+    if (rally) {
+      const mod = h.synergy.staticDamageMul;
+      const base = h.equipmentStats.damageMul / mod - 1;
+      h.stats.damageMul += mod * (addAuraBonus(base, rally / mod, 0.30, 0.85) - base);
+    }
+    if (near > 0 && h.stats.nearMateArmor) {
+      const base = h.equipmentStats.armor;
+      h.stats.armor += addAuraBonus(base, h.stats.nearMateArmor, 3, 8) - base;
+    }
   }
 
   updateTransition(): void {
