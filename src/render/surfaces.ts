@@ -4,6 +4,7 @@ import { createRetroMaterial } from './retroMaterial';
 import { commit } from './instancing';
 import { textures } from './textures';
 import { SpritePool, pixelTexture, spriteTextures } from '../game/fx';
+import type { Bullets } from '../game/bullets';
 import type { Particles } from '../game/particles';
 import type { BiomeDef } from '../data/biomes';
 
@@ -35,6 +36,9 @@ export const surfaceTuning = {
   /** Decorative ponds per biome: [count, min radius, max radius]. */
   ponds: { meadow: [4, 2.4, 4.2], dunes: [3, 2.6, 4.4] } as Record<string, [number, number, number]>,
   rippleEvery: 0.5,
+  wakeInterval: 0.09,
+  wakeSamples: 48,
+  wakeLimit: 3,
   bubbleEvery: 0.35,
   spurtEvery: [2.5, 6] as [number, number],
   glintsPerM2: 0.22,
@@ -79,6 +83,15 @@ export function decorPatches(biomeId: string, seed: number, halfSize: number, bl
 export function inPatch(patches: readonly SurfacePatch[], x: number, z: number, kind: SurfaceKind): SurfacePatch | null {
   for (const p of patches) if (p.kind === kind && (x - p.x) ** 2 + (z - p.z) ** 2 < p.r * p.r) return p;
   return null;
+}
+
+/** Closest point of a shot's last step to the pond centre, within its painted edge. */
+export function waterCrossing(x0: number, z0: number, x1: number, z1: number, p: SurfacePatch): number {
+  const dx = x1 - x0, dz = z1 - z0;
+  const length2 = dx * dx + dz * dz;
+  if (length2 < 0.0001 || length2 > 64) return -1; // stopped shot or snapshot teleport
+  const t = Math.max(0, Math.min(1, ((p.x - x0) * dx + (p.z - z0) * dz) / length2));
+  return (x0 + dx * t - p.x) ** 2 + (z0 + dz * t - p.z) ** 2 < (p.r * .85) ** 2 ? t : -1;
 }
 
 const SEGS = 16;
@@ -234,6 +247,10 @@ function loop(p: SurfacePatch, radii: number[], scale: number): { pts: [number, 
 export class Surfaces {
   /** Every surface on this stage (hazard pools and decoration). */
   patches: SurfacePatch[] = [];
+  shots?: Pick<Bullets, 'count' | 'x' | 'z' | 'px' | 'pz' | 'radius'>;
+  private water: SurfacePatch[] = [];
+  private shotCursor = 0;
+  private wakeIn = 0;
   private group = new THREE.Group();
   private fx: Particles | null = null;
   private ripples: SpritePool;
@@ -326,6 +343,8 @@ export class Surfaces {
     const hazards: SurfacePatch[] = arena.hazards.filter((h) => h.kind === 'lava' || h.kind === 'ice' || h.kind === 'water').map((h) => ({ x: h.x, z: h.z, r: h.r, kind: h.kind as SurfaceKind }));
     const decor = decorPatches(biomeId, seed, arena.halfSize, blocked, hazards.map((h) => ({ x: h.x, z: h.z, r: h.r / 0.85 })));
     this.patches = [...hazards, ...decor];
+    this.water = this.patches.filter(p => p.kind === 'water');
+    this.shotCursor = this.wakeIn = 0;
     this.hasLava = this.patches.some((p) => p.kind === 'lava');
     this.rippleT = this.patches.map(() => Math.random());
     this.spurtT = this.patches.map(() => 1 + Math.random() * 4);
@@ -435,6 +454,28 @@ export class Surfaces {
     this.bHot[i] = Math.random() < 0.5 ? 1 : 0;
   }
 
+  private shotWakes(dt: number, cx: number, cz: number, amount: number): void {
+    const b = this.shots;
+    if (dt <= 0 || amount < .5 || !this.water.length || !b?.count || (this.wakeIn -= dt) > 0) return;
+    this.wakeIn = surfaceTuning.wakeInterval / Math.min(1, amount);
+    const n = Math.min(b.count, surfaceTuning.wakeSamples);
+    let left = surfaceTuning.wakeLimit;
+    for (let k = 0; k < n && left > 0 && this.rn < MAX_RIPPLES; k++) {
+      if (this.shotCursor >= b.count) this.shotCursor = 0;
+      const i = this.shotCursor++;
+      const x = b.x[i], z = b.z[i];
+      if (Math.abs(x - cx) > 28 || Math.abs(z - cz) > 22) continue;
+      for (const p of this.water) {
+        const t = waterCrossing(b.px[i], b.pz[i], x, z, p);
+        if (t < 0) continue;
+        const wx = b.px[i] + (x - b.px[i]) * t, wz = b.pz[i] + (z - b.pz[i]) * t;
+        this.ripple(wx, wz, Math.min(.88, .46 + b.radius[i]), .4, .64, .065);
+        left--;
+        break;
+      }
+    }
+  }
+
   /** Per frame. `cx, cz` camera target, `rain` 0..1, `walkers` wade through water. */
   render(dt: number, cx: number, cz: number, rain: number, walkers: readonly { x: number; z: number; speed?: number }[], amount = 1): void {
     if (amount <= 0) {
@@ -495,6 +536,7 @@ export class Surfaces {
     if (this.snowGlints && dt > 0 && Math.random() < dt * 14 * amount) {
       this.glint(cx + (Math.random() - 0.5) * 40, 0.06, cz + (Math.random() - 0.5) * 28, 0.22 + Math.random() * 0.15);
     }
+    this.shotWakes(dt, cx, cz, amount);
     // Waders: ripples around anyone moving through water.
     for (const w of walkers) {
       if (!inPatch(this.patches, w.x, w.z, 'water')) continue;
