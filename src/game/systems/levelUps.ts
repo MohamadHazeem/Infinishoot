@@ -6,6 +6,9 @@
 import type { Game } from '../game';
 import { scoreTuning, statusTuning, xpForLevel, NetShop } from '../game';
 import { type ShopFx, type ShopView } from '../../ui/screens';
+import { canBuyRation, draftPrices, shapeHand } from '../ruleCards';
+import { ruleTuning } from '../../data/ruleCards';
+import { signPact } from '../pacts';
 import { Hero } from '../hero';
 import { activeCombos } from '../../data/weaponCombos';
 import { offerNumbers } from '../cardNumbers';
@@ -40,6 +43,7 @@ export function openLevelUp(this: Game): void {
     if (h.needsPick) {
       h.offers = h.buildOffers();
       this.modesOffers(h); // the Pacifist road's legendary card (systems/modes.ts)
+      shapeHand(this, h);
       this.presentLevelUp(h);
     } else this.presentWait(h);
   }
@@ -48,7 +52,8 @@ export function openLevelUp(this: Game): void {
 export function presentLevelUp(this: Game, h: Hero): void {
   // Shop lane: each card carries its before -> after numbers for this hero.
   for (const o of h.offers) o.nums ??= offerNumbers(h, o);
-  const view = { offers: h.offers, title: h.levelUpTitle(this.level), rerolls: h.rerollsLeft, loadout: h.loadout(), skip: h.skipGold, banish: h.banishLeft };
+  if (h.offers.length) h.offers[0].draft = draftPrices(h);
+  const view = { offers: h.offers, title: h.levelUpTitle(this.level), rerolls: h.rerollsLeft, loadout: h.loadout(), skip: h.play.ruleId === 'loaded' ? 0 : h.skipGold, banish: h.banishLeft };
   if (h === this.hero) this.screens.showLevelUp(view.offers, view.title, view.rerolls, view.loadout, view.skip, view.banish);
   else this.tell(h, { t: 'lv', ...view });
 }
@@ -100,10 +105,27 @@ export function ui(this: Game, a: string, i = 0, d: -1 | 1 = 1): void {
 
 /** Level-up and shop actions for any hero (host authority). */
 export function heroAction(this: Game, h: Hero, a: string, i: number, d: -1 | 1): void {
+  if (this.role === 'client' || h.left) return;
+  if (a === 'pact') {
+    if (signPact(this, h, i)) this.routeShow();
+    return;
+  }
   if (this.mode === 'levelup' && h.needsPick) {
+    const prices = draftPrices(h);
+    if ((a === 'reroll' && h.gold < prices.reroll) || (a === 'banish' && h.gold < prices.banish)) {
+      if (h === this.hero) this.hud.toast('NOT ENOUGH GOLD');
+      else this.tell(h, { t: 'toast', msg: 'NOT ENOUGH GOLD' });
+      return;
+    }
     if (a === 'pick') {
       const o = h.offers[i];
       if (!o) return;
+      const ration = o.id === 'field_ration' && o.kind === 'heal';
+      if (ration && (!canBuyRation(h, this.stage) || h.player.hp >= h.player.maxHp)) {
+        h.offers = h.buildOffers(h.offers.map((card, slot) => slot === i ? null : card));
+        this.presentLevelUp(h);
+        return;
+      }
       const color = h.applyOffer(o);
       h.consumePick();
       if (h === this.hero && (o.kind === 'evo' || o.kind === 'track')) this.checkAchievements();
@@ -113,22 +135,30 @@ export function heroAction(this: Game, h: Hero, a: string, i: number, d: -1 | 1)
       else if (o.rarity === 'legendary') this.legendaryFx(h, o.name);
       this.afterPick(h, color);
     } else if (a === 'skip') {
-      const g = h.skipGold;
+      const g = prices.healSkip || h.play.ruleId === 'loaded' ? 0 : h.skipGold;
+      const healed = prices.healSkip && !h.player.dead ? h.player.heal(ruleTuning.fieldkitHeal) : 0;
       h.gold += g;
       h.consumePick();
-      this.vfx.num(h.player.x, 2.6, h.player.z, `+${g}●`, 'score');
+      if (g) this.vfx.num(h.player.x, 2.6, h.player.z, `+${g}●`, 'score');
+      if (healed) this.vfx.num(h.player.x, 2.6, h.player.z, `+${Math.round(healed)}`, 'heal');
       this.vfx.sound('coin', h.player.x, h.player.z);
       this.afterPick(h, '#ffb627');
-    } else if (a === 'reroll' && h.rerollsLeft > 0) {
-      h.rerollsLeft--;
+    } else if (a === 'reroll') {
+      h.gold -= prices.reroll;
+      if (prices.gear) h.rerollsLeft--;
       h.offers = h.buildOffers();
+      shapeHand(this, h);
       this.presentLevelUp(h);
     } else if (a === 'banish') {
       const err = h.banish(i);
       if (err) {
         if (h === this.hero) this.hud.toast(err);
         else this.tell(h, { t: 'toast', msg: err });
-      } else this.vfx.sound('reroll', h.player.x, h.player.z);
+      } else {
+        h.gold -= prices.banish;
+        if (h.play.ruleId === 'warrant') h.banishLeft++;
+        this.vfx.sound('reroll', h.player.x, h.player.z);
+      }
       this.presentLevelUp(h);
     }
     return;
@@ -209,6 +239,7 @@ export function afterPick(this: Game, h: Hero, color: string): void {
   this.checkAchievements();
   if (h.needsPick) {
     h.offers = h.buildOffers();
+    shapeHand(this, h);
     this.presentLevelUp(h);
     return;
   }
