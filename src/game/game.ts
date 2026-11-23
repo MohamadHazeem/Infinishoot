@@ -1,3 +1,5 @@
+import { NemesisUi } from '../ui/nemesisUi';
+import { Nemesis } from './nemesis';
 import { installSteam } from '../platform/steam';
 import { installTelemetry } from './systems/telemetry';
 import * as ArchitectSys from './systems/architect';
@@ -352,6 +354,7 @@ export function playerName(): string {
  */
 export class Game implements HeroWorld {
   // Methods that live in src/game/systems/ (see the header of each file).
+  readonly nemesis: Nemesis;
   updateWind = WindSys.updateWind;
   // Mid-stage world events and Night Raid stealth stages (src/game/systems/worldEvents.ts).
   updateWorldEvent = WorldEventsSys.updateWorldEvent;
@@ -384,6 +387,7 @@ export class Game implements HeroWorld {
     coopPlayState(this).force = null;
     this.phoenixOwners.clear();
     TimeSys.startTimeRun(this);
+    this.nemesis.reset();
     RunFlowSys.startRun.call(this, fixed);
   };
   restart = RunFlowSys.restart;
@@ -531,6 +535,7 @@ export class Game implements HeroWorld {
   clientStart: typeof NetClientSys.clientStart = function (seed, you, players) {
     this.phoenixOwners.clear();
     TimeSys.startTimeRun(this);
+    this.nemesis.reset();
     NetClientSys.clientStart.call(this, seed, you, players);
   };
   clientStage = NetClientSys.clientStage;
@@ -1096,6 +1101,8 @@ export class Game implements HeroWorld {
     this.goTitle();
     installSteam(this, playerName, Coop2Sys.joinable);
     installTelemetry(this, hudRoot);
+    this.nemesis = new Nemesis(this);
+    new NemesisUi(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1610,6 +1617,7 @@ export class Game implements HeroWorld {
     if (this.stepN % 30 === 0) for (const e of this.enemies.list) if (e.active) markSeen(e.def.id);
     if (this.runMode === 'raid' && this.mode === 'fight' && anyAlive) this.updatePets(dt);
     if (this.runMode !== 'raid' && this.mode === 'fight' && anyAlive) {
+      this.nemesis.step(dt);
       this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
       this.updateDirector2(dt);
       this.updateEliteMods(dt);

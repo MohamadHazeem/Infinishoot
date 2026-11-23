@@ -1,3 +1,4 @@
+import { NEMESIS_HISTORY_KEY, saveJson } from '../core/storage';
 import { showDeathPanel } from './deathRecap';
 import type { DeathPacket } from '../game/damageLog';
 import { played, refreshSetup } from './menuRun';
@@ -1684,6 +1685,7 @@ export class Screens {
       return;
     }
     resetSave();
+    saveJson(NEMESIS_HISTORY_KEY, null);
     this.wipeArmed = false;
     btn.textContent = localize('RESET SAVE');
     this.msg('Save reset.');
