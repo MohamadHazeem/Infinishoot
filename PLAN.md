@@ -216,6 +216,21 @@ The first of the 10 gates agreed on 2026-11-20 (the game must feel hard; gamepla
 - [x] Real-GPU performance: `npm run bench:real` with an enforced budget (notes/perf/BUDGET.md), batched hero shadows, earlier AUTO quality step-down
 - [ ] Online server deployed (needs the owner's Cloudflare sign-in), Steam app and store art, code-signing certificates, play-testing by people
 
+## Gate 2: Hard by design (done, merged 2026-11-23)
+- [x] Difficulty: Normal takes the former Hard numbers; Assist keeps the old safety nets (Easy stays); Normal+ has one team rewind per run, one Phoenix save per hero per run, a 50% hit cap, no last stand, comeback or level-up heal, a paid shop heal and half heart drops
+- [x] Death recap with the killing hit, the hit that broke you, a 10-second damage timeline, a tip and a 5-second replay (per player in co-op, in telemetry)
+- [x] Skilled bot (`npm run skillbot`): a mortal bot that dodges, kites, parries and picks upgrades; samples run in parallel
+- [x] Power ceiling: diminishing stacked passives, Mod damage tapering above x5, Overdrive and Momentum caps, a shared heal rate limit
+- [x] Pressure director with announced accelerated waves; stage-specific boss enrage timers
+- [ ] First-time human clear rate and the "deaths feel fair" survey (needs playtesters)
+
+## Gates 3-5: Combat depth, enemies and bosses, build-crafting (built, 2026-11-23)
+- [x] Gate 3: armour families and weak points (body aim deals 48% of perfect-aim damage), five new enemy shot kinds and four area hazards, stamina dash (3 pips) with perfect-dash refund, slides, wall rebounds, hover, a six-frame parry that stuns and returns shots
+- [x] Gate 4: fixed boss choreography with a positioning puzzle and a desperation act for King, Rex, Queen and Omega (first tries lost, won with practice); enemy squads with roles and a commander; adaptive resistance and recurring named nemeses
+- [x] Gate 5: 125 craftable auto weapons from parts with hidden synergies and a discovery journal; 22 hero archetype paths with capstones; 20 legendary rule cards, two-card drafts and personal Heat pacts
+- [x] Balance pass: skilled bot Assist 90%, Normal 47.5%, Hard 20% loop clears; largest build path 11% of wins
+- [ ] Gate 5 telemetry targets (no archetype above 15% of real players' wins, median 3+ synergies: the bot's median is 2)
+
 ## Proposed folder structure
 ```
 src/
@@ -457,3 +472,10 @@ The actual stage-12 Omega clear now opens a three-phase Architect encounter in S
   - Juice: frame CPU 2.41 -> 2.59 ms in the stress capture; the boss finisher panel (K.O., DEFEATED, names, SKIP) is now localized.
   - Performance (Apple M5 Pro, Metal): 60 fps in all 48 unthrottled cases (worst p99 16.8 ms), all 12 throttled LOW cases above 30 fps; cold title 1.50 MB, ready in 1.0 s on broadband.
   - The co-op test's vault scenario failed once and passed on re-run (timing); known flaky like the turret scenario was.
+- 2026-11-23: Gates 2-5 (user: fastest settings that keep the quality bar, all gates). Lanes on Codex in worktrees, reviewed and merged per gate branch (gate2, gates345), later gates started while earlier ones closed. Decisions worth keeping:
+  - Hard mode scopes its numeric tuning through `withDifficulty` (modes.ts) so the hit cap, level-up heal and heart chance follow the executing game's difficulty; Assist is a new id, accepted by lobbies, boards and telemetry.
+  - The opening King warns 0.4 s before one shockwave a starter dash crosses; two real co-op bugs fixed (a premature host election on reconnect; shop migration losing paid heals, wallets and Mod sell values).
+  - Checks got faster: unit tests run in parallel (430 s -> 187 s loaded), `scripts/agents/gate.sh` runs the release checks in waves (online co-op checks one at a time: together they starved each other's connections), and the skilled bot runs samples in parallel (4x).
+  - Skilled-bot samples of 10 runs swing by 20-40 points between identical builds: decisions use 40-run samples.
+  - The Buster leads wins in the weapon-proxy measure because the bot keeps the default left click; the archetype paths are the fairer diversity measure.
+  - Known: on a 4x CPU-throttled LOW machine 5-6 benchmark scenes miss the frame budget (they did before these gates); host migration and the title-demo save test fail only on an overloaded machine.
