@@ -9,9 +9,10 @@ import { halloweenBoss } from './halloween';
 import type { Game } from '../game';
 import { RECYCLE_DIST } from '../game';
 import { pickEliteMod, championRoll, type EliteModId } from '../../data/eliteMods';
-import { type EnemyDef } from '../../data/enemies';
+import { ordersFor, patrolTuning as patrol } from '../squads';
+import { patrolDefs, type EnemyDef } from '../../data/enemies';
 import { spawnCue } from './sound';
-import { directorTuning } from '../director';
+import { directorTuning, type SpawnRequest } from '../director';
 import { bossLike } from '../bossRules';
 import { spawnTitan, stageBossDef } from './bossLane';
 
@@ -84,6 +85,102 @@ export function rollEliteMod(this: Game, def: EnemyDef): EliteModId {
   return pickEliteMod(this.rng.next(), noSplit, def.behavior === 'spawner');
 }
 
+const patrolRank = ['bulwark', 'bulwark', 'marksman', 'baiter'] as const;
+const patrolArrivals = new WeakMap<Game['arena'], { start: number; end: number }>();
+
+/** Give the two approach lanes time to open. Scheduled special enemies keep their own clocks. */
+export function holdPatrolRefill(g: Game, request: SpawnRequest): boolean {
+  if (request.kind !== 'enemy' || request.elite) return false;
+  const arrival = patrolArrivals.get(g.arena);
+  if (!arrival || g.director.time < arrival.start || g.director.time >= arrival.end) return false;
+  const def = request.def;
+  return !def.treasure && !def.special && !def.boss && !def.miniboss && def.id !== 'reaper';
+}
+
+/** Place a close formation in walkable space, with the shields toward the chosen hero. */
+export function spawnPatrol(g: Game, x: number, z: number, faceX: number, faceZ: number, budget: number, guardsOnly = false): number {
+  const escorts = guardsOnly ? 2 : patrolRank.length;
+  if (!g.authority || g.bossDuel || Math.min(budget, directorTuning.aliveCap - g.enemies.activeCount) < escorts + 1) return 0;
+  const limit = g.arena.halfSize - 2;
+  const length = Math.hypot(faceX, faceZ) || 1;
+  const fx = faceX / length, fz = faceZ / length;
+  const spots = [{ x, z }];
+  for (let i = 0; i < escorts; i++) {
+    const forward = i < 2 ? patrol.guardForward : i === 2 ? -2.1 : 1;
+    const side = i < 2 ? (i === 0 ? -patrol.guardSide : patrol.guardSide) : i === 2 ? -0.7 : 3;
+    spots.push({ x: x + forward * fx + side * fz, z: z + forward * fz - side * fx });
+  }
+  for (let i = 0; i < spots.length; i++) {
+    const p = spots[i], r = i ? patrolDefs[patrolRank[i - 1]].radius : patrolDefs.commander.radius;
+    if (Math.abs(p.x) + r > limit || Math.abs(p.z) + r > limit || g.walls.hitCircle(p.x, p.z, r)) return 0;
+    for (const h of g.heroes) if (!h.left && !h.player.dead && Math.hypot(p.x - h.player.x, p.z - h.player.z) < 4) return 0;
+  }
+  const brain = ordersFor(g), opts = g.spawnOpts();
+  const c = g.enemies.spawn(patrolDefs.commander, x, z, opts);
+  const command = brain.register(c);
+  c.rallyCd = 1.1;
+  for (let i = 0; i < escorts; i++) {
+    const p = spots[i + 1];
+    const m = g.enemies.spawn(patrolDefs[patrolRank[i]], p.x, p.z, opts);
+    m.facing = Math.atan2(fx, fz);
+    brain.attach(brain.register(m), command, i === 0 ? -1 : 1);
+  }
+  g.vfx.sound('telegraph', x, z);
+  return escorts + 1;
+}
+
+/** Return the scheduled ring slots consumed. The seeded hunt schedule is independent of loot rolls. */
+export function patrolRing(g: Game, budget: number): number {
+  if (!g.authority || g.director.bossSpawned || g.bossDuel || g.pvp || g.versus
+    || (g.runMode !== 'standard' && g.runMode !== 'endless') || g.meta.rule('elites') || g.director.adaptive.breather > 0) return 0;
+  const ring = g.director.ringsSent;
+  const opening = g.stage >= patrol.huntStage && ring === 1;
+  const introduction = g.stage === 1 && ring === 5;
+  const formation = ring === 2 || ring === 5;
+  if (!opening && !introduction && (g.stage < patrol.fromStage || (!formation && ring !== 3))) return 0;
+  const power = g.director.adaptive.power;
+  if (!opening && !power.ready) return 0;
+  let health = 1;
+  for (const h of g.heroes) {
+    if (h.left) continue;
+    if (h.player.dead) return 0;
+    health = Math.min(health, h.player.hp / h.player.maxHp);
+  }
+  // A wounded team can break a crown without crossing a sniper lane or a trap.
+  // Its two escorts carry plates only. Stronger teams meet the full five.
+  // The first stage teaches the shield pair when anyone can use the crown's heart.
+  if (introduction && health >= 1) return 0;
+  const guardsOnly = opening || introduction || power.score < patrol.minPower
+    || health < (ring === 5 ? patrol.lateHealth : patrol.minHealth);
+  const available = Math.min(budget, directorTuning.aliveCap - g.enemies.activeCount);
+  if ((opening || formation) && !g.enemies.countOf(patrolDefs.commander.id) && available >= (guardsOnly ? 3 : 5)) {
+    for (let i = 0; i < 3; i++) {
+      const p = g.ringPoint(15, 19);
+      if (!p) continue;
+      let hero = g.hero, best = Infinity;
+      for (const h of g.heroes) {
+        if (h.player.dead || h.left) continue;
+        const d = Math.hypot(h.player.x - p.x, h.player.z - p.z);
+        if (d < best) { best = d; hero = h; }
+      }
+      const n = spawnPatrol(g, p.x, p.z, hero.player.x - p.x, hero.player.z - p.z, available, guardsOnly);
+      // This encounter takes the ring's entire slot. The open sides are the
+      // counterplay to the shields. Refill resumes after the entrance warning.
+      if (n) {
+        const start = g.director.time;
+        patrolArrivals.set(g.arena, { start, end: start + (guardsOnly ? patrol.reliefTime : patrol.entryTime) });
+        return budget;
+      }
+    }
+  }
+  if (ring === 3 && g.stage >= patrol.huntStage && available > 0 && health >= patrol.minHealth && power.score >= patrol.huntPower
+    && ((g.seed >>> 0) + g.stage) % 3 === 0 && !g.enemies.countOf(patrolDefs.hunter.id)) {
+    const p = g.ringPoint(17, 21, patrolDefs.hunter.radius);
+    if (p) { g.enemies.spawn(patrolDefs.hunter, p.x, p.z, g.spawnOpts()); return 1; }
+  }
+  return 0;
+}
+
 export function spawnRing(this: Game, def: EnemyDef, count: number): void {
   const alive = this.aliveHeroes;
   if (!alive.length || this.bossDuel) return;
@@ -125,6 +222,7 @@ export function recycleFarEnemies(this: Game, dt: number): void {
   const alive = this.aliveHeroes;
   if (!alive.length) return;
   for (const e of this.enemies.list) {
+    if (e.def.patrolRole) continue; // preserve the approach and the marked firing position
     if (!e.alive || e.elite || bossLike(e) || e.def.special || e.def.behavior === 'egg' || e.def.behavior === 'swarmwall' || e.def.behavior === 'spawner') continue;
     if (alive.some((h) => Math.hypot(e.x - h.player.x, e.z - h.player.z) < RECYCLE_DIST)) continue;
     const pos = this.ringPoint(18, 24, e.radius + 0.2);
