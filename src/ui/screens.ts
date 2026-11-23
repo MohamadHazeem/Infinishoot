@@ -1,3 +1,5 @@
+import { showDeathPanel } from './deathRecap';
+import type { DeathPacket } from '../game/damageLog';
 import { played, refreshSetup } from './menuRun';
 import { onlineMenu } from './menuSections';
 import { renderCasualPreset } from '../game/systems/assists';
@@ -51,7 +53,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
+export type ExtraScreen = 'death-film' | 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
@@ -164,6 +166,7 @@ export interface Offer {
 }
 
 export interface RunSummary {
+  downed?: boolean;
   squad?: number;
   mvp?: import('../game/systems/mvp').MvpReport;
   /** meta2: the host's profile counters for this hero (src/game/systems/meta2.ts). */
@@ -1662,8 +1665,9 @@ export class Screens {
 
   // ---------------------------------------------------------------- game over
 
-  showGameOver(sum: RunSummary, rank: number, list: ScoreEntry[], waitingForHost = false): void {
+  showGameOver(sum: RunSummary, rank: number, list: ScoreEntry[], waitingForHost = false, deaths: DeathPacket[] = []): void {
     const el = this.els.gameover;
+    showDeathPanel(this, el, deaths);
     el.querySelector<HTMLElement>('[data-act=retry]')!.textContent = localize(waitingForHost ? 'HOST RESTARTS' : 'RETRY');
     el.querySelector<HTMLElement>('.newbest')!.hidden = rank !== 0;
     el.querySelector('.summary')!.innerHTML = localizeHtml(`

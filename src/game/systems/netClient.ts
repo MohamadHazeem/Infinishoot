@@ -1,3 +1,4 @@
+import { receiveDeath, type DeathPacket } from '../damageLog';
 import { applyArchitectNet, architectLocalStep } from './architect';
 import { applyWeather2Net, weather2Local } from './weather2';
 import { applyElites2Net, discoverElite } from './elites2';
@@ -165,7 +166,11 @@ export function onClientMessage(this: Game, m: Record<string, unknown>): void {
       this.player.shove(Number(m.dx), Number(m.dz), Number(m.f));
       this.juice.kick(Number(m.dx), Number(m.dz), 4);
       break;
+    case 'deathRecap':
+      receiveDeath(this.hero, m.packet as DeathPacket);
+      break;
     case 'over':
+      if (m.personal) receiveDeath(this.hero, m.personal as DeathPacket);
       this.mode = 'dead';
       this.bankAndShow(m.sum as RunSummary);
       break;

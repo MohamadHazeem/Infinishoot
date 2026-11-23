@@ -1,3 +1,4 @@
+import { deathForReconnect, personalDeaths } from '../damageLog';
 import { finishTelemetry } from './telemetry';
 import { assistedRun, resetAssists } from './assists';
 import { clearArchitect, architectState } from './architect';
@@ -302,6 +303,7 @@ export function quitRun(this: Game): void {
 
 export function summary(this: Game, h: Hero): RunSummary {
   return {
+    downed: h.player.dead,
     squad: this.squadRun ? this.heroes.length - 1 : undefined,
     mvp: this.mvp.report ?? undefined,
     score: this.runMode === 'raid' ? this.score : this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : Math.floor(this.score * this.meta.multiplier),
@@ -374,7 +376,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   }
   const rank = custom ? custom.rank : assistedRun(this) ? -1 : this.runMode === 'raid' ? -1 : this.runMode === 'gauntlet' ? challengeState(this).bankRank : this.meta.week ? -1 : submitScore({ score: sum.score, stage: sum.stage, kills: sum.kills, date: new Date().toISOString().slice(0, 10), label: this.runLabel });
   if (!this.squadRun && !assistedRun(this) && this.runMode === 'daily' && submitDaily(this.runDate, sum.score)) this.hud.toast("NEW BEST FOR TODAY'S CHALLENGE!", 4);
-  this.screens.showGameOver(sum, rank, custom ? custom.list : this.runMode === 'gauntlet' ? loadGauntletScores() : loadHighScores(), this.role === 'client');
+  this.screens.showGameOver(sum, rank, custom ? custom.list : this.runMode === 'gauntlet' ? loadGauntletScores() : loadHighScores(), this.role === 'client', personalDeaths(this, sum.downed ?? false));
   if (sum.mvp) { this.mvp.report = sum.mvp; this.showMvp(sum.mvp); }
 }
 
@@ -387,7 +389,8 @@ export function endRun(this: Game, quit = false): void {
   if (!quit && !this.pvp && !this.onboarding.training) this.mvpFinish();
   for (const h of this.heroes) {
     if (!h.peerId || h.left) continue;
-    this.host?.send(h.peerId, { t: 'over', sum: this.summary(h) });
+    const personal = deathForReconnect(h);
+    this.host?.send(h.peerId, { t: 'over', sum: this.summary(h), ...(personal && { personal }) });
   }
   this.bankAndShow(this.summary(this.hero), quit);
 }

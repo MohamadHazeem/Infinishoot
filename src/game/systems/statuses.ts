@@ -1,3 +1,5 @@
+import { captureDeath, confirmDeath, hurtFromBullet, recordHit } from '../damageLog';
+import { timeState } from './time';
 import { assistDamage, assistHurtFrames, slowAssistBullets } from './assists';
 import { reflectEliteBullet } from './elites2';
 import { CHAMPION_CHEST, elites2Tuning } from '../../data/eliteMods';
@@ -477,6 +479,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   const d = Math.hypot(dx, dz) || 1;
   const mvpHp = p.hp;
   if (!p.hurt(dmg, dx / d, dz / d)) return;
+  recordHit(this, h, mvpHp, dmg, src, cause);
   assistHurtFrames(this, h);
   this.director2Hurt(h, dmg);
   this.mvpHurt(h, Math.min(mvpHp, dmg));
@@ -497,6 +500,7 @@ export function hurtHero(this: Game, h: Hero, raw: number, fromX: number, fromZ:
   this.vfx.num(p.x, 2.2, p.z, dmg, 'player');
   this.vfx.star(p.x, 1.1, p.z, 2, '#ff3d5a', 0.15);
   this.vfx.burst(p.x, 1, p.z, { count: 10, color: '#ff3d5a', color2: '#ffffff', speed: [3, 8], size: [0.12, 0.25], life: [0.2, 0.4], up: 3, gravity: 12 });
+  if (p.dead) captureDeath(this, h, timeState(this).tl);
   if (p.dead && !this.lastStand(h)) this.onHeroDown(h); // a big combo can turn a killing blow into a last stand (systems/time.ts)
 }
 
@@ -528,6 +532,7 @@ export function onHeroDown(this: Game, h: Hero): void {
     this.hud.flash(0.5);
   }
   if (this.aliveHeroes.length === 0 && this.coopPoolSave(h)) return; // shared revive pool (systems/coop2.ts)
+  confirmDeath(this, h);
   if (this.aliveHeroes.length === 0) {
     this.mode = 'dead';
     this.modeT = 0;
@@ -619,7 +624,7 @@ export function updateBullets(this: Game, dt: number): void {
         const rr = b.radius[i] + p.radius * 0.8;
         if ((p.x - x) ** 2 + (p.z - z) ** 2 < rr * rr) {
           const hp0 = p.hp;
-          this.hurtHero(h, b.damage[i], b.px[i], b.pz[i], null, 'Enemy fire');
+          hurtFromBullet(this, h, i);
           if (h.remote) noteBulletHit(this, h, hp0 - p.hp, b.vx[i], b.vz[i]); // a late parry can undo it
           b.kill(i--);
           break;
