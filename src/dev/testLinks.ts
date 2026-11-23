@@ -1,3 +1,4 @@
+import { spawnPatrol } from '../game/systems/spawning';
 import { craftLink } from '../game/crafting';
 import { previewThreats } from '../game/enemyBullets';
 import { Zone } from '../data/patterns';
@@ -293,6 +294,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       game.enemies.spawn(def, h.player.x + Math.cos(a) * r, h.player.z + Math.sin(a) * r, game.spawnOpts());
     }
   }
+  if (q.has('patrol')) spawnPatrol(game, h.player.x - 9, h.player.z + 1, 9, -1, 5, q.get('patrol') === 'guards');
   if (q.has('golden')) game.spawnEnemy(ENEMIES.golden);
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);

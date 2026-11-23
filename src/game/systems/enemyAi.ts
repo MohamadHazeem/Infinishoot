@@ -1,3 +1,5 @@
+import { stealthHidden } from './stealth';
+import { baitGround, nearestHero, ordersFor, patrolCount, patrolTuning as patrol, waypoint, type Order } from '../squads';
 import { shadowWeapon } from './secrets';
 /**
  * Enemy lane: callbacks the smarter enemies need (leaper landings, medic heals,
@@ -11,6 +13,7 @@ import { access } from '../settings';
 import type { Game } from '../game';
 import { dropTuning } from '../game';
 import { ENEMIES, familyTuning, squadOf, squadSize, type EnemyDef } from '../../data/enemies';
+import { CURSE_BY_ID } from '../../data/curses';
 import { guardFactor, squadTuning, type Enemy, type EnemyCtx } from '../enemies';
 import type { Hero } from '../hero';
 import { PickupType } from '../pickups';
@@ -141,6 +144,19 @@ export function spawnGolden(this: Game, def: EnemyDef): { x: number; z: number }
 
 /** Extra kill handling for this lane: Goldbug jackpot, squads scattering. Called from killEnemy. */
 export function onEnemyKilled(this: Game, e: Enemy, by: Hero | null): void {
+  if (this.authority && e.def.patrolRole === 'commander') {
+    const orders = ordersFor(this);
+    for (const o of orders.members.values()) {
+      if (o.captain?.uid === e.uid && o.unit.active && o.uid === o.unit.uid) retreat(o);
+    }
+    // One shared chest rewards breaking a five-enemy formation. Routing the escorts pays no extra loot.
+    this.pickups.spawn(PickupType.Chest, e.x, e.z);
+    if (this.heroes.some(h => !h.left && !h.player.dead && h.player.hp < h.player.maxHp)
+      && !this.meta.has('hearts') && !this.curses.some(id => CURSE_BY_ID[id]?.noHearts)) {
+      this.pickups.spawn(PickupType.Heart, e.x, e.z);
+    }
+    this.vfx.num(e.x, 2.8, e.z, 'SCATTER!', 'score');
+  }
   familyReward(this, e);
   if (e.def.treasure) {
     const t = treasureTuning;
@@ -282,4 +298,133 @@ export function copyOrbPulse(game: Game, i: number, dt: number): boolean {
     game.vfx.star(best.player.x, 1, best.player.z, 0.7, '#b13eec', 0.1);
   }
   return true;
+}
+
+/** Losing the crown cancels even a locked shot. The rout ends without a kill or loot. */
+function retreat(o: Order): void {
+  const e = o.unit;
+  e.state = 'move';
+  e.rallyT = 0;
+  e.scatterT = patrol.retreat;
+  e.familyFled = true;
+  e.leader = null;
+  o.steer = false;
+}
+
+function hunt(g: Game, o: Order, h: Hero, limit: number): void {
+  const e = o.unit;
+  if (!e.familyState) {
+    e.familyState = 1;
+    e.timerB = patrol.stalk;
+    e.rallyCd = 0;
+  }
+  if (e.familyState === 2) { o.steer = false; return; }
+  e.timerB -= patrol.tick;
+  e.rallyCd -= patrol.tick;
+  if (e.rallyCd <= 0) {
+    e.rallyCd = patrol.stalkCall;
+    g.vfx.sound('ghostWail', e.x, e.z);
+    g.vfx.ring(e.x, e.z, 0.7, 2.2, e.def.accentColor, 0.7);
+  }
+  const p = h.player;
+  const a = Math.atan2(e.z - p.z, e.x - p.x) + e.strafe * 0.43;
+  waypoint(o, p.x + Math.cos(a) * patrol.stalkRange, p.z + Math.sin(a) * patrol.stalkRange, limit);
+  if (e.timerB > 0) return;
+  e.familyState = 2;
+  o.steer = false;
+  e.timerA = 0.6;
+  g.vfx.sound('threatLeap', e.x, e.z);
+  g.vfx.num(e.x, 2.5, e.z, e.def.name, 'crit');
+}
+
+function squadMember(g: Game, o: Order, h: Hero, limit: number): void {
+  const e = o.unit, c = o.captain!.unit, p = h.player;
+  const dx = p.x - c.x, dz = p.z - c.z, len = Math.hypot(dx, dz) || 1;
+  const fx = dx / len, fz = dz / len;
+  // The two guards form one rank in front of the crown, including as it falls back.
+  if (e.def.patrolRole === 'bulwark') {
+    const side = o.side * patrol.guardSide;
+    waypoint(o, c.x + patrol.guardForward * fx + side * fz, c.z + patrol.guardForward * fz - side * fx, limit);
+    if (o.speed < 0.4) { o.x = p.x; o.z = p.z; o.speed = 0; }
+  } else if (e.def.patrolRole === 'marksman') {
+    // The underlying shooter tracks this same focus through its windup and fires the
+    // ordinary snapshot projectile. Its last quarter second stays locked in world space.
+    o.x = p.x; o.z = p.z; o.speed = 1; o.steer = true;
+    if (e.state === 'move' && e.timerA <= 0 && Math.hypot(e.x - p.x, e.z - p.z) < patrol.sniperRange
+      && g.walls.segmentClear(e.x, e.z, p.x, p.z, 0.26)) {
+      const d = Math.hypot(p.x - e.x, p.z - e.z) || 1;
+      e.lungeX = (p.x - e.x) / d; e.lungeZ = (p.z - e.z) / d;
+      e.state = 'windup'; e.t = patrol.sniperTell; e.squash(-4);
+      g.enemyCtx.onWindup(e);
+    }
+  } else {
+    const hz = baitGround(g.arena.hazards, e, h);
+    if (hz && Math.hypot(e.x - p.x, e.z - p.z) < 12) {
+      const hx = hz.x - p.x, hzDir = hz.z - p.z, d = Math.hypot(hx, hzDir) || 1;
+      waypoint(o, hz.x + hx / d * (hz.r + 1.3), hz.z + hzDir / d * (hz.r + 1.3), limit);
+    } else {
+      waypoint(o, p.x - fx * 5 + fz * 2.1, p.z - fz * 5 - fx * 2.1, limit);
+    }
+    if ((e.timerB -= patrol.tick) <= 0 && Math.hypot(e.x - p.x, e.z - p.z) < 8) {
+      // Plant at the baiter's feet. The armed ring never follows a hero.
+      g.enemyCtx.strike(e.x, e.z, patrol.trapRadius, patrol.trapTell, patrol.trapDamage);
+      g.vfx.sound('threatMortar', e.x, e.z);
+      e.timerB = patrol.trapEvery;
+    }
+  }
+}
+
+/** Compose the existing stealth lure for this enemy update only. The returned pointer is
+ * restored by the caller; other enemies and the enraged-boss attribution hook keep theirs. */
+export function preparePatrols(g: Game, dt: number): EnemyCtx['lure'] {
+  const previous = g.enemyCtx.lure;
+  if (!g.authority) return previous;
+  const orders = ordersFor(g);
+  orders.due -= dt;
+  if (orders.due <= 1e-8) {
+    orders.due += patrol.tick;
+    orders.reconcile(g, patrolCount(g));
+    const limit = g.arena.halfSize - 2;
+    // Each commander's focus is shared for the tick, independent of pool iteration order.
+    for (const o of orders.members.values()) {
+      const e = o.unit;
+      if (e.def.patrolRole !== 'commander') continue;
+      const h = o.focus = nearestHero(g, e);
+      if (!h || !e.alive || e.frozen > 0 || stealthHidden(e)) { o.focus = null; continue; }
+      const dx = e.x - h.player.x, dz = e.z - h.player.z, d = Math.hypot(dx, dz) || 1;
+      waypoint(o, h.player.x + dx / d * patrol.commanderRange, h.player.z + dz / d * patrol.commanderRange, limit);
+      if ((e.rallyCd -= patrol.tick) > 0) continue;
+      e.rallyCd = patrol.rallyEvery;
+      let buffed = false;
+      for (const m of orders.members.values()) {
+        const ally = m.unit;
+        if (m.captain !== o || !ally.alive || Math.hypot(ally.x - e.x, ally.z - e.z) > patrol.rallyRange) continue;
+        ally.rallyT = patrol.rallyTime;
+        buffed = true;
+      }
+      if (buffed) {
+        g.vfx.sound('telegraph', e.x, e.z);
+        g.vfx.ring(e.x, e.z, 1, patrol.rallyRange * 2, e.def.accentColor, 0.5);
+      }
+    }
+    for (const o of orders.members.values()) {
+      const e = o.unit;
+      if (!e.alive || e.frozen > 0 || e.def.patrolRole === 'commander') continue;
+      e.leader = null; // a rewind may have resolved the legacy escort pointer from leaderUid
+      if (e.def.patrolRole === 'hunter') {
+        const h = nearestHero(g, e);
+        if (h && !stealthHidden(e)) hunt(g, o, h, limit);
+      } else if (!o.captain || !o.captain.unit.active || o.captain.unit.uid !== o.captain.uid || e.familyFled) {
+        if (!e.familyFled) retreat(o);
+        else if (e.scatterT <= patrol.tick) g.enemies.kill(e);
+      } else if (o.captain.focus && !stealthHidden(e)) {
+        squadMember(g, o, o.captain.focus, limit);
+      }
+    }
+  }
+  if (orders.members.size) {
+    orders.priorLure = previous;
+    g.enemyCtx.lure = orders.lure;
+  }
+  return previous;
 }

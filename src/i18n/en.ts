@@ -17,6 +17,21 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "patrol.commander": "Field Commander",
+  "patrol.lore.commander": "Its crown once relayed shift changes across the factory floor.",
+  "patrol.guide.commander": "The gold crown speeds up nearby allies. Rush the commander to push it back. Defeat it to scatter the patrol and claim a chest.",
+  "patrol.marksman": "Squad Marksman",
+  "patrol.lore.marksman": "A watchtower lens mounted on a walking chassis still answers the crown’s signal.",
+  "patrol.guide.marksman": "The crosshair marks the sniper. Its aim line tracks the commander’s target, then locks before the shot. Step across the line.",
+  "patrol.bulwark": "Wall Guard",
+  "patrol.lore.bulwark": "These paired blast doors learned to walk when their factory lost its walls.",
+  "patrol.guide.bulwark": "The paired shields cover the crown. Frontal shots deal one point of chip damage. Circle the rank or open a shield with your secondary weapon.",
+  "patrol.baiter": "Trap Runner",
+  "patrol.lore.baiter": "The survey crew painted its quickest runner orange so nobody would lose sight of it.",
+  "patrol.guide.baiter": "The orange decoy leads you across dangerous ground. When it drops a warning ring at its feet, let it go. The trap stays where it landed.",
+  "patrol.hunter": "Dusk Hunter",
+  "patrol.lore.hunter": "After the dusk siren, one ranger kept walking the perimeter.",
+  "patrol.guide.hunter": "Fangs at the edge and a distant wail reveal a stalking hunter. It cannot hurt you while circling. When it closes in, step out of its landing ring.",
   "armour.plated": "Plated",
   "armour.ethereal": "Ethereal",
   "armour.swarm": "Swarm",
