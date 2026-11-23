@@ -458,6 +458,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   director2Links(game, q);
   secretsLinks(game, q);
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
+  if (q.has('nemesis')) setTimeout(() => game.nemesis.preview(q.get('nemesis') ?? ''), 3500);
   // Personal death review fixture. Use the real damage, history and menu hooks without banking a run.
   if (q.has('deathrecap')) {
     const h = game.hero, p = h.player;

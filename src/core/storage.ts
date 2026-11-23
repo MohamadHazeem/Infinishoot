@@ -26,3 +26,6 @@ export function saveJson(key: string, value: unknown): void {
     // Ignore: saving is best-effort.
   }
 }
+
+/** Independent of the versioned main save. Older profiles start with no rivals. */
+export const NEMESIS_HISTORY_KEY = 'nemesis.v1';
