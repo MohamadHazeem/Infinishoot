@@ -215,6 +215,8 @@ export class Hud {
   private root: HTMLElement;
   private q: <T extends HTMLElement>(s: string) => T;
   private els: Record<string, HTMLElement> = {};
+  private lastDashStock = -1;
+  private lastDashMax = -1;
   private lastHp = -1;
   private lastLevel = -1;
   private lastMaxHp = -1;
@@ -258,7 +260,7 @@ export class Hud {
          <canvas id="minimap" width="${MM}" height="${MM}" hidden></canvas>
          <div id="downed" hidden><div class="t">${t("text.you_re_down_7253f9")}</div><div class="bar"></div><div class="s"></div><div class="h">${t("text.a_teammate_must_stand_next_to_you_982358")}</div></div>
          <div id="meters">
-           <div id="dashpip" class="pip">${prompt('dash')}<span>${t("text.dash_abb5fe")}</span></div>
+           <div id="dashpip" class="pip">${prompt('dash')}<div class="dash-cells" aria-hidden="true"></div><span>${t("text.dash_abb5fe")}</span></div>
            <div id="bombpip" class="pip">${prompt('bomb')}<span>${t("text.bomb_1b7417")}</span></div>
          </div>
          <div id="banner"><div class="t"></div><div class="s"></div></div>
@@ -750,6 +752,17 @@ export class Hud {
     dash.classList.toggle('ready', s.dash01 >= 1);
     const dashLabel = s.dashLabel ?? 'DASH';
     this.text('#dashpip > span', s.dashMax > 1 ? `${dashLabel} ${s.dashStock}` : dashLabel);
+    if (s.dashStock !== this.lastDashStock || s.dashMax !== this.lastDashMax) {
+      const cells = this.el('#dashpip .dash-cells');
+      if (s.dashMax !== this.lastDashMax) {
+        cells.replaceChildren();
+        if (s.dashMax > 1) for (let i = 0; i < s.dashMax; i++) cells.append(document.createElement('i'));
+        dash.classList.toggle('stamina', s.dashMax > 1);
+      }
+      for (let i = 0; i < cells.children.length; i++) cells.children[i].classList.toggle('full', i < s.dashStock);
+      this.lastDashStock = s.dashStock;
+      this.lastDashMax = s.dashMax;
+    }
     const bomb = this.el('#bombpip');
     bomb.style.setProperty('--k', String(s.bomb01));
     bomb.classList.toggle('ready', s.bomb01 >= 1);

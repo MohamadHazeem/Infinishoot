@@ -1,3 +1,4 @@
+import { handsTuning } from './skillHands';
 import { assistedAction } from '../data/modes';
 import * as THREE from 'three';
 import type { Input } from '../core/input';
@@ -56,7 +57,15 @@ export class Player {
   /** Recharge timer for the next dash charge. */
   dashCd = 0;
   /** Dashes ready to use (Dash Cells raise the max). */
-  dashStock = 1;
+  dashStock = handsTuning.basePips;
+  // Ordered dash presses since reset, for reconciling predicted stamina.
+  dashSerial = 0;
+  remoteDashT = 0;
+  // Host-confirmed slow time remaining for locally predicted motion (clients only).
+  predictionSlowT = 0;
+  slideT = 0;
+  hoverT = 0;
+  private wallBounced = false;
   private dashX = 0;
   private dashZ = 0;
   private kx = 0;
@@ -140,12 +149,38 @@ export class Player {
 
   /** Decay timers for a hero whose movement comes from the network (host side). */
   tickTimers(dt: number): void {
+    this.rechargeDash(dt);
+    this.remoteDashT = Math.max(0, this.remoteDashT - dt);
     this.invuln = Math.max(0, this.invuln - dt);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt);
+    this.hoverT = Math.max(0, this.hoverT - dt);
     this.recoil *= Math.exp(-18 * dt);
     this.dashT = Math.max(0, this.dashT - dt);
     this.sqV += (-260 * this.sq - 16 * this.sqV) * dt;
     this.sq += this.sqV * dt;
+  }
+
+  private rechargeDash(dt: number): void {
+    // Charges refill one at a time.
+    if (this.dashStock < this.dashMax) {
+      this.dashCd -= dt;
+      if (this.dashCd <= 0) {
+        this.dashStock++;
+        this.dashCd = this.dashStock < this.dashMax ? this.dashCd + this.dashCooldownFull : 0;
+      }
+    } else {
+      this.dashStock = this.dashMax;
+      this.dashCd = 0;
+    }
+  }
+
+  /** Debit locally on input or on the host when accepting a remote dash press. */
+  spendDash(): boolean {
+    if (this.noDash || this.dead || this.dashStock < 1) return false;
+    if (this.dashStock >= this.dashMax) this.dashCd = this.dashCooldownFull;
+    this.dashStock--;
+    this.hoverT = handsTuning.hoverTime;
+    return true;
   }
 
   /** Give back one dash charge (perfect dash); `all` refills every charge (Sonic Blitz). */
@@ -162,6 +197,8 @@ export class Player {
     const l = Math.hypot(dirX, dirZ) || 1;
     this.dashX = dirX / l;
     this.dashZ = dirZ / l;
+    this.slideT = this.hoverT = 0;
+    this.remoteDashT = time;
     this.dashT = time;
     this.lungeSpeed = speed;
     this.invuln = Math.max(this.invuln, time + playerTuning.dashIframesExtra);
@@ -204,7 +241,7 @@ export class Player {
     return this.dashT > 0;
   }
   get dashMax(): number {
-    return Math.max(1, Math.round(this.stats.dashCharges));
+    return handsTuning.basePips + Math.max(0, Math.round(this.stats.dashCharges) - 1);
   }
 
   private get dashCooldownFull(): number {
@@ -234,6 +271,7 @@ export class Player {
     this.invuln = 1;
     this.dashT = this.dashCd = 0;
     this.dashStock = this.dashMax;
+    this.dashSerial = this.predictionSlowT = 0;
     this.ultSpeed = 1;
     this.skillGlow = 0;
     this.rig.root.visible = true;
@@ -241,6 +279,7 @@ export class Player {
 
   /** Move instantly (no interpolation smear), e.g. when entering a new stage. */
   teleport(x: number, z: number): void {
+    this.slideT = this.hoverT = this.remoteDashT = this.dashT = 0;
     this.pos.x = this.prev.x = x;
     this.pos.z = this.prev.z = z;
     this.vel.x = this.vel.z = this.kx = this.kz = 0;
@@ -287,19 +326,14 @@ export class Player {
     this.prev.z = this.pos.z;
     if (this.dead) return false;
 
+    if (this.predictionSlowT > 0) {
+      this.predictionSlowT = Math.max(0, this.predictionSlowT - dt);
+      dt *= 0.35;
+    }
     const t = playerTuning;
     this.invuln = Math.max(0, this.invuln - dt);
-    // Charges refill one at a time.
-    if (this.dashStock < this.dashMax) {
-      this.dashCd -= dt;
-      if (this.dashCd <= 0) {
-        this.dashStock++;
-        this.dashCd = this.dashStock < this.dashMax ? this.dashCd + this.dashCooldownFull : 0;
-      }
-    } else {
-      this.dashStock = this.dashMax;
-      this.dashCd = 0;
-    }
+    this.hoverT = Math.max(0, this.hoverT - dt);
+    this.rechargeDash(dt);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt);
     this.recoil *= Math.exp(-18 * dt);
     this.sqV += (-260 * this.sq - 16 * this.sqV) * dt;
@@ -311,7 +345,8 @@ export class Player {
     const hasInput = mx !== 0 || mz !== 0;
 
     let dashed = false;
-    if (wantDash && !this.noDash && this.dashStock >= 1 && this.dashT <= 0) {
+    if (wantDash && this.dashT <= 0 && this.spendDash()) {
+      this.dashSerial++;
       // Dash where you're moving; if standing still, dash toward the aim.
       this.dashX = hasInput ? mx : this.aim.x;
       this.dashZ = hasInput ? mz : this.aim.z;
@@ -319,9 +354,9 @@ export class Player {
       this.dashX /= l;
       this.dashZ /= l;
       this.dashT = t.dashTime;
+      this.wallBounced = false;
+      this.slideT = 0;
       this.lungeSpeed = 0;
-      if (this.dashStock >= this.dashMax) this.dashCd = this.dashCooldownFull;
-      this.dashStock--;
       this.invuln = Math.max(this.invuln, t.dashTime + t.dashIframesExtra);
       this.sqV -= 7;
       dashed = true;
@@ -332,13 +367,23 @@ export class Player {
       this.vel.x = this.dashX * (this.lungeSpeed || t.dashSpeed);
       this.vel.z = this.dashZ * (this.lungeSpeed || t.dashSpeed);
       if (this.dashT <= 0) {
+        if (!this.lungeSpeed && hasInput) this.slideT = handsTuning.slideTime;
         this.lungeSpeed = 0;
-        // Exit the dash carrying normal run speed, not dash speed.
         this.vel.x = this.dashX * maxSpeed;
         this.vel.z = this.dashZ * maxSpeed;
         this.sqV += 5;
       }
+    } else if (this.slideT > 0 && hasInput) {
+      // Keep steering to carry momentum. Release movement to brake.
+      const speed = maxSpeed * (1 + (handsTuning.slideSpeed - 1) * this.slideT / handsTuning.slideTime);
+      this.slideT = Math.max(0, this.slideT - dt);
+      const steer = 1 - Math.exp(-6 * dt);
+      this.dashX += (mx - this.dashX) * steer;
+      this.dashZ += (mz - this.dashZ) * steer;
+      this.vel.x = this.dashX * speed;
+      this.vel.z = this.dashZ * speed;
     } else {
+      this.slideT = 0;
       const grip = 1 - this.ground.slip * 0.85;
       const k = 1 - Math.exp(-(hasInput ? t.accel : t.friction) * grip * dt);
       this.vel.x += (mx * maxSpeed - this.vel.x) * k;
@@ -350,7 +395,22 @@ export class Player {
     this.kz *= kd;
     this.pos.x += (this.vel.x + this.kx + this.ground.pushX) * dt;
     this.pos.z += (this.vel.z + this.kz + this.ground.pushZ) * dt;
-    resolveCircleVsBoxes(this.pos, t.radius, colliders);
+    const freeX = this.pos.x;
+    const freeZ = this.pos.z;
+    const hit = resolveCircleVsBoxes(this.pos, t.radius, colliders);
+    if (hit && this.dashing && !this.wallBounced && !this.lungeSpeed) {
+      // The solver's displacement is the surface normal, including rounded corners.
+      const nx = this.pos.x - freeX, nz = this.pos.z - freeZ;
+      const length2 = nx * nx + nz * nz;
+      const into = this.dashX * nx + this.dashZ * nz;
+      if (length2 > 1e-12 && into < 0) {
+        this.dashX -= 2 * into * nx / length2;
+        this.dashZ -= 2 * into * nz / length2;
+        this.wallBounced = true;
+        this.dashT = Math.max(this.dashT, handsTuning.bounceTail);
+        this.sqV += 5;
+      }
+    }
     return dashed;
   }
 
@@ -398,7 +458,8 @@ export class Player {
     this.updateFace(frameDt);
     const x = this.prev.x + (this.pos.x - this.prev.x) * alpha;
     const z = this.prev.z + (this.pos.z - this.prev.z) * alpha;
-    this.rig.root.position.set(x, 0, z);
+    const lift = !this.dead && this.hoverT > 0 ? Math.sin(Math.PI * this.hoverT / handsTuning.hoverTime) * handsTuning.hoverHeight : 0;
+    this.rig.root.position.set(x, lift, z);
     this.shadow.position.set(x, 0.02, z);
     this.shadow.visible = !this.dead;
 

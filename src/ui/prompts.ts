@@ -1,4 +1,4 @@
-import { localizeHtml } from '../i18n';
+import { localizeHtml, t } from '../i18n';
 import { binds, keyLabel, type Action } from '../core/keybinds';
 import type { Input } from '../core/input';
 
@@ -161,6 +161,7 @@ function kbmLabels(id: PromptId): string[] {
 
 /** Plain-text prompt for tooltips and labels ("Q/E", "RB", "R1"). */
 export function promptText(id: PromptId, mode: PromptMode = promptState.mode): string {
+  if (mode === 'touch' && (id === 'dash' || id === 'move' || id === 'parry')) return t(`mobile.${id}`);
   if (mode === 'xbox' || mode === 'ps') {
     const b = PAD_OF[id];
     return b === undefined ? '' : NAMES[mode][b];
