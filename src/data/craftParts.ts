@@ -20,7 +20,7 @@ export const craftTuning = {
   damage: 80,
   barePower: 0.15,
   corePower: 0.46,
-  dropChance: 0.45,
+  dropChance: 0.2,
   coreLevel: 6,
   modLevel: 12,
 };

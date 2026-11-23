@@ -230,7 +230,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
   },
   lightning: {
     id: 'lightning',
-    rarity: 'common',
+    rarity: 'uncommon',
     tags: ['chain', 'shock'],
     name: 'Chain Zap',
     icon: 'ϟ',
@@ -244,7 +244,7 @@ export const WEAPONS: Record<string, WeaponDef> = {
       { text: 'Chains to 5, faster.', p: { cd: 0.9, dmg: 44, chains: 5, bolts: 2, range: 11, hop: 5 } },
       { text: '3 thunder bolts!', p: { cd: 0.8, dmg: 52, chains: 7, bolts: 3, range: 12, hop: 5.5 } },
     ],
-    evolution: { name: 'Storm Caller', color: '#7df9ff', passive: 'lucky_star', text: '5 bolts that chain through 10 enemies.', p: { cd: 0.64, dmg: 66.44, chains: 10, bolts: 5, range: 13, hop: 6 } },
+    evolution: { name: 'Storm Caller', color: '#7df9ff', passive: 'lucky_star', text: '5 bolts that chain through 10 enemies.', p: { cd: 0.64, dmg: 66.44, chains: 9, bolts: 5, range: 13, hop: 6 } },
   },
   discs: {
     id: 'discs',

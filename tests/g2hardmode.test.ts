@@ -27,7 +27,7 @@ const h = g.hero;
 const p = h.player;
 assert.equal(g.pickDifficulty().id, 'easy');
 const rows = [
-  ['easy', .7, .6, .8, .6], ['assist', 1, 1, 1, 1], ['normal', 1.15, 1.05, 1.1, 1.5],
+  ['easy', .7, .6, .8, .6], ['assist', 1, 1, 1, 1], ['normal', 1.25, 1.3, 1.1, 1.5],
   ['hard', 2, 1.6, 1.3, 2.2], ['nightmare', 2.86, 1.97, 1.47, 3.23], ['legend', 3.71, 2.34, 1.64, 4.4],
 ];
 assert.deepEqual(DIFFICULTIES.map(d => [d.id, d.enemyHp, d.enemyDmg, d.enemyCount, d.score]), rows);

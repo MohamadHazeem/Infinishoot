@@ -6,22 +6,22 @@
       "stages": [
         {
           "stage": 1,
-          "level": 18,
-          "kills": 4756,
-          "ranks": 11,
-          "time": 289
+          "level": 19,
+          "kills": 5090,
+          "ranks": 7,
+          "time": 300
         },
         {
           "stage": 2,
-          "level": 29,
-          "kills": 15414,
-          "ranks": 22,
-          "time": 559
+          "level": 27,
+          "kills": 11984,
+          "ranks": 18,
+          "time": 573
         }
       ],
-      "level": 29,
-      "kills": 15414,
-      "time": 559,
+      "level": 27,
+      "kills": 11984,
+      "time": 573,
       "actualKit": {
         "primary": "buster",
         "secondary": "charge",
@@ -33,22 +33,22 @@
       "stages": [
         {
           "stage": 1,
-          "level": 19,
-          "kills": 5763,
-          "ranks": 12,
-          "time": 285
+          "level": 18,
+          "kills": 4885,
+          "ranks": 11,
+          "time": 288
         },
         {
           "stage": 2,
-          "level": 29,
-          "kills": 15491,
-          "ranks": 20,
-          "time": 547
+          "level": 28,
+          "kills": 14140,
+          "ranks": 24,
+          "time": 537
         }
       ],
-      "level": 29,
-      "kills": 15491,
-      "time": 547,
+      "level": 28,
+      "kills": 14140,
+      "time": 537,
       "actualKit": {
         "primary": "laser",
         "secondary": "well",
@@ -60,22 +60,22 @@
       "stages": [
         {
           "stage": 1,
-          "level": 20,
-          "kills": 6075,
-          "ranks": 12,
-          "time": 286
+          "level": 18,
+          "kills": 4257,
+          "ranks": 9,
+          "time": 297
         },
         {
           "stage": 2,
-          "level": 29,
-          "kills": 14571,
+          "level": 26,
+          "kills": 11029,
           "ranks": 21,
-          "time": 538
+          "time": 552
         }
       ],
-      "level": 29,
-      "kills": 14571,
-      "time": 538,
+      "level": 26,
+      "kills": 11029,
+      "time": 552,
       "actualKit": {
         "primary": "scatter",
         "secondary": "grenade",
@@ -87,22 +87,22 @@
       "stages": [
         {
           "stage": 1,
-          "level": 19,
-          "kills": 5677,
-          "ranks": 12,
-          "time": 294
+          "level": 18,
+          "kills": 4474,
+          "ranks": 11,
+          "time": 312
         },
         {
           "stage": 2,
-          "level": 29,
-          "kills": 15298,
-          "ranks": 21,
-          "time": 572
+          "level": 27,
+          "kills": 12790,
+          "ranks": 22,
+          "time": 565
         }
       ],
-      "level": 29,
-      "kills": 15298,
-      "time": 572,
+      "level": 27,
+      "kills": 12790,
+      "time": 565,
       "actualKit": {
         "primary": "rail",
         "secondary": "shield",

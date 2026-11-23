@@ -61,8 +61,8 @@ export function treasurePart(h: Hero, offers: Offer[]): void {
   if (!h.chestsPending || h.banished.has('w:crafted') || !offers.length) return;
   const pool = missingPool(h);
   if (!pool) return;
-  let i = offers.length - 1;
-  while (i >= 0 && ['evo', 'evolve', 'fusion'].includes(offers[i].kind)) i--;
+  // Scarcity trims the last ordinary card. Put treasure in the first ordinary slot.
+  const i = offers.findIndex(o => o.kind !== 'evo' && o.kind !== 'evolve' && o.kind !== 'fusion');
   if (i < 0) return;
   // Derive the free piece from this chest's ordinary roll; leaving it behind
   // doesn't advance the director/loot RNG stream.

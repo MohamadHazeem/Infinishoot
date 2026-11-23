@@ -47,7 +47,7 @@ p.aim.x = -1;
 p.aim.z = 0;
 p.invuln = 0;
 const hp = p.hp;
-const stock0 = p.dashStock;
+const stock = p.dashStock;
 while (waves[0].delay > 0) g.updateBossFight(1 / 60);
 assert.equal(p.hp, hp);
 assert.equal(waves[0].r, start);
@@ -55,7 +55,7 @@ for (let i = 0; i < 35; i++) {
   p.update(1 / 60, null, [], i === 0);
   g.updateBossFight(1 / 60);
 }
-assert.ok(p.dashStock < stock0, 'the crossing spends a dash (one pip with Gate 3 stamina)');
+assert.equal(p.dashStock, stock - 1, 'crossing the opening wave spends one stamina pip');
 assert.equal(p.hp, hp, 'one starter dash crosses the opening wave');
 waves.length = 0;
 p.teleport(start + 0.6, 0);
