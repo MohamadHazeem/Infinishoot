@@ -10,7 +10,7 @@ import { installEditor } from './systems/editor';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
 import * as RaidSys from './systems/raid';
-import { installSpectate } from './systems/spectate';
+import { installSpectate, spectating } from './systems/spectate';
 import * as GauntletSys from './systems/gauntlet';
 import * as Director2Sys from './systems/director2';
 import * as MvpSys from './systems/mvp';
@@ -38,6 +38,7 @@ import { isSpecialRunning, updateSpecials, type SpecialApi } from './specials';
 import { NetClient, NetHost } from '../net/peer';
 import { DamageNumbers } from '../ui/damageNumbers';
 import { Hud, type LoadoutItem } from '../ui/hud';
+import { buyPart, canSalvage, observeDiscoveries, salvageGear } from './crafting';
 import { Screens, type ShopView } from '../ui/screens';
 import type { CardNum } from './cardNumbers';
 import { createFieldArena, type Arena } from '../world/fieldArena';
@@ -436,7 +437,10 @@ export class Game implements HeroWorld {
   presentShop = LevelUpsSys.presentShop;
   tell = LevelUpsSys.tell;
   ui = LevelUpsSys.ui;
-  heroAction = LevelUpsSys.heroAction;
+  heroAction: typeof LevelUpsSys.heroAction = function (h, a, i, d) {
+    if (a === 'craft') return buyPart(this, h, i);
+    LevelUpsSys.heroAction.call(this, h, a, i, d);
+  };
   evolveFx = LevelUpsSys.evolveFx;
   fusionFx = FusionSys.fusionFx;
   legendaryFx = LevelUpsSys.legendaryFx;
@@ -478,7 +482,9 @@ export class Game implements HeroWorld {
   contactDamage = StatusesSys.contactDamage;
   hurtHero = withDifficulty(StatusesSys.hurtHero);
   onHeroDown = StatusesSys.onHeroDown;
-  collect = StatusesSys.collect;
+  collect: typeof StatusesSys.collect = function (h, type, value) {
+    if (type !== PickupType.Gear || !salvageGear(this, h)) StatusesSys.collect.call(this, h, type, value);
+  };
   updateBullets = StatusesSys.updateBullets;
   updateChests = StatusesSys.updateChests;
   updateChestSpawns = GauntletSys.updateChestSpawns;
@@ -521,7 +527,10 @@ export class Game implements HeroWorld {
   clientStage = NetClientSys.clientStage;
   clientUpdate = NetClientSys.clientUpdate;
   applySnapshot = NetClientSys.applySnapshot;
-  syncWeapons = NetClientSys.syncWeapons;
+  syncWeapons: typeof NetClientSys.syncWeapons = function (h, list) {
+    NetClientSys.syncWeapons.call(this, h, list);
+    if (h === this.hero && !spectating(this)) observeDiscoveries(this, h);
+  };
   eliteTrails = RenderSys.eliteTrails;
   spectateTarget = RenderSys.spectateTarget;
   coopInput = RenderSys.coopInput;
@@ -1014,6 +1023,7 @@ export class Game implements HeroWorld {
       sell: (i) => this.ui('sell', i),
       moveMod: (i, d) => this.ui('move', i, d),
       upgradeMod: (i) => this.ui('mup', i),
+      craftPart: (i) => this.ui('craft', i),
       shopReroll: () => this.ui('sreroll'),
       shopHeal: () => this.ui('heal'),
       shopDone: () => this.ui('done'),
@@ -1201,6 +1211,10 @@ export class Game implements HeroWorld {
       zap: (from, hops, dmg) => this.zap(from, hops, dmg, hero),
       get combos() {
         return hero.combos;
+      },
+      craftPartner: (tag) => {
+        for (const w of hero.weapons) if (w.def.id !== 'crafted' && w.tags.includes(tag)) return true;
+        return false;
       },
       soundSource: null,
       sound: (name) => this.vfx.sound(weaponCue(name, ctx.soundSource), hero.player.x, hero.player.z),
@@ -1502,6 +1516,7 @@ export class Game implements HeroWorld {
         w.update(dt, h.ctx);
       }
       h.ctx.soundSource = null;
+      if (h === this.hero || (this.localCoop && !this.squadRun)) observeDiscoveries(this, h);
       this.weaponFeel(h);
     }
     this.updateHeroMechs(dt);
@@ -1554,7 +1569,7 @@ export class Game implements HeroWorld {
       dt,
       this.collectors,
       (t, v, who) => this.collect(this.heroes[who], t, v),
-      (t, who, v) => (t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS) && (t !== PickupType.Chest || v < OWNED_CHEST || v - OWNED_CHEST === who),
+      (t, who, v) => (t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS || canSalvage(this.heroes[who])) && (t !== PickupType.Chest || v < OWNED_CHEST || v - OWNED_CHEST === who),
     );
     this.updateChests();
     if (this.runMode !== 'raid' && this.mode === 'fight' && anyAlive && !this.pvp) this.updateChestSpawns(dt);
