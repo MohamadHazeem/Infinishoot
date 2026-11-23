@@ -1,4 +1,5 @@
 import { NemesisUi } from '../ui/nemesisUi';
+import { installOverworld } from './overworld';
 import { Nemesis } from './nemesis';
 import { offerPathHints, pathDamageName } from './archetypes';
 import { registerKinds } from './gameplay';
@@ -1180,6 +1181,7 @@ export class Game implements HeroWorld {
     installTelemetry(this, hudRoot);
     this.nemesis = new Nemesis(this);
     new NemesisUi(this, hudRoot);
+    installOverworld(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
