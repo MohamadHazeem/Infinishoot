@@ -1,3 +1,4 @@
+import { craftLink } from '../game/crafting';
 import { personalDeaths } from '../game/damageLog';
 import { casualLinks } from '../game/systems/assists';
 import { architectLinks } from '../game/systems/architect';
@@ -489,6 +490,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   pets2Links(game, q); // petpose, petwardrobe: quiet model / picker QA
   architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
+  craftLink(game, q);
   return true;
 }
 

@@ -19,6 +19,9 @@ import { Player, dashLevelMul } from './player';
 import { computeStats, type Stats } from './stats';
 import { MAX_MOD_SLOTS, Synergy, type SynergyHost } from './synergy';
 import { HeroSets, applySetLive, applySetStatic } from './systems/sets';
+import { benchView, chestPart, fitPart, treasurePart } from './crafting';
+import { Crafted } from './weapons/crafted';
+import type { Part } from '../data/craftParts';
 import { createWeapon, type Weapon, type WeaponCtx } from './weapons';
 import { SKINS, type SkinDef } from '../data/skins';
 import { CURSE_BY_ID, CURSES } from '../data/curses';
@@ -510,7 +513,7 @@ export class Hero implements SynergyHost {
         evo: w.evolved,
         name: w.name,
         rarity: w.def.slot ? undefined : w.def.rarity,
-        desc: `${w.def.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')} ${w.build ? trackSummary(w.def, w.build) : `Now: ${w.partnerEvolved ? w.def.evolution!.text : w.def.levels[w.level - 1].text}`}${this.partnerTip(w)}`,
+        desc: w instanceof Crafted ? w.description : `${w.def.desc.replace(/^(LEFT|RIGHT) CLICK: /, '')} ${w.build ? trackSummary(w.def, w.build) : `Now: ${w.partnerEvolved ? w.def.evolution!.text : w.def.levels[w.level - 1].text}`}${this.partnerTip(w)}`,
         kind: 'weapon' as const,
         slot: weaponSlot(w.def.slot),
       })),
@@ -598,6 +601,7 @@ export class Hero implements SynergyHost {
       });
     };
     for (const w of this.weapons) {
+      if (w instanceof Crafted) continue;
       if (w.build) {
         upgradable(w.def.id, { ...w.def, iconBase: w.def.id }, w.build, w.def.name.toUpperCase(), weaponSlot(w.def.slot));
         continue;
@@ -617,6 +621,7 @@ export class Hero implements SynergyHost {
     // New auto weapons, while slots are free. Loadout weapons are picked before the run.
     const autoCount = this.weapons.filter((w) => !w.def.slot).length;
     for (const id of this.unlocked) {
+      if (id === 'crafted') continue;
       const d = WEAPONS[id];
       if (!d || d.slot || d.fusion || autoCount >= MAX_WEAPONS || this.weapons.some((w) => w.def.id === id)) continue;
       // Say which weapon combo it completes (src/data/weaponCombos.ts), and weigh it up a little.
@@ -676,11 +681,16 @@ export class Hero implements SynergyHost {
       out.push(offer);
     }
     // Two maxed auto weapons that fuse: a FUSION card (src/game/fusion.ts).
+    treasurePart(this, out);
     return placeFusion(out, fusionOfferFor(this.weapons, () => this.rng.next()));
   }
 
   /** Apply a level-up card. Returns its color (for the pickup burst). */
   applyOffer(o: Offer): string {
+    if (o.kind === 'weapon' && o.id === 'crafted' && o.pick) {
+      fitPart(this, o.pick as Part);
+      return o.color;
+    }
     if (o.kind === 'track' || o.kind === 'evo' || o.kind === 'overdrive') {
       const [ref, what, k] = (o.pick ?? '').split('|');
       const n = Number(k);
@@ -745,6 +755,8 @@ export class Hero implements SynergyHost {
    * weapon, else gold.
    */
   chestItem(): ChestFind {
+    const part = chestPart(this);
+    if (part) return part;
     // Half of all chests are a gold stash: chests every 30 s were maxing builds by stage 3 (user).
     if (this.rng.next() < chestTuning.goldShare) return this.chestGold();
     const passives = Object.values(PASSIVES).filter((d) => {
@@ -875,6 +887,7 @@ export class Hero implements SynergyHost {
 
   shopView(stage: number, pre = false): ShopView {
     return {
+      craft: benchView(this),
       pre,
       gold: this.gold,
       interest: this.interest,

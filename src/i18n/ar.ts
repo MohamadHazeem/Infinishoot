@@ -1,3 +1,4 @@
+import { craftAr } from './g5craft';
 import { menusAr } from './menus';
 import { uxpassAr } from './uxpass';
 import { architectAr } from '../game/architect/strings';
@@ -17,6 +18,7 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...craftAr,
   "death.hydra0": "فرن الهيدرا",
   "death.hydra1": "درع الهيدرا",
   "death.hydra2": "معترض الهيدرا",

@@ -31,6 +31,8 @@ import { RARITY, type Rarity } from '../data/rarity';
 import { SLOT_LABEL, decoys, fmtScore, reduceMotion, reelAt, reelSteps, slotPicto, type LoadoutItem, type Slot } from './hud';
 import { MenuNav, TitleMenu, polishMenuScreen, menuItemAvailable } from './menu';
 import { iconHtml } from './pixelIcons';
+import { DiscoveryUi } from './discoveryUi';
+import type { BenchView } from '../game/crafting';
 import { fuseStrip, fusionGuide } from './fusionUi';
 import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
@@ -55,7 +57,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'death-film' | 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
+export type ExtraScreen = 'workbench' | 'discoveries' | 'death-film' | 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
@@ -74,6 +76,7 @@ export interface ScreenActions {
   sell(index: number): void;
   moveMod(index: number, dir: -1 | 1): void;
   upgradeMod(index: number): void;
+  craftPart?(i: number): void;
   shopReroll(): void;
   shopHeal(): void;
   shopDone(): void;
@@ -112,6 +115,7 @@ export interface LobbyView {
 export type ShopFx = 'open' | 'buy' | 'sell' | 'reroll' | 'heal' | 'deny' | 'upgrade';
 
 export interface ShopView {
+  craft?: BenchView;
   gold: number;
   interest: number;
   interestCap: number;
@@ -317,6 +321,8 @@ export class Screens {
   banishArmed = false;
   /** Offers on screen, so a banish redraw only spins the new card. */
   private shownOffers: string[] = [];
+  readonly discoveryUi: DiscoveryUi;
+  openWorkbench(): void { if (this.shopShown) this.discoveryUi.openBench(this.shopShown); }
   private shopShown: ShopView | null = null;
   /** Focused shop control the preview panel describes. */
   private pvKey = '';
@@ -499,6 +505,7 @@ export class Screens {
 <div id="scr-bestiary" class="screen dim" hidden>
   <h1>${t("text.enemy_guide_089bd7")}</h1>
   <div class="menu row"><button data-nav data-act="codex">${t("text.codex_lore_bef466")}</button></div>
+  <div class="menu row"><button data-nav data-act="discoveries">${t("craft.codex")}</button></div>
   <p class="note bst-count"></p>
   <div class="scroll"><div class="bestiary"></div></div>
   <div class="menu row"><button data-nav data-act="ex-sub-back">${t("text.back_1dd26f")}</button></div>
@@ -709,6 +716,8 @@ export class Screens {
           return this.show('controls');
         case 'history':
           return this.show('history');
+        case 'workbench': return this.openWorkbench();
+        case 'discoveries': return this.discoveryUi.openBook();
         case 'bestiary':
           return this.show('bestiary');
         case 'ex-sub-back':
@@ -795,6 +804,7 @@ export class Screens {
       true,
     );
 
+    this.discoveryUi = new DiscoveryUi(this, i => actions.craftPart?.(i));
     this.settingsScreen = new SettingsScreen(this, () => this.show(this.settingsReturn), () => this.show('controls'));
     this.modsScreen = new ModsScreen(this);
     this.titleMenu = new TitleMenu(root, this);
@@ -1295,6 +1305,7 @@ export class Screens {
     // The secret merchant's relic pick comes first, on its own screen, so it can't be missed.
     if (v.relicOffers.length) return this.showRelicPick(v);
     const el = this.els.shop;
+    const benchOpen = this.current === 'workbench';
     const wasOpen = this.current === 'shop';
     const prevKey = wasOpen ? this.shopKey() : '';
     this.shopShown = v;
@@ -1374,6 +1385,7 @@ export class Screens {
       el.querySelector('.owned-mods')!.before(pv);
     }
     pv.hidden = !v.preview;
+    if (v.craft) el.querySelector('[data-act="shop-done"]')!.insertAdjacentHTML('beforebegin', localizeHtml(`<button data-nav data-act="workbench">${t('craft.bench')}</button>`));
     this.show('shop', this.shopFocus(prevKey, focus));
     this.shopFollow = null;
     this.pvKey = '';
@@ -1381,6 +1393,7 @@ export class Screens {
     // Gold changes pop a +/- number over the counter.
     const delta = wasOpen && this.shopGold >= 0 ? v.gold - this.shopGold : 0;
     this.shopGold = v.gold;
+    if (benchOpen) this.openWorkbench();
     if (delta) {
       const gold = el.querySelector<HTMLElement>('.gold-big')!;
       replay(gold, 'bump');
