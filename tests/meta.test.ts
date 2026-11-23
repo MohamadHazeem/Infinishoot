@@ -233,6 +233,7 @@ settings.difficulty = 'normal';
 host.startSolo();
 host.closeShop();
 const base = host.spawnOpts();
+const count = host.director.countMul;
 const dash = host.hero.stats.dashCooldownMul;
 const mod = Object.values(MOD_BY_ID)[0];
 const price = host.hero.price(mod);
@@ -247,7 +248,7 @@ ok(
   'heat changes authoritative spawn stats',
 );
 ok(
-  host.director.countMul === 1.25 && Math.abs(host.hero.stats.dashCooldownMul / dash - 1.5) < 1e-9,
+  Math.abs(host.director.countMul / count - 1.25) < 1e-9 && Math.abs(host.hero.stats.dashCooldownMul / dash - 1.5) < 1e-9,
   'crowd and dash heat active',
 );
 ok(

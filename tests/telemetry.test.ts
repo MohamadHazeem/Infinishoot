@@ -36,13 +36,17 @@ assert.equal(validRun({...long,hits:[{name:'someone'}]}),false);
 
 const { packageReport }=await import('../src/net/telemetryReport');
 const secretMarker='private-test-marker';
-const replay={version:1,header:{seed:42,role:'solo',mode:'standard',keys:['KeyQ'],settings:{teamName:secretMarker,loadout:{primary:'buster'}},
+const replay={version:1,header:{seed:42,role:'solo',mode:'standard',difficulty:'assist',keys:['KeyQ'],settings:{difficulty:'assist',teamName:secretMarker,loadout:{primary:'buster'}},
   lobby:[{peerId:secretMarker,name:secretMarker}],heroes:[{name:secretMarker,peerId:secretMarker}],query:secretMarker,save:{friends:{code:secretMarker},history:[secretMarker]}},
   data:[[1,0,0.016]],steps:0,complete:true,strings:[JSON.stringify(['onHostMessage',[secretMarker,{t:'chat',text:secretMarker}]]),JSON.stringify(['onHostMessage',[secretMarker,{t:'i',x:1,text:secretMarker}]]),JSON.stringify({settings:{teamName:secretMarker}})],checks:{1:secretMarker}};
 const report=await packageReport('bug','a'.repeat(700),replay,new Blob([Uint8Array.of(255,216,255,217)],{type:'image/jpeg'}));
 assert.equal(report.text.length,500);assert.ok(report.replay && report.screenshot);
 const clean=await new Response(new Blob([Buffer.from(report.replay!,'base64')]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
-assert.ok(!clean.includes(secretMarker));assert.deepEqual(JSON.parse(clean).data,replay.data);
+assert.ok(!clean.includes(secretMarker));
+const shared = JSON.parse(clean);
+assert.deepEqual(shared.data,replay.data);
+assert.equal(shared.header.difficulty, 'assist');
+assert.equal(shared.header.settings.difficulty, 'assist');
 await assert.rejects(()=>packageReport('bug','',undefined,new Blob([new Uint8Array(307201)],{type:'image/jpeg'})));
 
 // D1-shaped adapter executes the actual migration, constraints and quota SQL against in-memory SQLite.
@@ -60,6 +64,7 @@ const env={TELEMETRY_ADMIN_TOKEN:crypto.randomUUID(),TELEMETRY:{
 const request=(path:string,body?:unknown,token='')=>telemetry.fetch(new Request('https://example.test/telemetry/'+path,{method:body===undefined?'GET':'POST',
   headers:token?{Authorization:'Bearer '+token}:{},body:body===undefined?undefined:JSON.stringify(body)}),env);
 const postRun=(run:Run)=>request('run',{install,run});const first=sample();
+first.difficulty = 'assist';
 assert.equal((await postRun(first)).status,200);assert.equal((await postRun(first)).status,200);
 assert.equal((await postRun({...first,version:'v9-beta'})).status,400);
 assert.equal((await request('run',{install,run:{...first,x:'x'.repeat(17000)}})).status,413);
@@ -70,7 +75,7 @@ assert.equal((await request('summary')).status,401);
 const admin=(query='')=>request('summary'+query,undefined,env.TELEMETRY_ADMIN_TOKEN);
 const pre=await telemetry.fetch(new Request('https://example.test/telemetry/summary',{method:'OPTIONS'}),env);
 assert.match(pre.headers.get('Access-Control-Allow-Headers')!,/Authorization/);
-const res=await (await admin()).json();assert.equal(res.runs.length,1);assert.equal(res.reports[0].replay,1);
+const res=await (await admin()).json();assert.equal(res.runs.length,1);assert.equal(res.runs[0].run.difficulty,'assist');assert.equal(res.reports[0].replay,1);
 assert.ok(!JSON.stringify(res).includes(install) && !JSON.stringify(res).includes(report.replay!));
 assert.deepEqual(Buffer.from(await (await admin('?part=replay&report=1')).arrayBuffer()),Buffer.from(report.replay!,'base64'));
 for(let i=1;i<6;i++)assert.equal((await request('report',{install,report:{...report,id:crypto.randomUUID()}})).status,200);

@@ -20,7 +20,7 @@ const scalars = (o: Record<string, unknown> | undefined, keys: string[]) => Obje
 const keyCode = (s: unknown) => typeof s === 'string' && /^(Key[A-Z]|Digit\d|F(?:[1-9]|1[0-9]|2[0-4])|Numpad(?:\d|Add|Subtract|Multiply|Divide|Decimal|Enter)|Arrow(?:Up|Down|Left|Right)|(?:Shift|Alt|Control|Meta)(?:Left|Right)|Escape|Enter|Space|Tab|Backspace|Backquote|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Comma|Period|Slash|CapsLock|Insert|Delete|Home|End|PageUp|PageDown)$/.test(s) ? s : '';
 const actions = 'pick skip reroll banish buy sell move mup sreroll heal curse slock relic done'.split(' ');
 const modes = 'standard endless bossrush daily weekly gauntlet raid'.split(' ');
-const difficulties = 'easy normal hard nightmare legend'.split(' ');
+const difficulties = 'easy assist normal hard nightmare legend'.split(' ');
 const screens = ('none title pause settings levelup shop gameover unlocks savedata online wait loadout extras jukebox wardrobe modes controls history bestiary relic route '
   + 'trials trialintro trialresult arsenal training customise ghosts ghostrace localcoop mpbrowse teamboard halloween party friends gauntlet mvp play profile achievements story '
   + 'desktopKeyboard desktopHelp contentmods touchlayout compete raceres tourney raid trade replay-help clips voicechat architect-ending season arenas arenaedit report consent '

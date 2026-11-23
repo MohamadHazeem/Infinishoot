@@ -104,6 +104,7 @@ cheats.god = true;
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const g = new Game(new Input(canvas), 16 / 9, document.getElementById('hud')!, document.getElementById('reticle')!);
 settings.autoFire = true;
+settings.difficulty = 'assist'; // This run exercises low-life comeback damage.
 g.startSolo();
 if (g.mode === 'shop') g.closeShop();
 g.xpNext = 1e12;

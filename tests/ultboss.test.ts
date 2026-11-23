@@ -61,7 +61,7 @@ settings.cinematics = 'off'; settings.autoFire = false; cheats.god = true; saveL
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const mk = () => new Game(new Input(canvas), 16 / 9, document.getElementById('hud')!, document.getElementById('reticle')!);
 const g = mk();
-const start = () => { g.startSolo(); g.startRun({ seed: 42, difficulty: 'normal' }); if (g.mode === 'shop') g.closeShop(); g.loadStage(12); g.mode = 'fight'; g.screens.show('none'); g.xpNext = 1e12; };
+const start = (difficulty: 'normal' | 'assist' = 'normal') => { g.startSolo(); g.startRun({ seed: 42, difficulty }); if (g.mode === 'shop') g.closeShop(); g.loadStage(12); g.mode = 'fight'; g.screens.show('none'); g.xpNext = 1e12; };
 start();
 // Observe the real Omega, then use the real kill path and stage-clear hook.
 g.director.bossSpawned = true; g.spawnBoss(ENEMIES.omega); S.updateArchitect(g, 0);
@@ -139,7 +139,7 @@ for (const count of [2, 8]) {
   g.setHeroes(Array.from({ length: count }, (_, i) => g.makeHero(i, `Hero${i}`, unlockedWeapons())));
   g.startRun({ seed: 42, difficulty: 'normal' }); if (g.mode === 'shop') g.closeShop();
   S.startArchitect(g, true); const team = S.architectState(g);
-  ok(g.boss!.maxHp === M.architectHp(count), `${count}-hero encounter uses the intended team HP`);
+  ok(g.boss!.maxHp === M.architectHp(count, g.difficulty.enemyHp), `${count}-hero encounter uses the intended team HP`);
   for (const h of g.heroes) { h.player.pos.x = 0; h.player.pos.z = 0; h.player.invuln = 0; h.skill.parryT = 1; }
   Object.assign(team.dangers[0], { kind: 1, x: 0, z: 0, r: 3, warn: 0, life: 1, age: 0, hit: 0 });
   S.updateArchitect(g, 1 / 60);
@@ -161,7 +161,7 @@ cheats.god = true; S.clearArchitect(g);
 
 // Fixed seed, substantial late-run kit. The bot uses normal weapons and controls; only incoming damage is disabled.
 const nativeRandom = Math.random, botRandom = new Rng(42); Math.random = () => botRandom.next();
-settings.cinematics = 'off'; settings.loadout = { primary: 'scatter', secondary: 'grenade', special: 'storm' }; start();
+settings.cinematics = 'off'; settings.loadout = { primary: 'scatter', secondary: 'grenade', special: 'storm' }; start('assist');
 for (const id of ['drones', 'missiles', 'lightning', 'fire']) for (let i = 0; i < 6; i++) g.debugGiveWeapon(id);
 g.hero.passives = {}; g.hero.recomputeStats();
 g.level = 40; g.xpNext = 1e12;

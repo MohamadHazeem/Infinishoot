@@ -163,7 +163,7 @@ for (const n of [1, 2, 4, 8]) {
     `${n} players with role bots clear all three phases (${s.time.toFixed(1)}s)`,
   );
   if (n === 4)
-    ok(s.time >= 480 && s.time <= 720, 'four-bot Medium baseline clears in 8–12 minutes');
+    ok(s.time >= 480 && s.time <= 720, 'four-bot baseline at 24 DPS clears in 8–12 minutes');
   ok(s.parries > 0 && s.delivered === 12, 'bot clear requires parries and twelve deliveries');
 }
 const { Input } = await import('../src/core/input');
@@ -181,7 +181,7 @@ const g = new Game(
   document.getElementById('reticle')!,
 );
 settings.mode = 'raid';
-settings.difficulty = 'normal';
+settings.difficulty = 'assist';
 settings.deathReplay = false;
 settings.helpGhosts = false;
 save.training.offered = true;
@@ -206,11 +206,11 @@ console.log(
 );
 ok(
   Raid.raidRuntime(g).state?.phase === 'won',
-  'actual solo autopilot plus help ghosts clears Medium without god mode',
+  'actual solo autopilot plus help ghosts clears Assist without god mode',
 );
 ok(
   (g.raidNet()?.time ?? 0) >= 480 && (g.raidNet()?.time ?? 0) <= 720,
-  'real autopilot team clears Medium in 8–12 minutes',
+  'real autopilot team clears Assist in 8–12 minutes',
 );
 g.leaveToTitle();
 ok(Raid.raidRuntime(g).state === null, 'leaving clears raid state and visuals');
