@@ -1511,7 +1511,8 @@ export class Game implements HeroWorld {
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
     GauntletSys.gauntletTick(this, dt);
-    ArchitectSys.updateArchitect(this, dt);
+    if (this.director.enrageStep && this.boss?.def.id === 'architect') BossFightSys.enragedArchitectStep(this, dt);
+    else ArchitectSys.updateArchitect(this, dt);
 
     for (const h of this.heroes) this.updateHero(h, dt, localControl);
     weather2Local(this);
@@ -1552,7 +1553,8 @@ export class Game implements HeroWorld {
     this.companionTargets();
     coopPlayTargets(this); // the escorted core draws enemies too (systems/coopplay.ts)
     updateElites2.call(this, dt);
-    this.enemies.update(dt, this.enemyCtx);
+    if (this.director.enrageStep && this.boss?.active) BossFightSys.enragedEnemyStep(this, dt);
+    else this.enemies.update(dt, this.enemyCtx);
     HalloweenSys.halloweenStep.call(this, dt);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);

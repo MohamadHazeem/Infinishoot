@@ -10,12 +10,14 @@ import { adaptiveTuning } from '../director';
 import type { Game } from '../game';
 import type { Hero } from '../hero';
 import { director2Hooks, type Enemy } from '../enemies';
-import { ENEMIES, type EnemyDef } from '../../data/enemies';
+import { bossForStage, ENEMIES, type EnemyDef } from '../../data/enemies';
 import { type EventId, STAGE_EVENTS } from '../../data/stageEvents';
 import { PickupType } from '../pickups';
 import { CURSE_BY_ID } from '../../data/curses';
 import { Team } from '../bullets';
-import { bossLike } from '../bossRules';
+import { bossLike, bossRuleTuning, enrageTarget, isAssistDifficulty } from '../bossRules';
+import { en } from '../../i18n/en';
+import { t } from '../../i18n';
 
 export const director2Tuning = {
   gardenEvery: 2.4,
@@ -96,6 +98,8 @@ interface Bloom {
   z: number;
 }
 interface LaneState {
+  warnedRing: number;
+  warnedElite: number;
   stage: number;
   time: number;
   kills: number;
@@ -111,10 +115,13 @@ interface LaneState {
   living: Hero[];
 }
 const states = new WeakMap<Game, LaneState>();
+const eliteArrivals = new WeakMap<Enemy, number>();
 export function director2State(g: Game): LaneState {
   let s = states.get(g);
   if (!s) {
     s = {
+      warnedRing: -1,
+      warnedElite: -1,
       stage: g.stage,
       time: g.runTime,
       kills: g.kills,
@@ -130,6 +137,16 @@ export function director2State(g: Game): LaneState {
       living: [],
     };
     states.set(g, s);
+    // Count successful pool entries, including rings, summons and escorts. Recycled enemies only move.
+    const spawn = g.enemies.spawn.bind(g.enemies);
+    g.enemies.spawn = (def, x, z, opts) => {
+      const e = spawn(def, x, z, opts);
+      if (g.authority && !g.director.bossSpawned && !def.hidden) {
+        g.director.adaptive.power.spawn();
+        if (e.elite) eliteArrivals.set(e, g.runTime);
+      }
+      return e;
+    };
   }
   return s;
 }
@@ -140,6 +157,7 @@ export function updateDirector2(this: Game, dt: number): void {
   const s = director2State(this);
   if (s.stage !== this.stage || s.time > this.runTime) {
     s.event = null;
+    s.warnedRing = s.warnedElite = -1;
     s.blooms.length = 0;
     s.kills = this.kills;
     if (s.time > this.runTime) for (const h of this.heroes) relicStates.delete(h);
@@ -149,7 +167,7 @@ export function updateDirector2(this: Game, dt: number): void {
   if (this.pvp || this.versus || this.onboarding.training || this.modes.holster) return;
   s.living.length = 0;
   let weakest = 1;
-  let players = 0;
+  let players = 0, full = 0, idle = 0;
   for (const h of this.heroes) {
     if (h.left) continue;
     players++;
@@ -164,10 +182,31 @@ export function updateDirector2(this: Game, dt: number): void {
       !h.player.dead && !h.player.dashing && Math.hypot(h.player.vel.x, h.player.vel.z) < 0.3
         ? r.still + dt
         : 0;
+    if (!h.player.dead && h.player.hp >= h.player.maxHp) full++;
+    if (r.still > 0) idle++;
   }
-  if (!this.director.bossSpawned)
-    this.director.adaptive.step(dt, weakest, this.kills - s.kills, players);
-  else {
+  if (!this.director.bossSpawned) {
+    const pace = this.director.adaptive;
+    pace.assist = isAssistDifficulty(this.difficulty.id);
+    pace.power.step(dt, this.kills - s.kills, full / Math.max(1, players), idle / Math.max(1, players));
+    const d = this.director;
+    // A rapidly refilled, overfull field can show a high kills/spawns ratio even while the
+    // team is pinned. Reserve the full surplus for players actually keeping the field clear.
+    const fieldRoom = Math.min(1, Math.max(0, 1.5 - this.enemies.activeCount / Math.max(1, d.targetAlive)));
+    pace.step(dt, weakest, this.kills - s.kills, players, this.stage, fieldRoom);
+    if (!d.hold && this.runMode !== 'gauntlet' && this.runMode !== 'bossrush') {
+      const ring = d.acceleratedRing && d.nextRingAt < d.duration && d.time >= d.nextRingAt - 3;
+      const elite = d.acceleratedElite && d.nextEliteAt < d.duration && d.time >= d.nextEliteAt - 3;
+      if ((ring && s.warnedRing !== d.ringsSent) || (elite && s.warnedElite !== d.elitesSent)) {
+        if (ring) s.warnedRing = d.ringsSent;
+        if (elite) s.warnedElite = d.elitesSent;
+        // The bus carries canonical copy. Each HUD localizes it in its own language.
+        this.vfx.toast(en[ring && elite ? 'pressure.both' : elite ? 'pressure.elite' : 'pressure.ring'], 2);
+        this.vfx.sound('telegraph', NaN, NaN);
+      }
+    }
+  } else {
+    this.director.adaptive.intensity = 0;
     this.director.adaptive.pressure = 1;
     this.director.adaptive.breather = 0;
   }
@@ -262,6 +301,11 @@ export function director2Dash(this: Game, h: Hero): void {
 }
 
 export function director2Kill(this: Game, e: Enemy, by: Hero | null): void {
+  if (this.authority && !this.director.bossSpawned && e.elite && !e.def.hidden && !this.pvp) {
+    const at = eliteArrivals.get(e);
+    if (at !== undefined && at <= this.runTime) this.director.adaptive.power.elite(this.runTime - at);
+    eliteArrivals.delete(e);
+  }
   if (!this.authority || !by || by.player.dead || e.def.hidden || this.pvp) return;
   const s = relicState(by);
   s.kills++;
@@ -557,6 +601,14 @@ export function applyDirector2Net(this: Game, value: unknown): void {
 
 /** Existing test-link event/relic/spawn options work; one switch supports identical-seed A/B bots. */
 export function director2Links(g: Game, q: URLSearchParams): void {
+  if (q.has('enrage') && g.authority && g.mode === 'fight') {
+    if (!g.boss) {
+      g.director.time = g.director.duration;
+      g.director.bossSpawned = true;
+      g.spawnBoss(bossForStage(g.stage));
+    }
+    g.director.bossAge = enrageTarget(g.stage, g.difficulty.id) - (q.get('enrage') === 'active' ? 0 : 1);
+  }
   if (q.has('d2event')) {
     const id = q.get('d2event') as EventId;
     if (STAGE_EVENTS[id] && isOurs(id)) g.runEvents.forceEvent(id);
@@ -615,6 +667,7 @@ export function addDirector2Debug(gui: GUI, g: Game): void {
   for (const key of Object.keys(adaptiveTuning) as (keyof typeof adaptiveTuning)[])
     f.add(adaptiveTuning, key);
   for (const key of [
+    'intensity',
     'pressure',
     'damagePerMinute',
     'killsPerSecond',
@@ -624,6 +677,11 @@ export function addDirector2Debug(gui: GUI, g: Game): void {
     'deaths',
   ] as const)
     f.add(g.director.adaptive, key).listen().disable();
+  f.add(g.director.adaptive.power, 'score').listen().disable();
+  const rage = f.addFolder(t('raid.enrage')).close();
+  bossRuleTuning.enrageTargets.forEach((_, i) => rage.add(bossRuleTuning.enrageTargets, i, 10, 240, 1).name(t('text.stage_78250d', { 0: i + 1 })));
+  rage.add(bossRuleTuning, 'assistDelay', 0, 240, 1);
+  rage.add(bossRuleTuning, 'enrageInterval', 5, 60, 1);
   const events = f.addFolder('Events and Blink Ranger').close();
   for (const key of Object.keys(director2Tuning) as (keyof typeof director2Tuning)[])
     events.add(director2Tuning, key);
