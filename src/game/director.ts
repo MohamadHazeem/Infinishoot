@@ -51,8 +51,9 @@ export const adaptiveTuning = {
   nearHp: 0.25, cruiseHp: 0.75, cruiseKills: 0.8, cruiseDpm: 0.35,
   rise: 0.018, fall: 0.22, memory: 15, repay: 0.08,
   powerStart: 0.65, powerFull: 0.95, mixRiseSeconds: 20, mixFallSeconds: 6,
-  openingMix: 0.4, secondStageMix: 0.7,
+  openingMix: 0.4, secondStageMix: 0.6,
   eliteRateBonus: 0.26, ringRateBonus: 0.18, shooterWeightBonus: 0.4,
+  lateEliteQuiet: 8,
 };
 
 const unit = (v: number) => Math.max(0, Math.min(1, v));
@@ -164,7 +165,10 @@ export class AdaptivePace {
     const stageShare = stage <= 1 ? t.openingMix : stage === 2 ? t.secondStageMix : 1;
     const surplus = this.breather > 0 || !this.power.ready ? 0 : unit((this.power.score - t.powerStart) / Math.max(0.01, t.powerFull - t.powerStart)) * headroom * stageShare * fieldRoom;
     this.intensity += Math.max(-dt / t.mixFallSeconds, Math.min(dt / t.mixRiseSeconds, surplus - this.intensity));
-    const cruiseBonus = cruise ? 0.18 : 0;
+    // Established builds can sustain the old cruising crowd size. Keep the opening
+    // and the refill budget tied to the measured mix so early XP stays bounded.
+    const proven = this.power.ready && this.power.score >= t.powerStart;
+    const cruiseBonus = cruise && (this.assist || (stage >= 3 && proven)) ? 0.18 : 0;
     const power = cruiseBonus + this.intensity * (t.max - 1 - cruiseBonus);
     const recovery = weakestHp > 0.5 && this.debt > 0 ? t.repay : 0;
     const target = this.breather > 0 ? floor : 1 + Math.max(power, recovery);
@@ -203,6 +207,9 @@ export class Director {
   // Primitive fields are included in the existing host-migration checkpoint.
   enrageBoss = '';
   bossAge = 0;
+  lastBossTime = 0;
+  bossBaseSpeed = 1;
+  bossBaseDamage = 1;
   enrageStep = 0;
   bonusPattern = false;
   resumePatternAt = -1;
@@ -217,7 +224,7 @@ export class Director {
   private nextElite = 0;
   private nextRing = 0;
   private baselineElite = 0;
-  private elitesSent = 0;
+  elitesSent = 0;
   private baselineRing = 0;
   private nextReaper = 0;
   /** Goldbug arrival time this stage (-1 = not rolled yet, Infinity = none). */
@@ -225,6 +232,7 @@ export class Director {
   private swarmQueenSent = false;
   private queue: SpawnRequest[] = [];
   private readonly refillPool: EnemyDef[] = [];
+  private readonly refills = new WeakMap<EnemyDef, SpawnRequest>();
 
   start(stage: number): void {
     this.adaptive.reset();
@@ -247,6 +255,7 @@ export class Director {
   resetBossClock(id = ''): void {
     this.enrageBoss = id;
     this.bossAge = this.enrageStep = this.enrageIn = 0;
+    this.lastBossTime = this.time;
     this.bonusPattern = false;
     this.resumePatternAt = -1;
   }
@@ -257,6 +266,8 @@ export class Director {
   }
 
   get nextRingAt(): number { return this.nextRing; }
+  get acceleratedRing(): boolean { return this.nextRing < this.baselineRing; }
+  get acceleratedElite(): boolean { return this.nextElite < this.baselineElite; }
 
   get duration(): number {
     return directorTuning.stageSeconds * this.lengthMul;
@@ -305,7 +316,7 @@ export class Director {
 
   /** How many enemies the director wants alive right now. */
   get targetAlive(): number {
-    return Math.min(directorTuning.aliveCap, Math.round(this.aliveRaw(this.players)));
+    return Math.min(directorTuning.aliveCap, Math.round(this.aliveRaw(this.players) * this.adaptive.pressure));
   }
 
   /** The alive target before the cap, for a team of `players`. */
@@ -313,7 +324,7 @@ export class Director {
     const t = directorTuning;
     const k = Math.min(1, this.time / this.duration);
     const n = t.aliveStart + (t.aliveEnd - t.aliveStart) * Math.pow(k, 1.3) + t.alivePerStage * (this.stage - 1);
-    return n * (1 + 0.5 * (countPlayers(players) - 1)) * this.coop * this.countMul * this.adaptive.pressure;
+    return n * (1 + 0.5 * (countPlayers(players) - 1)) * this.coop * this.countMul;
   }
 
   /** 5-8 players (eightp lane): enemies the alive cap cuts beyond what it cuts for 4 come back as life. 1 for up to 4. */
@@ -367,12 +378,9 @@ export class Director {
     }
 
     // Delay spike arrivals during the breather; do not bank a burst for its end.
-    if (this.adaptive.breather > 0) {
-      // Normal+ may give back an accelerated deadline only as far as its unaccelerated one.
-      const elite = this.adaptive.assist ? this.time + 2 : Math.min(this.time + 2, this.baselineElite);
-      const ring = this.adaptive.assist ? this.time + 5 : Math.min(this.time + 5, this.baselineRing);
-      this.nextElite = Math.max(this.nextElite, elite);
-      this.nextRing = Math.max(this.nextRing, ring);
+    if (this.adaptive.assist && this.adaptive.breather > 0) {
+      this.nextElite = Math.max(this.nextElite, this.time + 2);
+      this.nextRing = Math.max(this.nextRing, this.time + 5);
     }
     if (this.time >= this.nextElite && !this.bossSpawned) {
       this.elitesSent++;
@@ -382,7 +390,8 @@ export class Director {
       // A tiny cadence bonus used to put an entire extra elite/chest just before the boss.
       // Keep the final warning clear once all of the stage's base elites have been scheduled.
       const baselineElites = Math.ceil(this.duration / t.eliteEvery) - 1;
-      if (this.elitesSent >= baselineElites && this.nextElite > this.duration - firstTenTuning.bossWarn)
+      const quiet = this.stage <= 2 ? firstTenTuning.bossWarn : adaptiveTuning.lateEliteQuiet;
+      if (this.elitesSent >= baselineElites && this.nextElite > this.duration - quiet)
         this.nextElite = Math.max(this.nextElite, this.duration);
       const choices = this.pool().filter((d) => d.behavior !== 'spawner' && d.id !== 'swarmer');
       this.queue.push({ kind: 'enemy', def: this.vet(rng.pick(choices.length ? choices : this.pool()), rng), elite: true });
@@ -416,7 +425,8 @@ export class Director {
     // Keep the field topped up toward the target (lighter during the boss).
     const target = this.bossSpawned ? Math.round(this.targetAlive * 0.25) : this.targetAlive;
     if (alive < target && !this.hold) {
-      this.spawnBudget = Math.min(this.spawnBudget + t.spawnPerSecond * this.adaptive.pressure * dt * (1 + (this.stage - 1) * 0.3), 6);
+      const refillRate = this.adaptive.assist ? this.adaptive.pressure : 1 + (adaptiveTuning.max - 1) * this.adaptive.intensity;
+      this.spawnBudget = Math.min(this.spawnBudget + t.spawnPerSecond * refillRate * dt * (1 + (this.stage - 1) * 0.3), 6);
       const pool = this.spawnBudget >= 1 ? this.pool(this.refillPool) : null;
       // Keep natural packs together until they reach the hard population ceiling.
       let slots = t.aliveCap - alive;
@@ -426,7 +436,9 @@ export class Director {
         if (def.maxAlive !== undefined && count(def.id) >= def.maxAlive) continue;
         const n = Math.min(slots, def.pack ? rng.int(def.pack[0], def.pack[1]) : 1);
         slots -= n;
-        for (let i = 0; i < n; i++) this.queue.push({ kind: 'enemy', def });
+        let refill = this.refills.get(def);
+        if (!refill) { refill = { kind: 'enemy', def }; this.refills.set(def, refill); }
+        for (let i = 0; i < n; i++) this.queue.push(refill);
       }
     }
     return this.queue;

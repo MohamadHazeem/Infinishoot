@@ -8,7 +8,7 @@ import { makeBiome3Api, updateBiome3, biome3Net, applyBiome3Net, renderBiome3 } 
  * These are Game methods (`this` is the Game), installed on the class as fields.
  */
 import { clock, type Game } from '../game';
-import { t } from '../../i18n';
+import { getLanguage, t } from '../../i18n';
 import { bossRuleTuning, enrageDamage, enrageLevel, enrageSpeed, enrageTarget } from '../bossRules';
 import type { Director } from '../director';
 import type { TitanState } from '../titan';
@@ -20,7 +20,7 @@ import { access, settings } from '../settings';
 import { PHASE_LINES, bossMoveTuning, bossTuning, phaseGate, startIntro, startPhase, type BossApi } from '../bosses';
 import type { BossNet } from '../bossField';
 import { introTuning } from '../bossIntro';
-import type { Enemy } from '../enemies';
+import type { Enemy, EnemyCtx } from '../enemies';
 import { smashCover } from '../coverBreak';
 import { bossVoiceCue } from '../../audio/voices';
 import { applyBossLaneNet, bossLaneHud, bossLaneNet, remixArrival, renderBossLane, titanDebug, titanStep, updateBossLane } from './bossLane';
@@ -188,6 +188,38 @@ export function enragedArchitectStep(g: Game, dt: number): void {
   finally { g.difficulty = difficulty; }
 }
 
+// The ground-strike API predates source attribution. The enemy update visits
+// each attacker's targeting hook before its brain queues any strikes (including
+// Titan debris). Scope the attribution to that update so mortar shells and
+// previously telegraphed hazards keep their own damage.
+function bossStrikeHooks(g: Game) {
+  let source: Enemy | undefined;
+  const hooks = {
+    lure: g.enemyCtx.lure,
+    strike: g.enemyCtx.strike,
+    target(e: Enemy) {
+      source = e;
+      return hooks.lure?.(e) ?? null;
+    },
+    queue(x: number, z: number, r: number, delay: number, damage: number) {
+      hooks.strike(x, z, r, delay, source === g.boss ? damage * enrageDamage(g.director.enrageStep) : damage);
+    },
+  };
+  return hooks;
+}
+const strikeHooks = new WeakMap<Game, ReturnType<typeof bossStrikeHooks>>();
+export function enragedEnemyStep(g: Game, dt: number): void {
+  let hooks = strikeHooks.get(g);
+  if (!hooks) { hooks = bossStrikeHooks(g); strikeHooks.set(g, hooks); }
+  const ctx: EnemyCtx = g.enemyCtx;
+  hooks.lure = ctx.lure;
+  hooks.strike = ctx.strike;
+  ctx.lure = hooks.target;
+  ctx.strike = hooks.queue;
+  try { g.enemies.update(dt, ctx); }
+  finally { ctx.lure = hooks.lure; ctx.strike = hooks.strike; }
+}
+
 // Insert a normal pattern at the next safe selection point. After it plays, restore the old
 // deadline so the bonus does not simply replace the attack which was about to come due.
 function selectionClock(d: Director, cooldown: number, dt: number): number {
@@ -217,6 +249,18 @@ export function updateEnrage(g: Game, dt: number): void {
   }
   if (d.enrageBoss !== b.def.id) d.resetBossClock(b.def.id);
   const target = enrageTarget(g.stage, g.difficulty.id);
+  // Rewind restores enemy multipliers and director time from its own timeline.
+  // Reconcile the clock too, without replaying a warning or banking an attack.
+  if (d.time < d.lastBossTime) {
+    d.bossAge = Math.max(0, d.bossAge - (d.lastBossTime - d.time));
+    d.enrageStep = enrageLevel(d.bossAge, target);
+    d.bonusPattern = false;
+    d.resumePatternAt = -1;
+    b.speedMul = d.bossBaseSpeed * enrageSpeed(d.enrageStep);
+    b.dmgMul = d.bossBaseDamage * enrageDamage(d.enrageStep);
+  }
+  d.lastBossTime = d.time;
+  if (!d.enrageStep) { d.bossBaseSpeed = b.speedMul; d.bossBaseDamage = b.dmgMul; }
   // Cinematic entrances and phase locks consume none of the kill-time budget.
   if (b.roarT <= 0 && b.state !== 'spawning') d.bossAge += dt;
   const level = enrageLevel(d.bossAge, target);
@@ -403,11 +447,11 @@ export function bossNet(this: Game): TimedBossNet {
 
 /** Client: mirror the host's boss state, and start the entrance when the host does. */
 export function applyBossNet(this: Game, n: TimedBossNet | undefined): void {
-  if (!n) return;
-  const rage = n.rage;
-  const valid = Array.isArray(rage) && rage.length === 2 && rage.every(v => Number.isSafeInteger(v) && v >= 0);
+  const rage = n?.rage;
+  const valid = Array.isArray(rage) && rage.length === 2 && Number.isSafeInteger(rage[0]) && rage[0] >= 0 && Number.isSafeInteger(rage[1]) && rage[1] >= 0;
   this.director.enrageStep = valid ? rage[0] : 0;
   this.director.enrageIn = valid ? rage[1] : 0;
+  if (!n) return;
   this.bossField.unpack(n, (uid) => this.netEnemies.get(uid));
   applyBossLaneNet.call(this, n); // the Titan and the boss duel
   applyBiome3Net.call(this, n.bi3);
@@ -444,16 +488,24 @@ export function renderBossFight(this: Game, frameDt: number, paused: boolean): v
 }
 
 export type BossBar = { name: string; hp01: number; ticks?: number[]; phase?: number; mini?: boolean; enrage?: string };
+const bossTimers = new WeakMap<Game, { level: number; seconds: number; lang: string; text: string }>();
 
 /** The HUD boss bar: the stage boss, else the mini-boss, with phase ticks. */
 export function bossHud(this: Game, boss: { name: string; hp01: number } | null): BossBar | null {
   const bar = bossLaneHud.call(this, bossBar.call(this, boss));
   const d = this.director;
   if (bar && !bar.mini && d.enrageIn > 0) {
-    const time = clock(d.enrageIn);
-    bar.enrage = d.enrageStep
-      ? t('pressure.next', { damage: Math.round((enrageDamage(d.enrageStep) - 1) * 100), time })
-      : t('raid.enrage') + ' ' + time;
+    const lang = getLanguage();
+    let timer = bossTimers.get(this);
+    if (!timer || timer.seconds !== d.enrageIn || timer.level !== d.enrageStep || timer.lang !== lang) {
+      const time = clock(d.enrageIn);
+      const text = d.enrageStep
+        ? t('pressure.next', { damage: Math.round((enrageDamage(d.enrageStep) - 1) * 100), time })
+        : t('raid.enrage') + ' ' + time;
+      timer = { level: d.enrageStep, seconds: d.enrageIn, lang, text };
+      bossTimers.set(this, timer);
+    }
+    bar.enrage = timer.text;
   }
   return bar;
 }

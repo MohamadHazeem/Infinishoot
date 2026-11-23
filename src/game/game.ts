@@ -1514,7 +1514,8 @@ export class Game implements HeroWorld {
     this.companionTargets();
     coopPlayTargets(this); // the escorted core draws enemies too (systems/coopplay.ts)
     updateElites2.call(this, dt);
-    this.enemies.update(dt, this.enemyCtx);
+    if (this.director.enrageStep && this.boss?.active) BossFightSys.enragedEnemyStep(this, dt);
+    else this.enemies.update(dt, this.enemyCtx);
     HalloweenSys.halloweenStep.call(this, dt);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
