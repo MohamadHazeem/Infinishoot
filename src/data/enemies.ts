@@ -1,3 +1,4 @@
+import type { ShotFamily } from './patterns';
 import { architectDefs } from '../game/architect/defs';
 import { biome3Defs } from './biome3';
 import { secretBossDefs } from './secrets';
@@ -52,7 +53,7 @@ export interface EnemyDef {
    * Shooters. `pattern`: spread (one fan), spiral (spins out a stream of bullets),
    * burst (three quick fans), sniper (long aim line, one fast shot).
    */
-  shoot?: { keepDistance: number; interval: number; bullets: number; spreadDeg: number; speed: number; damage: number; pattern?: 'spread' | 'spiral' | 'burst' | 'sniper' };
+  shoot?: { threat?: ShotFamily; keepDistance: number; interval: number; bullets: number; spreadDeg: number; speed: number; damage: number; pattern?: 'spread' | 'spiral' | 'burst' | 'sniper' };
   charge?: { range: number; windup: number; speed: number; duration: number; recover: number };
   fuse?: { range: number; time: number; radius: number; damage: number };
   split?: { into: string; count: number };
@@ -276,7 +277,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     score: 100,
     minMinute: 1,
     weight: 3,
-    shoot: { keepDistance: 8, interval: 2.6, bullets: 3, spreadDeg: 24, speed: 8, damage: 9 },
+    shoot: { threat: 'blaster', keepDistance: 8, interval: 2.6, bullets: 3, spreadDeg: 24, speed: 8, damage: 9 },
   },
   spinner: {
     id: 'spinner',
@@ -297,7 +298,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     minMinute: 5.25,
     minStage: 2,
     weight: 1.6,
-    shoot: { keepDistance: 7, interval: 3.6, bullets: 22, spreadDeg: 0, speed: 6.5, damage: 8, pattern: 'spiral' },
+    shoot: { threat: 'spiral', keepDistance: 7, interval: 3.6, bullets: 22, spreadDeg: 0, speed: 6.5, damage: 8, pattern: 'spiral' },
   },
   burster: {
     id: 'burster',
@@ -316,7 +317,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     score: 130,
     minMinute: 1.8,
     weight: 1.8,
-    shoot: { keepDistance: 9, interval: 3.2, bullets: 3, spreadDeg: 18, speed: 9.5, damage: 8, pattern: 'burst' },
+    shoot: { threat: 'burst', keepDistance: 9, interval: 3.2, bullets: 3, spreadDeg: 18, speed: 9.5, damage: 8, pattern: 'burst' },
   },
   sniper: {
     id: 'sniper',
@@ -335,7 +336,7 @@ export const ENEMIES: Record<string, EnemyDef> = {
     score: 150,
     minMinute: 2.6,
     weight: 1.2,
-    shoot: { keepDistance: 13, interval: 3.4, bullets: 1, spreadDeg: 0, speed: 24, damage: 22, pattern: 'sniper' },
+    shoot: { threat: 'marksman', keepDistance: 13, interval: 3.4, bullets: 1, spreadDeg: 0, speed: 24, damage: 22, pattern: 'sniper' },
   },
   charger: {
     id: 'charger',

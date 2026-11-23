@@ -1,3 +1,5 @@
+import { previewThreats } from '../game/enemyBullets';
+import { Zone } from '../data/patterns';
 import { personalDeaths } from '../game/damageLog';
 import { casualLinks } from '../game/systems/assists';
 import { architectLinks } from '../game/systems/architect';
@@ -487,6 +489,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   pets2Links(game, q); // petpose, petwardrobe: quiet model / picker QA
+  const threat = ({pool: Zone.Pool, mine: Zone.Mine, wall: Zone.Wall, ring: Zone.Ring} as const)[q.get('threats') as 'pool' | 'mine' | 'wall' | 'ring'];
+  if (typeof threat === 'number') setTimeout(() => previewThreats(game, threat, q.has('threathold')), 2200);
   architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
   return true;
 }

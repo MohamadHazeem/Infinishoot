@@ -1,3 +1,5 @@
+import { registerKinds } from './gameplay';
+import { patternedShot } from './enemyBullets';
 import { installSteam } from '../platform/steam';
 import { installTelemetry } from './systems/telemetry';
 import * as ArchitectSys from './systems/architect';
@@ -238,6 +240,9 @@ export const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'dragon_cannon', tags: ['projectile', 'fire', 'trail'] }, // 15 Dragon Cannon (fusion, src/data/fusions.ts)
   { source: 'sentry' }, // 16 Pocket Sentry; evolution tags come from its owner's build
 ];
+// Preserve the existing mech and relic IDs (17..23) before appending the enemy team (24..28).
+registerKinds(BULLET_KINDS);
+for (const source of ['delayed', 'ricochet', 'curve', 'split', 'boomerang']) BULLET_KINDS.push({ source });
 /** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
 export const IMPACT_BLAST = [1, 5, 8];
 export const SNAP_EVERY = 3; // host snapshot every N sim steps (20 Hz)
@@ -963,7 +968,7 @@ export class Game implements HeroWorld {
     this.scene.add(this.arena.group);
     this.walls = new StaticBoxGrid(this.arena.colliders);
     this.enemies = new Enemies(this.scene);
-    this.bullets = new Bullets(this.scene);
+    this.bullets = new Bullets(this.scene, access);
     this.particles = new Particles(this.scene);
     this.fx = new Fx(this.scene);
     this.scars = new Scars(this.scene);
@@ -979,7 +984,7 @@ export class Game implements HeroWorld {
     this.dmg = new DamageNumbers(hudRoot);
     this.dmg.localHero = () => this.hero?.index ?? 0;
     this.hud = new Hud(hudRoot);
-    this.bossField = new BossField(this.scene);
+    this.bossField = new BossField(this.scene, access);
     this.bossIntro = new BossIntro(hudRoot);
     this.bossIntro.onSkip = () => this.skipBossIntro();
     this.vfx = new Vfx({
@@ -1225,8 +1230,12 @@ export class Game implements HeroWorld {
         this.vfx.shake(e.x, e.z, 0.8);
         this.vfx.sound('bossPhase', e.x, e.z);
       },
-      onWindup: (e) => windupCue(this, e), // telegraph, threat cue and family call (systems/sound.ts)
+      onWindup: (e) => {
+        windupCue(this, e);
+        this.bossField.denial.windup(this, e);
+      },
       fireBullet: (e, dx, dz, speed, damage) => {
+        if (patternedShot(this, e, dx, dz, speed, damage)) return;
         this.bullets.spawn({
           x: e.x + dx * (e.radius + 0.2),
           z: e.z + dz * (e.radius + 0.2),
@@ -1545,6 +1554,7 @@ export class Game implements HeroWorld {
     this.recycleFarEnemies(dt);
     lap('sim.boss+recycle');
 
+    this.bossField.denial.advance(dt, this);
     this.updateBullets(dt);
     lap('sim.bullets');
     this.barrels.update(dt, (i, b) => this.explodeBarrel(i, b));
