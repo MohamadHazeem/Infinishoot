@@ -1,3 +1,5 @@
+import { planHeights, siteX, siteZ, type HeightField } from './height';
+import { buildHeightRoutes } from './heightView';
 import { addBiome3Arena, biome3Tree, biome3Kelp } from './biome3Arena';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -32,6 +34,8 @@ export interface ArenaProp {
  * same run seed rebuilds the same stage.
  */
 export interface Arena {
+  heights?: HeightField;
+  heightCutaway?: (x: number, z: number, y: number) => void;
   group: THREE.Group;
   colliders: AABB[];
   halfSize: number;
@@ -913,12 +917,23 @@ export function createFieldArena(seed: number, biome: BiomeDef = BIOMES[0], opts
 
   if (!L) addBiome3Arena(biome.id, seed, group, hazards, conveyors);
 
+  const reserved = [...placed, ...colliders];
+  for (const p of pads) reserved.push(aabbFromCenter(p.tx, p.tz, 3, 3));
+  for (const h of hazards) reserved.push(aabbFromCenter(h.x, h.z, h.r * 2, h.r * 2));
+  for (const b of conveyors) reserved.push(aabbFromCenter(b.x, b.z, b.w, b.d));
+  const heights = L ? undefined : planHeights(seed, HALF, reserved);
+  if (heights) {
+    for (const s of heights.sites) if (s.bridge)
+      pads.push({ x: siteX(s, 8), z: siteZ(s, 8), tx: siteX(s, 4), tz: siteZ(s, 4) });
+  }
+
   // Hundreds of props -> one draw call per material.
   mergeStatic(group);
   // Animated scenery stays out of the merge (and off the layout rng).
   const anim = biome.decor ? buildDecor(biome.decor, group, new Rng(seed ^ 0xdec0), HALF) : [];
   anim.push(...biome3Kelp(biome.id, seed, group));
-  return { group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors, seed, props, pads, turrets, spots, deco, anim };
+  const heightCutaway = heights && buildHeightRoutes(group, heights, seed);
+  return { heights, heightCutaway, group, colliders, halfSize: HALF, barrels, chests, hazards, conveyors, seed, props, pads, turrets, spots, deco, anim };
 }
 
 /** Flat disc with a wobbly edge (hazard patches); uvScale tiles its texture. */

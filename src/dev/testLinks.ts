@@ -1,3 +1,4 @@
+import { heightLink } from '../world/heightPlay';
 import { spawnPatrol } from '../game/systems/spawning';
 import { craftLink } from '../game/crafting';
 import { previewThreats } from '../game/enemyBullets';
@@ -382,6 +383,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   skyLinks(game, q);
   gfx3Links(game, q);
   graphicsLinks(game, q); // anime, look=, customise, shatter=, impact=, fog=, puddles=, cine= (src/dev/graphicsLinks.ts)
+  heightLink(game, q);
   // Bosses: `bossnow` (boss right away), `phase=2` (push it into a phase), `miniboss`, `nointro`.
   if (q.has('nointro')) settings.bossIntros = false;
   bossLinks(game, q); // bosses lane: &titan, &titanphase=N, &titanmove=, &remix, &duel (src/dev/bossLinks.ts)
