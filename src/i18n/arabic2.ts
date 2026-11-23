@@ -1,6 +1,16 @@
 import { craftEn } from './g5craft';
 /** New Arabic-lane base copy. Other locales deliberately retain English until translated. */
 export const arabic2En = {
+  "g4.hint.crown": "Step on the blue plate",
+  "g4.last.crown": "THE FALLING CROWN",
+  "g4.hint.brake": "Bait Rex past the blue post",
+  "g4.last.brake": "RUNAWAY FURNACE",
+  "g4.hint.brood": "Cross the gold thread or break its hive",
+  "g4.last.brood": "THE LAST HATCH",
+  "g4.hint.dodge": "Step off the charge line",
+  "g4.hint.scan": "Stand still as the blue ring closes",
+  "g4.last.scan": "ZERO MOTION",
+  "g4.counter": "CORE EXPOSED • ATTACK",
   ...craftEn,
   "steam.stage": "Stage ⟪stage⟫ · ⟪biome⟫ · ⟪hero⟫",
   "steam.menu": "Main menu",
