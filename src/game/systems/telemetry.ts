@@ -43,6 +43,8 @@ export function installTelemetry(g: Game, root: HTMLElement): void {
   const playback = !!loadJson('replay.watch', null);
   const snapshot = () => {
     if (!stage) return;
+    const field = g.biomeRules.snapshot(g);
+    if (field) stage.ranks['secret:' + field.biome] = [Number(field.kind !== null && field.phase !== 'sealed'), field.finds];
     stage.ranks['director:power'] = [Math.round(100 * g.director.adaptive.power.score)];
     stage.level = g.level; stage.seconds = seconds(Math.max(0, g.runTime - stageStart));
     for (const w of g.hero.weapons) stage.ranks[id(w.def.id)] = w.build ? [...w.build.ranks, w.build.evo, w.build.od] : [w.level];

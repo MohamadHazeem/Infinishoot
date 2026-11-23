@@ -517,6 +517,9 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const threat = ({pool: Zone.Pool, mine: Zone.Mine, wall: Zone.Wall, ring: Zone.Ring} as const)[q.get('threats') as 'pool' | 'mine' | 'wall' | 'ring'];
   if (typeof threat === 'number') setTimeout(() => previewThreats(game, threat, q.has('threathold')), 2200);
   architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
+  game.biomeRules.preview(game, q.get('fieldsite'));
+  // The combat profiler and crafting share the bench flag. Keep stress test links in combat.
+  if (q.has('bench') && (q.has('circle') || q.has('hold')) && !q.has('craft') && !q.has('journal')) return true;
   craftLink(game, q);
   return true;
 }

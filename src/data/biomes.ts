@@ -1,3 +1,4 @@
+import { ISLAND_RULES, type BiomeRulesDef } from './biomeRules';
 import { BIOME3_AREAS } from './biome3';
 import { seasonalStage } from './seasons';
 import type { BiomeTexKey } from '../render/biomeTextures';
@@ -24,6 +25,7 @@ export interface BiomeGrade {
  * every co-op machine, from the stage number alone).
  */
 export interface BiomeDef {
+  rules?: BiomeRulesDef;
   id: string;
   name: string;
   /** Remix id ('autumn', 'night'...) when a classic biome comes back in a later loop; '' for the base look. */
@@ -421,6 +423,8 @@ export const BIOMES: BiomeDef[] = [
   },
   ...BIOME3_AREAS,
 ];
+
+for (const biome of BIOMES) biome.rules = ISLAND_RULES[biome.id];
 
 export const BIOME_BY_ID: Record<string, BiomeDef> = Object.fromEntries(BIOMES.map((b) => [b.id, b]));
 
