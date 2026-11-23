@@ -1,8 +1,9 @@
 /** Readable chaos: local presentation only; host simulation and effects recording stay untouched. */
 import * as THREE from 'three';
 import type { Game } from '../game';
-import { noiseFor, readableMaterial } from '../../render/noiseGovernor';
+import { nearbyShots, noiseFor, readableMaterial } from '../../render/noiseGovernor';
 import { gfxPostUniforms } from '../../render/graphicsPost';
+import { Team } from '../bullets';
 import { reduceMotion } from '../../ui/hud';
 
 interface Markers { hero: THREE.Mesh; color: string }
@@ -38,7 +39,7 @@ export function beginReadability(this: Game, dt: number): void {
   clarityCss();
   const noise = noiseFor(this.scene);
   const p = this.hero.player;
-  noise.begin(dt, this.enemies.activeCount, this.bullets.count, this.heroes.length, p.x, p.z, reduceMotion());
+  noise.begin(dt, this.enemies.activeCount, this.bullets.count, this.heroes.length, p.x, p.z, reduceMotion(), nearbyShots(this.bullets, Team.Enemy, p.x, p.z));
   this.dmg.noise = this.juice.noise = this.hud.noise = noise;
   document.body.classList.toggle('readable-chaos', this.isCombatMode && noise.pressure >= 0.45);
 }

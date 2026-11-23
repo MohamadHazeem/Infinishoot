@@ -106,7 +106,7 @@ export function gfxState(g: Game): GfxState {
   let st = states.get(g);
   if (st) return st;
   st = {
-    shatter: new Shatter(g.scene),
+    shatter: new Shatter(g.scene, true),
     mirror: new WaterMirror(g.scene),
     fog: new VolumeFog(g.scene),
     barrels: null,

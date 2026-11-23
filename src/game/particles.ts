@@ -1,19 +1,13 @@
 import { noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { particleLod } from '../render/lod';
-import { createRetroMaterial } from '../render/retroMaterial';
-import { commit } from '../render/instancing';
+import { ParticleBatch } from '../render/particlesGpu';
+import { ParticleKind } from '../render/particlesShader';
 import { renderQuality } from '../render/quality';
-import { SpritePool, spriteTextures, fxFor } from './fx';
+import { fxFor } from './fx';
 import type { Material } from '../data/enemies';
 import { Debris } from './debris';
 import { Decals } from './decals';
-
-/**
- * Pooled chunky 3D particles (little spinning cubes), one InstancedMesh.
- * Used for sparks, death pops, dash trails, dust.
- */
-const MAX = 2048;
 
 export interface BurstOptions {
   count: number;
@@ -46,12 +40,63 @@ export interface BurstOptions {
 }
 
 /** Material-specific hits use compact burst fields, with no new frequent wire event. */
-export function materialHit(material: Material | undefined, color: string, dx = 0, dz = 0): BurstOptions {
+export function materialHit(
+  material: Material | undefined,
+  color: string,
+  dx = 0,
+  dz = 0,
+): BurstOptions {
   const dir = { x: -dx, z: -dz, spread: 2.4 };
-  if (material === 'metal' || material === 'shield') return { count: 3, color: material === 'shield' ? '#73eff7' : '#ffcd75', color2: '#f4f4f4', speed: [4, 8], size: [0.06, 0.12], life: [0.12, 0.3], up: 2, gravity: 16, sparks: 2, dir };
-  if (material === 'slime') return { shape: 'splat', count: 4, color, color2: '#a7f070', speed: [1.5, 3.5], size: [0.16, 0.28], life: [0.25, 0.45], up: 1.8, gravity: 14, drag: 5, dir };
-  if (material === 'stone') return { shape: 'chip', count: 3, color: '#94b0c2', color2: color, speed: [2, 5], size: [0.1, 0.2], life: [0.3, 0.55], up: 3, gravity: 22, drag: 2, dir };
-  return { count: 3, color: '#ffffff', color2: color, speed: [3, 7], size: [0.1, 0.18], life: [0.12, 0.25], dir };
+  if (material === 'metal' || material === 'shield')
+    return {
+      count: 3,
+      color: material === 'shield' ? '#73eff7' : '#ffcd75',
+      color2: '#f4f4f4',
+      speed: [4, 8],
+      size: [0.06, 0.12],
+      life: [0.12, 0.3],
+      up: 2,
+      gravity: 16,
+      sparks: 2,
+      dir,
+    };
+  if (material === 'slime')
+    return {
+      shape: 'splat',
+      count: 4,
+      color,
+      color2: '#a7f070',
+      speed: [1.5, 3.5],
+      size: [0.16, 0.28],
+      life: [0.25, 0.45],
+      up: 1.8,
+      gravity: 14,
+      drag: 5,
+      dir,
+    };
+  if (material === 'stone')
+    return {
+      shape: 'chip',
+      count: 3,
+      color: '#94b0c2',
+      color2: color,
+      speed: [2, 5],
+      size: [0.1, 0.2],
+      life: [0.3, 0.55],
+      up: 3,
+      gravity: 22,
+      drag: 2,
+      dir,
+    };
+  return {
+    count: 3,
+    color: '#ffffff',
+    color2: color,
+    speed: [3, 7],
+    size: [0.1, 0.18],
+    life: [0.12, 0.25],
+    dir,
+  };
 }
 
 /** Quality knobs for the world effects (low preset thins them out). */
@@ -64,426 +109,248 @@ export const worldFxTuning = {
   amount: 1,
 };
 
-const PUFFS = 420;
-const SPARKS = 320;
-
-/**
- * Soft round puffs (smoke and dust) and glowing sparks, simulated here and
- * drawn as camera-facing sprites. Cosmetic and local.
- */
+/** Soft effects share the launch buffer with impact fragments. */
 export class SoftFx {
-  private puffs: SpritePool;
-  private glow: SpritePool;
-  // Puffs
-  private n = 0;
-  private x = new Float32Array(PUFFS);
-  private y = new Float32Array(PUFFS);
-  private z = new Float32Array(PUFFS);
-  private vx = new Float32Array(PUFFS);
-  private vy = new Float32Array(PUFFS);
-  private vz = new Float32Array(PUFFS);
-  private age = new Float32Array(PUFFS);
-  private life = new Float32Array(PUFFS);
-  private s0 = new Float32Array(PUFFS);
-  private s1 = new Float32Array(PUFFS);
-  private a0 = new Float32Array(PUFFS);
-  private rise = new Float32Array(PUFFS);
-  private rot = new Float32Array(PUFFS);
-  private col = new Float32Array(PUFFS * 3);
-  // Sparks
-  private sn = 0;
-  private sx = new Float32Array(SPARKS);
-  private sy = new Float32Array(SPARKS);
-  private sz = new Float32Array(SPARKS);
-  private svx = new Float32Array(SPARKS);
-  private svy = new Float32Array(SPARKS);
-  private svz = new Float32Array(SPARKS);
-  private sAge = new Float32Array(SPARKS);
-  private sLife = new Float32Array(SPARKS);
-  private sSize = new Float32Array(SPARKS);
-  private sCol = new Float32Array(SPARKS * 3);
-  private c = new THREE.Color();
+  private color = new THREE.Color();
+  constructor(private batch: ParticleBatch) {}
 
-  private noise: NoiseGovernor;
-
-  constructor(scene: THREE.Scene) {
-    this.noise = noiseFor(scene);
-    const art = spriteTextures();
-    this.puffs = new SpritePool(scene, { max: PUFFS, map: art.puff, mode: 'billboard', renderOrder: 3 });
-    this.glow = new SpritePool(scene, { max: SPARKS, map: art.puff, mode: 'billboard', additive: true, renderOrder: 4 });
-  }
-
-  private addPuff(x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number, s0: number, s1: number, a0: number, rise: number, color: THREE.ColorRepresentation, rand: () => number): void {
-    // Full: drop the oldest (slot 0 is as good as any; puffs are short-lived).
-    const i = this.n < PUFFS ? this.n++ : Math.floor(rand() * PUFFS);
-    this.x[i] = x;
-    this.y[i] = y;
-    this.z[i] = z;
-    this.vx[i] = vx;
-    this.vy[i] = vy;
-    this.vz[i] = vz;
-    this.age[i] = 0;
-    this.life[i] = life;
-    this.s0[i] = s0;
-    this.s1[i] = s1;
-    this.a0[i] = a0;
-    this.rise[i] = rise;
-    this.rot[i] = rand() * Math.PI * 2;
-    this.c.set(color);
-    this.col[i * 3] = this.c.r;
-    this.col[i * 3 + 1] = this.c.g;
-    this.col[i * 3 + 2] = this.c.b;
-  }
-
-  /** Billowing smoke: puffs drift out, rise, swell and fade. `size` ~ explosion radius. */
-  smoke(x: number, y: number, z: number, count: number, size = 1, rand = Math.random, color: THREE.ColorRepresentation = '#dcd8ec'): void {
+  smoke(
+    x: number,
+    y: number,
+    z: number,
+    count: number,
+    size = 1,
+    rand = Math.random,
+    color: THREE.ColorRepresentation = '#dcd8ec',
+  ): void {
     if (!renderQuality.worldEffects) return;
     const t = worldFxTuning;
-    const n = this.noise.take('smoke', Math.round(count * t.amount));
+    const n = this.batch.admit('smoke', Math.round(count * t.amount));
     for (let k = 0; k < n; k++) {
       const a = rand() * Math.PI * 2;
-      const column = k % 3 === 0;
-      const sp = (column ? 0.12 : 0.4 + rand()) * size;
-      const dark = rand() < 0.3;
-      this.addPuff(
-        x + Math.cos(a) * 0.3 * size,
-        y + (column ? 0.6 + rand() * 0.8 : rand() * 0.4),
-        z + Math.sin(a) * 0.3 * size,
+      const sp = (0.6 + rand()) * size;
+      this.batch.add(
+        x,
+        y + rand() * 0.5,
+        z,
         Math.cos(a) * sp,
-        column ? 1.6 : 0.3 + rand() * 0.6,
+        (0.4 + rand()) * t.smokeRise,
         Math.sin(a) * sp,
         t.smokeLife[0] + rand() * (t.smokeLife[1] - t.smokeLife[0]),
-        (0.4 + rand() * 0.3) * size,
-        (1.0 + rand() * 0.6) * size,
-        column ? 0.4 : 0.6,
-        t.smokeRise * (0.6 + rand() * 0.6),
-        dark ? '#aaa6c6' : color,
-        rand,
+        size * (0.32 + rand() * 0.18),
+        -0.15,
+        1.5,
+        ParticleKind.Smoke,
+        this.color.set(k % 3 === 0 ? '#aaa6c6' : color),
+        0.26,
       );
     }
   }
 
-  /** Low dust kicked along the ground. `dir` biases it (e.g. behind a dash); omit for a ring. */
-  dust(x: number, z: number, count: number, size: number, color: THREE.ColorRepresentation, rand = Math.random, dirX = 0, dirZ = 0, speed = 2.2): void {
+  dust(
+    x: number,
+    z: number,
+    count: number,
+    size: number,
+    color: THREE.ColorRepresentation,
+    rand = Math.random,
+    dirX = 0,
+    dirZ = 0,
+    speed = 2.2,
+  ): void {
     if (!renderQuality.worldEffects) return;
     const t = worldFxTuning;
-    const n = this.noise.take('smoke', Math.round(count * t.amount));
-    const biased = dirX !== 0 || dirZ !== 0;
-    const base = Math.atan2(dirZ, dirX);
+    const n = this.batch.admit('smoke', Math.round(count * t.amount));
+    this.color.set(color);
     for (let k = 0; k < n; k++) {
-      const a = biased ? base + (rand() - 0.5) * 1.6 : (k / n) * Math.PI * 2 + rand() * 0.5;
+      const a =
+        dirX || dirZ
+          ? Math.atan2(dirZ, dirX) + (rand() - 0.5) * 1.6
+          : ((k + rand() * 0.4) / n) * Math.PI * 2;
       const sp = speed * (0.5 + rand() * 0.7);
-      this.addPuff(
-        x + Math.cos(a) * 0.2 * size,
-        0.15 + rand() * 0.15,
-        z + Math.sin(a) * 0.2 * size,
+      this.batch.add(
+        x,
+        0.14,
+        z,
         Math.cos(a) * sp,
-        0.4 + rand() * 0.5,
+        0.5,
         Math.sin(a) * sp,
         t.dustLife[0] + rand() * (t.dustLife[1] - t.dustLife[0]),
-        (0.35 + rand() * 0.25) * size,
-        (0.8 + rand() * 0.5) * size,
-        0.8,
-        0.2,
-        color,
-        rand,
+        size * (0.17 + rand() * 0.1),
+        0.6,
+        2,
+        ParticleKind.Dust,
+        this.color,
+        0.35,
       );
     }
   }
 
-  /** Glowing sparks that arc, bounce and burn out. */
-  sparks(x: number, y: number, z: number, count: number, color: THREE.ColorRepresentation, speed = 7, rand = Math.random): void {
+  sparks(
+    x: number,
+    y: number,
+    z: number,
+    count: number,
+    color: THREE.ColorRepresentation,
+    speed = 7,
+    rand = Math.random,
+  ): void {
     if (!renderQuality.worldEffects) return;
-    const n = this.noise.take('particles', Math.round(count * worldFxTuning.amount));
-    this.c.set(color);
+    const n = this.batch.admit('particles', Math.round(count * worldFxTuning.amount));
+    this.color.set(color);
     for (let k = 0; k < n; k++) {
-      const i = this.sn < SPARKS ? this.sn++ : Math.floor(rand() * SPARKS);
-      const a = rand() * Math.PI * 2;
-      const sp = speed * (0.4 + rand() * 0.8);
-      this.sx[i] = x;
-      this.sy[i] = y;
-      this.sz[i] = z;
-      this.svx[i] = Math.cos(a) * sp;
-      this.svz[i] = Math.sin(a) * sp;
-      this.svy[i] = 3 + rand() * speed;
-      this.sAge[i] = 0;
-      this.sLife[i] = 0.35 + rand() * 0.5;
-      this.sSize[i] = 0.16 + rand() * 0.14;
-      this.sCol[i * 3] = this.c.r;
-      this.sCol[i * 3 + 1] = this.c.g;
-      this.sCol[i * 3 + 2] = this.c.b;
+      const a = rand() * Math.PI * 2,
+        sp = speed * (0.4 + rand() * 0.8);
+      this.batch.add(
+        x,
+        y,
+        z,
+        Math.cos(a) * sp,
+        3 + rand() * speed,
+        Math.sin(a) * sp,
+        0.35 + rand() * 0.5,
+        0.11 + rand() * 0.09,
+        worldFxTuning.sparkGravity,
+        1.2,
+        ParticleKind.Spark,
+        this.color,
+      );
     }
-  }
-
-  clear(): void {
-    this.n = this.sn = 0;
-  }
-
-  update(dt: number): void {
-    for (let i = 0; i < this.n; i++) {
-      this.age[i] += dt;
-      if (this.age[i] >= this.life[i]) {
-        this.removePuff(i);
-        i--;
-        continue;
-      }
-      const d = Math.exp(-3.2 * dt);
-      this.vx[i] *= d;
-      this.vz[i] *= d;
-      this.vy[i] = this.vy[i] * d + this.rise[i] * dt;
-      this.x[i] += this.vx[i] * dt;
-      this.y[i] += this.vy[i] * dt;
-      this.z[i] += this.vz[i] * dt;
-      this.rot[i] += dt * 0.6;
-    }
-    const g = worldFxTuning.sparkGravity;
-    for (let i = 0; i < this.sn; i++) {
-      this.sAge[i] += dt;
-      if (this.sAge[i] >= this.sLife[i]) {
-        this.removeSpark(i);
-        i--;
-        continue;
-      }
-      this.svy[i] -= g * dt;
-      const d = Math.exp(-1.2 * dt);
-      this.svx[i] *= d;
-      this.svz[i] *= d;
-      this.sx[i] += this.svx[i] * dt;
-      this.sy[i] += this.svy[i] * dt;
-      this.sz[i] += this.svz[i] * dt;
-      if (this.sy[i] < 0.05) {
-        this.sy[i] = 0.05;
-        this.svy[i] *= -0.45;
-      }
-    }
-  }
-
-  private removePuff(i: number): void {
-    const j = --this.n;
-    if (i === j) return;
-    this.x[i] = this.x[j];
-    this.y[i] = this.y[j];
-    this.z[i] = this.z[j];
-    this.vx[i] = this.vx[j];
-    this.vy[i] = this.vy[j];
-    this.vz[i] = this.vz[j];
-    this.age[i] = this.age[j];
-    this.life[i] = this.life[j];
-    this.s0[i] = this.s0[j];
-    this.s1[i] = this.s1[j];
-    this.a0[i] = this.a0[j];
-    this.rise[i] = this.rise[j];
-    this.rot[i] = this.rot[j];
-    this.col[i * 3] = this.col[j * 3];
-    this.col[i * 3 + 1] = this.col[j * 3 + 1];
-    this.col[i * 3 + 2] = this.col[j * 3 + 2];
-  }
-
-  private removeSpark(i: number): void {
-    const j = --this.sn;
-    if (i === j) return;
-    this.sx[i] = this.sx[j];
-    this.sy[i] = this.sy[j];
-    this.sz[i] = this.sz[j];
-    this.svx[i] = this.svx[j];
-    this.svy[i] = this.svy[j];
-    this.svz[i] = this.svz[j];
-    this.sAge[i] = this.sAge[j];
-    this.sLife[i] = this.sLife[j];
-    this.sSize[i] = this.sSize[j];
-    this.sCol[i * 3] = this.sCol[j * 3];
-    this.sCol[i * 3 + 1] = this.sCol[j * 3 + 1];
-    this.sCol[i * 3 + 2] = this.sCol[j * 3 + 2];
-  }
-
-  render(): void {
-    const p = this.puffs;
-    p.begin();
-    for (let i = 0; i < this.n; i++) {
-      const k = this.age[i] / this.life[i];
-      // Swell fast then slowly; fade over the second half.
-      const e = 1 - (1 - k) * (1 - k);
-      const s = this.s0[i] + (this.s1[i] - this.s0[i]) * e;
-      const a = this.a0[i] * (k < 0.08 ? k / 0.08 : k < 0.45 ? 1 : 1 - (k - 0.45) / 0.55);
-      p.push(this.x[i], this.y[i], this.z[i], s, this.col[i * 3], this.col[i * 3 + 1], this.col[i * 3 + 2], a * this.noise.alpha(this.x[i], this.z[i]), this.rot[i]);
-    }
-    p.end();
-    const g = this.glow;
-    g.begin();
-    for (let i = 0; i < this.sn; i++) {
-      const k = this.sAge[i] / this.sLife[i];
-      const s = this.sSize[i] * (1 - k * 0.6);
-      g.push(this.sx[i], this.sy[i], this.sz[i], s, this.sCol[i * 3], this.sCol[i * 3 + 1], this.sCol[i * 3 + 2], (1 - k * k) * this.noise.alpha(this.sx[i], this.sz[i]));
-    }
-    g.end();
   }
 }
 
 export class Particles {
   readonly mesh: THREE.InstancedMesh;
-  private px = new Float32Array(MAX);
-  private py = new Float32Array(MAX);
-  private pz = new Float32Array(MAX);
-  private vx = new Float32Array(MAX);
-  private vy = new Float32Array(MAX);
-  private vz = new Float32Array(MAX);
-  private life = new Float32Array(MAX);
-  private maxLife = new Float32Array(MAX);
-  private size = new Float32Array(MAX);
-  private grav = new Float32Array(MAX);
-  private drag = new Float32Array(MAX);
-  private spin = new Float32Array(MAX);
-  private shape = new Uint8Array(MAX);
-  private colors: THREE.Color[] = [];
-  private alive = 0; // particles [0, alive) are live; dead ones are swapped out
-  private m4 = new THREE.Matrix4();
-  private q = new THREE.Quaternion();
-  private e = new THREE.Euler();
-  private v = new THREE.Vector3();
-  private s = new THREE.Vector3();
+  readonly soft: SoftFx;
+  readonly debris: Debris;
+  readonly decals: Decals;
+  private readonly batch: ParticleBatch;
+  private readonly noise: NoiseGovernor;
   private c1 = new THREE.Color();
   private c2 = new THREE.Color();
-  /** Smoke, dust and sparks. */
-  readonly soft: SoftFx;
-  /** Chunky bouncing debris. */
-  readonly debris: Debris;
-  /** Short-lived ground marks (scorch, footprints). */
-  readonly decals: Decals;
+  private tint = new THREE.Color();
 
-  private noise: NoiseGovernor;
+  /** Admitted launch groups, including emissions before their first draw. */
+  get alive(): number {
+    return this.batch.liveGroups;
+  }
+
+  get drawnCount(): number {
+    return this.batch.drawnCount;
+  }
 
   constructor(private scene: THREE.Scene) {
     this.noise = noiseFor(scene);
-    this.soft = new SoftFx(scene);
-    this.debris = new Debris(scene);
+    this.batch = new ParticleBatch(scene, this.noise);
+    this.mesh = this.batch.mesh;
+    this.soft = new SoftFx(this.batch);
+    this.debris = new Debris(scene, this.batch);
     this.decals = new Decals(scene);
-    this.mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), createRetroMaterial({ unlit: 0.7 }), MAX);
-    this.mesh.frustumCulled = false;
-    for (let i = 0; i < MAX; i++) {
-      this.colors.push(new THREE.Color(1, 1, 1));
-      this.mesh.setColorAt(i, this.colors[i]);
-    }
-    this.mesh.count = 0;
-    scene.add(this.mesh);
   }
 
   burst(x: number, y: number, z: number, o: BurstOptions, rand = Math.random): void {
     if (o.flourish) fxFor(this.scene)?.flourish(x, z, o.color, o.flourish === 'evolution');
-    if (renderQuality.worldEffects && (o.smoke || o.debris || o.sparks || o.dust)) this.extras(x, y, z, o, rand);
+    if (renderQuality.worldEffects && (o.smoke || o.debris || o.sparks || o.dust))
+      this.extras(x, y, z, o, rand);
     this.c1.set(o.color);
     this.c2.set(o.color2 ?? o.color);
-    const count = this.noise.take('particles', o.count <= 2 ? o.count : Math.ceil(o.count * renderQuality.particles * particleLod(x, z))); // particleLod: far effects in big teams (eightp lane)
-    for (let n = 0; n < count && this.alive < MAX; n++) {
-      const i = this.alive++;
-      let a = rand() * Math.PI * 2;
-      if (o.dir) a = Math.atan2(o.dir.z, o.dir.x) + (rand() - 0.5) * o.dir.spread;
-      const sp = o.speed[0] + rand() * (o.speed[1] - o.speed[0]);
-      this.px[i] = x;
-      this.py[i] = y;
-      this.pz[i] = z;
-      this.vx[i] = Math.cos(a) * sp;
-      this.vz[i] = Math.sin(a) * sp;
-      this.vy[i] = (o.up ?? 0) * (0.5 + rand());
-      this.maxLife[i] = this.life[i] = o.life[0] + rand() * (o.life[1] - o.life[0]);
-      this.size[i] = o.size[0] + rand() * (o.size[1] - o.size[0]);
-      this.grav[i] = o.gravity ?? 0;
-      this.drag[i] = o.drag ?? 3;
-      this.spin[i] = rand() * 10;
-      this.shape[i] = o.shape === 'splat' ? 1 : o.shape === 'chip' ? 2 : 0;
-      this.colors[i].copy(this.c1).lerp(this.c2, rand());
+    const count = this.batch.admit(
+      'particles',
+      o.count <= 2 ? o.count : Math.ceil(o.count * renderQuality.particles * particleLod(x, z)),
+    );
+    const kind =
+      o.shape === 'splat'
+        ? ParticleKind.Splat
+        : o.shape === 'chip' || o.debris
+          ? ParticleKind.Flake
+          : ParticleKind.Chip;
+    for (let i = 0; i < count; i++) {
+      const a = o.dir
+        ? Math.atan2(o.dir.z, o.dir.x) + (rand() - 0.5) * o.dir.spread
+        : rand() * Math.PI * 2;
+      const speed = o.speed[0] + rand() * (o.speed[1] - o.speed[0]);
+      const vy = (o.up ?? 0) * (0.5 + rand());
+      const life = o.life[0] + rand() * (o.life[1] - o.life[0]);
+      const radius = (o.size[0] + rand() * (o.size[1] - o.size[0])) * 0.77;
+      this.tint.copy(this.c1).lerp(this.c2, rand());
+      this.batch.add(
+        x,
+        y,
+        z,
+        Math.cos(a) * speed,
+        vy,
+        Math.sin(a) * speed,
+        life,
+        radius,
+        o.gravity ?? 0,
+        o.drag ?? 3,
+        kind,
+        this.tint,
+      );
     }
   }
 
   /** The world-effect extras a burst asks for (smoke, debris, sparks, scorch). */
   private extras(x: number, y: number, z: number, o: BurstOptions, rand: () => number): void {
-    const size = Math.max(0.6, Math.min(2.2, Math.max((o.speed[1] + o.speed[0]) / 9, o.size[1] * 2.5)));
+    const size = Math.max(
+      0.6,
+      Math.min(2.2, Math.max((o.speed[1] + o.speed[0]) / 9, o.size[1] * 2.5)),
+    );
     if (o.smoke) {
       // Ring + the original debris + a narrower smoke column make the blast silhouette legible.
       if (!this.noise.calm) fxFor(this.scene)?.ring(x, z, size * 0.8, 3, o.color2 ?? o.color, 0.32);
-      if (!o.debris) this.debris.spawn(x, Math.max(0.3, y), z, Math.min(3, o.smoke), '#566c86', o.color, 0.18, 4, rand);
+      if (!o.debris)
+        this.debris.spawn(
+          x,
+          Math.max(0.3, y),
+          z,
+          Math.min(3, o.smoke),
+          '#566c86',
+          o.color,
+          0.18,
+          4,
+          rand,
+        );
       this.soft.smoke(x, Math.max(0.3, y), z, o.smoke, size, rand);
       const r = o.scorch ?? size * 0.9;
       if (r > 0) this.decals.scorch(x, z, r, rand);
     }
-    if (o.sparks) this.soft.sparks(x, Math.max(0.3, y), z, o.sparks, o.color2 ?? '#ffd23f', 4 + size * 3, rand);
+    if (o.sparks)
+      this.soft.sparks(x, Math.max(0.3, y), z, o.sparks, o.color2 ?? '#ffd23f', 4 + size * 3, rand);
     if (o.dust) this.soft.dust(x, z, o.dust, size, o.color, rand, 0, 0, 2 + size * 2);
-    if (o.debris) this.debris.spawn(x, Math.max(0.3, y), z, Math.floor(o.debris * worldFxTuning.amount + rand()), o.color, o.color2 ?? o.color, Math.min(0.6, o.size[1] * 0.85), o.speed[1] * 0.7, rand);
+    if (o.debris)
+      this.debris.spawn(
+        x,
+        Math.max(0.3, y),
+        z,
+        Math.floor(o.debris * worldFxTuning.amount + rand()),
+        o.color,
+        o.color2 ?? o.color,
+        Math.min(0.6, o.size[1] * 0.85),
+        o.speed[1] * 0.7,
+        rand,
+      );
   }
 
   clear(): void {
-    this.alive = 0;
-    this.soft.clear();
+    this.batch.clear();
     this.debris.clear();
     this.decals.clear();
   }
 
   update(dt: number): void {
     if (!renderQuality.worldEffects) {
-      this.soft.clear();
       this.debris.clear();
       this.decals.clear();
     }
-    this.soft.update(dt);
+    this.batch.update(dt);
     this.debris.update(dt);
     this.decals.update(dt);
-    for (let i = 0; i < this.alive; i++) {
-      this.life[i] -= dt;
-      if (this.life[i] <= 0) {
-        this.swapRemove(i);
-        i--;
-        continue;
-      }
-      const d = Math.exp(-this.drag[i] * dt);
-      this.vx[i] *= d;
-      this.vz[i] *= d;
-      this.vy[i] -= this.grav[i] * dt;
-      this.px[i] += this.vx[i] * dt;
-      this.py[i] += this.vy[i] * dt;
-      this.pz[i] += this.vz[i] * dt;
-      if (this.py[i] < 0.05) {
-        this.py[i] = 0.05;
-        this.vy[i] *= -0.4;
-      }
-      this.spin[i] += dt * 8;
-    }
   }
 
-  private swapRemove(i: number): void {
-    const j = --this.alive;
-    if (i === j) return;
-    this.px[i] = this.px[j];
-    this.py[i] = this.py[j];
-    this.pz[i] = this.pz[j];
-    this.vx[i] = this.vx[j];
-    this.vy[i] = this.vy[j];
-    this.vz[i] = this.vz[j];
-    this.life[i] = this.life[j];
-    this.maxLife[i] = this.maxLife[j];
-    this.size[i] = this.size[j];
-    this.grav[i] = this.grav[j];
-    this.drag[i] = this.drag[j];
-    this.spin[i] = this.spin[j];
-    this.shape[i] = this.shape[j];
-    this.colors[i].copy(this.colors[j]);
-  }
-
-  /** Upload instance data. Particles are cosmetic, so no interpolation. */
   render(): void {
-    this.soft.render();
+    this.batch.render();
     this.debris.render();
     this.decals.render();
-    for (let i = 0; i < this.alive; i++) {
-      const k = this.life[i] / this.maxLife[i];
-      const sc = this.size[i] * Math.min(1, k * 2.5) * Math.sqrt(this.noise.alpha(this.px[i], this.pz[i]));
-      const splat = this.shape[i] === 1;
-      const flat = splat ? Math.max(0.12, Math.min(1, this.py[i] * 2)) : this.shape[i] === 2 ? 0.45 : 1;
-      this.q.setFromEuler(this.e.set(splat ? 0 : this.spin[i], this.spin[i] * 0.7, 0));
-      this.m4.compose(this.v.set(this.px[i], this.py[i], this.pz[i]), this.q, this.s.set(sc * (splat ? 1.4 : 1), sc * flat, sc));
-      this.mesh.setMatrixAt(i, this.m4);
-      this.mesh.setColorAt(i, this.colors[i]);
-    }
-    this.mesh.count = this.alive;
-    commit(this.mesh.instanceMatrix, this.mesh.count);
-    if (this.mesh.instanceColor) commit(this.mesh.instanceColor, this.mesh.count);
   }
 }

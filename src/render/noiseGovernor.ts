@@ -11,6 +11,7 @@ export const noiseTuning = {
   lights: 30, crowdedLights: 6,
   numbers: 70, crowdedNumbers: 14,
   burstSeconds: 0.2, heroRadius: 3.2, nearAlpha: 0.18,
+  shotRadius: 8, crowdedShots: 16,
   clusterRadius: 1.8, clusterWindow: 0.24, bigHitRatio: 1.5,
   numberDensity: 0.75, shakeMax: 0.32, crowdedShakeMax: 0.14,
   flashMax: 0.2, crowdedFlashMax: 0.08, flashGap: 0.55,
@@ -24,6 +25,20 @@ export function crowdPressure(enemies: number, bullets: number, heroes: number):
   return Math.max(0, Math.min(1, (enemies + bullets * t.bulletWeight + Math.max(0, heroes - 1) * t.heroWeight - t.crowdStart) / (t.crowdFull - t.crowdStart)));
 }
 
+// Maximum concurrently drawn fragments, including satellites and live smoke.
+const simultaneous = [96, 480, 3600, 10080, 20480];
+const detail = [1, 2, 4, 7, 10];
+
+export function nearbyShots(b: { count: number; team: Uint8Array; x: Float32Array; z: Float32Array }, enemyTeam: number, x: number, z: number): number {
+  let n = 0;
+  const radius2 = noiseTuning.shotRadius ** 2;
+  for (let i = 0; i < b.count; i++) {
+    if (b.team[i] !== enemyTeam) continue;
+    if ((b.x[i]-x)**2 + (b.z[i]-z)**2 <= radius2 && ++n >= noiseTuning.crowdedShots) break;
+  }
+  return n;
+}
+
 export class NoiseGovernor {
   active = false;
   pressure = 0;
@@ -32,12 +47,23 @@ export class NoiseGovernor {
   calm = false;
   readonly heroUniform = { value: new THREE.Vector4(0, 0, 1, 0) };
   readonly opacityUniform = { value: 1 };
+  private shotPressure = 0;
+
+  detailCopies(quality: number): number { return this.calm ? 1 : detail[quality]; }
+  particleLimit(quality: number): number {
+    return Math.floor(simultaneous[quality] * (1-0.85*this.shotPressure) * (this.calm ? 0.35 : 1));
+  }
+
+  impactLimit(quality: number): number {
+    return Math.max(2, Math.floor((8 + quality * 12) * (1 - 0.8 * this.shotPressure) * (this.calm ? 0.4 : 1)));
+  }
+
   private credits = new Float64Array(kinds.length);
   private clock = 0;
   private lastFlash = -Infinity;
   private averageHit = 0;
 
-  begin(dt: number, enemies: number, bullets: number, heroes: number, x: number, z: number, calm = false): void {
+  begin(dt: number, enemies: number, bullets: number, heroes: number, x: number, z: number, calm = false, shots = 0): void {
     const first = !this.active;
     this.active = true;
     this.x = x;
@@ -46,10 +72,11 @@ export class NoiseGovernor {
     // Attack immediately; release slowly so budgets cannot refill by flickering across a threshold.
     const want = crowdPressure(enemies, bullets, heroes);
     const step = Math.max(0, Math.min(0.1, dt));
-    this.pressure = Math.max(want, this.pressure - step * 0.4);
+    this.shotPressure = Math.max(Math.min(1, shots/noiseTuning.crowdedShots), this.shotPressure-step*0.6);
+    this.pressure = Math.max(want, this.shotPressure, this.pressure - step * 0.4);
     this.clock += step;
     this.heroUniform.value.set(x, z, noiseTuning.heroRadius ** 2, 1 - noiseTuning.nearAlpha);
-    this.opacityUniform.value = 1 - this.pressure * 0.45;
+    this.opacityUniform.value = (1 - this.pressure * 0.45) * (calm ? 0.55 : 1);
     for (let i = 0; i < kinds.length; i++) {
       const rate = noiseTuning[kinds[i]] + (noiseTuning[crowded[i]] - noiseTuning[kinds[i]]) * this.pressure;
       const cap = Math.max(1, rate * noiseTuning.burstSeconds);
@@ -58,7 +85,7 @@ export class NoiseGovernor {
   }
 
   take(kind: NoiseKind, requested = 1): number {
-    const n = Math.max(0, Math.floor(requested));
+    const n = Number.isFinite(requested) ? Math.max(0, Math.floor(requested)) : 0;
     if (!this.active) return n;
     const i = kinds.indexOf(kind);
     const admitted = Math.min(n, Math.floor(this.credits[i]));

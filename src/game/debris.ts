@@ -1,5 +1,7 @@
 import { noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
+import type { ParticleBatch } from '../render/particlesGpu';
+import { ParticleKind } from '../render/particlesShader';
 import { commit } from '../render/instancing';
 import { createRetroMaterial } from '../render/retroMaterial';
 
@@ -77,7 +79,7 @@ export class Debris {
 
   private noise: NoiseGovernor;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, private spray?: ParticleBatch) {
     this.noise = noiseFor(scene);
     const max = debrisTuning.max;
     const f = () => new Float32Array(max);
@@ -109,8 +111,8 @@ export class Debris {
   }
 
   spawn(x: number, y: number, z: number, count: number, color: THREE.ColorRepresentation, color2: THREE.ColorRepresentation, size: number, speed: number, rand = Math.random): void {
-    count = this.noise.take('debris', count);
-    const max = debrisTuning.max;
+    const max = this.x.length;
+    count = this.noise.take('debris', Math.min(count, max));
     this.c1.set(color);
     this.c2.set(color2);
     for (let k = 0; k < count; k++) {
@@ -134,7 +136,10 @@ export class Debris {
       this.spin[i] = (rand() - 0.5) * 24;
       this.age[i] = 0;
       this.life[i] = debrisTuning.life + rand() * debrisTuning.lifeRand;
-      this.mesh.setColorAt(i, this.c.copy(this.c1).lerp(this.c2, rand() < 0.5 ? 0 : 1).multiplyScalar(0.85 + rand() * 0.25));
+      this.c.copy(this.c1).lerp(this.c2, rand() < 0.5 ? 0 : 1).multiplyScalar(0.85 + rand() * 0.25);
+      this.mesh.setColorAt(i, this.c);
+      this.spray?.add(x, y, z, this.vx[i], this.vy[i], this.vz[i], 0.75, s * 0.5,
+        debrisTuning.gravity, 0.9, ParticleKind.Flake, this.c);
     }
     if (this.mesh.instanceColor) commit(this.mesh.instanceColor, this.n);
   }
