@@ -65,6 +65,7 @@ export const bossMoveTuning = {
   shockMax: 22, // radius where it fades
   shockBand: 0.55, // half-thickness that hurts
   shockDamage: 16,
+  firstKingShockTell: 0.4, // seconds from the last landing's flash to the opening King's ring
   eightSize: 8.5, // figure-eight lobe length (mini 6)
   eightTime: 2.8, // seconds to run the whole eight (mini 2.3)
   breathTime: 1.6,

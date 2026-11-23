@@ -193,7 +193,7 @@ const builds = (p) =>
     window.game.heroes.map((h) => ({
       weapons: h.weapons.map((w) => w.def.id + ':' + (w.build ? w.buildKey : w.level)).join(' '),
       passives: JSON.stringify(Object.entries(h.passives).sort()),
-      mods: h.synergy.slots.map((s) => s.def.id + s.level).join(' '),
+      mods: h.synergy.slots.map((s) => [s.def.id, s.level, s.paid].join(':')).join(' '),
       relics: h.relics.join(' '),
       left: h.left,
     })),
@@ -378,12 +378,31 @@ async function oneRun(run) {
   await B.page.evaluate(() => window.game.stageClear());
   const shopOpen = await Promise.all(surv1.map((p) => until(p, () => window.game.screens.current === 'shop', null, 30000)));
   if (shopOpen.some((x) => !x)) fail(`the shop didn't open everywhere (${await Promise.all(surv1.map((p) => p.page.evaluate(() => window.game.screens.current)))})`);
-  // One player has already bought something: the purchase must survive too.
-  const bought = await surv1[1].page.evaluate(() => {
-    const g = window.game;
-    g.ui('buy', 0);
-    return true;
-  });
+  // Give the buyer enough gold for the first offer. A rejected action leaves
+  // builds and wallets unchanged and would make the migration check vacuous.
+  const buyer = await surv1[1].page.evaluate(() => window.game.local);
+  const purchase = await B.page.evaluate((i) => {
+    const g = window.game, h = g.heroes[i], offer = h.shopOffers[0];
+    if (!offer || h.synergy.full) return null;
+    const cost = h.price(offer);
+    h.gold = Math.max(h.gold, cost + 1);
+    g.presentShop(h);
+    return { i, id: offer.id, cost, remaining: h.gold - cost };
+  }, buyer);
+  if (!purchase) {
+    fail('migration 2: no purchasable offer');
+    return pages;
+  }
+  await surv1[1].page.evaluate(() => window.game.ui('buy', 0));
+  const bought = await until(B, ({ i, id, cost, remaining }) => {
+    const h = window.game.heroes[i], slot = h.synergy.slots.at(-1);
+    return h.shopOffers[0] === null && h.gold === remaining && slot?.def.id === id && slot.paid === cost;
+  }, purchase);
+  if (!bought) {
+    fail('migration 2: the host never accepted the guest purchase');
+    return pages;
+  }
+  log(`migration 2: guest bought ${purchase.id} for ${purchase.cost}, wallet ${purchase.remaining}`);
   await pause(3500);
   const preShop = await probe(B);
   const preB2 = await builds(B);
