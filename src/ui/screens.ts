@@ -1,3 +1,5 @@
+import { showDeathPanel } from './deathRecap';
+import type { DeathPacket } from '../game/damageLog';
 import { played, refreshSetup } from './menuRun';
 import { onlineMenu } from './menuSections';
 import { renderCasualPreset } from '../game/systems/assists';
@@ -14,7 +16,7 @@ import { ACHIEVEMENTS } from '../data/meta';
 import { tagChips, type Tag } from '../data/tags';
 import { offerSetChips, setChipsHtml, setsPanelHtml } from './setsUi';
 import { WEAPONS } from '../data/weapons';
-import { PASSIVES } from '../data/passives';
+import { curvedStats, killHealLimit, PASSIVES } from '../data/passives';
 import { RELIC_BY_ID, type RelicDef } from '../data/relics';
 import { SPECIALS } from '../data/specials';
 import { loadoutOptions, validLoadout, type LoadoutSlot } from '../data/loadout';
@@ -31,7 +33,7 @@ import { iconHtml } from './pixelIcons';
 import { fuseStrip, fusionGuide } from './fusionUi';
 import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
-import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
+import { DIFFICULTIES, DIFF_BY_ID, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
 import { titleChip } from './coopTitle';
 import { dailyBest } from '../game/highscores';
 import { HEROES } from '../data/heroes';
@@ -40,7 +42,8 @@ import { prompt, promptHtml } from './prompts';
 import { ENEMIES } from '../data/enemies';
 import { ENEMY_TIPS, enemyHome } from '../data/bestiary';
 import { BIOMES } from '../data/biomes';
-import type { CardNum } from '../game/cardNumbers';
+import { baseStats, type Stats } from '../game/stats';
+import { fmtNum, statLines, type CardNum } from '../game/cardNumbers';
 import { canBanish } from '../game/banish';
 import type { PreviewRow, ShopPreview } from '../game/shopPreview';
 import { buyDamageNums, ensureShopCss, numsHtml, previewPanelHtml, type PreviewFocus } from './shopUi';
@@ -51,11 +54,13 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
+export type ExtraScreen = 'death-film' | 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
 export interface ScreenActions {
+  lastModHit?(): number | null;
+  buildStats?(mods: { def: ModDef; level: number }[]): Stats;
   start(): void;
   resume(): void;
   quit(): void;
@@ -164,6 +169,7 @@ export interface Offer {
 }
 
 export interface RunSummary {
+  downed?: boolean;
   squad?: number;
   mvp?: import('../game/systems/mvp').MvpReport;
   /** meta2: the host's profile counters for this hero (src/game/systems/meta2.ts). */
@@ -234,6 +240,18 @@ function replaceStrip(what: string): string {
 function tip(name: string, rarity: Rarity | undefined, desc: string, extra = ''): string {
   const label = rarity ? `${RARITY[rarity].label}${extra}` : extra.replace(/^ · /, '');
   return `<span class="tip"><b>${name}</b><em class="r-text-${rarity ?? 'common'}">${label}</em><span>${desc}</span></span>`;
+}
+
+/** The existing card model expresses recharge as a percent of time removed. */
+function buildNumber(n: CardNum): CardNum {
+  if (n.l === 'LIFE PER KILL') return { ...n, l: t('ceiling.lifePercent') };
+  if (n.l !== 'RECHARGE') return n;
+  return { ...n, l: t('ceiling.cooldownCut'), a: n.a?.replace(' FASTER', ''), b: n.b.replace(' FASTER', '') };
+}
+
+function curvedPassive(o: Offer): boolean {
+  const item = o.kind === 'passive' && PASSIVES[o.id];
+  return !!item && curvedStats.some((k) => item.add[k] !== undefined);
 }
 
 function badge(i: LoadoutItem): string {
@@ -970,7 +988,7 @@ export class Screens {
     el.querySelector<HTMLElement>('.mp-heat')!.hidden = !(v.isHost && v.code && (v.kind ?? 'coop') === 'coop');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
     // Difficulty: the host picks it; everyone else sees the choice.
-    const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFFICULTIES[1];
+    const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFF_BY_ID.normal;
     el.querySelector('.mp-diff-row')!.innerHTML = localizeHtml(DIFFICULTIES.map((d) => {
       const open = (!d.unlock || save.achievements.includes(d.unlock)) && (!d.coopOnly || (v.players.length >= 2 && (v.kind ?? 'coop') === 'coop')); // LEGEND: co-op with 2+ players (trading lane)
       const lock = v.isHost && !open;
@@ -1074,8 +1092,9 @@ export class Screens {
             .join('')}</div></div></div>
           <div class="name">${o.name}</div>
           ${levelPips(o)}
-          <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${o.text}${o.kind === 'overdrive' ? ' ' + t('menus.overdrive') : ''}</div>
-          ${numsHtml(o.nums)}
+          <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : localize(o.text)}</div>
+          ${curvedPassive(o) && o.nums?.length && (o.level ?? 0) >= 3 ? `<div class="pi-t">${t('ceiling.buildStats')}</div>` : ''}
+          ${numsHtml(curvedPassive(o) ? o.nums?.map(buildNumber) : o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
           ${offerSetChips(o)}
           ${o.replaces ? replaceStrip(o.replaces) : ''}
@@ -1223,6 +1242,16 @@ export class Screens {
       (mods.length ? `<div class="mod-strip">${mods.map(modChip).join('')}</div>` : '') +
       (relics.length ? `<div class="mod-strip relics"><b class="strip-t">${t("text.relics_4258f8")}</b>${relics.map(relicChip).join('')}</div>` : '') +
       (extras.length ? `<div class="mod-strip">${extras.map(chip).join('')}</div>` : ''));
+    const stats = this.actions.buildStats?.(mods);
+    const baseline = baseStats();
+    const lines = stats ? statLines(baseline, stats, curvedStats.filter((k) => k !== 'killHeal' && stats[k] !== baseline[k])).map(buildNumber) : [];
+    if (stats && stats.cooldownMul !== 1) lines.push({ l: 'FIRE RATE', b: '×' + fmtNum(1 / stats.cooldownMul) });
+    const hit = this.actions.lastModHit?.();
+    if (mods.length && hit != null) lines.push({ l: t('ceiling.lastHit'), b: '×' + fmtNum(hit) });
+    if (stats && stats.killHeal > 0) lines.push({ l: 'LIFE PER KILL', b: fmtNum(stats.killHeal * stats.maxHp / 100) });
+    if (stats && (stats.killHeal > 0 || loadout.some((item) => item.id.startsWith('medbeam')) || relics.some((r) => r.id === 'r_fang' || r.id === 'r_mercy')))
+      lines.push({ l: t('ceiling.killLimit'), b: fmtNum(killHealLimit(stats.maxHp)) });
+    const buildStats = lines.length ? `<div class="pi-col build-totals"><div class="pi-t">${t('ceiling.buildStats')}</div>${lines.map((n) => `<div class="rcp">${localize(n.l)} <bdi>${localize(n.b)}</bdi></div>`).join('')}</div>` : '';
     const recipes = info.recipes
       .map((r) => `<div class="rcp ${r.done ? 'done' : r.have ? 'ready' : ''}">${r.done ? '★' : r.have ? '✓' : '·'} ${r.weapon} + ${r.passive} → <b>${r.evo}</b></div>`)
       .join('');
@@ -1235,7 +1264,7 @@ export class Screens {
     el.innerHTML =
       localizeHtml((recipes ? `<div class="pi-col"><div class="pi-t">${t("text.evolutions_f392a9")}</div>${recipes}</div>` : '') +
       (bars ? `<div class="pi-col"><div class="pi-t">${t("text.damage_this_run_7a0587")}</div>${bars}</div>` : '') +
-      setsPanelHtml());
+      buildStats + setsPanelHtml());
   }
 
   // ---------------------------------------------------------------- shop
@@ -1548,7 +1577,7 @@ export class Screens {
       const on = daily ? d.id === 'normal' : settings.difficulty === d.id;
       return `<button data-nav data-act="diff" data-diff="${d.id}" class="diff ${on ? 'on' : ''} ${open ? '' : 'locked'}" ${daily ? 'disabled' : ''} title="${open ? d.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? d.name.toUpperCase() : '🔒 ' + d.name.toUpperCase()}</button>`;
     }).join(''));
-    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty && !d.coopOnly) ?? DIFFICULTIES[1];
+    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty && !d.coopOnly) ?? DIFF_BY_ID.normal;
     const best = dailyBest(today());
     el.querySelector('.mode-note')!.textContent = localize(daily
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`
@@ -1662,8 +1691,9 @@ export class Screens {
 
   // ---------------------------------------------------------------- game over
 
-  showGameOver(sum: RunSummary, rank: number, list: ScoreEntry[], waitingForHost = false): void {
+  showGameOver(sum: RunSummary, rank: number, list: ScoreEntry[], waitingForHost = false, deaths: DeathPacket[] = []): void {
     const el = this.els.gameover;
+    showDeathPanel(this, el, deaths);
     el.querySelector<HTMLElement>('[data-act=retry]')!.textContent = localize(waitingForHost ? 'HOST RESTARTS' : 'RETRY');
     el.querySelector<HTMLElement>('.newbest')!.hidden = rank !== 0;
     el.querySelector('.summary')!.innerHTML = localizeHtml(`

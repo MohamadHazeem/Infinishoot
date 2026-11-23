@@ -1,3 +1,4 @@
+import { rememberShot, telemetryDeath } from '../damageLog';
 import type { Enemy } from '../enemies';
 import { Team } from '../bullets';
 import type { Game } from '../game';
@@ -42,6 +43,7 @@ export function installTelemetry(g: Game, root: HTMLElement): void {
   const playback = !!loadJson('replay.watch', null);
   const snapshot = () => {
     if (!stage) return;
+    stage.ranks['director:power'] = [Math.round(100 * g.director.adaptive.power.score)];
     stage.level = g.level; stage.seconds = seconds(Math.max(0, g.runTime - stageStart));
     for (const w of g.hero.weapons) stage.ranks[id(w.def.id)] = w.build ? [...w.build.ranks, w.build.evo, w.build.od] : [w.level];
     const sp = g.hero.specialBuild;
@@ -100,6 +102,7 @@ export function installTelemetry(g: Game, root: HTMLElement): void {
     const endTime = outcome === 'death' && r.fatal && r.hits.length ? r.hits[r.hits.length - 1][0] : r.seconds;
     r.hits = r.hits.filter(hit => hit[0] >= endTime - 10 && hit[0] <= endTime);
     if (outcome !== 'death') r.fatal = null;
+    else if (g.hero.player.dead) Object.assign(r, telemetryDeath(g.hero));
     r.avgMs = frameCount ? seconds(totalMs / frameCount) : 0;
     r.worstMs = seconds(r.worstMs);
     const complete = r; r = null; stage = undefined;
@@ -196,6 +199,7 @@ export function installTelemetry(g: Game, root: HTMLElement): void {
   // Projectile slots move during swap-removal. Key provenance by the bullet's monotonic UID.
   // Only accepted local hits look up a slot. Shooting and movement allocate nothing per frame.
   const markShot = (e: Enemy, slot: number) => {
+    rememberShot(g, slot, e);
     if (!r || !shotUids || slot === g.bullets.count) return;
     const uid = g.bullets.uid[slot], i = uid % shotUids.length;
     shotUids[i] = uid; shooters[i] = e.def.id;

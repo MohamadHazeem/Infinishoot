@@ -25,6 +25,7 @@
     "bench:real": "node scripts/benchReal.mjs",
     "replay": "node scripts/replay.mjs",
     "visual": "node scripts/visual.mjs",
+    "skillbot": "node scripts/skillbot.mjs",
     "balance": "node scripts/replay.mjs --balance",
     "loadtime": "node scripts/loadtime.mjs",
     "fuzz": "node scripts/fuzz.mjs",

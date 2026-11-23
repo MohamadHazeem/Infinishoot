@@ -1,13 +1,15 @@
+import { hasSafetyNets, type DifficultyDef } from '../data/modes';
+import { resetDamageLog } from './damageLog';
 import { setHeroModel } from './heroModel';
 import type * as THREE from 'three';
 import type { Rng } from '../core/rng';
 import { DEFAULT_LOADOUT, type Loadout } from '../data/loadout';
 import { MOD_RARITY_WEIGHT, MODS } from '../data/mods';
-import { PASSIVES } from '../data/passives';
+import { applyBuildCurves, PASSIVES } from '../data/passives';
 import { SPECIALS, cooldownText, specialCooldown, type SpecialDef } from '../data/specials';
 import { RARITY, rarityWeight, type Rarity } from '../data/rarity';
 import type { Tag } from '../data/tags';
-import { RANK_RARITY, buildKey, buildMaxed, buildParams, canEvolve, newBuild, parseBuild, totalRanks, trackTuning, type Build, type Upgradable } from '../data/tracks';
+import { RANK_RARITY, buildKey, buildMaxed, buildParams, canEvolve, hasOverdriveDamage, newBuild, overdriveStep, parseBuild, totalRanks, trackTuning, type Build, type Upgradable } from '../data/tracks';
 import { WEAPONS } from '../data/weapons';
 import type { LoadoutItem, Slot } from '../ui/hud';
 import type { Offer, ShopView } from '../ui/screens';
@@ -63,7 +65,7 @@ export interface ChestFind {
 }
 
 /** A loadout item with upgrade tracks, as the level-up cards need it. */
-type UpgradeItem = Upgradable & { name: string; icon: string; color: string; iconBase: string };
+type UpgradeItem = Upgradable & { name: string; icon: string; color: string; iconBase: string; levels: { p: Record<string, number> }[] };
 
 /** The slot a weapon fills: its click, or an auto-weapon slot. */
 function weaponSlot(slot: string | undefined): Slot {
@@ -87,6 +89,9 @@ function trackSummary(def: Upgradable, b: Build): string {
 export interface HeroWorld {
   readonly scene: THREE.Scene;
   readonly rng: Rng;
+  readonly stage?: number;
+  readonly difficulty?: DifficultyDef;
+  runPhoenixUsed?(hero: Hero, spend?: boolean): boolean;
   readonly level: number;
   /** 2+ players still in the run: co-op items can be offered. */
   readonly coop: boolean;
@@ -134,6 +139,7 @@ export class Hero implements SynergyHost {
   /** Live stats (static + per-step Mod effects). Shared by reference with the player. */
   readonly stats: Stats = computeStats({});
   private statBase: Stats = computeStats({});
+  get equipmentStats(): Readonly<Stats> { return this.statBase; }
   gold = 0;
   /** Gears held (each rerolls one level-up). */
   rerollsLeft = 0;
@@ -211,7 +217,7 @@ export class Hero implements SynergyHost {
     this.player = new Player(world.scene, color, skin);
     this.setPet(petId);
     this.setHeroDef(heroId);
-    this.synergy = new Synergy(this);
+    this.synergy = new SurvivalSynergy(this, world);
     this.ctx = world.makeCtx(this);
   }
 
@@ -253,7 +259,17 @@ export class Hero implements SynergyHost {
 
   /** Relic ids (src/data/relics.ts), and their per-run state. */
   relics: string[] = [];
-  phoenixUsed = false;
+  private phoenixSpent = false;
+  get phoenixUsed(): boolean {
+    return this.phoenixSpent || (!hasSafetyNets(this.world.difficulty?.id ?? 'normal') && !!this.world.runPhoenixUsed?.(this));
+  }
+  set phoenixUsed(spent: boolean) {
+    if (hasSafetyNets(this.world.difficulty?.id ?? 'normal')) this.phoenixSpent = spent;
+    else if (spent) {
+      this.phoenixSpent = true;
+      this.world.runPhoenixUsed?.(this, true);
+    }
+  }
   fangKills = 0;
   /** The curse this hero's shop is offering (null = none / taken). */
   curseOffer: string | null = null;
@@ -280,9 +296,10 @@ export class Hero implements SynergyHost {
 
   /** Fresh run: the loadout's two clicks and special, no passives or Mods. */
   startRun(): void {
+    resetDamageLog(this);
     this.combosSeen.clear();
     this.relics = [];
-    this.phoenixUsed = false;
+    this.phoenixSpent = false;
     this.fangKills = 0;
     this.curseOffer = null;
     this.disposeWeapons();
@@ -389,7 +406,7 @@ export class Hero implements SynergyHost {
   }
 
   /** Static stats for these passive levels (and Mods): what recomputeStats builds, without applying it (card previews). */
-  statsWithPassives(passives: Record<string, number>, syn: Pick<Synergy, 'applyStatic'> = this.synergy): Stats {
+  statsWithPassives(passives: Record<string, number>, syn: Pick<Synergy, 'applyStatic' | 'staticDamageMul' | 'strongestCooldownMul' | 'chargeBoost'> = this.synergy): Stats {
     const s = computeStats(
       passives,
       this.heroDef.add,
@@ -399,6 +416,7 @@ export class Hero implements SynergyHost {
     s.critChance = Math.min(1, s.critChance + this.petState.ranks.lucky * pets2Tuning.luckyCrit);
     syn.applyStatic(s);
     applySetStatic(this, s, passives); // item set bonuses (src/data/sets.ts)
+    applyBuildCurves(s, syn.staticDamageMul, syn.strongestCooldownMul, syn.chargeBoost);
     return s;
   }
 
@@ -567,7 +585,8 @@ export class Hero implements SynergyHost {
       }
       const color = def.evos?.[b.evo]?.color ?? def.color;
       if (buildMaxed(def, b)) {
-        const text = `+${Math.round(trackTuning.overdrive * 100)}% damage, repeatable.`;
+        if (b.od >= trackTuning.overdriveMax || !hasOverdriveDamage(def.levels[0].p)) return;
+        const text = `+${Math.round(overdriveStep(b.od + 1) * 100)}% base damage · rank ${b.od + 1}/${trackTuning.overdriveMax}`;
         cands.push({ kind: 'overdrive', id: evoIconId(def.iconBase, b.evo), pick: `${ref}|od`, name: 'Overdrive', icon: def.icon, color, tag: `OVERDRIVE ${b.od + 1}`, text, rarity: 'uncommon', label, slot, w: 1.2 * upgrade('uncommon') });
         return;
       }
@@ -872,7 +891,7 @@ export class Hero implements SynergyHost {
       })),
       slots: MAX_MOD_SLOTS,
       rerollCost: this.rerollCost,
-      healCost: economyTuning.healCost,
+      healCost: this.healPrice(stage),
       healed: this.shopHealed || this.player.hp >= this.player.maxHp,
       loadout: this.loadout(),
       stage,
@@ -944,12 +963,34 @@ export class Hero implements SynergyHost {
     return '';
   }
 
+  private healPrice(stage: number): number {
+    return economyTuning.healCost + Math.max(0, stage - 1);
+  }
+
   heal(): string {
-    if (this.shopHealed) return 'ALREADY HEALED';
-    if (this.gold < economyTuning.healCost) return 'NOT ENOUGH GOLD';
-    this.gold -= economyTuning.healCost;
+    const price = this.healPrice(this.world.stage ?? 1);
+    if (this.shopHealed || this.player.hp >= this.player.maxHp) return 'ALREADY HEALED';
+    if (this.gold < price) return 'NOT ENOUGH GOLD';
+    this.gold -= price;
     this.shopHealed = true;
     this.player.heal(this.player.maxHp * 0.4);
     return '';
+  }
+}
+
+/** On Normal+ both Phoenix effects draw from the hero's run charge. A slot may
+ * be sold, echoed, rebuilt from a co-op checkpoint or offered again in the shop. */
+class SurvivalSynergy extends Synergy {
+  constructor(private hero: Hero, private world: HeroWorld) { super(hero); }
+
+  override add(def: ModDef, paid = def.price): void {
+    super.add(def, paid);
+    if (def.id !== 'phoenix' || hasSafetyNets(this.world.difficulty?.id ?? 'normal')) return;
+    const hero = this.hero;
+    this.slots[this.slots.length - 1].st = {
+      t: 0,
+      get n() { return Number(hero.phoenixUsed); },
+      set n(value) { if (value) hero.phoenixUsed = true; },
+    };
   }
 }

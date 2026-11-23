@@ -24,6 +24,8 @@ export interface Run {
   purchases: [number, string, number][]; mods: [string, number][]; relics: string[];
   bosses: [stage: number, id: string, result: 'kill' | 'death' | 'quit', seconds: number][];
   hits: Hit[]; fatal: [source: string, damage: number, prior: number] | null;
+  deathCause?: [source: string, attack: string];
+  breaking?: [source: string, damage: number, prior: number, secondsBeforeDeath: number];
   rewinds: number; stands: number; revives: number; avgMs: number; worstMs: number;
   quality: number; platform: string; mobile: boolean; language: string; omitted: number;
 }

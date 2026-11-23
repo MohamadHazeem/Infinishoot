@@ -1,3 +1,4 @@
+import { personalDeaths } from '../game/damageLog';
 import { casualLinks } from '../game/systems/assists';
 import { architectLinks } from '../game/systems/architect';
 import { weather2Links } from '../game/systems/weather2';
@@ -457,6 +458,25 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   director2Links(game, q);
   secretsLinks(game, q);
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
+  // Personal death review fixture. Use the real damage, history and menu hooks without banking a run.
+  if (q.has('deathrecap')) {
+    const h = game.hero, p = h.player;
+    const foe = game.enemies.spawn(ENEMIES.charger, p.x + 10, p.z, { instant: true });
+    cheats.god = true; p.hp = 50;
+    for (let i = 0; i < 360; i++) {
+      game.update(1 / 60);
+      if (i === 90 || i === 245) {
+        cheats.god = false; p.invuln = 0;
+        game.hurtHero(h, i === 90 ? 12 : 30, p.x, p.z + 1, null, i === 90 ? 'Lava' : 'Ground strike');
+        cheats.god = true;
+      }
+    }
+    cheats.god = false; h.revivesLeft = 0; p.invuln = 0;
+    foe.state = 'attack'; foe.x = p.x + 1; foe.z = p.z;
+    game.hurtHero(h, 35, foe.x, foe.z, foe);
+    game.gameOverShown = true;
+    game.screens.showGameOver(game.summary(h), -1, [], false, personalDeaths(game, true));
+  }
   if (q.has('mvp')) {
     const report = mvpDemo(game, Number(q.get('mvp')) || 4);
     game.mode = 'dead'; game.gameOverShown = true;

@@ -7,7 +7,8 @@ Roadmap and decision log: @PLAN.md
 - `npm run dev`: dev server at http://localhost:5173
 - `npm run typecheck`: strict TypeScript check (must pass)
 - `npm run build`: typecheck + production build to `dist/`
-- `npm test`: unit tests in tests/*.test.ts (bundled with rolldown, run in Node)
+- `npm test`: unit tests in tests/*.test.ts (bundled with rolldown, run in Node, half the CPU cores at once; `TEST_JOBS=1` for one at a time, `npm test -- <name>` for matching files)
+- `scripts/agents/gate.sh`: every release check in three parallel waves (about 15 min), one PASS/FAIL line each, a failed check retried once alone
 - `npm run smoke`: headless whole-game smoke test (jsdom, autoplay bot through every mode and hero, fails on any runtime error); CI runs both
 - `npm run shot -- "?test&stage=4&boss" shots/x.png`: headless screenshot of a test link (src/dev/testLinks.ts); see CONTRIBUTING.md for the link options
 - `npm run coop`: two headless game instances play online co-op (host + client via the PeerJS broker, dev bot on both via `botAuto`), forced boss/arena/skill situations, host-vs-client state checks and screenshots in shots/coop/; fails on page errors or lasting desyncs (notes/lanes/coop.md)

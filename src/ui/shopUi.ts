@@ -75,6 +75,16 @@ const CSS = `
 #scr-levelup.banishing .card.ban-ok .ban-stamp { display: block; position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%) rotate(-12deg); padding: var(--p) calc(3 * var(--p)); font: 22px var(--display); letter-spacing: 2px; color: var(--white); background: var(--red); box-shadow: 0 0 0 var(--p) var(--ink), var(--p) var(--p) 0 var(--p) var(--ink); pointer-events: none; z-index: 3; }
 #scr-levelup.banishing .card.ban-no { filter: saturate(0.3) brightness(0.7); }
 .ban-left { font: 11px var(--label); color: var(--mist); align-self: center; }
+/* Leave room for the raised card and the pixel frames on both sides of the gap. */
+@media (min-width: 1000px) {
+  #scr-shop .ft-help:not([hidden]) + .shop-offers { padding-block-start: calc(6 * var(--p)); }
+}
+@media (min-width: 1000px) and (max-height: 820px) {
+  /* The shared button focus already lifts one pixel. Keep its outline and use the
+     owned-Mod heading's spare margins for the help gap in the compact layout. */
+  #scr-shop .ft-help:not([hidden]) + .shop-offers .mod-card.focused { transform: none; }
+  #scr-shop .ft-help:not([hidden]) ~ .owned-title { margin-block: 0; }
+}
 /* ---- shop lock */
 .offer-slot { display: flex; flex-direction: column; align-items: stretch; gap: calc(2 * var(--p)); }
 .offer-slot > .mod-card { flex: 1; }

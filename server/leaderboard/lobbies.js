@@ -20,7 +20,7 @@ const MAX_LIST = 50;
 const CODE_RE = /^[A-HJ-NP-Z2-9]{5}$/;
 const TOKEN_RE = /^[a-z0-9]{8,40}$/;
 const MODES = ['coop', 'pvp', 'versus', 'weekly', 'race'];
-const DIFFS = ['easy', 'normal', 'hard', 'nightmare'];
+const DIFFS = ['easy', 'assist', 'normal', 'hard', 'nightmare'];
 const REGIONS = ['EU', 'NA', 'SA', 'AS', 'OC', 'AF', 'ME'];
 const NEW_PER_IP = 6; // new lobbies per IP per 10 minutes
 

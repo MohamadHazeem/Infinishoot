@@ -1,3 +1,6 @@
+import { hasSafetyNets } from '../../data/modes';
+import { coopState } from './coop2';
+import { hostmigState } from './hostmig';
 import { weatherEligible, isWeatherKind } from '../../data/weather2';
 import { biomeForStage } from '../../data/biomes';
 import { settings } from '../settings';
@@ -19,8 +22,26 @@ import { Hero, MAX_GEARS, economyTuning } from '../hero';
 import { PickupType } from '../pickups';
 import { type EventHost } from '../runEvents';
 import { CURSE_BY_ID, type CurseDef } from '../../data/curses';
-import { rollRelic } from '../../data/relics';
+import { RELIC_BY_ID, rollRelic } from '../../data/relics';
 import { STAGE_EVENTS, type EventId } from '../../data/stageEvents';
+
+// Shop, inventory, Codex and co-op shop messages all read these canonical item definitions.
+RELIC_BY_ID.r_phoenix.desc = 'Survive a lethal hit and freeze nearby enemies. Shares one save per run with Phoenix Plume. On Easy and Assist, this totem recharges each stage.';
+MOD_BY_ID.phoenix.desc = 'Survive a lethal hit at full life with a fire nova (Fire, Explosive). Shares one save per run with Frost Totem. On Easy and Assist, this plume recharges each stage.';
+
+// A stashed co-op build can return on a replacement Hero or a different seat.
+export function runPhoenixUsed(this: Game, h: Hero, spend = false): boolean {
+  if (!spend && this.phoenixOwners.size === 0) return false;
+  // A guest on autopilot temporarily has no peerId. Legacy guests reclaim by name.
+  let owner: string | number = h.index;
+  if (this.online) {
+    // Promotion rebuilds heroes before it installs the checkpoint's roster in coopState.
+    const restored = this.role === 'client' && spend ? hostmigState(this).mig?.heroes[h.index]?.pid : '';
+    owner = restored || coopState(this).pids[h.index] || (h === this.hero ? h.index : 'name:' + h.name);
+  }
+  if (spend) this.phoenixOwners.add(owner);
+  return this.phoenixOwners.has(owner);
+}
 
 /** Sum of one curse field over the curses in effect. */
 export function curseSum(this: Game, k: 'enemyHp' | 'enemySpeed' | 'enemyCount' | 'enemyDmg' | 'dmgTaken' | 'dashCd' | 'score'): number {
@@ -232,7 +253,7 @@ export function endlessNextWave(this: Game): void {
   this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount * (this.meta.has('crowds') ? 1.25 : 1);
   this.runEvents.startStage(this.director.duration);
   for (const h of this.heroes) {
-    h.phoenixUsed = false;
+    if (hasSafetyNets(this.difficulty.id)) h.phoenixUsed = false;
     if (h.hasRelic('r_clover')) h.rerollsLeft = Math.min(MAX_GEARS, h.rerollsLeft + 1);
   }
   this.pickups.vacuum = this.pickups.vacuumChests = false;

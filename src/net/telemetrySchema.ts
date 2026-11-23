@@ -21,10 +21,10 @@ const offer = (a: any, ids?: string[]) => tuple(a, positive, v => list(v, k => i
   v => Number.isInteger(v) && v >= -1 && v < a[1].length);
 
 export function isRun(r: unknown): r is Run {
-  return fields(r, 'id version mode difficulty ascension heat hero loadout party team stage loop clears seconds outcome day stages offerIds offers purchases mods relics bosses hits fatal rewinds stands revives avgMs worstMs quality platform mobile language omitted')
+  return fields(r, 'id version mode difficulty ascension heat hero loadout party team stage loop clears seconds outcome day stages offerIds offers purchases mods relics bosses hits fatal deathCause breaking rewinds stands revives avgMs worstMs quality platform mobile language omitted')
     && uuid(r.id) && typeof r.version === 'string' && /^\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(r.version)
     && one('standard endless bossrush daily weekly gauntlet raid pvp versus race')(r.mode)
-    && one('easy normal hard nightmare legend')(r.difficulty) && id(r.hero) && tuple(r.loadout, id, id, id)
+    && one('easy assist normal hard nightmare legend')(r.difficulty) && id(r.hero) && tuple(r.loadout, id, id, id)
     && one('solo coop squad')(r.party) && positive(r.team) && r.team <= 8 && one('death victory quit defeat draw')(r.outcome)
     && typeof r.day === 'string' && /^\d{4}-\d\d-\d\d$/.test(r.day) && positive(r.stage) && positive(r.loop)
     && [r.clears,r.ascension,r.heat,r.rewinds,r.stands,r.revives,r.omitted,r.quality].every(int)
@@ -33,5 +33,7 @@ export function isRun(r: unknown): r is Run {
     && list(r.stages, stage) && list(r.bosses, boss) && (r.offerIds === undefined || list(r.offerIds, id))
     && list(r.offers, a => offer(a, r.offerIds)) && list(r.purchases, x => tuple(x, positive, id, num))
     && list(r.mods, x => tuple(x, id, positive)) && list(r.relics, id)
+    && (r.deathCause === undefined || tuple(r.deathCause, id, one('attack contact bullet shockwave volatile hazard')))
+    && (r.breaking === undefined || tuple(r.breaking, id, num, num, num))
     && list(r.hits, x => tuple(x, num, id, num, num)) && (r.fatal === null || tuple(r.fatal, id, num, num));
 }

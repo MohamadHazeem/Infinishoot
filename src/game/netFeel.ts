@@ -1,3 +1,4 @@
+import { refundBulletHit } from './damageLog';
 /**
  * Online feel and parry latency compensation (fixes lane).
  *
@@ -211,6 +212,7 @@ export function refundRewoundHits(g: Game, h: Hero, lag: number, reflect: (vx: n
   takeRewoundHits(list, g.runTime, lag, rewound);
   const p = h.player;
   for (const hit of rewound) {
+    refundBulletHit(h, hit.at);
     p.hp = Math.min(p.maxHp, p.hp + hit.dmg);
     reflect(hit.vx, hit.vz);
   }

@@ -12,7 +12,8 @@ import {
   type ModEvent,
 } from './modTypes';
 import type { Player } from './player';
-import { passiveTuning, type Stats } from './stats';
+import { KillHealWindow, rawBonus, softBonus } from '../data/passives';
+import { baseStats, passiveTuning, type Stats } from './stats';
 import type { Weapon } from './weapons';
 import { freezeMul } from './bossRules';
 
@@ -43,6 +44,11 @@ export interface Slot {
 
 export const MAX_MOD_SLOTS = 5;
 
+/** The combat status tuning extends this same object. Shop hits and combat
+ * must agree on which part of a shock multiplier came from equipment. */
+export const shockDamageTuning = { shockMult: 0.2 };
+const modHitFactor = (product: number) => softBonus(product, 5, 8);
+
 /**
  * Runs the player's Mods. Slots are ordered; an Echo in slot i adds a second
  * copy of slot i+1 at its own position. Every hook runs once per effective
@@ -60,6 +66,15 @@ export class Synergy implements ModApi {
   ownFire = false;
   private eventEff: { s: Slot; n: number }[] = [];
   time = 0;
+  private healWindow?: KillHealWindow;
+  get killHealing(): KillHealWindow {
+    return this.healWindow ??= new KillHealWindow();
+  }
+  lastModHit: number | null = null;
+  private rawDamageMul = 1;
+  staticDamageMul = 1;
+  strongestCooldownMul = 1;
+  chargeBoost = 0;
   private eff: Slot[] = [];
   private dmgEff: { s: Slot; n: number }[] = [];
 
@@ -144,6 +159,7 @@ export class Synergy implements ModApi {
 
   reset(): void {
     this.slots = [];
+    this.healWindow?.reset();
     this.rebuild();
   }
 
@@ -187,6 +203,7 @@ export class Synergy implements ModApi {
 
   /** Resolve Echoes and sum flags. */
   private rebuild(): void {
+    this.lastModHit = null;
     this.eff = [];
     this.dmgEff = [];
     this.eventEff = [];
@@ -216,7 +233,22 @@ export class Synergy implements ModApi {
     // Two Hair Triggers shouldn't make every 16th shot special: take the smallest N.
     const megas = this.eff.map((s) => s.def.flags?.busterMegaEvery ?? 0).filter((n) => n > 0);
     f.busterMegaEvery = megas.length ? Math.max(3, Math.min(...megas) - (megas.length - 1) * 2) : 0;
+    // Combine charge Mods with Capacitor in the stat sheet. Consumers that
+    // read both chargeSpeed and the runtime flag must receive the boost once.
+    this.chargeBoost = f.chargeSpeed;
+    f.chargeSpeed = 0;
     this.flags = f;
+    const staticMods = baseStats();
+    for (const slot of this.eff) slot.def.stat?.(staticMods);
+    this.rawDamageMul = staticMods.damageMul;
+    this.staticDamageMul = modHitFactor(this.rawDamageMul);
+    this.strongestCooldownMul = 1;
+    for (const slot of this.slots) {
+      if (!slot.def.stat) continue;
+      const single = baseStats();
+      slot.def.stat(single);
+      this.strongestCooldownMul = Math.min(this.strongestCooldownMul, single.cooldownMul);
+    }
   }
 
   // ---------------------------------------------------------------- stats
@@ -224,22 +256,65 @@ export class Synergy implements ModApi {
   /** Permanent stat changes (after passives). */
   applyStatic(s: Stats): void {
     for (const e of this.eff) e.def.stat?.(s);
+    s.damageMul *= this.staticDamageMul / this.rawDamageMul;
   }
 
   /** Per-step stat changes. */
   applyLive(s: Stats): void {
-    for (const e of this.eff) e.def.live?.(s, this, e.st);
+    const base = s.cooldownMul;
+    const knee = Math.max(0.24, 1 - this.strongestCooldownMul);
+    let liveKnee = knee;
+    for (const e of this.eff) {
+      if (!e.def.live) continue;
+      const previous = s.cooldownMul;
+      e.def.live(s, this, e.st);
+      liveKnee = Math.max(liveKnee, 1 - s.cooldownMul / previous);
+    }
+    if (s.cooldownMul < base) {
+      const raw = 1 - rawBonus(1 - base, knee, 0.70);
+      const factor = s.cooldownMul / base;
+      s.cooldownMul = 1 - softBonus(1 - raw * factor, liveKnee, 0.70);
+    }
   }
 
   // ---------------------------------------------------------------- damage
 
   /** Run a hit through the slots left to right: amount = (amount + add * n) * (1 + (mult - 1) * n), n = level. */
   damage(ev: DamageEvent, amount: number): number {
+    // Cap the cumulative product, including Glass Cannon. The ratio between
+    // adjacent prefixes preserves the position of flat additions in the shop.
+    let penalty = 1;
+    let reaction = 1;
+    // Reaction damage already includes its Mod flag when it enters the pipeline.
+    if (ev.source === 'shatter') reaction += this.flags.shatterMult;
+    if (ev.source === 'overload' && ev.tags.includes('explosive')) reaction += this.flags.overloadMult;
+    let product = this.rawDamageMul * reaction;
+    let effective = modHitFactor(product);
+    amount *= effective / (this.staticDamageMul * reaction);
     for (const { s, n } of this.dmgEff) {
       const r = s.def.dmg!(ev, this, s.st);
       if (!r) continue;
-      amount = (amount + (r.add ?? 0) * n) * (1 + ((r.mult ?? 1) - 1) * n);
+      amount += (r.add ?? 0) * n;
+      const factor = 1 + ((r.mult ?? 1) - 1) * n;
+      if (factor <= 1) {
+        amount *= factor;
+        penalty *= factor;
+      } else {
+        product *= factor;
+        const next = modHitFactor(product);
+        amount *= next / effective;
+        effective = next;
+      }
     }
+    if (this.flags.shockMult && ev.e.shockT > 0 && !(ev.e.pvpOwner >= 0)) {
+      // Combat and the shop apply the shock status after the slots. Discount
+      // only the Mod's marginal share there, preserving the native status.
+      const shock = 1 + this.flags.shockMult / (1 + shockDamageTuning.shockMult);
+      const next = modHitFactor(product * shock);
+      amount *= next / (effective * shock);
+      effective = next;
+    }
+    this.lastModHit = effective * penalty;
     return amount;
   }
 

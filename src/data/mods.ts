@@ -753,16 +753,16 @@ export const MODS: ModDef[] = [
     rarity: 'rare',
     price: 8,
     maxLevel: 3,
-    desc: (n) => `x${f(0.05 * n)} more damage for each level gained after buying this (max x${1 + n}, 20 levels).`,
+    desc: (n) => `x${f(0.05 * n)} more damage for each level gained after buying this (max x${f(1 + 0.4 * n)}, 8 levels).`,
     // Once per level however many copies run (st.t = last level counted).
     onLevelUp: (api, st) => {
       if (st.t === api.level) return;
       st.t = api.level;
       // Capped: uncapped it kept multiplying all run and made late stages trivial (user).
-      st.n = Math.min(20, st.n + 1);
+      st.n = Math.min(8, st.n + 1);
     },
-    dmg: (_ev, _api, st) => ({ mult: 1 + 0.05 * st.n }),
-    readout: (_api, st, lv) => `x${(1 + 0.05 * st.n * lv).toFixed(2)}`,
+    dmg: (_ev, _api, st) => ({ mult: 1 + 0.05 * Math.min(8, st.n) }),
+    readout: (_api, st, lv) => `x${(1 + 0.05 * Math.min(8, st.n) * lv).toFixed(2)}`,
   },
   {
     id: 'collector',
