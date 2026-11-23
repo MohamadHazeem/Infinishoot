@@ -1,3 +1,4 @@
+import { echoAr } from './g8echo';
 import { craftAr } from './g5craft';
 import { menusAr } from './menus';
 import { uxpassAr } from './uxpass';
@@ -29,6 +30,7 @@ export const ar = {
   "beat.setting": "القتال على الإيقاع",
   "beat.help": "أطلق النار عند التقاء علامتي التصويب لتقوية طلقاتك. أطلق أداة أو اندفع أو اصدُد هجومًا مع الإيقاع لتستعيد التحمّل أسرع. يعمل حتى عند كتم الموسيقى.",
   "beat.reticle": "توقيت النبضة",
+  ...echoAr,
   "cine.titan": "الجبل يستيقظ.",
   "photo.controls": "أدوات التصوير",
   "photo.pose": "الوقفة",

@@ -1,3 +1,4 @@
+import { echoEn } from './g8echo';
 import { menusEn } from './menus';
 import { uxpassEn } from './uxpass';
 import { arabic2En } from './arabic2';
@@ -38,6 +39,7 @@ export const en = {
   "beat.setting": "BEAT COMBAT",
   "beat.help": "Fire as the crosshair ticks meet for stronger shots. Timed gadget launches, dashes and successful parries recharge stamina faster. Works with music muted.",
   "beat.reticle": "Beat timing",
+  ...echoEn,
   "g7.roots": "Green roots slow enemies inside the four stones.",
   "g7.prism": "Violet diamonds expose enemies. Hit them while they glow.",
   "g7.spring": "Stand on the amber bolt to recharge your special faster.",

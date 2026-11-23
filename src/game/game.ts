@@ -1,5 +1,6 @@
 import { BeatCombat, beatCombatTuning } from './beatCombat';
 import { registerMaestro, routeConductor } from './bossesMaestro';
+import { EchoRuns } from './echo';
 import { NemesisUi } from '../ui/nemesisUi';
 import { installOverworld } from './overworld';
 import { Nemesis } from './nemesis';
@@ -382,6 +383,7 @@ export class Game implements HeroWorld {
   worldEventLocal = WorldEventsSys.worldEventLocal;
   renderWorldEvent = WorldEventsSys.renderWorldEvent;
   clearWorld = RunFlowSys.clearWorld;
+  readonly echoes: EchoRuns;
   readonly biomeRules = new IslandField();
   readonly setPieces = new FieldMachines();
   loadArena = RunFlowSys.loadArena;
@@ -407,6 +409,7 @@ export class Game implements HeroWorld {
     // built a different objective from the host's (Gate 1 co-op check). Trials re-force after this.
     coopPlayState(this).force = null;
     this.phoenixOwners.clear();
+    this.echoes.reset();
     TimeSys.startTimeRun(this);
     this.biomeRules.reset();
     this.setPieces.resetRun();
@@ -425,6 +428,7 @@ export class Game implements HeroWorld {
   mvp = MvpSys.createMvp();
   mvpStep = MvpSys.mvpStep;
   mvpKill: typeof MvpSys.mvpKill = function (e, h) {
+    this.echoes.killed(e);
     this.biomeRules.kill(this, e.uid);
     MvpSys.mvpKill.call(this, e, h);
     if (h?.play.ruleId) ruleKill.call(this, e, h);
@@ -578,6 +582,8 @@ export class Game implements HeroWorld {
     snap.beat = this.beatCombat.snapshot(h);
     const marks = this.beatCombat.score.snapshot();
     if (marks) snap.beatMarks = marks;
+    const echo = this.echoes.snapshot(h);
+    if (echo) snap.echo = echo;
     const contracts = !view && contractView(h);
     if (contracts) snap.contract = contracts;
     return snap;
@@ -591,12 +597,14 @@ export class Game implements HeroWorld {
     this.biomeRules.reset();
     this.setPieces.resetRun();
     this.nemesis.reset();
+    this.echoes.reset();
     NetClientSys.clientStart.call(this, seed, you, players);
   };
   clientStage = NetClientSys.clientStage;
   clientUpdate = NetClientSys.clientUpdate;
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
+    this.echoes.receive(m.echo);
     this.biomeRules.mirror(this, m.island);
     this.setPieces.mirror(this, m.machinery);
     this.beatCombat.mirror(this, m.beat);
@@ -1206,6 +1214,7 @@ export class Game implements HeroWorld {
     this.nemesis = new Nemesis(this);
     new NemesisUi(this, hudRoot);
     installOverworld(this, hudRoot);
+    this.echoes = new EchoRuns(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1526,6 +1535,7 @@ export class Game implements HeroWorld {
   // ------------------------------------------------------------------ update
 
   update(dt: number): void {
+    this.echoes.hud.input();
     this.stepN++;
     updatePatrolBadges(this);
     dt = Assists.assistStep.call(this, dt);
@@ -1637,6 +1647,7 @@ export class Game implements HeroWorld {
   /** One authoritative simulation step (solo and host). */
   simulate(dt: number, localControl: boolean): void {
     lapStart();
+    if (this.echoes.step(dt, localControl)) return;
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
     GauntletSys.gauntletTick(this, dt);
