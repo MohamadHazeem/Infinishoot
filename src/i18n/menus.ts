@@ -1,4 +1,7 @@
 export const menusEn = {
+  'hands.style': 'Mix attacks, parry and dodge to climb from D to SS. Higher ranks boost score and XP. From A, enemies also drop more gold. A hit costs two ranks.',
+  'hands.parry': 'Press ⟪parry⟫ just before impact. A parry stuns the attacker, returns the shot at triple damage and heals ⟪hp⟫ life.',
+  'hands.movement': 'Dash (⟪dash⟫) just before impact to regain a pip and slow time for 0.4 s. Dash across hot ground to hover or into a wall to bounce. Keep moving (⟪move⟫) to slide.',
   'difficulty.totem': 'Survive a lethal hit and freeze nearby enemies. Shares one save per run with Phoenix Plume. On Easy and Assist, this totem recharges each stage.',
   'difficulty.plume': 'Survive a lethal hit at full life with a fire nova (Fire, Explosive). Shares one save per run with Frost Totem. On Easy and Assist, this plume recharges each stage.',
   'difficulty.assist': "Level-ups heal. Rewind and last stand recharge each stage. Score x1.",
@@ -69,6 +72,9 @@ export const menusEn = {
 } as const;
 
 export const menusAr: Record<keyof typeof menusEn, string> = {
+  'hands.style': 'نوّع هجماتك وصدّ وراوغ لترتقي من D إلى SS. تزيد الرتب الأعلى النقاط والخبرة، ومن رتبة A يسقط الأعداء ذهبًا أكثر. إذا أُصبت تخسر رتبتين.',
+  'hands.parry': 'اضغط ⟪parry⟫ قبيل الإصابة لتصعق المهاجم وتردّ الطلقة بثلاثة أضعاف ضررها وتستعيد ⟪hp⟫ نقاط حياة.',
+  'hands.movement': 'اندفع (⟪dash⟫) قبيل الإصابة لتستعيد شحنة وتبطئ الزمن لمدة ٠٫٤ ثانية. اندفع لتحوم فوق الأرض الحارّة أو لترتدّ عن جدار. واصل الحركة (⟪move⟫) لتنزلق عند الهبوط.',
   'difficulty.totem': 'تنجو من ضربة قاتلة وتجمّد الأعداء القريبين. يشترك الطوطم مع ريشة العنقاء في فرصة نجاة واحدة لكل جولة. على السهل والمساعدة، يتجدد الطوطم في كل مرحلة.',
   'difficulty.plume': 'تنجو من ضربة قاتلة بكامل حياتك وتطلق انفجارًا ناريًا (نار، تفجير). تشترك الريشة مع طوطم الصقيع في فرصة نجاة واحدة لكل جولة. على السهل والمساعدة، تتجدد الريشة في كل مرحلة.',
   'difficulty.assist': "تستعيد حياة عند رفع المستوى. يتجدد إرجاع الزمن والصمود الأخير في كل مرحلة. النقاط ×1.",

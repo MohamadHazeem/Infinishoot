@@ -1056,6 +1056,7 @@ export class Game implements HeroWorld {
     this.firstten = new FirstTen(this, hudRoot);
     this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
+    SkillSys.installHands(this);
     this.runEvents = new RunEvents(this.makeEventHost());
     MpSys.installMp(this, hudRoot);
     PartySys.installParty(this, hudRoot);

@@ -726,6 +726,19 @@ div.mod-card.sold,
   --ring: var(--white);
 }
 
+#dashpip.stamina { background: var(--ink); color: var(--white); }
+#dashpip .dash-cells { display: none; }
+#dashpip.stamina .dash-cells {
+  position: absolute;
+  inset-inline: var(--p);
+  top: 40%;
+  height: 24%;
+  display: flex;
+  gap: var(--p);
+}
+.dash-cells i { flex: 1; background: var(--slate); }
+.dash-cells i.full { background: var(--sky); }
+
 #bombpip {
   --c: var(--orange);
 }
