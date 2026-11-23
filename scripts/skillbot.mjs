@@ -1,9 +1,13 @@
-// Serial, fresh-process samples keep profile unlocks, pools, timers and RNG streams isolated.
-import { execFileSync } from 'node:child_process';
+// Fresh-process samples keep profile unlocks, pools, timers and RNG streams isolated; several run at once.
+import { execFile } from 'node:child_process';
+import { availableParallelism } from 'node:os';
+import { promisify } from 'node:util';
 import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 async function sample(seed, difficulty, seconds) {
   const { dom, jsdomErrors, seedRandom, simTimers } = await import('../tests/jsdomEnv.ts');
@@ -133,24 +137,19 @@ async function main() {
     });
     await bundle.write({ file: runner, format: 'esm', codeSplitting: false });
     await bundle.close();
-    for (const difficulty of difficulties) {
-      for (let i = 0; i < runs; i++) {
-        const stdout = execFileSync(
-          process.execPath,
-          [runner, '--sample', String(first + i), difficulty, String(seconds)],
-          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 8 * 1024 * 1024 },
-        );
-        const line = stdout.split('\n').findLast((l) => l.startsWith('SKILLRESULT '));
-        if (!line) throw new Error('Missing sample result for seed ' + (first + i));
-        const r = JSON.parse(line.slice(12));
-        if (r.seed !== first + i || r.difficulty !== difficulty)
-          throw new Error(
-            `Expected ${difficulty} seed ${first + i}, got ${r.difficulty} seed ${r.seed}`,
-          );
+    // Samples are independent fresh processes, so several run at once (SKILLBOT_JOBS, default a third of the
+    // cores). Results are still recorded and summarized in seed order.
+    const jobs = Math.max(1, Number(process.env.SKILLBOT_JOBS) || Math.max(2, Math.floor(availableParallelism() / 3)));
+    const queue = difficulties.flatMap((difficulty) => Array.from({ length: runs }, (_, i) => ({ difficulty, i })));
+    const done = new Map();
+    let next = 0;
+    let recorded = 0;
+    const record = () => {
+      while (recorded < queue.length && done.has(recorded)) {
+        const { difficulty, i } = queue[recorded];
+        const r = done.get(recorded++);
         report.results.push(r);
-        report.summary[difficulty] = summarize(
-          report.results.filter((row) => row.difficulty === difficulty),
-        );
+        report.summary[difficulty] = summarize(report.results.filter((row) => row.difficulty === difficulty));
         // Publish complete samples as they finish. An interrupted sweep retains
         // its exact measured denominators and the requested cohort size.
         const checkpoint = path + '.' + process.pid + '.tmp';
@@ -160,7 +159,26 @@ async function main() {
           `${difficulty} ${i + 1}/${runs} seed ${r.seed}  stage ${r.stage}  ${r.loopCleared ? 'loop clear' : (r.causeOfDeath ?? 'incomplete (' + r.mode + ')')}  ${r.runSeconds}s`,
         );
       }
-    }
+    };
+    const worker = async () => {
+      while (next < queue.length) {
+        const k = next++;
+        const { difficulty, i } = queue[k];
+        const { stdout } = await execFileAsync(
+          process.execPath,
+          [runner, '--sample', String(first + i), difficulty, String(seconds)],
+          { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 },
+        );
+        const line = stdout.split('\n').findLast((l) => l.startsWith('SKILLRESULT '));
+        if (!line) throw new Error('Missing sample result for seed ' + (first + i));
+        const r = JSON.parse(line.slice(12));
+        if (r.seed !== first + i || r.difficulty !== difficulty)
+          throw new Error(`Expected ${difficulty} seed ${first + i}, got ${r.difficulty} seed ${r.seed}`);
+        done.set(k, r);
+        record();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(jobs, queue.length) }, worker));
     console.table(
       Object.entries(report.summary).map(([difficulty, s]) => ({
         difficulty,
