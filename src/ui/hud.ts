@@ -14,7 +14,7 @@ import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
 import { sfx } from '../audio/sfx';
 import { HudDock, injectHudCss } from './hudLayout';
-import { ToastQueue, titleCardUp } from './toastQueue';
+import { ToastQueue } from './toastQueue';
 import { prompt, promptText } from './prompts';
 
 // ---------------------------------------------------------------- slot reels
@@ -232,7 +232,7 @@ export class Hud {
   private lastCombo = 0;
   private lastMult = 1;
   private bannerT = 0;
-  private toastT = 0;
+  private bossGoalPlaced = false;
   private lifePulse = new LifePulse();
   private hurtV = 0;
   private flashV = 0;
@@ -314,21 +314,38 @@ export class Hud {
     const b = this.el('#banner');
     b.querySelector('.t')!.textContent = localize(title);
     b.querySelector('.s')!.innerHTML = localizeHtml(sub);
-    restartClass(b, 'show');
     this.bannerT = seconds;
+    if (seconds > 0) {
+      this.el('#toast').classList.remove('show');
+      if (this.chest) this.el('#chestreveal').hidden = true;
+      this.showMessage(b);
+    } else b.classList.remove('show');
   }
 
   /** Small message under the timer (elite incoming, achievements, ...). Queued: one at a time, never over a title card (src/ui/toastQueue.ts). */
   toast(msg: string, seconds = 2.2): void {
-    const next = this.toasts.push(msg, seconds, this.bannerT > 0 || (this.toasts.left <= 0 && titleCardUp()));
-    if (next) this.showToast(next.msg, next.seconds);
+    // Stage challenges already arrive in the goals stack with their live progress (also on clients).
+    if (msg.startsWith('CHALLENGE: ')) return;
+    const next = this.toasts.push(msg, seconds, !!this.chest || this.titleCardUp());
+    if (next) this.showToast(next.msg);
   }
 
-  private showToast(msg: string, seconds: number): void {
+  private titleCardUp(): boolean {
+    return this.bannerT > 0 || !!this.root.parentElement?.classList.contains('cinematic')
+      || this.el('#bossintro')?.hidden === false || this.el('.cn-reveal')?.hidden === false;
+  }
+
+  // 'show' is visibility state. A delayed animation callback must never resurrect an expired message.
+  private showMessage(el: HTMLElement): void {
+    if (el.classList.contains('show')) {
+      for (const animation of el.getAnimations?.() ?? []) animation.currentTime = 0;
+    } else el.classList.add('show');
+  }
+
+  private showToast(msg: string): void {
     const t = this.el('#toast');
     t.textContent = localize(msg);
-    restartClass(t, 'show');
-    this.toastT = seconds;
+    this.showMessage(t);
   }
 
   /** uipolish lane: queued toasts and the corner-panel dock (src/ui/hudLayout.ts). */
@@ -350,15 +367,18 @@ export class Hud {
       `<div class="txt">${item.text}</div></div>`);
     el.hidden = true;
     void el.offsetWidth; // restart the pop-in
-    el.hidden = false;
+    this.el('#toast').classList.remove('show');
+    el.hidden = this.titleCardUp();
     this.chest = { item, rarity, steps, end: steps.reduce((a, b) => a + b, 0), t: 0, passed: 0, landed: false };
   }
 
   private updateChest(dt: number): void {
     const c = this.chest;
     if (!c) return;
-    c.t += dt;
     const el = this.el('#chestreveal');
+    el.hidden = this.titleCardUp();
+    if (el.hidden) return;
+    c.t += dt;
     if (!c.landed) {
       const { pos, passed } = reelAt(c.steps, c.t);
       el.querySelector<HTMLElement>('.strip')!.style.setProperty('--k', String(pos));
@@ -638,7 +658,12 @@ export class Hud {
         else root.appendChild(el);
         d = this.spiceEls[i] = { el, txt: el.querySelector('span')!, kind: l.kind, text: '' };
       }
-      if (d.text !== l.text) d.txt.textContent = localize(d.text = l.text);
+      if (d.text !== l.text) {
+        d.text = l.text;
+        // The star/checkmark and the live progress are outside the translated challenge sentence.
+        const goal = (l.kind === 'challenge' || l.kind === 'done') && /^([★✓] )(.+?)( \d+\/\d+)?$/.exec(l.text);
+        d.txt.textContent = goal ? goal[1] + localize(goal[2]) + (goal[3] ?? '') : localize(l.text);
+      }
     });
     while (this.spiceEls.length > lines.length) this.spiceEls.pop()!.el.remove();
   }
@@ -704,6 +729,14 @@ export class Hud {
     const bb = this.el('#bossbar');
     bb.hidden = !s.boss;
     if (s.boss) {
+      // BossActs owns the live hint and its translation. Give that same node a docked home.
+      if (!this.bossGoalPlaced) {
+        const hint = bb.querySelector('.boss-act-hint');
+        if (hint) {
+          this.el('#goals').prepend(hint);
+          this.bossGoalPlaced = true;
+        }
+      }
       this.text('#bossbar .name', (s.boss.mini ? 'MINI-BOSS · ' : '') + s.boss.name.toUpperCase());
       this.el('#bossbar .fill').style.transform = `scaleX(${s.boss.hp01})`;
       // Phase ticks on the bar and pips for the phases reached.
@@ -785,12 +818,12 @@ export class Hud {
       this.bannerT -= dt;
       if (this.bannerT <= 0) this.el('#banner').classList.remove('show');
     }
-    const queued = this.toasts.update(dt, this.toasts.waiting.length > 0 && (this.bannerT > 0 || titleCardUp()));
-    if (queued) this.showToast(queued.msg, queued.seconds);
-    else if (this.toastT > 0 && this.toasts.left <= 0) {
-      this.toastT = 0;
-      this.el('#toast').classList.remove('show');
-    }
+    const blocked = (this.toasts.left > 0 || this.toasts.waiting.length > 0) && (!!this.chest || this.titleCardUp());
+    const queued = this.toasts.update(dt, blocked);
+    const toast = this.el('#toast');
+    if (blocked || this.toasts.left <= 0) {
+      if (toast.classList.contains('show')) toast.classList.remove('show');
+    } else if (queued || !toast.classList.contains('show')) this.showToast(this.toasts.current);
     this.dock.tick(dt);
     this.updateChest(dt);
 
