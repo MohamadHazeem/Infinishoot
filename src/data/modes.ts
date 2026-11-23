@@ -14,11 +14,10 @@ export const MODES: ModeDef[] = [
   { id: 'gauntlet', name: 'Survival Gauntlet', desc: 'Endless arena. Waves 30s, mini-bosses 3m, bosses 6m. No shops, level-ups only. Time × kills.' },
   { id: 'raid', name: 'Raid', desc: 'A colossal three-headed engine. 1–8 heroes, AI role helpers, a 15-minute limit.' },
   { id: 'weekly', name: 'Weekly Challenge', desc: 'A shared UTC ISO-week seed, two wild rules, fixed Rookie kit. Your own weekly score table.' },
-  { id: 'daily', name: 'Daily Challenge', desc: "Today's seed, Medium difficulty. Same arenas for everyone; beat your best of the day." },
+  { id: 'daily', name: 'Daily Challenge', desc: "Today's seed, Normal difficulty. Same arenas for everyone; beat your best of the day." },
 ];
 
-// 'normal' is shown as Medium; the id stays so saves, settings and leaderboards keep working.
-export type DifficultyId = 'easy' | 'normal' | 'hard' | 'nightmare' | 'legend';
+export type DifficultyId = 'easy' | 'assist' | 'normal' | 'hard' | 'nightmare' | 'legend';
 
 export interface DifficultyDef {
   id: DifficultyId;
@@ -36,15 +35,38 @@ export interface DifficultyDef {
 
 export const DIFFICULTIES: DifficultyDef[] = [
   { id: 'easy', name: 'Easy', desc: 'Softer enemies, fewer of them. Score x0.6.', enemyHp: 0.7, enemyDmg: 0.6, enemyCount: 0.8, score: 0.6 },
-  { id: 'normal', name: 'Medium', desc: 'The game as designed.', enemyHp: 1, enemyDmg: 1, enemyCount: 1, score: 1 },
-  { id: 'hard', name: 'Hard', desc: 'Tougher, angrier, more of them. Score x1.5.', enemyHp: 1.4, enemyDmg: 1.3, enemyCount: 1.15, score: 1.5 },
-  { id: 'nightmare', name: 'Nightmare', desc: 'Good luck. Score x2.2.', enemyHp: 2, enemyDmg: 1.6, enemyCount: 1.3, score: 2.2, unlock: 'hard_stage3' },
+  { id: 'assist', name: 'Assist', desc: 'Level-ups heal. Rewind and last stand recharge each stage. Score x1.', enemyHp: 1, enemyDmg: 1, enemyCount: 1, score: 1 },
+  { id: 'normal', name: 'Normal', desc: 'One team rewind per run. Phoenix items can save each hero once per run. No last stand, comeback or level-up heal. Score x1.5.', enemyHp: 1.4, enemyDmg: 1.3, enemyCount: 1.15, score: 1.5 },
+  { id: 'hard', name: 'Hard', desc: 'Stronger enemies, larger hordes. Score x2.2.', enemyHp: 2, enemyDmg: 1.6, enemyCount: 1.3, score: 2.2 },
+  { id: 'nightmare', name: 'Nightmare', desc: 'Relentless hordes. Score x3.23.', enemyHp: 2.86, enemyDmg: 1.97, enemyCount: 1.47, score: 3.23, unlock: 'hard_stage3' },
   // Trading lane (src/game/trading.ts `legendTuning`): co-op only; these base numbers are rescaled for 2/3/4+ players at run start.
-  { id: 'legend', name: 'Legend', desc: 'Co-op only, above Nightmare. Bonus relic per boss, a gear per clear. Score x3.', enemyHp: 2.6, enemyDmg: 1.9, enemyCount: 1.45, score: 3, unlock: 'hard_stage3', coopOnly: true },
+  { id: 'legend', name: 'Legend', desc: 'Co-op only, above Nightmare. Bonus relic per boss, a gear per clear. Score x4.4.', enemyHp: 3.71, enemyDmg: 2.34, enemyCount: 1.64, score: 4.4, unlock: 'hard_stage3', coopOnly: true },
 ];
 
 export const DIFF_BY_ID = Object.fromEntries(DIFFICULTIES.map((d) => [d.id, d])) as Record<DifficultyId, DifficultyDef>;
 export const MODE_BY_ID = Object.fromEntries(MODES.map((m) => [m.id, m])) as Record<ModeId, ModeDef>;
+
+export function hasSafetyNets(id: DifficultyId): boolean {
+  return id === 'easy' || id === 'assist';
+}
+
+export function savedDifficulty(value: unknown): DifficultyId {
+  return typeof value === 'string' && Object.hasOwn(DIFF_BY_ID, value) ? value as DifficultyId : 'normal';
+}
+
+/** Kill drops, hits and XP use exported numeric tuning objects. Scope their reads to the
+ * synchronous host action so independent games and nested Mod callbacks keep their own rules. */
+export let assistedAction = false;
+export function withDifficulty<G extends { difficulty: DifficultyDef }, Args extends unknown[], R>(
+  action: (this: G, ...args: Args) => R,
+): (this: G, ...args: Args) => R {
+  return function () {
+    const previous = assistedAction;
+    assistedAction = hasSafetyNets(this.difficulty.id);
+    try { return Reflect.apply(action, this, arguments); }
+    finally { assistedAction = previous; }
+  };
+}
 
 /** Today's date (local) as yyyy-mm-dd. */
 export function today(): string {

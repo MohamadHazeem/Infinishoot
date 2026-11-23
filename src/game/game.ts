@@ -65,7 +65,7 @@ import { streaks } from './streaks';
 import { skinOf } from '../data/skins';
 import { updateWeather2, weather2Local } from './systems/weather2';
 import { RunEvents } from './runEvents';
-import { DIFF_BY_ID, MODE_BY_ID, type DifficultyDef, type ModeId } from '../data/modes';
+import { assistedAction, withDifficulty, DIFF_BY_ID, MODE_BY_ID, type DifficultyDef, type ModeId } from '../data/modes';
 import { heroOf } from '../data/heroes';
 import { binds } from '../core/keybinds';
 import { type HeroBuild, type PvpRules, pvpFriendly } from './pvp';
@@ -137,7 +137,7 @@ export const LOOP_STAGES = 4;
 
 export const scoreTuning = {
   victoryBonus: 50000, // x loop number, for beating the final boss
-  levelUpHeal: 10, // life restored to every living hero on each level-up
+  get levelUpHeal() { return assistedAction ? 10 : 0; },
   comboWindow: 2.0, // seconds a combo survives without a kill
   tiers: [0, 25, 75, 150, 300, 500, 800, 1200], // combo needed for x1..x8
   noHitBonus: 2000, // x stage, for clearing a stage without damage
@@ -169,7 +169,7 @@ export const OWNED_CHEST = 100;
 export const dropTuning = {
   xpMul: 0.45, // XP gem value per enemy XP point (lower = slower levelling)
   goldChance: 0.003, // (was 0.009, then 0.005: too much gold, user) thinned with the horde like the utility drops, so income stays steady
-  heartChance: 0.004,
+  get heartChance() { return assistedAction ? 0.004 : 0.002; },
   magnetChance: 0.0015,
   gearChance: 0.0012, // per kill, x(1 + 0.25 per Luck of the killer)
   nukeChance: 0.0006, // per kill: a full-screen wipe
@@ -381,6 +381,8 @@ export class Game implements HeroWorld {
     // A forced co-op objective (trials, tests, debug) belongs to one run; clients kept it into the next one and
     // built a different objective from the host's (Gate 1 co-op check). Trials re-force after this.
     coopPlayState(this).force = null;
+    this.phoenixOwners.clear();
+    TimeSys.startTimeRun(this);
     RunFlowSys.startRun.call(this, fixed);
   };
   restart = RunFlowSys.restart;
@@ -427,7 +429,7 @@ export class Game implements HeroWorld {
   bossRushStage = SpiceSys.bossRushStage;
   openPortal = SpiceSys.openPortal;
   portalSpot = SpiceSys.portalSpot;
-  gainXp = LevelUpsSys.gainXp;
+  gainXp = withDifficulty(LevelUpsSys.gainXp);
   openLevelUp = LevelUpsSys.openLevelUp;
   presentLevelUp = LevelUpsSys.presentLevelUp;
   presentWait = LevelUpsSys.presentWait;
@@ -466,7 +468,7 @@ export class Game implements HeroWorld {
   zap = StatusesSys.zap;
   updateStatuses = StatusesSys.updateStatuses;
   sourceName = StatusesSys.sourceName;
-  killEnemy = StatusesSys.killEnemy;
+  killEnemy = withDifficulty(StatusesSys.killEnemy);
   blast = StatusesSys.blast;
   explodeBarrel = StatusesSys.explodeBarrel;
   removeBarrelCollider = StatusesSys.removeBarrelCollider;
@@ -474,7 +476,7 @@ export class Game implements HeroWorld {
   updateStrikes = StatusesSys.updateStrikes;
   bossSlam = StatusesSys.bossSlam;
   contactDamage = StatusesSys.contactDamage;
-  hurtHero = StatusesSys.hurtHero;
+  hurtHero = withDifficulty(StatusesSys.hurtHero);
   onHeroDown = StatusesSys.onHeroDown;
   collect = StatusesSys.collect;
   updateBullets = StatusesSys.updateBullets;
@@ -511,7 +513,11 @@ export class Game implements HeroWorld {
   buildSnapshot = NetHostSys.buildSnapshot;
   onClientMessage = NetClientSys.onClientMessage;
   shopFromNet = NetClientSys.shopFromNet;
-  clientStart = NetClientSys.clientStart;
+  clientStart: typeof NetClientSys.clientStart = function (seed, you, players) {
+    this.phoenixOwners.clear();
+    TimeSys.startTimeRun(this);
+    NetClientSys.clientStart.call(this, seed, you, players);
+  };
   clientStage = NetClientSys.clientStage;
   clientUpdate = NetClientSys.clientUpdate;
   applySnapshot = NetClientSys.applySnapshot;
@@ -801,6 +807,8 @@ export class Game implements HeroWorld {
   readonly toys = new Interactives(this.scene);
   readonly objHud = new ObjectiveHud();
 
+  readonly phoenixOwners = new Set<number | string>();
+  runPhoenixUsed = SpiceSys.runPhoenixUsed;
   heroes: Hero[] = [];
   /** Index of the hero this machine controls. */
   local = 0;

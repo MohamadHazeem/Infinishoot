@@ -1,3 +1,4 @@
+import { hasSafetyNets } from '../../data/modes';
 /**
  * Gameplay lane (notes/lanes/gameplay.md): Game methods for the mech suit,
  * supply crates and super weapons, the rule relics, enemy mutations, weapon
@@ -213,7 +214,7 @@ function updateHeroPlay(g: Game, h: Hero, dt: number): void {
     if (pl.overload01 >= 1) startOverload(g, h);
   }
   // Comeback mode (host decides; clients mirror it).
-  const cb = comebackState(p.hp, p.maxHp, h.revivesLeft, p.dead) && g.isCombatMode;
+  const cb = hasSafetyNets(g.difficulty.id) && comebackState(p.hp, p.maxHp, h.revivesLeft, p.dead) && g.isCombatMode;
   if (cb && !pl.comeback) {
     g.vfx.num(p.x, 3, p.z, 'COMEBACK! x2 DAMAGE', 'crit');
     g.vfx.ring(p.x, p.z, 1, 8, '#ff3d5a', 0.5);

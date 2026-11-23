@@ -31,7 +31,7 @@ import { iconHtml } from './pixelIcons';
 import { fuseStrip, fusionGuide } from './fusionUi';
 import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
-import { DIFFICULTIES, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
+import { DIFFICULTIES, DIFF_BY_ID, MODE_BY_ID, MODES, today, type ModeId } from '../data/modes';
 import { titleChip } from './coopTitle';
 import { dailyBest } from '../game/highscores';
 import { HEROES } from '../data/heroes';
@@ -970,7 +970,7 @@ export class Screens {
     el.querySelector<HTMLElement>('.mp-heat')!.hidden = !(v.isHost && v.code && (v.kind ?? 'coop') === 'coop');
     el.querySelector<HTMLElement>('[data-act=mp-start]')!.hidden = !(v.isHost && v.code);
     // Difficulty: the host picks it; everyone else sees the choice.
-    const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFFICULTIES[1];
+    const pick = DIFFICULTIES.find((d) => d.id === v.difficulty) ?? DIFF_BY_ID.normal;
     el.querySelector('.mp-diff-row')!.innerHTML = localizeHtml(DIFFICULTIES.map((d) => {
       const open = (!d.unlock || save.achievements.includes(d.unlock)) && (!d.coopOnly || (v.players.length >= 2 && (v.kind ?? 'coop') === 'coop')); // LEGEND: co-op with 2+ players (trading lane)
       const lock = v.isHost && !open;
@@ -1548,7 +1548,7 @@ export class Screens {
       const on = daily ? d.id === 'normal' : settings.difficulty === d.id;
       return `<button data-nav data-act="diff" data-diff="${d.id}" class="diff ${on ? 'on' : ''} ${open ? '' : 'locked'}" ${daily ? 'disabled' : ''} title="${open ? d.desc : `Unlock: ${ach?.name ?? ''}`}">${open ? d.name.toUpperCase() : '🔒 ' + d.name.toUpperCase()}</button>`;
     }).join(''));
-    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty && !d.coopOnly) ?? DIFFICULTIES[1];
+    const diff = DIFFICULTIES.find((d) => d.id === settings.difficulty && !d.coopOnly) ?? DIFF_BY_ID.normal;
     const best = dailyBest(today());
     el.querySelector('.mode-note')!.textContent = localize(daily
       ? `TODAY'S SEED (${today()}). ${best ? `YOUR BEST TODAY: ${fmtScore(best)}` : 'NO RUN YET TODAY'}`

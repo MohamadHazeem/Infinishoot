@@ -1,3 +1,4 @@
+import { hasSafetyNets } from '../../data/modes';
 import { markClip } from './clips';
 /**
  * Time lane: rewind, last stand, bullet-time dodges, the death replay and
@@ -14,7 +15,7 @@ import { markClip } from './clips';
  * - `timeKill` (from killEnemy) counts last-stand kills.
  * - `clutchRevive` (from updateRevives) spots a revive in dire straits.
  *
- * Co-op rules: the rewind is the TEAM's (one per stage): a press opens a
+ * Co-op rules: the rewind is the TEAM's (per run, or per stage on Assist/Easy): a press opens a
  * vote, and once everyone standing has pressed it the host rewinds the whole
  * team (the world holds on the host for the playback, so everyone sees it
  * through snapshots). Last stands are per hero, judged on the host. Bullet
@@ -32,7 +33,7 @@ import type { Hero } from '../hero';
 import type { Enemy } from '../enemies';
 import type { Input } from '../../core/input';
 import { Timeline } from '../timeline';
-import { camWeight, isClutch, nearMiss, grazes, rewindBlock, rewindCurve, soClose, standOpens, swingWeight, timeDebug, timeTuning, votePasses, type DeathInfo } from '../timeRules';
+import { camWeight, isClutch, nearMiss, grazes, rewindAllowance, rewindBlock, rewindCurve, soClose, standOpens, swingWeight, timeDebug, timeTuning, votePasses, type DeathInfo } from '../timeRules';
 import { TimeHud, type StandHud, type VoteHud } from '../../ui/timeHud';
 import { timeSound } from '../timeAudio';
 import { settings } from '../settings';
@@ -49,7 +50,7 @@ type TimeKind = 'rw' | 're' | 'ls' | 'lw' | 'lf' | 'bt' | 'cr' | 'rp' | 'vo' | '
 export type TimeEvent = [number, TimeKind, number, number, number, number];
 
 /** Why a rewind press did nothing (the 'no' event's extra). */
-const NO_TEXT = ['', 'REWIND USED THIS STAGE', 'NOTHING TO REWIND YET', 'NO REWIND IN PVP', 'NOT RIGHT NOW', 'THE TEAM DID NOT AGREE'];
+const NO_TEXT = ['', 'REWIND USED THIS STAGE', 'NOTHING TO REWIND YET', 'NO REWIND IN PVP', 'NOT RIGHT NOW', 'THE TEAM DID NOT AGREE', 'REWIND USED THIS RUN'];
 
 interface HeroTime {
   standUsed: boolean;
@@ -94,7 +95,6 @@ interface View {
 interface TimeState {
   tl: Timeline;
   lastRec: number;
-  lastRun: number;
   stage: number;
   rewindsUsed: number;
   hold: Hold | null;
@@ -144,7 +144,6 @@ export function timeState(g: Game): TimeState {
     s = {
       tl: new Timeline(),
       lastRec: -1,
-      lastRun: 0,
       stage: -1,
       rewindsUsed: 0,
       hold: null,
@@ -227,15 +226,15 @@ export function timeStep(this: Game, dt: number): boolean {
     return false;
   }
   s.idle = false;
-  if (this.runTime < s.lastRun - 1e-6) resetRun(s);
-  s.lastRun = this.runTime;
   if (this.stage !== s.stage) {
     s.stage = this.stage;
-    s.rewindsUsed = 0;
+    if (hasSafetyNets(this.difficulty.id)) s.rewindsUsed = 0;
     s.vote = null;
     if (timeTuning.standPerStage) for (const ht of s.heroes) if (ht) ht.standUsed = false;
     s.tl.clear();
   }
+  // A corrected clock invalidates recorded frames, but never refunds a charge.
+  if (!s.hold && this.runTime < s.lastRec) timeBarrier(this);
   if (s.hold) {
     advanceHold(this, s, dt);
     return true;
@@ -265,11 +264,21 @@ export function timeStep(this: Game, dt: number): boolean {
   return false;
 }
 
+export function startTimeRun(g: Game): void {
+  const s = states.get(g);
+  if (s) resetRun(s);
+}
+
 function resetRun(s: TimeState): void {
   s.tl.clear();
   s.lastRec = -1;
   s.stage = -1;
   s.rewindsUsed = 0;
+  s.events.length = 0;
+  s.lastCombo = 0;
+  s.net.used = false;
+  s.net.hold = s.net.k = s.net.hist = 0;
+  s.net.stand = s.net.vote = s.net.so = null;
   s.vote = null;
   s.heroes = [];
   s.hold = null;
@@ -307,7 +316,7 @@ function barriers(g: Game, s: TimeState): void {
 export function requestRewind(this: Game, h: Hero): void {
   const s = timeState(this);
   const fighting = this.mode === 'fight' && !s.hold && this.introLeft <= 0 && !this.onboarding.training && !(this.boss && this.boss.hp <= 0);
-  const why = rewindBlock({ used: s.rewindsUsed, history: s.tl.span, pvp: !!this.pvp, fighting, dead: h.player.dead });
+  const why = rewindBlock({ used: s.rewindsUsed, history: s.tl.span, pvp: !!this.pvp, fighting, dead: h.player.dead }, this.difficulty.id);
   if (why === '') return;
   if (why !== null) {
     const ht = heroTime(s, h);
@@ -367,6 +376,8 @@ function startRewind(g: Game, s: TimeState, h: Hero): void {
   const to = tl.indexBack(timeTuning.rewindSeconds);
   const from = tl.count - 1;
   if (to < 0 || from <= to) return;
+  // The first snapshot of playback must already show the charge spent on a new host.
+  s.rewindsUsed++;
   s.hold = { kind: 'rewind', t: 0, dur: timeTuning.rewindPlay, from, to, hero: h.index, secs: r2(tl.at(from).t - tl.at(to).t), dead: [] };
   emit(g, 'rw', h, s.hold.secs);
 }
@@ -386,7 +397,6 @@ function advanceHold(g: Game, s: TimeState, dt: number): void {
     tl.restore(g, tl.at(Math.max(H.to, Math.min(H.from, idx))), 'visual');
     if (pinned || H.t < H.dur) return;
     tl.restore(g, tl.at(H.to), 'full');
-    s.rewindsUsed++;
     for (const h of g.heroes) g.mods2Event(h, 'rewind');
     s.hold = null;
     for (const ht of s.heroes) if (ht && ht.standT > 0) ht.standT = 0; // the stand is undone (it stays used)
@@ -477,7 +487,7 @@ function deathInfo(g: Game, s: TimeState): DeathInfo {
     bestScore: best,
     standShort: short,
     combo: s.lastCombo,
-    rewindLeft: s.rewindsUsed < timeTuning.rewindPerStage && !g.coop,
+    rewindLeft: s.rewindsUsed < rewindAllowance(g.difficulty.id) && !g.coop,
     runTime: g.runTime,
     kills: g.kills,
   };
@@ -487,6 +497,7 @@ function deathInfo(g: Game, s: TimeState): DeathInfo {
 
 /** hurtHero: a killing blow just landed on h. True = a last stand starts instead of going down. */
 export function lastStand(this: Game, h: Hero): boolean {
+  if (!hasSafetyNets(this.difficulty.id)) return false;
   const s = timeState(this);
   const ht = heroTime(s, h);
   if (this.mode !== 'fight' || this.role === 'client') return false;
@@ -780,7 +791,7 @@ export function timeNet(this: Game, forHero: Hero): Record<string, unknown> {
   ht.sentEv = s.seq;
   const H = s.hold;
   const out: Record<string, unknown> = {
-    m: [s.rewindsUsed >= timeTuning.rewindPerStage ? 1 : 0, r2(Math.min(1, s.tl.span / timeTuning.rewindSeconds))],
+    m: [s.rewindsUsed >= rewindAllowance(this.difficulty.id) ? 1 : 0, r2(Math.min(1, s.tl.span / timeTuning.rewindSeconds))],
   };
   if (e.length) out.e = e;
   if (H) {
@@ -802,6 +813,9 @@ export function applyTimeNet(this: Game, data: unknown): void {
   const n = s.net;
   n.at = now();
   n.used = !!d.m?.[0];
+  // Keep the authoritative charge if this client is promoted to host.
+  s.rewindsUsed = n.used ? rewindAllowance(this.difficulty.id) : 0;
+  s.stage = this.stage;
   n.hist = d.m?.[1] ?? 0;
   for (const ev of d.e ?? []) playEvent(this, s, ev);
   n.hold = d.h?.[0] ?? 0;
@@ -867,7 +881,7 @@ export function renderTime(this: Game, frameDt: number): void {
     else applyView(this, v);
   }
   // HUD.
-  const used = client ? s.net.used : s.rewindsUsed >= timeTuning.rewindPerStage;
+  const used = client ? s.net.used : s.rewindsUsed >= rewindAllowance(this.difficulty.id);
   const hist = client ? s.net.hist : Math.min(1, s.tl.span / timeTuning.rewindSeconds);
   const ready = !used && hist * timeTuning.rewindSeconds >= timeTuning.rewindMin && this.mode === 'fight';
   const vote = client ? s.net.vote : voteHud(this, s);

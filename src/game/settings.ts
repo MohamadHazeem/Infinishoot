@@ -1,3 +1,4 @@
+import { savedDifficulty } from '../data/modes';
 import { applyDesktopSettings } from '../platform/desktop';
 import { displayOptions, type DisplayOptions } from '../../electron/logic.mjs';
 import { mobileDevice } from '../core/mobile';
@@ -255,6 +256,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   teamRadio: false,
 };
 export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS, loadout: { ...DEFAULT_LOADOUT } });
+settings.difficulty = savedDifficulty(settings.difficulty);
 Object.assign(settings, displayOptions(settings));
 settings.highlightClips = settings.highlightClips !== false;
 settings.damageNumbers ??= 'auto';

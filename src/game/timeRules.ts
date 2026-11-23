@@ -1,3 +1,4 @@
+import { hasSafetyNets, type DifficultyId } from '../data/modes';
 /**
  * Time lane: tuning and the pure rules behind the time rewind, last stand,
  * bullet-time dodges, the death replay and clutch revives (no Game access,
@@ -125,11 +126,15 @@ export function swingWeight(k: number): number {
 
 // ---------------------------------------------------------------- rules
 
+export function rewindAllowance(id: DifficultyId): number {
+  return hasSafetyNets(id) ? timeTuning.rewindPerStage : 1;
+}
+
 /** Can a rewind start? null = yes; '' = not now (say nothing); otherwise the reason, shown to the player. */
-export function rewindBlock(o: { used: number; history: number; pvp: boolean; fighting: boolean; dead: boolean }): string | null {
+export function rewindBlock(o: { used: number; history: number; pvp: boolean; fighting: boolean; dead: boolean }, difficulty: DifficultyId = 'assist'): string | null {
   if (o.pvp) return 'NO REWIND IN PVP';
   if (!o.fighting || o.dead) return '';
-  if (o.used >= timeTuning.rewindPerStage) return 'REWIND USED THIS STAGE';
+  if (o.used >= rewindAllowance(difficulty)) return hasSafetyNets(difficulty) ? 'REWIND USED THIS STAGE' : 'REWIND USED THIS RUN';
   if (o.history < timeTuning.rewindMin) return 'NOTHING TO REWIND YET';
   return null;
 }

@@ -8,9 +8,9 @@
 export const tips2En = {
   // ------------------------------------------------------------ time
   'tips2.rewind.title': 'TIME REWIND',
-  'tips2.rewind.text': 'Took a bad hit? Press ⟪k⟫ to rewind the last 5 seconds, once per stage. Online, the whole team votes on it.',
+  'tips2.rewind.text': 'Took a bad hit? Press ⟪k⟫ to rewind the last 5 seconds, once per run. Easy and Assist refresh it each stage. Online, the whole team votes.',
   'tips2.laststand.title': 'LAST STAND',
-  'tips2.laststand.text': 'With a x50 combo going, a killing blow doesn\'t finish you: get 30 kills in 5 seconds to survive with life back.',
+  'tips2.laststand.text': 'On Easy or Assist, with a x50 combo going, a killing blow doesn\'t finish you: get 30 kills in 5 seconds to survive with life back.',
   // ------------------------------------------------------------ gameplay
   'tips2.cashin.title': 'CASH IN YOUR COMBO',
   'tips2.cashin.text': 'Your combo can buy HEAL, BOMB or GOLD RAIN. ⟪k2⟫ picks one, ⟪k⟫ spends the whole combo on it. Bigger combos buy bigger effects.',
@@ -253,9 +253,9 @@ export const tips2En = {
 
 export const tips2Ar: Record<keyof typeof tips2En, string> = {
   'tips2.rewind.title': 'إرجاع الزمن',
-  'tips2.rewind.text': 'تلقيت ضربة سيئة؟ اضغط ⟪k⟫ لإرجاع آخر 5 ثوانٍ، مرة واحدة في كل مرحلة. في اللعب عبر الإنترنت يصوّت الفريق كله على ذلك.',
+  'tips2.rewind.text': 'تلقيت ضربة سيئة؟ اضغط ⟪k⟫ لإرجاع آخر 5 ثوانٍ، مرة واحدة في الجولة. يتجدد الإرجاع في كل مرحلة على السهل والمساعدة. عبر الإنترنت يصوّت الفريق كله.',
   'tips2.laststand.title': 'الصمود الأخير',
-  'tips2.laststand.text': 'إذا كانت لديك سلسلة x50، فلن تقضي عليك الضربة القاضية: احصل على 30 قتلة خلال 5 ثوانٍ لتنجو وتستعيد بعض الحياة.',
+  'tips2.laststand.text': 'على السهل أو المساعدة، إذا كانت لديك سلسلة x50، فلن تقضي عليك الضربة القاضية: احصل على 30 قتلة خلال 5 ثوانٍ لتنجو وتستعيد بعض الحياة.',
   'tips2.cashin.title': 'اصرف سلسلتك',
   'tips2.cashin.text': 'يمكن لسلسلتك أن تشتري علاجاً أو قنبلة أو مطر ذهب. ⟪k2⟫ يختار، و⟪k⟫ يصرف السلسلة كاملة عليه. كلما كبرت السلسلة كبر التأثير.',
   'tips2.mech.title': 'بدلة آلية!',

@@ -1,3 +1,4 @@
+import { hasSafetyNets, type DifficultyDef } from '../data/modes';
 import { setHeroModel } from './heroModel';
 import type * as THREE from 'three';
 import type { Rng } from '../core/rng';
@@ -87,6 +88,9 @@ function trackSummary(def: Upgradable, b: Build): string {
 export interface HeroWorld {
   readonly scene: THREE.Scene;
   readonly rng: Rng;
+  readonly stage?: number;
+  readonly difficulty?: DifficultyDef;
+  runPhoenixUsed?(hero: Hero, spend?: boolean): boolean;
   readonly level: number;
   /** 2+ players still in the run: co-op items can be offered. */
   readonly coop: boolean;
@@ -211,7 +215,7 @@ export class Hero implements SynergyHost {
     this.player = new Player(world.scene, color, skin);
     this.setPet(petId);
     this.setHeroDef(heroId);
-    this.synergy = new Synergy(this);
+    this.synergy = new SurvivalSynergy(this, world);
     this.ctx = world.makeCtx(this);
   }
 
@@ -253,7 +257,17 @@ export class Hero implements SynergyHost {
 
   /** Relic ids (src/data/relics.ts), and their per-run state. */
   relics: string[] = [];
-  phoenixUsed = false;
+  private phoenixSpent = false;
+  get phoenixUsed(): boolean {
+    return this.phoenixSpent || (!hasSafetyNets(this.world.difficulty?.id ?? 'normal') && !!this.world.runPhoenixUsed?.(this));
+  }
+  set phoenixUsed(spent: boolean) {
+    if (hasSafetyNets(this.world.difficulty?.id ?? 'normal')) this.phoenixSpent = spent;
+    else if (spent) {
+      this.phoenixSpent = true;
+      this.world.runPhoenixUsed?.(this, true);
+    }
+  }
   fangKills = 0;
   /** The curse this hero's shop is offering (null = none / taken). */
   curseOffer: string | null = null;
@@ -282,7 +296,7 @@ export class Hero implements SynergyHost {
   startRun(): void {
     this.combosSeen.clear();
     this.relics = [];
-    this.phoenixUsed = false;
+    this.phoenixSpent = false;
     this.fangKills = 0;
     this.curseOffer = null;
     this.disposeWeapons();
@@ -872,7 +886,7 @@ export class Hero implements SynergyHost {
       })),
       slots: MAX_MOD_SLOTS,
       rerollCost: this.rerollCost,
-      healCost: economyTuning.healCost,
+      healCost: this.healPrice(stage),
       healed: this.shopHealed || this.player.hp >= this.player.maxHp,
       loadout: this.loadout(),
       stage,
@@ -944,12 +958,34 @@ export class Hero implements SynergyHost {
     return '';
   }
 
+  private healPrice(stage: number): number {
+    return economyTuning.healCost + Math.max(0, stage - 1);
+  }
+
   heal(): string {
-    if (this.shopHealed) return 'ALREADY HEALED';
-    if (this.gold < economyTuning.healCost) return 'NOT ENOUGH GOLD';
-    this.gold -= economyTuning.healCost;
+    const price = this.healPrice(this.world.stage ?? 1);
+    if (this.shopHealed || this.player.hp >= this.player.maxHp) return 'ALREADY HEALED';
+    if (this.gold < price) return 'NOT ENOUGH GOLD';
+    this.gold -= price;
     this.shopHealed = true;
     this.player.heal(this.player.maxHp * 0.4);
     return '';
+  }
+}
+
+/** On Normal+ both Phoenix effects draw from the hero's run charge. A slot may
+ * be sold, echoed, rebuilt from a co-op checkpoint or offered again in the shop. */
+class SurvivalSynergy extends Synergy {
+  constructor(private hero: Hero, private world: HeroWorld) { super(hero); }
+
+  override add(def: ModDef, paid = def.price): void {
+    super.add(def, paid);
+    if (def.id !== 'phoenix' || hasSafetyNets(this.world.difficulty?.id ?? 'normal')) return;
+    const hero = this.hero;
+    this.slots[this.slots.length - 1].st = {
+      t: 0,
+      get n() { return Number(hero.phoenixUsed); },
+      set n(value) { if (value) hero.phoenixUsed = true; },
+    };
   }
 }
