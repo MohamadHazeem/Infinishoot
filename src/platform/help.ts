@@ -1,3 +1,4 @@
+import { backendStatus } from '../render/rendererBackend';
 import { onlineStatusLine } from '../ui/onlineStatus';
 import { installControllerKeyboard } from './keyboard';
 import type { Screens } from '../ui/screens';
@@ -54,6 +55,7 @@ export function installDesktopUi(screens: Screens): void {
     heading.textContent = t('desktop.help'); help.textContent = t('desktop.help');
     for (const b of menu.querySelectorAll<HTMLElement>('[data-desktop-label]')) b.textContent = t(b.dataset.desktopLabel!);
     info.textContent = `${t('desktop.about', { version: diagnostics.version })} ${t('desktop.privacy')}${restartRequired ? ' ' + t('desktop.restart') : ''}`;
+    info.textContent += ' ' + t('renderer.active', { backend: backendStatus.name });
     updateToggle.textContent = `${t('desktop.updates')}: ${t(settings.autoUpdate ? 'desktop.on' : 'desktop.off')}`;
     updateToggle.hidden = !desktop;
     update.hidden = !updateRelease;

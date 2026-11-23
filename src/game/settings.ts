@@ -17,6 +17,7 @@ import { voiceSettings } from '../audio/voices';
 import { crowdSettings } from '../audio/crowd';
 import { radioSettings } from '../audio/radio';
 import { applyRetroStrength } from '../render/retroSettings';
+import { rendererPreference, type RendererPreference } from '../render/rendererBackend';
 import { postSettings } from '../render/renderer';
 import { juiceTuning } from './juice';
 import { fxQuality, weatherSettings } from './ambience';
@@ -76,6 +77,7 @@ export interface Settings extends DisplayOptions {
   quality: number;
   /** Graphics quality: 0 = low, 1 = medium, 2 = high, 3 = auto (holds 60 fps), 4 = Potato. */
   graphics: number;
+  renderer: RendererPreference;
   /** Real sun shadows, active only on the HIGH quality rung. */
   dynamicShadows: boolean;
   /** Screen-space shockwaves and heat shimmer. */
@@ -203,6 +205,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   rumble: true,
   colorblind: false,
   reduceFlash: false,
+  renderer: 'auto',
   quality: 1,
   graphics: AUTO,
   dynamicShadows: false,
@@ -256,6 +259,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   teamRadio: false,
 };
 export const settings: Settings = loadJson<Settings>(KEY, { ...SETTINGS_DEFAULTS, loadout: { ...DEFAULT_LOADOUT } });
+settings.renderer = rendererPreference(settings.renderer);
 settings.difficulty = savedDifficulty(settings.difficulty);
 Object.assign(settings, displayOptions(settings));
 settings.highlightClips = settings.highlightClips !== false;

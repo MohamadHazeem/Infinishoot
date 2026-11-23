@@ -40,7 +40,7 @@ export function writeReport(stem, report) {
           r.size,
           r.preset,
           r.rate + '×',
-          r.scene,
+          r.scene + (r.backend ? ' · ' + r.activeBackend : ''),
           f(r.fps, 1),
           ['median', 'p95', 'p99'].map((k) => f(r.interval?.[k])).join(' / '),
           r.drops,

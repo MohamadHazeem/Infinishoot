@@ -43,10 +43,15 @@ export function stats(values) {
 export function hardware(renderer) {
   return /metal/i.test(renderer) && !/swiftshader|llvmpipe|software/i.test(renderer);
 }
-export function sceneLink({ scene, preset }) {
+// Keep the original 60-case matrix on WebGL2 for longitudinal comparisons.
+export const rendererStress = ['webgl', 'webgpu'].map(backend => ({
+  size: '1920x1080', preset: 'high', rate: 1, scene: 'lights', backend,
+}));
+export function sceneLink({ scene, preset, backend = 'webgl' }) {
   return (
     baseQuery +
-    scenes[scene] +
+    (scene === 'lights' ? meadow + '&swarm=320&hold=355&bullets=1024&litshots' : scenes[scene]) +
+    '&renderer=' + backend +
     '&quality=' +
     (preset === 'shadows' ? 'high' : preset) +
     '&shadows=' +
@@ -64,10 +69,16 @@ function collectFrames(duration) {
     const g = window.__game,
       original = g.render,
       q = window.__quality;
-    const gl = document.getElementById('game').getContext('webgl2');
-    const ext = gl.getExtension('EXT_disjoint_timer_query_webgl2');
-    const debug = gl.getExtension('WEBGL_debug_renderer_info');
-    const renderer = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : 'unknown';
+    const canvas = document.getElementById('game');
+    const backend = canvas.dataset.backend || 'WebGL2';
+    const countLights = new URLSearchParams(location.search).has('litshots');
+    const gl = backend === 'WebGL2' ? canvas.getContext('webgl2') : null;
+    const ext = gl?.getExtension('EXT_disjoint_timer_query_webgl2');
+    const webgpu = backend === 'WebGPU' ? window.__renderer.gl : null;
+    const timer = webgpu?.backend.device.features.has('timestamp-query');
+    let resolving = false;
+    const debug = gl?.getExtension('WEBGL_debug_renderer_info');
+    const renderer = backend === 'WebGPU' ? canvas.dataset.adapter : debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : 'unknown';
     const stamps = [],
       gpu = [],
       census = [];
@@ -78,13 +89,27 @@ function collectFrames(duration) {
     g.render = function (alpha, frameDt) {
       stamps.push(document.timeline.currentTime);
       if ((stamps.length - 1) % 8 === 0) {
+        let friendly = 0;
+        if (countLights) for (let i = 0; i < g.bullets.count; i++) if (g.bullets.team[i] === 0) friendly++;
         census.push([
           g.enemies.activeCount,
           g.bullets.count,
           g.heroes.length,
           g.boss?.def.id ?? '',
           g.isCombatMode && !g.paused && g.screens.current === 'none',
+          friendly,
+          window.__renderer?.localLightCount ?? 0,
         ]);
+        if (timer && !resolving) {
+          resolving = webgpu.backend.trackTimestamp = true;
+          queueMicrotask(async () => {
+            const pendingTime = webgpu.resolveTimestampsAsync();
+            webgpu.backend.trackTimestamp = false;
+            const ms = await pendingTime;
+            if (ms > 0) gpu.push(ms);
+            resolving = false;
+          });
+        }
         if (ext) {
           if (gl.getParameter(ext.GPU_DISJOINT_EXT)) {
             for (const query of pending) gl.deleteQuery(query);
@@ -116,12 +141,13 @@ function collectFrames(duration) {
         phase: window.__prof.phase,
         stamps,
         gpu,
-        gpuExtension: !!ext,
+        gpuExtension: !!(ext || timer),
         census,
         renderer,
+        activeBackend: backend,
         elapsed: wallNow() - start,
         viewport: [innerWidth, innerHeight],
-        buffer: [gl.drawingBufferWidth, gl.drawingBufferHeight],
+        buffer: [canvas.width, canvas.height],
         visible: !document.hidden,
         quality: q.name,
         shadows: !!shadow?.visible,
@@ -139,7 +165,7 @@ export async function measureScene(page, base, config, options) {
   const errors = [];
   const onError = (e) => errors.push(e.message);
   const onConsole = (message) => {
-    if (message.type() === 'error' && /WebGLProgram|Shader Error|GL_INVALID_|context lost/i.test(message.text()))
+    if (message.type() === 'error' && /WebGLProgram|Shader Error|GL_INVALID_|context lost|THREE\.TSL|GPUValidationError|Invalid ShaderModule|WGSL/i.test(message.text()))
       errors.push(message.text());
   };
   page.on('pageerror', onError);
@@ -201,6 +227,10 @@ export async function measureScene(page, base, config, options) {
       triangles: col(6),
       enemies: stats(census.map((c) => c[0])),
       bullets: stats(census.map((c) => c[1])),
+      ...(config.scene === 'lights' ? {
+        friendly: stats(census.map((c) => c[5])),
+        localLights: stats(census.map((c) => c[6])),
+      } : {}),
       heroes: stats(census.map((c) => c[2])),
       bosses: [...new Set(census.map((c) => c[3]))],
       fighting: census.length > 0 && census.every((c) => c[4]),

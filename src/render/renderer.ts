@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import type { GPURenderer } from './rendererGPU';
+import { backendStatus, hasRowSamplingTies, rendererPreference, type RendererPreference } from './rendererBackend';
+import { cluster, initializeCluster } from './lightCluster';
 import { prepareShadows } from './shadows';
 import { shadowRigs, type RigOverlay } from './rigOverlay';
 import { retroGlobals } from './retroMaterial';
@@ -39,7 +42,46 @@ function fullscreen(frag: string, uniforms: Record<string, THREE.IUniform>): THR
 }
 
 export class RetroRenderer {
-  readonly gl: THREE.WebGLRenderer;
+  readonly gl: THREE.WebGLRenderer | GPURenderer;
+  static async create(canvas: HTMLCanvasElement, preference: RendererPreference): Promise<RetroRenderer> {
+    const query = new URLSearchParams(location.search);
+    if (query.has('test') && query.has('renderer')) preference = rendererPreference(query.get('renderer'));
+    // AUTO stays on WebGL2: on this renderer WebGPU costs more GPU time (p95 5.8 ms vs 3.1 ms at 1080p HIGH)
+    // for the same picture and lights, so it is opt-in until it is faster (Gate 6 review, 2026-11-23).
+    if (preference === 'webgpu' && navigator.gpu) {
+      try {
+        const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+        if (adapter) {
+          const { createGPU } = await import('./rendererGPU');
+          // Canvas context types are exclusive. Keep the original available
+          // until device initialization and the first resize have succeeded.
+          const candidate = canvas.cloneNode(false) as HTMLCanvasElement;
+          const gpu = await createGPU(candidate, adapter);
+          const renderer = new RetroRenderer(candidate, gpu);
+          backendStatus.name = 'WebGPU';
+          const info = adapter.info;
+          backendStatus.adapter = [info?.vendor, info?.architecture, info?.description].filter(Boolean).join(' ');
+          candidate.dataset.backend = backendStatus.name;
+          candidate.dataset.adapter = backendStatus.adapter;
+          canvas.replaceWith(candidate);
+          return renderer;
+        }
+      } catch (error) {
+        console.warn('WebGPU initialization failed. Starting WebGL2.', error);
+      }
+    }
+    backendStatus.adapter = '';
+    canvas.dataset.backend = backendStatus.name = 'WebGL2';
+    return new RetroRenderer(canvas);
+  }
+
+  get draws(): number {
+    const info = this.gl.info.render;
+    return 'drawCalls' in info ? info.drawCalls : info.calls;
+  }
+  get localLightCount(): number {
+    return cluster.transform.w > 0 ? cluster.count : 0;
+  }
   readonly width = { value: 0 };
   readonly height = { value: 0 };
   private target: THREE.WebGLRenderTarget;
@@ -55,9 +97,10 @@ export class RetroRenderer {
   private idle: THREE.Object3D[] = [];
   private batchedShadows: RigOverlay[] = [];
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, gpu?: GPURenderer) {
     THREE.ColorManagement.enabled = false;
-    this.gl = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+    this.gl = gpu ?? new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+    initializeCluster();
     this.gl.outputColorSpace = THREE.LinearSRGBColorSpace;
     this.gl.setPixelRatio(1);
     this.gl.info.autoReset = false;
@@ -128,6 +171,11 @@ export class RetroRenderer {
     this.width.value = w;
     this.height.value = h;
     this.gl.setSize(w, h, false);
+    // The two native canvas origins round nearest-neighbor ties in opposite
+    // directions. Bias the compositor by 1/1024 device pixel on those sizes.
+    const dpr = window.devicePixelRatio || 1;
+    this.gl.domElement.style.translate = hasRowSamplingTies(h, Math.round(ch * dpr))
+      ? `0 ${1 / (1024 * dpr)}px` : '';
     this.target.setSize(w, h);
     const bw = Math.max(1, Math.ceil(w / 2));
     const bh = Math.max(1, Math.ceil(h / 2));
@@ -151,7 +199,9 @@ export class RetroRenderer {
 
   render(scene: THREE.Scene, camera: THREE.Camera): void {
     this.gl.info.reset();
-    const shadowUpdate = prepareShadows(this.gl, scene);
+    let shadowUpdate = false;
+    if ('renderSun' in this.gl) this.gl.renderSun(scene);
+    else shadowUpdate = prepareShadows(this.gl, scene);
     setOutlines(renderQuality.outlines, this.height.value);
     const u = this.postMat.uniforms;
     const glowMode = postSettings.glow > 0 ? renderQuality.glow : 0;

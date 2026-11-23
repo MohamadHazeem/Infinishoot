@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { clusterShader, clusterUniforms, firstLight } from './lightCluster';
 import { shadowUniforms, shadowFragment } from './shadows';
 import { lightUniforms, MAX_LIGHTS } from './lights';
 
@@ -47,6 +48,7 @@ export const retroGlobals = {
   uCloud: { value: new THREE.Vector4(0, 0, 0.012, 0) },
   uCloudCut: { value: new THREE.Vector3(0.5, 0.25, 30) },
   ...lightUniforms,
+  ...clusterUniforms,
   ...shadowUniforms,
 };
 
@@ -117,6 +119,7 @@ void main() {
 
 const fragmentShader = /* glsl */ `
 ${shadowFragment}
+${clusterShader}
 uniform vec3 uColor;
 uniform float uAffine;
 uniform float uAlphaTest;
@@ -181,12 +184,26 @@ void main() {
   d *= gfxSunShadow(vWorld, normalize(vNormal));
   vec3 lit = base.rgb * (vAmbient + uSunColor * d);
   // Dynamic point lights: smooth falloff, half-wrapped Lambert, banded with the cel steps.
-  if (uLightCount > 0 && uUnlit < 0.99) {
+  if ((uLightCount > 0 || uCluster.w > 0.0) && uUnlit < 0.99) {
     vec3 nrm = normalize(vNormal);
     vec3 dyn = vec3(0.0);
+    vec4 ids = vec4(0.0);
+    if (uCluster.w > 0.0) ids = clusterIds(vWorld.xz);
     for (int i = 0; i < MAX_LIGHTS; i++) {
-      if (i >= uLightCount) break;
-      vec4 lp = uLightPos[i];
+      vec4 lp;
+      vec3 rgb;
+      if (uCluster.w > 0.0) {
+        if (i >= 4) break;
+        int id = int(ids[i]);
+        if (id == 0) break;
+        int offset = ${firstLight} + (id - 1) * 2;
+        lp = clusterTexel(offset);
+        rgb = clusterTexel(offset + 1).rgb * uCluster.w;
+      } else {
+        if (i >= uLightCount) break;
+        lp = uLightPos[i];
+        rgb = uLightCol[i].rgb;
+      }
       vec3 dv = lp.xyz - vWorld;
       float dd = dot(dv, dv);
       float r2 = lp.w * lp.w;
@@ -196,7 +213,7 @@ void main() {
       float ndl = dot(nrm, dv) * inversesqrt(max(dd, 1e-4));
       a *= 0.4 + 0.6 * max(ndl, 0.0);
       if (uToonSteps > 0.5) a = (floor(a * 4.0) + smoothstep(0.3, 0.7, fract(a * 4.0))) * 0.25;
-      dyn += uLightCol[i].rgb * a;
+      dyn += rgb * a;
     }
     // Many overlapping lights saturate instead of blowing out to white (keeps the hue).
     float peak = max(dyn.r, max(dyn.g, dyn.b));

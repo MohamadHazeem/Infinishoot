@@ -29,6 +29,7 @@ row('VIDEO', 'resolutionScale', 'RESOLUTION SCALE', 'Scales the internal pixel r
 row('VIDEO', 'frameCap', 'FRAME CAP', 'Presentation limit: 30, 60, 120 or unlimited. Simulation stays at 60 Hz. Browser refresh and VSync may limit the result.', undefined, ['30', '60', '120', 'unlimited']);
 row('VIDEO', 'vsync', 'VSYNC', 'Desktop: synchronize presentation with the display. Restart the app to apply. Browsers always control synchronization.');
 row('VIDEO', 'graphics', 'QUALITY', 'AUTO adjusts visual detail to keep the game running smoothly. POTATO is the lightest, for very old PCs.', [0, 4, 1], undefined, ['LOW', 'MEDIUM', 'HIGH', 'AUTO', 'POTATO']);
+rows.push({ tab: 'VIDEO', key: 'renderer', get label() { return t('renderer.label'); }, get desc() { return t('renderer.help'); }, options: ['auto', 'webgpu', 'webgl'] });
 row('VIDEO', 'highlightClips', 'HIGHLIGHT CLIPS', 'Keeps the last 15 seconds of silent gameplay for WebM export. Off on LOW/POTATO. Saves last until the next run.');
 rows.push({ tab: 'VIDEO', key: 'batterySaver', get label() { return t('mobile.battery'); }, get desc() { return t('mobile.batteryDesc'); } });
 rows.push({ tab: 'CONTROLS', key: 'touchOpacity', get label() { return t('mobile.opacity'); }, get desc() { return t('mobile.opacityDesc'); }, range: [25, 100, 5] });
