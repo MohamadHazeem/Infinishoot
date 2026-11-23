@@ -4389,3 +4389,11 @@ table.history .cause {
   height: 48px;
   image-rendering: pixelated;
 }
+
+.armour-hint {
+  font: calc(5 * var(--p)) / 1.1 var(--font);
+}
+.ob-cx > .armour-hint {
+  grid-column: 1 / -1;
+  color: var(--yellow);
+}

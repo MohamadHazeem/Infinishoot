@@ -1,3 +1,4 @@
+import { familyArmour, type Armour, type WeakPoint } from './armour';
 import { architectDefs } from '../game/architect/defs';
 import { biome3Defs } from './biome3';
 import { secretBossDefs } from './secrets';
@@ -13,6 +14,8 @@ export type BiomeBehavior = 'diver' | 'shark' | 'roller' | 'slug' | 'marcher' | 
 export type BiomeModel = 'bee' | 'shark' | 'snowball' | 'slug' | 'soldier' | 'kite';
 
 export interface EnemyDef {
+  armour?: Armour;
+  weakPoint?: WeakPoint;
   id: string;
   name: string;
   /** Not drawn (PvP stand-ins for heroes). */
@@ -1067,5 +1070,14 @@ export const ENEMY_MATERIALS: Readonly<Record<string, Material>> = {
   swarm_wall: 'flesh',
 };
 for (const def of Object.values(ENEMIES)) {
+  if (!def.hidden) {
+    if (def.boss || def.miniboss) def.weakPoint = 'core';
+    else {
+      def.armour = def.id === 'chonk' || def.id === 'v_chonk' ? 'plated'
+        : def.id === 'jellet' || def.id === 'v_jellet' ? 'swarm' : familyArmour[def.model];
+      if (def.armour === 'plated') def.weakPoint = 'back';
+      if (def.model === 'shooter' || def.model === 'exploder') def.weakPoint = 'core';
+    }
+  } else if (def.boss || def.titanPart) def.weakPoint = 'encounter';
   def.material ??= ENEMY_MATERIALS[def.id] ?? ENEMY_MATERIALS[def.id.replace(/^v_/, '')] ?? ENEMY_MATERIALS[def.remixOf ?? ''] ?? 'flesh';
 }

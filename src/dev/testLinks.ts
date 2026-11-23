@@ -342,7 +342,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
   if (q.has('battery')) settings.batterySaver = true;
   const scr = q.get('screen');
-  if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
+  const seededArsenal = scr === 'arsenal' && q.has('discover');
+  if (scr && !seededArsenal) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
   if (scr === 'loadout') game.screens.showLoadout('solo'); // Language QA needs populated kit cards.
   // Menu lane: a pinned boot overlay for screenshots (?test&menuload=1, 2 or error).
   if (q.has('menuload')) {
@@ -454,6 +455,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   mods2Links(game, q);
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
+  if (seededArsenal) game.screens.show('arsenal'); // Render discovered weapons after seeding the Codex.
   firsttenLinks(game, q); // fresh, ftgoals=, ftmodes, ftshop, ftlvl, ftdie=Rhino (src/dev/firsttenLinks.ts)
   if (q.has('adaptive')) adaptiveTuning.enabled = q.get('adaptive') !== 'off';
   director2Links(game, q);
