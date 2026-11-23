@@ -359,6 +359,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('battery')) settings.batterySaver = true;
   const scr = q.get('screen');
   if (scr === 'overworld') game.leaveToTitle();
+  if (scr === 'mastery') { game.leaveToTitle(); game.paused = true; }
   const seededArsenal = scr === 'arsenal' && q.has('discover');
   if (scr && !seededArsenal) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
   if (scr === 'loadout') game.screens.showLoadout('solo'); // Language QA needs populated kit cards.

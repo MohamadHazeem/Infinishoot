@@ -11,3 +11,5 @@ export const ROUTES = [ghostRoute, ghostsRoute, lobbies, teamboard, ranked];
 import { telemetryRoute } from './telemetry.js'; ROUTES.push(telemetryRoute);
 import { bosses } from './bosses.js'; ROUTES.push(bosses);
 import { goals } from './goals.js'; ROUTES.push(goals);
+import { hardcore } from './hardcore.js'; ROUTES.push(hardcore);
+import { speedrun } from './speedrun.js'; ROUTES.push(speedrun);

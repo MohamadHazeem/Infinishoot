@@ -1,3 +1,4 @@
+import { Mastery } from './mastery';
 import { AsymRoles } from './asymRoles';
 import { AsymRoleHud } from '../ui/asymRoleHud';
 import { validRoles, type Station } from '../data/asymRoles';
@@ -391,6 +392,7 @@ export class Game implements HeroWorld {
   worldEventLocal = WorldEventsSys.worldEventLocal;
   renderWorldEvent = WorldEventsSys.renderWorldEvent;
   clearWorld = RunFlowSys.clearWorld;
+  readonly mastery: Mastery;
   readonly echoes: EchoRuns;
   readonly biomeRules = new IslandField();
   readonly setPieces = new FieldMachines();
@@ -536,7 +538,9 @@ export class Game implements HeroWorld {
   killEnemy(e: Enemy, source: string, by: Hero | null): void {
     this.killDepth++;
     try {
+      const alive = e.active;
       this.killScoped(e, source, by);
+      if (alive && !e.active) this.mastery.kill(e, source, by);
     } finally {
       this.killDepth--;
     }
@@ -1256,6 +1260,7 @@ export class Game implements HeroWorld {
     this.bossMakerUi = new BossMakerUi(this, hudRoot);
     this.stationHud = new AsymRoleHud(this, hudRoot);
     this.streamUi = new StreamUi(this, hudRoot);
+    this.mastery = new Mastery(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1695,6 +1700,7 @@ export class Game implements HeroWorld {
     if (this.echoes.step(dt, localControl)) return;
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
+    if (this.mastery.mode) this.mastery.step(dt);
     GauntletSys.gauntletTick(this, dt);
     if (this.director.enrageStep && this.boss?.def.id === 'architect') BossFightSys.enragedArchitectStep(this, dt);
     else ArchitectSys.updateArchitect(this, dt);
