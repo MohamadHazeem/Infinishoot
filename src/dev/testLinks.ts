@@ -530,6 +530,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // Combat profilers and the crafting preview both historically use &bench.
   if (q.has('bench') && q.has('circle')) q.delete('bench');
   craftLink(game, q);
+  if (q.has('bossmaker')) game.bossMakerUi.preview(q.get('bossmaker') ?? '');
   return true;
 }
 

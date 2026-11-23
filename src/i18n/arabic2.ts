@@ -1,6 +1,8 @@
+import { makerEn } from './bossMaker';
 import { craftEn } from './g5craft';
 /** New Arabic-lane base copy. Other locales deliberately retain English until translated. */
 export const arabic2En = {
+  ...makerEn,
   "cine.titan": "The mountain is waking.",
   "photo.controls": "STUDIO CONTROLS",
   "photo.pose": "POSE",

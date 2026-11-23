@@ -1,4 +1,6 @@
 import { BeatCombat, beatCombatTuning } from './beatCombat';
+import { BossMaker } from './bossMaker';
+import { BossMakerUi } from '../ui/bossMakerUi';
 import { registerMaestro, routeConductor } from './bossesMaestro';
 import { EchoRuns } from './echo';
 import { NemesisUi } from '../ui/nemesisUi';
@@ -579,6 +581,7 @@ export class Game implements HeroWorld {
     if (field) snap.island = field;
     const machinery = this.setPieces.snapshotFor(this, view?.enc ?? h);
     if (machinery) snap.machinery = machinery;
+    if (this.bossMaker.active?.stage === this.stage && this.stepN % 60 < SNAP_EVERY) snap.maker = this.bossMaker.active.code;
     snap.beat = this.beatCombat.snapshot(h);
     const marks = this.beatCombat.score.snapshot();
     if (marks) snap.beatMarks = marks;
@@ -605,6 +608,7 @@ export class Game implements HeroWorld {
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
     this.echoes.receive(m.echo);
+    if (m.maker) this.bossMaker.mirror(this, m.maker, this.stage);
     this.biomeRules.mirror(this, m.island);
     this.setPieces.mirror(this, m.machinery);
     this.beatCombat.mirror(this, m.beat);
@@ -987,6 +991,8 @@ export class Game implements HeroWorld {
   /** Final bosses beaten this run (one per loop). */
   victories = 0;
   newAchievements: string[] = [];
+  readonly bossMaker = new BossMaker();
+  bossMakerUi!: BossMakerUi;
   boss: Enemy | null = null;
   comboT = 0;
   damagedThisStage = false;
@@ -1215,6 +1221,8 @@ export class Game implements HeroWorld {
     new NemesisUi(this, hudRoot);
     installOverworld(this, hudRoot);
     this.echoes = new EchoRuns(this, hudRoot);
+    this.bossMaker.install(this);
+    this.bossMakerUi = new BossMakerUi(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1698,6 +1706,7 @@ export class Game implements HeroWorld {
     coopPlayTargets(this); // the escorted core draws enemies too (systems/coopplay.ts)
     updateElites2.call(this, dt);
     const previousLure = EnemyAiSys.preparePatrols(this, dt);
+    if (this.bossMaker.active) this.bossMaker.step(this, dt);
     if (this.director.enrageStep && this.boss?.active) BossFightSys.enragedEnemyStep(this, dt);
     else this.enemies.update(dt, this.enemyCtx);
     this.enemyCtx.lure = previousLure;
