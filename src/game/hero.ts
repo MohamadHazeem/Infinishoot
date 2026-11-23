@@ -151,6 +151,9 @@ export class Hero implements SynergyHost {
   /** Gears held (each rerolls one level-up). */
   rerollsLeft = 0;
   revivesLeft = 0;
+  beatEnabled = true;
+  beatAccent = -1;
+  beatBonusBase = 0;
   dashes = 0;
   damageBy: Record<string, number> = {};
   // Level-ups and chests waiting for this hero.
@@ -322,6 +325,8 @@ export class Hero implements SynergyHost {
     this.passives = {};
     this.synergy.reset();
     this.sets.reset();
+    this.beatAccent = -1;
+    this.beatBonusBase = 0;
     this.gold = this.dashes = 0;
     this.damageBy = {};
     this.pendingLevels = this.chestsPending = 0;

@@ -50,6 +50,7 @@ export interface Settings extends DisplayOptions {
   soundArrows: boolean;
   retro: number;
   shake: number;
+  beatCombat: boolean;
   autoFire: boolean;
   /** Casual lane: local solo/shared-screen preferences; ignored online. */
   gameSpeed: '100' | '85' | '70';
@@ -190,6 +191,7 @@ export const SETTINGS_DEFAULTS: Readonly<Settings> = {
   soundArrows: false,
   retro: 0.5,
   shake: 1,
+  beatCombat: true,
   autoFire: false,
   gameSpeed: '100', oneStick: false, assistDash: false, assistIframes: false, assistDamage: false, assistBullets: false, assistMagnet: false,
   showFps: false,
@@ -275,6 +277,7 @@ if (typeof location !== 'undefined') {
   const lang = new URLSearchParams(location.search).get('lang');
   if (isLanguage(lang)) settings.language = lang;
 }
+settings.beatCombat = settings.beatCombat !== false;
 settings.dynamicCamera ??= true;
 settings.tips ??= true;
 settings.weather ??= true;

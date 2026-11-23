@@ -20,6 +20,25 @@ export function buildBosses3Model(def: EnemyDef, add: Part): void {
   const r = def.radius;
   const B = def.bodyColor;
   const A = def.accentColor;
+  if (def.id === 'maestro') {
+    // Clockwork parade conductor: a snare-drum body, tall shako, white gloves and raised baton.
+    for (const side of [-1, 1]) {
+      add(new THREE.BoxGeometry(r * 0.5, r * 0.33, r * 0.75), INK, side * r * 0.42, r * 0.19, r * 0.14);
+      add(new THREE.SphereGeometry(r * 0.26, 8, 5), WHITE, side * r * 0.94, r * (side > 0 ? 1.65 : 1.1), r * 0.34);
+    }
+    add(new THREE.CylinderGeometry(r * 0.8, r * 0.72, r, 12), B, 0, r * 0.94, 0);
+    for (const y of [0.46, 1.42]) add(new THREE.CylinderGeometry(r * 0.84, r * 0.84, r * 0.14, 12), A, 0, r * y, 0);
+    for (const x of [-0.4, 0, 0.4]) add(new THREE.BoxGeometry(r * 0.09, r * 0.73, r * 0.12), A, r * x, r * 0.95, r * (0.78 - Math.abs(x) * 0.3));
+    add(new THREE.SphereGeometry(r * 0.60, 12, 8), '#ffcd75', 0, r * 1.99, 0);
+    for (const x of [-0.22, 0.22]) add(new THREE.BoxGeometry(r * 0.13, r * 0.21, r * 0.09), INK, r * x, r * 2, r * 0.54);
+    add(new THREE.BoxGeometry(r * 0.27, r * 0.06, r * 0.07), INK, 0, r * 1.79, r * 0.53);
+    add(new THREE.CylinderGeometry(r * 0.66, r * 0.54, r * 0.62, 10), '#b13e53', 0, r * 2.66, 0);
+    add(new THREE.CylinderGeometry(r * 0.68, r * 0.68, r * 0.10, 10), A, 0, r * 2.39, r * 0.10);
+    add(new THREE.OctahedronGeometry(r * 0.33).scale(0.65, 1.8, 0.7), WHITE, r * 0.2, r * 3.32, 0);
+    add(new THREE.CylinderGeometry(r * 0.03, r * 0.065, r * 1.45, 5).rotateZ(-0.45), WHITE, r * 1.20, r * 2.31, r * 0.36);
+    add(new THREE.OctahedronGeometry(r * 0.13), A, r * 1.52, r * 2.96, r * 0.36);
+    return;
+  }
   switch (def.model) {
     case 'dj': {
       // Floating deck: a slab with two turntables, a neon strip and hover jets.

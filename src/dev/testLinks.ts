@@ -175,6 +175,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const q = new URLSearchParams(search);
   biome3Force.move = q.get('biome3move') ?? '';
   if (!q.has('test')) return false;
+  game.beatCombat.forceMaestro = q.has('maestro');
+  if (q.has('beatcombat')) settings.beatCombat = q.get('beatcombat') !== 'off';
   casualLinks(q); // &casual, &onestick, &gamespeed=70, &assists=dash,iframes,damage,bullets,magnet
   const list = (k: string) => (q.get(k) ?? '').split(',').map((x) => x.trim()).filter(Boolean);
   const pair = (s: string): [string, number] => {

@@ -17,6 +17,17 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "beat.maestro": "Maestro",
+  "beat.subtitle": "THE WIND-UP CONDUCTOR",
+  "beat.phase2": "SECOND MOVEMENT · WATCH THE OFFSIDE MARK",
+  "beat.phase3": "FINALE · STEP BETWEEN THE DRUMS",
+  "beat.strike": "Maestro’s drumbeat",
+  "beat.tip": "Step out of the marked drumheads before the accent.",
+  "beat.lore": "A wind-up bandleader keeps time for the island parade with a little gold baton.",
+  "beat.track": "Maestro · Brass Buttons",
+  "beat.setting": "BEAT COMBAT",
+  "beat.help": "Fire as the crosshair ticks meet for stronger shots. Timed gadget launches, dashes and successful parries recharge stamina faster. Works with music muted.",
+  "beat.reticle": "Beat timing",
   "g7.roots": "Green roots slow enemies inside the four stones.",
   "g7.prism": "Violet diamonds expose enemies. Hit them while they glow.",
   "g7.spring": "Stand on the amber bolt to recharge your special faster.",
