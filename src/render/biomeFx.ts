@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { ArenaDeco } from '../world/fieldArena';
 import { createRetroMaterial, type RetroMaterial } from './retroMaterial';
 import { biomeTex } from './biomeTextures';
-import { commit } from './instancing';
+import { commit, instanceMatrix } from './instancing';
 import { viewCull } from './viewCull';
 
 /**
@@ -182,7 +182,7 @@ export class BiomeFx {
         const sc = (0.45 + k * 1.2) * (k > 0.65 ? (1 - k) / 0.35 : 1);
         this.q.setFromEuler(this.e.set(k * 2, i * 0.7, 0));
         this.m4.compose(this.v.set(this.px[n], this.py[n], this.pz[n]), this.q, this.s.set(sc, sc * 0.8, sc));
-        pm.setMatrixAt(n, this.m4);
+        instanceMatrix(pm, n, this.m4);
         n++;
       }
       this.np = n;

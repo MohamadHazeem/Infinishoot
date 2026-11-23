@@ -15,7 +15,8 @@ export function instanceMatrix(mesh: THREE.InstancedMesh, index: number, matrix:
  * capacity) every frame, which is the main cost with many big pools.
  */
 export function commit(attr: THREE.BufferAttribute, count: number): void {
+  if (!count) return; // Nothing is read. Refilling a pool commits its new live range.
   attr.clearUpdateRanges();
-  attr.addUpdateRange(0, Math.max(1, count) * attr.itemSize);
+  attr.addUpdateRange(0, count * attr.itemSize);
   attr.needsUpdate = true;
 }

@@ -16,7 +16,7 @@ import {
   searchBeam,
   worldEventTuning as T,
 } from '../game/worldEvents';
-import { commit } from './instancing';
+import { commit, instanceMatrix } from './instancing';
 import type { LightPicker } from './lights';
 import { createRetroMaterial, type RetroMaterial } from './retroMaterial';
 import { biomeTex } from './biomeTextures';
@@ -122,7 +122,7 @@ class Pool {
     if (q) this.q.copy(q);
     else this.q.setFromAxisAngle(Y_AXIS, rotY);
     this.m.compose(this.v.set(x, y, z), this.q, this.s.set(sx, sy, sz));
-    this.mesh.setMatrixAt(this.n++, this.m);
+    instanceMatrix(this.mesh, this.n++, this.m);
   }
   end(): void {
     this.mesh.count = this.n;

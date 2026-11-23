@@ -29,9 +29,8 @@ export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?:
   let best: Enemy | null = null;
   let bd = r * r;
   this.hash.query(x, z, r, (e) => {
-    if (!e.targetable || e.hp <= 0 || (skip && skip(e)) || worldHooks.hidden?.(e)) return;
     const d = (e.x - x) ** 2 + (e.z - z) ** 2;
-    if (d < bd) {
+    if (d < bd && e.targetable && e.hp > 0 && !skip?.(e) && !worldHooks.hidden?.(e)) {
       bd = d;
       best = e;
     }

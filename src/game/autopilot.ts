@@ -48,14 +48,16 @@ export class Autopilot {
     const o = this.out;
     const p = g.player;
     let best = null as null | { x: number; z: number };
+    const px = p.x, pz = p.z;
     let bd = 1e9;
     let ax = 0;
     let az = 0;
     for (const e of g.enemies.list) {
       // PvP: its own invisible stand-in isn't a target.
       if (!e.alive || pvpFriendly(g.pvp?.teams, e.pvpOwner, g.hero.index)) continue;
-      const dx = p.x - e.x;
-      const dz = p.z - e.z;
+      const dx = px - e.x;
+      const dz = pz - e.z;
+      if (Math.max(Math.abs(dx), Math.abs(dz)) >= Math.max(3.5, bd)) continue;
       const d = Math.hypot(dx, dz);
       if (d < bd) {
         bd = d;
@@ -66,11 +68,14 @@ export class Autopilot {
         az += dz / (d * d + 0.1);
       }
     }
+    let parry = false;
     for (let i = 0; i < g.bullets.count; i++) {
       if (g.bullets.team[i] !== Team.Enemy) continue;
-      const dx = p.x - g.bullets.x[i];
-      const dz = p.z - g.bullets.z[i];
+      const dx = px - g.bullets.x[i];
+      const dz = pz - g.bullets.z[i];
+      if (Math.abs(dx) >= 3 || Math.abs(dz) >= 3) continue;
       const d = Math.hypot(dx, dz);
+      if (d < 1.4) parry = true;
       if (d < 3) {
         ax += (dx / (d * d + 0.1)) * 2;
         az += (dz / (d * d + 0.1)) * 2;
@@ -125,13 +130,7 @@ export class Autopilot {
     o.special = g.hero.bombCharge >= 1 && Math.hypot(ax, az) > 1;
     // Skill layer: ultimate when charged with enemies close, parry when an enemy bullet is about to land.
     o.ult = g.hero.skill.ult >= 1 && bd < 8;
-    o.parry = false;
-    for (let i = 0; i < g.bullets.count; i++) {
-      if (g.bullets.team[i] === Team.Enemy && Math.hypot(g.bullets.x[i] - p.x, g.bullets.z[i] - p.z) < 1.4) {
-        o.parry = true;
-        break;
-      }
-    }
+    o.parry = parry;
     pilotRaid(g, o);
     pilotArchitect(g, o);
     dodgeThreats(g, o);

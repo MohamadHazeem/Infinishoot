@@ -846,7 +846,7 @@ export interface EnemyCtx {
   /** Rhythm stages: true on steps between beats, so wind-ups that end then wait for the next beat. */
   beatHold?: boolean;
   /** Sound-reactive enemies (`EnemyDef.ears`, src/game/systems/sound2.ts): same contract as `lure`, asked when lure says null. */
-  hear?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
+  hear?: (e: Enemy, nearestDistance2: number) => { x: number; z: number; radius: number; speed: number } | null;
 }
 
 // ------------------------------------------------------------------ rendering helpers
@@ -1153,6 +1153,8 @@ export class Enemies {
   }
 
   update(dt: number, ctx: EnemyCtx): void {
+    const steering = 1 - Math.exp(-10 * dt);
+    const knockbackDecay = Math.exp(-9 * dt);
     const away = { x: 1e6, z: 1e6, radius: 0 };
     for (const e of this.list) {
       if (!e.active) continue;
@@ -1208,7 +1210,7 @@ export class Enemies {
           best = t;
         }
       }
-      const lure = ctx.lure?.(e) ?? director2Hooks.lure?.(e) ?? ctx.hear?.(e) ?? null;
+      const lure = ctx.lure?.(e) ?? director2Hooks.lure?.(e) ?? ctx.hear?.(e, bd) ?? null;
       ctx.target = lure ?? best ?? away;
       ctx.targetAlive = !lure && !!best;
       const tgt = ctx.target;
@@ -1275,16 +1277,17 @@ export class Enemies {
         const r = e.radius;
         // queryInto + a plain loop: a closure here allocated a context (and boxed sx/sz) per enemy per step.
         const near = this.near;
-        const n = ctx.hash.queryInto(e.x, e.z, r * 2, near);
+        const separates = !e.underground && !(e.def.behavior === 'swarmwall' && e.timerA > 0) && e.def.behavior !== 'egg';
+        const n = separates ? ctx.hash.queryInto(e.x, e.z, r * 2, near) : 0;
         for (let i = 0; i < n; i++) {
           const o = near[i];
-          if (o === e || !o.targetable || e.underground || e.def.behavior === 'swarmwall' && e.timerA > 0 || e.def.behavior === 'egg') continue;
+          if (o === e) continue;
           const ox = e.x - o.x;
           const oz = e.z - o.z;
           const d2 = ox * ox + oz * oz;
           const min = r + o.radius;
           if (d2 > 0.0001 && d2 < min * min) {
-            if (Math.abs(o.floorY - e.floorY) > 1.1) continue;
+            if (!o.targetable || Math.abs(o.floorY - e.floorY) > 1.1) continue;
             const d = Math.sqrt(d2);
             const push = ((min - d) / min) * (o.def.boss ? 3 : 1);
             sx += (ox / d) * push;
@@ -1299,7 +1302,7 @@ export class Enemies {
             }
           }
         }
-        const steer = rigid ? 1 : 1 - Math.exp(-10 * dt);
+        const steer = rigid ? 1 : steering;
         if (!rigid && jam > 0) {
           // Jammed in a crowd: push on less, so the swarm doesn't pack into one blob.
           const k = 1 / (1 + jam * crowdTuning.jam);
@@ -1310,9 +1313,8 @@ export class Enemies {
         e.vz += (wantZ - e.vz) * steer;
       }
 
-      const kd = Math.exp(-9 * dt);
-      e.kx *= kd;
-      e.kz *= kd;
+      e.kx *= knockbackDecay;
+      e.kz *= knockbackDecay;
       e.x += (e.vx + e.kx + sx * crowdTuning.push) * dt + hx;
       e.z += (e.vz + e.kz + sz * crowdTuning.push) * dt + hz;
       if (!rigid && e.hopY <= 0 && !e.def.boss && !e.def.hidden && e.def.behavior !== 'reaper') keepOffHeroes(e, ctx.targets);

@@ -96,7 +96,7 @@ interface LaneState {
   shown: Map<number, Heard>;
   anchors: Map<number, { x: number; z: number }>;
   onSound: (name: string, x: number, z: number) => void;
-  hear: (e: Enemy) => typeof lureOut | null;
+  hear: (e: Enemy, nearestDistance2: number) => typeof lureOut | null;
   steps: number;
   // Shared (host writes, clients mirror).
   band: number;
@@ -153,7 +153,7 @@ export function soundLane(g: Game): LaneState {
         const loud = cueLoudness(name);
         if (loud > 0) st.noise.add(x, z, loud);
       },
-      hear: (e) => hear(g, st, e),
+      hear: (e, nearestDistance2) => hear(g, st, e, nearestDistance2),
       steps: 0,
       band: 0, drop: null, netTells: new Map(),
       mode: 'title', bossUid: -1, bossPhase: 1, bossHp: 1, bossName: '', bossTitan: false, bossSeenAt: 0, cBoss: null, bossScan: 0,
@@ -194,22 +194,16 @@ export function soundLaneStep(g: Game, dt: number): void {
   if (!g.pvp && !g.onboarding.training) instrumentsHost(g, L, dt);
 }
 
-function hear(g: Game, L: LaneState, e: Enemy): typeof lureOut | null {
+function hear(g: Game, L: LaneState, e: Enemy, nearestDistance2: number): typeof lureOut | null {
   const ears = e.def.ears;
   if (!ears || !hearingTuning.enabled || g.role === 'client' || e.def.boss) return null;
-  let hd = Infinity;
-  for (const t of g.targets) {
-    if (!t.alive) continue;
-    const d = (t.x - e.x) ** 2 + (t.z - e.z) ** 2;
-    if (d < hd) hd = d;
-  }
   // Inside engagement distance the decision is always normal chase, regardless
   // of sound. Avoid scanning all noise blobs for every nearby swarmer.
-  if (hd < hearingTuning.engage * hearingTuning.engage) {
+  if (nearestDistance2 < hearingTuning.engage * hearingTuning.engage) {
     L.anchors.delete(e.uid);
     return null;
   }
-  hd = Math.sqrt(hd);
+  const hd = Math.sqrt(nearestDistance2);
   const heard = L.noise.loudest(e.x, e.z, hearingTuning.range * ears, spot);
   const dx = spot.x - e.x, dz = spot.z - e.z;
   const dec = hearDecision(heard, hd, heard > 0 ? Math.sqrt(dx * dx + dz * dz) : 0);

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { makeTexture } from '../render/textures';
-import { commit } from '../render/instancing';
+import { commit, instanceMatrix } from '../render/instancing';
 import { INSTRUMENTS, INSTRUMENT_IDS } from '../audio/instruments';
 
 /**
@@ -71,7 +71,7 @@ class Marks {
   add(x: number, y: number, z: number, q: THREE.Quaternion): void {
     if (this.n >= this.cap) return;
     this.m.compose(this.v.set(x, y, z), q, this.s);
-    this.mesh.setMatrixAt(this.n++, this.m);
+    instanceMatrix(this.mesh, this.n++, this.m);
   }
   end(): void {
     this.mesh.count = this.n;
