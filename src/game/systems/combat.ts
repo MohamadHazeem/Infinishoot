@@ -1,3 +1,5 @@
+import { routeArmour } from '../armour';
+import { armourTuning } from '../../data/armour';
 import { architectCanDamage } from './architect';
 import { eliteGround } from './elites2';
 /**
@@ -49,7 +51,7 @@ export function enemiesInRadius(this: Game, x: number, z: number, r: number, out
 
 /** All damage to enemies, credited to the hero who dealt it. */
 export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: Hero): number {
-  if (!e.active || e.hp <= 0) return 0;
+  if (this.role === 'client' || !e.active || e.hp <= 0) return 0;
   if (!architectCanDamage(this, e)) return 0;
   if (e.pvpOwner >= 0) return this.pvpHit(e, base, o, by);
   if (e.phaseOut) return 0;
@@ -65,7 +67,8 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   if (!o.fixed && e.shockT > 0) amount *= 1 + statusTuning.shockMult + by.synergy.flags.shockMult;
   if (!o.fixed && e.exposeT > 0) amount *= 1 + statusTuning.exposeMult;
   if (!o.fixed) amount *= this.setsDamageMul(e, by); // item sets (systems/sets.ts)
-  if (!o.fixed) amount *= this.guardMul(e, o, by); // Shield Bots
+  const matchup = o.fixed ? 1 : routeArmour(this, e, tags, o, by);
+  amount *= matchup;
   if (crit) amount *= by.stats.critMult;
   amount = Math.max(1, Math.round(amount));
   const raidHit = this.damageRaid(e, amount, o, by);
@@ -95,7 +98,14 @@ export function damage(this: Game, e: Enemy, base: number, o: DamageOpts, by: He
   e.squash(crit ? -6 : -3);
   const hx = o.hx ?? e.x;
   const hz = o.hz ?? e.z;
-  if (crit) {
+  if (matchup !== 1 && (crit || o.loud || this.runTime >= e.armourCueAt)) {
+    e.armourCueAt = this.runTime + armourTuning.quietCueInterval;
+    const weak = matchup > 1;
+    // Reuse the pooled gold/underlined and blue/diamond number styles on both peers.
+    this.vfx.num(e.x, 1.7 * e.scale, e.z, damageNumberLabel(amount, weak ? 'shock' : 'shield'), 'hit', by.index);
+    this.vfx.star(hx, BULLET_Y, hz, weak ? 1.15 : 0.55, weak ? '#ffcd75' : '#41a6f6', 0.12);
+    if (o.loud || crit) this.vfx.sound(impactCue(e.def.material, crit, shielded), e.x, e.z, this.pitch);
+  } else if (crit) {
     this.vfx.num(e.x, 1.9 * e.scale, e.z, `${amount}!`, 'crit', by.index);
     this.vfx.sound(impactCue(e.def.material, true, shielded), e.x, e.z); // crit + material (src/audio/voices.ts)
     this.vfx.star(hx, BULLET_Y, hz, 1.5, '#fff35c', 0.12);

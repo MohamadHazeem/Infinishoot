@@ -1,3 +1,5 @@
+import { codexTab } from '../data/arsenal';
+import { armourTypes, countersArmour } from '../data/armour';
 import { showDeathPanel } from './deathRecap';
 import type { DeathPacket } from '../game/damageLog';
 import { played, refreshSetup } from './menuRun';
@@ -214,6 +216,22 @@ function levelPips(o: Offer): string {
   const pips = Array.from({ length: o.maxLevel }, (_, k) => `<i class="${k < o.level! ? 'on' : k === o.level ? 'next' : ''}"></i>`).join('');
   const next = o.level + 1 === o.maxLevel && o.tag === 'EVOLVE!' ? 'EVOLVE' : `LV ${o.level + 1}`;
   return `<div class="lvl">LV ${o.level} ▸ ${next}</div><div class="pips">${pips}</div>`;
+}
+
+function armourHint(id: string, extra: readonly Tag[] = [], base?: string): string {
+  const w = WEAPONS[base ?? id.replace(/_evo2?$/, '')];
+  if (!w) return '';
+  const evo = id.endsWith('_evo2') ? 1 : id.endsWith('_evo') ? 0 : -1;
+  const tags = [...w.tags, ...extra, ...(w.evos?.[evo]?.tags ?? [])];
+  if (w.id === 'revdrone' && evo < 0) return '';
+  const types = armourTypes.filter(a => a === 'shielded' ? w.slot === 'secondary' : countersArmour(tags, a));
+  const hint = types.length ? t('armour.strong', { types: types.map(a => t('armour.' + a)).join(' · ') }) : t('armour.flank');
+  return `<small class="armour-hint">${hint}</small>`;
+}
+function armourGuide(): string {
+  return [...armourTypes, 'core'].map(a =>
+    `<article class="bst" data-nav tabindex="0"><b>${t('armour.' + a)}</b><p>${t('armour.guide.' + a)}</p></article>`
+  ).join('');
 }
 
 /** Evolution strip: the weapon and its partner item, ticked when owned, and what they become. */
@@ -817,6 +835,7 @@ export class Screens {
     // Hide in-game banners and toasts behind menus.
     this.root.classList.toggle('menu-open', name !== 'none');
     if (META_SCREENS.includes(name as MetaScreen)) renderMeta(this.els[name as MetaScreen], name as MetaScreen);
+    if (name === 'codex') this.els.codex.querySelector('.meta-grid')?.insertAdjacentHTML('afterbegin', localizeHtml(armourGuide()));
     if (name === 'settings') this.settingsScreen.open();
     if (name === 'contentmods') this.modsScreen.open();
     if (name === 'title') this.renderProgress();
@@ -841,6 +860,15 @@ export class Screens {
     if (name === 'shop') this.els.shop.querySelector('.owned-title')!.setAttribute('title', t('menus.mods'));
     if (name === 'relic') this.els.relic.querySelector<HTMLElement>('.note')!.title = t('menus.relics');
     this.onShow?.(name);
+    if (name === 'arsenal') {
+      const grid = this.extra.arsenal?.el;
+      if (grid?.querySelector('.ob-tab.on[data-tab="weapons"]')) {
+        const weapons = codexTab('weapons');
+        grid.querySelectorAll('.ob-cx').forEach((row, i) => {
+          if (!row.classList.contains('unseen')) row.insertAdjacentHTML('beforeend', localizeHtml(armourHint(weapons[i].icon)));
+        });
+      }
+    }
     this.titleMenu.show(name);
     if (name !== 'none') polishMenuScreen(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]);
     if (name !== 'none' && name !== 'title') keepBackLast(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]); // uxpass
@@ -1080,6 +1108,7 @@ export class Screens {
           <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${o.text}${o.kind === 'overdrive' ? ' ' + t('menus.overdrive') : ''}</div>
           ${numsHtml(o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
+          ${o.slot === 'left' || o.slot === 'right' || o.slot === 'auto' ? armourHint(o.id, o.tags, o.pick?.split('|')[0]) : ''}
           ${offerSetChips(o)}
           ${o.replaces ? replaceStrip(o.replaces) : ''}
           ${o.partner ? partnerStrip(o.partner) : ''}

@@ -1,3 +1,5 @@
+import { armourOf, armourTuning } from '../data/armour';
+import { BULLET_Y } from './bullets';
 import { biome3Model } from './biome3Models';
 import { jellyfishBrain } from './biome3Brain';
 import { addBiomeParts, biomePaint, biomeSkinKey, bossDamageMaterial, hasBiomeSkin, hasBossDamage, modelDetail, type BiomeSkinKey } from '../render/biomeSkins';
@@ -526,6 +528,14 @@ export function enemyGeometry(def: EnemyDef, biome: BiomeSkinKey = 'meadow'): TH
     if (ng !== g) g.dispose();
   };
   buildModel(def, (g, color, x, y, z) => add(g, skinned ? biomePaint(color, def, biome) : color, x, y, z));
+  // A lilac spectral halo and a three-dot brood marking survive biome recolours.
+  const r = def.radius;
+  if (def.armour === 'ethereal') {
+    add(new THREE.TorusGeometry(r * 0.72, r * 0.10, 4, 8).rotateX(Math.PI / 2), '#b13eec', 0, r * 2.6, 0);
+  } else if (def.armour === 'swarm') {
+    const top = def.model === 'swarmer' ? 0.9 + r : 1.8 * r;
+    for (let i = -1; i <= 1; i++) add(new THREE.BoxGeometry(r * 0.21, r * 0.16, r * 0.26), '#a7f070', i * 0.34 * r, top, 0);
+  }
   if (skinned) addBiomeParts(def, biome, add);
   if (damage && def.model !== 'cake') addBossDetails(def, add);
   // Keep damage-only shards out of the inverted hull (the body retains its own outline).
@@ -662,6 +672,7 @@ export class Enemy {
   guardAng = 0;
   /** Shield Bot "BLOCK" popup cooldown. */
   blockT = 0;
+  armourCueAt = -Infinity;
   /** AI state clients draw (synced in the enemy record): 1 squad member, 2 rallied, 4 guarded. */
   aiBits = 0;
   /** Biome foes' synced sub-state (3 bits): the shark underground (1), the snowball's size step. */
@@ -692,6 +703,7 @@ export class Enemy {
   constructor(public def: EnemyDef) {}
 
   reset(x: number, z: number, o: SpawnOpts): void {
+    this.armourCueAt = -Infinity;
     this.familyState = this.copyKind = this.copyFlash = 0;
     this.familyFled = false;
     this.copyShots = 1;
@@ -938,6 +950,77 @@ class GroundDecals {
 
 // ------------------------------------------------------------------ manager
 
+function panel(w: number, h: number, d: number, x: number, y: number, z: number, color: string) {
+  return paint(new THREE.BoxGeometry(w, h, d).translate(x, y, z), color);
+}
+function marker(scene: THREE.Scene, parts: THREE.BufferGeometry[], reticle = false) {
+  const geo = mergeGeometries(parts)!;
+  for (const p of parts) p.dispose();
+  const mat = createRetroMaterial({ vertexColors: true, unlit: 1 });
+  if (reticle) { mat.depthTest = false; mat.depthWrite = false; }
+  const mesh = new THREE.InstancedMesh(geo, mat, 1024);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.count = 0;
+  mesh.frustumCulled = false;
+  if (reticle) mesh.renderOrder = 3;
+  scene.add(mesh);
+  return mesh;
+}
+// The core reticle sits on the aiming plane, including on tall bosses. Markers use
+// the actual facing, independent of animation lean, biome paint and hit flashes.
+class ArmourView {
+  private readonly scale = new THREE.Vector3();
+  private readonly matrix = new THREE.Matrix4();
+  private readonly plate: THREE.InstancedMesh;
+  private readonly shield: THREE.InstancedMesh;
+  private readonly core: THREE.InstancedMesh;
+  private readonly layers: THREE.InstancedMesh[];
+
+  constructor(scene: THREE.Scene) {
+    this.plate = marker(scene, [
+      panel(1.65, 0.80, 0.24, 0, 1.28, 0.94, '#333c57'),
+      panel(1.44, 0.52, 0.26, 0, 1.40, 0.96, '#94b0c2'),
+      panel(1.17, 0.19, 0.25, 0, 1.30, -1, '#ffcd75'),
+      panel(0.88, 0.14, 0.25, 0, 0.99, -1, '#ef7d57'),
+    ]);
+    // A cyan powered rim outside the bot's physical riot shield; vanishes on break.
+    this.shield = marker(scene, [
+      panel(2.42, 0.18, 0.24, 0, 2.01, 1.03, '#73eff7'),
+      panel(0.16, 1.61, 0.2, -1.13, 1.20, 1.03, '#73eff7'),
+      panel(0.16, 1.61, 0.2, 1.13, 1.20, 1.03, '#73eff7'),
+    ]);
+    this.core = marker(scene, [
+      paint(new THREE.RingGeometry(0.66, 1.28, 8).rotateX(-Math.PI / 2).toNonIndexed(), '#1a1c2c'),
+      paint(new THREE.RingGeometry(0.76, 1.06, 8).rotateX(-Math.PI / 2).toNonIndexed(), '#ffcd75'),
+      paint(new THREE.OctahedronGeometry(0.58), '#f4f4f4'),
+    ], true);
+    this.layers = [this.plate, this.shield, this.core];
+  }
+
+  begin(): void {
+    for (const mesh of this.layers) mesh.count = 0;
+  }
+
+  put(e: Enemy, x: number, y: number, z: number, time: number, calm: boolean): void {
+    const armour = armourOf(e.def, e.elite);
+    const r = e.radius;
+    const mesh = armour === 'plated' ? this.plate : armour === 'shielded' && !e.familyState ? this.shield : null;
+    if (mesh && mesh.count < mesh.instanceMatrix.count) {
+      this.matrix.makeRotationY(e.facing).scale(this.scale.setScalar(r)).setPosition(x, y, z);
+      instanceMatrix(mesh, mesh.count++, this.matrix);
+    }
+    if (e.def.weakPoint === 'core' && this.core.count < this.core.instanceMatrix.count) {
+      const s = r * armourTuning.coreRadius * (calm ? 1 : 1 + 0.10 * Math.sin(4 * time));
+      this.matrix.makeScale(s, s, s).setPosition(x + r * armourTuning.coreOffset * Math.cos(e.facing), BULLET_Y, z - r * armourTuning.coreOffset * Math.sin(e.facing));
+      instanceMatrix(this.core, this.core.count++, this.matrix);
+    }
+  }
+
+  end(): void {
+    for (const mesh of this.layers) commit(mesh.instanceMatrix, mesh.count);
+  }
+}
+
 /** Pool, behaviour and rendering for all enemies. */
 export class Enemies {
   readonly list: Enemy[] = [];
@@ -963,6 +1046,7 @@ export class Enemies {
   private pose: EnemyPose = { y: 0, ox: 0, oz: 0, sx: 1, sy: 1, sz: 1, pitch: 0, roll: 0, yaw: 0 };
   private euler = new THREE.Euler(0, 0, 0, 'YXZ');
   private lastTime = -1;
+  private readonly armourView: ArmourView;
   /** Biome foes' telegraphs and lava puddles. */
   private biomeView: BiomeFoeView;
   private putCorpse = (def: EnemyDef, m: THREE.Matrix4, r: number, g: number, b: number, a: number): void => {
@@ -981,6 +1065,7 @@ export class Enemies {
   };
 
   constructor(private scene: THREE.Scene) {
+    this.armourView = new ArmourView(scene);
     this.decals = new GroundDecals(scene, 2048);
     this.biomeView = new BiomeFoeView(scene);
   }
@@ -1074,6 +1159,7 @@ export class Enemies {
       if (e.slowT > 0) e.slowT -= dt;
       if (e.underground || e.def.behavior === 'reaper') e.frozen = e.slowT = 0; // nothing slows the Reaper
       if (e.guardT > 0) e.guardT -= dt;
+      if (e.def.armour === 'shielded' && e.familyState === 1 && (e.tickT -= dt) <= 0) e.familyState = 0;
       if (e.blockT > 0) e.blockT -= dt;
       if (e.rallyT > 0) e.rallyT -= dt;
       if (e.scatterT > 0) e.scatterT -= dt;
@@ -1473,7 +1559,7 @@ export class Enemies {
         } else if (e.t <= 0) e.state = 'move';
         if ((e.timerB -= dt) <= 0) {
           e.timerB = 0.25;
-          this.guardAllies(e, G.range * e.scale, ctx);
+          if (!e.familyState) this.guardAllies(e, G.range * e.scale, ctx);
         }
         break;
       }
@@ -1771,6 +1857,7 @@ export class Enemies {
     d.shadows.count = d.markers.count = d.lines.count = d.zones.count = d.discs.count = d.auras.count = d.bubbles.count = d.heals.count = d.mounds.count = d.copyBeams.count = 0;
     d.setPulse(time, this.familyReduceFlash);
     (d.copyBeams.material as RetroMaterial).uniforms.uColor.value.set(this.familyColorblind ? '#ffffff' : '#b13eec');
+    this.armourView.begin();
     this.biomeView.begin();
     const fdt = this.lastTime < 0 ? 0 : Math.max(0, Math.min(0.05, time - this.lastTime));
     this.lastTime = time;
@@ -1885,6 +1972,7 @@ export class Enemies {
       this.q.setFromEuler(this.euler.set(P.pitch, e.facing + P.yaw, P.roll));
       this.m4.compose(this.v.set(x + P.ox, y, z + P.oz), this.q, this.s.set(sx * P.sx, sy * P.sy, sx * P.sz));
       instanceMatrix(b.mesh, i, this.m4);
+      if (e.targetable) this.armourView.put(e, x, y, z, time, this.familyReduceFlash);
       b.health?.setX(i, Math.max(0, Math.min(1, e.hp / Math.max(1, e.maxHp))));
 
       // Flash priority: hit > frozen > telegraph > elite glow.
@@ -1939,6 +2027,7 @@ export class Enemies {
     }
 
     this.corpses.render(fdt, time, this.m4, this.putCorpse, this.putShadow);
+    this.armourView.end();
     this.biomeView.end(time);
 
     for (const zn of this.zones) {

@@ -17,6 +17,18 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "armour.plated": "Plated",
+  "armour.ethereal": "Ethereal",
+  "armour.swarm": "Swarm",
+  "armour.shielded": "Shielded",
+  "armour.core": "Glowing core",
+  "armour.strong": "Strong against ⟪types⟫",
+  "armour.flank": "Flank plated foes",
+  "armour.guide.plated": "Silver front plates turn shots aside. Circle to the copper vents for ×1.5 damage. Missiles and Shock pierce the plates.",
+  "armour.guide.ethereal": "Look for the violet halo. Physical hits pass through for reduced damage. Fire, Frost and Shock hit harder.",
+  "armour.guide.swarm": "Three green dots mark a swarm. Each creature has its own life. Area and Chain weapons such as Frost Nova and Chain Zap hit the whole pack.",
+  "armour.guide.shielded": "The cyan rim guards the front. Land a secondary-weapon hit to break it. You and your allies have 4 seconds before it recharges.",
+  "armour.guide.core": "Aim a shot or beam through the gold socket for ×2 damage. Gold sparks and underlined numbers mark a weakness. Blue sparks and diamond numbers mark resistance.",
   "death.hydra0": "Hydra furnace",
   "death.hydra1": "Hydra aegis",
   "death.hydra2": "Hydra interceptor",
