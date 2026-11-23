@@ -1,3 +1,4 @@
+import { makerAr } from './bossMaker';
 import { craftAr } from './g5craft';
 import { menusAr } from './menus';
 import { uxpassAr } from './uxpass';
@@ -18,6 +19,7 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...makerAr,
   "beat.maestro": "المايسترو",
   "beat.subtitle": "قائد الأوركسترا الآلي",
   "beat.phase2": "الحركة الثانية · راقب العلامة الجانبية",
