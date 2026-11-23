@@ -1,7 +1,7 @@
 #!/bin/zsh
 # gate.sh [dir] : every release check, in three waves instead of one long line (about 15 min instead of 30).
 #   wave 1 (Node and jsdom, at once): test, smoke, balance, visual, coop8
-#   wave 2 (headless browsers on random ports, at once): coop --offline, coop4, migrate
+#   wave 2 (online co-op, one at a time: run together they starve each other's PeerJS/WebRTC connections): coop --offline, coop4, migrate
 #   wave 3 (alone, so the frame times mean something): bench:real --check
 # A failed check is run once more on its own before it counts (the machine is shared and often loaded).
 # One line per check; logs in .agent-logs/gate-<branch>/. Exit code 1 if any check still fails.
@@ -39,7 +39,9 @@ wave() { for n in "$@"; do check $n ${(z)CMD[$n]} & done; wait; for n in "$@"; d
 
 check build npm run build || { cat $L/result; exit 1; }
 wave test smoke balance visual coop8
-wave coop coop4 migrate
+wave coop
+wave coop4
+wave migrate
 wave benchreal
 cat $L/result
 ! grep -q '^FAIL' $L/result
