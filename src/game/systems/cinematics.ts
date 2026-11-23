@@ -30,7 +30,10 @@ import { reduceMotion } from '../../ui/hud';
 import { CineUi, type JackpotView } from '../../ui/cinematicsUi';
 import type { EndingCast } from '../../ui/painterly';
 import { CHEST_OPEN_RANGE } from '../chests';
-import { heroPortrait } from './characters';
+import { heroPortrait, finisherCatch as holdSoloFinisher, finisherHold as advanceSoloFinisher } from './characters';
+import type { Enemy } from '../enemies';
+import { compactScene, Cutscene, shotFrame } from '../cutscene';
+import { localize } from '../../i18n';
 import { timeBarrier } from './time';
 import { navLock, titlePlayState } from '../titlePlay';
 import { attractRunning } from './attract';
@@ -58,6 +61,62 @@ import {
   type RevealItem,
   type SkyTimes,
 } from '../cinematics';
+
+export const stillCamera = () => reduceMotion() || settings.reduceScreenEffects || !settings.dynamicCamera;
+
+interface DefeatBeat { uid: number; source: string; by: Hero | null; left: number }
+const defeats = new WeakMap<Game, Map<Enemy, DefeatBeat>>();
+const defeatBeatSeconds = 0.65;
+
+/** A network boss leaves targeting immediately. Its zero-health snapshot lasts long
+ * enough for both viewers to see the defeat beat while the rest of the fight runs. */
+export function finisherCatch(this: Game, e: Enemy, source: string, by: Hero | null): boolean {
+  if (!e.def.boss || e.def.miniboss) return false;
+  let pending = defeats.get(this);
+  const beat = pending?.get(e);
+  if (beat?.uid === e.uid) return beat.left > 0;
+  if (!this.online) return holdSoloFinisher.call(this, e, source, by);
+  if (!this.authority || this.pvp || !e.active || this.mode !== 'fight') return false;
+  this.vfx.finisher(e.def.id, (by && !by.left ? by : this.aliveHeroes[0] ?? this.hero).index, e.x, e.z);
+  if (!settings.finishers) return false;
+  if (!pending) {
+    pending = new Map();
+    defeats.set(this, pending);
+  }
+  pending.set(e, { uid: e.uid, source, by, left: defeatBeatSeconds });
+  e.hp = 0;
+  e.phaseOut = true;
+  e.roarT = Math.max(e.roarT, defeatBeatSeconds);
+  return true;
+}
+
+/** Return whether a boss is waiting for its death beat. Only solo callers stop the world. */
+export function finisherHold(this: Game, dt: number): boolean {
+  const g = this;
+  const pending = defeats.get(g);
+  if (!pending) {
+    if (!g.online && advanceSoloFinisher.call(g, dt)) return true;
+    // A migrated team can become a solo run. Both authorities can inherit a
+    // zero-health boss without its transient defeat clock or killer credit.
+    const boss = g.boss;
+    if (boss?.active && boss.hp <= 0 && g.authority && !g.pvp && g.mode === 'fight') {
+      g.killEnemy(boss, 'arena', null);
+      return boss.active && boss.hp <= 0;
+    }
+    return false;
+  }
+  for (const [e, beat] of pending) {
+    if (e.uid === beat.uid && e.active && g.authority && g.mode !== 'title') {
+      beat.left -= dt;
+      if (beat.left > 0) continue;
+      e.phaseOut = false;
+      g.killEnemy(e, beat.source, beat.by);
+    }
+    pending.delete(e);
+  }
+  if (!pending.size) defeats.delete(g);
+  return pending.size > 0;
+}
 
 /** SETTINGS > CINEMATICS. */
 export function cineLevel(): CineLevel {
@@ -96,6 +155,7 @@ interface CineState {
   end: { t: number; short: boolean; loop: number; cues: number } | null;
   endPending: boolean;
   reveal: { t: number; len: number; item: RevealItem; hold: boolean; landed: boolean; short: boolean; hero: Hero } | null;
+  evolution?: Cutscene;
   queue: RevealItem[];
   /** Legendary keys this hero owned at the last look (null: take a baseline first). */
   owned: Set<string> | null;
@@ -187,6 +247,8 @@ export function cineStep(this: Game, dt: number): boolean {
   }
   const host = this.role !== 'client';
   const level = cineLevel();
+  Cutscene.padSkip(this);
+  if (this.bossIntro.hold(dt)) return true;
 
   // Stage changed: golden chests and the golden portal belong to the old one.
   if (s.chestStage !== this.stage) {
@@ -232,10 +294,11 @@ export function cineStep(this: Game, dt: number): boolean {
     const r = s.reveal;
     const pin = pinned(r.len);
     if (pressed && r.t > revealTuning.minSkip) r.t = r.len;
-    else r.t = pin ?? r.t + dt;
+    else if (r.t < r.len) r.t = pin ?? r.t + dt;
     if (!r.landed && r.t >= r.len * revealTuning.landAt) revealLand(this, s);
     if (r.t >= r.len) {
       s.reveal = null;
+      s.evolution?.stop();
       view?.revealHide();
     } else hold ||= r.hold;
   }
@@ -268,6 +331,7 @@ function resetRun(g: Game, s: CineState): void {
   if (s.sky) endSky(g, s);
   s.end = null;
   s.endPending = false;
+  s.evolution?.stop();
   s.reveal = null;
   s.queue = [];
   s.owned = null;
@@ -517,6 +581,13 @@ function pollReveals(g: Game, s: CineState, level: CineLevel): void {
   for (const r of now) {
     if (s.owned.has(r.key)) continue;
     s.owned.add(r.key);
+    if (loadoutEvolution(r) && level !== 'off' && (gained || g.mode === 'levelup' || g.role === 'client')) {
+      // A client's build can arrive while teammates still have cards to choose.
+      // Queue the fork immediately and stage it once this machine has its field back.
+      s.queue.push(r);
+      s.firstDone = true;
+      continue;
+    }
     if (!gained) continue;
     // One reveal per gain; anything else gained at once just counts as seen.
     if (!shown && level !== 'off' && shouldReveal(!s.firstDone, r.key) && s.queue.length < 1) {
@@ -528,12 +599,33 @@ function pollReveals(g: Game, s: CineState, level: CineLevel): void {
   if (!s.reveal && s.queue.length && calm && !s.jack && !s.end && !s.sky) startReveal(g, s, s.queue.shift()!);
 }
 
+function loadoutEvolution(item: RevealItem): boolean {
+  return item.key.startsWith('e:') && !item.key.endsWith(':auto');
+}
+
 function startReveal(g: Game, s: CineState, item: RevealItem): void {
   markRevealed(item.key);
-  const short = shortCine();
+  const short = shortCine() || stillCamera();
   const online = g.role !== 'solo';
   const len = online ? revealTuning.online : short ? revealTuning.short : revealTuning.full;
   s.reveal = { t: 0, len, item, hold: !online, landed: false, short, hero: g.hero };
+  if (loadoutEvolution(item)) {
+    const hud = document.getElementById('hud');
+    if (hud) {
+      const p = g.player;
+      (s.evolution ??= new Cutscene(g, hud, 'evolution')).start({
+        title: localize(item.name), line: localize(item.label), duration: len, hero: p.rig,
+        icon: { id: item.icon, color: item.color, glyph: item.glyph },
+        frames: [
+          shotFrame(0, p.x, p.z, p.rig.root.rotation.y, -2.8, 3, 7, 1, 44),
+          shotFrame(0.55, p.x, p.z, p.rig.root.rotation.y, -1, 3, 4.8, 1, 38),
+          shotFrame(1, p.x, p.z, p.rig.root.rotation.y, 0.4, 3.4, 5.6, 1, 41),
+        ],
+        beats: [{ at: 0, pose: 'ready' }, { at: revealTuning.landAt, pose: 'salute', line: localize(item.text) }],
+        skip: () => { if (s.reveal) s.reveal.t = s.reveal.len; },
+      });
+    }
+  }
   music.silence(Math.min(len, revealTuning.silence));
   sfx.muffle(0.3);
   sfx.named('whoosh');
@@ -772,23 +864,25 @@ export function renderCinematics(this: Game, frameDt: number): void {
     view.titleHint(this.mode === 'title' && this.screens.current === 'title' && attractRunning(this) ? (tp.controlled ? 'playing' : 'idle') : '');
   }
   if (s.sky) renderSky(this, s, frameDt);
+  this.bossIntro.draw();
   // Legendary reveal: beam, falling icon, title card, a gentle push-in.
   if (s.reveal && view) {
     const beam = (s.beam ??= new RevealBeam(this.scene));
     const r = s.reveal;
     const k = r.t / r.len;
     const p = r.hero.player.rig.root.position;
-    beam.show(p.x, p.z, k, revealTuning.landAt, r.item.color);
+    beam.show(p.x, p.z, s.evolution?.active && k >= revealTuning.landAt ? -1 : k, revealTuning.landAt, r.item.color);
     const land = revealTuning.landAt;
     const y = 2 + revealTuning.height * Math.max(0, 1 - k / land) ** 1.5;
     V1.set(p.x, y, p.z).project(this.cam.camera);
-    view.revealShow(r.item, k, land, k < land + 0.05 ? { x: ((V1.x + 1) / 2) * innerWidth, y: ((1 - V1.y) / 2) * innerHeight } : null, r.short);
-    view.letterbox(r.hold);
+    if (s.evolution?.active) s.evolution.sample(r.t);
+    else view.revealShow(r.item, k, land, k < land + 0.05 ? { x: ((V1.x + 1) / 2) * innerWidth, y: ((1 - V1.y) / 2) * innerHeight } : null, r.short);
+    view.letterbox(r.hold && !s.evolution?.active);
     setBody('cn-cine', r.hold); // solo: a clean frame (online the HUD stays, the fight goes on)
     // Push the camera in on the hero and back out.
     const bell = Math.sin(Math.min(1, k * 1.25) * Math.PI);
     const cam = this.cam.camera;
-    cam.position.lerp(V2.set(p.x, p.y + 2, p.z), revealTuning.zoom * bell);
+    if (!s.evolution?.active && !compactScene(this) && !stillCamera()) cam.position.lerp(V2.set(p.x, p.y + 2, p.z), revealTuning.zoom * bell);
   } else {
     s.beam?.show(0, 0, -1, 0, '#fff');
     if (!s.sky) {

@@ -283,3 +283,32 @@ export function photoFileName(d: Date): string {
   const p = (v: number) => String(v).padStart(2, '0');
   return `InfiniShoot-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}.png`;
 }
+
+/** The sharp plane crosses the subject. Pixels farther above/below it sample a
+ * wider aperture. This tilt-shift approximation only runs on dirty photo pixels. */
+export function photoFocus(px: Uint8ClampedArray, w: number, h: number, plane: number, scratch: FilterScratch): void {
+  if (scratch.copy.length < px.length) scratch.copy = new Uint8ClampedArray(px.length);
+  const src = scratch.copy;
+  src.set(px);
+  for (let y = 0; y < h; y++) {
+    const distance = Math.abs(y / h - plane);
+    const r = Math.min(5, Math.round(Math.max(0, distance - 0.14) * h * 0.036));
+    if (!r) continue;
+    const top = Math.max(0, y - r) * w;
+    const bot = Math.min(h - 1, y + r) * w;
+    for (let x = 0; x < w; x++) {
+      const l = Math.max(0, x - r), right = Math.min(w - 1, x + r);
+      const i = (y * w + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        px[i + c] = (4 * src[i + c] + src[4 * (top + l) + c] + src[4 * (top + right) + c] +
+          src[4 * (bot + l) + c] + src[4 * (bot + right) + c] + src[4 * (y * w + l) + c] +
+          src[4 * (y * w + right) + c] + src[4 * (top + x) + c] + src[4 * (bot + x) + c]) / 12;
+      }
+    }
+  }
+}
+
+export function photoLight(hour: number): { dusk: number; night: number } {
+  const fromNoon = Math.abs(Math.max(0, Math.min(24, hour)) - 12);
+  return { dusk: Math.min(1, fromNoon / 6), night: Math.max(0, Math.min(1, (fromNoon - 6) / 3)) };
+}

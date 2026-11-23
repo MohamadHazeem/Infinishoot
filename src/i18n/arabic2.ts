@@ -1,6 +1,21 @@
 import { craftEn } from './g5craft';
 /** New Arabic-lane base copy. Other locales deliberately retain English until translated. */
 export const arabic2En = {
+  "cine.titan": "The mountain is waking.",
+  "photo.controls": "STUDIO CONTROLS",
+  "photo.pose": "POSE",
+  "photo.focus": "SHALLOW FOCUS",
+  "photo.enemies": "ENEMIES",
+  "photo.light": "TIME OF DAY",
+  "photo.asShot": "AS SHOT",
+  "photo.pose.natural": "NATURAL",
+  "photo.pose.ready": "AT THE READY",
+  "photo.pose.salute": "SALUTE",
+  "photo.pose.victory": "VICTORY",
+  "photo.frame.finder": "VIEWFINDER",
+  "photo.frame.mail": "AIRMAIL",
+  "photo.sticker.comet": "COMET",
+  "photo.sticker.planet": "RINGED PLANET",
   "g4.hint.crown": "Step on the blue plate",
   "g4.last.crown": "THE FALLING CROWN",
   "g4.hint.brake": "Bait Rex past the blue post",

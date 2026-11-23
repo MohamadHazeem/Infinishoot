@@ -103,7 +103,8 @@ import * as LookSys from './systems/look';
 import * as BossFightSys from './systems/bossFight';
 import { BossField } from './bossField';
 import { BossActs } from './bossesActs';
-import { BossIntro } from './bossIntro';
+import { enemyPhotoSubjects } from '../ui/photoSubjects';
+import { SceneBossIntro as BossIntro } from './cutscene';
 import type { BossApi } from './bosses';
 import type { BossDuel } from './bossDuel';
 import * as ArenaSys from './systems/arena';
@@ -598,8 +599,8 @@ export class Game implements HeroWorld {
   cameraDirector = AnimSys.cameraDirector;
   onCorpse = AnimSys.onCorpse;
   // Boss finishers and character portraits (src/game/systems/characters.ts).
-  finisherCatch = CharSys.finisherCatch;
-  finisherHold = CharSys.finisherHold;
+  finisherCatch = CineSys.finisherCatch;
+  finisherHold = CineSys.finisherHold;
   onFinisher = CharSys.onFinisher;
   renderCharacters = CharSys.renderCharacters;
   resolveSpeaker = CharSys.resolveSpeaker;
@@ -671,7 +672,10 @@ export class Game implements HeroWorld {
   renderArena = ArenaSys.renderArena;
   objectiveTarget = ArenaSys.objectiveTarget;
   worldFx = WorldFxSys.worldFx;
-  updateSkyFx = SkySys.updateSkyFx;
+  updateSkyFx(dt: number) {
+    if (this.photo?.active) this.photo.beforeSky?.();
+    SkySys.updateSkyFx.call(this, dt);
+  }
   skillInput = SkillSys.skillInput;
   skillClientInput = SkillSys.skillClientInput;
   skillMessage = SkillSys.skillMessage;
@@ -883,7 +887,7 @@ export class Game implements HeroWorld {
   mode: Mode = 'title';
   paused = false;
   /** Photo mode (src/ui/photoMode.ts, set by main.ts): while active it gets the input instead of the game. */
-  photo: { active: boolean; update(dt: number): void } | null = null;
+  photo: { active: boolean; update(dt: number): void; beforeSky?(): void } | null = null;
 
   // --- Team run state ---
   seed = 0;
@@ -1024,7 +1028,7 @@ export class Game implements HeroWorld {
     this.arena = createFieldArena(TITLE_SEED);
     this.scene.add(this.arena.group);
     this.walls = new StaticBoxGrid(this.arena.colliders);
-    this.enemies = new Enemies(this.scene);
+    this.enemies = new Enemies(enemyPhotoSubjects(this.scene));
     this.bullets = new Bullets(this.scene, access);
     this.particles = new Particles(this.scene);
     this.fx = new Fx(this.scene);
@@ -1044,10 +1048,13 @@ export class Game implements HeroWorld {
     this.bossField = new BossField(this.scene, access);
     const bossActs = this.bossApi.acts = new BossActs(this, hudRoot);
     this.renderBossFight = (dt, paused) => {
+      const first = this.scene.children.length;
       BossFightSys.renderBossFight.call(this, dt, paused);
+      // Boss presentation can attach separate models and telegraphs (including the Titan).
+      for (let i = first; i < this.scene.children.length; i++) this.scene.children[i].userData.photoEnemy = true;
       bossActs.render();
     };
-    this.bossIntro = new BossIntro(hudRoot);
+    this.bossIntro = new BossIntro(hudRoot, this, settings, CineSys.stillCamera);
     this.bossIntro.onSkip = () => this.skipBossIntro();
     this.vfx = new Vfx({
       fx: this.fx,
@@ -1549,7 +1556,7 @@ export class Game implements HeroWorld {
       return;
     }
     // Boss finisher: the world holds still until it ends, then the boss dies (systems/characters.ts).
-    if (this.finisherHold(dt)) {
+    if (this.finisherHold(dt) && !this.online) {
       input.endStep();
       this.hostTick(false);
       return;

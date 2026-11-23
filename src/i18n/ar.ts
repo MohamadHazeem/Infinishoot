@@ -18,6 +18,21 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "cine.titan": "الجبل يستيقظ.",
+  "photo.controls": "أدوات التصوير",
+  "photo.pose": "الوقفة",
+  "photo.focus": "عمق مجال ضحل",
+  "photo.enemies": "الأعداء",
+  "photo.light": "وقت اليوم",
+  "photo.asShot": "كما في المشهد",
+  "photo.pose.natural": "طبيعية",
+  "photo.pose.ready": "استعداد",
+  "photo.pose.salute": "تحية",
+  "photo.pose.victory": "انتصار",
+  "photo.frame.finder": "محدّد المنظر",
+  "photo.frame.mail": "بريد جوّي",
+  "photo.sticker.comet": "مذنّب",
+  "photo.sticker.planet": "كوكب ذو حلقات",
   "g7.roots": "تبطئ الجذور الخضراء الأعداء بين الأحجار الأربعة.",
   "g7.prism": "تكشف المعيّنات البنفسجية نقاط ضعف الأعداء. اضربهم أثناء توهّجهم.",
   "g7.spring": "قف على علامة البرق الكهرمانية لتشحن قدرتك الخاصة أسرع.",

@@ -1,0 +1,114 @@
+import './jsdomEnv';
+import * as THREE from 'three';
+import { ok } from './check';
+import { Input } from '../src/core/input';
+import { Game } from '../src/game/game';
+import { settings } from '../src/game/settings';
+import { Cutscene, shotFrame } from '../src/game/cutscene';
+import { cineState } from '../src/game/systems/cinematics';
+import { ENEMIES } from '../src/data/enemies';
+import { PhotoMode } from '../src/ui/photoMode';
+import { postfx } from '../src/render/postfx';
+import { PhotoVisibility, enemyPhotoSubjects } from '../src/ui/photoSubjects';
+import { filterScratch, photoFocus, photoLight } from '../src/ui/photoFilters';
+
+const hud = document.getElementById('hud')!;
+const g = new Game(new Input(document.querySelector('canvas')!), 16 / 9, hud, document.getElementById('reticle')!);
+g.startRun({ seed: 42, difficulty: 'normal' });
+if (g.mode === 'shop') g.closeShop();
+Object.assign(settings, { bossIntros: true, finishers: true, cinematics: 'full', dynamicCamera: true });
+const shot = new Cutscene(g, hud, 'evolution');
+const cam = g.cam.camera;
+const origin = cam.position.clone(), orientation = cam.quaternion.clone(), fov = cam.fov;
+const frames = [shotFrame(0, 3, 4, 0, 0, 3, 9, 1, 42), shotFrame(1, 3, 4, 0, 2, 4, 8, 2, 38)];
+let cues = 0;
+const script = { title: 'A', line: 'B', duration: 2, frames, beats: [{ at: 0.1, sound: () => cues++ }, { at: 0.3, line: 'C', sound: () => cues++ }], skip: () => shot.stop() };
+shot.start(script);
+shot.sample(1);
+shot.sample(1);
+ok(cues === 2 && hud.querySelector('#evolution span')?.textContent === 'C', 'a crossed line and sound play once even across a long frame');
+ok(!cam.position.equals(origin), 'the solo camera samples the in-engine track');
+window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }));
+ok(!shot.active && cam.position.equals(origin) && cam.fov === fov && cam.quaternion.equals(orientation), 'keyboard skip restores position, orientation and lens');
+settings.reduceScreenEffects = true;
+shot.start(script); shot.sample(1.2);
+ok(cam.position.equals(origin) && cam.fov === fov, 'reduced screen effects retain the gameplay view');
+shot.stop(); settings.reduceScreenEffects = false;
+
+g.spawnBoss(ENEMIES.king);
+ok(g.bossIntro.active && g.bossIntro.hold(0.1), 'a solo entrance protects the player while the camera is away');
+g.bossIntro.skip();
+ok(!g.bossIntro.active && !g.bossIntro.hold(0.1), 'skipping releases the solo hold');
+g.role = 'host';
+g.startBossIntro(g.boss!);
+ok(!g.bossIntro.hold(0.1) && g.slowMoT === 0, 'the host entrance leaves the team clock running');
+g.bossIntro.skip();
+settings.finishers = false;
+g.vfx.recording = true; g.vfx.drain();
+const boss = g.boss!;
+g.killEnemy(boss, 'buster', g.hero);
+ok(!boss.active && !g.finisherHold(0) && g.vfx.drain().some(e => e[0] === 'F'), 'the host can opt out, send the finisher and resolve the kill in this step');
+settings.finishers = true;
+g.spawnBoss(ENEMIES.king);
+const defeated = g.boss!;
+g.killEnemy(defeated, 'buster', g.hero);
+const clock = g.runTime, defeatUid = defeated.uid;
+g.hero.pendingLevels = g.hero.chestsPending = 0;
+g.xpNext = 1e8;
+ok(defeated.active && !defeated.targetable && g.finisherHold(0.01), 'a network boss holds only its defeat beat and cannot attack or be targeted');
+for (let i = 0; i < 150 && defeated.active && defeated.uid === defeatUid; i++) g.update(1 / 60);
+ok(g.runTime > clock, 'the host continues the fight throughout the defeat beat');
+ok(!defeated.active || defeated.uid !== defeatUid, `the host releases the boss kill on its own clock (mode ${g.mode}, run seconds ${g.runTime-clock}, HP ${defeated.hp})`);
+settings.bossIntros = false;
+g.bossIntro.start(boss.uid, 'test', '', '#ffffff');
+ok(!g.bossIntro.active, 'BOSS INTROS suppresses camera and card');
+
+g.role = 'solo';
+settings.finishers = false;
+g.spawnBoss(ENEMIES.rex);
+const inherited = g.boss!;
+inherited.hp = 0;
+g.finisherHold(1 / 60);
+ok(!inherited.active, 'the last survivor resolves a zero-health boss inherited through migration');
+
+// A fork arrives in a client build while other players are still choosing cards.
+g.role = 'client'; g.mode = 'levelup';
+g.stepN = 60; const s = cineState(g); s.owned = new Set();
+const w = g.hero.weapons.find(w => w.def.slot === 'primary')!;
+w.evolve(0); g.cineStep(1/60);
+ok(s.queue.some(i => i.key.startsWith('e:')), 'a fork received before the team closes its menu stays queued');
+g.mode = 'fight'; g.screens.show('none'); g.stepN += 6;
+ok(!g.cineStep(1/60) && !!s.evolution?.active, 'the client presents its own evolution without a simulation hold');
+
+const world = new THREE.Scene(), subjects = enemyPhotoSubjects(world), visibility = new PhotoVisibility();
+const live = new THREE.Group(), alreadyHidden = new THREE.Group(), hero = new THREE.Group();
+alreadyHidden.visible = false; subjects.add(live, alreadyHidden); world.add(hero);
+visibility.hide(world);
+ok(!live.visible && !alreadyHidden.visible && hero.visible && live.parent === world, 'photo hiding retains the flat render scene and leaves heroes visible');
+visibility.restore();
+ok(live.visible && !alreadyHidden.visible, 'photo exit restores independent mesh visibility');
+
+const width = 48, height = 128;
+const pixels = new Uint8ClampedArray(width * height * 4);
+for (let i = 0; i < pixels.length; i += 4) {
+  pixels[i] = (i / 4) % 3 ? 255 : 40;
+  pixels[i + 3] = 219;
+}
+const original = pixels.slice(), scratch = filterScratch();
+photoFocus(pixels, width, height, 0.5, scratch);
+const centre = (64 * width + 5) * 4;
+ok(pixels[centre] === original[centre] && pixels[0] !== original[0] && pixels[3] === 219, 'focus preserves the subject plane and alpha while softening distant rows');
+const copy = scratch.copy;
+photoFocus(pixels, width, height, 0.5, scratch);
+ok(copy === scratch.copy && photoLight(12).dusk === 0 && photoLight(18).dusk === 1 && photoLight(0).night === 1, 'photo buffers are reused and the slider reaches midday, sunset and midnight');
+
+g.role = 'solo';
+g.paused = true;
+const studio = new PhotoMode(g, document.querySelector('canvas')!);
+ok(studio.open(), 'the studio opens from a paused solo fight');
+const dusk = g.dayK, night = postfx.night, clockBeforePhoto = g.runTime;
+studio.configure({ hour: 22 });
+studio.beforeSky();
+ok(g.dayK === 1 && postfx.night === 1, 'the exposure uses the selected hour for sky and grading');
+studio.close();
+ok(g.dayK === dusk && postfx.night === night && g.runTime === clockBeforePhoto && g.paused, 'closing during an exposure restores the scene and returns to pause');
