@@ -61,7 +61,7 @@ export interface HeroBuild {
   weapons: { id: string; level: number; key: string }[];
   special: { id: string; level: number; key: string };
   passives: Record<string, number>;
-  mods: { id: string; level: number }[];
+  mods: { id: string; level: number; paid?: number }[];
   relics: string[];
   revives: number;
   /** Stage summary for the waiting screen. */
@@ -75,7 +75,7 @@ export function exportBuild(h: Hero, level: number): HeroBuild {
     weapons: h.weapons.map((w) => ({ id: w.def.id, level: w.level, key: w.buildKey })),
     special: { id: h.special.id, level: h.special.level, key: h.specialBuild ? buildKey(h.specialBuild) : '' },
     passives: { ...h.passives },
-    mods: h.synergy.slots.map((s) => ({ id: s.def.id, level: s.level })),
+    mods: h.synergy.slots.map((s) => ({ id: s.def.id, level: s.level, paid: s.paid })),
     relics: [...h.relics],
     revives: h.revivesLeft,
     level,
@@ -103,7 +103,8 @@ export function applyBuild(h: Hero, b: HeroBuild, scene: THREE.Scene): void {
   for (const m of b.mods) {
     const def = MOD_BY_ID[m.id];
     if (!def || h.synergy.full) continue;
-    h.synergy.add(def, 0);
+    const paid = m.paid ?? 0;
+    h.synergy.add(def, Number.isSafeInteger(paid) && paid >= 0 ? paid : 0);
     for (let k = 1; k < m.level; k++) h.synergy.upgrade(h.synergy.slots.length - 1);
   }
   h.relics = [...b.relics];

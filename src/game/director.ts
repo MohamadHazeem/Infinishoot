@@ -167,8 +167,11 @@ export class AdaptivePace {
     this.intensity += Math.max(-dt / t.mixFallSeconds, Math.min(dt / t.mixRiseSeconds, surplus - this.intensity));
     // Established builds can sustain the old cruising crowd size. Keep the opening
     // and the refill budget tied to the measured mix so early XP stays bounded.
-    const proven = this.power.ready && this.power.score >= t.powerStart;
-    const cruiseBonus = cruise && (this.assist || (stage >= 3 && proven)) ? 0.18 : 0;
+    // Barely crossing the power threshold used to request 18% more bodies
+    // even on a full field. Scale the late crowd bonus by the available room
+    // and measured surplus just like the accelerated waves.
+    const cruiseShare = this.assist ? 1 : stage >= 3 ? surplus : 0;
+    const cruiseBonus = cruise ? 0.18 * cruiseShare : 0;
     const power = cruiseBonus + this.intensity * (t.max - 1 - cruiseBonus);
     const recovery = weakestHp > 0.5 && this.debt > 0 ? t.repay : 0;
     const target = this.breather > 0 ? floor : 1 + Math.max(power, recovery);

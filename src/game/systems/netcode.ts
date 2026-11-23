@@ -510,7 +510,7 @@ function reconnectStep(g: Game, s: NetState, now: number): void {
   };
   c.ready.then(
     () => {
-      if (s.rc !== rc || g.role !== 'client') {
+      if (s.rc !== rc || rc.pending !== c || g.role !== 'client') {
         c.close();
         return;
       }
@@ -525,9 +525,11 @@ function reconnectStep(g: Game, s: NetState, now: number): void {
       c.send(helloMsg(rc.name));
     },
     (e) => {
+      c.close();
+      if (s.rc !== rc || rc.pending !== c) return;
       note(s, `client: try failed (${(e as Error)?.message ?? e})`);
       rc.lastError = String((e as Error)?.message ?? e);
-      if (rc.pending === c) rc.pending = null;
+      rc.pending = null;
       rc.next = performance.now() + netQualityTuning.retryEvery * 1000;
     },
   );

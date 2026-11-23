@@ -49,6 +49,15 @@ export function makeBossApi(this: Game): BossApi {
   return {
     shockwave: (e, x, z, delay) => {
       if (this.bossField.waves.length >= 8) return;
+      if (this.stage === 1 && e.def.id === 'king') {
+        // A volley teaches one dash on its final landing. The later King's
+        // paired rings are closer together than a starter dash can recharge.
+        if (e.burst > 1 || delay > 0) return;
+        delay = T.firstKingShockTell;
+        // Shrinking rings use the protected telegraph layer. At the end the
+        // warning's outer edge matches the wave's initial 1.4-radius front.
+        this.vfx.ring(x, z, e.radius * 4, 0.7, '#ffcd75', delay);
+      }
       this.bossField.waves.push({ x, z, r: e.radius * 1.4, delay, dmg: T.shockDamage * e.dmgMul, hit: 0, cause: `${e.def.name}'s shockwave` });
       if (delay <= 0) this.vfx.ring(x, z, e.radius, 3, '#ffcd75', 0.35);
     },
