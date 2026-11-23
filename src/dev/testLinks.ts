@@ -518,6 +518,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (typeof threat === 'number') setTimeout(() => previewThreats(game, threat, q.has('threathold')), 2200);
   architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
   game.biomeRules.preview(game, q.get('fieldsite'));
+  game.setPieces.previewKind = q.get('setpiece');
   // Combat profilers and the crafting preview both historically use &bench.
   if (q.has('bench') && q.has('circle')) q.delete('bench');
   craftLink(game, q);

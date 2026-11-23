@@ -17,6 +17,16 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  "g7.machine.spikes": "Spike trap",
+  "g7.machine.bridge": "Drawbridge",
+  "g7.machine.flood": "Flood gate",
+  "g7.machine.barrels": "Barrel chain",
+  "g7.machine.lure": "Lure beacon",
+  "g7.machine.tip.spikes": "Cross the gold arrow or shoot a lit post to raise the spikes.",
+  "g7.machine.tip.bridge": "Cross the arrow or shoot a lit post to drop the bridge. The side rails stay up.",
+  "g7.machine.tip.flood": "Cross the arrow or shoot a lit post to flood the blue channel.",
+  "g7.machine.tip.barrels": "Cross the arrow or shoot a lit post. The barrels burst one after another.",
+  "g7.machine.tip.lure": "Cross the arrow or shoot a lit post to lure enemies to the beacon.",
   "g7.roots": "Green roots slow enemies inside the four stones.",
   "g7.prism": "Violet diamonds expose enemies. Hit them while they glow.",
   "g7.spring": "Stand on the amber bolt to recharge your special faster.",

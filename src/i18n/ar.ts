@@ -18,6 +18,16 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  "g7.machine.spikes": "فخ الأشواك",
+  "g7.machine.bridge": "الجسر المتحرك",
+  "g7.machine.flood": "بوابة الفيضان",
+  "g7.machine.barrels": "سلسلة البراميل",
+  "g7.machine.lure": "منارة الاستدراج",
+  "g7.machine.tip.spikes": "اعبر السهم الذهبي أو أطلق النار على عمود مضيء لترتفع الأشواك.",
+  "g7.machine.tip.bridge": "اعبر السهم أو أطلق النار على عمود مضيء لإسقاط الجسر. يبقى الممران الجانبيان ثابتين.",
+  "g7.machine.tip.flood": "اعبر السهم أو أطلق النار على عمود مضيء ليغمر الماء القناة الزرقاء.",
+  "g7.machine.tip.barrels": "اعبر السهم أو أطلق النار على عمود مضيء لتنفجر البراميل تباعًا.",
+  "g7.machine.tip.lure": "اعبر السهم أو أطلق النار على عمود مضيء لتستدرج المنارة الأعداء.",
   "g7.roots": "تبطئ الجذور الخضراء الأعداء بين الأحجار الأربعة.",
   "g7.prism": "تكشف المعيّنات البنفسجية نقاط ضعف الأعداء. اضربهم أثناء توهّجهم.",
   "g7.spring": "قف على علامة البرق الكهرمانية لتشحن قدرتك الخاصة أسرع.",

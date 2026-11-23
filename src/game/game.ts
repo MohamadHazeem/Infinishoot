@@ -108,6 +108,7 @@ import type { BossApi } from './bosses';
 import type { BossDuel } from './bossDuel';
 import * as ArenaSys from './systems/arena';
 import { Interactives } from './interactives';
+import { FieldMachines } from './interactives2';
 import { ObjectiveHud } from '../ui/objectiveHud';
 import * as WorldFxSys from './systems/worldFx';
 import * as SkySys from './systems/sky';
@@ -377,6 +378,7 @@ export class Game implements HeroWorld {
   renderWorldEvent = WorldEventsSys.renderWorldEvent;
   clearWorld = RunFlowSys.clearWorld;
   readonly biomeRules = new IslandField();
+  readonly setPieces = new FieldMachines();
   loadArena = RunFlowSys.loadArena;
   spawnSpot = RunFlowSys.spawnSpot;
   goTitle = RunFlowSys.goTitle;
@@ -401,6 +403,7 @@ export class Game implements HeroWorld {
     this.phoenixOwners.clear();
     TimeSys.startTimeRun(this);
     this.biomeRules.reset();
+    this.setPieces.resetRun();
     this.nemesis.reset();
     RunFlowSys.startRun.call(this, fixed);
   };
@@ -556,6 +559,8 @@ export class Game implements HeroWorld {
       snap.modHit = Math.round(h.synergy.lastModHit * 100);
     const field = this.biomeRules.snapshotFor(this, view?.enc ?? h);
     if (field) snap.island = field;
+    const machinery = this.setPieces.snapshotFor(this, view?.enc ?? h);
+    if (machinery) snap.machinery = machinery;
     const contracts = !view && contractView(h);
     if (contracts) snap.contract = contracts;
     return snap;
@@ -566,6 +571,7 @@ export class Game implements HeroWorld {
     this.phoenixOwners.clear();
     TimeSys.startTimeRun(this);
     this.biomeRules.reset();
+    this.setPieces.resetRun();
     this.nemesis.reset();
     NetClientSys.clientStart.call(this, seed, you, players);
   };
@@ -574,6 +580,7 @@ export class Game implements HeroWorld {
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
     this.biomeRules.mirror(this, m.island);
+    this.setPieces.mirror(this, m.machinery);
     if (mirrorContracts(this.hero, m.contract)) this.screens.refreshPacts();
     this.hero.synergy.lastModHit = typeof m.modHit === 'number' ? m.modHit / 100 : null;
   }
@@ -589,7 +596,11 @@ export class Game implements HeroWorld {
   updateSky = RenderSys.updateSky;
   updateMusic = RenderSys.updateMusic;
   localAudio = RenderSys.localAudio;
-  render = RenderSys.render;
+  render: typeof RenderSys.render = function (alpha, dt) {
+    this.setPieces.prepareView(this);
+    RenderSys.render.call(this, alpha, dt);
+    this.setPieces.render(this);
+  };
   renderMuzzleFlashes = RenderSys.renderMuzzleFlashes;
   renderChestPointer = RenderSys.renderChestPointer;
   renderMinimap = RenderSys.renderMinimap;
@@ -655,9 +666,16 @@ export class Game implements HeroWorld {
   landShock = ArenaSys.landShock;
   updateTurrets = ArenaSys.updateTurrets;
   updateEnvHazards = ArenaSys.updateEnvHazards;
-  envHit = ArenaSys.envHit;
+  envHit: typeof ArenaSys.envHit = function (e, source, amount) {
+    const owner = this.setPieces.pushOwner(this, e);
+    if (owner) this.damage(e, Math.max(1, amount), { source, fixed: true, noStatus: true }, owner);
+    else ArenaSys.envHit.call(this, e, source, amount);
+  };
   onEnvKill = ArenaSys.onEnvKill;
-  hitToys = ArenaSys.hitToys;
+  hitToys: typeof ArenaSys.hitToys = function (x, z, r, dmg, owner, vx, vz) {
+    if (this.setPieces.hitRelay(this, x, z, r, owner)) return true;
+    return ArenaSys.hitToys.call(this, x, z, r, dmg, owner, vx, vz);
+  };
   hitToysWhere = ArenaSys.hitToysWhere;
   blastToys = ArenaSys.blastToys;
   damageProp = ArenaSys.damageProp;
@@ -1635,6 +1653,7 @@ export class Game implements HeroWorld {
     coopPlayStep(this, dt); // carrying teammates, buddy tether, co-op banter (systems/coopplay.ts)
     this.updateWind(dt);
     this.biomeRules.update(this, dt);
+    this.setPieces.update(this, dt);
     updateWeather2.call(this, dt);
     if (this.runMode !== 'raid') this.updateWorldEvent(dt);
     this.updateRaid(dt);
