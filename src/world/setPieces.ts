@@ -46,6 +46,8 @@ export function placePieces(arena: Arena, island: readonly number[]): PlacedPiec
   for (const h of arena.hazards) reserve(h.x, h.z, h.r);
   for (const c of arena.conveyors) occupied.push(aabbFromCenter(c.x, c.z, c.w, c.d));
   for (let i = 0; i + 1 < island.length; i += 2) reserve(island[i], island[i + 1], 3);
+  for (const s of arena.heights?.sites ?? [])
+    occupied.push(aabbFromCenter(s.x, s.z, s.cross ? 4 : 10, s.cross ? 10 : 4));
   const pieces: PlacedPiece[] = [];
   const kinds = MACHINE_KINDS.slice();
   while (kinds.length) {
