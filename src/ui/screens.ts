@@ -1,3 +1,5 @@
+import { pathChips, pausePaths, type PathHint } from '../game/archetypes';
+import type { Hero } from '../game/hero';
 import { showDeathPanel } from './deathRecap';
 import type { DeathPacket } from '../game/damageLog';
 import { played, refreshSetup } from './menuRun';
@@ -108,6 +110,7 @@ export interface LobbyView {
 export type ShopFx = 'open' | 'buy' | 'sell' | 'reroll' | 'heal' | 'deny' | 'upgrade';
 
 export interface ShopView {
+  pathHints?: Record<string, PathHint[]>;
   gold: number;
   interest: number;
   interestCap: number;
@@ -136,6 +139,7 @@ export interface ShopView {
 }
 
 export interface Offer {
+  paths?: PathHint[];
   kind: 'weapon' | 'passive' | 'special' | 'gold' | 'heal' | 'track' | 'evo' | 'overdrive' | 'evolve' | 'fusion';
   /** Icon id. */
   id: string;
@@ -301,6 +305,7 @@ export class Screens {
   banishArmed = false;
   /** Offers on screen, so a banish redraw only spins the new card. */
   private shownOffers: string[] = [];
+  pathHeroes?: () => readonly Hero[];
   private shopShown: ShopView | null = null;
   /** Focused shop control the preview panel describes. */
   private pvKey = '';
@@ -1080,6 +1085,7 @@ export class Screens {
           <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${o.text}${o.kind === 'overdrive' ? ' ' + t('menus.overdrive') : ''}</div>
           ${numsHtml(o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
+          ${pathChips(o.paths)}
           ${offerSetChips(o)}
           ${o.replaces ? replaceStrip(o.replaces) : ''}
           ${o.partner ? partnerStrip(o.partner) : ''}
@@ -1236,7 +1242,8 @@ export class Screens {
       .join('');
     const el = this.els.pause.querySelector('.pause-info') ?? this.els.pause.appendChild(Object.assign(document.createElement('div'), { className: 'pause-info' }));
     el.innerHTML =
-      localizeHtml((recipes ? `<div class="pi-col"><div class="pi-t">${t("text.evolutions_f392a9")}</div>${recipes}</div>` : '') +
+      localizeHtml(pausePaths(this.pathHeroes?.() ?? [], mods) +
+      (recipes ? `<div class="pi-col"><div class="pi-t">${t("text.evolutions_f392a9")}</div>${recipes}</div>` : '') +
       (bars ? `<div class="pi-col"><div class="pi-t">${t("text.damage_this_run_7a0587")}</div>${bars}</div>` : '') +
       setsPanelHtml());
   }
@@ -1291,6 +1298,7 @@ export class Screens {
           <div class="desc">${modDesc(m)}</div>
           ${modMaxLevel(m) > 1 ? `<div class="mod-ups">UPGRADES IN SHOP TO LV ${modMaxLevel(m)}</div>` : ''}
           ${m.synergy ? `<div class="chips">${tagChips(m.synergy)}</div>` : ''}
+          ${pathChips(v.pathHints?.[m.id])}
           ${setChipsHtml(m.id, true)}
           ${o.hint ? `<div class="hint">${o.hint}</div>` : ''}
           ${numsHtml([...buyDamageNums(v.preview, i), ...(o.nums ?? [])].slice(0, 3))}
@@ -1330,6 +1338,7 @@ export class Screens {
           <div class="name">${o.def.name}${o.maxLevel > 1 ? ` <span class="mod-lv">LV ${o.level}/${o.maxLevel}</span>` : ''}</div>
           <div class="desc">${modDesc(o.def, o.level)}</div>
           ${o.readout ? `<div class="readout">${o.readout}</div>` : ''}
+          ${o.upCost >= 0 ? pathChips(v.pathHints?.[o.def.id]) : ''}
           ${o.upCost >= 0 ? `<div class="mod-next"><i>NEXT LV ${o.level + 1}:</i> ${nextLevelHtml(o.def, o.level)}</div>` : ''}
           ${o.upCost >= 0 ? `<button data-nav data-act="mod-up" data-index="${i}" class="mod-up ${o.upCost > v.gold ? 'cant' : ''}">${t("text.upgrade_7f10b7")} <span class="gold-dot"></span> ${o.upCost}</button>` : o.maxLevel > 1 ? '<div class="mod-max">MAX LEVEL</div>' : ''}
           <div class="ctrl">

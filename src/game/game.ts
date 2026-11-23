@@ -1,3 +1,4 @@
+import { offerPathHints, pathDamageName } from './archetypes';
 import { installSteam } from '../platform/steam';
 import { installTelemetry } from './systems/telemetry';
 import * as ArchitectSys from './systems/architect';
@@ -318,6 +319,7 @@ export function kitText(l: Loadout): string {
 
 /** Shop view sent over the network (Mods referenced by id). */
 export interface NetShop {
+  pathHints?: ShopView['pathHints'];
   pre?: boolean;
   gold: number;
   interest: number;
@@ -431,7 +433,10 @@ export class Game implements HeroWorld {
   portalSpot = SpiceSys.portalSpot;
   gainXp = withDifficulty(LevelUpsSys.gainXp);
   openLevelUp = LevelUpsSys.openLevelUp;
-  presentLevelUp = LevelUpsSys.presentLevelUp;
+  presentLevelUp = (h: Hero): void => {
+    offerPathHints(h, h.offers); // includes the Pacifist reward and a migrating host's restored hand
+    LevelUpsSys.presentLevelUp.call(this, h);
+  };
   presentWait = LevelUpsSys.presentWait;
   presentShop = LevelUpsSys.presentShop;
   tell = LevelUpsSys.tell;
@@ -467,7 +472,7 @@ export class Game implements HeroWorld {
   shatter = StatusesSys.shatter;
   zap = StatusesSys.zap;
   updateStatuses = StatusesSys.updateStatuses;
-  sourceName = StatusesSys.sourceName;
+  sourceName = (id: string): string => pathDamageName(id) ?? StatusesSys.sourceName.call(this, id);
   killEnemy = withDifficulty(StatusesSys.killEnemy);
   blast = StatusesSys.blast;
   explodeBarrel = StatusesSys.explodeBarrel;
@@ -1051,6 +1056,7 @@ export class Game implements HeroWorld {
       },
       { passive: true },
     );
+    this.screens.pathHeroes = () => this.localCoop ? this.heroes : [this.hero];
     this.hud.onPause = () => this.pause();
     this.onboarding = new Onboarding(this, hudRoot);
     this.firstten = new FirstTen(this, hudRoot);
@@ -1502,6 +1508,7 @@ export class Game implements HeroWorld {
         w.update(dt, h.ctx);
       }
       h.ctx.soundSource = null;
+      if (this.mode === 'fight' && !this.modes.holster && this.pvp?.phase !== 'duel') h.paths.step(h, dt);
       this.weaponFeel(h);
     }
     this.updateHeroMechs(dt);
