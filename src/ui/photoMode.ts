@@ -1,9 +1,15 @@
-import { getLanguage, localize, localizeHtml } from '../i18n';
+import { Vector3 } from 'three';
+import { padGlyph, promptState } from './prompts';
+import { PhotoVisibility } from './photoSubjects';
+import { poseRig, type ShotPose } from '../game/cutscene';
+import { applyTimeOfDay } from '../render/biomeLook';
+import { easeGrade, postfx } from '../render/postfx';
+import { getLanguage, localize, localizeHtml, t } from '../i18n';
 import type { Game } from '../game/game';
 import { samples } from '../audio/samples';
 import { sfx } from '../audio/sfx';
 import { retroGlobals } from '../render/retroMaterial';
-import { access } from '../game/settings';
+import { reduceMotion } from './hud';
 import { save } from '../game/save';
 import { SEASON_STICKERS } from '../data/season';
 import {
@@ -14,6 +20,8 @@ import {
   photoCamPosition,
   photoFileName,
   photoScale,
+  photoFocus,
+  photoLight,
   photoTuning,
   type PhotoCam,
   type PhotoFilter,
@@ -40,10 +48,12 @@ export const PHOTO_FRAMES = [
   { id: 'film', name: 'FILM' },
   { id: 'arcade', name: 'ARCADE' },
   { id: 'comic', name: 'COMIC' },
+  { id: 'viewfinder', name: 'VIEWFINDER' },
+  { id: 'postcard', name: 'AIRMAIL' },
 ] as const;
 type FrameId = (typeof PHOTO_FRAMES)[number]['id'];
 
-export const PHOTO_STICKERS = ['none', 'star', 'heart', 'bolt', 'crown', 'skull', 'pow', 'gg', 'wow', 'oneup'] as const;
+export const PHOTO_STICKERS = ['none', 'star', 'heart', 'bolt', 'crown', 'skull', 'pow', 'gg', 'wow', 'oneup', 'comet', 'planet'] as const;
 type StickerId = (typeof PHOTO_STICKERS)[number] | `sp_${string}`;
 /** Stock stickers plus the SEASON track word stickers you own (seasonpass lane). */
 const stickerList = (): StickerId[] => [...PHOTO_STICKERS, ...save.seasonPass.owned.filter((id): id is `sp_${string}` => !!SEASON_STICKERS[id])];
@@ -55,7 +65,7 @@ const WORDS = {
   oneup: ['1UP', '#a7f070', ''],
 } as const;
 const wordOf = (id: StickerId): readonly [string, string, string] | undefined => (WORDS as Record<string, readonly [string, string, string]>)[id] ?? SEASON_STICKERS[id];
-const STICKER_NAMES: Record<(typeof PHOTO_STICKERS)[number], string> = { none: 'OFF', star: 'STAR', heart: 'HEART', bolt: 'BOLT', crown: 'CROWN', skull: 'SKULL', pow: 'POW!', gg: 'GG!', wow: 'WOW!', oneup: '1UP' };
+const STICKER_NAMES: Record<(typeof PHOTO_STICKERS)[number], string> = { none: 'OFF', star: 'STAR', heart: 'HEART', bolt: 'BOLT', crown: 'CROWN', skull: 'SKULL', pow: 'POW!', gg: 'GG!', wow: 'WOW!', oneup: '1UP', comet: 'COMET', planet: 'RINGED PLANET' };
 
 interface Placed {
   id: StickerId;
@@ -84,7 +94,7 @@ const C = {
 };
 
 /** Pad buttons (standard mapping). */
-const PAD = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, select: 8, l3: 10, r3: 11, up: 12, down: 13, left: 14, right: 15 };
+const PAD = { a: 0, b: 1, x: 2, y: 3, lb: 4, rb: 5, lt: 6, rt: 7, select: 8, l3: 10, r3: 11, up: 12, down: 13, left: 14, right: 15 } as const;
 
 export class PhotoMode {
   active = false;
@@ -99,6 +109,21 @@ export class PhotoMode {
 
   private cam: PhotoCam = { x: 0, z: 0, yaw: 0, pitch: 58, dist: 25 };
   private shown: PhotoCam = { x: 0, z: 0, yaw: 0, pitch: 58, dist: 25 };
+  private pose: ShotPose | 'natural' = 'natural';
+  private focus = false;
+  private hour: number | null = null;
+  private hideEnemies = false;
+  private visibility = new PhotoVisibility();
+  private focusPoint = new Vector3();
+  private focusY = 0.5;
+  private sceneNight = 0;
+  private sceneDusk = 0;
+  private lightApplied = false;
+  private light = photoLight(12);
+  private padTools = false;
+  private toolPrompt = '';
+  private readonly poses = ['natural', 'salute', 'ready', 'victory'] as const;
+  private tools: HTMLElement[] = [];
   private ox = 0;
   private oz = 0;
   private fog = { near: 0, far: 0, camFar: 120 };
@@ -147,6 +172,9 @@ export class PhotoMode {
       return false;
     }
     this.active = true;
+    this.hour = null;
+    this.sceneNight = postfx.night;
+    this.padTools = false;
     g.screens.show('none');
     document.body.classList.add('photo-mode');
     this.root.hidden = false;
@@ -172,6 +200,7 @@ export class PhotoMode {
       this.dirty = true;
     });
     this.refreshUi();
+    document.dispatchEvent(new Event('photo-open'));
     return true;
   }
 
@@ -179,6 +208,8 @@ export class PhotoMode {
     if (!this.active) return;
     const g = this.game;
     this.active = false;
+    this.visibility.restore();
+    this.restoreLight();
     this.pendingSave = false;
     document.body.classList.remove('photo-mode');
     if (this.root) this.root.hidden = true;
@@ -191,7 +222,14 @@ export class PhotoMode {
   }
 
   /** Test links and the dev console: set several things at once (unknown ids are ignored). */
-  configure(o: { filter?: string; frame?: string; sticker?: string; stickers?: { id: string; u: number; v: number }[]; logo?: boolean; yaw?: number; pitch?: number; dist?: number; hideUi?: boolean }): void {
+  configure(o: { focus?: boolean; hour?: number; pose?: string; hideEnemies?: boolean; filter?: string; frame?: string; sticker?: string; stickers?: { id: string; u: number; v: number }[]; logo?: boolean; yaw?: number; pitch?: number; dist?: number; hideUi?: boolean }): void {
+    if (typeof o.focus === 'boolean') this.focus = o.focus;
+    if (typeof o.hideEnemies === 'boolean') this.hideEnemies = o.hideEnemies;
+    if (this.poses.some(p => p === o.pose)) this.pose = o.pose as typeof this.pose;
+    if (o.hour !== undefined && Number.isFinite(o.hour)) {
+      this.hour = Math.max(0, Math.min(24, Math.round(o.hour)));
+      this.light = photoLight(this.hour);
+    }
     if (PHOTO_FILTERS.some((f) => f.id === o.filter)) this.filter = o.filter as PhotoFilter;
     if (PHOTO_FRAMES.some((f) => f.id === o.frame)) this.frameId = o.frame as FrameId;
     if ((stickerList() as string[]).includes(o.sticker ?? '')) this.sticker = o.sticker as StickerId;
@@ -212,12 +250,52 @@ export class PhotoMode {
   update(dt: number): void {
     const input = this.game.input;
     this.game.paused = true; // the world stays frozen while photo mode is up
-    const t = photoTuning;
+    const tuning = photoTuning;
     const c = this.cam;
     if (input.keyPressed('Escape') || input.padButtonPressed(PAD.b) || input.padButtonPressed(9)) {
       this.close();
       return;
     }
+    const pad = promptState.mode === 'xbox' || promptState.mode === 'ps' ? promptState.mode : '';
+    if (pad !== this.toolPrompt) {
+      this.toolPrompt = pad;
+      this.els.toolPrompt.hidden = !pad;
+      if (pad) this.els.toolPrompt.innerHTML = padGlyph(pad, PAD.l3) + ' ' + t('photo.controls');
+    }
+    if (input.padButtonPressed(PAD.l3)) {
+      this.padTools = !this.padTools;
+      if (this.padTools) this.tools[0]?.focus();
+      else (document.activeElement as HTMLElement)?.blur();
+      return;
+    }
+    if (this.padTools && this.tools.length) {
+      const index = Math.max(0, this.tools.indexOf(document.activeElement as HTMLElement));
+      const next = Number(input.padButtonPressed(PAD.right)) - Number(input.padButtonPressed(PAD.left));
+      if (next) this.tools[(index + next + this.tools.length) % this.tools.length].focus();
+      const el = this.tools[index];
+      if (el instanceof HTMLInputElement) {
+        const step = Number(input.padButtonPressed(PAD.up)) - Number(input.padButtonPressed(PAD.down));
+        if (step) this.configure({ hour: Number(el.value) + step });
+      } else if (input.padButtonPressed(PAD.a)) el.click();
+      return;
+    }
+    if (input.keyPressed('Tab')) {
+      const controls = this.tools;
+      const back = input.key('ShiftLeft') || input.key('ShiftRight');
+      const index = controls.indexOf(document.activeElement as HTMLElement);
+      const from = index < 0 && back ? 0 : index;
+      controls[(from + (back ? -1 : 1) + controls.length) % controls.length]?.focus();
+      return;
+    }
+    if (input.keyPressed('Space') && this.root?.contains(document.activeElement)) {
+      if (document.activeElement instanceof HTMLButtonElement) document.activeElement.click();
+      return;
+    }
+    // Let the browser activate a focused button or adjust a focused range.
+    const focused = document.activeElement;
+    if (this.root?.contains(focused) && (input.keyPressed('Enter') ||
+      (focused instanceof HTMLInputElement && (input.key('ArrowLeft') || input.key('ArrowRight') ||
+        input.key('ArrowUp') || input.key('ArrowDown') || input.key('Home'))))) return;
     const fast = input.key('ShiftLeft') || input.key('ShiftRight') ? 3 : 1;
     const k = c.dist / 25;
     // Pan: WASD / arrows / left stick, relative to the view.
@@ -227,16 +305,16 @@ export class PhotoMode {
     if (input.key('ArrowRight')) mx += 1;
     if (input.key('ArrowUp')) my -= 1;
     if (input.key('ArrowDown')) my += 1;
-    if (mx || my) this.panBy(mx * t.pan * k * fast * dt, -my * t.pan * k * fast * dt);
+    if (mx || my) this.panBy(mx * tuning.pan * k * fast * dt, -my * tuning.pan * k * fast * dt);
     // Orbit (Q/E, right stick x), tilt (R/F, right stick y), zoom (Z/X, -/=, triggers).
     let rot = (input.key('KeyE') ? 1 : 0) - (input.key('KeyQ') ? 1 : 0) + input.padAim.x;
     let tilt = (input.key('KeyR') ? 1 : 0) - (input.key('KeyF') ? 1 : 0) - input.padAim.y;
     let zoom = (input.key('KeyX') || input.key('Minus') ? 1 : 0) - (input.key('KeyZ') || input.key('Equal') ? 1 : 0);
     if (input.padButton(PAD.lt)) zoom += 1;
     if (input.padButton(PAD.rt)) zoom -= 1;
-    if (rot) c.yaw += rot * t.rotate * fast * dt;
-    if (tilt) c.pitch += tilt * t.tilt * 60 * fast * dt;
-    if (zoom) c.dist *= Math.exp(zoom * t.zoom * fast * dt);
+    if (rot) c.yaw += rot * tuning.rotate * fast * dt;
+    if (tilt) c.pitch += tilt * tuning.tilt * 60 * fast * dt;
+    if (zoom) c.dist *= Math.exp(zoom * tuning.zoom * fast * dt);
     rot = tilt = zoom = 0;
     // Hotkeys.
     if (input.keyPressed('Digit1') || input.padButtonPressed(PAD.lb)) this.cycleFilter(-1);
@@ -248,7 +326,7 @@ export class PhotoMode {
     if (input.keyPressed('Backspace') || input.keyPressed('Delete') || input.padButtonPressed(PAD.left)) this.undoSticker();
     if (input.keyPressed('KeyC') || input.padButtonPressed(PAD.right)) this.clearStickers();
     if (input.keyPressed('KeyH') || input.padButtonPressed(PAD.select)) this.toggleUi();
-    if (input.keyPressed('Digit0') || input.keyPressed('Home') || input.padButtonPressed(PAD.l3) || input.padButtonPressed(PAD.r3)) this.resetCam();
+    if (input.keyPressed('Digit0') || input.keyPressed('Home') || input.padButtonPressed(PAD.r3)) this.resetCam();
     if (input.keyPressed('Enter') || input.keyPressed('KeyP') || input.keyPressed('Space') || input.padButtonPressed(PAD.a)) this.snap();
     clampPhotoCam(c, this.ox, this.oz);
   }
@@ -328,6 +406,28 @@ export class PhotoMode {
 
   // ---------------------------------------------------------------- per frame
 
+  /** Set the sky, scenery and final grade together for this camera exposure. */
+  beforeSky(): void {
+    if (this.hour === null || this.lightApplied) return;
+    this.sceneNight = postfx.night;
+    this.sceneDusk = this.game.dayK;
+    this.lightApplied = true;
+    this.game.dayK = this.light.dusk;
+    postfx.night = this.light.night;
+    applyTimeOfDay(this.light.dusk);
+    if (this.hour < 12 && this.light.night < 1) retroGlobals.uSunDir.value.x *= -1;
+    easeGrade(0, true);
+  }
+
+  private restoreLight(): void {
+    if (!this.lightApplied) return;
+    this.lightApplied = false;
+    postfx.night = this.sceneNight;
+    this.game.dayK = this.sceneDusk;
+    applyTimeOfDay(this.sceneDusk);
+    easeGrade(0, true);
+  }
+
   /** After Game.render, before the WebGL frame: point the camera, keep the pause button honest. */
   frame(frameDt: number): void {
     if (!this.active) {
@@ -362,16 +462,30 @@ export class PhotoMode {
       cam.far = far;
       cam.updateProjectionMatrix();
     }
+    if (this.pose !== 'natural') {
+      const rig = g.player.rig;
+      rig.root.rotation.y = Math.atan2(p.x - rig.root.position.x, p.z - rig.root.position.z);
+      poseRig(rig, this.pose);
+    }
+    if (this.hideEnemies) this.visibility.hide(g.scene);
+    if (this.focus) {
+      cam.updateMatrixWorld();
+      this.focusPoint.copy(g.player.rig.root.position).y += 1;
+      this.focusPoint.project(cam);
+      this.focusY = Math.max(0.15, Math.min(0.85, (1 - this.focusPoint.y) / 2));
+    }
     // Flash and toast timers.
     if (this.flashT > 0) {
       this.flashT = Math.max(0, this.flashT - frameDt * 3);
-      this.els.flash?.style.setProperty('opacity', String(this.flashT * (access.reduceFlash ? 0.15 : 0.85)));
+      this.els.flash?.style.setProperty('opacity', String(this.flashT * (reduceMotion() ? 0.15 : 0.85)));
     }
     if (this.toastT > 0 && (this.toastT -= frameDt) <= 0) this.els.toast?.classList.remove('on');
   }
 
   /** Right after the WebGL frame: grab the pixels, filter and compose the preview; save if asked. */
   afterRender(): void {
+    if (this.active && this.hideEnemies) this.visibility.restore();
+    this.restoreLight();
     if (!this.active || !this.view || !this.base) return;
     if (!this.dirty && !this.pendingSave) return;
     this.dirty = false;
@@ -387,8 +501,9 @@ export class PhotoMode {
     if (!bx) return;
     bx.imageSmoothingEnabled = false;
     bx.drawImage(this.glCanvas, 0, 0);
-    if (this.filter !== 'normal') {
+    if (this.filter !== 'normal' || this.focus) {
       const img = bx.getImageData(0, 0, w, h);
+      if (this.focus) photoFocus(img.data, w, h, this.focusY, this.scratch);
       applyPhotoFilter(img.data, w, h, this.filter, this.scratch);
       bx.putImageData(img, 0, 0);
     }
@@ -461,6 +576,30 @@ export class PhotoMode {
   private drawFrame(x: CanvasRenderingContext2D, W: number, H: number, u: number): void {
     const g = this.game;
     switch (this.frameId) {
+      case 'viewfinder': {
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+          const cx = sx < 0 ? 12 * u : W - 12 * u, cy = sy < 0 ? 12 * u : H - 12 * u;
+          x.fillStyle = C.ink;
+          x.fillRect(cx, cy, -sx * 21 * u, -sy * 4 * u);
+          x.fillRect(cx, cy, -sx * 4 * u, -sy * 18 * u);
+          x.fillStyle = C.cyan;
+          x.fillRect(cx - sx * u, cy - sy * u, -sx * 18 * u, -sy * 2 * u);
+          x.fillRect(cx - sx * u, cy - sy * u, -sx * 2 * u, -sy * 15 * u);
+        }
+        break;
+      }
+      case 'postcard': {
+        const b = 5 * u;
+        x.strokeStyle = C.white;
+        x.lineWidth = 2 * b;
+        x.strokeRect(0, 0, W, H);
+        for (let i = 0; i < W; i += 10 * u) {
+          x.fillStyle = i % (20 * u) ? C.blue : C.red;
+          x.fillRect(i, u, 5 * u, 2 * u);
+          x.fillRect(i, H - 3 * u, 5 * u, 2 * u);
+        }
+        break;
+      }
       case 'snapshot': {
         const side = 8 * u;
         const bottom = 30 * u;
@@ -682,6 +821,16 @@ export class PhotoMode {
       x.fillRect(px, py, w, h);
     };
     switch (id) {
+      case 'comet':
+        poly([1, 1, 13, 6, 17, 11, 15, 16, 10, 17, 6, 14], C.orange);
+        poly([4, 4, 13, 8, 15, 12, 12, 15, 9, 13], C.yellow);
+        dot(10, 9, C.white, 3, 3);
+        break;
+      case 'planet':
+        poly([4, 5, 7, 3, 12, 3, 15, 6, 15, 11, 11, 15, 6, 14, 3, 10], C.blue);
+        dot(6, 5, C.sky, 6, 3);
+        poly([0, 11, 5, 12, 13, 8, 17, 4, 17, 7, 12, 12, 4, 15, 0, 14], C.yellow);
+        break;
       case 'star': {
         const pts: number[] = [];
         for (let i = 0; i < 10; i++) {
@@ -806,21 +955,32 @@ export class PhotoMode {
           </div>
         </div>
         <div class="ph-toast px"></div>
+        <div class="ph-studio px">
+          <small data-ph-toolprompt hidden></small>
+          <button type="button" data-nav data-ph="pose">${t('photo.pose')} <b data-v="pose"></b></button>
+          <button type="button" data-nav data-ph="focus">${t('photo.focus')} <b data-v="focus"></b></button>
+          <button type="button" data-nav data-ph="enemies">${t('photo.enemies')} <b data-v="enemies"></b></button>
+          <label>${t('photo.light')} <input data-nav type="range" min="0" max="24" data-ph-hour><output data-v="hour"></output></label>
+        </div>
         <div class="ph-bar">
-          <button class="px" data-ph="filter-prev" title="1">&lt;</button>
-          <button class="px wide" data-ph="filter"><i>1 2</i>FILTER <b data-v="filter"></b></button>
-          <button class="px" data-ph="filter-next" title="2">&gt;</button>
-          <button class="px" data-ph="frame"><i>3</i>FRAME <b data-v="frame"></b></button>
-          <button class="px" data-ph="sticker"><i>4</i>STICKER <b data-v="sticker"></b></button>
-          <button class="px" data-ph="logo"><i>5</i>LOGO <b data-v="logo"></b></button>
-          <button class="px" data-ph="hide"><i>H</i>HIDE UI</button>
-          <button class="px snap" data-ph="snap"><i>ENTER</i>SNAP!</button>
-          <button class="px" data-ph="exit"><i>ESC</i>BACK</button>
+          <button data-nav class="px" data-ph="filter-prev" title="1">&lt;</button>
+          <button data-nav class="px wide" data-ph="filter"><i>1 2</i>FILTER <b data-v="filter"></b></button>
+          <button data-nav class="px" data-ph="filter-next" title="2">&gt;</button>
+          <button data-nav class="px" data-ph="frame"><i>3</i>FRAME <b data-v="frame"></b></button>
+          <button data-nav class="px" data-ph="sticker"><i>4</i>STICKER <b data-v="sticker"></b></button>
+          <button data-nav class="px" data-ph="logo"><i>5</i>LOGO <b data-v="logo"></b></button>
+          <button data-nav class="px" data-ph="hide"><i>H</i>HIDE UI</button>
+          <button data-nav class="px snap" data-ph="snap"><i>ENTER</i>SNAP!</button>
+          <button data-nav class="px" data-ph="exit"><i>ESC</i>BACK</button>
         </div>
       </div>
       <div class="ph-hint">H: SHOW UI</div>`);
     document.body.appendChild(root);
     this.root = root;
+    this.els.toolPrompt = root.querySelector('[data-ph-toolprompt]')!;
+    this.tools = Array.from(root.querySelectorAll<HTMLElement>('[data-nav]'));
+    const hour = root.querySelector<HTMLInputElement>('[data-ph-hour]')!;
+    hour.oninput = () => this.configure({ hour: Number(hour.value) });
     this.view = root.querySelector('.ph-view');
     this.base = document.createElement('canvas');
     for (const k of ['flash', 'toast']) this.els[k] = root.querySelector(`.ph-${k}`)!;
@@ -832,6 +992,12 @@ export class PhotoMode {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-ph]');
       if (!b) return;
       switch (b.dataset.ph) {
+        case 'pose':
+          return this.configure({ pose: this.poses[(this.poses.indexOf(this.pose) + 1) % this.poses.length] });
+        case 'focus':
+          return this.configure({ focus: !this.focus });
+        case 'enemies':
+          return this.configure({ hideEnemies: !this.hideEnemies });
         case 'filter':
         case 'filter-next':
           return this.cycleFilter(1);
@@ -860,6 +1026,7 @@ export class PhotoMode {
     };
     view.addEventListener('contextmenu', (e) => e.preventDefault());
     view.addEventListener('pointerdown', (e) => {
+      (document.activeElement as HTMLElement | null)?.blur?.();
       at(e);
       this.drag = { button: e.button, x: e.clientX, y: e.clientY, moved: 0 };
       view.setPointerCapture?.(e.pointerId);
@@ -920,6 +1087,12 @@ export class PhotoMode {
       const el = this.els[`v-${k}`];
       if (el) el.textContent = localize(v);
     };
+    set('pose', t('photo.pose.' + this.pose));
+    set('focus', this.focus ? 'ON' : 'OFF');
+    set('enemies', this.hideEnemies ? 'OFF' : 'ON');
+    set('hour', this.hour === null ? t('photo.asShot') : String(this.hour).padStart(2, '0') + ':00');
+    const hour = this.root?.querySelector<HTMLInputElement>('[data-ph-hour]');
+    if (hour) hour.value = String(this.hour ?? (this.sceneNight > 0.5 ? 21 : Math.round(12 + this.game.dayK * 6)));
     set('filter', PHOTO_FILTERS.find((f) => f.id === this.filter)?.name ?? '');
     set('frame', PHOTO_FRAMES.find((f) => f.id === this.frameId)?.name ?? '');
     set('sticker', STICKER_NAMES[this.sticker as keyof typeof STICKER_NAMES] ?? SEASON_STICKERS[this.sticker]?.[0] ?? '');
@@ -951,6 +1124,7 @@ function injectCss(): void {
   cssDone = true;
   const s = document.createElement('style');
   s.textContent = `
+body.photo-mode #hud {display:none !important}
 body.photo-mode #hud, body.photo-mode #reticle, body.photo-mode #stats, body.photo-mode #touch { visibility: hidden !important; }
 #photo { position: fixed; inset: 0; z-index: 50; color: var(--white); font-family: var(--font); text-shadow: var(--outline); }
 #photo[hidden] { display: none; }
@@ -961,10 +1135,19 @@ body.photo-mode #hud, body.photo-mode #reticle, body.photo-mode #stats, body.pho
 #photo.ph-hide .ph-ui { display: none; }
 #photo .ph-hint { position: absolute; left: calc(4 * var(--p)); bottom: calc(3 * var(--p)); font: 14px var(--label); opacity: 0.7; display: none; pointer-events: none; }
 #photo.ph-hide .ph-hint { display: block; }
-#photo .ph-top { position: absolute; left: calc(5 * var(--p)); top: calc(5 * var(--p)); display: flex; flex-direction: column; gap: calc(4 * var(--p)); align-items: flex-start; }
+#photo .ph-top { position: absolute; inset-inline-start: calc(5 * var(--p)); top: calc(5 * var(--p)); display: flex; flex-direction: column; gap: calc(4 * var(--p)); align-items: flex-start; }
 #photo .ph-title { --bg: var(--plum); --hi: var(--red); --lo: var(--ink); font: 34px/1 var(--display); padding: calc(2 * var(--p)) calc(5 * var(--p)) calc(3 * var(--p)); color: var(--yellow); letter-spacing: 1px; }
 #photo .ph-help { --bg: var(--ink); --hi: var(--night); --lo: var(--ink); --drop: transparent; font: 12px/1.7 var(--label); padding: calc(2 * var(--p)) calc(4 * var(--p)); text-shadow: none; color: var(--mist); }
 #photo .ph-help b { color: var(--yellow); font-weight: normal; }
+#photo .ph-studio {position:absolute;inset-inline-end:calc(5 * var(--p));top:calc(5 * var(--p));pointer-events:auto;display:grid;gap:var(--p);padding:calc(2 * var(--p));--bg:var(--ink);--hi:var(--slate);--lo:var(--navy);color:var(--white);font:clamp(15px,2.3vh,26px)/1.3 var(--font)}
+#photo .ph-studio button,#photo .ph-studio label {background:var(--night);border:0;padding:var(--p) calc(3 * var(--p));color:var(--white);font:inherit;text-align:start;display:flex;align-items:center;justify-content:space-between;gap:calc(4 * var(--p))}
+#photo .ph-studio button {cursor:pointer}
+#photo .ph-studio b,#photo .ph-studio output {color:var(--yellow);font-weight:normal}
+#photo .ph-studio input {width:clamp(48px,7vw,120px);appearance:none;background:var(--slate);height:calc(2 * var(--p));cursor:pointer}
+#photo .ph-studio input::-webkit-slider-thumb {appearance:none;width:calc(3 * var(--p));height:calc(5 * var(--p));background:var(--cyan);border:var(--p) solid var(--ink);border-radius:0}
+#photo .ph-studio input::-moz-range-thumb {width:calc(2 * var(--p));height:calc(4 * var(--p));background:var(--cyan);border:var(--p) solid var(--ink);border-radius:0}
+#photo :focus-visible {outline:var(--p) solid var(--cyan)}
+@media(max-width:950px){#photo .ph-help{display:none}}
 #photo .ph-toast { --bg: var(--green); --hi: var(--lime); --lo: var(--teal); position: absolute; left: 50%; top: calc(6 * var(--p)); transform: translateX(-50%); font: 22px var(--font); padding: calc(2 * var(--p)) calc(5 * var(--p)); opacity: 0; transition: opacity 0.2s steps(2); white-space: nowrap; }
 #photo .ph-toast.on { opacity: 1; }
 #photo .ph-bar { position: absolute; left: 0; right: 0; bottom: calc(5 * var(--p)); display: flex; flex-wrap: wrap; justify-content: center; gap: calc(4 * var(--p)); padding: 0 calc(4 * var(--p)); pointer-events: auto; }

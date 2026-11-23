@@ -36,6 +36,7 @@ import { spectateLinks } from './spectateLinks';
 import { netcodeLinks } from './netcodeLinks';
 import { coopplayLinks } from './coopplayLinks';
 import { hostmigLinks } from './hostmigLinks';
+import { debugGainWindow } from '../game/systems/cinematics';
 import { cinematicsLinks } from './cinematicsLinks';
 import { sound2Links } from './sound2Links';
 import { ELITE_MOD_IDS, type EliteModId } from '../data/eliteMods';
@@ -655,13 +656,12 @@ function animLinks(game: Game, q: URLSearchParams): void {
       later('smash', () => smashCover(game, c.x, c.z, 1));
     }
   }
-  later('photo', () => {
-    const ph = game.photo as PhotoMode | null;
-    if (!ph) return;
-    game.pause();
-    if (!ph.open()) return;
+  const configurePhoto = (ph: PhotoMode) => {
     const cam = (q.get('photocam') ?? '').split(',').filter(Boolean).map(Number);
     ph.configure({
+      pose: q.get('photopose') ?? undefined,
+      focus: q.has('photofocus'), hideEnemies: q.has('photoquiet'),
+      hour: q.has('photohour') ? Number(q.get('photohour')) : undefined,
       filter: q.get('photofilter') ?? undefined,
       frame: q.get('photoframe') ?? undefined,
       stickers: (q.get('stickers') ?? '').split(';').filter(Boolean).map((s) => {
@@ -676,7 +676,29 @@ function animLinks(game: Game, q: URLSearchParams): void {
       hideUi: q.has('photohide'),
     });
     if (q.has('photosnap')) setTimeout(() => ph.snap(), 600);
+  };
+  later('photo', () => {
+    if (!game.isCombatMode) return;
+    game.pause();
+    const ph = game.photo as PhotoMode | null;
+    if (ph) { if (ph.open()) configurePhoto(ph); }
+    else {
+      document.addEventListener('photo-open', () => configurePhoto(game.photo as PhotoMode), { once: true });
+      document.querySelector<HTMLElement>('#scr-pause [data-act="photo"]')?.click();
+    }
   });
+  later('evolution', () => {
+    debugGainWindow(game);
+    game.hero.weapons.find(w => w.def.slot === 'primary')?.evolve(0);
+  });
+  if (q.has('introat')) {
+    const intro = game.bossIntro;
+    const draw = intro.draw.bind(intro);
+    intro.draw = () => {
+      if (intro.active) intro.t = Math.max(0, Math.min(1, Number(q.get('introat')) || 0));
+      draw();
+    };
+  }
   later('die', () => {
     cheats.god = false;
     const p = game.hero.player;
