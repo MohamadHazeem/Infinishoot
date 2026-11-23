@@ -22,7 +22,7 @@ export const en = {
   "ceiling.cooldownCut": "WEAPON COOLDOWN REDUCTION",
   "ceiling.lastHit": "MOD MULTIPLIER ON LAST HIT",
   "ceiling.buildStats": "EFFECTIVE BUILD STATS",
-  "ceiling.killLimit": "MAX LIFE FROM KILLS / S",
+  "ceiling.killLimit": "KILL + LEECH HEALING / S MAX",
   "ceiling.overdrive": "+⟪0⟫% base damage · rank ⟪1⟫/⟪2⟫",
   "ceiling.momentum": "x⟪0⟫ more damage for each level gained after buying this (max x⟪1⟫, 8 levels).",
   "playtest.share": "SHARE PLAYTEST DATA",

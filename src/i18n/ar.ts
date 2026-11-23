@@ -22,7 +22,7 @@ export const ar = {
   "ceiling.cooldownCut": "خفض مدة شحن السلاح",
   "ceiling.lastHit": "مضاعف التعديلات في آخر إصابة",
   "ceiling.buildStats": "إحصاءات العتاد الفعلية",
-  "ceiling.killLimit": "أقصى تعافٍ من القتل في الثانية",
+  "ceiling.killLimit": "أقصى تعافٍ من القتل وامتصاص الحياة في الثانية",
   "ceiling.overdrive": "+⟪0⟫% للضرر الأساسي · الرتبة ⟪1⟫/⟪2⟫",
   "ceiling.momentum": "يزداد معامل الضرر بمقدار ⟪0⟫ مع كل مستوى تكتسبه بعد الشراء (حتى ×⟪1⟫ بعد 8 مستويات).",
   "steam.stage": "المرحلة ⟪stage⟫ · ⟪biome⟫ · ⟪hero⟫",

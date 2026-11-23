@@ -34,7 +34,7 @@ import { SPECIALS } from '../data/specials';
 import { WEAPONS } from '../data/weapons';
 import { type Loadout } from '../data/loadout';
 import { addAuraBonus } from '../data/passives';
-import { Synergy } from './synergy';
+import { shockDamageTuning, Synergy } from './synergy';
 import { passiveTuning } from './stats';
 import { isSpecialRunning, updateSpecials, type SpecialApi } from './specials';
 import { NetClient, NetHost } from '../net/peer';
@@ -194,10 +194,9 @@ export const nukeTuning = {
 };
 
 /** Status effects and their combos. */
-export const statusTuning = {
+export const statusTuning = Object.assign(shockDamageTuning, {
   burnTime: 3,
   shockTime: 2,
-  shockMult: 0.2, // shocked enemies take +20% damage
   // Combo damage grows with team level (enemy HP grows ~6-9x by stage 4; flat numbers fell off).
   shatterDamage: 12,
   shatterPerLevel: 2,
@@ -208,7 +207,7 @@ export const statusTuning = {
   // Right-click hits Expose: everyone's hits on that enemy deal more for a while (user: the right click got ignored).
   exposeTime: 4,
   exposeMult: 0.3,
-};
+});
 
 /** Dev cheats: `god` ignores damage; `unlockAll` lets test links use locked loadout items. */
 export const cheats = { god: false, unlockAll: false };
@@ -1014,7 +1013,7 @@ export class Game implements HeroWorld {
       lastModHit: () => this.hero.synergy.lastModHit,
       buildStats: (mods) => {
         const h = this.hero;
-        if (this.role !== 'client') return h.statsWithPassives(h.passives);
+        if (this.role !== 'client') return h.equipmentStats;
         const syn = Synergy.sandbox(mods.map((m) => ({ ...m, st: { n: 0, t: 0 }, paid: 0 })), h);
         return h.statsWithPassives(h.passives, syn);
       },
@@ -1144,10 +1143,10 @@ export class Game implements HeroWorld {
 
   makeHero(index: number, name: string, unlocked: string[], peerId = '', skin = settings.skin, pet = settings.pet, heroId = localHero()): Hero {
     const h = new Hero(this, index, name, HERO_COLORS[index % HERO_COLORS.length], unlocked, peerId, (metaSkin(skin) ?? skinOf(skin)), pet, heroId);
-    // All kill rewards (including shared healing and nested explosions) go
-    // through this hero's own budget. Pickups and regeneration run outside it.
+    // The current weapon stays on the context throughout its update. Beam
+    // leech and kill rewards (including nested kills) spend one recipient budget.
     const heal = h.player.heal.bind(h.player);
-    h.player.heal = (amount) => heal(this.killDepth && amount > 0
+    h.player.heal = (amount) => heal((this.killDepth || h.ctx.soundSource?.def.id === 'medbeam') && amount > 0
       ? h.synergy.killHealing.grant(this.runTime, Math.min(amount, h.player.maxHp - h.player.hp), h.player.maxHp)
       : amount);
     h.player.setSkin(h.skin.armor, h.skin);
@@ -1724,9 +1723,13 @@ export class Game implements HeroWorld {
     }
     if (rally) {
       const mod = h.synergy.staticDamageMul;
-      h.stats.damageMul = mod * (1 + addAuraBonus(h.stats.damageMul / mod - 1, rally / mod, 0.30, 0.85));
+      const base = h.equipmentStats.damageMul / mod - 1;
+      h.stats.damageMul += mod * (addAuraBonus(base, rally / mod, 0.30, 0.85) - base);
     }
-    if (near > 0) h.stats.armor = addAuraBonus(h.stats.armor, h.stats.nearMateArmor, 3, 8);
+    if (near > 0 && h.stats.nearMateArmor) {
+      const base = h.equipmentStats.armor;
+      h.stats.armor += addAuraBonus(base, h.stats.nearMateArmor, 3, 8) - base;
+    }
   }
 
   updateTransition(): void {

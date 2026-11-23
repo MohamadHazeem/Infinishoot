@@ -1089,7 +1089,7 @@ export class Screens {
             .join('')}</div></div></div>
           <div class="name">${o.name}</div>
           ${levelPips(o)}
-          <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : o.text}${o.kind === 'overdrive' ? ' ' + t('menus.overdrive') : ''}</div>
+          <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : localize(o.text)}</div>
           ${curvedPassive(o) && o.nums?.length && (o.level ?? 0) >= 3 ? `<div class="pi-t">${t('ceiling.buildStats')}</div>` : ''}
           ${numsHtml(curvedPassive(o) ? o.nums?.map(buildNumber) : o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
@@ -1246,7 +1246,7 @@ export class Screens {
     const hit = this.actions.lastModHit?.();
     if (mods.length && hit != null) lines.push({ l: t('ceiling.lastHit'), b: '×' + fmtNum(hit) });
     if (stats && stats.killHeal > 0) lines.push({ l: 'LIFE PER KILL', b: fmtNum(stats.killHeal * stats.maxHp / 100) });
-    if (stats && (stats.killHeal > 0 || relics.some((r) => r.id === 'r_fang' || r.id === 'r_mercy')))
+    if (stats && (stats.killHeal > 0 || loadout.some((item) => item.id.startsWith('medbeam')) || relics.some((r) => r.id === 'r_fang' || r.id === 'r_mercy')))
       lines.push({ l: t('ceiling.killLimit'), b: fmtNum(killHealLimit(stats.maxHp)) });
     const buildStats = lines.length ? `<div class="pi-col build-totals"><div class="pi-t">${t('ceiling.buildStats')}</div>${lines.map((n) => `<div class="rcp">${localize(n.l)} <bdi>${localize(n.b)}</bdi></div>`).join('')}</div>` : '';
     const recipes = info.recipes

@@ -7,7 +7,8 @@ import { MOD_BY_ID } from '../src/data/mods';
 import { applyBuildCurves, addAuraBonus, KillHealWindow, softBonus } from '../src/data/passives';
 import { baseStats, type Stats } from '../src/game/stats';
 import { offerNumbers } from '../src/game/cardNumbers';
-import { buildParams, newBuild, overdriveBonus, overdriveStep, parseBuild } from '../src/data/tracks';
+import { buildParams, hasOverdriveDamage, newBuild, overdriveBonus, overdriveStep, parseBuild } from '../src/data/tracks';
+import { createWeapon } from '../src/game/weapons';
 import { WEAPONS } from '../src/data/weapons';
 import { setLanguage, localize } from '../src/i18n';
 import { modDesc } from '../src/game/modTypes';
@@ -54,9 +55,11 @@ near(overdriveBonus(500), 0.37);
 const old = parseBuild('0:4,4,4:35', weapon);
 assert.equal(old.od, 8);
 near(buildParams({ dmg: 100 }, {}, { ...newBuild({}), od: 99 }).dmg, 137);
+near(buildParams({ implode: 100 }, {}, old).implode, 137);
+assert.equal(hasOverdriveDamage(WEAPONS.revdrone.levels[0].p), false);
 
 const game = new Game(new Input(document.querySelector('canvas')!), 16 / 9, document.querySelector('#hud')!, document.querySelector('#reticle')!);
-game.startRun({ seed: 42 });
+game.startRun({ seed: 42, difficulty: 'normal' });
 if (game.mode === 'shop') game.closeShop();
 const h = game.hero;
 const pick = (kind: Offer['kind'], id: string, key?: string): Offer => ({ kind, id, pick: key, color: '', icon: '', name: '', tag: '', text: '' });
@@ -86,6 +89,35 @@ for (let i = 0; i < 100; i++) {
 near(h.player.hp, 13);
 near(h.player.heal(10), 10);
 
+// A real beam tick on a live target cannot draw from a second pool after a kill burst.
+const beam = createWeapon('medbeam', game.scene);
+const target = game.enemies.spawn(ENEMIES.bopper, h.player.x + 4, h.player.z, { instant: true });
+target.state = 'move';
+target.hp = target.maxHp = 10000;
+game.hash.insert(target, target.x, target.z, target.radius);
+h.player.setAimDir(1, 0);
+h.ctx.firing = true;
+h.ctx.soundSource = beam;
+beam.update(1 / 60, h.ctx);
+assert.ok(target.hp < 10000, 'beam damaged the target');
+near(h.player.hp, 23);
+game.runTime += 1;
+beam.update(0.2, h.ctx);
+assert.ok(h.player.hp > 23 && h.player.hp <= 26);
+h.ctx.soundSource = null;
+beam.dispose();
+
+const mate = game.makeHero(1, 'Mate', []);
+mate.passives = { rally_banner: 5 };
+mate.recomputeStats();
+mate.player.teleport(h.player.x, h.player.z);
+game.setHeroes([h, mate]);
+h.stats.damageMul *= 2;
+game.applyTeamAuras(h, 0);
+near(h.stats.damageMul, h.equipmentStats.damageMul + 1 + softBonus(1, 0.3, 0.85));
+game.setHeroes([h]);
+h.refreshLive();
+
 const enemy = game.enemies.spawn(ENEMIES.bopper, 4, 4, { instant: true });
 const ev = { e: enemy, crit: false, dist: 10, source: 'buster', tags: [] };
 for (const id of ['glass_cannon', 'momentum', 'echo', 'collector', 'midas']) h.synergy.add(MOD_BY_ID[id]);
@@ -97,6 +129,21 @@ h.synergy.upgrade(3);
 const product = 2 * 1.8 * 3 * 3 * 3;
 near(h.synergy.damage(ev, 200), 100 * softBonus(product, 5, 8));
 assert.equal(game.buildSnapshot(h, []).modHit, Math.round(100 * softBonus(product, 5, 8)));
+h.synergy.slots[1].st.n = 100;
+near(h.synergy.damage(ev, 200), 100 * softBonus(product, 5, 8));
+
+// The status pipeline supplies the reaction's base damage and applies native
+// shock afterwards. Equipment behind either status still shares the hit ceiling.
+h.synergy.reset();
+for (const id of ['glass_cannon', 'static_cling', 'overloader', 'shatterpoint']) {
+  h.synergy.add(MOD_BY_ID[id]);
+}
+enemy.shockT = 1;
+for (const source of ['shatter', 'overload']) {
+  const amount = h.synergy.damage({ ...ev, source, tags: ['explosive'] }, 100 * 2 * 3);
+  near(amount * 1.5, 100 * 1.2 * softBonus(2 * 3 * 1.25, 5, 8));
+}
+h.recomputeStats();
 await setLanguage('ar');
 assert.ok(!/[a-z]/i.test(localize(modDesc(MOD_BY_ID.momentum, 2)).replaceAll('x', '')));
 assert.ok(!/[a-z]/i.test(localize('+7% base damage · rank 2/8')));

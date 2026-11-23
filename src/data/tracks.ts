@@ -71,7 +71,11 @@ export function overdriveBonus(ranks: number): number {
 export const RANK_RARITY: Rarity[] = ['common', 'common', 'uncommon', 'rare'];
 
 /** Params whose value is damage, for Overdrive. */
-const DAMAGE_KEYS = ['dmg', 'dps'];
+const DAMAGE_KEYS = ['dmg', 'dps', 'implode'];
+
+export function hasOverdriveDamage(params: Record<string, number>): boolean {
+  return DAMAGE_KEYS.some((key) => params[key] > 0);
+}
 
 export function newBuild(def: Upgradable): Build {
   // Both Weapon.overdrive() and special picks increment this same field.
