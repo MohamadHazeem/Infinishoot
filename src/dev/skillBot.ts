@@ -16,6 +16,8 @@ import { ChargeShot } from '../game/weapons/charge';
 export const skillTuning = { reactionMs: 180, aimErrorDeg: 4, decisionHz: 10 };
 type SkillOptions = Partial<typeof skillTuning>;
 const dt = 1 / 60;
+// Rex's brain supplies these in code. The ground line in Enemies.render uses the same fallback.
+const rexCharge = { speed: 24, duration: 0.5 };
 const command = () => ({
   mx: 0,
   mz: 0,
@@ -115,9 +117,10 @@ class SkilledPilot {
     const def = e.def;
     if (def.fuse) this.disc(g, o, e.x, e.z, def.fuse.radius, e.t);
     if (e.action === 'slam' || def.leap)
-      this.disc(g, o, e.targetX, e.targetZ, def.leap?.radius ?? 3.8, e.t);
-    const strike =
-      def.lunge ?? (e.action === 'charge' || def.behavior === 'charger' ? def.charge : undefined);
+      this.disc(g, o, e.targetX, e.targetZ, def.leap ? def.leap.radius * e.scale : 3.8, e.t);
+    let strike: { speed: number; duration: number } | undefined = def.lunge;
+    if (!strike && (def.behavior === 'charger' || e.action === 'charge'))
+      strike = def.charge ?? (def.behavior === 'rex' ? rexCharge : undefined);
     const sniper = def.shoot?.pattern === 'sniper';
     if (!strike && !sniper) return;
     const dx = g.player.x - e.x,
@@ -256,6 +259,9 @@ class SkilledPilot {
       this.evade(o, -vz * side, vx * side, eta, true);
     }
     this.normalize(o);
+    // A missed parry still has a visible cooldown. Use the dash instead if ready.
+    if (h.skill.parryCd > 0) o.parry = false;
+    if (p.dashReady01 < 1) o.dash = false;
     if (!g.walls.segmentClear(p.x, p.z, p.x + 2 * o.mx, p.z + 2 * o.mz, p.radius)) {
       [o.mx, o.mz] = this.nav.steer(g, p.x, p.z, p.x + 3 * o.mx, p.z + 3 * o.mz);
       this.normalize(o);
@@ -386,11 +392,150 @@ function measurement(g: Game, options: typeof skillTuning) {
   };
 }
 
+/** Attribute accepted damage and actions at the same callbacks the game uses for
+ * MVP and telemetry. These hooks only observe and are removed after each slice. */
+function observeRun(g: Game, m: ReturnType<typeof measurement>) {
+  const { lastHits, damageByStage, seenBosses, shooters, uids } = m;
+  let fromX = 0,
+    fromZ = 0,
+    attacker = '';
+  const hit = g.hurtHero,
+    hurt = g.mvpHurt,
+    dash = g.onDash,
+    parry = g.tryParry,
+    kill = g.mvpKill;
+  const fire = g.enemyCtx.fireBullet,
+    shot = g.bossApi.shot;
+  const family = g.enemyCtx.family;
+  const copiedShot = family?.fire;
+  const bossStep = g.updateBossFight;
+  // Bullets swap pool slots; use their monotonic UID to retain shooter identity.
+  const b = g.bullets;
+  const mark = (slot: number, source: string) => {
+    for (let i = slot; i < b.count; i++) {
+      if (b.team[i] !== Team.Enemy) continue;
+      const uid = b.uid[i],
+        key = uid % uids.length;
+      if (uids[key] === uid) continue;
+      uids[key] = uid;
+      shooters[key] = source;
+    }
+  };
+  const beginBoss = (e: Enemy) => {
+    if (seenBosses.has(e.uid)) return;
+    const fight = { stage: g.stage, id: e.def.id, seconds: 0, killed: false };
+    seenBosses.set(e.uid, { fight, start: g.runTime });
+  };
+  g.enemyCtx.fireBullet = (e, dx, dz, speed, dmg) => {
+    const slot = b.count;
+    fire(e, dx, dz, speed, dmg);
+    mark(slot, e.def.id);
+  };
+  g.bossApi.shot = (e, dx, dz, speed, dmg, color, life, radius) => {
+    const slot = b.count;
+    shot(e, dx, dz, speed, dmg, color, life, radius);
+    mark(slot, e.def.id);
+  };
+  if (family && copiedShot) {
+    family.fire = (e) => {
+      const slot = b.count;
+      copiedShot.call(family, e);
+      mark(slot, e.def.id);
+    };
+  }
+  // The Queen's delayed swarm wall emits directly from the boss field rather
+  // than either firing API. Preserve any individually attributed shots.
+  g.updateBossFight = (dt) => {
+    const slot = b.count;
+    let source = '';
+    for (const wall of g.bossField.pendingWalls) {
+      if (wall.t <= dt)
+        source = source && source !== wall.src.def.id ? 'swarm_wall' : wall.src.def.id;
+    }
+    bossStep.call(g, dt);
+    if (source) mark(slot, source);
+  };
+  const hitSource = () => {
+    if (attacker === 'Enemy fire') {
+      for (let i = 0; i < b.count; i++) {
+        if (b.team[i] !== Team.Enemy || fromX !== b.px[i] || fromZ !== b.pz[i]) continue;
+        const uid = b.uid[i],
+          key = uid % uids.length;
+        if (uids[key] === uid && shooters[key]) return shooters[key];
+      }
+      return 'enemy_fire';
+    }
+    return sourceIds.get(attacker) ?? attacker.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+  };
+  g.hurtHero = (h, raw, x, z, enemy, cause) => {
+    // Thorns or on-kill effects can produce another hit before this one lands.
+    const outerX = fromX,
+      outerZ = fromZ,
+      outerSource = attacker;
+    fromX = x;
+    fromZ = z;
+    attacker = enemy?.def.id ?? (cause || 'Enemy fire');
+    try {
+      hit.call(g, h, raw, x, z, enemy, cause);
+    } finally {
+      fromX = outerX;
+      fromZ = outerZ;
+      attacker = outerSource;
+    }
+  };
+  g.mvpHurt = (h, amount) => {
+    if (h === g.hero) {
+      if (lastHits.length === 5) lastHits.shift();
+      lastHits.push({
+        stage: g.stage,
+        seconds: rounded(g.runTime),
+        source: hitSource(),
+        damage: rounded(amount),
+        hp: rounded(h.player.hp),
+      });
+      damageByStage[g.stage] = (damageByStage[g.stage] ?? 0) + amount;
+    }
+    hurt.call(g, h, amount);
+  };
+  g.onDash = (h) => {
+    if (h === g.hero) m.dashes++;
+    dash.call(g, h);
+  };
+  g.tryParry = (h) => {
+    if (h === g.hero && h.skill.parryCd <= 0 && !h.player.dead && g.isCombatMode) m.parries++;
+    parry.call(g, h);
+  };
+  g.mvpKill = (e, by) => {
+    if (e.def.boss) {
+      beginBoss(e);
+      const rec = seenBosses.get(e.uid)!;
+      rec.fight.killed = true;
+      rec.fight.seconds = rounded(g.runTime - rec.start);
+    }
+    kill.call(g, e, by);
+  };
+  return {
+    beginBoss,
+    restore() {
+      g.hurtHero = hit;
+      g.mvpHurt = hurt;
+      g.onDash = dash;
+      g.tryParry = parry;
+      g.mvpKill = kill;
+      g.enemyCtx.fireBullet = fire;
+      g.bossApi.shot = shot;
+      g.updateBossFight = bossStep;
+      if (family && copiedShot) family.fire = copiedShot;
+    },
+  };
+}
+
 export function createSkillRun(g: Game, input: Input) {
   let previous: ReturnType<typeof measurement> | undefined;
   return (seconds: number, opts: SkillOptions = {}) => {
     if (g.online || g.coop || g.host || g.client) throw new Error('skillRun requires a solo run');
-    if (!Number.isFinite(seconds) || seconds < 0)
+    const frameCount = Math.round(seconds * 60);
+    if (seconds < 0 || !Number.isSafeInteger(frameCount))
       throw new RangeError('Invalid simulation duration');
     const options = { ...skillTuning, ...opts };
     if (!previous || previous.run !== g.mvp || previous.step !== g.stepN)
@@ -404,17 +549,7 @@ export function createSkillRun(g: Game, input: Input) {
       m.pilot = new SkilledPilot(options);
       m.options = options;
     }
-    const {
-      pilot,
-      lastHits,
-      log,
-      stages,
-      clearedStages,
-      damageByStage,
-      seenBosses,
-      uids,
-      shooters,
-    } = m;
+    const { pilot, lastHits, log, stages, clearedStages, damageByStage, seenBosses } = m;
     const rankCount = () => {
       let ranks = 0,
         evos = 0;
@@ -425,86 +560,7 @@ export function createSkillRun(g: Game, input: Input) {
       }
       return { ranks, evos };
     };
-    let steps = 0;
-    let source = '';
-    const hit = g.hurtHero,
-      hurt = g.mvpHurt,
-      dash = g.onDash,
-      parry = g.tryParry,
-      kill = g.mvpKill;
-    const fire = g.enemyCtx.fireBullet,
-      shot = g.bossApi.shot;
-    // Bullets swap pool slots; use their monotonic UID to retain shooter identity.
-    const b = g.bullets;
-    const mark = (slot: number, e: Enemy) => {
-      for (let i = slot; i < b.count; i++) {
-        const uid = b.uid[i],
-          key = uid % uids.length;
-        uids[key] = uid;
-        shooters[key] = e.def.id;
-      }
-    };
-    const beginBoss = (e: Enemy) => {
-      if (seenBosses.has(e.uid)) return;
-      const fight = { stage: g.stage, id: e.def.id, seconds: 0, killed: false };
-      seenBosses.set(e.uid, { fight, start: g.runTime });
-    };
-    g.enemyCtx.fireBullet = (e, dx, dz, speed, dmg) => {
-      const slot = b.count;
-      fire(e, dx, dz, speed, dmg);
-      mark(slot, e);
-    };
-    g.bossApi.shot = (e, dx, dz, speed, dmg, color, life, radius) => {
-      const slot = b.count;
-      shot(e, dx, dz, speed, dmg, color, life, radius);
-      mark(slot, e);
-    };
-    g.hurtHero = (h, raw, x, z, enemy, cause) => {
-      source =
-        enemy?.def.id ??
-        sourceIds.get(cause ?? '') ??
-        (cause || 'enemy_fire').toLowerCase().replace(/[^a-z0-9]+/g, '_');
-      if (cause === 'Enemy fire')
-        for (let i = 0; i < b.count; i++) {
-          if (b.team[i] !== Team.Enemy || x !== b.px[i] || z !== b.pz[i]) continue;
-          const uid = b.uid[i],
-            key = uid % uids.length;
-          if (uids[key] === uid && shooters[key]) source = shooters[key];
-          break;
-        }
-      hit.call(g, h, raw, x, z, enemy, cause);
-    };
-    g.mvpHurt = (h, amount) => {
-      if (h === g.hero) {
-        if (lastHits.length === 5) lastHits.shift();
-        lastHits.push({
-          stage: g.stage,
-          seconds: rounded(g.runTime),
-          source,
-          damage: rounded(amount),
-          hp: rounded(h.player.hp),
-        });
-        damageByStage[g.stage] = (damageByStage[g.stage] ?? 0) + amount;
-      }
-      hurt.call(g, h, amount);
-    };
-    g.onDash = (h) => {
-      if (h === g.hero) m.dashes++;
-      dash.call(g, h);
-    };
-    g.tryParry = (h) => {
-      if (h === g.hero && h.skill.parryCd <= 0 && !h.player.dead && g.isCombatMode) m.parries++;
-      parry.call(g, h);
-    };
-    g.mvpKill = (e, by) => {
-      if (e.def.boss) {
-        beginBoss(e);
-        const rec = seenBosses.get(e.uid)!;
-        rec.fight.killed = true;
-        rec.fight.seconds = rounded(g.runTime - rec.start);
-      }
-      kill.call(g, e, by);
-    };
+    const observer = observeRun(g, m);
     const god = cheats.god;
     const pad = input.virtual;
     const oldPad = {
@@ -520,17 +576,14 @@ export function createSkillRun(g: Game, input: Input) {
       cheats.god = false;
       if (g.paused) g.resume();
       pad.active = true;
-      for (
-        const n = Math.round(seconds * 60);
-        steps < n && g.mode !== 'dead' && g.mode !== 'title';
-        steps++
-      ) {
+      const limit = clearedStages.includes(4) ? 0 : frameCount;
+      for (let step = 0; step < limit && g.mode !== 'dead' && g.mode !== 'title'; step++) {
         const t = window.performance.now();
         const stage = g.stage,
           clears = g.bossesRun,
           mode = g.mode,
           level = g.level;
-        if (g.boss?.active) beginBoss(g.boss);
+        if (g.boss?.active) observer.beginBoss(g.boss);
         if (mode === 'levelup' || mode === 'shop') menus(g);
         const o = pilot.step(g);
         pad.move.x = o.mx;
@@ -572,15 +625,9 @@ export function createSkillRun(g: Game, input: Input) {
       pad.aim.x = oldPad.ax;
       pad.aim.y = oldPad.az;
       pad.buttons.splice(0, pad.buttons.length, ...oldPad.buttons);
+      observer.restore();
       input.poll();
       input.device = oldPad.device;
-      g.hurtHero = hit;
-      g.mvpHurt = hurt;
-      g.onDash = dash;
-      g.tryParry = parry;
-      g.mvpKill = kill;
-      g.enemyCtx.fireBullet = fire;
-      g.bossApi.shot = shot;
     }
     m.step = g.stepN;
     const bosses = Array.from(seenBosses.values(), ({ fight, start }) => ({
@@ -595,6 +642,7 @@ export function createSkillRun(g: Game, input: Input) {
     return {
       seed: g.seed,
       difficulty: g.difficulty.id,
+      tuning: { ...m.options },
       log: [...log],
       mode: g.mode,
       stage: g.stage,

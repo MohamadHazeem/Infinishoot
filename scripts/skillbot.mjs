@@ -100,7 +100,7 @@ async function main() {
     !Number.isSafeInteger(first) ||
     first < 0 ||
     first + runs - 1 > 0xffffffff ||
-    !(seconds > 0 && Number.isFinite(seconds))
+    !(seconds > 0 && Number.isSafeInteger(Math.round(seconds * 60)))
   )
     throw new Error('Invalid runs, seed or seconds');
   const difficulties =
@@ -143,6 +143,10 @@ async function main() {
         const line = stdout.split('\n').findLast((l) => l.startsWith('SKILLRESULT '));
         if (!line) throw new Error('Missing sample result for seed ' + (first + i));
         const r = JSON.parse(line.slice(12));
+        if (r.seed !== first + i || r.difficulty !== difficulty)
+          throw new Error(
+            `Expected ${difficulty} seed ${first + i}, got ${r.difficulty} seed ${r.seed}`,
+          );
         report.results.push(r);
         report.summary[difficulty] = summarize(
           report.results.filter((row) => row.difficulty === difficulty),
@@ -161,8 +165,8 @@ async function main() {
       Object.entries(report.summary).map(([difficulty, s]) => ({
         difficulty,
         runs: s.runs,
-        'clear % S1/S2/S3/S4': s.stageClearPct.join('/'),
-        'loop %': s.loopClearPct,
+        'clear % S1/S2/S3/S4': s.stageClearPct.map((pct) => Number(pct.toFixed(1))).join('/'),
+        'loop %': Number(s.loopClearPct.toFixed(1)),
         'median stage': s.medianStage,
         'mean game s': s.meanRunSeconds,
         incomplete: s.incomplete,
