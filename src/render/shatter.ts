@@ -1,5 +1,6 @@
 import { noiseFor, type NoiseGovernor } from './noiseGovernor';
 import * as THREE from 'three';
+import { particleUpload } from './particlesUpload';
 import { commit } from './instancing';
 import { createRetroMaterial } from './retroMaterial';
 import { textures } from './textures';
@@ -7,8 +8,9 @@ import { textures } from './textures';
 /**
  * Destruction physics (graphics lane): broken props split into real chunks
  * that fly out from the hit, tumble, bounce on the ground, slide to a stop,
- * tip onto a flat face and pile up on each other, lie there for a while,
- * then sink away. Pieces are cut from the prop's own box (a jittered grid,
+ * tip onto a flat face and pile up on each other. Stage rubble stays until
+ * its slot is recycled. Temporary bursts can still sink away. Pieces are cut
+ * from the prop's box (a jittered grid,
  * `fracture`), so a crate breaks into crate-sized planks and a pillar into
  * drums along its length.
  *
@@ -132,12 +134,12 @@ export class PileMap {
     return (Math.floor(x / this.cell) + 4096) * 8192 + (Math.floor(z / this.cell) + 4096);
   }
   height(x: number, z: number): number {
-    return this.h.get(this.key(x, z)) ?? 0;
+    return Math.min(shatterTuning.pileMax, this.h.get(this.key(x, z)) ?? 0);
   }
   /** A chunk of height `size` came to rest at (x, z) on a floor of `base`: the pile grows to its top. */
   add(x: number, z: number, base: number, size: number): void {
     const k = this.key(x, z);
-    this.h.set(k, Math.min(shatterTuning.pileMax, Math.max(this.h.get(k) ?? 0, base + size * 0.85)));
+    this.h.set(k, Math.max(this.h.get(k) ?? 0, base) + size * 0.85);
   }
   /** A chunk sank away: lower its cell. */
   remove(x: number, z: number, size: number): void {
@@ -199,6 +201,10 @@ class Pool {
   readonly life: Float32Array;
   /** 0 flying, 1 settled (counted in the pile), 2 gone. */
   readonly state: Uint8Array;
+  /** Persistent fragments only write their instance matrix while moving. */
+  readonly dirty: Uint8Array;
+  moving = 0;
+  needsRender = false;
 
   constructor(scene: THREE.Scene, max: number, mat: THREE.Material) {
     const f = () => new Float32Array(max);
@@ -218,6 +224,7 @@ class Pool {
     this.age = f();
     this.life = f();
     this.state = new Uint8Array(max).fill(2);
+    this.dirty = new Uint8Array(max);
     // A unit box with one chipped corner reads as a broken piece rather than a clean cube.
     const geo = new THREE.BoxGeometry(1, 1, 1);
     const pos = geo.getAttribute('position') as THREE.BufferAttribute;
@@ -237,6 +244,7 @@ class Pool {
 export class Shatter {
   private plain: Pool;
   private crate: Pool;
+  private readonly pools: readonly Pool[];
   readonly pile = new PileMap();
   /** Piece count multiplier (quality). */
   density = 1;
@@ -252,24 +260,27 @@ export class Shatter {
 
   private noise: NoiseGovernor;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, private readonly persistent = false) {
     this.noise = noiseFor(scene);
     const max = shatterTuning.max;
     this.plain = new Pool(scene, max, createRetroMaterial({ instanceFlash: true }));
     this.crate = new Pool(scene, Math.round(max / 2), createRetroMaterial({ map: textures.crate(), instanceFlash: true }));
+    this.pools = [this.plain, this.crate];
   }
 
   /** Live pieces (tests and the debug panel). */
   get live(): number {
+    if (this.persistent) return this.plain.n + this.crate.n;
     let n = 0;
-    for (const p of [this.plain, this.crate]) for (let i = 0; i < p.n; i++) if (p.state[i] !== 2) n++;
+    for (const p of this.pools) for (let i = 0; i < p.n; i++) if (p.state[i] !== 2) n++;
     return n;
   }
 
   clear(): void {
-    for (const p of [this.plain, this.crate]) {
-      p.n = p.next = 0;
+    for (const p of this.pools) {
+      p.n = p.next = p.moving = 0;
       p.state.fill(2);
+      p.needsRender = false;
       p.mesh.count = 0;
     }
     this.pile.clear();
@@ -334,6 +345,9 @@ export class Shatter {
       pool.spin[i] = (rand() - 0.5) * 16 * Math.min(1.6, power);
       pool.age[i] = 0;
       pool.life[i] = T.life + rand() * T.lifeRand;
+      if (pool.state[i] !== 0) pool.moving++;
+      pool.dirty[i] = 1;
+      pool.needsRender = true;
       pool.state[i] = 0;
       const shade = 0.82 + rand() * 0.3;
       pool.mesh.setColorAt(i, this.c.copy(rand() < 0.5 ? this.c1 : this.c2).multiplyScalar(shade));
@@ -345,10 +359,13 @@ export class Shatter {
     if (dt <= 0) return;
     const T = shatterTuning;
     const st = this.st;
-    for (const pool of [this.plain, this.crate]) {
+    for (const pool of this.pools) {
+      if (this.persistent && !pool.moving) continue;
+      pool.needsRender = true;
       for (let i = 0; i < pool.n; i++) {
         const s = pool.state[i];
-        if (s === 2) continue;
+        if (s === 2 || (this.persistent && s === 1)) continue;
+        pool.dirty[i] = 1;
         pool.age[i] += dt;
         if (s === 1) {
           // Lying in the pile: sink away at the end of its life.
@@ -385,9 +402,12 @@ export class Shatter {
           pool.rz[i] += (Math.round(pool.rz[i] / q) * q - pool.rz[i]) * k;
         }
         if (rest || pool.age[i] > 6) {
+          pool.moving--;
           pool.state[i] = 1;
           pool.age[i] = Math.min(pool.age[i], 1);
-          this.pile.add(pool.x[i], pool.z[i], st.floor - half, pool.sy[i]);
+          const base = this.pile.height(pool.x[i], pool.z[i]);
+          pool.y[i] = base + half;
+          this.pile.add(pool.x[i], pool.z[i], base, pool.sy[i]);
         }
       }
     }
@@ -395,8 +415,11 @@ export class Shatter {
 
   render(): void {
     const T = shatterTuning;
-    for (const pool of [this.plain, this.crate]) {
-      let top = 0;
+    for (const pool of this.pools) {
+      // Sleeping rubble remains drawn at its final transform until its ring slot is reused.
+      if (this.persistent && !pool.needsRender) continue;
+      pool.needsRender = false;
+      let top = 0, firstDirty = pool.n, endDirty = 0;
       for (let i = 0; i < pool.n; i++) {
         if (pool.state[i] === 2) {
           this.m4.makeScale(0, 0, 0);
@@ -404,7 +427,11 @@ export class Shatter {
           continue;
         }
         top = i + 1;
-        const over = pool.state[i] === 1 ? pool.age[i] - pool.life[i] : 0;
+        if (this.persistent && !pool.dirty[i]) continue;
+        pool.dirty[i] = 0;
+        firstDirty = Math.min(firstDirty, i);
+        endDirty = i + 1;
+        const over = !this.persistent && pool.state[i] === 1 ? pool.age[i] - pool.life[i] : 0;
         const k = over > 0 ? Math.max(0, 1 - over / T.sink) : 1;
         this.e.set(pool.rx[i], pool.ry[i], pool.rz[i], 'YXZ');
         this.q.setFromEuler(this.e);
@@ -414,7 +441,8 @@ export class Shatter {
         pool.mesh.setMatrixAt(i, this.m4);
       }
       pool.mesh.count = top;
-      commit(pool.mesh.instanceMatrix, top);
+      if (!this.persistent) commit(pool.mesh.instanceMatrix, top);
+      else particleUpload(pool.mesh.instanceMatrix, firstDirty * 16, endDirty * 16);
     }
   }
 }

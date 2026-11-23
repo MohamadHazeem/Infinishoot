@@ -115,7 +115,7 @@ export class Fx {
 
   /** Expanding ground shockwave from `size` to `size * grow`. */
   ring(x: number, z: number, size: number, grow: number, color: THREE.ColorRepresentation, life = 0.3) {
-    this.add(grow < 1 ? this.warnings : this.rings, x, 0.06, z, size, life, color, grow);
+    this.add(grow < 1 || color === '#ff3df0' || color === '#ff2d4a' ? this.warnings : this.rings, x, 0.06, z, size, life, color, grow);
   }
 
   /** A narrow rising reward column; lower quality keeps just the ground cue. */
@@ -153,8 +153,16 @@ export class Fx {
 
   render(camera: THREE.Camera): void {
     // Stars: pop to full size fast, then shrink while fading.
+    let remaining = this.noise.impactLimit(renderQuality.level);
+    for (const p of this.pools) {
+      if (p === this.warnings) p.mesh.count = p.count;
+      else {
+        p.mesh.count = p === this.beams && (this.noise.calm || !renderQuality.worldEffects) ? 0 : Math.min(remaining, p.count);
+        remaining -= p.mesh.count;
+      }
+    }
     const st = this.stars;
-    for (let i = 0; i < st.count; i++) {
+    for (let i = 0; i < st.mesh.count; i++) {
       const k = st.t[i] / st.life[i];
       const sc = st.size[i] * (k < 0.25 ? 0.5 + k * 3 : 1.25 - (k - 0.25) * 0.6);
       this.qz.setFromAxisAngle(this.zAxis, st.rot[i] + k * 0.6);
@@ -165,7 +173,7 @@ export class Fx {
     }
     // Rings: ease-out expansion.
     for (const rg of this.groundPools) {
-      for (let i = 0; i < rg.count; i++) {
+      for (let i = 0; i < rg.mesh.count; i++) {
         const k = rg.t[i] / rg.life[i];
         const e = 1 - (1 - k) * (1 - k);
         const sc = rg.size[i] * (1 + (rg.grow[i] - 1) * e);
@@ -175,7 +183,7 @@ export class Fx {
       }
     }
     const bm = this.beams;
-    for (let i = 0; i < bm.count; i++) {
+    for (let i = 0; i < bm.mesh.count; i++) {
       const k = bm.t[i] / bm.life[i];
       const pulse = (0.7 + 0.3 * Math.sin(Math.PI * k)) * (1 - k);
       const sc = bm.size[i] * (0.7 + pulse * 0.3);
@@ -184,7 +192,6 @@ export class Fx {
       bm.mesh.setColorAt(i, this.c.copy(bm.colors[i]).multiplyScalar(pulse * gfx3Tuning.beamStrength));
     }
     for (const p of this.pools) {
-      p.mesh.count = p === bm && (this.noise.calm || !renderQuality.worldEffects) ? 0 : p.count;
       commit(p.mesh.instanceMatrix, p.mesh.count);
       if (p.mesh.instanceColor) commit(p.mesh.instanceColor, p.mesh.count);
     }
