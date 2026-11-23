@@ -1,3 +1,4 @@
+import { echoAr } from './g8echo';
 import { craftAr } from './g5craft';
 import { menusAr } from './menus';
 import { uxpassAr } from './uxpass';
@@ -18,6 +19,7 @@ import { spectateAr } from '../game/spectateStrings';
 import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
+  ...echoAr,
   "cine.titan": "الجبل يستيقظ.",
   "photo.controls": "أدوات التصوير",
   "photo.pose": "الوقفة",

@@ -1,3 +1,4 @@
+import { echoEn } from './g8echo';
 import { menusEn } from './menus';
 import { uxpassEn } from './uxpass';
 import { arabic2En } from './arabic2';
@@ -17,6 +18,7 @@ import { tips2En } from './tips2';
 import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
+  ...echoEn,
   "g7.roots": "Green roots slow enemies inside the four stones.",
   "g7.prism": "Violet diamonds expose enemies. Hit them while they glow.",
   "g7.spring": "Stand on the amber bolt to recharge your special faster.",
