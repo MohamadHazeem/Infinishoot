@@ -348,6 +348,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
   if (q.has('battery')) settings.batterySaver = true;
   const scr = q.get('screen');
+  if (scr === 'overworld') game.leaveToTitle();
   const seededArsenal = scr === 'arsenal' && q.has('discover');
   if (scr && !seededArsenal) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
   if (scr === 'loadout') game.screens.showLoadout('solo'); // Language QA needs populated kit cards.
@@ -521,6 +522,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (typeof threat === 'number') setTimeout(() => previewThreats(game, threat, q.has('threathold')), 2200);
   architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
   game.biomeRules.preview(game, q.get('fieldsite'));
+  game.setPieces.previewKind = q.get('setpiece');
   // Combat profilers and the crafting preview both historically use &bench.
   if (q.has('bench') && q.has('circle')) q.delete('bench');
   craftLink(game, q);

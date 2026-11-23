@@ -278,6 +278,7 @@ function buildSig(g: Game): number {
   let n = 0;
   for (const h of g.heroes) {
     n = (n * 31 + h.weapons.length * 7 + h.synergy.slots.length * 13 + h.relics.length * 17 + h.special.level) | 0;
+    if (g.mode === 'shop') n = (n * 31 + h.gold * 2 + Number(h.shopHealed)) | 0;
     for (const w of h.weapons) n = (n * 31 + w.level * 3 + w.buildKey.length) | 0;
     for (const id in h.passives) n = (n * 31 + h.passives[id]) | 0;
     for (const sl of h.synergy.slots) n = (n * 31 + sl.level) | 0;
@@ -461,7 +462,9 @@ function clientStep(g: Game, s: HostmigState): void {
       note(g, 'client: the old host answered, no migration');
       return;
     }
-    if (now >= s.until) decide(g, s, m);
+    // The four-second probe can expire while the first WebRTC handshake
+    // is still negotiating. Give that attempt its own bounded timeout.
+    if (now >= s.until && (s.bye || !rc.pending || rc.tries !== 1)) decide(g, s, m);
     return;
   }
   if (s.phase === 'blip' && (!rc.hello || now >= s.until)) {
@@ -733,8 +736,9 @@ export function restoreRun(g: Game, m: MigSnapshot): void {
       h.curseOffer = mh.shop.curse;
     }
     const p = h.player;
-    // Position, life and downed state: the mirror is newer (this machine's own hero moved here first-hand).
-    const mm = sameStage ? mirror.heroes[mh.i] : undefined;
+    // Use the live mirror for movement in combat. In the shop, restore the
+    // purchase, wallet and health together even if playout still shows combat.
+    const mm = sameStage && !mh.shop ? mirror.heroes[mh.i] : undefined;
     const dead = mm ? mm.dead : mh.dead;
     p.teleport(mm ? mm.x : mh.x, mm ? mm.z : mh.z);
     p.hp = Math.max(0, Math.min(p.maxHp, mm && !mm.dead ? mm.hp : mh.hp));
@@ -818,6 +822,7 @@ function healStep(g: Game, s: HostmigState): void {
       joinInstead(g, s, c, code);
     },
     () => {
+      c.close();
       if (s.yieldTry !== c) return;
       s.yieldTry = null;
       s.yieldNext = performance.now() + 4000;
