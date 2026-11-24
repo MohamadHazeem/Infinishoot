@@ -17,10 +17,9 @@ async function digest(text) {
   return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function validFinish(b, now) {
+function validFinish(b) {
   if (
-    b.season < 1 ||
-    b.season !== rankedSeason(now) ||
+    !Number.isSafeInteger(b.season) || b.season < 1 ||
     !isBoard(b.board) ||
     !uint(b.seed) ||
     !uint(b.hash) ||
@@ -48,12 +47,9 @@ function validFinish(b, now) {
   if (b.board !== 'daily') return true;
   const date =
     typeof b.day === 'string' && /^\d{4}-\d\d-\d\d$/.test(b.day) ? Date.parse(b.day) : NaN;
-  // Daily uses local midnight. Allow any timezone and a run finishing the next day.
   return (
     Number.isFinite(date) &&
     new Date(date).toISOString().slice(0, 10) === b.day &&
-    date <= now + 14 * 3600000 &&
-    now - date < 60 * 3600000 &&
     b.seed === dailySeed(b.day)
   );
 }
@@ -73,11 +69,11 @@ const standings = (scope) => `WITH best AS (
 // Check duplicate evidence before the cooldown so retrying a lost response is idempotent.
 async function receipt(db, b, pilot, json) {
   const row = await db
-    .prepare('SELECT pilot,checksum FROM seasonal_finish WHERE seed=? AND hash=?')
+    .prepare('SELECT pilot,checksum,time,version FROM seasonal_finish WHERE seed=? AND hash=?')
     .bind(b.seed, b.hash)
     .first();
   if (!row) return null;
-  return row.pilot === pilot && row.checksum === b.check
+  return row.pilot === pilot && row.checksum === b.check && row.time === b.time && row.version === b.version
     ? json({ accepted: true })
     : json({ error: 'duplicate replay' }, 409);
 }
@@ -130,9 +126,17 @@ export async function seasons2(req, env, url, { json }) {
       })),
     });
   }
-  if (!validFinish(b, now)) return json({ error: 'invalid finish' }, 400);
+  if (!validFinish(b) || b.season > current) return json({ error: 'invalid finish' }, 400);
+  // Existing receipts are immutable. A retry may arrive after the daily or seasonal cutoff.
   const duplicate = await receipt(db, b, pilot, json);
   if (duplicate) return duplicate;
+  if (b.season !== current) return json({ error: 'closed season' }, 400);
+  if (b.board === 'daily') {
+    // Daily seeds change at local midnight. Allow every timezone and a finish the next day.
+    const date = Date.parse(b.day);
+    if (date > now + 14 * 3600000 || now - date >= 60 * 3600000)
+      return json({ error: 'expired daily' }, 400);
+  }
   const ip = req.headers.get('CF-Connecting-IP') ?? '';
   const bucket = 's2:' + (await digest(Math.floor(now / 86400000) + '/' + ip));
   if (await env.SCORES.get(bucket)) return json({ error: 'slow down' }, 429);

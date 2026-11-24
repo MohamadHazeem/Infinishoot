@@ -29,19 +29,22 @@ import { assistedRun } from './systems/assists';
 import { replayHash } from './systems/ci2';
 import { customArenaActive } from './systems/editor';
 import { challengeState } from './systems/gauntlet';
+import { timeState } from './systems/time';
 import { trialActive } from './systems/trials';
 
 const BOOK = 'rankedSeasons.v1';
 const TOKEN = 'rankedPilot.v1';
 export const seasonBook = () => normalizeBook(loadJson(BOOK, null));
-function pilotToken(): string {
+function pilotToken(create: boolean): string | null {
   const saved = loadJson<unknown>(TOKEN, null);
   if (typeof saved === 'string' && /^[0-9a-f]{32}$/.test(saved)) return saved;
+  if (!create) return null;
   const token = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
     b.toString(16).padStart(2, '0'),
   ).join('');
   saveJson(TOKEN, token);
-  return token;
+  // A blocked/full store cannot recover this identity on the next run.
+  return loadJson<unknown>(TOKEN, null) === token ? token : null;
 }
 
 async function request(path: string, body?: object) {
@@ -91,7 +94,9 @@ export interface Placement {
 }
 export async function syncSeasonHistory(): Promise<Placement[] | null> {
   if (!onlineServer) return null;
-  const data = await request('/seasons2/history', { token: pilotToken() });
+  const token = pilotToken(false);
+  if (!token) return [];
+  const data = await request('/seasons2/history', { token });
   if (!Array.isArray(data?.placements)) return null;
   const rows: Placement[] = data.placements.filter(
     (r: Placement) =>
@@ -170,11 +175,12 @@ export class RankedSeasonRun {
   private bonus = 0;
   private seed = 0;
   private suppliedStage = 0;
+  private practice = false;
   // One reusable checkpoint, sent only to teammates. Credentials stay on the finishing host.
   private readonly checkpoint = [0, 0, 0, 0, 0];
 
   snapshot(): number[] | undefined {
-    if (!this.board) return undefined;
+    if (!this.board || this.practice) return undefined;
     const packet = this.checkpoint;
     packet[0] = this.seed;
     packet[1] = this.season;
@@ -185,6 +191,7 @@ export class RankedSeasonRun {
   }
 
   mirror(g: Game, packet: unknown): void {
+    this.practice = false;
     if (
       !Array.isArray(packet) ||
       packet.length !== 5 ||
@@ -214,7 +221,15 @@ export class RankedSeasonRun {
     this.board = null;
     this.season = rankedSeason();
     const query = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
-    if (this.season < 1 || !eligible(g) || saveLock.on || query.has('test') || query.has('seed'))
+    // Replay playback and calendar previews still need the recorded supplies.
+    // A chosen seed or forced holiday changes the competition conditions.
+    this.practice = query.has('seed') || query.has('season');
+    if (
+      this.season < 1 ||
+      !eligible(g) ||
+      saveLock.on ||
+      query.has('test')
+    )
       return;
     this.board = rankedBoard(g.runMode, g.difficulty.id);
     this.seed = g.seed;
@@ -262,6 +277,7 @@ export class RankedSeasonRun {
     this.board = null;
     if (
       !board ||
+      this.practice ||
       quit ||
       g.seed !== this.seed ||
       !eligible(g) ||
@@ -295,11 +311,13 @@ export class RankedSeasonRun {
       }),
     );
     if (onlineServer && rankedSeason() === this.season) {
+      const token = pilotToken(true);
+      if (!token) return;
       void request('/seasons2', {
         ...finish,
         check: finishChecksum(finish),
         version: __APP_VERSION__,
-        token: pilotToken(),
+        token,
       }).then((r) => {
         if (!r?.accepted && g.seed === finish.seed) g.hud.toast(t('rank.localFinish'));
       });
@@ -307,6 +325,29 @@ export class RankedSeasonRun {
   }
 
   install(g: Game): void {
+    // Reuse the time system's circular frames. Rewinding kills also rewinds their
+    // ranked points and the boss supply whose gold/gears the timeline restores.
+    const timeline = timeState(g).tl;
+    const scores = new Map(timeline.frames.map(frame => [frame, { bonus: 0, suppliedStage: 0 }]));
+    const record = timeline.record.bind(timeline);
+    timeline.record = game => {
+      const frame = record(game);
+      if (this.board) {
+        const score = scores.get(frame)!;
+        score.bonus = this.bonus;
+        score.suppliedStage = this.suppliedStage;
+      }
+      return frame;
+    };
+    const restore = timeline.restore.bind(timeline);
+    timeline.restore = (game, frame, mode, next, k) => {
+      restore(game, frame, mode, next, k);
+      if (mode === 'full' && this.board) {
+        const score = scores.get(frame)!;
+        this.bonus = score.bonus;
+        this.suppliedStage = score.suppliedStage;
+      }
+    };
     const bank = g.bankAndShow.bind(g);
     g.bankAndShow = (sum, quit) => {
       this.bank(g, sum, quit);

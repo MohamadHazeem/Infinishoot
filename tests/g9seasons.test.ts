@@ -207,7 +207,9 @@ try {
   databaseTime = seasonEnd(1);
   assert.equal((await post(finish(7))).status, 429);
   now = databaseTime;
-  assert.equal((await post(finish(8))).status, 400);
+  assert.equal((await post(finish(7))).status, 400);
+  assert.equal((await post(first)).status, 200);
+  assert.equal((await post(daily)).status, 200);
   const closed = await history();
   assert.equal(closed.find((r: Finish) => r.board === 'standard').band, 'comet');
   assert.equal(closed.find((r: Finish) => r.board === 'daily').band, null);
@@ -228,6 +230,7 @@ try {
   const { seasonUi } = await import('../src/game/systems/season');
   const { setLanguage } = await import('../src/i18n');
   const { replayHash } = await import('../src/game/systems/ci2');
+  const { timeState } = await import('../src/game/systems/time');
   dom.reconfigure({ url: 'http://localhost/' });
   (globalThis as any).__APP_VERSION__ = '2.0.1';
   let submitted: Promise<Response> | undefined;
@@ -240,6 +243,8 @@ try {
       submitted = response.then((r) => r.clone());
     return response;
   };
+  assert.deepEqual(await syncSeasonHistory(), []);
+  assert.equal(localStorage.getItem('infinishoot.rankedPilot.v1'), null);
   saveJson('rankedPilot.v1', alice);
   assert.equal((await syncSeasonHistory())?.length, 3);
   assert.equal(seasonBook().awards.length, 1);
@@ -260,6 +265,8 @@ try {
   );
   g.startSolo();
   g.closeShop();
+  const timeline = timeState(g).tl;
+  const beforeKills = timeline.record(g);
   for (let i = 0; i < 10; i++) {
     const e = g.enemies.spawn(
       ENEMIES.swarmer,
@@ -290,6 +297,14 @@ try {
   assert.equal(wallet(), opening + (reward === 'gold' ? 2 : 1));
   mirror.mirror(g, undefined);
   assert.equal(mirror.snapshot(), undefined);
+  const afterKills = timeline.record(g);
+  timeline.restore(g, beforeKills, 'visual');
+  assert.deepEqual(g.rankedSeason.snapshot(), packet);
+  timeline.restore(g, beforeKills, 'full');
+  assert.equal(g.rankedSeason.snapshot()![3], 0);
+  assert.equal(g.rankedSeason.snapshot()![4], 0);
+  timeline.restore(g, afterKills, 'full');
+  assert.deepEqual(g.rankedSeason.snapshot(), packet);
   g.runTime = 100;
   const sum = g.summary(g.hero),
     hash = replayHash(g),
@@ -304,6 +319,23 @@ try {
   assert.ok(save.seasonPass.xp > xp);
   g.bankAndShow(sum);
   assert.equal(seasonBook().boards[0].runs.length, 1);
+  // A watched solo replay is opened with ?seed. It needs the same boss supplies,
+  // while both the device record and the live board must ignore its finish.
+  for (const preview of ['seed=7', 'season=off']) {
+    dom.reconfigure({ url: 'http://localhost/?' + preview });
+    g.startRun({ seed: 7, difficulty: 'normal' });
+    g.closeShop();
+    const replayWallet = wallet();
+    g.rankedSeason.kill(g, boss, null);
+    assert.equal(wallet(), replayWallet + (reward === 'gold' ? 2 : 1));
+    g.runTime = 30;
+    g.score = 1000;
+    submitted = undefined;
+    g.bankAndShow(g.summary(g.hero));
+    assert.equal(submitted, undefined);
+    assert.equal(seasonBook().boards[0].runs.length, 1);
+  }
+  dom.reconfigure({ url: 'http://localhost/' });
   g.startRun();
   g.closeShop();
   g.score = 100;
