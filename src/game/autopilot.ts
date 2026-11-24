@@ -2,6 +2,7 @@ import { dodgeThreats } from './enemyBulletDodge';
 import { pilotArchitect } from './systems/architect';
 import { pilotRaid } from './systems/raid';
 import type { Game } from './game';
+import type { Enemy } from './enemies';
 import { Team } from './bullets';
 import { pilotGameplay } from './systems/gameplay';
 import { pilotModes } from './systems/modes';
@@ -49,18 +50,23 @@ export class Autopilot {
     const p = g.player;
     let best = null as null | { x: number; z: number };
     const px = p.x, pz = p.z;
+    let boss: Enemy | undefined;
+    const teams = g.pvp?.teams, heroIndex = g.hero.index;
     let bd = 1e9;
+    let reach = bd;
     let ax = 0;
     let az = 0;
     for (const e of g.enemies.list) {
+      if (!boss && e.active && e.def.boss) boss = e;
       // PvP: its own invisible stand-in isn't a target.
-      if (!e.alive || pvpFriendly(g.pvp?.teams, e.pvpOwner, g.hero.index)) continue;
+      if (!e.alive || pvpFriendly(teams, e.pvpOwner, heroIndex)) continue;
       const dx = px - e.x;
       const dz = pz - e.z;
-      if (Math.max(Math.abs(dx), Math.abs(dz)) >= Math.max(3.5, bd)) continue;
+      if (Math.abs(dx) >= reach || Math.abs(dz) >= reach) continue;
       const d = Math.hypot(dx, dz);
       if (d < bd) {
         bd = d;
+        reach = Math.max(3.5, d);
         best = e;
       }
       if (d < 3.5) {
@@ -81,7 +87,6 @@ export class Autopilot {
         az += (dz / (d * d + 0.1)) * 2;
       }
     }
-    let boss = g.enemies.list.find((e) => e.active && e.def.boss);
     if (boss && !boss.alive) {
       // The Titan's core is sealed until its weak points break: go for the nearest open one (src/game/titan.ts).
       let wd = Infinity;
@@ -114,14 +119,14 @@ export class Autopilot {
       mz = p.x / r + (p.z / r) * radial + az * 3;
     }
     // Supply crates and mech suits nearby, and combo cash-ins (gameplay lane).
-    const mv = { mx, mz };
+    const mv = o;
+    mv.mx = mx;
+    mv.mz = mz;
     if (g.mode !== 'portal') pilotHeroes4(g.hero.heroDef?.mech, p.x, p.z, mv, boss ?? null, g.bossDuel); // the Brawler brawls up close (heroes4 lane)
     if (g.mode !== 'portal') pilotHeroes3(g.hero.heroDef?.mech, p.x, p.z, mv, boss ?? null); // the Ronin fights up close (heroes3 lane; help ghosts drive a stand-in without a hero def)
     o.cash = pilotGameplay(g, mv, Math.hypot(ax, az) > 1);
     const aim = pilotModes(g, mv); // mini-games, the Pacifist road (modes lane)
     if (aim !== undefined) best = aim;
-    o.mx = mv.mx;
-    o.mz = mv.mz;
     o.target = best;
     // Right click: hold ~1.4 s (a full charge, or fire whenever a cooldown weapon is ready), then let go briefly.
     this.rightT = (this.rightT + 1 / 60) % 1.6;

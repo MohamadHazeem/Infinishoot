@@ -21,14 +21,14 @@ function axisIndex(cell: number): number {
  * steady-state operation allocates nothing.
  */
 /** One hash cell. Lazily emptied: a bucket from an older generation counts as empty. */
-interface Bucket<T> {
+export interface SpatialBucket<T> {
   items: T[];
   n: number;
   gen: number;
 }
 
 export class SpatialHash<T> {
-  private columns: Bucket<T>[][] = [];
+  private columns: SpatialBucket<T>[][] = [];
   /** Bumped by clear(); buckets are reused, so steady state allocates nothing (`length = 0` dropped their storage). */
   private gen = 1;
   private inv: number;
@@ -104,6 +104,24 @@ export class SpatialHash<T> {
     }
     return n;
   }
+
+  /** Borrow the live buckets in query order. Read only their first n entries, before the next hash update. */
+  queryBuckets(x: number, z: number, r: number, out: SpatialBucket<T>[]): number {
+    const x0 = Math.floor((x - r) * this.inv);
+    const x1 = Math.floor((x + r) * this.inv);
+    const z0 = Math.floor((z - r) * this.inv);
+    const z1 = Math.floor((z + r) * this.inv);
+    let n = 0;
+    for (let cx = x0; cx <= x1; cx++) {
+      const column = this.columns[axisIndex(cx)];
+      if (!column) continue;
+      for (let cz = z0; cz <= z1; cz++) {
+        const b = column[axisIndex(cz)];
+        if (b && b.gen === this.gen) out[n++] = b;
+      }
+    }
+    return n;
+  }
 }
 
 /** Static grid of wall boxes for fast point/circle queries (bullets). Built once per arena. */
@@ -136,6 +154,9 @@ export function segmentHitsAabb(x: number, z: number, dx: number, dz: number, le
 
 export class StaticBoxGrid {
   private columns: AABB[][][] = [];
+  // Two-metre tiles in the central 128 m. A marked tile may contain a box
+  // within one metre. Exact collision and push-out still use the original grid.
+  private readonly occupied = new Uint8Array(64 * 64);
   private inv: number;
 
   constructor(
@@ -144,6 +165,11 @@ export class StaticBoxGrid {
   ) {
     this.inv = 1 / cellSize;
     for (const b of boxes) {
+      const x0 = Math.max(0, Math.floor((b.minX - 1) / 2) + 32);
+      const x1 = Math.min(63, Math.floor((b.maxX + 1) / 2) + 32);
+      for (let z = Math.max(0, Math.floor((b.minZ - 1) / 2) + 32); z <= Math.min(63, Math.floor((b.maxZ + 1) / 2) + 32); z++) {
+        if (x0 <= x1) this.occupied.fill(1, z * 64 + x0, z * 64 + x1 + 1);
+      }
       for (let cx = Math.floor(b.minX * this.inv); cx <= Math.floor(b.maxX * this.inv); cx++) {
         const column = this.columns[axisIndex(cx)] ??= [];
         for (let cz = Math.floor(b.minZ * this.inv); cz <= Math.floor(b.maxZ * this.inv); cz++) {
@@ -151,6 +177,11 @@ export class StaticBoxGrid {
         }
       }
     }
+  }
+
+  private emptyTile(x: number, z: number, r: number): boolean {
+    if (r > 1 || x < -64 || x >= 64 || z < -64 || z >= 64) return false;
+    return !this.occupied[(Math.floor(z / 2) + 32) * 64 + Math.floor(x / 2) + 32];
   }
 
   /** True if the circle overlaps any box. */
@@ -175,6 +206,7 @@ export class StaticBoxGrid {
 
   /** Like hitCircle, but ignores gaps in the ground (`AABB.gap`): what bullets collide with. */
   hitSolid(x: number, z: number, r: number): boolean {
+    if (this.emptyTile(x, z, r)) return false;
     for (let gx = Math.floor((x - r) * this.inv); gx <= Math.floor((x + r) * this.inv); gx++) {
       const column = this.columns[axisIndex(gx)];
       if (!column) continue;
@@ -253,6 +285,7 @@ export class StaticBoxGrid {
    * Mutates `pos`; returns true if it touched a box.
    */
   resolveCircle(pos: { x: number; z: number }, r: number): boolean {
+    if (this.emptyTile(pos.x, pos.z, r)) return false;
     let hit = false;
     const near = this.near;
     for (let iter = 0; iter < 2; iter++) {

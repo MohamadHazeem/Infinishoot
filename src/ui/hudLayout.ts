@@ -250,7 +250,7 @@ kbd.prompt:empty { display: none; }
   #hud #scr-modes .ft-quick button { min-height: 0; padding-block: 4px; }
 }
 /* A first-time tip over the title sits bottom centre instead of on the profile badge / season banner. */
-.menu-open:has(#scr-title:not([hidden])) #ob-tip { top: auto; right: auto; bottom: calc(18 * var(--p)); left: calc(50% - min(125px, 15vw)); }
+.menu-open[data-screen="title"] #ob-tip { top: auto; right: auto; bottom: calc(18 * var(--p)); left: calc(50% - min(125px, 15vw)); }
 /* Card slot ribbons stay on one line in long languages (AUTOMATISCHE WAFFE wrapped under the pick bar). */
 .card .slot-ribbon { white-space: nowrap; overflow: hidden; }
 :root:is([lang=de], [lang=fr], [lang=es], [lang=pt-BR], [lang=tr]) .card .slot-ribbon { letter-spacing: 0; font-size: 11px; gap: 5px; }

@@ -53,6 +53,8 @@ export interface EnemyPose {
 }
 
 const loc = { f: 0, s: 0 };
+// All enemies in one render pass use the same interpolation interval.
+let poseDt = NaN, follow = 0, wobble = 0, windUp = 0, recover = 0;
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 
 /** Fill `o` with this frame's pose for `e` drawn at (x, z). `dt` is the frame time (0 while frozen). */
@@ -69,6 +71,13 @@ export function poseEnemy(e: Enemy, a: EnemyAnim, x: number, z: number, dt: numb
     a.flashSeen = false;
     a.gait = gaitOf(def.model);
   }
+  if (dt !== poseDt) {
+    poseDt = dt;
+    follow = 1 - Math.exp(-10 * dt);
+    wobble = Math.exp(-9 * dt);
+    windUp = 1 - Math.exp(-14 * dt);
+    recover = 1 - Math.exp(-8 * dt);
+  }
   const T = enemyAnimTuning;
   const sc = e.scale;
   const boss = !!def.boss;
@@ -84,7 +93,7 @@ export function poseEnemy(e: Enemy, a: EnemyAnim, x: number, z: number, dt: numb
       // ignore teleports (blinking elites, recycling)
       toLocal(vx, vz, e.facing, loc);
       const ref = Math.max(1.5, def.speed * e.speedMul);
-      const k = 1 - Math.exp(-10 * dt);
+      const k = follow;
       a.move += (Math.min(1, sp / ref) - a.move) * k;
       a.leanF += (loc.f / ref - a.leanF) * k;
       a.leanS += (loc.s / ref - a.leanS) * k;
@@ -95,9 +104,9 @@ export function poseEnemy(e: Enemy, a: EnemyAnim, x: number, z: number, dt: numb
     if (!a.flashSeen) a.wob = 1;
     a.flashSeen = true;
   } else a.flashSeen = false;
-  a.wob *= Math.exp(-9 * dt);
+  a.wob *= wobble;
   const winding = e.state === 'windup' && e.frozen <= 0;
-  a.wind += ((winding ? 1 : 0) - a.wind) * (1 - Math.exp(-(winding ? 14 : 8) * dt));
+  a.wind += ((winding ? 1 : 0) - a.wind) * (winding ? windUp : recover);
 
   if (e.state === 'spawning' || e.frozen > 0) return; // frozen solid: no life in it
 

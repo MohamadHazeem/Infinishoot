@@ -9,6 +9,7 @@ import { biomeFoeTuning, lavaPuddles, type BiomeFoeApi } from '../biomeFoes';
 import type { Enemy } from '../enemies';
 import { SCAR_COLORS } from '../scars';
 
+const noSlugs: readonly Enemy[] = [];
 let puddleArena = -1;
 /** Per-hero puddle burn cooldown. */
 const burnCd = new WeakMap<object, number>();
@@ -116,7 +117,7 @@ export function updateBiomeFoes(this: Game, dt: number): void {
     puddleArena = this.arenaStage;
     lavaPuddles.clear();
   }
-  lavaPuddles.tick(dt, this.enemies.list);
+  lavaPuddles.tick(dt, this.enemies.oozeCount === 0 ? noSlugs : this.enemies.list);
   if (!this.isCombatMode || !lavaPuddles.list.length) return;
   for (const h of this.aliveHeroes) {
     const p = h.player;
@@ -145,5 +146,5 @@ export function biomeFoesClient(this: Game, dt: number): void {
     puddleArena = this.arenaStage;
     lavaPuddles.clear();
   }
-  lavaPuddles.tick(dt, this.enemies.list);
+  lavaPuddles.tick(dt, this.enemies.oozeCount === 0 ? noSlugs : this.enemies.list);
 }

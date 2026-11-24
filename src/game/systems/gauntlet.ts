@@ -341,7 +341,7 @@ export function renderGauntlet(g: Game): void {
   const gauntlet = active && g.runMode === 'gauntlet';
   if (document.body.dataset.gauntlet !== String(gauntlet)) document.body.dataset.gauntlet = String(gauntlet);
   const dark = document.getElementById('g-dark');
-  if (dark) dark.hidden = !active || !s.mutators[3];
+  if (dark) dark.toggleAttribute('hidden', !active || !s.mutators[3]);
   if (!s.hud) {
     const goals = document.getElementById('goals');
     if (!goals) return;
@@ -349,7 +349,7 @@ export function renderGauntlet(g: Game): void {
     if (!document.getElementById('g-dark')) { const shade = document.createElement('div'); shade.id = 'g-dark'; shade.hidden = true; document.getElementById('ingame')!.prepend(shade); }
     s.hud = document.createElement('div'); s.hud.id = 'g-challenge'; goals.prepend(s.hud);
   }
-  s.hud.hidden = !active || !(gauntlet || g.runMode === 'bossrush' || s.ascension || s.ng || s.mutators.some(Boolean) || gauntletProfile.title);
+  s.hud.toggleAttribute('hidden', !active || !(gauntlet || g.runMode === 'bossrush' || s.ascension || s.ng || s.mutators.some(Boolean) || gauntletProfile.title));
   const now = Math.floor(performance.now() / 200);
   if (now === s.hudAt || s.hud.hidden) return;
   s.hudAt = now;

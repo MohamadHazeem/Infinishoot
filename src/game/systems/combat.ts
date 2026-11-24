@@ -38,12 +38,16 @@ export function nearestEnemy(this: Game, x: number, z: number, r: number, skip?:
   return best;
 }
 
+let radiusQuery = 0;
 export function enemiesInRadius(this: Game, x: number, z: number, r: number, out: Enemy[]): Enemy[] {
   out.length = 0;
+  const query = ++radiusQuery;
   this.hash.query(x, z, r + 1, (e) => {
+    if (e.radiusQuery === query) return;
+    e.radiusQuery = query;
     if (!e.alive || e.hp <= 0) return;
     const rr = r + e.radius;
-    if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr && !out.includes(e)) out.push(e);
+    if ((e.x - x) ** 2 + (e.z - z) ** 2 < rr * rr) out.push(e);
   });
   return out;
 }

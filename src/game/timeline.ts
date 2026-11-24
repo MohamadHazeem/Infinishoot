@@ -66,27 +66,19 @@ const MAX_STRIKES = 48;
 
 function grow(a: Float32Array, need: number): Float32Array {
   if (a.length >= need) return a;
-  const out = new Float32Array(Math.max(need, a.length * 2));
-  out.set(a);
-  return out;
+  return new Float32Array(Math.max(need, a.length * 2));
 }
 function growU8(a: Uint8Array, need: number): Uint8Array {
   if (a.length >= need) return a;
-  const out = new Uint8Array(Math.max(need, a.length * 2));
-  out.set(a);
-  return out;
+  return new Uint8Array(Math.max(need, a.length * 2));
 }
 function growI32(a: Int32Array, need: number): Int32Array {
   if (a.length >= need) return a;
-  const out = new Int32Array(Math.max(need, a.length * 2));
-  out.set(a);
-  return out;
+  return new Int32Array(Math.max(need, a.length * 2));
 }
 function growU32(a: Uint32Array, need: number): Uint32Array {
   if (a.length >= need) return a;
-  const out = new Uint32Array(Math.max(need, a.length * 2));
-  out.set(a);
-  return out;
+  return new Uint32Array(Math.max(need, a.length * 2));
 }
 
 /** One recorded moment. */
@@ -277,10 +269,13 @@ export class Timeline {
     }
     // Enemies
     const list = g.enemies.list;
-    let n = 0;
-    for (const e of list) if (e.active && e.pvpOwner < 0) n++;
-    f.en = grow(f.en, n * EN);
-    f.uid = growI32(f.uid, n);
+    // Only count the active rows when this slot might actually need to grow.
+    if (f.uid.length < list.length) {
+      let n = 0;
+      for (const e of list) if (e.active && e.pvpOwner < 0) n++;
+      f.en = grow(f.en, n * EN);
+      f.uid = growI32(f.uid, n);
+    }
     let k = 0;
     for (const e of list) {
       if (!e.active || e.pvpOwner >= 0) continue;
@@ -290,38 +285,7 @@ export class Timeline {
     }
     f.enN = k;
     // Bullets
-    const b = g.bullets;
-    const nb = b.count;
-    f.bf = grow(f.bf, nb * BF);
-    f.bu = growU8(f.bu, nb * BU);
-    f.bc = growU32(f.bc, nb);
-    for (let i = 0; i < nb; i++) {
-      const o = i * BF;
-      const bf = f.bf;
-      bf[o] = b.x[i];
-      bf[o + 1] = b.z[i];
-      bf[o + 2] = b.vx[i];
-      bf[o + 3] = b.vz[i];
-      bf[o + 4] = b.life[i];
-      bf[o + 5] = b.radius[i];
-      bf[o + 6] = b.damage[i];
-      bf[o + 7] = b.knockback[i];
-      bf[o + 8] = b.width[i];
-      bf[o + 9] = b.length[i];
-      bf[o + 10] = b.age[i];
-      bf[o + 11] = b.homing[i];
-      bf[o + 12] = b.blast[i];
-      const u = i * BU;
-      const bu = f.bu;
-      bu[u] = b.team[i];
-      bu[u + 1] = b.pierce[i];
-      bu[u + 2] = b.bounce[i];
-      bu[u + 3] = b.owner[i];
-      bu[u + 4] = b.kind[i];
-      bu[u + 5] = b.shape[i];
-      f.bc[i] = b.colorHex(i);
-    }
-    f.buN = nb;
+    this.recordBullets(f, g.bullets);
     // Pickups
     const pk = g.pickups;
     const np = pk.count;
@@ -356,6 +320,40 @@ export class Timeline {
     }
     return f;
   }
+  private recordBullets(f: TimeFrame, b: Game['bullets']): void {
+    const nb = b.count;
+    f.bf = grow(f.bf, nb * BF);
+    f.bu = growU8(f.bu, nb * BU);
+    f.bc = growU32(f.bc, nb);
+    for (let i = 0; i < nb; i++) {
+      const o = i * BF;
+      const bf = f.bf;
+      bf[o] = b.x[i];
+      bf[o + 1] = b.z[i];
+      bf[o + 2] = b.vx[i];
+      bf[o + 3] = b.vz[i];
+      bf[o + 4] = b.life[i];
+      bf[o + 5] = b.radius[i];
+      bf[o + 6] = b.damage[i];
+      bf[o + 7] = b.knockback[i];
+      bf[o + 8] = b.width[i];
+      bf[o + 9] = b.length[i];
+      bf[o + 10] = b.age[i];
+      bf[o + 11] = b.homing[i];
+      bf[o + 12] = b.blast[i];
+      const u = i * BU;
+      const bu = f.bu;
+      bu[u] = b.team[i];
+      bu[u + 1] = b.pierce[i];
+      bu[u + 2] = b.bounce[i];
+      bu[u + 3] = b.owner[i];
+      bu[u + 4] = b.kind[i];
+      bu[u + 5] = b.shape[i];
+      f.bc[i] = b.colorHex(i);
+    }
+    f.buN = nb;
+  }
+
   private putEnemy(a: Float32Array, o: number, e: Enemy): void {
     a[o + E.def] = this.def(e.def);
     a[o + E.mod] = this.mod(e.mod);

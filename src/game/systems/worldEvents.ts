@@ -353,7 +353,7 @@ function hook(g: Game, W: WorldRun): void {
   if (W.hooked) return;
   W.hooked = true;
   g.enemyCtx.lure = (e) => {
-    const ev = runs.get(g)?.ev;
+    const ev = W.ev;
     return ev?.stealth && !ev.done ? stealthLure(g, ev.stealth, e) : null;
   };
   // Auto weapons, pets and turrets hold fire at unaware enemies (looked up per enemy, so any Game works).

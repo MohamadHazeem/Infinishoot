@@ -128,7 +128,7 @@ export class CompanionHud {
     if (!this.mount()) return;
     const el = this.pet!;
     if (!s) {
-      el.hidden = true;
+      el.toggleAttribute('hidden', true);
       this.lastPet = '';
       return;
     }
@@ -156,7 +156,7 @@ export class CompanionHud {
       el.style.setProperty('--pc', s.def.color);
       el.innerHTML = localizeHtml(`<div class="h"><span class="n">${s.def.name.toUpperCase()}</span><span class="lv">LV ${s.level}</span></div><div class="pips">${pips}</div><div class="sk">${chips}</div><div class="nx">${nx}</div>`);
     }
-    el.hidden = false;
+    el.toggleAttribute('hidden', false);
   }
 
   /** TEAM meter (co-op only; null hides it). */
@@ -164,7 +164,7 @@ export class CompanionHud {
     if (!this.mount()) return;
     const el = this.team!;
     if (!s) {
-      el.hidden = true;
+      el.toggleAttribute('hidden', true);
       this.lastTeam = '';
       return;
     }
@@ -190,6 +190,6 @@ export class CompanionHud {
       el.style.setProperty('--mc', s.next.color);
       el.innerHTML = localizeHtml(`<div class="h"><span>TEAM</span><span class="mv">${s.next.name}</span></div><div class="bar">${bar}</div><div class="s">${status}</div>`);
     }
-    el.hidden = false;
+    el.toggleAttribute('hidden', false);
   }
 }

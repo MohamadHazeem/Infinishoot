@@ -378,7 +378,7 @@ export class TimeHud {
     this.body('tm-cine', !!r);
     this.body('tm-replay', !!r);
     if (!r) {
-      this.card.classList.remove('on');
+      this.card.classList.toggle('on', false);
       return;
     }
     const spd = this.replay.querySelector('.spd')!;
@@ -388,7 +388,7 @@ export class TimeHud {
       this.card.querySelector('b')!.textContent = localize(r.title);
       this.card.querySelector('span')!.textContent = localize(r.text);
       this.card.classList.add('on');
-    } else if (!r.card) this.card.classList.remove('on');
+    } else if (!r.card) this.card.classList.toggle('on', false);
   }
 
   /** LAST STAND panel: null = off (after its win/fail flash). */
@@ -435,7 +435,7 @@ export class TimeHud {
   }
 
   reviveEnd(): void {
-    this.revive.classList.remove('on');
+    this.revive.classList.toggle('on', false);
   }
 
   /** TEAM REWIND vote: null = none. */

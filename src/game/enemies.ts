@@ -12,7 +12,7 @@ import { ENEMIES, familyTuning, type EnemyDef } from '../data/enemies';
 import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
 import { paint } from '../render/geometry';
 import { textures } from '../render/textures';
-import type { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
+import type { SpatialBucket, SpatialHash, StaticBoxGrid } from '../core/spatialHash';
 import type { AABB } from '../world/collision';
 import { commit, instanceMatrix } from '../render/instancing';
 import { viewCull } from '../render/viewCull';
@@ -781,6 +781,9 @@ export class Enemy {
     if (this.def.leap) this.timerA = 0.5 + Math.random();
   }
 
+  /** Last area query to visit this pooled enemy (several cells can contain it). */
+  radiusQuery = 0;
+
   get alive(): boolean {
     return this.active && this.state !== 'spawning' && !this.under && !this.phaseOut;
   }
@@ -1040,6 +1043,7 @@ export class Enemies {
   private up = new THREE.Vector3(0, 1, 0);
   private col = new THREE.Color();
   private alive = 0;
+  oozeCount = 0;
   private counts = new Map<string, number>();
   /** Danger zones to draw this frame (owned by the game's effects bus). */
   renderWalls: AABB[] = [];
@@ -1126,6 +1130,7 @@ export class Enemies {
     this.batch(def);
     e.reset(x, z, o);
     this.alive++;
+    if (def.ooze) this.oozeCount++;
     this.counts.set(def.id, (this.counts.get(def.id) ?? 0) + 1);
     return e;
   }
@@ -1144,6 +1149,7 @@ export class Enemies {
     e.active = false;
     this.free.push(e);
     this.alive--;
+    if (e.def.ooze) this.oozeCount--;
     this.counts.set(e.def.id, (this.counts.get(e.def.id) ?? 1) - 1);
   }
 
@@ -1200,17 +1206,20 @@ export class Enemies {
       }
 
       // Chase the nearest living player (an unaware enemy on a stealth stage patrols instead: ctx.lure).
+      let lure = ctx.lure?.(e) ?? director2Hooks.lure?.(e);
       let best: EnemyCtx['target'] | null = null;
-      let bd = Infinity;
-      for (const t of ctx.targets) {
-        if (!t.alive) continue;
-        const d = (t.x - e.x) ** 2 + (t.z - e.z) ** 2;
-        if (d < bd) {
-          bd = d;
-          best = t;
+      if (!lure) {
+        let bd = Infinity;
+        for (const t of ctx.targets) {
+          if (!t.alive) continue;
+          const d = (t.x - e.x) ** 2 + (t.z - e.z) ** 2;
+          if (d < bd) {
+            bd = d;
+            best = t;
+          }
         }
+        lure = ctx.hear?.(e, bd);
       }
-      const lure = ctx.lure?.(e) ?? director2Hooks.lure?.(e) ?? ctx.hear?.(e, bd) ?? null;
       ctx.target = lure ?? best ?? away;
       ctx.targetAlive = !lure && !!best;
       const tgt = ctx.target;
@@ -1267,20 +1276,28 @@ export class Enemies {
         e.facing = L.facing;
       }
 
-      // Separation from neighbours so crowds spread out instead of stacking.
-      let sx = 0;
-      let sz = 0;
-      let hx = 0;
-      let hz = 0;
-      let jam = 0;
-      if (!e.def.boss && e.def.behavior !== 'reaper') {
-        const r = e.radius;
-        // queryInto + a plain loop: a closure here allocated a context (and boxed sx/sz) per enemy per step.
-        const near = this.near;
-        const separates = !e.underground && !(e.def.behavior === 'swarmwall' && e.timerA > 0) && e.def.behavior !== 'egg';
-        const n = separates ? ctx.hash.queryInto(e.x, e.z, r * 2, near) : 0;
-        for (let i = 0; i < n; i++) {
-          const o = near[i];
+      this.move(e, dt, ctx, wantX, wantZ, rigid, steering, knockbackDecay);
+    }
+  }
+
+  /** Keep the crowd/collision loop small enough to optimise independently of AI selection. */
+  private move(e: Enemy, dt: number, ctx: EnemyCtx, wantX: number, wantZ: number, rigid: boolean, steering: number, knockbackDecay: number): void {
+    // Separation from neighbours so crowds spread out instead of stacking.
+    let sx = 0;
+    let sz = 0;
+    let hx = 0;
+    let hz = 0;
+    let jam = 0;
+    if (!e.def.boss && e.def.behavior !== 'reaper') {
+      const r = e.radius;
+      // Traverse the existing bucket arrays. Repeated neighbours contribute once per cell, in hash order.
+      const near = this.near;
+      const separates = !e.underground && !(e.def.behavior === 'swarmwall' && e.timerA > 0) && e.def.behavior !== 'egg';
+      const n = separates ? ctx.hash.queryBuckets(e.x, e.z, r * 2, near) : 0;
+      for (let k = 0; k < n; k++) {
+        const bucket = near[k];
+        for (let i = 0; i < bucket.n; i++) {
+          const o = bucket.items[i];
           if (o === e) continue;
           const ox = e.x - o.x;
           const oz = e.z - o.z;
@@ -1302,41 +1319,41 @@ export class Enemies {
             }
           }
         }
-        const steer = rigid ? 1 : steering;
-        if (!rigid && jam > 0) {
-          // Jammed in a crowd: push on less, so the swarm doesn't pack into one blob.
-          const k = 1 / (1 + jam * crowdTuning.jam);
-          wantX *= k;
-          wantZ *= k;
-        }
-        e.vx += (wantX - e.vx) * steer;
-        e.vz += (wantZ - e.vz) * steer;
       }
+      const steer = rigid ? 1 : steering;
+      if (!rigid && jam > 0) {
+        // Jammed in a crowd: push on less, so the swarm doesn't pack into one blob.
+        const k = 1 / (1 + jam * crowdTuning.jam);
+        wantX *= k;
+        wantZ *= k;
+      }
+      e.vx += (wantX - e.vx) * steer;
+      e.vz += (wantZ - e.vz) * steer;
+    }
 
-      e.kx *= knockbackDecay;
-      e.kz *= knockbackDecay;
-      e.x += (e.vx + e.kx + sx * crowdTuning.push) * dt + hx;
-      e.z += (e.vz + e.kz + sz * crowdTuning.push) * dt + hz;
-      if (!rigid && e.hopY <= 0 && !e.def.boss && !e.def.hidden && e.def.behavior !== 'reaper') keepOffHeroes(e, ctx.targets);
-      if (e.def.behavior === 'reaper') {
-        e.x = Math.max(-58, Math.min(58, e.x));
-        e.z = Math.max(-58, Math.min(58, e.z));
-      }
-      // Rex smashes straight through cover while it charges.
-      const walled = e.def.behavior !== 'ghost' && e.def.id !== 'bat' && e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && (e.def.behavior === 'rex' || e.def.behavior === 'boxer')) && !isFlyer3(e) && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
-      if (ctx.heights) {
-        const x = e.x, z = e.z;
-        if (e.def.boss || e.def.hidden || e.underground || isFlyer3(e) || e.def.behavior === 'reaper')
-          e.floorY = ctx.heights.floor(x, z, true);
-        else e.floorY = ctx.heights.move(e, e.px, e.pz, e.floorY);
-        if ((x !== e.x || z !== e.z) && rigid && e.def.behavior === 'charger' && e.state === 'attack')
-          this.enter(e, 'recover', aggro(e, e.def.charge!.recover), -7);
-      }
-      if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
-      if (walled && rigid && e.def.behavior === 'charger') {
-        // Rhinos stop (and wobble) when they hit a wall mid-charge.
+    e.kx *= knockbackDecay;
+    e.kz *= knockbackDecay;
+    e.x += (e.vx + e.kx + sx * crowdTuning.push) * dt + hx;
+    e.z += (e.vz + e.kz + sz * crowdTuning.push) * dt + hz;
+    if (!rigid && e.hopY <= 0 && !e.def.boss && !e.def.hidden && e.def.behavior !== 'reaper') keepOffHeroes(e, ctx.targets);
+    if (e.def.behavior === 'reaper') {
+      e.x = Math.max(-58, Math.min(58, e.x));
+      e.z = Math.max(-58, Math.min(58, e.z));
+    }
+    // Rex smashes straight through cover while it charges.
+    const walled = e.def.behavior !== 'ghost' && e.def.id !== 'bat' && e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && (e.def.behavior === 'rex' || e.def.behavior === 'boxer')) && !isFlyer3(e) && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
+    if (ctx.heights) {
+      const x = e.x, z = e.z;
+      if (e.def.boss || e.def.hidden || e.underground || isFlyer3(e) || e.def.behavior === 'reaper')
+        e.floorY = ctx.heights.floor(x, z, true);
+      else e.floorY = ctx.heights.move(e, e.px, e.pz, e.floorY);
+      if ((x !== e.x || z !== e.z) && rigid && e.def.behavior === 'charger' && e.state === 'attack')
         this.enter(e, 'recover', aggro(e, e.def.charge!.recover), -7);
-      }
+    }
+    if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
+    if (walled && rigid && e.def.behavior === 'charger') {
+      // Rhinos stop (and wobble) when they hit a wall mid-charge.
+      this.enter(e, 'recover', aggro(e, e.def.charge!.recover), -7);
     }
   }
 
@@ -1354,9 +1371,6 @@ export class Enemies {
    */
   private behave(e: Enemy, dt: number, ctx: EnemyCtx, dx: number, dz: number, nx: number, nz: number, dist: number, speed: number): boolean {
     const tgt = ctx.target;
-    let wantX = 0;
-    let wantZ = 0;
-    let rigid = false;
     if (ctx.heights && ctx.targetAlive && e.state === 'move' && !e.def.boss && !e.def.hidden) {
       const sniper = e.def.shoot?.pattern === 'sniper';
       let site = (tgt.floorY ?? 0) >= 1.2 ? ctx.heights.site(tgt.x, tgt.z) : undefined;
@@ -1390,6 +1404,22 @@ export class Enemies {
         return true;
       }
     }
+    if (e.def.behavior === 'chase') {
+      this.bend(e, nx, nz, dist);
+      this.wantX = this.ax * speed;
+      this.wantZ = this.az * speed;
+      this.rigid = false;
+      e.facing = Math.atan2(this.ax, this.az);
+      return true;
+    }
+    return this.attackBehavior(e, dt, ctx, dx, dz, nx, nz, dist, speed);
+  }
+
+  private attackBehavior(e: Enemy, dt: number, ctx: EnemyCtx, dx: number, dz: number, nx: number, nz: number, dist: number, speed: number): boolean {
+    const tgt = ctx.target;
+    let wantX = 0;
+    let wantZ = 0;
+    let rigid = false;
     switch (e.def.behavior) {
       case 'jellyfish':
         jellyfishBrain(e, dt, ctx, nx, nz, dist, speed);
@@ -1413,13 +1443,6 @@ export class Enemies {
         wantZ = e.vz;
         rigid = true;
         break;
-      case 'chase':
-        this.bend(e, nx, nz, dist);
-        wantX = this.ax * speed;
-        wantZ = this.az * speed;
-        e.facing = Math.atan2(this.ax, this.az);
-        break;
-
       case 'lunge': {
         const L = e.def.lunge!;
         if (e.state === 'move') {
@@ -1776,8 +1799,7 @@ export class Enemies {
     return true;
   }
 
-  /** Scratch list for neighbour queries (SpatialHash.queryInto). */
-  private near: Enemy[] = [];
+  private near: SpatialBucket<Enemy>[] = [];
   private biomeOut: BiomeOut = { x: 0, z: 0, rigid: false };
 
   /** Scratch output of bend() / coverMove(). */

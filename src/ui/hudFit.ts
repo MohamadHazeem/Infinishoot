@@ -489,14 +489,14 @@ export const FIT_CSS = `
 #goals[data-hf-tight] > #team .mate.down .nm { width: auto; overflow: visible; }
 
 /* FOLD: goal cards show their active line. */
-${FOLD} > :is(#objective, #wevent:not(:has(.meter)))${CARD} {
+${FOLD} > :is(#objective, #wevent:not(.stealth))${CARD} {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: baseline;
 }
-${FOLD} > :is(#objective, #wevent:not(:has(.meter)))${CARD} > .h { display: contents; }
-${FOLD} > :is(#objective, #wevent:not(:has(.meter)))${CARD} > .h > span:first-child,
+${FOLD} > :is(#objective, #wevent:not(.stealth))${CARD} > .h { display: contents; }
+${FOLD} > :is(#objective, #wevent:not(.stealth))${CARD} > .h > span:first-child,
 ${FOLD} > :is(#objective, #wevent)${CARD} > .s { display: none; }
-${FOLD} > :is(#objective, #wevent:not(:has(.meter)))${CARD} > .h > span:last-child { grid-row: 1; grid-column: 2; }
-${FOLD} > :is(#objective, #wevent:not(:has(.meter)))${CARD} > .t { grid-row: 1; grid-column: 1; margin: 0; font-size: 16px; white-space: nowrap; overflow: hidden; }
+${FOLD} > :is(#objective, #wevent:not(.stealth))${CARD} > .h > span:last-child { grid-row: 1; grid-column: 2; }
+${FOLD} > :is(#objective, #wevent:not(.stealth))${CARD} > .t { grid-row: 1; grid-column: 1; margin: 0; font-size: 16px; white-space: nowrap; overflow: hidden; }
 ${FOLD} > :is(#objective, #wevent)${CARD} > :is(.bar, .hp, .grab) { grid-column: 1 / -1; }
 /* Night Raid: header and the detection meter stay; the hint row only while someone hunts you. */
 ${FOLD} > #wevent${CARD} > .row:not(:has(.hunt)) { display: none; }

@@ -867,6 +867,7 @@ export class Screens {
     for (const [k, el] of Object.entries(this.els)) el.hidden = k !== name;
     for (const [k, x] of Object.entries(this.extra)) x.el.hidden = k !== name;
     // Hide in-game banners and toasts behind menus.
+    this.root.dataset.screen = name;
     this.root.classList.toggle('menu-open', name !== 'none');
     if (META_SCREENS.includes(name as MetaScreen)) renderMeta(this.els[name as MetaScreen], name as MetaScreen);
     if (name === 'codex') this.els.codex.querySelector('.meta-grid')?.insertAdjacentHTML('afterbegin', localizeHtml(armourGuide()));

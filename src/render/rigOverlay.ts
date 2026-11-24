@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { retroGlobals, createRetroMaterial, type RetroMaterial } from './retroMaterial';
+import { retroGlobals, createRetroMaterial, plainRigMaterial, type RetroMaterial } from './retroMaterial';
 import { outlineState, outlineTuning, outlineUniforms } from './outlines';
 import { makeTexture } from './textures';
 
@@ -205,6 +205,12 @@ export class RigOverlay {
   private xrayMat: THREE.ShaderMaterial;
   private xrayRimMat: THREE.ShaderMaterial;
   private depthMat: THREE.MeshDepthMaterial | null = null;
+  private plateBatches: {
+    mesh: THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>;
+    source: RetroMaterial;
+    parts: THREE.Mesh[];
+    shapes: THREE.BufferGeometry[];
+  }[] | null = null;
   private meshCount = 0;
   private syncedFrame = -1;
   private frame = 0;
@@ -256,6 +262,7 @@ export class RigOverlay {
 
   /** (Re)build the merged meshes from the rig's current parts. */
   private build(): void {
+    this.clearPlateBatches();
     this.modelRevision = this.root.userData.modelRevision ?? 0;
     this.parts = [];
     let count = 0;
@@ -338,6 +345,78 @@ export class RigOverlay {
     this.ring.scale.setScalar(T.ringRadius); // the ring is a child of the rig root, so its notch turns with the aim
   }
 
+  private clearPlateBatches(): void {
+    if (!this.plateBatches) return;
+    for (const { mesh } of this.plateBatches) {
+      mesh.removeFromParent();
+      mesh.geometry.dispose();
+      mesh.material.dispose();
+    }
+    this.plateBatches = null;
+  }
+
+  /** LOW WebGL draws solid plates of one paint together, using the overlay's existing joint matrices. */
+  batchPlates(): void {
+    if (!this.plateBatches) {
+      this.plateBatches = [];
+      const paints = new Map<RetroMaterial, THREE.Mesh[]>();
+      for (const part of this.parts) {
+        if (Array.isArray(part.material) || !plainRigMaterial(part.material) ||
+            part.morphTargetInfluences || (part as THREE.SkinnedMesh).isSkinnedMesh ||
+            (part as THREE.InstancedMesh).isInstancedMesh || part.geometry.drawRange.start ||
+            part.geometry.drawRange.count !== Infinity) continue;
+        const group = paints.get(part.material);
+        if (group) group.push(part);
+        else paints.set(part.material, [part]);
+      }
+      for (const [source, parts] of paints) {
+        if (parts.length < 2) continue;
+        const geometry = mergeRigParts(parts.map(p => ({ geometry: p.geometry, index: this.parts.indexOf(p) })));
+        const mat = createRetroMaterial();
+        mat.uniforms = { ...source.uniforms, uParts: { value: this.mats } };
+        mat.defines.RETRO_RIG_PARTS = MAX_RIG_PARTS;
+        mat.onBeforeCompile = source.onBeforeCompile;
+        const mesh = new THREE.Mesh(geometry, mat);
+        mesh.name = 'heroPlates';
+        mesh.userData.rigOverlay = true;
+        mesh.frustumCulled = false;
+        mesh.renderOrder = 51;
+        mesh.raycast = () => {};
+        mesh.onBeforeRender = () => this.sync();
+        mesh.visible = false;
+        this.root.add(mesh);
+        this.plateBatches.push({ mesh, source, parts, shapes: parts.map(p => p.geometry) });
+      }
+    }
+    for (const batch of this.plateBatches) {
+      const { mesh, source, parts } = batch;
+      if (!source.visible || !this.platesMatch(parts, batch.shapes, source)) continue;
+      // Layers suppress the base draw without hiding a joint's children or its x-ray matrix.
+      for (const part of parts) part.layers.mask = 0;
+      mesh.visible = true;
+    }
+  }
+
+  private platesMatch(parts: THREE.Mesh[], shapes: THREE.BufferGeometry[], source: RetroMaterial): boolean {
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (part.material !== source || part.geometry !== shapes[i] || part.layers.mask !== 1 ||
+          part.renderOrder !== 51 || part.geometry.drawRange.start || part.geometry.drawRange.count !== Infinity) return false;
+      for (let p: THREE.Object3D | null = part; p && p !== this.root; p = p.parent) {
+        if (!p.matrixAutoUpdate || p.scale.x * p.scale.y * p.scale.z < 0) return false;
+      }
+    }
+    return true;
+  }
+
+  restorePlates(): void {
+    if (!this.plateBatches) return;
+    for (const { mesh, parts } of this.plateBatches) if (mesh.visible) {
+      for (const part of parts) part.layers.mask = 1;
+      mesh.visible = false;
+    }
+  }
+
   /**
    * Depth ignores armour colours. When every solid part uses the ordinary
    * back-face depth pass, the x-ray geometry can cast the exact same pose in
@@ -383,6 +462,7 @@ uniform mat4 uParts[${MAX_RIG_PARTS}];
   }
 
   dispose(): void {
+    this.clearPlateBatches();
     shadowRigs.delete(this.root);
     this.depthMat?.dispose();
     for (const m of [this.hull, this.xray, this.xrayRim, this.ring]) {

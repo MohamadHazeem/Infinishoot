@@ -165,7 +165,7 @@ function installStyle(): void {
 .cine-shot.compact .cine-strip strong {font-size:clamp(16px,2.8vh,32px)}
 .cine-shot.compact .cine-strip span {font-size:clamp(14px,2.1vh,24px)}
 #hud:is(.shot-finisher,.shot-bossintro,.shot-evolution)>:not(.cine-shot):not([id^="scr-"]) {display:none !important}
-body:has(.cine-shot:not([hidden]):not(.compact)) #reticle {visibility:hidden}
+#hud:is(.shot-finisher,.shot-bossintro,.shot-evolution) ~ #reticle {visibility:hidden}
 `;
   document.head.appendChild(s);
 }
