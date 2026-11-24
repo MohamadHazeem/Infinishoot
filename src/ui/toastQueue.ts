@@ -18,6 +18,9 @@ export const toastTuning = {
 
 export interface QueuedToast { msg: string; seconds: number; waited: number }
 
+/** CineUi creates these four centre overlays together and toggles their hidden attributes. */
+export const CINEMATIC_TITLES = '.cn-end, .cn-reveal, .cn-jack, .cn-flaw';
+
 export class ToastQueue {
   readonly waiting: QueuedToast[] = [];
   /** The message on screen ('' when none) and how long it has shown. */

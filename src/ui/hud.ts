@@ -1,6 +1,6 @@
 import { LifePulse } from '../game/juiceVitals';
 import type { NoiseGovernor } from '../render/noiseGovernor';
-import { localizeHtml, t, localize } from '../i18n';
+import { getLanguage, localizeHtml, t, localize } from '../i18n';
 import { shortName } from '../game/eightp';
 /**
  * In-game arcade HUD: XP bar and level, life, stage timer, score and combo,
@@ -14,7 +14,7 @@ import { WEAPONS } from '../data/weapons';
 import { PASSIVES } from '../data/passives';
 import { sfx } from '../audio/sfx';
 import { HudDock, injectHudCss } from './hudLayout';
-import { ToastQueue } from './toastQueue';
+import { CINEMATIC_TITLES, ToastQueue } from './toastQueue';
 import { prompt, promptText } from './prompts';
 
 // ---------------------------------------------------------------- slot reels
@@ -233,6 +233,7 @@ export class Hud {
   private lastMult = 1;
   private bannerT = 0;
   private bossGoalPlaced = false;
+  private cinematicTitles?: NodeListOf<HTMLElement>;
   private lifePulse = new LifePulse();
   private hurtV = 0;
   private flashV = 0;
@@ -331,8 +332,13 @@ export class Hud {
   }
 
   private titleCardUp(): boolean {
-    return this.bannerT > 0 || !!this.root.parentElement?.classList.contains('cinematic')
-      || this.el('#bossintro')?.hidden === false || this.el('.cn-reveal')?.hidden === false;
+    if (this.bannerT > 0 || this.root.parentElement?.classList.contains('cinematic') ||
+        this.el('#bossintro')?.hidden === false || document.body.classList.contains('cn-cine')) return true;
+    this.cinematicTitles ??= this.el('#cine')?.querySelectorAll<HTMLElement>(CINEMATIC_TITLES);
+    if (this.cinematicTitles) {
+      for (let i = 0; i < this.cinematicTitles.length; i++) if (!this.cinematicTitles[i].hidden) return true;
+    }
+    return false;
   }
 
   // 'show' is visibility state. A delayed animation callback must never resurrect an expired message.
@@ -641,6 +647,7 @@ export class Hud {
   }
 
   private spiceEls: { el: HTMLElement; txt: HTMLElement; kind: string; text: string }[] = [];
+  private spiceLanguage = getLanguage();
 
   /**
    * Goals-stack lines (event, challenge, power-ups). A line is only rebuilt
@@ -648,6 +655,7 @@ export class Hud {
    */
   private updateSpice(lines: HudState['spice']): void {
     const root = this.el('#spice');
+    const lang = getLanguage();
     lines.forEach((l, i) => {
       let d = this.spiceEls[i];
       if (!d || d.kind !== l.kind) {
@@ -658,13 +666,18 @@ export class Hud {
         else root.appendChild(el);
         d = this.spiceEls[i] = { el, txt: el.querySelector('span')!, kind: l.kind, text: '' };
       }
-      if (d.text !== l.text) {
+      if (d.text !== l.text || this.spiceLanguage !== lang) {
         d.text = l.text;
         // The star/checkmark and the live progress are outside the translated challenge sentence.
         const goal = (l.kind === 'challenge' || l.kind === 'done') && /^([★✓] )(.+?)( \d+\/\d+)?$/.exec(l.text);
-        d.txt.textContent = goal ? goal[1] + localize(goal[2]) + (goal[3] ?? '') : localize(l.text);
+        d.txt.textContent = localize(goal ? goal[2] : l.text);
+        if (goal) {
+          d.txt.prepend(goal[1]);
+          if (goal[3]) d.txt.append(goal[3]);
+        }
       }
     });
+    this.spiceLanguage = lang;
     while (this.spiceEls.length > lines.length) this.spiceEls.pop()!.el.remove();
   }
 
@@ -819,8 +832,10 @@ export class Hud {
       if (this.bannerT <= 0) this.el('#banner').classList.remove('show');
     }
     const blocked = (this.toasts.left > 0 || this.toasts.waiting.length > 0) && (!!this.chest || this.titleCardUp());
-    const queued = this.toasts.update(dt, blocked);
     const toast = this.el('#toast');
+    // The interval just elapsed on the interrupted toast's first frame back was spent behind the title.
+    const resuming = !blocked && this.toasts.left > 0 && !toast.classList.contains('show');
+    const queued = this.toasts.update(resuming ? 0 : dt, blocked);
     if (blocked || this.toasts.left <= 0) {
       if (toast.classList.contains('show')) toast.classList.remove('show');
     } else if (queued || !toast.classList.contains('show')) this.showToast(this.toasts.current);

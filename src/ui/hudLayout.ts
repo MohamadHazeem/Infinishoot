@@ -1,5 +1,6 @@
 import { FIT_CSS, HudFit, centreBox } from './hudFit';
 import { menuCoverCss } from './menuHud';
+import { CINEMATIC_TITLES } from './toastQueue';
 /**
  * HUD layout pass (HUD lane): the level badge under the XP bar, the goals
  * stack on the left (teammates, objective, stage event, side challenge,
@@ -120,12 +121,14 @@ const CSS = `
 }
 
 /* Boss instructions share the goals dock (including its mirrored RTL position). */
-#hud #goals > .boss-act-hint {
+#hud #ingame #goals > .boss-act-hint {
   max-width: 100%; margin-inline: 0 !important; padding-block: var(--p);
   font-size: calc(6 * var(--p)) !important; max-height: none; overflow: visible;
 }
 #ingame > #banner { width: fit-content; max-width: 68%; margin-inline: auto; }
-#hud:has(.cn-reveal:not([hidden])) #ingame > :is(#banner, #toast, #chestreveal) { visibility: hidden; }
+#hud.cinematic #ingame > #chestreveal,
+.cn-cine #ingame > :is(#banner, #toast, #chestreveal),
+#hud:has(#cine > :is(${CINEMATIC_TITLES}):not([hidden])) #ingame > :is(#banner, #toast, #chestreveal) { visibility: hidden; }
 
 /* ---------------- Button prompts (src/ui/prompts.ts). */
 kbd.prompt {
@@ -271,7 +274,9 @@ kbd.prompt:empty { display: none; }
   #hud #scr-levelup .card .desc { font-size: 17px; line-height: 1.2; }
 }
 /* Draft details open toward the other cards. They stay out of the scrolling layout. */
-#hud #scr-levelup button.card { width: min(95 * var(--p), 29vw); }
+@media (min-width: 760px) {
+  #hud #scr-levelup button.card { width: min(95 * var(--p), 29vw); }
+}
 #hud #scr-levelup .card > .desc {
   max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -282,21 +287,37 @@ kbd.prompt:empty { display: none; }
 #scr-levelup .offer-detail {
   --bg: var(--ink); --hi: var(--slate); --ring: var(--navy);
   position: absolute; z-index: 3; inset-block-start: 0; inset-inline-start: calc(100% + 3 * var(--p));
-  width: max-content; max-width: min(88 * var(--p), 40vw); padding: calc(3 * var(--p));
-  display: none; gap: var(--p); text-align: start; color: var(--white);
+  width: max-content; max-width: min(105 * var(--p), 38vw); padding: calc(3 * var(--p));
+  display: var(--detail-display, none); gap: var(--p); text-align: start; color: var(--white);
   font: calc(6 * var(--p))/1.25 var(--font); letter-spacing: 0; pointer-events: none;
 }
 #scr-levelup .card:last-child .offer-detail { inset-inline-start: auto; inset-inline-end: calc(100% + 3 * var(--p)); }
 #scr-levelup .offer-detail strong { color: var(--cyan); }
+#scr-levelup .offer-detail .partner :is(.nm, b) {
+  font: calc(5 * var(--p)) / 1.3 var(--font); letter-spacing: 0;
+}
 #scr-levelup .offer-detail .set-chips { display: grid; justify-content: stretch; }
 #scr-levelup .offer-detail .set-chip { justify-self: start; }
 #scr-levelup .offer-detail .chip-effect { font: inherit; color: var(--mist); }
-#scr-levelup .card:hover, #scr-levelup .card:focus-visible,
-#scr-levelup.inspect-pick .card.focused, .input-pad #scr-levelup .card.focused { z-index: 4; }
-#scr-levelup .card:hover .offer-detail,
-#scr-levelup:not(:has(.card:hover)) .card:focus-visible .offer-detail,
-#scr-levelup.inspect-pick:not(:has(.card:hover)) .card.focused .offer-detail,
-.input-pad #scr-levelup .card.focused .offer-detail { display: grid; }
+#scr-levelup .card > .offer-context .armour-hint,
+#scr-pause .tip small { display: block; }
+#scr-pause .badge.focused { z-index: 31; --ring: var(--yellow); }
+#scr-pause .badge.focused .tip { display: flex; }
+body:not(.input-pad) #scr-levelup:not(.inspect-pick) .card:hover,
+body:not(.input-pad) #scr-levelup:not(.inspect-pick):not(:has(.card:hover)) .card:focus-visible,
+#scr-levelup.inspect-pick .card.focused, .input-pad #scr-levelup .card.focused {
+  --detail-display: grid; z-index: 4;
+}
+@media (max-width: 759px) {
+  #hud #scr-levelup .card .offer-detail {
+    position: static; width: 100%; max-width: 100%;
+  }
+}
+/* Keep the clipping window and each reel stop the same size as the compact sprite. */
+@media (min-width: 1000px) and (max-height: 820px), (min-width: 760px) and (max-height: 620px) {
+  #scr-levelup .card .reel, #scr-levelup .card .reel .strip > * { width: 48px; height: 48px; }
+  #scr-levelup .card .reel .strip { transform: translateY(calc(var(--k, 0) * -48px)); }
+}
 /* Leave the side gutter to the first-pick help panel at 720p. */
 @media (min-width: 1000px) and (max-width: 1440px) {
   #hud #scr-levelup button.card { width: calc(72 * var(--p)); }

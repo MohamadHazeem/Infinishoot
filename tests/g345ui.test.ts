@@ -4,6 +4,7 @@ import { Hud, type HudState } from '../src/ui/hud';
 import { HUD_DOCK } from '../src/ui/hudLayout';
 import { Screens, type Offer, type ScreenActions } from '../src/ui/screens';
 import { localize, setLanguage } from '../src/i18n';
+import { WEAPONS } from '../src/data/weapons';
 
 const root = document.getElementById('hud')!;
 const hud = new Hud(root);
@@ -25,17 +26,29 @@ const frames: FrameRequestCallback[] = [];
 globalThis.requestAnimationFrame = cb => frames.push(cb);
 const paint = () => frames.splice(0).forEach(cb => cb(0));
 
-// Title and toast text boxes intersected in the pre-fix recordings. Replay visibility over those boxes.
+// Chromium Rex fixture, 60 steps (warning) and 240 steps (toast and mechanic).
+// Each line records [left, top, width, height] at the default HUD scale.
 const layouts = [
-  { width: 960, height: 540, warning: [0, 162, 960, 196], toast: [328, 176, 303, 50] },
-  { width: 1280, height: 720, warning: [0, 216, 1280, 101], toast: [454, 215, 372, 40] },
-  { width: 1920, height: 1080, warning: [0, 324, 1920, 198], toast: [758, 298, 404, 67] },
-];
+  ['960 EN', [363,162,235,123], [287,149,387,30], [285,83,390,51], [14,88,145,21], [14,157,150,22]],
+  ['960 AR', [393,162,174,196], [354,149,252,50], [285,83,390,64], [776,88,170,21], [771,171,176,22]],
+  ['1280 EN', [483,216,313,163], [382,198,516,40], [380,111,520,68], [18,84,193,29], [18,175,199,29]],
+  ['1280 AR', [524,216,232,260], [472,198,336,67], [380,111,520,85], [1035,88,227,29], [1028,200,234,29]],
+  ['1920 EN', [803,324,313,163], [702,264,516,40], [700,148,520,84], [18,112,258,38], [18,216,205,32]],
+  ['1920 AR', [844,324,232,260], [792,264,336,67], [700,148,520,104], [1599,112,303,38], [1662,237,240,32]],
+] as const;
+function overlaps(a: readonly number[], b: readonly number[]) {
+  return a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+}
 function checkFrame() {
   paint();
-  for (const { width, height, warning: a, toast: b } of layouts) {
-    const intersects = a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
-    assert(!(intersects && $('#banner.show') && $('#toast.show')), `double centre banner at ${width}×${height}`);
+  const centre = root.querySelectorAll('#banner.show, #toast.show, #bossintro:not([hidden]), #chestreveal:not([hidden])');
+  assert(centre.length <= 1, 'at most one centre announcement per paint');
+  for (const [size, warning, toast, bar, hint, challenge] of layouts) {
+    const boxes: (readonly number[])[] = [bar, hint, challenge];
+    if ($('#banner.show')) boxes.push(warning);
+    if ($('#toast.show')) boxes.push(toast);
+    for (let i = 0; i < boxes.length; i++)
+      for (const other of boxes.slice(i + 1)) assert(!overlaps(boxes[i], other), size);
   }
 }
 hud.toast('ELITE INCOMING', 2);
@@ -67,6 +80,40 @@ hud.update(state, 1);
 paint();
 assert(!$('#banner.show'), 'an animation callback cannot revive an expired warning');
 
+hud.toast('ELITE INCOMING', 2);
+hud.chestReveal({ id: 'armor', name: 'Armor', icon: '◆', color: '#73eff7', text: 'Armor' });
+checkFrame();
+assert(!$('#chestreveal').hidden);
+hud.showBanner('WARNING!', '', 1);
+checkFrame();
+assert($('#chestreveal').hidden);
+hud.update(state, 1);
+checkFrame();
+assert(!$('#chestreveal').hidden, 'the chest reel resumes before the interrupted toast');
+hud.update(state, 4);
+hud.update(state, 3);
+checkFrame();
+assert.equal($('#toast.show').textContent, 'ELITE INCOMING', 'time spent behind the chest does not expire the toast');
+
+const cine = document.createElement('div');
+cine.id = 'cine';
+const overlays = ['cn-end', 'cn-reveal', 'cn-jack', 'cn-flaw'].map(name => {
+  const el = document.createElement('div');
+  el.className = name;
+  el.hidden = true;
+  cine.appendChild(el);
+  return el;
+});
+root.appendChild(cine);
+for (const overlay of overlays) {
+  overlay.hidden = false;
+  hud.update(state, 1);
+  assert(!$('#toast.show'), overlay.className);
+  overlay.hidden = true;
+  hud.update(state, 1);
+  assert.equal($('#toast.show').textContent, 'ELITE INCOMING');
+}
+
 const base: Offer = {
   id: 'drones', kind: 'weapon', slot: 'auto', name: 'Orbit Drones', text: 'Little drones circle you and bonk enemies.',
   icon: '✦', color: '#73eff7', tag: 'NEW!', tags: ['orbit'], paths: [{ id: 'gunslinger', points: 2 }, { id: 'demolitionist', points: 1 }],
@@ -74,11 +121,12 @@ const base: Offer = {
 const partner = { weapon: 'drones', passive: 'armor', haveWeapon: false, haveItem: true };
 for (const lang of ['en', 'ar'] as const) {
   await setLanguage(lang);
-  state.spice[0].text = '★ REACH A 100 COMBO 1/100';
   hud.update(state, 0);
   assert($('#goals .challenge').textContent!.includes(localize('REACH A 100 COMBO')));
+  if (lang === 'ar') assert(!/[a-z]/i.test($('#goals .challenge').textContent!));
   for (const [offer, expected] of [
     [{ ...base, partner }, '.recipe'],
+    [{ ...base, kind: 'evolve', name: WEAPONS.drones.evolution!.name, tag: 'EVOLVE!' }, '.recipe'],
     [{ ...base, kind: 'fusion', id: 'storm_drones', fuses: ['lightning', 'drones'] }, '.recipe'],
     [base, '.set-chip:not(.path-chip)'],
     [{ ...base, kind: 'track', id: 'buster' }, '.path-chip'],
@@ -90,6 +138,9 @@ for (const lang of ['en', 'ar'] as const) {
     assert.equal(cards.length, 3);
     for (const card of cards) {
       const face = card.querySelector(':scope > .offer-context');
+      const contextOnFace = [...card.querySelectorAll('.recipe, .partner, .set-chip, .armour-hint, .replaces')]
+        .filter(el => !el.closest('.offer-detail'));
+      assert.equal(contextOnFace.length, expected ? 1 : 0, 'counts every visible context, including stray strips');
       assert.equal(card.querySelectorAll(':scope > .offer-context').length, expected ? 1 : 0);
       if (expected) {
         assert(face!.matches(expected) || face!.querySelector(expected), expected);
@@ -98,6 +149,10 @@ for (const lang of ['en', 'ar'] as const) {
       const detail = document.getElementById(card.getAttribute('aria-describedby')!)!;
       assert.equal(detail.getAttribute('role'), 'tooltip');
       assert(detail.textContent!.includes(localize(offer.text)));
+      if (offer.kind === 'evolve') {
+        assert.equal(detail.querySelectorAll('.partner .have').length, 2, 'ready evolution has both ingredients');
+        assert(face!.textContent!.includes(localize(WEAPONS.drones.name)));
+      }
       if (offer.partner) {
         assert(detail.querySelector('.partner .have'));
         assert(detail.querySelector('.armour-hint'));
@@ -107,8 +162,13 @@ for (const lang of ['en', 'ar'] as const) {
       }
     }
   }
-  state.spice[0].text = '★ REACH A 100 COMBO 0/100';
-  hud.update(state, 0);
+  const fusion = WEAPONS.storm_drones;
+  screens.setPauseBuild([{ id: fusion.id, name: fusion.name, icon: fusion.icon, color: fusion.color,
+    level: 1, max: true, kind: 'weapon', slot: 'auto' }]);
+  const pauseTip = $('#scr-pause .build .badge .tip');
+  assert(pauseTip.closest('[data-nav]'));
+  assert(pauseTip.querySelector('.armour-hint'));
+  for (const id of ['drones', 'lightning']) assert(pauseTip.textContent!.includes(localize(WEAPONS[id].name)));
 }
 console.log('Gate 3–5 HUD and level-up readability passed.');
 window.close();
