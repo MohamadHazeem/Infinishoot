@@ -21,6 +21,7 @@ import { ACHIEVEMENTS } from '../data/meta';
 import { tagChips, type Tag } from '../data/tags';
 import { offerSetChips, setChipsHtml, setsPanelHtml } from './setsUi';
 import { WEAPONS } from '../data/weapons';
+import { FUSION_BY_ID } from '../data/fusions';
 import { curvedStats, killHealLimit, PASSIVES } from '../data/passives';
 import { RELIC_BY_ID, type RelicDef } from '../data/relics';
 import { SPECIALS } from '../data/specials';
@@ -249,14 +250,64 @@ function armourGuide(): string {
   ).join('');
 }
 
+/** Ready evolutions carry the base weapon id. Both ingredients are already owned. */
+function recipePartner(o: Offer): Offer['partner'] {
+  const evo = o.kind === 'evolve' && WEAPONS[o.id]?.evolution;
+  return o.partner ?? (evo ? { weapon: o.id, passive: evo.passive, haveWeapon: true, haveItem: true } : undefined);
+}
+
 /** Evolution strip: the weapon and its partner item, ticked when owned, and what they become. */
-function partnerStrip(o: NonNullable<Offer['partner']>): string {
+function partnerStrip(o: Offer['partner']): string {
+  if (!o) return '';
   const w = WEAPONS[o.weapon];
   const it = PASSIVES[o.passive];
   if (!w?.evolution || !it) return '';
   const part = (id: string, name: string, color: string, icon: string, have: boolean) =>
     `<span class="pt${have ? ' have' : ''}">${iconHtml(id, color, icon)}${have ? '<em>✓</em>' : ''}<span class="nm">${name.toUpperCase()}</span></span>`;
   return `<div class="partner"><div class="pair">${part(w.id, 'MAX ' + w.name, w.color, w.icon, o.haveWeapon)}<i>+</i>${part(it.id, it.name, it.color, it.icon, o.haveItem)}</div><b>EVOLVES INTO ${w.evolution.name.toUpperCase()}</b></div>`;
+}
+
+/** Build the face from the localized details, so a multi-set or multi-path pick still has one chip. */
+function showOfferContext(card: HTMLElement, offer: Offer): void {
+  const detail = card.querySelector<HTMLElement>('.offer-detail')!;
+  const face = card.querySelector<HTMLElement>('.offer-context')!;
+  const pair = detail.querySelector('.partner');
+  if (pair) {
+    const partner = recipePartner(offer);
+    if (offer.fuses) {
+      const [a, b] = offer.fuses;
+      face.textContent = localize(WEAPONS[a]?.name ?? a);
+      face.append(' + ', localize(WEAPONS[b]?.name ?? b));
+    } else if (partner) {
+      const weapon = WEAPONS[partner.weapon], item = PASSIVES[partner.passive];
+      if (offer.kind === 'evolve') {
+        face.textContent = localize(weapon.name);
+        face.append(' + ', localize(item.name));
+      } else {
+        face.textContent = localize(offer.kind === 'passive' ? weapon.name : item.name);
+        face.prepend('+ ');
+        face.append(' → ', localize(weapon.evolution!.name));
+      }
+    }
+    face.classList.add('recipe');
+  } else {
+    const chip = detail.querySelector('.set-chip.on') ?? detail.querySelector('.set-chip:not(.path-chip)')
+      ?? detail.querySelector('.path-chip') ?? detail.querySelector('.armour-hint');
+    if (chip) {
+      const preview = chip.cloneNode(true) as HTMLElement;
+      preview.removeAttribute('title');
+      face.appendChild(preview);
+    }
+    else face.remove();
+  }
+  // Native title attributes alone are unavailable to pad / keyboard users.
+  for (const chip of detail.querySelectorAll<HTMLElement>('.set-chip[title]')) {
+    const effect = document.createElement('small');
+    effect.className = 'chip-effect';
+    effect.textContent = localize(chip.title);
+    chip.removeAttribute('title');
+    chip.after(effect);
+  }
 }
 
 /** Warning strip on cards that swap out an owned weapon. "Plasma Orb LV 3" reads "REPLACES PLASMA ORB (LV 3)". */
@@ -284,9 +335,9 @@ function curvedPassive(o: Offer): boolean {
   return !!item && curvedStats.some((k) => item.add[k] !== undefined);
 }
 
-function badge(i: LoadoutItem): string {
+function badge(i: LoadoutItem & { navigable?: boolean }): string {
   const level = (i.slot ? ` · ${SLOT_LABEL[i.slot]}` : '') + (i.evo ? ' · EVOLVED' : i.max ? ' · MAX' : ` · LV ${i.level}`);
-  return `<span class="badge${i.evo ? ' evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" tabindex="0">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i>${tip(i.name, i.rarity, i.desc ?? '', level)}</span>`;
+  return `<span class="badge${i.evo ? ' evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" tabindex="0"${i.navigable ? ' data-nav' : ''}>${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i>${tip(i.name, i.rarity, i.desc ?? '', level)}</span>`;
 }
 
 function relicChip(r: RelicDef): string {
@@ -821,6 +872,8 @@ export class Screens {
     window.addEventListener(
       'keydown',
       (e) => {
+        if (this.current === 'levelup' && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Tab'].includes(e.code))
+          this.els.levelup.classList.add('inspect-pick');
         if (!this.capture || this.current !== 'controls') return;
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -830,6 +883,7 @@ export class Screens {
       true,
     );
 
+    this.els.levelup.addEventListener('pointermove', () => this.els.levelup.classList.remove('inspect-pick'));
     this.discoveryUi = new DiscoveryUi(this, i => actions.craftPart?.(i));
     this.settingsScreen = new SettingsScreen(this, () => this.show(this.settingsReturn), () => this.show('controls'));
     this.modsScreen = new ModsScreen(this);
@@ -1130,7 +1184,7 @@ export class Screens {
     const kept = ids.map((k, i) => redraw && k === this.shownOffers[i]);
     this.shownOffers = ids;
     this.banishArmed = false;
-    el.classList.remove('banishing');
+    el.classList.remove('banishing', 'inspect-pick');
     // Each icon rolls like a slot reel; cards land left to right, a legendary spins longer and slows right down.
     const still = reduceMotion();
     const steps = offers.map((o, i) => {
@@ -1140,7 +1194,7 @@ export class Screens {
     });
     el.querySelector('.cards')!.innerHTML = localizeHtml(offers
       .map(
-        (o, i) => `<button class="card rolling ${o.cardType ?? o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)} ${canBanish(o) ? 'ban-ok' : 'ban-no'}" data-nav data-act="pick" data-index="${i}">
+        (o, i) => `<button class="card rolling ${o.cardType ?? o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)} ${canBanish(o) ? 'ban-ok' : 'ban-no'}" data-nav data-act="pick" data-index="${i}" aria-describedby="offer-detail-${i}">
           <i class="fx"></i><i class="card-shine" aria-hidden="true"></i>
           <div class="tag ${cardMode(o)}">${cardMode(o) === 'upgrade' ? '▲ UPGRADE' : o.tag}</div>
           ${cardMode(o) === 'new' ? '<div class="ribbon">NEW</div>' : ''}
@@ -1149,16 +1203,22 @@ export class Screens {
             .join('')}</div></div></div>
           <div class="name">${o.name}</div>
           ${levelPips(o)}
-          <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : localize(o.text)}</div>
+          <div class="desc">${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : localize(o.text)}</div>
           ${curvedPassive(o) && o.nums?.length && (o.level ?? 0) >= 3 ? `<div class="pi-t">${t('ceiling.buildStats')}</div>` : ''}
           ${numsHtml(curvedPassive(o) ? o.nums?.map(buildNumber) : o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
-          ${o.slot === 'left' || o.slot === 'right' || o.slot === 'auto' ? armourHint(o.id, o.tags, o.pick?.split('|')[0]) : ''}
-          ${pathChips(o.paths)}
-          ${offerSetChips(o)}
-          ${o.replaces ? replaceStrip(o.replaces) : ''}
-          ${o.partner ? partnerStrip(o.partner) : ''}
-          ${o.fuses ? fuseStrip(o.fuses) : ''}
+          <div class="offer-context"></div>
+          <div class="offer-detail px" id="offer-detail-${i}" role="tooltip">
+            <strong>${o.name}</strong>
+            <span>${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : localize(o.text)}</span>
+            ${o.kind === 'overdrive' ? `<span>${t('menus.overdrive')}</span>` : ''}
+            ${o.replaces ? replaceStrip(o.replaces) : ''}
+            ${o.fuses ? fuseStrip(o.fuses) : ''}
+            ${partnerStrip(recipePartner(o))}
+            ${offerSetChips(o)}
+            ${pathChips(o.paths)}
+            ${o.slot === 'left' || o.slot === 'right' || o.slot === 'auto' ? armourHint(o.id, o.tags, o.pick?.split('|')[0]) : ''}
+          </div>
           <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? `<span class="kind-sep">${o.rarity ? ' · ' : ''}</span><span class="kind-label">${o.label}</span>` : ''}</div>
           ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
           <div class="key" data-prompt="pick:${i + 1}">${promptHtml(`pick:${i + 1}`)}</div>
@@ -1194,6 +1254,7 @@ export class Screens {
     this.lockCards = [...cards];
     el.classList.add('locked');
     cards.forEach((c, i) => {
+      showOfferContext(c, offers[i]);
       c.classList.add('locked');
       c.style.setProperty('--lock', `${Math.max(pickTuning.lock, steps[i].reduce((a, b) => a + b, 0))}s`);
     });
@@ -1222,6 +1283,8 @@ export class Screens {
     layer.className = 'screen hud-pick-layer';
     layer.setAttribute('aria-hidden', 'true');
     const ghost = card.cloneNode(true) as HTMLElement;
+    ghost.querySelector('.offer-detail')?.remove();
+    ghost.removeAttribute('aria-describedby');
     ghost.removeAttribute('data-nav');
     ghost.removeAttribute('data-act');
     ghost.setAttribute('tabindex', '-1');
@@ -1307,7 +1370,11 @@ export class Screens {
     const chip = (x: (typeof extras)[number]) =>
       `<span class="mod-chip ${x.curse ? 'cursed' : ''}" style="--c:${x.color}" title="${x.desc}">${iconHtml(x.id, x.color, x.icon)}${x.name}</span>`;
     this.els.pause.querySelector('.build')!.innerHTML =
-      localizeHtml(loadout.map(badge).join('') +
+      localizeHtml(loadout.map(i => {
+        const fusion = FUSION_BY_ID[i.id];
+        const parts = fusion ? fusion.parts.map(id => localize(WEAPONS[id].name)).join(' + ') : '';
+        return badge({ ...i, navigable: true, desc: (i.desc ?? '') + (parts ? `<small>${parts}</small>` : '') + (i.kind === 'weapon' ? armourHint(i.id) : '') });
+      }).join('') +
       (mods.length ? `<div class="mod-strip">${mods.map(modChip).join('')}</div>` : '') +
       (relics.length ? `<div class="mod-strip relics"><b class="strip-t">${t("text.relics_4258f8")}</b>${relics.map(relicChip).join('')}</div>` : '') +
       (extras.length ? `<div class="mod-strip">${extras.map(chip).join('')}</div>` : ''));
