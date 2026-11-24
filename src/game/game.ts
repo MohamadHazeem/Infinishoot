@@ -9,6 +9,10 @@ import { BossMaker } from './bossMaker';
 import { BossMakerUi } from '../ui/bossMakerUi';
 import { registerMaestro, routeConductor } from './bossesMaestro';
 import { EchoRuns } from './echo';
+import { drawFloors } from '../world/heightView';
+import { FieldBullets, FieldPickups } from '../world/heightPools';
+import { heightDamageBlocked, moveHero, packFloors, portalFloor, readFloors, terrainSight } from '../world/heightPlay';
+import { DECK, heightTuning } from '../world/height';
 import { NemesisUi } from '../ui/nemesisUi';
 import { installOverworld } from './overworld';
 import { Nemesis } from './nemesis';
@@ -65,7 +69,7 @@ import { createFieldArena, type Arena } from '../world/fieldArena';
 import { Barrels } from './barrels';
 import { Chests } from './chests';
 import { hostileBullet } from './systems/followups';
-import { BULLET_Y, Bullets, Team } from './bullets';
+import { BULLET_Y, Team } from './bullets';
 import { CameraRig } from './cameraRig';
 import { Director } from './director';
 import { Enemies, type Enemy, type EnemyCtx, type SpawnOpts } from './enemies';
@@ -76,7 +80,7 @@ import { contractView, mirrorContracts, prepareRejoins, withRuleDamage, ruleKill
 import { couchHeat, payPacts, showPacts } from './pacts';
 import { damageWithFeedback, escapeBeat, hurtBeat } from './juiceCombat';
 import { Particles } from './particles';
-import { PickupType, Pickups, type Collector } from './pickups';
+import { PickupType, type Collector } from './pickups';
 import { Portal } from './portal';
 import { markSeen, save, unlockedWeapons } from './save';
 import { access, settings, saveSettings } from './settings';
@@ -484,7 +488,7 @@ export class Game implements HeroWorld {
   endlessNextWave = SpiceSys.endlessNextWave;
   bossRushStage = SpiceSys.bossRushStage;
   openPortal = SpiceSys.openPortal;
-  portalSpot = SpiceSys.portalSpot;
+  portalSpot = (x: number, z: number) => portalFloor(this, x, z, SpiceSys.portalSpot.call(this, x, z));
   gainXp = withDifficulty(LevelUpsSys.gainXp);
   openLevelUp = LevelUpsSys.openLevelUp;
   presentLevelUp = (h: Hero): void => {
@@ -554,7 +558,9 @@ export class Game implements HeroWorld {
   updateStrikes = StatusesSys.updateStrikes;
   bossSlam = StatusesSys.bossSlam;
   contactDamage = StatusesSys.contactDamage;
-  hurtHero = withDifficulty(StatusesSys.hurtHero);
+  hurtHero = withDifficulty(function (this: Game, h: Hero, raw: number, x: number, z: number, src: Enemy | null = null, cause: string = '') {
+    if (!heightDamageBlocked(this, h, x, z, src, cause)) StatusesSys.hurtHero.call(this, h, raw, x, z, src, cause);
+  });
   onHeroDown = StatusesSys.onHeroDown;
   collect: typeof StatusesSys.collect = function (h, type, value) {
     if (type !== PickupType.Gear || !salvageGear(this, h)) StatusesSys.collect.call(this, h, type, value);
@@ -616,6 +622,8 @@ export class Game implements HeroWorld {
     if (echo) snap.echo = echo;
     const contracts = !view && contractView(h);
     if (contracts) snap.contract = contracts;
+    const floors = packFloors(this, view?.x ?? h.player.x, view?.z ?? h.player.z, view?.r ?? INTEREST);
+    if (floors) snap.floors = floors;
     return snap;
   };
   onClientMessage: typeof NetClientSys.onClientMessage = function (msg) {
@@ -646,6 +654,7 @@ export class Game implements HeroWorld {
     this.setPieces.mirror(this, m.machinery);
     this.beatCombat.mirror(this, m.beat);
     if (m.beatMarks || this.netBoss) this.beatCombat.score.mirror(this, m.beatMarks);
+    readFloors(this, m.floors);
     if (mirrorContracts(this.hero, m.contract)) this.screens.refreshPacts();
     this.hero.synergy.lastModHit = typeof m.modHit === 'number' ? m.modHit / 100 : null;
   }
@@ -666,10 +675,12 @@ export class Game implements HeroWorld {
   localAudio = RenderSys.localAudio;
   render: typeof RenderSys.render = function (alpha, dt) {
     this.setPieces.prepareView(this);
+    this.enemies.heightMap = this.arena.heights;
     RenderSys.render.call(this, alpha, dt);
     this.setPieces.render(this);
     if (this.asym.word) this.asym.render();
     this.stationHud.draw();
+    drawFloors(this);
   };
   renderMuzzleFlashes = RenderSys.renderMuzzleFlashes;
   renderChestPointer = RenderSys.renderChestPointer;
@@ -730,7 +741,7 @@ export class Game implements HeroWorld {
   // Arena toys, hazards and objectives (src/game/systems/arena.ts).
   loadToys = ArenaSys.loadToys;
   updateArena = ArenaSys.updateArena;
-  arenaMoveHero = ArenaSys.arenaMoveHero;
+  arenaMoveHero = (h: Hero, dt: number) => moveHero(this, h, dt, ArenaSys.arenaMoveHero);
   startJump = ArenaSys.startJump;
   arenaJumpMsg = ArenaSys.arenaJumpMsg;
   landShock = ArenaSys.landShock;
@@ -952,13 +963,13 @@ export class Game implements HeroWorld {
   readonly scene = new THREE.Scene();
   arena: Arena;
   readonly enemies: Enemies;
-  readonly bullets: Bullets;
+  readonly bullets: FieldBullets;
   readonly particles: Particles;
   readonly fx: Fx;
   readonly portal: Portal;
   readonly barrels: Barrels;
   readonly chests: Chests;
-  readonly pickups: Pickups;
+  readonly pickups: FieldPickups;
   readonly juice = new Juice();
   readonly cam: CameraRig;
   readonly director = new Director();
@@ -1053,7 +1064,9 @@ export class Game implements HeroWorld {
   netCombo01 = 0;
   fadeT = 0;
 
-  walls: StaticBoxGrid;
+  private wallGrid!: StaticBoxGrid;
+  get walls() { return this.wallGrid; }
+  set walls(value: StaticBoxGrid) { this.wallGrid = terrainSight(this, value); }
   hash = new SpatialHash<Enemy>(2);
   dmg: DamageNumbers;
   hud: Hud;
@@ -1067,7 +1080,7 @@ export class Game implements HeroWorld {
   readonly firstten: FirstTen;
   flashes: THREE.Mesh[] = [];
   enemyCtx: EnemyCtx;
-  targets: { x: number; z: number; radius: number; alive: boolean }[] = [];
+  targets: EnemyCtx['targets'] = [];
   collectors: Collector[] = [];
 
   // Scratch objects (no per-frame allocation)
@@ -1126,7 +1139,7 @@ export class Game implements HeroWorld {
     this.scene.add(this.arena.group);
     this.walls = new StaticBoxGrid(this.arena.colliders);
     this.enemies = new Enemies(enemyPhotoSubjects(this.scene));
-    this.bullets = new Bullets(this.scene, access);
+    this.bullets = new FieldBullets(this, access);
     this.particles = new Particles(this.scene);
     this.fx = new Fx(this.scene);
     this.scars = new Scars(this.scene);
@@ -1138,7 +1151,7 @@ export class Game implements HeroWorld {
     this.barrels.load(this.arena);
     this.chests = new Chests(this.scene);
     this.chests.clear();
-    this.pickups = new Pickups(this.scene);
+    this.pickups = new FieldPickups(this);
     this.cam = new CameraRig(aspect);
     this.dmg = new DamageNumbers(hudRoot);
     this.dmg.localHero = () => this.hero?.index ?? 0;
@@ -1376,9 +1389,19 @@ export class Game implements HeroWorld {
       hostileBullet: (i) => hostileBullet(this, hero.index, i),
       firing: false,
       charging: false,
-      damage: (e, base, o) => this.damage(e, this.beatCombat.hitscan(this, hero, base, o.source), o, hero),
+      damage: (e, base, o) => {
+        if ((o.source === 'laser' || o.source === 'rail') && this.arena.heights) {
+          // The Rail Driver pierces intervening cover on its firing plane.
+          if (o.source !== 'rail' || Math.abs(hero.floorY - e.floorY) > 1.1) {
+            const floor = this.arena.heights.trace(hero.player.x, hero.player.z, hero.floorY, e.x, e.z, false);
+            if (floor < 0 || Math.abs(floor - e.floorY) > 1.1) return 0;
+          }
+          if (hero.floorY >= DECK - 0.01) base *= heightTuning.damage;
+        }
+        return this.damage(e, this.beatCombat.hitscan(this, hero, base, o.source), o, hero);
+      },
       // PvP: a hero's weapons never aim at or hit its own stand-in.
-      nearest: (x, z, r, skip) => this.nearestEnemy(x, z, r, (e) => pvpFriendly(this.pvp?.teams, e.pvpOwner, hero.index) || !!skip?.(e)),
+      nearest: (x, z, r, skip) => this.nearestEnemy(x, z, hero.floorY >= DECK - 0.01 ? r * heightTuning.sight : r, (e) => pvpFriendly(this.pvp?.teams, e.pvpOwner, hero.index) || !!skip?.(e)),
       inRadius: (x, z, r, out) => {
         this.enemiesInRadius(x, z, r, out);
         if (this.pvp) for (let i = out.length - 1; i >= 0; i--) if (pvpFriendly(this.pvp.teams, out[i].pvpOwner, hero.index)) out.splice(i, 1);
@@ -1415,6 +1438,7 @@ export class Game implements HeroWorld {
   makeEnemyCtx(): EnemyCtx {
     const game = this;
     return {
+      get heights() { return game.arena.heights; },
       targets: this.targets,
       target: { x: 0, z: 0, radius: 0 },
       targetAlive: true,
@@ -1434,7 +1458,8 @@ export class Game implements HeroWorld {
         this.bossField.denial.windup(this, e);
       },
       fireBullet: (e, dx, dz, speed, damage) => {
-        if (patternedShot(this, e, dx, dz, speed, damage)) return;
+        this.bullets.firingEnemy = e;
+        if (patternedShot(this, e, dx, dz, speed, damage)) { this.bullets.firingEnemy = null; return; }
         const slot = this.bullets.count;
         this.bullets.spawn({
           x: e.x + dx * (e.radius + 0.2),
@@ -1451,9 +1476,10 @@ export class Game implements HeroWorld {
           width: access.colorblind ? 0.62 : 0.5,
           length: access.colorblind ? 0.62 : 0.5,
         });
+        this.bullets.firingEnemy = null;
         // The patrol's 20 m aim line also bounds its shot, including on Barrage roads.
         if (e.def.patrolRole === 'marksman' && slot < this.bullets.count) {
-          this.bullets.life[slot] = (20 - e.radius - 0.2) / Math.hypot(this.bullets.vx[slot], this.bullets.vz[slot]);
+          this.bullets.life[slot] = (20 * (e.floorY >= DECK - 0.01 ? heightTuning.sight : 1) - e.radius - 0.2) / Math.hypot(this.bullets.vx[slot], this.bullets.vz[slot]);
         }
         this.vfx.sound('enemyShoot', e.x, e.z);
       },
@@ -1752,7 +1778,7 @@ export class Game implements HeroWorld {
 
     // Enemies chase the nearest living hero.
     this.targets.length = 0;
-    for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, radius: h.player.radius, alive: !h.player.dead && !h.left });
+    for (const h of this.heroes) this.targets.push({ x: h.player.x, z: h.player.z, floorY: h.floorY, radius: h.player.radius, alive: !h.player.dead && !h.left });
     this.companionTargets();
     coopPlayTargets(this); // the escorted core draws enemies too (systems/coopplay.ts)
     updateElites2.call(this, dt);
@@ -1978,6 +2004,10 @@ export class Game implements HeroWorld {
   mouseAimPoint(): THREE.Vector3 | null {
     this.ndc.set(this.input.mouse.ndcX, this.input.mouse.ndcY);
     this.raycaster.setFromCamera(this.ndc, this.cam.camera);
+    this.aimPlane.constant = -(AIM_HEIGHT + DECK);
+    const deck = this.raycaster.ray.intersectPlane(this.aimPlane, this.aimHit);
+    const floor = deck && this.arena.heights?.floor(deck.x, deck.z, this.hero.floorY >= DECK / 2);
+    this.aimPlane.constant = -(AIM_HEIGHT + (floor || 0));
     return this.raycaster.ray.intersectPlane(this.aimPlane, this.aimHit);
   }
 

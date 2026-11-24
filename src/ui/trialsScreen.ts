@@ -95,11 +95,18 @@ export class TrialsScreen {
     if (r.result) { this.hideHud(); return; }
     if (!this.hud) { this.hud = document.createElement('div'); this.hud.id = 'tl-hud'; document.getElementById('goals')?.prepend(this.hud); }
     this.hud.hidden = false;
-    this.hud.dataset.objective = String(r.def.goal === 'escort' || r.def.goal === 'zones');
+    const objective = r.def.goal === 'escort' || r.def.goal === 'zones';
+    this.hud.dataset.objective = String(objective);
+    document.body.classList.toggle('trial-hud', true);
+    document.body.classList.toggle('trial-no-objective', !objective);
     const text = `${name(r.def)}\n${t('trials.progress', { n: Math.floor(r.progress), target: r.def.target, left: Math.max(0, Math.ceil(r.def.seconds - r.time)) })}${r.def.goal === 'puzzle' ? '\n' + t('trials.sequence', { next: [1, 3, 5, 2, 4, 6][r.progress] ?? 6, order: '1 → 3 → 5 → 2 → 4 → 6' }) : ''}`;
     if (text !== this.lastHud) { this.lastHud = text; this.hud.textContent = localize(text); }
   }
-  hideHud(): void { if (this.hud) this.hud.hidden = true; }
+  hideHud(): void {
+    if (!this.hud || this.hud.hidden) return;
+    this.hud.hidden = true;
+    document.body.classList.remove('trial-hud', 'trial-no-objective');
+  }
 }
 const CSS = `
 .tl-screen {gap:calc(3 * var(--p));padding:calc(5 * var(--p));text-align:center;}
@@ -132,9 +139,9 @@ const CSS = `
 .tl-award {font-family:var(--display);font-size:calc(35 * var(--p));line-height:1.1;}
 .tl-pop {animation:tl-medal .5s steps(5) both;}@keyframes tl-medal {from {transform:scale(.4) translateY(-20px);}to {transform:scale(1) translateY(0);}}
 .tl-warning {color:var(--orange);}.tl-reward {color:var(--lime);}
-body:has(#tl-hud:not([hidden])) #timer {visibility:hidden;}
-body:has(#tl-hud:not([hidden])) :is(#bombpip,#ultpip,#rewindpip,#chestptr,#spice,#loadout .s-special) {display:none!important;}
-body:has(#tl-hud:not([hidden])[data-objective="false"]) :is(#objective,#objptr) {display:none!important;}
+body.trial-hud #timer {visibility:hidden;}
+body.trial-hud :is(#bombpip,#ultpip,#rewindpip,#chestptr,#spice,#loadout .s-special) {display:none!important;}
+body.trial-no-objective :is(#objective,#objptr) {display:none!important;}
 #tl-hud {white-space:pre-line;color:var(--cyan);background:var(--night);padding:calc(3 * var(--p));font-size:calc(5 * var(--p));box-shadow:0 0 0 var(--p) var(--blue);}
 @media(max-width:720px){.tl-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.tl-number{display:none;}.tl-targets{gap:var(--p);}.tl-target{font-size:calc(5 * var(--p));}.tl-card{padding:calc(4 * var(--p));}.tl-screen footer{font-size:calc(4 * var(--p));}.tl-card h1{font-size:calc(12 * var(--p));}}
 @media(prefers-reduced-motion:reduce){.tl-pop{animation:none;}}

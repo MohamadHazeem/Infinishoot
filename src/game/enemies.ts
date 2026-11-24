@@ -1,3 +1,4 @@
+import { DECK, heightTuning, rampWaypoint, siteX, siteZ, type HeightField, type HeightSite } from '../world/height';
 import { armourOf, armourTuning } from '../data/armour';
 import { BULLET_Y } from './bullets';
 import { biome3Model } from './biome3Models';
@@ -11,7 +12,7 @@ import { ENEMIES, familyTuning, type EnemyDef } from '../data/enemies';
 import { createRetroMaterial, type RetroMaterial } from '../render/retroMaterial';
 import { paint } from '../render/geometry';
 import { textures } from '../render/textures';
-import type { SpatialHash, StaticBoxGrid } from '../core/spatialHash';
+import type { SpatialBucket, SpatialHash, StaticBoxGrid } from '../core/spatialHash';
 import type { AABB } from '../world/collision';
 import { commit, instanceMatrix } from '../render/instancing';
 import { viewCull } from '../render/viewCull';
@@ -566,6 +567,8 @@ export interface SpawnOpts {
 
 /** Simulation state for one enemy. Pure data; drawn by `Enemies` via instancing. */
 export class Enemy {
+  floorY = 0;
+  perch?: HeightSite;
   uid = 0;
   active = false;
   state: EnemyState = 'spawning';
@@ -720,6 +723,8 @@ export class Enemy {
     this.lungeX = 0;
     this.lungeZ = 1;
     this.uid = nextUid++;
+    this.floorY = 0;
+    this.perch = undefined;
     this.active = true;
     this.pvpOwner = -1;
     this.state = 'spawning';
@@ -776,6 +781,9 @@ export class Enemy {
     if (this.def.leap) this.timerA = 0.5 + Math.random();
   }
 
+  /** Last area query to visit this pooled enemy (several cells can contain it). */
+  radiusQuery = 0;
+
   get alive(): boolean {
     return this.active && this.state !== 'spawning' && !this.under && !this.phaseOut;
   }
@@ -796,10 +804,11 @@ export class Enemy {
 
 /** Side effects enemies need from the game. */
 export interface EnemyCtx {
+  readonly heights?: HeightField;
   /** Every player that can be chased. Each enemy picks the nearest living one. */
-  targets: { x: number; z: number; radius: number; alive: boolean }[];
+  targets: { x: number; z: number; radius: number; alive: boolean; floorY?: number }[];
   /** Set per enemy during update: the target it is currently chasing. */
-  target: { x: number; z: number; radius: number };
+  target: { x: number; z: number; radius: number; floorY?: number };
   targetAlive: boolean;
   hash: SpatialHash<Enemy>;
   colliders: AABB[];
@@ -840,7 +849,7 @@ export interface EnemyCtx {
   /** Rhythm stages: true on steps between beats, so wind-ups that end then wait for the next beat. */
   beatHold?: boolean;
   /** Sound-reactive enemies (`EnemyDef.ears`, src/game/systems/sound2.ts): same contract as `lure`, asked when lure says null. */
-  hear?: (e: Enemy) => { x: number; z: number; radius: number; speed: number } | null;
+  hear?: (e: Enemy, nearestDistance2: number) => { x: number; z: number; radius: number; speed: number } | null;
 }
 
 // ------------------------------------------------------------------ rendering helpers
@@ -1034,6 +1043,7 @@ export class Enemies {
   private up = new THREE.Vector3(0, 1, 0);
   private col = new THREE.Color();
   private alive = 0;
+  oozeCount = 0;
   private counts = new Map<string, number>();
   /** Danger zones to draw this frame (owned by the game's effects bus). */
   renderWalls: AABB[] = [];
@@ -1120,6 +1130,7 @@ export class Enemies {
     this.batch(def);
     e.reset(x, z, o);
     this.alive++;
+    if (def.ooze) this.oozeCount++;
     this.counts.set(def.id, (this.counts.get(def.id) ?? 0) + 1);
     return e;
   }
@@ -1138,6 +1149,7 @@ export class Enemies {
     e.active = false;
     this.free.push(e);
     this.alive--;
+    if (e.def.ooze) this.oozeCount--;
     this.counts.set(e.def.id, (this.counts.get(e.def.id) ?? 1) - 1);
   }
 
@@ -1147,6 +1159,8 @@ export class Enemies {
   }
 
   update(dt: number, ctx: EnemyCtx): void {
+    const steering = 1 - Math.exp(-10 * dt);
+    const knockbackDecay = Math.exp(-9 * dt);
     const away = { x: 1e6, z: 1e6, radius: 0 };
     for (const e of this.list) {
       if (!e.active) continue;
@@ -1171,6 +1185,7 @@ export class Enemies {
       e.aiBits = (e.leader ? 1 : 0) | (e.rallyT > 0 ? 2 : 0) | (e.guardT > 0 ? 4 : 0);
 
       if (e.state === 'spawning') {
+        e.floorY = ctx.heights?.floor(e.x, e.z, e.floorY > 1) ?? 0;
         e.t -= dt;
         if (e.t <= 0) {
           e.state = 'move';
@@ -1186,21 +1201,25 @@ export class Enemies {
         e.kz *= kd;
         e.x += e.kx * dt * 0.3;
         e.z += e.kz * dt * 0.3;
+        if (ctx.heights) e.floorY = ctx.heights.move(e, e.px, e.pz, e.floorY);
         continue;
       }
 
       // Chase the nearest living player (an unaware enemy on a stealth stage patrols instead: ctx.lure).
+      let lure = ctx.lure?.(e) ?? director2Hooks.lure?.(e);
       let best: EnemyCtx['target'] | null = null;
-      let bd = Infinity;
-      for (const t of ctx.targets) {
-        if (!t.alive) continue;
-        const d = (t.x - e.x) ** 2 + (t.z - e.z) ** 2;
-        if (d < bd) {
-          bd = d;
-          best = t;
+      if (!lure) {
+        let bd = Infinity;
+        for (const t of ctx.targets) {
+          if (!t.alive) continue;
+          const d = (t.x - e.x) ** 2 + (t.z - e.z) ** 2;
+          if (d < bd) {
+            bd = d;
+            best = t;
+          }
         }
+        lure = ctx.hear?.(e, bd);
       }
-      const lure = ctx.lure?.(e) ?? director2Hooks.lure?.(e) ?? ctx.hear?.(e) ?? null;
       ctx.target = lure ?? best ?? away;
       ctx.targetAlive = !lure && !!best;
       const tgt = ctx.target;
@@ -1257,25 +1276,35 @@ export class Enemies {
         e.facing = L.facing;
       }
 
-      // Separation from neighbours so crowds spread out instead of stacking.
-      let sx = 0;
-      let sz = 0;
-      let hx = 0;
-      let hz = 0;
-      let jam = 0;
-      if (!e.def.boss && e.def.behavior !== 'reaper') {
-        const r = e.radius;
-        // queryInto + a plain loop: a closure here allocated a context (and boxed sx/sz) per enemy per step.
-        const near = this.near;
-        const n = ctx.hash.queryInto(e.x, e.z, r * 2, near);
-        for (let i = 0; i < n; i++) {
-          const o = near[i];
-          if (o === e || !o.targetable || e.underground || e.def.behavior === 'swarmwall' && e.timerA > 0 || e.def.behavior === 'egg') continue;
+      this.move(e, dt, ctx, wantX, wantZ, rigid, steering, knockbackDecay);
+    }
+  }
+
+  /** Keep the crowd/collision loop small enough to optimise independently of AI selection. */
+  private move(e: Enemy, dt: number, ctx: EnemyCtx, wantX: number, wantZ: number, rigid: boolean, steering: number, knockbackDecay: number): void {
+    // Separation from neighbours so crowds spread out instead of stacking.
+    let sx = 0;
+    let sz = 0;
+    let hx = 0;
+    let hz = 0;
+    let jam = 0;
+    if (!e.def.boss && e.def.behavior !== 'reaper') {
+      const r = e.radius;
+      // Traverse the existing bucket arrays. Repeated neighbours contribute once per cell, in hash order.
+      const near = this.near;
+      const separates = !e.underground && !(e.def.behavior === 'swarmwall' && e.timerA > 0) && e.def.behavior !== 'egg';
+      const n = separates ? ctx.hash.queryBuckets(e.x, e.z, r * 2, near) : 0;
+      for (let k = 0; k < n; k++) {
+        const bucket = near[k];
+        for (let i = 0; i < bucket.n; i++) {
+          const o = bucket.items[i];
+          if (o === e) continue;
           const ox = e.x - o.x;
           const oz = e.z - o.z;
           const d2 = ox * ox + oz * oz;
           const min = r + o.radius;
           if (d2 > 0.0001 && d2 < min * min) {
+            if (!o.targetable || Math.abs(o.floorY - e.floorY) > 1.1) continue;
             const d = Math.sqrt(d2);
             const push = ((min - d) / min) * (o.def.boss ? 3 : 1);
             sx += (ox / d) * push;
@@ -1290,38 +1319,46 @@ export class Enemies {
             }
           }
         }
-        const steer = rigid ? 1 : 1 - Math.exp(-10 * dt);
-        if (!rigid && jam > 0) {
-          // Jammed in a crowd: push on less, so the swarm doesn't pack into one blob.
-          const k = 1 / (1 + jam * crowdTuning.jam);
-          wantX *= k;
-          wantZ *= k;
-        }
-        e.vx += (wantX - e.vx) * steer;
-        e.vz += (wantZ - e.vz) * steer;
       }
+      const steer = rigid ? 1 : steering;
+      if (!rigid && jam > 0) {
+        // Jammed in a crowd: push on less, so the swarm doesn't pack into one blob.
+        const k = 1 / (1 + jam * crowdTuning.jam);
+        wantX *= k;
+        wantZ *= k;
+      }
+      e.vx += (wantX - e.vx) * steer;
+      e.vz += (wantZ - e.vz) * steer;
+    }
 
-      const kd = Math.exp(-9 * dt);
-      e.kx *= kd;
-      e.kz *= kd;
-      e.x += (e.vx + e.kx + sx * crowdTuning.push) * dt + hx;
-      e.z += (e.vz + e.kz + sz * crowdTuning.push) * dt + hz;
-      if (!rigid && e.hopY <= 0 && !e.def.boss && !e.def.hidden && e.def.behavior !== 'reaper') keepOffHeroes(e, ctx.targets);
-      if (e.def.behavior === 'reaper') {
-        e.x = Math.max(-58, Math.min(58, e.x));
-        e.z = Math.max(-58, Math.min(58, e.z));
-      }
-      // Rex smashes straight through cover while it charges.
-      const walled = e.def.behavior !== 'ghost' && e.def.id !== 'bat' && e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && (e.def.behavior === 'rex' || e.def.behavior === 'boxer')) && !isFlyer3(e) && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
-      if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
-      if (walled && rigid && e.def.behavior === 'charger') {
-        // Rhinos stop (and wobble) when they hit a wall mid-charge.
+    e.kx *= knockbackDecay;
+    e.kz *= knockbackDecay;
+    e.x += (e.vx + e.kx + sx * crowdTuning.push) * dt + hx;
+    e.z += (e.vz + e.kz + sz * crowdTuning.push) * dt + hz;
+    if (!rigid && e.hopY <= 0 && !e.def.boss && !e.def.hidden && e.def.behavior !== 'reaper') keepOffHeroes(e, ctx.targets);
+    if (e.def.behavior === 'reaper') {
+      e.x = Math.max(-58, Math.min(58, e.x));
+      e.z = Math.max(-58, Math.min(58, e.z));
+    }
+    // Rex smashes straight through cover while it charges.
+    const walled = e.def.behavior !== 'ghost' && e.def.id !== 'bat' && e.def.behavior !== 'queen' && e.def.behavior !== 'reaper' && !(rigid && (e.def.behavior === 'rex' || e.def.behavior === 'boxer')) && !isFlyer3(e) && e.hopY <= 0 && !ignoresWalls(e) && ctx.walls.resolveCircle(e, e.radius);
+    if (ctx.heights) {
+      const x = e.x, z = e.z;
+      if (e.def.boss || e.def.hidden || e.underground || isFlyer3(e) || e.def.behavior === 'reaper')
+        e.floorY = ctx.heights.floor(x, z, true);
+      else e.floorY = ctx.heights.move(e, e.px, e.pz, e.floorY);
+      if ((x !== e.x || z !== e.z) && rigid && e.def.behavior === 'charger' && e.state === 'attack')
         this.enter(e, 'recover', aggro(e, e.def.charge!.recover), -7);
-      }
+    }
+    if (walled && e.reroute > 0 && e.state === 'move') e.strafe *= -1;
+    if (walled && rigid && e.def.behavior === 'charger') {
+      // Rhinos stop (and wobble) when they hit a wall mid-charge.
+      this.enter(e, 'recover', aggro(e, e.def.charge!.recover), -7);
     }
   }
 
   /** Behaviour outputs of behave(). */
+  private readonly rampAim = { x: 0, z: 0 };
   private wantX = 0;
   private wantZ = 0;
   private rigid = false;
@@ -1333,6 +1370,52 @@ export class Enemies {
    * the enemy is gone (detonated, escaped).
    */
   private behave(e: Enemy, dt: number, ctx: EnemyCtx, dx: number, dz: number, nx: number, nz: number, dist: number, speed: number): boolean {
+    const tgt = ctx.target;
+    if (ctx.heights && ctx.targetAlive && e.state === 'move' && !e.def.boss && !e.def.hidden) {
+      const sniper = e.def.shoot?.pattern === 'sniper';
+      let site = (tgt.floorY ?? 0) >= 1.2 ? ctx.heights.site(tgt.x, tgt.z) : undefined;
+      if (sniper && !site && dist > 4) {
+        let best = 4 * 4; // Only divert a sniper already within one deck-width of a perch.
+        for (const s of ctx.heights.sites) {
+          // Retain the chosen approach while circling the wall to the ramp mouth.
+          const d = s === e.perch ? -1 : (s.x - e.x) ** 2 + (s.z - e.z) ** 2;
+          const inRange = (siteX(s, 3.8) - tgt.x) ** 2 + (siteZ(s, 3.8) - tgt.z) ** 2 < (20 * heightTuning.sight) ** 2;
+          if (d < best && inRange && ctx.walls.segmentClear(siteX(s, 3.8), siteZ(s, 3.8), tgt.x, tgt.z, aiTuning.losPad)) {
+            best = d;
+            site = s;
+          }
+        }
+      }
+      if (sniper) e.perch = site;
+      const exit = sniper && !site && e.floorY >= DECK - 0.05 && dist >= 20 * heightTuning.sight
+        ? ctx.heights.site(e.x, e.z) : undefined;
+      if (exit) {
+        this.rampAim.x = siteX(exit, 5.6);
+        this.rampAim.z = siteZ(exit, 5.6);
+      } else if (site && (sniper || e.def.behavior === 'charger' || e.def.behavior === 'chase') &&
+                 (e.floorY < DECK - 0.05 || ctx.heights.site(e.x, e.z) !== site || (sniper && dist >= 20 * heightTuning.sight))) {
+        rampWaypoint(site, e.x, e.z, e.floorY, this.rampAim);
+      } else site = undefined;
+      if (exit || site) {
+        const ax = this.rampAim.x - e.x, az = this.rampAim.z - e.z;
+        const scale = speed / (Math.hypot(ax, az) || 1);
+        this.wantX = ax * scale; this.wantZ = az * scale; this.rigid = false;
+        e.facing = Math.atan2(ax, az);
+        return true;
+      }
+    }
+    if (e.def.behavior === 'chase') {
+      this.bend(e, nx, nz, dist);
+      this.wantX = this.ax * speed;
+      this.wantZ = this.az * speed;
+      this.rigid = false;
+      e.facing = Math.atan2(this.ax, this.az);
+      return true;
+    }
+    return this.attackBehavior(e, dt, ctx, dx, dz, nx, nz, dist, speed);
+  }
+
+  private attackBehavior(e: Enemy, dt: number, ctx: EnemyCtx, dx: number, dz: number, nx: number, nz: number, dist: number, speed: number): boolean {
     const tgt = ctx.target;
     let wantX = 0;
     let wantZ = 0;
@@ -1360,13 +1443,6 @@ export class Enemies {
         wantZ = e.vz;
         rigid = true;
         break;
-      case 'chase':
-        this.bend(e, nx, nz, dist);
-        wantX = this.ax * speed;
-        wantZ = this.az * speed;
-        e.facing = Math.atan2(this.ax, this.az);
-        break;
-
       case 'lunge': {
         const L = e.def.lunge!;
         if (e.state === 'move') {
@@ -1397,7 +1473,9 @@ export class Enemies {
           wantX = this.ax;
           wantZ = this.az;
           e.timerA -= dt;
-          const reach = S.pattern === 'sniper' ? 20 : 15;
+          const perched = e.floorY >= DECK - 0.01 && S.pattern === 'sniper';
+          if (perched && dist >= 4 && this.canSee(e, ctx)) wantX = wantZ = 0;
+          const reach = (S.pattern === 'sniper' ? 20 : 15) * (e.floorY >= DECK - 0.01 ? heightTuning.sight : 1);
           if (e.timerA <= 0 && dist < reach && ctx.targetAlive && S.pattern !== 'spiral' && !this.canSee(e, ctx)) {
             // A wall is in the way: keep strafing out of cover and look again shortly.
             e.timerA = aiTuning.losRetry;
@@ -1721,8 +1799,7 @@ export class Enemies {
     return true;
   }
 
-  /** Scratch list for neighbour queries (SpatialHash.queryInto). */
-  private near: Enemy[] = [];
+  private near: SpatialBucket<Enemy>[] = [];
   private biomeOut: BiomeOut = { x: 0, z: 0, rigid: false };
 
   /** Scratch output of bend() / coverMove(). */
@@ -1797,6 +1874,11 @@ export class Enemies {
   /** Line of sight from a shooter to its target past the static walls (for bullets of `aiTuning.losPad`). */
   private canSee(e: Enemy, ctx: EnemyCtx): boolean {
     const t = ctx.target;
+    if (e.floorY >= DECK - 0.01 && (ctx.heights?.grateCell(e.x, e.z) ?? -1) >= 0) {
+      // A shooter on a bridge traces from its deck even when the same cell has an underpass.
+      const sight: (x: number, z: number, tx: number, tz: number, pad: number, floor: number) => boolean = ctx.walls.segmentClear;
+      return sight.call(ctx.walls, e.x, e.z, t.x, t.z, aiTuning.losPad, e.floorY);
+    }
     return ctx.walls.segmentClear(e.x, e.z, t.x, t.z, aiTuning.losPad);
   }
 
@@ -1850,6 +1932,25 @@ export class Enemies {
   /** Write every active enemy into its type's instanced mesh, plus ground decals. */
   /** Optional visibility for bodies/shadows; dangerous ground telegraphs remain visible. */
   bodyVisible: ((x: number, z: number) => boolean) | null = null;
+  heightMap?: HeightField;
+  private readonly sightBands = new Float32Array(2 * (Math.ceil(20 * heightTuning.sight * 4) + 1));
+
+  private dangerLine(e: Enemy, x: number, z: number, width: number, length: number, charge: boolean) {
+    const lines = this.decals.lines, bands = this.sightBands;
+    this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
+    let count = 2;
+    if (this.heightMap && e.floorY > 0)
+      count = this.heightMap.telegraphBands(x, z, e.lungeX, e.lungeZ, e.floorY, length, charge && !e.def.boss, bands);
+    else { bands[0] = length; bands[1] = e.floorY; }
+    let start = 0;
+    for (let i = 0; i < count && lines.count < lines.instanceMatrix.count; i += 2) {
+      const end = bands[i];
+      this.v.set(x + start * e.lungeX, bands[i + 1] + (charge ? 0.04 : 0.05), z + start * e.lungeZ);
+      this.m4.compose(this.v, this.q, this.s.set(width, 1, end - start));
+      instanceMatrix(lines, lines.count++, this.m4);
+      start = end;
+    }
+  }
 
   render(alpha: number, time: number): void {
     for (const b of this.batches.values()) b.mesh.count = 0;
@@ -1869,12 +1970,12 @@ export class Enemies {
       const z = e.pz + (e.z - e.pz) * alpha;
       let sx = (1 - e.sq * 0.5) * e.scale;
       let sy = (1 + e.sq) * e.scale;
-      let y = e.hopY;
+      let y = e.hopY + e.floorY;
 
       if (e.state === 'spawning') {
         const k = 1 - e.t / SPAWN_TIME;
         const ring = (1.6 - k * 0.6) * e.radius * 1.6;
-        this.m4.makeScale(ring, 1, ring).setPosition(x, 0.03, z);
+        this.m4.makeScale(ring, 1, ring).setPosition(x, e.floorY + 0.03, z);
         instanceMatrix(d.markers, d.markers.count++, this.m4);
         const pop = Math.max(0, (k - 0.4) / 0.6);
         if (pop <= 0) continue;
@@ -1885,7 +1986,7 @@ export class Enemies {
       if (e.underground) {
         if (d.mounds.count < 64) {
           const rumble = 1 + (this.familyReduceFlash ? 0 : 0.045) * Math.sin(time * 16 + e.uid);
-          this.m4.makeScale(e.radius * 1.6, e.radius * 0.42 * rumble, e.radius * 1.3).setPosition(x, 0.13, z);
+          this.m4.makeScale(e.radius * 1.6, e.radius * 0.42 * rumble, e.radius * 1.3).setPosition(x, e.floorY + 0.13, z);
           instanceMatrix(d.mounds, d.mounds.count++, this.m4);
         }
         if (e.familyState === 2 && d.zones.count < d.zones.instanceMatrix.count - 2) {
@@ -1910,7 +2011,7 @@ export class Enemies {
         instanceMatrix(d.lines, d.lines.count++, this.m4);
       }
       if (e.def.behavior === 'egg' && d.heals.count < 32) {
-        this.m4.makeScale(e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch), 1, e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch)).setPosition(x, 0.06, z);
+        this.m4.makeScale(e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch), 1, e.radius * (1 + Math.max(0, e.t) / familyTuning.eggHatch)).setPosition(x, e.floorY + 0.06, z);
         instanceMatrix(d.heals, d.heals.count++, this.m4);
       }
       if (this.bodyVisible && !this.bodyVisible(x, z)) continue;
@@ -1923,22 +2024,19 @@ export class Enemies {
       if (e.state === 'windup' && e.frozen <= 0) {
         if (e.def.shoot?.pattern === 'sniper') {
           // Sniper aim line: thin, long and blinking faster as the shot nears.
-          this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
           const w = e.t < 0.3 ? 0.3 : 0.12;
-          this.m4.compose(this.v.set(x, 0.05, z), this.q, this.s.set(w, 1, 20));
-          if (d.lines.count < d.lines.instanceMatrix.count) instanceMatrix(d.lines, d.lines.count++, this.m4);
+          const reach = 20 * (e.floorY >= DECK - 0.01 ? heightTuning.sight : 1);
+          this.dangerLine(e, x, z, w, reach, false);
         } else if (e.def.behavior === 'charger' || ((e.def.behavior === 'rex' || e.def.behavior === 'omega') && e.action === 'charge')) {
           const C = e.def.charge ?? { speed: 24, duration: 0.5 };
           const len = C.speed * C.duration + 1;
-          this.q.setFromAxisAngle(this.up, Math.atan2(e.lungeX, e.lungeZ));
-          this.m4.compose(this.v.set(x, 0.04, z), this.q, this.s.set(e.radius * 1.6, 1, len));
-          if (d.lines.count < d.lines.instanceMatrix.count) instanceMatrix(d.lines, d.lines.count++, this.m4);
+          this.dangerLine(e, x, z, e.radius * 1.6, len, true);
         } else if (e.def.behavior === 'exploder') {
           const F = e.def.fuse!;
           const k = 1 - e.t / aggro(e, F.time, true);
           sx *= 1 + k * 0.35;
           sy *= 1 + k * 0.35;
-          this.m4.makeScale(F.radius, 1, F.radius).setPosition(x, 0.05, z);
+          this.m4.makeScale(F.radius, 1, F.radius).setPosition(x, e.floorY + 0.05, z);
           if (d.zones.count < d.zones.instanceMatrix.count) instanceMatrix(d.zones, d.zones.count++, this.m4);
         }
       }
@@ -1954,7 +2052,7 @@ export class Enemies {
       }
       if (e.def.heal && e.state === 'windup' && d.heals.count < 32) {
         const hr = e.def.heal.radius * e.scale * (0.7 + 0.3 * Math.min(1, Math.max(0, 1 - e.t / e.def.heal.windup)));
-        this.m4.makeScale(hr, 1, hr).setPosition(x, 0.05, z);
+        this.m4.makeScale(hr, 1, hr).setPosition(x, e.floorY + 0.05, z);
         instanceMatrix(d.heals, d.heals.count++, this.m4);
       }
       if ((e.def.behavior === 'boss' || e.def.behavior === 'omega' || e.def.behavior === 'boxer') && e.action === 'slam' && (e.state === 'windup' || e.state === 'attack')) {
@@ -2002,7 +2100,7 @@ export class Enemies {
       if (e.aiBits & 1 && e.state !== 'spawning' && d.auras.count < AURA_CAP) {
         const ar = e.radius * 1.35;
         this.q.setFromAxisAngle(this.up, -time * 2);
-        this.m4.compose(this.v.set(x, 0.034, z), this.q, this.s.set(ar, 1, ar));
+        this.m4.compose(this.v.set(x, e.floorY + 0.034, z), this.q, this.s.set(ar, 1, ar));
         instanceMatrix(d.auras, d.auras.count, this.m4);
         d.auras.setColorAt(d.auras.count++, this.col.set('#ffcd75'));
       }
@@ -2011,7 +2109,7 @@ export class Enemies {
       if (e.mod && e.state !== 'spawning' && d.auras.count < AURA_CAP) {
         const ar = e.radius * (1.7 + 0.08 * Math.sin(time * 8 + e.uid));
         this.q.setFromAxisAngle(this.up, time * 1.5);
-        this.m4.compose(this.v.set(x, 0.035, z), this.q, this.s.set(ar, 1, ar));
+        this.m4.compose(this.v.set(x, e.floorY + 0.035, z), this.q, this.s.set(ar, 1, ar));
         instanceMatrix(d.auras, d.auras.count, this.m4);
         d.auras.setColorAt(d.auras.count++, this.col.set(e.mod.color));
         if (e.shield > 0) {
@@ -2022,7 +2120,7 @@ export class Enemies {
       }
 
       const ss = e.radius * 2.6 * Math.min(1, sx / e.scale) * (1 - Math.min(0.6, e.hopY * 0.1));
-      this.m4.makeScale(ss, 1, ss).setPosition(x, 0.02, z);
+      this.m4.makeScale(ss, 1, ss).setPosition(x, e.floorY + 0.02, z);
       instanceMatrix(d.shadows, d.shadows.count++, this.m4);
     }
 

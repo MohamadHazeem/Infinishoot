@@ -282,7 +282,7 @@ export class Hud {
   /** Edge-of-screen pointer to the nearest closed chest (null hides it). */
   setChestPointer(p: { x: number; y: number; angle: number; dist: number } | null): void {
     const el = this.el('#chestptr');
-    el.hidden = !p;
+    el.toggleAttribute('hidden', !p);
     if (!p) return;
     el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -50%)`;
     // Snap the arrow to 8 directions so it stays a clean pixel sprite.
@@ -303,7 +303,10 @@ export class Hud {
   private text(sel: string, v: string): void {
     if (this.lastText[sel] === v) return;
     this.lastText[sel] = v;
-    this.el(sel).textContent = localize(v);
+    const el = this.el(sel);
+    // Updating an existing text node keeps ancestor and sibling styles valid.
+    if (el.firstChild?.nodeType === 3 && el.firstChild === el.lastChild) el.firstChild.nodeValue = localize(v);
+    else el.textContent = localize(v);
   }
 
   setVisible(v: boolean): void {
@@ -333,6 +336,7 @@ export class Hud {
 
   /** uipolish lane: queued toasts and the corner-panel dock (src/ui/hudLayout.ts). */
   private toasts = new ToastQueue();
+  private readonly toastBlocked = () => this.bannerT > 0 || titleCardUp();
   private dock = new HudDock();
 
   private chest: { item: ChestItem; rarity: Rarity; steps: number[]; end: number; t: number; passed: number; landed: boolean } | null = null;
@@ -520,6 +524,11 @@ export class Hud {
   private mmT = -1e9;
 
   /** Minimap of the arena (bottom-right, above the Mods). Call every frame; redraws at ~15 Hz. null hides it. */
+  /** Avoid collecting marker lists between the minimap's existing 66 ms redraws. */
+  minimapDue(): boolean {
+    return !!this.el('#minimap').hidden || performance.now() - this.mmT >= 66;
+  }
+
   setMinimap(m: MinimapView | null): void {
     const cv = this.el('#minimap') as HTMLCanvasElement;
     if (cv.hidden !== !m) {
@@ -652,7 +661,7 @@ export class Hud {
     this.shownXp = still || s.level !== this.lastLevel ? xp : approachHud(this.shownXp, xp, hudTuning.xpSpeed, dt);
     this.el('#xpbar .fill').style.transform = `scaleX(${this.shownXp})`;
     this.el('#xpbar .spark').style.left = `${this.shownXp * 100}%`;
-    this.el('#xpbar .spark').hidden = still || this.xpSparkT <= 0 || this.shownXp <= 0;
+    this.el('#xpbar .spark').toggleAttribute('hidden', still || this.xpSparkT <= 0 || this.shownXp <= 0);
     if (s.level !== this.lastLevel) {
       this.text('#xpbar .lv b', String(s.level));
       if (this.lastLevel > 0) {
@@ -702,7 +711,7 @@ export class Hud {
     this.el('#timer').classList.toggle('urgent', s.timeLeft >= 0 && s.timeLeft <= 10);
     this.text('#timer .stage', `STAGE ${s.stage}${s.metaLabel ? " · " + s.metaLabel : ""}`);
     const bb = this.el('#bossbar');
-    bb.hidden = !s.boss;
+    bb.toggleAttribute('hidden', !s.boss);
     if (s.boss) {
       this.text('#bossbar .name', (s.boss.mini ? 'MINI-BOSS · ' : '') + s.boss.name.toUpperCase());
       this.el('#bossbar .fill').style.transform = `scaleX(${s.boss.hp01})`;
@@ -785,7 +794,7 @@ export class Hud {
       this.bannerT -= dt;
       if (this.bannerT <= 0) this.el('#banner').classList.remove('show');
     }
-    const queued = this.toasts.update(dt, this.toasts.waiting.length > 0 && (this.bannerT > 0 || titleCardUp()));
+    const queued = this.toasts.update(dt, this.toastBlocked);
     if (queued) this.showToast(queued.msg, queued.seconds);
     else if (this.toastT > 0 && this.toasts.left <= 0) {
       this.toastT = 0;

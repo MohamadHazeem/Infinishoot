@@ -138,6 +138,8 @@ export interface RemoteInput {
  * cards and shop. Team-wide state (XP, level, score, stage) lives in Game.
  */
 export class Hero implements SynergyHost {
+  floorY = 0;
+  readonly floorShadow: THREE.Object3D;
   readonly player: Player;
   readonly synergy: Synergy;
   readonly ctx: WeaponCtx;
@@ -226,6 +228,8 @@ export class Hero implements SynergyHost {
     heroId = 'rookie',
   ) {
     this.player = new Player(world.scene, color, skin);
+    // Player adds its detached blob shadow immediately after its rig.
+    this.floorShadow = world.scene.children[world.scene.children.indexOf(this.player.rig.root) + 1];
     this.setPet(petId);
     this.setHeroDef(heroId);
     this.synergy = new SurvivalSynergy(this, world);
@@ -307,6 +311,7 @@ export class Hero implements SynergyHost {
 
   /** Fresh run: the loadout's two clicks and special, no passives or Mods. */
   startRun(): void {
+    this.floorY = 0;
     this.paths.reset();
     resetDamageLog(this);
     this.combosSeen.clear();

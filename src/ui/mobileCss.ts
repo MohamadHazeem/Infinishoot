@@ -5,7 +5,7 @@ export function injectMobileCss(): void {
   st.id = 'mobile-css';
   st.textContent = `
 #game { touch-action:none; }
-#hud:has(#scr-touchlayout:not([hidden])) #ob-tip { display:none; }
+#hud[data-screen="touchlayout"] #ob-tip { display:none; }
 #touch { inset:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 #touch[hidden], #touch [hidden] { display:none !important; }
 #touch .tbtn, #touch .tstick { right:auto; bottom:auto; margin:0; padding:3px; touch-action:none; }

@@ -198,7 +198,7 @@ export class SoundLaneHud {
     }
     this.onair = document.createElement('div');
     this.onair.id = 's2-onair';
-    this.onair.hidden = true;
+    this.onair.toggleAttribute('hidden', true);
     this.onair.innerHTML = localizeHtml(`<div class="h"><i class="radio"></i><span>${STATION}</span><b class="tag">ON AIR</b><i class="live"></i><span class="eq"><i></i><i></i><i></i></span></div><div class="who">${DJ_NAME}</div><div class="line"></div>`);
     this.line = this.onair.querySelector('.line')!;
     hudRoot.appendChild(this.onair);
@@ -206,7 +206,7 @@ export class SoundLaneHud {
 
   /** Every frame. `line` is shown only when CAPTIONS is off (the caption strip already has it). */
   update(onAir: boolean, line: string, showLine: boolean, band: number, duel: 'boss' | 'hero' | null, inRun: boolean): void {
-    this.onair.hidden = !onAir;
+    this.onair.toggleAttribute('hidden', !onAir);
     const text = onAir && showLine ? line : '';
     if (text !== this.lastLine) {
       this.lastLine = text;

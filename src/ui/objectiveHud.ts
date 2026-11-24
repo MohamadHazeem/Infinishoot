@@ -140,8 +140,8 @@ export class ObjectiveHud {
     const el = this.el!;
     const p = this.ptr!;
     if (!o) {
-      el.hidden = true;
-      p.hidden = true;
+      el.toggleAttribute('hidden', true);
+      p.toggleAttribute('hidden', true);
       this.last = '';
       return;
     }
@@ -164,14 +164,14 @@ export class ObjectiveHud {
       }
       this.lastState = o.state;
     }
-    el.hidden = false;
+    el.toggleAttribute('hidden', false);
     if (ptr && o.active) {
-      p.hidden = false;
+      p.toggleAttribute('hidden', false);
       p.style.transform = `translate(${Math.round(ptr.x)}px, ${Math.round(ptr.y)}px)`;
       (p.firstElementChild as HTMLElement).style.transform = `rotate(${ptr.ang}rad)`;
       const m = p.lastElementChild as HTMLElement;
       const txt = `${ptr.dist}M`;
       if (m.textContent !== txt) m.textContent = localize(txt);
-    } else p.hidden = true;
+    } else p.toggleAttribute('hidden', true);
   }
 }

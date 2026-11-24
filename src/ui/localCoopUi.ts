@@ -218,9 +218,9 @@ export class LocalCoopUi {
     const lc = g.localCoop;
     const on = !!lc && g.mode !== 'title';
     this.root.classList.toggle('lc-on', on);
-    this.hudEl.hidden = !on || g.screens.current !== 'none';
+    this.hudEl.toggleAttribute('hidden', !on || g.screens.current !== 'none');
     const turn = on && (g.screens.current === 'levelup' || g.screens.current === 'shop') && lc!.turn >= 0;
-    this.turnEl.hidden = !turn;
+    this.turnEl.toggleAttribute('hidden', !turn);
     if (!on || !lc) return;
     if (turn) {
       const h = g.heroes[lc.turn];

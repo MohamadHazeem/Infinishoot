@@ -101,7 +101,8 @@ export class NoiseField {
     let best = 0;
     for (let i = 0; i < this.size; i++) {
       const L = this.level[i];
-      if (L <= 0) continue;
+      // A blob can only attenuate within a positive hearing range.
+      if (L <= 0 || (range > 0 && L <= best)) continue;
       const dx = this.x[i] - x, dz = this.z[i] - z;
       const distance2 = dx * dx + dz * dz;
       if (distance2 >= range * range) continue;

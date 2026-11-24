@@ -1,6 +1,7 @@
 /** Local, silent canvas highlights. Frames are JPEG-encoded off the main thread by the
  * browser; WebM encoding runs on export or while preparing a shareable gallery. No screen/microphone permission. */
 import { prof } from '../core/prof';
+import type { ClipEncodeRequest } from './clipEncoder.worker';
 const wallNow = performance.now.bind(performance);
 export const clipsTuning = { seconds: 15, fps: 20, width: 480, height: 270, jpeg: 0.65, postroll: 3, highlights: 8, ringBytes: 12 * 1024 * 1024, archiveBytes: 64 * 1024 * 1024 };
 export type HighlightKind = 'boss' | 'combo' | 'revive' | 'legendary' | 'team' | 'flawless' | 'manual';
@@ -48,6 +49,8 @@ export class HighlightRecorder {
   private clock = 0;
   private next = 0;
   private busy = false;
+  private encoder?: Worker;
+  private useWorker = typeof Worker === 'function' && typeof OffscreenCanvas === 'function';
   private generation = 0;
   private sequence = 0;
   private abort?: AbortController;
@@ -55,14 +58,58 @@ export class HighlightRecorder {
   private lastMarks = new Map<HighlightKind, number>();
   get supported(): boolean { return this.support ??= !!clipMime() && typeof HTMLCanvasElement !== 'undefined' && !!HTMLCanvasElement.prototype.captureStream && typeof createImageBitmap === 'function'; }
   reset(): void {
+    this.releaseEncoder();
     this.abort?.abort(); this.generation++; this.busy = false; this.recording = false; this.failed = false;
     this.ring.clear(); this.highlights.length = 0; this.combo.reset(); this.lastMarks.clear(); this.clock = this.next = 0; this.onChange?.();
   }
   stop(clear = false): void {
+    this.releaseEncoder();
     if (this.recording) { this.recording = false; this.generation++; this.busy = false; this.flush(); }
     if (clear) this.ring.clear();
   }
   flush(): void { let changed = false; for (const h of this.highlights) if (!h.ready) { h.ready = true; changed = true; } if (changed) this.onChange?.(); }
+  private releaseEncoder(): void {
+    this.encoder?.terminate();
+    this.encoder = undefined;
+  }
+  private fallbackEncoder(encoder: Worker): void {
+    if (this.encoder !== encoder) return;
+    this.releaseEncoder();
+    this.useWorker = false;
+    this.busy = false;
+  }
+  private workerCapture(source: HTMLCanvasElement): boolean {
+    if (!this.useWorker) return false;
+    if (!this.encoder) {
+      try {
+        this.encoder = new Worker(new URL('./clipEncoder.worker.ts', import.meta.url), { type: 'module' });
+      } catch {
+        this.useWorker = false;
+        return false;
+      }
+      const encoder = this.encoder;
+      encoder.onerror = () => this.fallbackEncoder(encoder);
+      encoder.onmessage = ({ data }: MessageEvent<{ time: number; blob: Blob | null }>) => {
+        if (this.encoder !== encoder) return;
+        if (!data.blob) return this.fallbackEncoder(encoder);
+        this.busy = false;
+        this.addFrame({ time: data.time, blob: data.blob });
+      };
+    }
+    const encoder = this.encoder, time = this.clock;
+    this.busy = true;
+    void createImageBitmap(source).then(bitmap => {
+      if (this.encoder !== encoder) return bitmap.close();
+      const request: ClipEncodeRequest = { bitmap, time, width: clipsTuning.width, height: clipsTuning.height, quality: clipsTuning.jpeg };
+      try {
+        encoder.postMessage(request, [bitmap]);
+      } catch (error) {
+        bitmap.close();
+        throw error;
+      }
+    }).catch(() => this.fallbackEncoder(encoder));
+    return true;
+  }
   /** Called immediately AFTER WebGL submission, before its drawing buffer is discarded. */
   capture(source: HTMLCanvasElement, dt: number): void {
     if (this.failed || !this.supported) return;
@@ -71,6 +118,7 @@ export class HighlightRecorder {
     if (this.busy || this.clock + 1e-6 < this.next) return;
     this.next = this.clock + 1 / clipsTuning.fps;
     try {
+      if (this.workerCapture(source)) return;
       if (!this.canvas) {
         this.canvas = typeof OffscreenCanvas === 'function' ? new OffscreenCanvas(clipsTuning.width, clipsTuning.height) : document.createElement('canvas');
         this.canvas.width = clipsTuning.width; this.canvas.height = clipsTuning.height;

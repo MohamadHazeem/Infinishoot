@@ -45,7 +45,7 @@ const scrolls = (el: Element) => {
 
 /** The element that actually scrolls on a menu screen: the screen itself, else its tallest scrolling child. */
 export function menuScroller(screen: HTMLElement): HTMLElement | null {
-  if (scrolls(screen) && screen.scrollHeight > screen.clientHeight + 1) return screen;
+  if (screen.scrollHeight > screen.clientHeight + 1 && scrolls(screen)) return screen;
   let best: HTMLElement | null = null;
   for (const el of screen.querySelectorAll<HTMLElement>('*')) {
     if (el.clientHeight < 80 || el.scrollHeight <= el.clientHeight + 1 || !scrolls(el)) continue;

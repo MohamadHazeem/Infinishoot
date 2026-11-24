@@ -40,7 +40,7 @@ export class ToastQueue {
   }
 
   /** Advance by dt; returns the next toast to show now, or null. `left` <= 0 means the shown toast should hide. */
-  update(dt: number, blocked: boolean): QueuedToast | null {
+  update(dt: number, blocked: boolean | (() => boolean)): QueuedToast | null {
     if (this.left > 0) {
       this.left -= dt;
       this.shownFor += dt;
@@ -50,8 +50,9 @@ export class ToastQueue {
       this.waiting[i].waited += dt;
       if (this.waiting[i].waited > toastTuning.maxWait) this.waiting.splice(i, 1);
     }
-    if (blocked || !this.waiting.length) return null;
+    if (!this.waiting.length) return null;
     if (this.left > 0 && this.shownFor < toastTuning.minShow) return null;
+    if (typeof blocked === 'function' ? blocked() : blocked) return null;
     return this.show(this.waiting.shift()!);
   }
 
@@ -63,14 +64,19 @@ export class ToastQueue {
   }
 }
 
-/** Title cards that toasts must not cover: the big banner, the boss intro letterbox, cinematic reveals. */
-const TITLE_CARDS = '#banner.show, #bossintro:not([hidden]), .cn-reveal:not([hidden]), .cinematic';
+const visibility = { visibilityProperty: true, opacityProperty: true };
+function visible(el: Element): boolean {
+  return typeof el.checkVisibility !== 'function' || el.checkVisibility(visibility);
+}
 
 /** True while a big title card is on screen (DOM check; call only when a toast is waiting). */
 export function titleCardUp(): boolean {
   if (typeof document === 'undefined') return false;
-  for (const el of document.querySelectorAll<HTMLElement>(TITLE_CARDS)) {
-    if (typeof el.checkVisibility !== 'function' || el.checkVisibility({ visibilityProperty: true, opacityProperty: true })) return true;
-  }
+  const banner = document.getElementById('banner');
+  if (banner?.classList.contains('show') && visible(banner)) return true;
+  const intro = document.getElementById('bossintro');
+  if (intro && !intro.hidden && visible(intro)) return true;
+  for (const el of document.getElementsByClassName('cn-reveal')) if (!el.hasAttribute('hidden') && visible(el)) return true;
+  for (const el of document.getElementsByClassName('cinematic')) if (visible(el)) return true;
   return false;
 }

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { chestParts } from './chests';
 import { createRetroMaterial } from '../render/retroMaterial';
-import { commit } from '../render/instancing';
+import { commit, instanceMatrix } from '../render/instancing';
 import { music } from '../audio/music';
 
 /**
@@ -54,11 +54,9 @@ export class Pickups {
   private chestGlow: THREE.InstancedMesh;
   private chestGlowMat: THREE.MeshBasicMaterial;
   private m4 = new THREE.Matrix4();
-  private q = new THREE.Quaternion();
-  private e = new THREE.Euler();
-  private v = new THREE.Vector3();
-  private s = new THREE.Vector3();
+
   private c = new THREE.Color();
+  private readonly gemColors = GEM_COLORS.map(color => new THREE.Color(color));
 
   constructor(scene: THREE.Scene) {
     const make = (geo: THREE.BufferGeometry, color: string, unlit: number, cap: number) => {
@@ -178,6 +176,9 @@ export class Pickups {
    * the collector's index.
    */
   update(dt: number, collectors: Collector[], collect: (type: PickupType, value: number, who: number) => void, canTake: (type: PickupType, who: number, value: number) => boolean = () => true): void {
+    const drag = Math.exp(-5 * dt);
+    let reach = 0.75;
+    for (const k of collectors) if (k.alive) reach = Math.max(reach, BASE_MAGNET * k.magnet);
     for (let i = 0; i < this.count; i++) {
       this.age[i] += dt;
       // Nearest living collector that may take it: one that can't (gears at its cap, a teammate's
@@ -185,11 +186,15 @@ export class Pickups {
       // teammate standing closer block an owned chest from its owner (4-player co-op).
       const t = this.type[i];
       let ci = -1;
-      let d = Infinity;
+      // A pulled or vacuumed item tracks its owner at any distance. All other
+      // items outside every magnet can take the ordinary drift path immediately.
+      let d = this.pulled[i] || (this.vacuum && t === PickupType.Gem) || (this.vacuumChests && t === PickupType.Chest) ? Infinity : reach;
       for (let c = 0; c < collectors.length; c++) {
         const k = collectors[c];
         if (!k.alive) continue;
-        const dd = Math.hypot(k.x - this.x[i], k.z - this.z[i]);
+        const dx = k.x - this.x[i], dz = k.z - this.z[i];
+        if (Math.abs(dx) >= d || Math.abs(dz) >= d) continue;
+        const dd = Math.hypot(dx, dz);
         if (dd < d && canTake(t as PickupType, c, this.value[i])) {
           d = dd;
           ci = c;
@@ -197,9 +202,8 @@ export class Pickups {
       }
       if (ci < 0) {
         this.pulled[i] = 0;
-        const f = Math.exp(-5 * dt);
-        this.vx[i] *= f;
-        this.vz[i] *= f;
+        this.vx[i] *= drag;
+        this.vz[i] *= drag;
         this.x[i] += this.vx[i] * dt;
         this.z[i] += this.vz[i] * dt;
         continue;
@@ -229,15 +233,15 @@ export class Pickups {
         this.vx[i] += (nx * sp - this.vx[i]) * k;
         this.vz[i] += (nz * sp - this.vz[i]) * k;
       } else {
-        const f = Math.exp(-5 * dt);
-        this.vx[i] *= f;
-        this.vz[i] *= f;
+        this.vx[i] *= drag;
+        this.vz[i] *= drag;
       }
-      const step = Math.hypot(this.vx[i], this.vz[i]) * dt;
+      const homing = this.pulled[i] && this.pullT[i] > 0.1;
+      const step = homing ? Math.hypot(this.vx[i], this.vz[i]) * dt : 0;
       this.x[i] += this.vx[i] * dt;
       this.z[i] += this.vz[i] * dt;
       // Collect on touch, or when this step would carry it past the player.
-      if (d < 0.75 || (this.pulled[i] && this.pullT[i] > 0.1 && d < step + 0.75)) {
+      if (d < 0.75 || (homing && d < step + 0.75)) {
         collect(t as PickupType, this.value[i], ci);
         this.remove(i--);
       }
@@ -273,32 +277,44 @@ export class Pickups {
       const bob = Math.sin(time * 4 + i) * 0.08;
       let y = 0.45 + bob;
       let sc = Math.min(1, this.age[i] * 6) * beat;
+      let yaw: number;
       if (t === PickupType.Gem) {
         const tier = gemTier(this.value[i]);
         sc *= 1 + tier * 0.3;
-        m.setColorAt(k, this.c.set(GEM_COLORS[tier]));
-        this.q.setFromEuler(this.e.set(0, time * 2 + i, 0));
+        m.setColorAt(k, this.gemColors[tier]);
+        yaw = time * 2 + i;
       } else if (t === PickupType.Chest) {
         y = 0.3;
-        this.q.setFromEuler(this.e.set(0, Math.sin(time * 2) * 0.3, 0));
+        yaw = Math.sin(time * 2) * 0.3;
         sc *= 1 + Math.max(0, Math.sin(time * 6)) * 0.08;
       } else {
         y = 0.6 + bob;
         sc *= 1.3;
-        this.q.setFromEuler(this.e.set(0, time * 3, 0));
+        yaw = time * 3;
       }
-      this.m4.compose(this.v.set(this.x[i], y, this.z[i]), this.q, this.s.set(sc, sc, sc));
-      m.setMatrixAt(k, this.m4);
+      // All pickups spin around Y with uniform scale.
+      const m4 = this.m4.elements;
+      const sin = Math.sin(yaw) * sc, cos = Math.cos(yaw) * sc;
+      m4[0] = m4[10] = cos;
+      m4[2] = -sin;
+      m4[8] = sin;
+      m4[5] = sc;
+      m4[12] = this.x[i];
+      m4[13] = y;
+      m4[14] = this.z[i];
+      instanceMatrix(m, k, this.m4);
       if (t === PickupType.Chest) {
-        this.chestTrim.setMatrixAt(k, this.m4);
-        this.chestGlow.setMatrixAt(k, this.m4);
+        instanceMatrix(this.chestTrim, k, this.m4);
+        instanceMatrix(this.chestGlow, k, this.m4);
       }
     }
     this.chestTrim.count = this.chestGlow.count = this.meshes[PickupType.Chest].count;
     this.chestGlowMat.opacity = 0.4 + 0.2 * Math.sin(time * 4);
-    for (const m of [...this.meshes, this.chestTrim, this.chestGlow]) {
+    for (const m of this.meshes) {
       commit(m.instanceMatrix, m.count);
       if (m.instanceColor) commit(m.instanceColor, m.count);
     }
+    commit(this.chestTrim.instanceMatrix, this.chestTrim.count);
+    commit(this.chestGlow.instanceMatrix, this.chestGlow.count);
   }
 }

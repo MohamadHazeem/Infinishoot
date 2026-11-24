@@ -55,6 +55,10 @@ export const retroGlobals = {
 const vertexShader = /* glsl */ `
 uniform vec2 uSnapRes;
 uniform float uSnapPx;
+#ifdef RETRO_RIG_PARTS
+in float partIndex;
+uniform mat4 uParts[RETRO_RIG_PARTS];
+#endif
 uniform vec3 uSunDir;
 uniform vec3 uSkyColor;
 uniform vec3 uGroundColor;
@@ -80,7 +84,11 @@ void main() {
   #ifdef RETRO_INSTANCE_FLASH
     vFlash = instanceFlash;
   #endif
-  mat4 m = modelMatrix;
+  #ifdef RETRO_RIG_PARTS
+    mat4 m = uParts[int(partIndex + 0.5)];
+  #else
+    mat4 m = modelMatrix;
+  #endif
   #ifdef USE_INSTANCING
     m = m * instanceMatrix;
   #endif
@@ -317,4 +325,12 @@ export function createRetroMaterial(opts: RetroMaterialOptions = {}): RetroMater
     },
   });
   return mat as RetroMaterial;
+}
+
+/** Only plain opaque plates can share a pose draw. Textured decals and custom shaders draw normally. */
+export function plainRigMaterial(m: THREE.Material): m is RetroMaterial {
+  const s = m as RetroMaterial;
+  return s.vertexShader === vertexShader && s.fragmentShader === fragmentShader &&
+    !s.transparent && !s.vertexColors && s.side === THREE.FrontSide && !s.uniforms.uMap.value &&
+    s.defines.RETRO_EMISSIVE_ALPHA !== undefined && Object.keys(s.defines).length === 2;
 }

@@ -89,10 +89,6 @@ export class Vfx {
 
   constructor(private t: VfxTargets) {}
 
-  private rec(e: VfxEvent): void {
-    if (this.recording) this.events.push(e);
-  }
-
   /** Take the recorded events (host sends them with the next snapshot). */
   drain(): VfxEvent[] {
     const e = this.events;
@@ -103,7 +99,7 @@ export class Vfx {
   burst(x: number, y: number, z: number, o: BurstOptions): void {
     if (o.flourish === 'level' || o.flourish === 'evolution') this.t.rewardSlow?.(rewardSlow(o.flourish === 'evolution'));
     this.playBurst(x, y, z, o);
-    this.rec(['b', x, y, z, o]);
+    if (this.recording) this.events.push(['b', x, y, z, o]);
   }
 
   private playBurst(x: number, y: number, z: number, o: BurstOptions): void {
@@ -117,7 +113,7 @@ export class Vfx {
 
   ring(x: number, z: number, size: number, grow: number, color: string, life = 0.3): void {
     this.t.fx.ring(x, z, size, grow, color, life);
-    this.rec(['r', x, z, size, grow, color, life]);
+    if (this.recording) this.events.push(['r', x, z, size, grow, color, life]);
   }
 
   star(x: number, y: number, z: number, size: number, color = '#ffffff', life = 0.12): void {
@@ -138,7 +134,7 @@ export class Vfx {
       }
     }
     this.t.fx.star(x, y, z, size, color, life);
-    this.rec(['s', x, y, z, size, color, life]);
+    if (this.recording) this.events.push(['s', x, y, z, size, color, life]);
   }
 
   /** Floating number or label. `by`: index of the hero whose hit it is (DAMAGE NUMBERS: MINE / OFF); left off for messages. */
@@ -154,71 +150,71 @@ export class Vfx {
     if (kind === 'player' && typeof value === 'number') this.t.hurtBeat?.(x, z, value);
     this.t.dmg.spawn(x, y, z, value, kind, by);
     // Older clients ignore the extra element; events without it always show.
-    this.rec(by === undefined ? ['n', x, y, z, value, kind] : ['n', x, y, z, value, kind, by]);
+    if (this.recording) this.events.push(by === undefined ? ['n', x, y, z, value, kind] : ['n', x, y, z, value, kind, by]);
   }
 
   /** Positional sound: plays if the local player is in earshot. `name` is an sfx method or "w:<weapon sound>". */
   sound(name: string, x: number, z: number, pitch = 1): void {
     this.onSound?.(name, x, z);
     this.playSound(name, x, z, pitch);
-    this.rec(['a', x, z, name, pitch]);
+    if (this.recording) this.events.push(['a', x, z, name, pitch]);
   }
 
   /** Screen shake, scaled down with distance from the local player. */
   shake(x: number, z: number, amount: number): void {
     this.playShake(x, z, amount);
-    this.rec(['k', x, z, amount]);
+    if (this.recording) this.events.push(['k', x, z, amount]);
   }
 
   /** A red danger zone on the ground for `life` seconds, with a ring closing in. */
   zone(x: number, z: number, r: number, life: number): void {
     this.t.zones.push({ x, z, r, t: life, life });
-    this.rec(['z', x, z, r, life]);
+    if (this.recording) this.events.push(['z', x, z, r, life]);
   }
 
   /** A mark left on the ground (scorch, frost, crater, goo) that fades after `life` seconds. */
   scar(x: number, z: number, r: number, color: string, life = 14): void {
     this.t.scars.add(x, z, r, color, life);
-    this.rec(['g', x, z, r, color, life]);
+    if (this.recording) this.events.push(['g', x, z, r, color, life]);
   }
 
   /** A dead enemy's body flies off tumbling along (dirX, dirZ); boss kills also start the kill-cam. */
   corpse(id: string, x: number, y: number, z: number, scale: number, facing: number, dirX: number, dirZ: number): void {
     const r2 = (v: number) => Math.round(v * 100) / 100;
     this.t.corpse?.(id, x, y, z, scale, facing, dirX, dirZ);
-    this.rec(['c', r2(x), r2(z), r2(y), id, r2(scale), r2(facing), r2(dirX), r2(dirZ)]);
+    if (this.recording) this.events.push(['c', r2(x), r2(z), r2(y), id, r2(scale), r2(facing), r2(dirX), r2(dirZ)]);
   }
 
   /** Team-wide: the boss finisher (every machine plays it; the host holds the kill until it ends). */
   finisher(bossId: string, heroIndex: number, x: number, z: number): void {
     this.t.finisher?.(bossId, heroIndex, x, z);
-    this.rec(['F', bossId, heroIndex, Math.round(x * 100) / 100, Math.round(z * 100) / 100]);
+    if (this.recording) this.events.push(['F', bossId, heroIndex, Math.round(x * 100) / 100, Math.round(z * 100) / 100]);
   }
 
   /** Team-wide: a character portrait pops in ('hero:<index>', 'boss:<id>', 'announcer'). */
   portrait(who: string, expression: string, text: string, seconds: number): void {
     this.t.portrait?.(who, expression, text, seconds);
-    this.rec(['P', who, expression, text, seconds]);
+    if (this.recording) this.events.push(['P', who, expression, text, seconds]);
   }
 
   /** Team-wide: a cinematics moment ('jackpot', 'flawless', 'ending'); every machine plays its own part locally. */
   cine(kind: string, hero: number, x: number, z: number, data = ''): void {
     this.t.cine?.(kind, hero, x, z, data);
-    this.rec(['C', kind, hero, Math.round(x * 100) / 100, Math.round(z * 100) / 100, data]);
+    if (this.recording) this.events.push(['C', kind, hero, Math.round(x * 100) / 100, Math.round(z * 100) / 100, data]);
   }
 
   /** Team-wide HUD messages. */
   banner(title: string, sub = '', seconds = 1.6): void {
     this.t.hud.showBanner(title, sub, seconds);
-    this.rec(['h', 'banner', title, sub, seconds]);
+    if (this.recording) this.events.push(['h', 'banner', title, sub, seconds]);
   }
   toast(msg: string, seconds = 2.2): void {
     this.t.hud.toast(msg, seconds);
-    this.rec(['h', 'toast', msg, '', seconds]);
+    if (this.recording) this.events.push(['h', 'toast', msg, '', seconds]);
   }
   flash(amount: number): void {
     this.t.hud.flash(amount);
-    this.rec(['h', 'flash', '', '', amount]);
+    if (this.recording) this.events.push(['h', 'flash', '', '', amount]);
   }
 
   private near(x: number, z: number): number {

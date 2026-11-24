@@ -63,8 +63,8 @@ export class VersusUi {
     const on = !!v && g.mode !== 'title';
     const ol = on && isOverlord(g);
     this.root.classList.toggle('vs-ol', ol);
-    this.el.hidden = !ol || g.screens.current !== 'none' || !!v?.winner;
-    this.foe.hidden = !on || ol || g.screens.current !== 'none' || !!v?.winner;
+    this.el.toggleAttribute('hidden', !ol || g.screens.current !== 'none' || !!v?.winner);
+    this.foe.toggleAttribute('hidden', !on || ol || g.screens.current !== 'none' || !!v?.winner);
     if (!v || !on) return;
     if (!ol) {
       this.foe.querySelector('.vs-on')!.textContent = localize(v.overlord < 0 ? '(AI)' : (g.heroes[v.overlord]?.name ?? '').toUpperCase());
