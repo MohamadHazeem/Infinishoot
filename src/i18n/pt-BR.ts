@@ -1,3 +1,4 @@
+import { ascensionEn } from './g9ascension';
 import { menusEn } from './menus';
 import { arabic2En } from './arabic2';
 import type { en } from './en';
@@ -5,6 +6,7 @@ import type { en } from './en';
 /** pt-BR glossary: partida = run; fase = stage; esquiva = dash; aparo = parry; suprema = ultimate; engrenagem = gear; Mod, Buster e Overdrive são nomes de equipamento. Português do Brasil: você, equipe, tela, controle. */
 export const ptBR = {
   // Explicit English fallback for new copy; native editorial work is pending.
+  ...ascensionEn,
   ...menusEn,
   ...arabic2En,
   "architect.dataName": "O Arquiteto",

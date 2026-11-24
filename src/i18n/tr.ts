@@ -1,3 +1,4 @@
+import { ascensionEn } from './g9ascension';
 import { menusEn } from './menus';
 import { arabic2En } from './arabic2';
 import type { en } from './en';
@@ -5,6 +6,7 @@ import type { en } from './en';
 /** tr glossary: koşu = run; bölüm = stage; seviye = level; atılma = dash; savuşturma = parry; ulti = ultimate; dişli = gear; Mod, Buster ve Overdrive ekipman adlarıdır. */
 export const tr = {
   // Explicit English fallback for new copy; native editorial work is pending.
+  ...ascensionEn,
   ...menusEn,
   ...arabic2En,
   "architect.dataName": "Mimar",

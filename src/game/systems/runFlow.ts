@@ -12,13 +12,12 @@ import { createRaidArena } from '../raid/arena';
 import { spawnSpotFor } from '../eightp';
 import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
 import { seasonAt, seasonalStage } from '../../data/seasons';
-import { abyssUnlocked, abyssExtras, beginAbyss, FLOOR_SECONDS } from '../abyss';
-import { isoWeek as abyssWeek } from '../../data/weekly';
+import { abyssUnlocked, abyssExtras, beginAbyss, endAbyss, FLOOR_SECONDS } from '../abyss';
 import { gauntletScore } from '../../data/ascension';
 import { startGauntlet, gauntletStage, gauntletSub, bankGauntlet, loadGauntletScores, challengeState } from './gauntlet';
 import { createMvp } from './mvp';
 import { startMeta, visitMeta, bankMeta } from './meta';
-import { weeklyChallenge } from '../../data/weekly';
+import { isoWeek, weeklyChallenge } from '../../data/weekly';
 /**
  * Run flow: starting runs and stages, stage clears, the shop and portal, game over and achievements.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -105,6 +104,7 @@ export function spawnSpot(this: Game, i: number): { x: number; z: number } {
 }
 
 export function goTitle(this: Game): void {
+  endAbyss(this);
   finishTelemetry(this, 'quit');
   this.paused = false;
   this.mode = 'title';
@@ -170,7 +170,8 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   if (this.runMode === 'abyss') this.difficulty = DIFF_BY_ID.normal;
   this.runDate = today();
   this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
-  if (this.runMode === 'abyss') this.seed = dailySeed('abyss:' + abyssWeek());
+  const descentWeek = this.runMode === 'abyss' ? isoWeek() : '';
+  if (descentWeek) this.seed = dailySeed('abyss:' + descentWeek);
   this.rng = new Rng(this.seed);
   this.stage = 1;
   this.score = this.kills = this.combo = this.maxCombo = 0;
@@ -193,6 +194,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   // Everyone keeps the loadout they picked; this machine's comes from its settings.
   if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, cheats.unlockAll ? undefined : unlockedLoadout());
   startMeta(this);
+  if (this.runMode === 'abyss') this.meta.heat = [];
   startMeta2(this); // profile/quest tally (systems/meta2.ts)
   this.rng = new Rng(this.seed);
   for (const h of this.heroes) {
@@ -200,7 +202,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
     h.startRun();
     h.player.showWhenDead = this.heroes.length > 1;
   }
-  beginAbyss(this, () => cheats.god || modSession.count > 0 || !!editorNet(this));
+  beginAbyss(this, () => cheats.god || cheats.unlockAll || modSession.count > 0 || !!editorNet(this), descentWeek);
   startGauntlet(this);
   this.clearWorld();
   this.hud.resetScore();

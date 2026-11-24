@@ -145,12 +145,18 @@ export function refreshSetup(el: HTMLElement, redraw: () => void): void {
     footer.before(help);
   }
   help.hidden = !veteran;
-  help.textContent = t('menus.heat');
+  const heatHelp = document.createElement('span');
+  heatHelp.textContent = t('menus.heat');
+  help.replaceChildren(heatHelp);
 
   const ascension = el.querySelector<HTMLElement>('[data-act=g-up]');
   if (ascension) { ascension.title = t('menus.ascension'); ascension.hidden = ascension.hasAttribute('disabled') && !el.querySelector('[data-act=g-down]:not(:disabled)'); }
   const ng = el.querySelector<HTMLElement>('[data-act=g-ng]');
-  if (ascension && !ascension.hidden) help.textContent += ' ' + t('menus.ascension');
+  if (ascension && !ascension.hidden) {
+    const climbHelp = document.createElement('span');
+    climbHelp.textContent = t('menus.ascension');
+    help.append(' ', climbHelp);
+  }
   if (ng) ng.hidden = ng.hasAttribute('disabled');
   const minus = el.querySelector<HTMLElement>('[data-act=g-down]');
   if (minus) minus.hidden = !!ascension?.hidden;

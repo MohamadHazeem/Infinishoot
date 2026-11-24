@@ -1,5 +1,5 @@
 import { makeChampion, eliteToast, discoverElite } from './elites2';
-import { gauntletBoss, gauntletElite } from './gauntlet';
+import { challengeState, gauntletBoss, gauntletElite } from './gauntlet';
 /**
  * Spawning enemies, rings, bosses and elites.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -81,6 +81,11 @@ export function spawnEnemy(this: Game, def: EnemyDef, elite = false, near: { x: 
 
 /** Weighted elite modifier roll. Splitting skips enemies that already split, don't move, or blow themselves up. */
 export function rollEliteMod(this: Game, def: EnemyDef): EliteModId {
+  const climb = challengeState(this);
+  if (climb.rules.doubleElites && !climb.shieldIssued) {
+    climb.shieldIssued = true;
+    return 'shielded';
+  }
   const noSplit = !!def.split || def.behavior === 'spawner' || def.behavior === 'exploder';
   return pickEliteMod(this.rng.next(), noSplit, def.behavior === 'spawner');
 }

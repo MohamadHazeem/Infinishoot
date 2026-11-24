@@ -1,7 +1,7 @@
 import { abyss, beginAbyss, abyssBoard, mutationText, warnedScrap } from '../abyss';
 import { ABYSS_MUTATIONS } from '../../data/abyssMutations';
 import { PickupType } from '../pickups';
-import { ascensionLevel } from '../../data/ascension';
+import { ascensionBadge } from '../../ui/ascensionBadges';
 import { localize, localizeHtml, t } from '../../i18n';
 /** Solo endgame rules. Host-only loop mutators use normal enemy snapshots and the effects bus. */
 import type { Game } from '../game';
@@ -11,7 +11,7 @@ import { ENEMIES, miniBossForStage, type EnemyDef } from '../../data/enemies';
 import { DIFF_BY_ID } from '../../data/modes';
 import { REMIX_OF } from '../../data/bossRemix';
 import { ELITE_MODS, type EliteModDef } from '../../data/eliteMods';
-import { ASCENSIONS, ASCENSION_TITLES, LOOP_MUTATORS, ascensionRules, gauntletProfile, gauntletScore, loopMutators, persistGauntlet, recordAscensionVictory, rushSlot } from '../../data/ascension';
+import { ASCENSIONS, ASCENSION_TITLES, LOOP_MUTATORS, ascensionLevel, ascensionRules, gauntletProfile, gauntletScore, loopMutators, persistGauntlet, recordAscensionVictory, rushSlot } from '../../data/ascension';
 import { loadJson, saveJson } from '../../core/storage';
 import { save, saveLock } from '../save';
 import { settings } from '../settings';
@@ -23,9 +23,14 @@ import { clearBossLane } from './bossLane';
 import type { ScoreEntry } from '../highscores';
 import type { RunSummary, Screens } from '../../ui/screens';
 import { fetchTop, leaderboardEnabled } from '../../net/leaderboard';
+import { trialActive } from './trials';
+import { editorNet } from './editor';
 
 export const gauntletTuning = { wave: 30, mini: 180, boss: 360, aliveStart: 20, alivePerWave: 12, aliveCap: 350, spawnRate: 16, shopSeconds: 20, attackEvery: 8 };
 interface ChallengeState {
+  shieldIssued: boolean;
+  previewBadge?: number;
+  previewTier?: boolean;
   patrol: boolean; escortPending: boolean; firstElite: boolean; quarter: boolean; half: boolean; offset: boolean;
   ascension: number; ng: boolean; rules: ReturnType<typeof ascensionRules>; mutators: number[];
   time: number; wave: number; budget: number; pool: EnemyDef[]; queue: SpawnRequest[];
@@ -38,7 +43,7 @@ const states = new WeakMap<Game, ChallengeState>();
 export function challengeState(g: Game): ChallengeState {
   let s = states.get(g);
   if (!s) {
-    s = { patrol: false, escortPending: false, firstElite: true, quarter: false, half: false, offset: false, ascension: 0, ng: false, rules: ascensionRules(0), mutators: [0, 0, 0, 0], time: 0, wave: -1, budget: 0, pool: [], queue: [],
+    s = { shieldIssued: false, patrol: false, escortPending: false, firstElite: true, quarter: false, half: false, offset: false, ascension: 0, ng: false, rules: ascensionRules(0), mutators: [0, 0, 0, 0], time: 0, wave: -1, budget: 0, pool: [], queue: [],
       nextMini: 180, nextBoss: 360, bossCount: 0, pendingBosses: 0, splits: [], splitAt: 0, shopLeft: 0,
       attack: 8, attackWarn: 0, attackBoss: 0, announced: false, announcementT: 0, hud: null, hudKey: '', hudAt: -1, bankRank: -1 };
     states.set(g, s);
@@ -50,6 +55,10 @@ let rosterCache: EnemyDef[] | null = null;
 export function rushRoster(): EnemyDef[] {
   return rosterCache ??= Object.values(ENEMIES).filter(d => d.boss && !d.secret && !d.remixOf && d.behavior !== 'titanpart');
 }
+function soloClimb(g: Game): boolean {
+  return (g.runMode === 'standard' || g.runMode === 'endless') && g.role === 'solo' && !g.coop &&
+    !g.pvp && !g.versus && !g.race && !g.onboarding.training && !trialActive(g) && !editorNet(g);
+}
 export function startGauntlet(g: Game): void {
   document.getElementById('g-shop-clock')?.remove();
   const old = states.get(g);
@@ -57,7 +66,7 @@ export function startGauntlet(g: Game): void {
   const s = challengeState(g);
   s.hud = old?.hud ?? null;
   s.nextMini = gauntletTuning.mini; s.nextBoss = gauntletTuning.boss;
-  const solo = g.runMode !== 'abyss' && g.role === 'solo' && !g.pvp && !g.onboarding.training && !['daily', 'weekly', 'gauntlet', 'bossrush', 'raid'].includes(g.runMode);
+  const solo = soloClimb(g);
   if (save.achievements.includes('victory')) gauntletProfile.victory = true; // old profiles retain their earned NG+ access
   s.ascension = solo ? Math.min(gauntletProfile.unlocked, gauntletProfile.selected) : 0;
   s.ng = solo && gauntletProfile.victory && gauntletProfile.ng;
@@ -69,6 +78,7 @@ export function gauntletStage(g: Game): void {
   const s = challengeState(g);
   s.mutators = !g.pvp && ['standard', 'endless'].includes(g.runMode) ? loopMutators(g.stage) : [0, 0, 0, 0];
   s.patrol = false; s.escortPending = false; s.firstElite = true; s.quarter = false; s.half = false; s.offset = false;
+  s.shieldIssued = false;
   if (s.rules.tier >= 4 && g.stage % 2 === 0) s.mutators[3] ||= 1;
   if (s.rules.tier >= 1 && g.stage > 1) for (const h of g.heroes) {
     h.rerollsLeft = 0;
@@ -91,6 +101,7 @@ export function gauntletStage(g: Game): void {
   }
 }
 export function gauntletLabel(g: Game): string {
+  if (g.role !== 'solo') return '';
   const s = challengeState(g);
   return [s.ascension ? `ASCENSION ${s.ascension}` : '', s.ng ? 'NEW GAME+' : ''].filter(Boolean).join(' · ');
 }
@@ -183,7 +194,10 @@ export function gauntletTick(g: Game, dt: number): void {
   const s = challengeState(g);
   s.time += dt;
   if (g.runMode === 'gauntlet') g.score = gauntletScore(s.time, g.kills) / g.meta.multiplier;
-  if (g.runMode === 'abyss') { abyss(g)?.tick(g, dt); return; }
+  if (g.runMode === 'abyss') {
+    if (g.mode === 'fight' && !g.hero.player.dead) abyss(g)?.tick(g, dt);
+    return;
+  }
   const tier = s.rules.tier;
   if (s.escortPending) { s.escortPending = false; g.spawnEnemy(ENEMIES.shielder); }
   if (tier >= 2 && !s.patrol && g.director.time >= 30) {
@@ -193,11 +207,14 @@ export function gauntletTick(g: Game, dt: number): void {
   const b = g.boss;
   const rings = s.rules.attacks + (s.ng ? 1 : 0) + s.mutators[2] + (g.runMode === 'bossrush' && rushSlot(g.stage, rushRoster().length).lap > 1 ? 1 : 0);
   if (!rings || !b?.alive || b.roarT > 0 || g.bossIntro.active) return;
-  if (s.attackBoss !== b.uid) { s.attackBoss = b.uid; s.attack = gauntletTuning.attackEvery; s.attackWarn = 0; }
+  if (s.attackBoss !== b.uid) {
+    s.attackBoss = b.uid; s.attack = gauntletTuning.attackEvery; s.attackWarn = 0;
+    s.quarter = s.half = s.offset = false;
+  }
   if (tier >= 10 && !s.quarter && b.hp <= b.maxHp / 4) {
     s.quarter = true;
     g.vfx.toast(t('asc.quarter'));
-    g.spawnEnemy(ENEMIES.zippy); g.spawnEnemy(ENEMIES.zippy);
+    if (!g.bossDuel) { g.spawnEnemy(ENEMIES.zippy); g.spawnEnemy(ENEMIES.zippy); }
     s.attack = Math.min(s.attack, 5);
   }
   if (tier >= 19 && !s.half && b.hp <= b.maxHp / 2) {
@@ -225,7 +242,7 @@ export function gauntletTick(g: Game, dt: number): void {
 export function gauntletMenuTick(g: Game, dt: number): void {
   const s = states.get(g);
   if (!s) return;
-  if ((g.runMode === 'bossrush' || s.rules.tier >= 18) && g.mode === 'shop' && !g.preShop) {
+  if ((g.runMode === 'bossrush' || s.rules.tier >= 18) && g.mode === 'shop' && !g.preShop && s.shopLeft > 0 && !g.route.open && g.screens.current !== 'relic') {
     if (!g.paused) s.shopLeft -= dt;
     const clock = document.getElementById('g-shop-clock');
     const label = s.rules.tier >= 18 ? t('asc.shopClock', { seconds: Math.max(0, Math.ceil(s.shopLeft)) }) : localize(`NEXT BOSS IN ${Math.max(0, Math.ceil(s.shopLeft))}s`);
@@ -248,13 +265,13 @@ export function gauntletKill(g: Game, e: Enemy): void {
     }
     if (s.rules.tier >= 16) warnedScrap(g, e, 2.4);
   }
-  if (s.rules.tier >= 13 && e === g.boss) g.pickups.spawn(PickupType.Gear, e.x, e.z);
-  if ((e.def.id === 'omega' || e.def.remixOf === 'omega') && !saveLock.on && g.role === 'solo' && !g.pvp && !g.onboarding.training && ['standard', 'endless'].includes(g.runMode)) {
+  if ((e.def.id === 'omega' || e.def.remixOf === 'omega') && !s.previewTier && !saveLock.on && soloClimb(g)) {
     const firstLoop = !gauntletProfile.victory;
+    const newBadge = s.ascension > gauntletProfile.cleared;
     recordAscensionVictory(s.ascension, g.difficulty.id === 'hard' || g.difficulty.id === 'nightmare');
     g.vfx.toast(s.ascension ? `ASCENSION ${s.ascension} CLEARED!` : 'NEW GAME+ UNLOCKED!', 4);
     if (firstLoop) g.vfx.toast(t('abyss.unlocked'), 4);
-    if (s.ascension) g.vfx.toast(t('asc.earned', { badge: localize(ASCENSIONS[s.ascension - 1].badge) }), 4);
+    if (newBadge) g.vfx.toast(t('asc.earned', { badge: localize(ASCENSIONS[s.ascension - 1].badge) }), 4);
     if (s.ascension && s.ascension % 5 === 0) g.vfx.toast(`TITLE EARNED: ${ASCENSION_TITLES[s.ascension / 5 - 1]}`, 4);
   }
   if (g.runMode === 'gauntlet' && e.elite) { g.elitesRun++; g.runEvents.onElite(); }
@@ -369,6 +386,7 @@ const CSS = `
 body[data-gauntlet='true'] #timer { visibility:hidden; }
 #g-dark {position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 0 min(14vw,130px) #1a1c2c;z-index:0;opacity:.92;}
 #g-dark.g-edge { opacity:.28; }
+.asc-pin {width:calc(7 * var(--p));height:calc(7 * var(--p));margin-inline-end:calc(2 * var(--p));vertical-align:middle;}
 #g-dark[hidden] {display:none;}
 #scr-modes { gap:calc(2 * var(--p)); padding:calc(4 * var(--p)); }
 #scr-modes h1 { font-size:calc(14 * var(--p)); margin:0; }
@@ -396,7 +414,7 @@ export function renderGauntlet(g: Game): void {
   const dark = document.getElementById('g-dark');
   if (dark) {
     dark.hidden = !active || !s.mutators[3];
-    dark.classList.toggle('g-edge', s.rules.tier >= 4);
+    dark.classList.toggle('g-edge', g.ascensionTier >= 4 && g.stage < 29);
   }
   if (!s.hud) {
     const goals = document.getElementById('goals');
@@ -406,7 +424,8 @@ export function renderGauntlet(g: Game): void {
     s.hud = document.createElement('div'); s.hud.id = 'g-challenge'; goals.prepend(s.hud);
   }
   const descent = g.runMode === 'abyss' ? abyss(g) : undefined;
-  s.hud.hidden = !active || !(descent || gauntletProfile.badge || gauntlet || g.runMode === 'bossrush' || s.ascension || s.ng || s.mutators.some(Boolean) || gauntletProfile.title);
+  const badge = s.previewBadge ?? gauntletProfile.badge;
+  s.hud.hidden = !active || !(descent || badge || gauntlet || g.runMode === 'bossrush' || g.ascensionTier || (s.ng && g.role === 'solo') || s.mutators.some(Boolean) || gauntletProfile.title);
   const now = Math.floor(performance.now() / 200);
   if (now === s.hudAt || s.hud.hidden) return;
   s.hudAt = now;
@@ -416,12 +435,24 @@ export function renderGauntlet(g: Game): void {
     text = `BOSS RUSH · LAP ${slot.lap}/2\nCOMBAT TIME ${formatTime(s.time)}\n${split ? `LAST ${formatTime(split.time)} · ${split.name}` : 'FIRST SPLIT AHEAD'}`;
     if (g.mode === 'shop' && !g.preShop) text += `\nSHOP CLOSES IN ${Math.ceil(s.shopLeft)}s`;
   }
-  for (let i = 0; i < 4; i++) if (s.mutators[i]) text += `\n${LOOP_MUTATORS[i]} ×${s.mutators[i]}`;
+  if (g.ascensionTier) {
+    text = t('asc.hud', { tier: s.ascension, name: localize(ASCENSIONS[s.ascension - 1].name) });
+    if (s.ng) text += ' · ' + localize('NEW GAME+');
+  }
+  for (let i = 0; i < 4; i++) if (s.mutators[i]) text += `\n${localize(LOOP_MUTATORS[i])} ×${s.mutators[i]}`;
   if (descent) text = t('abyss.hud', { floor: descent.floor, name: localize(ABYSS_MUTATIONS[descent.current].name) });
-  if (s.ascension) text = t('asc.hud', { tier: s.ascension, name: localize(ASCENSIONS[s.ascension - 1].name) });
-  if (gauntletProfile.badge) text += '\n★ ' + localize(ASCENSIONS[gauntletProfile.badge - 1].badge);
-  if (gauntletProfile.title) text += `\n★ ${ASCENSION_TITLES[gauntletProfile.title - 1]}`;
-  if (text !== s.hudKey) { s.hudKey = text; s.hud.textContent = localize(text); }
+  if (gauntletProfile.title) text += `\n★ ${localize(ASCENSION_TITLES[gauntletProfile.title - 1])}`;
+  const badgeName = badge ? localize(ASCENSIONS[badge - 1].badge) : '';
+  const key = text + badgeName;
+  if (key !== s.hudKey) {
+    s.hudKey = key;
+    s.hud.textContent = localize(text);
+    if (badge) {
+      if (text) s.hud.append(document.createElement('br'));
+      s.hud.insertAdjacentHTML('beforeend', ascensionBadge(badge));
+      s.hud.append(badgeName);
+    }
+  }
 }
 export function renderGauntletOptions(el: HTMLElement): void {
   injectCss();
@@ -439,7 +470,7 @@ export function renderGauntletOptions(el: HTMLElement): void {
   if (!eligible) note.textContent = localize('Ascension and New Game+ apply to Standard and Endless solo runs.');
   else if (!p.unlocked) note.textContent = localize('Beat Omega on Hard to unlock Ascension 1. Clear each level to unlock the next.');
   else note.textContent = tier ? t('asc.preview', { tier: p.selected, name: localize(tier.name), rule: localize(tier.desc), badge: localize(tier.badge) }) : t('asc.off');
-  if (p.cleared) box.insertAdjacentHTML('beforeend', '<button data-nav data-act="g-badge">' + t('asc.badge', { badge: p.badge ? localize(ASCENSIONS[p.badge - 1].badge) : t('asc.none') }) + '</button>');
+  if (p.cleared) box.insertAdjacentHTML('beforeend', '<button data-nav data-act="g-badge">' + ascensionBadge(p.badge) + t('asc.badge', { badge: p.badge ? localize(ASCENSIONS[p.badge - 1].badge) : t('asc.none') }) + '</button>');
   if (p.title) note.textContent += localize(` ★ ${ASCENSION_TITLES[p.title - 1]}`);
 }
 export function gauntletOption(action: string, screens: Screens): boolean {
@@ -497,12 +528,21 @@ function initGauntletScreen(screens: Screens): void {
 }
 /** Deterministic screenshots without changing persistent progression. */
 export function gauntletTest(g: Game, q: URLSearchParams): void {
-  const s = challengeState(g);
   if (q.has('abyss') && g.role === 'solo') {
-    g.runMode = 'abyss'; beginAbyss(g, () => true);
+    g.runMode = 'abyss';
+    g.difficulty = DIFF_BY_ID.normal;
+    startGauntlet(g);
+    beginAbyss(g, () => true);
     g.loadStage(Math.max(1, Math.min(999, Math.floor(Number(q.get('abyss')) || 1))));
   }
-  if (q.has('ascension')) { s.ascension = ascensionLevel(Number(q.get('ascension'))); s.rules = ascensionRules(s.ascension); }
+  const s = challengeState(g);
+  if (q.has('badge')) s.previewBadge = ascensionLevel(Number(q.get('badge')));
+  if (q.has('ascension') && soloClimb(g)) {
+    s.previewTier = true;
+    s.ascension = ascensionLevel(Number(q.get('ascension')));
+    s.rules = ascensionRules(s.ascension);
+    if (s.ascension) g.difficulty = DIFF_BY_ID.hard;
+  }
   if (q.has('ngplus')) s.ng = true;
   if (q.has('gauntlettime')) { s.time = Math.max(0, Number(q.get('gauntlettime')) || 0); s.nextMini = Math.ceil((s.time + 1) / 180) * 180; s.nextBoss = Math.ceil((s.time + 1) / 360) * 360; }
   gauntletStage(g);

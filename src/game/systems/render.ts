@@ -1,3 +1,4 @@
+import { abyss, FLOOR_SECONDS } from '../abyss';
 import { renderWeather2, prepareWeather2 } from './weather2';
 import { eliteLabel, eliteDetail, installEliteStyle } from './elites2';
 import { reduceMotion } from '../../ui/hud';
@@ -397,7 +398,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
       stage: this.stage,
       level: this.level,
       xp01: this.xp / this.xpNext,
-      timeLeft: client ? this.netTimeLeft : !this.director.bossSpawned ? this.director.remaining : this.boss ? -1 : -2,
+      timeLeft: this.runMode === 'abyss' ? FLOOR_SECONDS - (abyss(this)?.elapsed ?? 0) : client ? this.netTimeLeft : !this.director.bossSpawned ? this.director.remaining : this.boss ? -1 : -2,
       kills: this.kills,
       gold: local.gold,
       gears: local.rerollsLeft,

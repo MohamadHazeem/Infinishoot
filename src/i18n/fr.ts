@@ -1,3 +1,4 @@
+import { ascensionEn } from './g9ascension';
 import { menusEn } from './menus';
 import { arabic2En } from './arabic2';
 import type { en } from './en';
@@ -5,6 +6,7 @@ import type { en } from './en';
 /** fr glossary: partie = run; niveau = stage/level; esquive = dash; parade = parry; ultime = ultimate; rouage = gear; Mod, Buster et Overdrive restent des noms propres. */
 export const fr = {
   // Explicit English fallback for new copy; native editorial work is pending.
+  ...ascensionEn,
   ...menusEn,
   ...arabic2En,
   "architect.dataName": "L'Architecte",

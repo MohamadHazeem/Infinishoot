@@ -113,6 +113,7 @@ export interface HeroWorld {
   readonly damageBuff: number;
   readonly dashCurse: number;
   readonly ascensionTier?: number;
+  readonly preShop?: boolean;
   readonly shopPriceMul?: number;
   /** Curse ids already in effect (not offered again). */
   readonly activeCurses: readonly string[];
@@ -896,6 +897,7 @@ export class Hero implements SynergyHost {
 
   get rerollCost(): number {
     if ((this.world.ascensionTier ?? 0) >= 3 && this.shopRerolls >= 1) return Infinity;
+    if ((this.world.ascensionTier ?? 0) >= 13 && !this.shopRerolls && !this.world.preShop) return 0;
     if (this.shopRerolls < this.synergy.flags.freeRerolls) return 0;
     return economyTuning.rerollBase + this.shopRerolls - this.synergy.flags.freeRerolls;
   }
@@ -1011,6 +1013,7 @@ export class Hero implements SynergyHost {
   }
 
   heal(): string {
+    if ((this.world.ascensionTier ?? 0) >= 12) return 'HEALING SEALED';
     if (this.play.ruleId === 'tithe') return 'HEALING SEALED';
     const price = this.healPrice(this.world.stage ?? 1);
     if (this.shopHealed || this.player.hp >= this.player.maxHp) return 'ALREADY HEALED';
