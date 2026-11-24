@@ -50,6 +50,7 @@ export interface StealthState {
   alerts: number;
   /** Host: per hero index, visibility 0..1 and noise radius (m). */
   vis: number[];
+  observers: { x: number; z: number; sight: number; eliteSight: number; reach: number; eliteReach: number; noise: number }[];
   noise: number[];
   /** Alerts that spread to neighbours next step. */
   pending: Enemy[];
@@ -73,7 +74,7 @@ const near: Enemy[] = [];
 
 export function newStealth(p: number[]): StealthState {
   const layout = stealthLayout(p);
-  return { active: true, layout, got: 0, grab: layout.caches.map(() => 0), alerts: 0, vis: [], noise: [], pending: [], bannerT: 0, soundT: 0, popN: 0, netAw: new Map(), meter: 0, loud: 0, grabP: 0, extra: [], extraFor: null };
+  return { active: true, layout, got: 0, grab: layout.caches.map(() => 0), alerts: 0, vis: [], observers: [], noise: [], pending: [], bannerT: 0, soundT: 0, popN: 0, netAw: new Map(), meter: 0, loud: 0, grabP: 0, extra: [], extraFor: null };
 }
 
 /** Is this enemy unaware on a live stealth stage? (Auto weapons skip it.) */
@@ -158,20 +159,31 @@ export function updateStealth(g: Game, st: StealthState, t: number, dt: number):
   st.soundT -= dt;
   st.popN = 0;
   const heroes = g.heroes;
+  let living = 0;
   for (let i = 0; i < heroes.length; i++) {
     const h = heroes[i];
     const live = !h.player.dead && !h.left;
     const firing = live && h.ctx.firing;
     st.vis[i] = live ? heroVisibility(g, st, t, h, firing) : 0;
     st.noise[i] = live ? heroNoise(h, firing) : 0;
+    if (!live) continue;
+    const eye = st.observers[living++] ??= { x: 0, z: 0, sight: 0, eliteSight: 0, reach: 0, eliteReach: 0, noise: 0 };
+    eye.x = h.player.x;
+    eye.z = h.player.z;
+    eye.sight = sightRange(st.vis[i]);
+    eye.eliteSight = sightRange(st.vis[i], true);
+    eye.noise = st.noise[i];
+    eye.reach = Math.max(eye.sight, eye.noise);
+    eye.eliteReach = Math.max(eye.eliteSight, eye.noise);
   }
   const me = g.hero.index;
   st.meter = st.vis[me] ?? 0;
   st.loud = st.noise[me] ?? 0;
 
   // Alerts from last step shout to their neighbours (a wave, one hop per step).
-  const spread = st.pending.splice(0, 40);
-  for (const e of spread) {
+  const spread = Math.min(40, st.pending.length);
+  for (let i = 0; i < spread; i++) {
+    const e = st.pending[i];
     if (!e.active) continue;
     for (const o of g.enemiesInRadius(e.x, e.z, T.spread, near)) {
       if (o === e) continue;
@@ -182,6 +194,11 @@ export function updateStealth(g: Game, st: StealthState, t: number, dt: number):
         alert(g, st, o, a, false);
       }
     }
+  }
+
+  if (spread) {
+    st.pending.copyWithin(0, spread);
+    st.pending.length -= spread;
   }
 
   let alerts = 0;
@@ -199,24 +216,25 @@ export function updateStealth(g: Game, st: StealthState, t: number, dt: number):
       alert(g, st, e, a, true);
     }
     let seen = 0;
-    for (let i = 0; i < heroes.length; i++) {
-      const h = heroes[i];
-      if (h.player.dead || h.left) continue;
-      const dx = h.player.x - e.x;
-      const dz = h.player.z - e.z;
+    for (let i = 0; i < living; i++) {
+      const eye = st.observers[i];
+      const dx = eye.x - e.x;
+      const dz = eye.z - e.z;
+      const reach = e.elite ? eye.eliteReach : eye.reach;
+      if (Math.abs(dx) >= reach || Math.abs(dz) >= reach) continue;
       const d = Math.sqrt(dx * dx + dz * dz);
-      if (d < st.noise[i]) {
-        a.lx = h.player.x;
-        a.lz = h.player.z;
+      if (d < eye.noise) {
+        a.lx = eye.x;
+        a.lz = eye.z;
         alert(g, st, e, a, true);
         seen = 1;
         break;
       }
-      const range = sightRange(st.vis[i], e.elite);
+      const range = e.elite ? eye.eliteSight : eye.sight;
       if (d < range) {
         seen = Math.max(seen, 1.6 - d / range);
-        a.lx = h.player.x;
-        a.lz = h.player.z;
+        a.lx = eye.x;
+        a.lz = eye.z;
       }
     }
     if (a.s === 2) {

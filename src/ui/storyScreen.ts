@@ -16,7 +16,7 @@ import type { Input } from '../core/input';
 
 const CSS = `
 .story-playing > :not(#story-play):not(style) { visibility: hidden !important; }
-body:has(.story-playing) #reticle { visibility: hidden !important; }
+#hud.story-playing ~ #reticle { visibility: hidden !important; }
 #scr-story { padding: calc(6 * var(--p)); overflow: auto; }
 .story-shell { width: min(100%, 1040px); margin: auto; font-size: calc(22px * var(--text-scale, 1)); }
 .story-shell h1 { margin: 0 0 calc(3 * var(--p)); color: var(--yellow); }

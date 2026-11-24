@@ -185,7 +185,8 @@ export function updateMusic(this: Game, frameDt: number, boss: { hp01: number } 
   if (architectState(this).done) track = 'victory';
   const duck = this.paused || m === 'levelup' || (track !== 'shop' && this.screens.current !== 'none' && inRun);
   music.update(frameDt, { track, seed: track === 'title' || track === 'titleRemix' ? 1 : (this.seed ^ Math.imul(this.stage, 0x9e3779b1)) >>> 0, intensity, duck, stage: track === 'titleRemix' ? 1 : this.stage, cue: m === 'cleared' ? 'victory' : m === 'dead' ? architectState(this).done ? 'victory' : 'gameover' : undefined });
-  document.documentElement.style.setProperty('--beat', music.pulse.toFixed(2));
+  // Only the title logo consumes the inherited beat variable.
+  if (this.screens.current === 'title') document.documentElement.style.setProperty('--beat', music.pulse.toFixed(2));
 }
 
 /** Sounds only this machine hears: low-life heartbeat and the combo hum. */
@@ -476,6 +477,7 @@ export function renderMinimap(this: Game): void {
     this.hud.setMinimap(null);
     return;
   }
+  if (!this.hud.minimapDue()) return;
   const me = this.hero;
   const elites: { x: number; z: number }[] = [];
   let boss: { x: number; z: number } | null = null;

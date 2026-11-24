@@ -95,6 +95,7 @@ export class RetroRenderer {
   private blurMat: THREE.ShaderMaterial;
   /** Empty instanced pools hidden for this frame (three.js still binds their program and uniforms). */
   private idle: THREE.Object3D[] = [];
+  private batchedPlates: RigOverlay[] = [];
   private batchedShadows: RigOverlay[] = [];
 
   constructor(canvas: HTMLCanvasElement, gpu?: GPURenderer) {
@@ -224,8 +225,16 @@ export class RetroRenderer {
     this.gl.setRenderTarget(this.target);
     this.gl.setClearAlpha(0); // alpha is the bloom mask: the background doesn't glow
     const kids = scene.children;
+    const plates = renderQuality.level <= 1 && !('renderSun' in this.gl);
     for (let i = 0; i < kids.length; i++) {
       const o = kids[i] as THREE.InstancedMesh;
+      if (plates && o.visible && (kids[i] as THREE.Group).isGroup) {
+        const rig = shadowRigs.get(o);
+        if (rig) {
+          rig.batchPlates();
+          this.batchedPlates.push(rig);
+        }
+      }
       if (shadowUpdate && o.visible && (kids[i] as THREE.Group).isGroup) {
         const rig = shadowRigs.get(o);
         if (rig?.batchShadow()) this.batchedShadows.push(rig);
@@ -238,6 +247,8 @@ export class RetroRenderer {
     try {
       this.gl.render(scene, camera);
     } finally {
+      for (const rig of this.batchedPlates) rig.restorePlates();
+      this.batchedPlates.length = 0;
       for (const rig of this.batchedShadows) rig.restoreShadow();
       this.batchedShadows.length = 0;
       for (const o of this.idle) o.visible = true;

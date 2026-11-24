@@ -3,11 +3,13 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createRetroMaterial, type RetroMaterial } from '../../render/retroMaterial';
 import type { WeaponDef } from '../../data/weapons';
 import type { Enemy } from '../enemies';
+import type { BurstOptions } from '../particles';
 import { Weapon, type WeaponCtx } from './base';
 import { commit } from '../../render/instancing';
 import { streaks } from '../streaks';
 
 const MAX = 48;
+const SMOKE: BurstOptions = { count: 1, color: '#e8e8f0', color2: '#ffb36b', speed: [0, 0.5], size: [0.15, 0.25], life: [0.2, 0.35], drag: 4 };
 
 interface Missile {
   /** Last rendered position (for the motion streak). */
@@ -53,9 +55,8 @@ export class Missiles extends Weapon {
     scene.add(this.mesh);
   }
 
-  private pickTarget(ctx: WeaponCtx, m: Missile): void {
+  private pickTarget(m: Missile, cands: Enemy[]): void {
     // Random enemy within range, so a volley spreads across the crowd.
-    const cands = ctx.inRadius(m.x, m.z, 13, this.pool);
     m.target = cands.length ? cands[Math.floor(Math.random() * cands.length)] : null;
     m.targetUid = m.target ? m.target.uid : -1;
   }
@@ -81,10 +82,12 @@ export class Missiles extends Weapon {
     const p = this.p;
     const pl = ctx.player;
     if (!pl.dead && this.tick(dt, ctx, p.cd)) {
+      // Every launch in the volley uses the same position and enemy pool; keep its independent RNG draw.
+      const candidates = this.list.length < MAX && p.count > 0 ? ctx.inRadius(pl.x, pl.z, 13, this.pool) : this.pool;
       for (let i = 0; i < p.count && this.list.length < MAX; i++) {
         const a = (i / p.count) * Math.PI * 2 + Math.random() * 0.5;
         const m: Missile = { x: pl.x, z: pl.z, px: pl.x, pz: pl.z, a, sp: 6, life: 3, target: null, targetUid: -1, smokeT: 0 };
-        this.pickTarget(ctx, m);
+        this.pickTarget(m, candidates);
         this.list.push(m);
       }
       ctx.sound('missile');
@@ -94,7 +97,7 @@ export class Missiles extends Weapon {
       m.px = m.x;
       m.pz = m.z;
       m.life -= dt;
-      if (!m.target || !m.target.active || m.target.uid !== m.targetUid || m.target.hp <= 0) this.pickTarget(ctx, m);
+      if (!m.target || !m.target.active || m.target.uid !== m.targetUid || m.target.hp <= 0) this.pickTarget(m, ctx.inRadius(m.x, m.z, 13, this.pool));
       if (m.target) {
         const want = Math.atan2(m.target.z - m.z, m.target.x - m.x);
         let d = want - m.a;
@@ -108,15 +111,17 @@ export class Missiles extends Weapon {
       m.smokeT -= dt;
       if (m.smokeT <= 0) {
         m.smokeT = 0.03;
-        ctx.particles.burst(m.x, 1.0, m.z, { count: 1, color: '#e8e8f0', color2: '#ffb36b', speed: [0, 0.5], size: [0.15, 0.25], life: [0.2, 0.35], drag: 4 });
+        ctx.particles.burst(m.x, 1.0, m.z, SMOKE);
       }
       let boom = m.life <= 0;
       if (!boom) {
-        ctx.hash.query(m.x, m.z, 1.2, (e) => {
-          if (boom || !e.alive || e.hp <= 0) return;
+        const n = ctx.hash.queryInto(m.x, m.z, 1.2, this.pool);
+        for (let k = 0; k < n && !boom; k++) {
+          const e = this.pool[k];
+          if (!e.alive || e.hp <= 0) continue;
           const rr = e.radius + 0.25;
           if ((e.x - m.x) ** 2 + (e.z - m.z) ** 2 < rr * rr) boom = true;
-        });
+        }
       }
       if (boom) {
         ctx.blast(m.x, m.z, p.radius * ctx.stats.areaMul, p.dmg, '#ff7a2f', 'missiles', ctx.combos.has('firestorm') ? ['projectile', 'explosive', 'fire'] : undefined);

@@ -143,6 +143,7 @@ export class Bullets {
   private tailAlpha: THREE.InstancedBufferAttribute;
   private time = 0;
   private q3 = new THREE.Quaternion();
+  private readonly hex = new Uint32Array(MAX);
   private colors: THREE.Color[] = [];
   private m4 = new THREE.Matrix4();
   private q = new THREE.Quaternion();
@@ -277,7 +278,8 @@ export class Bullets {
     this.blast[i] = b.blast ?? 0;
     this.shape[i] = b.shape ?? (b.team === Team.Player ? (KIND_SHAPE[b.kind ?? 0] ?? 0) : 0);
     this.colors[i].set(b.color);
-    this.look[i] = bulletLook(b.team, this.colors[i].getHex(), b.width, b.length);
+    this.hex[i] = this.colors[i].getHex();
+    this.look[i] = bulletLook(b.team, this.hex[i], b.width, b.length);
     this.rx[i] = this.rz[i] = NaN;
     this.parentUid[i] = 0;
     this.uid[i] = this.nextUid++;
@@ -330,6 +332,7 @@ export class Bullets {
     this.rx[i] = this.rx[j];
     this.rz[i] = this.rz[j];
     this.colors[i].copy(this.colors[j]);
+    this.hex[i] = this.hex[j];
     this.parentUid[i] = this.parentUid[j];
     this.uid[i] = this.uid[j];
   }
@@ -344,7 +347,8 @@ export class Bullets {
       this.homing[i] = this.bounce[i] = 0;
     }
     this.colors[i].set(color);
-    this.look[i] = bulletLook(this.team[i], this.colors[i].getHex(), this.width[i], this.length[i]);
+    this.hex[i] = this.colors[i].getHex();
+    this.look[i] = bulletLook(this.team[i], this.hex[i], this.width[i], this.length[i]);
   }
 
   /** Bullet colour (for network snapshots). */
@@ -354,7 +358,7 @@ export class Bullets {
 
   /** Bullet colour as a number (no allocation; the time lane's recorder). */
   colorHex(i: number): number {
-    return this.colors[i].getHex();
+    return this.hex[i];
   }
 
   /** Integrate motion. Collision is resolved by the game (needs enemies/walls). */
@@ -407,14 +411,30 @@ export class Bullets {
     for (let i = 0; i < this.count; i++) {
       const x = this.px[i] + (this.x[i] - this.px[i]) * alpha;
       const z = this.pz[i] + (this.z[i] - this.pz[i]) * alpha;
+      // Plain hostile bolts share the core/rim instance buffer. Fill their yaw-only
+      // transform directly; a stationary bolt retains atan2's signed-zero heading.
+      if (this.team[i] === Team.Enemy && !(this.shape[i] > 0 && this.shape[i] <= 5)) {
+        const vx = this.vx[i], vz = this.vz[i], speed = Math.sqrt(vx * vx + vz * vz);
+        const sin = speed ? vx / speed : Math.sin(Math.atan2(vx, vz));
+        const cos = speed ? vz / speed : Math.cos(Math.atan2(vx, vz));
+        const width = this.width[i] * pulse, length = this.length[i] * pulse;
+        const out = this.enemyCore.instanceMatrix.array, k = enemyCount++ * 16;
+        out[k] = cos * width;
+        out[k + 2] = -sin * width;
+        out[k + 5] = width;
+        out[k + 8] = sin * length;
+        out[k + 10] = cos * length;
+        out[k + 12] = x; out[k + 13] = BULLET_Y; out[k + 14] = z;
+        // The remaining entries are the immutable zeroes and one of the initial identity.
+        this.rx[i] = x;
+        this.rz[i] = z;
+        continue;
+      }
       const yaw = Math.atan2(this.vx[i], this.vz[i]);
       this.q.setFromAxisAngle(this.up, yaw);
       if (this.team[i] === Team.Enemy) {
-        // Enemy cores/rims already replace the old gem and transparent tail.
-        // Do not compose/upload hundreds of invisible instances as well.
         this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(this.width[i] * pulse, this.width[i] * pulse, this.length[i] * pulse));
-        if (this.shape[i] > 0 && this.shape[i] <= 5) this.hostileShapes.add(this.m4, this.shape[i]);
-        else instanceMatrix(this.enemyCore, enemyCount++, this.m4);
+        this.hostileShapes.add(this.m4, this.shape[i]);
         this.rx[i] = x;
         this.rz[i] = z;
         continue;

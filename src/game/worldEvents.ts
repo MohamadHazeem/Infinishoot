@@ -508,7 +508,9 @@ const beam = { x: 0, z: 0 };
 export function lightAt(L: StealthLayout, t: number, x: number, z: number, extra: readonly { x: number; z: number; r: number }[] = []): number {
   let v = T.baseLight;
   const pool = (px: number, pz: number, r: number, k: number) => {
-    const d = Math.hypot(x - px, z - pz);
+    const dx = x - px, dz = z - pz;
+    if (Math.abs(dx) >= r || Math.abs(dz) >= r) return;
+    const d = Math.hypot(dx, dz);
     if (d < r) v = Math.max(v, k * (d < r * 0.6 ? 1 : 1 - (d - r * 0.6) / (r * 0.4)));
   };
   for (const l of L.lamps) pool(l.x, l.z, l.r, 0.9);

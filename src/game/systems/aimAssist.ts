@@ -27,7 +27,10 @@ export function assistAim(this: Game, h: Hero, input: Input): void {
     const distance = Math.sqrt(d2), nx = dx / distance, nz = dz / distance;
     if (nx * p.aim.x + nz * p.aim.z < cone) continue;
     let blocked = false;
+    const minX = Math.min(p.x, e.x), maxX = Math.max(p.x, e.x);
+    const minZ = Math.min(p.z, e.z), maxZ = Math.max(p.z, e.z);
     for (const box of this.arena.colliders) {
+      if (box.minX > maxX || box.maxX < minX || box.minZ > maxZ || box.maxZ < minZ) continue;
       if (segmentHitsBox(p.x, p.z, nx, nz, distance, 0, box)) { blocked = true; break; }
     }
     if (blocked) continue;

@@ -1452,7 +1452,7 @@ class CoopHud {
         this.link!.classList.toggle('max', full);
       }
     }
-    this.link!.hidden = !key;
+    this.link!.toggleAttribute('hidden', !key);
     this.lastLink = key;
     // Carry prompt.
     let pr = '';

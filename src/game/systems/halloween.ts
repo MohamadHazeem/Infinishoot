@@ -528,7 +528,7 @@ export function renderHalloween(this: Game, calm = false): void {
   calm ||= halloweenMotion.calm;
   const s = this.halloween;
   if (s.label) {
-    s.label.hidden = !s.season || this.mode === 'title';
+    s.label.toggleAttribute('hidden', !s.season || this.mode === 'title');
     const text = localize(`${save.seasonal.candy} CANDY · +${s.earned} THIS RUN`);
     if (s.label.textContent !== text) {
       s.label.textContent = text;

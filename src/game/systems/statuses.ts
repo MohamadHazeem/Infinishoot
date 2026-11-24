@@ -642,12 +642,12 @@ export function updateBullets(this: Game, dt: number): void {
     const count = this.hash.queryInto(x, z, lag ? r + lagTuning.pad : r, candidates);
     for (let n = 0; n < count; n++) {
       const e = candidates[n];
-      if (!e.targetable || e.hp <= 0 || b.hasHit(i, e.uid) || pvpFriendly(this.pvp?.teams, e.pvpOwner, b.owner[i])) continue;
+      if (!e.targetable || e.hp <= 0) continue;
       const rr = e.radius + r;
       const back = lag > 0 && rewindEnemy(this, e, lag);
       const ex = back ? lagOut.x : e.x;
       const ez = back ? lagOut.z : e.z;
-      if ((ex - x) ** 2 + (ez - z) ** 2 < rr * rr) { hit = e; break; }
+      if ((ex - x) ** 2 + (ez - z) ** 2 < rr * rr && !b.hasHit(i, e.uid) && !pvpFriendly(this.pvp?.teams, e.pvpOwner, b.owner[i])) { hit = e; break; }
     }
     if (hit) {
       if (reflectEliteBullet(this, hit, i)) continue;

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { paint } from '../render/geometry';
-import { commit } from '../render/instancing';
+import { commit, instanceMatrix } from '../render/instancing';
 import { createRetroMaterial } from '../render/retroMaterial';
 import { textures } from '../render/textures';
 import { access } from './settings';
@@ -429,7 +429,7 @@ export class Interactives {
       for (let level = 0; level < (p.def.kind === 'stack' ? 2 : 1) && n < MAX_CRATES; level++) {
         this.q.setFromAxisAngle(this.up, level ? p.def.rot2 : p.def.rot);
         m4.compose(this.v.set(p.def.x, 0.6 + level * 1.2, p.def.z), this.q, this.s.set(sc, sc, sc));
-        this.crates.setMatrixAt(n, m4);
+        instanceMatrix(this.crates, n, m4);
         flash.setXYZW(n, 1, 1, 1, p.flash * 0.8);
         n++;
       }
@@ -463,7 +463,7 @@ export class Interactives {
       }
       const wob = p.flash * 0.05;
       m4.compose(this.v.set(p.def.x, y, p.def.z), this.q, this.s.set(1 + wob, 1, 1 + wob));
-      this.pillars.setMatrixAt(n, m4);
+      instanceMatrix(this.pillars, n, m4);
       this.pillars.setColorAt(n, this.pillarTint);
       pf.setXYZW(n, 1, 1, 1, p.flash * 0.8);
       n++;
@@ -484,7 +484,7 @@ export class Interactives {
       this.q.setFromAxisAngle(this.up, Math.sin(time * 2 + t.x) * 0.15);
       const sq = 1 + t.flash * 0.1;
       m4.compose(this.v.set(t.x, 0, t.z), this.q, this.s.set(sq, 1 - t.flash * 0.06, sq));
-      this.totemMesh.setMatrixAt(n, m4);
+      instanceMatrix(this.totemMesh, n, m4);
       tf.setXYZW(n, 1, 1, 1, t.flash * 0.85);
       n++;
       if (live) this.beam(beams++, t.x, t.z, time);
@@ -499,7 +499,7 @@ export class Interactives {
       if (s.taken || !live) continue;
       this.q.setFromAxisAngle(this.up, time * 2.5 + s.x);
       m4.compose(this.v.set(s.x, 1.0 + Math.sin(time * 3 + s.z) * 0.2, s.z), this.q, this.s.set(1, 1, 1));
-      this.shardMesh.setMatrixAt(n++, m4);
+      instanceMatrix(this.shardMesh, n++, m4);
       this.beam(beams++, s.x, s.z, time);
     }
     this.shardMesh.count = n;
@@ -526,12 +526,12 @@ export class Interactives {
     for (const t of this.turrets) {
       this.q.set(0, 0, 0, 1);
       m4.compose(this.v.set(t.x, 0, t.z), this.q, this.s.set(1, 1, 1));
-      this.turretBase.setMatrixAt(n, m4);
+      instanceMatrix(this.turretBase, n, m4);
       if (t.t <= 0) t.aim += frameDt * (t.cd > 0 ? 0 : 0.6); // idle: slow scan
       this.q.setFromAxisAngle(this.up, t.aim);
       const bob = t.t > 0 ? Math.sin(time * 30) * 0.03 : 0;
       m4.compose(this.v.set(t.x, 1.2 + bob, t.z), this.q, this.s.set(1, 1, 1));
-      this.turretHead.setMatrixAt(n, m4);
+      instanceMatrix(this.turretHead, n, m4);
       const pulse = 0.5 + 0.5 * Math.sin(time * 4);
       // Idle: the pad pulses cyan (step on me). Firing: hot. Cooling down: grey.
       if (t.t > 0) {
@@ -559,12 +559,12 @@ export class Interactives {
       this.q.setFromAxisAngle(this.up, Math.atan2(p.tx - p.x, p.tz - p.z));
       const k = Math.max(0, Math.sin(time * 5 + p.x));
       m4.compose(this.v.set(p.x, 0, p.z), this.q, this.s.set(1 + k * 0.05, 1 + k * 0.6, 1 + k * 0.05));
-      this.padMesh.setMatrixAt(n, m4);
+      instanceMatrix(this.padMesh, n, m4);
       pdf.setXYZW(n, 1, 0.95, 0.6, k * 0.3);
       this.q.set(0, 0, 0, 1);
       const r = 1 + 0.15 * Math.sin(time * 4 + p.z);
       m4.compose(this.v.set(p.tx, 0.06, p.tz), this.q, this.s.set(r, 1, r));
-      this.landMesh.setMatrixAt(n, m4);
+      instanceMatrix(this.landMesh, n, m4);
       n++;
     }
     this.padMesh.count = this.landMesh.count = n;
@@ -578,6 +578,6 @@ export class Interactives {
     this.q.set(0, 0, 0, 1);
     const w = 1 + 0.35 * Math.sin(time * 6 + x);
     this.m4.compose(this.v.set(x, 0, z), this.q, this.s.set(w, 1, w));
-    this.beams.setMatrixAt(i, this.m4);
+    instanceMatrix(this.beams, i, this.m4);
   }
 }

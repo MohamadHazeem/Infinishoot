@@ -78,7 +78,7 @@ export function installDesktopUi(screens: Screens): void {
       b.onclick = () => { void desktop?.windowAction(action); }; bar.append(b);
     }
     document.body.append(bar);
-    const sync = () => { bar.hidden = settings.windowMode !== 'windowed'; };
+    const sync = () => { bar.hidden = settings.windowMode !== 'windowed'; document.body.classList.toggle('desktop-bar-open', !bar.hidden); };
     desktop.onWindowMode(mode => { settings.windowMode = mode; saveSettings(); screens.settingsScreen.sync(); sync(); });
     window.addEventListener('desktop-state', sync); sync();
   }
@@ -91,8 +91,8 @@ export function installDesktopUi(screens: Screens): void {
 .desktop-titlebar { position:fixed; inset:0 0 auto; height:calc(10 * var(--p)); z-index:10000; display:flex; align-items:center; background:var(--navy); color:var(--white); -webkit-app-region:drag; font:16px var(--font); }
 .desktop-titlebar span { flex:1; padding-inline:calc(4 * var(--p)); }
 .desktop-titlebar button { -webkit-app-region:no-drag; font:18px var(--font); padding:0 calc(4 * var(--p)); box-shadow:none; border:0; border-radius:0; background:var(--navy); color:var(--white); }
-body:has(.desktop-titlebar:not([hidden])) .screen { top:calc(10 * var(--p)); }
-body:has(.desktop-titlebar:not([hidden])) #ingame > :is(#xpbar,#hp,#runinfo,#goals,#timer,#pausebtn,#bossbar) { margin-top:calc(10 * var(--p)); }
+body.desktop-bar-open .screen { top:calc(10 * var(--p)); }
+body.desktop-bar-open #ingame > :is(#xpbar,#hp,#runinfo,#goals,#timer,#pausebtn,#bossbar) { margin-top:calc(10 * var(--p)); }
 `;
   document.head.append(style); refresh();
 }

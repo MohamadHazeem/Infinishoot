@@ -1,4 +1,4 @@
-import { localizeHtml, localize } from '../i18n';
+import { isolateNumbers, localizeHtml, localize } from '../i18n';
 import type { Game } from '../game/game';
 import type { WorldEvent } from '../game/systems/worldEvents';
 import {
@@ -80,6 +80,8 @@ export class WorldEventHud {
   private ptr: HTMLElement | null = null;
   private last = '';
   private lastKind = '';
+  private huntText: ChildNode | null = null;
+  private hunters = -1;
   private tmp = { x: 0, y: 0, z: 0 };
 
   private mount(): boolean {
@@ -111,8 +113,8 @@ export class WorldEventHud {
     const el = this.el!;
     const show = !!ev && g.isCombatMode && !(ev.done && ev.kind !== 'stealth') && !(ev.kind === 'stealth' && ev.done);
     if (!show || !ev) {
-      el.hidden = true;
-      this.ptr!.hidden = true;
+      el.toggleAttribute('hidden', true);
+      this.ptr!.toggleAttribute('hidden', true);
       this.last = '';
       this.lastKind = '';
       return;
@@ -121,7 +123,10 @@ export class WorldEventHud {
     if (html !== this.last) {
       this.last = html;
       el.innerHTML = localizeHtml(html);
+      this.huntText = el.querySelector('.hunt')?.firstChild ?? null;
+      this.hunters = -1;
       el.style.setProperty('--wc', HUD_COLOR[ev.kind] ?? 'var(--orange)');
+      el.classList.toggle('stealth', ev.kind === 'stealth');
       if (this.lastKind !== ev.kind) {
         el.classList.remove('pop');
         void el.offsetWidth;
@@ -129,7 +134,12 @@ export class WorldEventHud {
         this.lastKind = ev.kind;
       }
     }
-    el.hidden = false;
+    const alerts = ev.stealth?.alerts ?? 0;
+    if (this.huntText && this.hunters !== alerts) {
+      this.huntText.nodeValue = isolateNumbers(localize(`! ${alerts} HUNTING YOU`));
+      this.hunters = alerts;
+    }
+    el.toggleAttribute('hidden', false);
     this.pointer(g, ev);
   }
 
@@ -197,7 +207,7 @@ export class WorldEventHud {
     const n = st.layout.caches.length;
     let got = 0;
     for (let i = 0; i < n; i++) if (st.got & (1 << i)) got++;
-    const hunt = st.alerts > 0 ? `<span class="hunt">! ${st.alerts} HUNTING YOU</span>` : '<span>UNSEEN</span>';
+    const hunt = st.alerts > 0 ? '<span class="hunt"> </span>' : '<span>UNSEEN</span>';
     const grab = st.grabP > 0 ? `<div class="grab"><div style="width:${Math.round(st.grabP * 100)}%"></div></div>` : '';
     void g;
     return (
@@ -227,14 +237,14 @@ export class WorldEventHud {
       });
     }
     if (Number.isNaN(tx)) {
-      p.hidden = true;
+      p.toggleAttribute('hidden', true);
       return;
     }
     const v = g.tmp.set(tx, 1, tz).project(g.cam.camera);
     const sx = ((v.x + 1) / 2) * innerWidth;
     const sy = ((1 - v.y) / 2) * innerHeight;
     if (v.z <= 1 && sx > 10 && sx < innerWidth - 10 && sy > 10 && sy < innerHeight - 10) {
-      p.hidden = true;
+      p.toggleAttribute('hidden', true);
       return;
     }
     const cx = innerWidth / 2;
@@ -249,7 +259,7 @@ export class WorldEventHud {
     const k = Math.min((innerWidth / 2 - m) / Math.max(1, Math.abs(dx)), (innerHeight / 2 - m * 0.7) / Math.max(1, Math.abs(dy)));
     const x = cx + dx * k;
     const y = cy + dy * k;
-    p.hidden = false;
+    p.toggleAttribute('hidden', false);
     p.style.setProperty('--wc', HUD_COLOR[ev.kind]);
     p.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
     (p.firstElementChild as HTMLElement).style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
