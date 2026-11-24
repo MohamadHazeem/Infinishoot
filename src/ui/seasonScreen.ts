@@ -1,3 +1,4 @@
+import { framedTitle, openRankedSeason } from './rankedSeasons';
 import type { Game } from '../game/game';
 import { save } from '../game/save';
 import { escapeHtml, getLanguage, localize, localizeHtml, t } from '../i18n';
@@ -206,7 +207,8 @@ export class SeasonScreen {
         return;
       }
       const act = b.dataset.sp;
-      if (act === 'back') g.screens.show('extras');
+      if (act === 'ranked') openRankedSeason(g);
+      else if (act === 'back') g.screens.show('extras');
       else if (act === 'claim') this.claim(Number.POSITIVE_INFINITY, b);
       else if (act === 'tier') this.clickTier(Number(b.dataset.t), b);
     });
@@ -332,7 +334,7 @@ export class SeasonScreen {
       : `<div class="sp-row note">${t('season.past.none')}</div>`;
     const need = tr.need ? t('season.head.next', { into: n(tr.into), need: n(tr.need), n: tr.tier + 1 }) : t('season.head.max');
     this.el.style.setProperty('--sp', theme.color);
-    this.el.innerHTML = localizeHtml(`<h1>${t('season.title')}</h1>
+    this.el.innerHTML = localizeHtml(`<h1>${t('rank.track')}</h1>
       <div class="sp-wrap">
         <div class="sp-head px">
           <div class="sp-tier"><small>${t('season.tier')}</small>${tr.tier}</div>
@@ -354,7 +356,7 @@ export class SeasonScreen {
             <div class="sp-sec">${t('season.past')}</div><div class="sp-list px">${past}</div></div>
         </div>
       </div>
-      <div class="menu row"><button data-nav data-sp="back">${t('season.back')}</button></div>`);
+      <div class="menu row"><button data-nav data-sp="ranked">${t('rank.title')}</button><button data-nav data-sp="back">${t('season.back')}</button></div>`);
   }
 
   private renderDetail(tier: number): void {
@@ -401,6 +403,7 @@ export function seasonTitleBanner(onOpen: () => void): void {
     banner.id = 'sp-title';
     banner.className = 'px';
     banner.setAttribute('role', 'button');
+    if (!title.classList.contains('menu-home')) banner.dataset.nav = '';
     banner.tabIndex = 0;
     banner.addEventListener('click', onOpen);
     banner.addEventListener('keydown', (e) => {
@@ -408,12 +411,16 @@ export function seasonTitleBanner(onOpen: () => void): void {
     });
     (title.querySelector('.menu-primary') ?? title).appendChild(banner);
   }
+  const footer = title.querySelector('.menu-footer');
+  footer?.querySelector('.rs-frame')?.remove();
+  const badge = framedTitle();
+  if (badge) footer?.insertAdjacentHTML('beforeend', badge);
   const sp = seasonView(save.seasonPass);
   const theme = themeFor(sp.season);
   const tr = tierOf(sp.xp);
   const ready = unclaimed(sp);
   banner.style.setProperty('--sp', theme.color);
   banner.title = localize(theme.tagline);
-  banner.innerHTML = localizeHtml(`<div class="hd"><small>${t('season.title')}</small><b>${escapeHtml(localize(theme.name).toUpperCase())}</b>${ready ? `<span class="cl">${t('season.claim_ready', { n: ready })}</span>` : ''}</div>
+  banner.innerHTML = localizeHtml(`<div class="hd"><small>${t('rank.track')}</small><b>${escapeHtml(localize(theme.name).toUpperCase())}</b>${ready ? `<span class="cl">${t('season.claim_ready', { n: ready })}</span>` : ''}</div>
     <div class="rw"><span class="tr">${t('season.tier_n', { n: tr.tier })}</span><div class="sp-xpbar"><i style="width:${Math.round(tr.frac * 100)}%"></i></div><span>${left(seasonMsLeft())}</span></div>`);
 }

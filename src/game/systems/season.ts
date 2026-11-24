@@ -162,7 +162,7 @@ export function seasonBank(g: Game, tally: RunTally, res: BankResult): SeasonBan
   seasonState(g).last = out;
   challengeMoments(g, ch.done, null);
   if (up.to > up.from) {
-    g.hud.toast(`★ ${t('season.toast.tier', { n: up.to })} ${t('season.toast.claim')}`, 5);
+    g.hud.toast(`★ ${t('season.toast.tier', { n: up.to })} ${t('rank.claimTrack')}`, 5);
     sfx.named('achievement');
   }
   renderStrip(out);
@@ -173,7 +173,7 @@ function challengeMoments(g: Game, done: ChallengeDef[], up: { from: number; to:
   if (!done.length) return;
   for (const c of done) g.hud.toast(t('season.toast.challenge', { text: localize(challengeText(c)) }), 4);
   sfx.named('questDone');
-  if (up && up.to > up.from) g.hud.toast(`★ ${t('season.toast.tier', { n: up.to })} ${t('season.toast.claim')}`, 5);
+  if (up && up.to > up.from) g.hud.toast(`★ ${t('season.toast.tier', { n: up.to })} ${t('rank.claimTrack')}`, 5);
 }
 
 /** Profile XP from claims (filler tiers, duplicates), with the profile level-up moment. */
@@ -275,7 +275,7 @@ export function seasonUi(g: Game): SeasonScreen {
     const b = document.createElement('button');
     b.dataset.nav = '';
     b.dataset.act = 'sp-season';
-    b.textContent = localize('SEASON');
+    b.textContent = t('rank.track');
     b.addEventListener('click', () => ui.open());
     menu.prepend(b);
   }

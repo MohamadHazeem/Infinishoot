@@ -1,3 +1,4 @@
+import { openRankedSeason } from '../ui/rankedSeasons';
 import { stations, stationIndex } from '../data/asymRoles';
 import { heightLink } from '../world/heightPlay';
 import { spawnPatrol } from '../game/systems/spawning';
@@ -541,6 +542,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('bench') && q.has('circle')) q.delete('bench');
   craftLink(game, q);
   if (q.has('bossmaker')) game.bossMakerUi.preview(q.get('bossmaker') ?? '');
+  if (q.has('rankedseason')) {
+    game.paused = true;
+    openRankedSeason(game);
+  }
   return true;
 }
 

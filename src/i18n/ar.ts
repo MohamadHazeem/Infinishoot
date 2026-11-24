@@ -2,6 +2,7 @@ import { masteryAr } from './mastery';
 import { launchAr } from './g10launch';
 import { ascensionAr } from './g9ascensionAr';
 import { echoAr } from './g8echo';
+import { rankAr } from './seasons2';
 import { makerAr } from './bossMaker';
 import { craftAr } from './g5craft';
 import { menusAr } from './menus';
@@ -45,6 +46,7 @@ export const ar = {
   "world.won": "فُتحت راية المذنّب للجميع هذا الأسبوع!",
   "world.flag": "راية المذنّب",
   ...makerAr,
+  ...rankAr,
   "stations.role": "الدور",
   "stations.prev": "الدور السابق",
   "stations.next": "الدور التالي",

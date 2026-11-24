@@ -1,6 +1,7 @@
 import { Mastery } from './mastery';
 import { sampleScoreReplay } from '../platform/scoreReplay';
 import { leaderboardEnabled } from '../net/leaderboard';
+import { RankedSeasonRun } from './seasons2';
 import { AsymRoles } from './asymRoles';
 import { AsymRoleHud } from '../ui/asymRoleHud';
 import { validRoles, type Station } from '../data/asymRoles';
@@ -422,6 +423,7 @@ export class Game implements HeroWorld {
   applyRaidNet = RaidSys.applyRaidNet;
   renderRaid = RaidSys.renderRaid;
   raidClientMessage = RaidSys.raidClientMessage;
+  readonly rankedSeason = new RankedSeasonRun();
   startRun: typeof RunFlowSys.startRun = function (fixed) {
     // An abandoned arcade round must not holster the next run's weapons or open its portal.
     this.beatCombat.reset();
@@ -439,6 +441,7 @@ export class Game implements HeroWorld {
     this.nemesis.reset();
     this.asym.start(this);
     RunFlowSys.startRun.call(this, fixed);
+    this.rankedSeason.start(this);
   };
   restart = RunFlowSys.restart;
   retry = RunFlowSys.retry;
@@ -452,6 +455,7 @@ export class Game implements HeroWorld {
   mvp = MvpSys.createMvp();
   mvpStep = MvpSys.mvpStep;
   mvpKill: typeof MvpSys.mvpKill = function (e, h) {
+    this.rankedSeason.kill(this, e, h);
     this.echoes.killed(e);
     this.biomeRules.kill(this, e.uid);
     MvpSys.mvpKill.call(this, e, h);
@@ -608,6 +612,8 @@ export class Game implements HeroWorld {
     const snap = NetHostSys.buildSnapshot.call(this, h, events, view);
     if (!view && h.synergy.slots.length && h.synergy.lastModHit !== null)
       snap.modHit = Math.round(h.synergy.lastModHit * 100);
+    const ranked = !view && this.rankedSeason.snapshot();
+    if (ranked) snap.rankedSeason = ranked;
     if (this.asym.word) snap.stations = this.asym.snapshot(this);
     const field = this.biomeRules.snapshotFor(this, view?.enc ?? h);
     if (field) snap.island = field;
@@ -648,6 +654,7 @@ export class Game implements HeroWorld {
     NetClientSys.applySnapshot.call(this, m);
     if (m.stations || this.asym.word) this.asym.mirror(this, m.stations);
     if (m.mastery) this.mastery.mirror(m.mastery);
+    this.rankedSeason.mirror(this, m.rankedSeason);
     this.echoes.receive(m.echo);
     if (m.maker) this.bossMaker.mirror(this, m.maker, this.stage);
     this.biomeRules.mirror(this, m.island);
@@ -1279,6 +1286,7 @@ export class Game implements HeroWorld {
     this.stationHud = new AsymRoleHud(this, hudRoot);
     this.streamUi = new StreamUi(this, hudRoot);
     this.mastery = new Mastery(this, hudRoot);
+    this.rankedSeason.install(this);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1619,6 +1627,7 @@ export class Game implements HeroWorld {
     this.streamUi.tick(dt);
     this.stepN++;
     updatePatrolBadges(this);
+    this.rankedSeason.checkFairPlay(this);
     dt = Assists.assistStep.call(this, dt);
     this.mvpStep();
     voiceTick(this, dt); // voice chat: roster, calls, push to talk, proximity (systems/voicechat.ts)

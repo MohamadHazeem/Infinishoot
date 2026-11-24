@@ -15,3 +15,4 @@ import { hardcore } from './hardcore.js'; ROUTES.push(hardcore);
 import { speedrun } from './speedrun.js'; ROUTES.push(speedrun);
 import { replayScores } from './replayScores.js'; ROUTES.push(replayScores);
 import { abyssRoute } from './abyss.js'; ROUTES.push(abyssRoute);
+import { seasons2 } from './seasons2.js'; ROUTES.push(seasons2);
