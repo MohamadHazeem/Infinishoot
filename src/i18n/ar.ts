@@ -1,5 +1,6 @@
 import { masteryAr } from './mastery';
 import { launchAr } from './g10launch';
+import { ascensionAr } from './g9ascensionAr';
 import { echoAr } from './g8echo';
 import { makerAr } from './bossMaker';
 import { craftAr } from './g5craft';
@@ -23,6 +24,7 @@ import type { en } from './en';
 /** Gamer-friendly Modern Standard Arabic. Preserve every ⟪parameter⟫. */
 export const ar = {
   ...masteryAr,
+  ...ascensionAr,
   "world.toggle": "وضع البث",
   "world.channel": "قناة تويتش",
   "world.setup": "اقرأ الدردشة العامة في اللعب الفردي أو عند استضافة جولة عادية أو لا نهائية. لا يلزم تسجيل الدخول.",

@@ -1,4 +1,6 @@
 import { loadJson, saveJson } from '../core/storage';
+import { abyssUnlocked } from '../game/abyss';
+import { MODE_BY_ID } from '../data/modes';
 import { gauntletProfile } from '../data/ascension';
 import { HEROES } from '../data/heroes';
 import { loadoutOptions, validLoadout, type LoadoutSlot } from '../data/loadout';
@@ -13,7 +15,7 @@ import { iconHtml } from './pixelIcons';
 
 const seenKey = 'menus.seenModes.v1';
 type PlayChoice = ModeId | 'trials' | 'ascension';
-const choices: PlayChoice[] = [...MODES.map(m => m.id), 'trials', 'ascension'];
+const choices: PlayChoice[] = [...MODES.map(m => m.id), 'trials', 'ascension', 'abyss'];
 export function seenModes(raw: unknown): PlayChoice[] {
   return choices.filter(id => Array.isArray(raw) && raw.includes(id));
 }
@@ -24,6 +26,7 @@ export function played(): boolean {
   return hasPlayed(save.lifetime.runs, save.firstten.done, save.history.length);
 }
 export function visibleModes(experienced: boolean, current: string) {
+  if (experienced && abyssUnlocked()) return [...MODES, MODE_BY_ID.abyss];
   return MODES.filter(m => experienced || m.id === 'standard' || m.id === current);
 }
 export function chooseMode(id: ModeId): void {
@@ -41,7 +44,7 @@ const slots = ['primary', 'secondary', 'special'] as const;
 const controls: Record<LoadoutSlot, PromptId> = { primary: 'fire', secondary: 'charge', special: 'bomb' };
 const gear = (slot: LoadoutSlot, id: string) => slot === 'special' ? SPECIALS[id] : WEAPONS[id];
 function forcedDifficulty() {
-  if (settings.mode === 'daily' || settings.mode === 'weekly') return 'normal';
+  if (settings.mode === 'abyss' || settings.mode === 'daily' || settings.mode === 'weekly') return 'normal';
   if ((settings.mode === 'standard' || settings.mode === 'endless') && Math.min(gauntletProfile.selected, gauntletProfile.unlocked) > 0) return 'hard';
 }
 function kit() {
@@ -118,6 +121,13 @@ export function refreshSetup(el: HTMLElement, redraw: () => void): void {
     }
     el.querySelector('.hero-note')!.textContent = localize(HEROES[0].desc);
   }
+  if (settings.mode === 'abyss') {
+    for (const b of el.querySelectorAll<HTMLButtonElement>('[data-diff]')) {
+      b.disabled = true;
+      b.classList.toggle('on', b.dataset.diff === 'normal');
+    }
+    el.querySelector('.mode-note')!.textContent = t('menus.abyss');
+  }
   if (forcedDifficulty() === 'hard') {
     for (const button of el.querySelectorAll<HTMLButtonElement>('[data-diff]')) {
       button.disabled = true;
@@ -135,12 +145,18 @@ export function refreshSetup(el: HTMLElement, redraw: () => void): void {
     footer.before(help);
   }
   help.hidden = !veteran;
-  help.textContent = t('menus.heat');
+  const heatHelp = document.createElement('span');
+  heatHelp.textContent = t('menus.heat');
+  help.replaceChildren(heatHelp);
 
   const ascension = el.querySelector<HTMLElement>('[data-act=g-up]');
   if (ascension) { ascension.title = t('menus.ascension'); ascension.hidden = ascension.hasAttribute('disabled') && !el.querySelector('[data-act=g-down]:not(:disabled)'); }
   const ng = el.querySelector<HTMLElement>('[data-act=g-ng]');
-  if (ascension && !ascension.hidden) help.textContent += ' ' + t('menus.ascension');
+  if (ascension && !ascension.hidden) {
+    const climbHelp = document.createElement('span');
+    climbHelp.textContent = t('menus.ascension');
+    help.append(' ', climbHelp);
+  }
   if (ng) ng.hidden = ng.hasAttribute('disabled');
   const minus = el.querySelector<HTMLElement>('[data-act=g-down]');
   if (minus) minus.hidden = !!ascension?.hidden;

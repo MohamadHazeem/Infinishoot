@@ -1019,6 +1019,7 @@ export class Game implements HeroWorld {
   readonly runEvents: RunEvents;
   /** Mode and difficulty of the current run. */
   meta = new MetaRun();
+  get ascensionTier(): number { return this.role === 'solo' ? GauntletSys.challengeState(this).rules.tier : 0; }
   get shopPriceMul(): number { return this.meta.has('shop') ? 1.5 : 1; }
   runMode: ModeId = 'standard';
   difficulty: DifficultyDef = DIFF_BY_ID.normal;

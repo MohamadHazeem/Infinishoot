@@ -1,5 +1,6 @@
 import { masteryEn } from './mastery';
 import { launchEn } from './g10launch';
+import { ascensionEn } from './g9ascension';
 import { echoEn } from './g8echo';
 import { menusEn } from './menus';
 import { uxpassEn } from './uxpass';
@@ -21,6 +22,7 @@ import { spectateEn } from '../game/spectateStrings';
 /** English base catalog. Keys stay stable when copy changes. See CONTRIBUTING.md. */
 export const en = {
   ...masteryEn,
+  ...ascensionEn,
   "stations.role": "ROLE",
   "stations.prev": "Previous role",
   "stations.next": "Next role",

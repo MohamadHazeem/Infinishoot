@@ -1,48 +1,15 @@
 /** Cumulative solo challenge rules. Level N includes every rule from 1 through N. */
 import { loadJson, saveJson } from '../core/storage';
 
-// balance2: A16 life +25% -> +20%, A18 damage +20% -> +15%, A20 life +30% -> +20%. A16-20 stacked +55% life,
-// +25% count and +20% damage at once; the bot's stages cleared fell 1.4-1.8 (A15) -> 0.5-0.6 (A20) while every
-// earlier block of five cost it ~0.3-0.5 (notes/lanes/balance2.md).
-export const ASCENSIONS = [
-  { name: 'Quick Feet', desc: 'Enemy movement +10%.', speed: 0.1 },
-  { name: 'Reinforced', desc: 'Enemy life +15%.', hp: 0.15 },
-  { name: 'Crowded', desc: 'Enemy count +15%.', count: 0.15 },
-  { name: 'Hard Knocks', desc: 'Enemy damage +10%.', damage: 0.1 },
-  { name: 'Double Trouble', desc: 'Elite modifier effects doubled.', doubleElites: true },
-  { name: 'Lost Cargo', desc: 'Map chests arrive half as often.', chest: 0.5 },
-  { name: 'Encore', desc: 'Bosses add a telegraphed bullet ring every 8 seconds.', attacks: 1 },
-  { name: 'No Breather', desc: 'No automatic healing between stages.', noHeal: true },
-  { name: 'Quicker Feet', desc: 'Enemy movement +10%.', speed: 0.1 },
-  { name: 'Heavy Armour', desc: 'Enemy life +20%.', hp: 0.2 },
-  { name: 'Overflow', desc: 'Enemy count +20%.', count: 0.2 },
-  { name: 'Harder Knocks', desc: 'Enemy damage +15%.', damage: 0.15 },
-  { name: 'Supply Drought', desc: 'Map chests arrive one third as often.', chest: 1 / 3 },
-  { name: 'Double Encore', desc: 'Boss bonus rings have 16 bullets instead of 8.', attacks: 1 },
-  { name: 'Overclocked', desc: 'Enemy movement +10%.', speed: 0.1 },
-  { name: 'Fortified', desc: 'Enemy life +20%.', hp: 0.2 },
-  { name: 'Packed House', desc: 'Enemy count +25%.', count: 0.25 },
-  { name: 'Crushing Blows', desc: 'Enemy damage +15%.', damage: 0.15 },
-  // 90 -> 150 seconds: the interval step is at most twice the earlier +30s steps.
-  { name: 'Last Supplies', desc: 'Map chests arrive one fifth as often.', chest: 1 / 5 },
-  { name: 'Summit', desc: 'Enemy life +20%; boss bonus rings have 24 bullets.', hp: 0.2, attacks: 1 },
-] as const;
+export { ASCENSIONS } from './ascension2';
 export function ascensionLevel(n: unknown): number {
   return typeof n === 'number' && Number.isFinite(n) ? Math.max(0, Math.min(20, Math.floor(n))) : 0;
 }
 export function ascensionRules(level: number) {
-  const out = { speed: 1, hp: 1, count: 1, damage: 1, chest: 1, doubleElites: false, noHeal: false, attacks: 0 };
-  for (const r of ASCENSIONS.slice(0, ascensionLevel(level))) {
-    if ('speed' in r) out.speed += r.speed;
-    if ('hp' in r) out.hp += r.hp;
-    if ('count' in r) out.count += r.count;
-    if ('damage' in r) out.damage += r.damage;
-    if ('chest' in r) out.chest = Math.min(out.chest, r.chest);
-    if ('doubleElites' in r) out.doubleElites = true;
-    if ('noHeal' in r) out.noHeal = true;
-    if ('attacks' in r) out.attacks += r.attacks;
-  }
-  return out;
+  const tier = ascensionLevel(level);
+  return { tier, speed: 1, hp: 1, count: 1, damage: 1,
+    chest: tier >= 19 ? 1 / 5 : tier >= 13 ? 1 / 3 : tier >= 6 ? 1 / 2 : 1,
+    doubleElites: tier >= 5, noHeal: tier >= 8, attacks: Number(tier >= 7) + Number(tier >= 14) + Number(tier >= 20) };
 }
 export const ASCENSION_TITLES = ['BRONZE CLIMBER', 'SKY CLIMBER', 'STAR CLIMBER', 'SUMMIT LEGEND'] as const;
 export const LOOP_MUTATORS = ['FAST ENEMIES', 'EXPLOSIVE DEATHS', 'MIRROR BARRAGE', 'DARKNESS'] as const;
@@ -59,12 +26,13 @@ export interface GauntletProfile {
   ng: boolean;
   cleared: number;
   title: number;
+  badge: number;
 }
 export function normalizeGauntlet(raw: unknown): GauntletProfile {
   const r = raw && typeof raw === 'object' ? raw as Partial<GauntletProfile> : {};
   const unlocked = ascensionLevel(r.unlocked);
   const cleared = Math.min(unlocked, ascensionLevel(r.cleared));
-  return { version: 1, unlocked, selected: Math.min(unlocked, ascensionLevel(r.selected)), victory: r.victory === true,
+  return { version: 1, unlocked, badge: Math.min(cleared, ascensionLevel(r.badge)), selected: Math.min(unlocked, ascensionLevel(r.selected)), victory: r.victory === true,
     ng: r.victory === true && r.ng === true, cleared, title: Math.max(0, Math.min(Math.floor(cleared / 5), Math.floor(Number(r.title) || 0))) };
 }
 export const gauntletProfile = normalizeGauntlet(loadJson('gauntlet.profile.v1', null));
@@ -73,6 +41,7 @@ export const persistGauntlet = () => saveJson('gauntlet.profile.v1', gauntletPro
 export function recordAscensionVictory(level: number, hard: boolean): void {
   gauntletProfile.victory = true;
   if (hard) {
+    if (level > gauntletProfile.cleared) gauntletProfile.badge = ascensionLevel(level);
     const titlesBefore = Math.floor(gauntletProfile.cleared / 5);
     gauntletProfile.cleared = Math.max(gauntletProfile.cleared, ascensionLevel(level));
     gauntletProfile.unlocked = Math.max(gauntletProfile.unlocked, Math.min(20, ascensionLevel(level) + 1));

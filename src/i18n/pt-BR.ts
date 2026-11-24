@@ -1,5 +1,6 @@
 import { masteryEn } from './mastery';
 import { launchEn } from './g10launch';
+import { ascensionEn } from './g9ascension';
 import { menusEn } from './menus';
 import { arabic2En } from './arabic2';
 import type { en } from './en';
@@ -9,6 +10,7 @@ export const ptBR = {
   // Explicit English fallback for new copy; native editorial work is pending.
   ...masteryEn,
   ...launchEn,
+  ...ascensionEn,
   ...menusEn,
   ...arabic2En,
   "architect.dataName": "O Arquiteto",

@@ -13,11 +13,12 @@ import { createRaidArena } from '../raid/arena';
 import { spawnSpotFor } from '../eightp';
 import { clearHalloween, dressHalloween, resetHalloween, selectSeason } from './halloween';
 import { seasonAt, seasonalStage } from '../../data/seasons';
+import { abyssUnlocked, abyssExtras, beginAbyss, endAbyss, FLOOR_SECONDS } from '../abyss';
 import { gauntletScore } from '../../data/ascension';
 import { startGauntlet, gauntletStage, gauntletSub, bankGauntlet, loadGauntletScores, challengeState } from './gauntlet';
 import { createMvp } from './mvp';
 import { startMeta, visitMeta, bankMeta } from './meta';
-import { weeklyChallenge } from '../../data/weekly';
+import { isoWeek, weeklyChallenge } from '../../data/weekly';
 /**
  * Run flow: starting runs and stages, stage clears, the shop and portal, game over and achievements.
  * Split out of src/game/game.ts: these are Game methods (`this` is the Game),
@@ -104,6 +105,7 @@ export function spawnSpot(this: Game, i: number): { x: number; z: number } {
 }
 
 export function goTitle(this: Game): void {
+  endAbyss(this);
   finishTelemetry(this, 'quit');
   this.paused = false;
   this.mode = 'title';
@@ -165,8 +167,12 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   this.paused = false;
   if (this.role !== 'solo' && this.lobbyKind !== 'weekly' && this.lobbyKind !== 'raid') this.runMode = 'standard'; // online weekly co-op keeps 'weekly'
   this.difficulty = fixed ? DIFF_BY_ID[fixed.difficulty as DifficultyId] ?? DIFF_BY_ID.normal : this.pickDifficulty();
+  if (this.runMode === 'abyss' && !abyssUnlocked()) this.runMode = 'standard';
+  if (this.runMode === 'abyss') this.difficulty = DIFF_BY_ID.normal;
   this.runDate = today();
   this.seed = fixed ? fixed.seed : this.runMode === 'daily' ? dailySeed(this.runDate) : randomSeed();
+  const descentWeek = this.runMode === 'abyss' ? isoWeek() : '';
+  if (descentWeek) this.seed = dailySeed('abyss:' + descentWeek);
   this.rng = new Rng(this.seed);
   this.stage = 1;
   this.score = this.kills = this.combo = this.maxCombo = 0;
@@ -189,6 +195,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   // Everyone keeps the loadout they picked; this machine's comes from its settings.
   if (this.role !== 'client') this.hero.loadoutPick = validLoadout(settings.loadout, cheats.unlockAll ? undefined : unlockedLoadout());
   startMeta(this);
+  if (this.runMode === 'abyss') this.meta.heat = [];
   startMeta2(this); // profile/quest tally (systems/meta2.ts)
   this.rng = new Rng(this.seed);
   for (const h of this.heroes) {
@@ -196,6 +203,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
     h.startRun();
     h.player.showWhenDead = this.heroes.length > 1;
   }
+  beginAbyss(this, () => cheats.god || cheats.unlockAll || modSession.count > 0 || !!editorNet(this), descentWeek);
   startGauntlet(this);
   this.clearWorld();
   this.hud.resetScore();
@@ -237,6 +245,7 @@ export function retry(this: Game): void {
 /** Stage banner subtitle: biome, loop and what the stage ends with. */
 export function stageSub(this: Game, stage: number): string {
   const challenge = gauntletSub(this);
+  if (this.runMode === 'abyss') return challenge;
   if (this.runMode === 'gauntlet' || this.runMode === 'bossrush') return challenge;
   const loop = Math.ceil(stage / LOOP_STAGES);
   const final = stage % LOOP_STAGES === 0 ? '<br>FINAL BOSS STAGE' : '';
@@ -254,7 +263,7 @@ export function loadStage(this: Game, stage: number): void {
   });
   this.director.start(stage);
   this.director.countMul = (1 + this.curseSum('enemyCount')) * this.difficulty.enemyCount * (this.meta.has('crowds') ? 1.25 : 1);
-  this.runEvents.startStage(this.director.duration);
+  this.runEvents.startStage(this.runMode === 'abyss' ? FLOOR_SECONDS : this.director.duration);
   if (seasonalStage(stage, this.halloween.season)) { this.vfx.sound('spookySting', NaN, NaN); this.vfx.sound('halloweenVoice', NaN, NaN); }
   if (this.runMode === 'bossrush') this.bossRushStage();
   for (const h of this.heroes) {
@@ -274,6 +283,7 @@ export function loadStage(this: Game, stage: number): void {
   this.routeStageStart();
   this.modesStageStart(); // rhythm stage / Pacifist road rules, weekly ghost (systems/modes.ts)
   if (this.runMode === 'gauntlet') { this.modes.rhythm = false; this.modes.pacifist = false; this.modes.holster = false; }
+  if (this.runMode === 'abyss') this.director.lengthMul = FLOOR_SECONDS / this.director.duration;
   this.startRaid();
   this.checkAchievements();
 }
@@ -286,6 +296,7 @@ export function pause(this: Game): void {
       ? this.netMods.filter((m) => MOD_BY_ID[m.id]).map((m) => ({ def: MOD_BY_ID[m.id], level: m.lv ?? 1 }))
       : this.hero.synergy.slots.map((sl) => ({ def: sl.def, level: sl.level }));
   this.screens.setPauseBuild(this.hero.loadout(), mods, [
+    ...abyssExtras(this),
     ...WEAPON_COMBOS.filter((c) => this.hero.combos.has(c.id)).map((c) => ({ id: c.weapons[0], name: c.name, desc: c.desc, icon: '+', color: c.color })),
     ...this.curses.filter((id) => CURSE_BY_ID[id]).map((id) => ({ ...CURSE_BY_ID[id], curse: true })),
   ], this.pauseInfo(), this.hero.relics.filter((id) => RELIC_BY_ID[id]).map((id) => RELIC_BY_ID[id]));
@@ -308,7 +319,7 @@ export function summary(this: Game, h: Hero): RunSummary {
     downed: h.player.dead,
     squad: this.squadRun ? this.heroes.length - 1 : undefined,
     mvp: this.mvp.report ?? undefined,
-    score: this.runMode === 'raid' ? this.score : this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : Math.floor(this.score * this.meta.multiplier),
+    score: this.runMode === 'abyss' ? this.stage : this.runMode === 'raid' ? this.score : this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : Math.floor(this.score * this.meta.multiplier),
     heat: this.meta.points,
     clears: this.victories,
     bosses: this.bossesRun,
@@ -368,6 +379,10 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   persist();
   if (quit) { if (this.squadRun) this.leaveToTitle(); else this.goTitle(); return; }
   this.hud.toast(`+${bolts} BOLTS · COSMETICS ONLY`, 4);
+  if (this.runMode === 'abyss') {
+    this.screens.showGameOver(sum, -1, [], false, personalDeaths(this, sum.downed ?? false));
+    return;
+  }
   const custom = editorScores(this, sum); // custom arenas keep their own best (systems/editor.ts)
   if (!this.squadRun && !assistedRun(this) && leaderboardEnabled && !custom && this.role !== 'client' && (this.runMode !== 'raid' || this.victories > 0)) {
     const board = this.meta.week ? weeklyChallenge(this.meta.week).board : boardId(this.runMode, this.difficulty.id, this.runDate);

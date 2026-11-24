@@ -1,3 +1,4 @@
+import { abyss, FLOOR_SECONDS } from '../abyss';
 import { renderWeather2, prepareWeather2 } from './weather2';
 import { eliteLabel, eliteDetail, installEliteStyle } from './elites2';
 import { reduceMotion } from '../../ui/hud';
@@ -390,7 +391,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
       dashLabel: p.noDash ? 'PARRY' : undefined,
       bomb01: local.bombCharge,
       special: local.specialDef.short,
-      score: this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : this.score * this.meta.multiplier,
+      score: this.runMode === 'abyss' ? this.stage : this.runMode === 'gauntlet' ? gauntletScore(challengeState(this).time, this.kills) : this.score * this.meta.multiplier,
       metaLabel: this.meta.label,
       combo: this.combo,
       multiplier: this.multiplier,
@@ -398,7 +399,7 @@ export function render(this: Game, alpha: number, frameDt: number): void {
       stage: this.stage,
       level: this.level,
       xp01: this.xp / this.xpNext,
-      timeLeft: client ? this.netTimeLeft : !this.director.bossSpawned ? this.director.remaining : this.boss ? -1 : -2,
+      timeLeft: this.runMode === 'abyss' ? FLOOR_SECONDS - (abyss(this)?.elapsed ?? 0) : client ? this.netTimeLeft : !this.director.bossSpawned ? this.director.remaining : this.boss ? -1 : -2,
       kills: this.kills,
       gold: local.gold,
       gears: local.rerollsLeft,

@@ -764,6 +764,7 @@ export class Screens {
         }
         case 'md-back':
           return actions.title();
+        case 'g-badge':
         case 'g-up': case 'g-down': case 'g-ng': case 'g-title': case 'g-records':
           gauntletOption(btn.dataset.act!, this);
           if (this.current === 'modes') this.renderModes();
@@ -1421,6 +1422,11 @@ export class Screens {
       localizeHtml(`<button data-nav data-act="shop-reroll" class="${v.rerollCost > v.gold ? 'cant' : ''}">REROLL ${v.rerollCost ? `<span class="gold-dot"></span> ${v.rerollCost}` : 'FREE'}</button>` +
       `<button data-nav data-act="shop-heal" class="${v.healed || v.healCost > v.gold ? 'cant' : ''}">${t("text.heal_40_da23d4")} <span class="gold-dot"></span> ${v.healCost}</button>` +
       `<button data-nav data-act="shop-done" class="continue">CONTINUE &#9654;</button>`);
+    if (!Number.isFinite(v.rerollCost)) {
+      const reroll = el.querySelector<HTMLButtonElement>('[data-act=shop-reroll]')!;
+      reroll.textContent = t('asc.rerollUsed');
+      reroll.disabled = true;
+    }
     el.querySelector('.owned-title')!.textContent = localize(`YOUR MODS ${v.owned.length}/${v.slots} — damage flows left to right`);
     const empty = Math.max(0, v.slots - v.owned.length);
     el.querySelector('.owned-mods')!.innerHTML =

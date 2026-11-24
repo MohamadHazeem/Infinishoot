@@ -1,5 +1,5 @@
 /** Game modes and difficulty levels, picked on the MODE screen before a solo run. */
-export type ModeId = 'standard' | 'endless' | 'bossrush' | 'daily' | 'weekly' | 'gauntlet' | 'raid';
+export type ModeId = 'standard' | 'endless' | 'bossrush' | 'daily' | 'weekly' | 'gauntlet' | 'raid' | 'abyss';
 
 export interface ModeDef {
   id: ModeId;
@@ -45,6 +45,9 @@ export const DIFFICULTIES: DifficultyDef[] = [
 
 export const DIFF_BY_ID = Object.fromEntries(DIFFICULTIES.map((d) => [d.id, d])) as Record<DifficultyId, DifficultyDef>;
 export const MODE_BY_ID = Object.fromEntries(MODES.map((m) => [m.id, m])) as Record<ModeId, ModeDef>;
+
+// Only the unlocked Play menu advertises this post-game mode.
+MODE_BY_ID.abyss = { id: 'abyss', name: 'The Abyss', desc: 'Survive each floor for 45 seconds. A new weekly mutation stacks on every floor.' };
 
 export function hasSafetyNets(id: DifficultyId): boolean {
   return id === 'easy' || id === 'assist';
