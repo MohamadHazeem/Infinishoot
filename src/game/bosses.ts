@@ -1,8 +1,10 @@
+import { miniStep } from './bossesMinis';
+import { isAct, type BossActs } from './bossesActs';
 import { biome3Brain, type Biome3Api } from './biome3Brain';
 import { BIOME3_PHASE_LINES } from '../data/biome3';
 /**
  * Boss brains: King Bopper, Rampage Rex, Hive Queen, Omega Overlord and the
- * mid-stage mini-bosses (smaller copies that share these brains).
+ * mid-stage mini-bosses (their independent phrases live in bossesMinis.ts).
  *
  * Phases: every boss def lists the HP fractions where its next phase starts
  * (`EnemyDef.phases`). Game.damage clamps HP at the threshold (`phaseGate`), so
@@ -80,7 +82,7 @@ export const bossMoveTuning = {
 };
 
 /** Boss special moves (beyond the BossAction the codec carries). Index = net code. */
-export const BOSS_MOVES = ['', 'eight', 'breath', 'hive', 'wall', 'grid', 'drop', 'punch', 'pinball', 'gust', 'board'] as const; // grid..board: biome bosses (src/game/bosses3.ts)
+export const BOSS_MOVES = ['', 'eight', 'breath', 'hive', 'wall', 'grid', 'drop', 'punch', 'pinball', 'gust', 'board', 'crown', 'brake', 'brood', 'scan', 'brakeRush', 'switchback', 'skipFork', 'skipCentre', 'petals'] as const; // grid..board: biome bosses (src/game/bosses3.ts)
 export type BossMove = (typeof BOSS_MOVES)[number];
 
 /** Short line shown with each phase change. */
@@ -96,6 +98,7 @@ export const PHASE_LINES: Record<string, string[]> = {
 
 /** Things the boss brains need from the game beyond EnemyCtx. Host only. */
 export interface BossApi {
+  acts?: BossActs;
   biome3?: Biome3Api;
   /** An expanding shockwave ring centred on (x, z), starting after `delay`. */
   shockwave(e: Enemy, x: number, z: number, delay: number): void;
@@ -228,7 +231,7 @@ export function ring(e: Enemy, ctx: EnemyCtx, n: number, speed: number, damage: 
 }
 
 /** Pick the next attack from a phase's rotation. */
-export function next<T>(e: Enemy, order: T[]): T {
+export function next<T>(e: Enemy, order: readonly T[]): T {
   return order[e.step++ % order.length];
 }
 
@@ -247,6 +250,7 @@ export function updateBoss(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: 
   }
   if (e.roarT > 0) {
     // Roar / entrance: hold still, blink, then open the next attack set.
+    if (e.phase === 3) ctx.boss?.acts?.roar(e, dt);
     e.roarT -= dt;
     e.vx = e.vz = 0;
     e.facing = Math.atan2(nx, nz);
@@ -261,6 +265,8 @@ export function updateBoss(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: 
     return false;
   }
   const sp = bossSpeed(e, speed);
+  if (e.def.id === 'prince' || e.def.id === 'rexling' || e.def.id === 'princess') return miniStep(e, dt, ctx, nx, nz, sp);
+  if ((isAct(e.move) || e.move === 'brakeRush') && ctx.boss?.acts) return ctx.boss.acts.step(e, ctx, nx, nz);
   if (!isMini(e) && !BOSS3_BEHAVIORS.includes(e.def.behavior)) twist(e, dt, ctx);
   switch (e.def.behavior) {
     case 'boss':
@@ -278,7 +284,7 @@ export function updateBoss(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: 
     case 'gale':
       return bosses3Step(e, dt, ctx, nx, nz, dist, sp); // biome bosses (src/game/bosses3.ts)
     default:
-      return omega(e, dt, ctx, nx, nz, dist, sp);
+      return omega(e, dt, ctx, nx, nz, sp);
   }
 }
 
@@ -313,10 +319,34 @@ function twist(e: Enemy, dt: number, ctx: EnemyCtx): void {
   } else e.twistT = 1; // Rex: scorched earth happens in its charges
 }
 
-/** King Bopper / Prince Bopper. Returns true while airborne. */
+// Fixed phrases. An available counter leads each phase and returns between attacks.
+// A skipped/blocked placement still consumes its turn.
+const KING_REMATCH: BossAction[][] = [['ring', 'slam', 'ring', 'summon'], ['slam', 'ring', 'slam', 'summon'], ['slam', 'ring', 'summon', 'slam', 'ring']];
+const KING = [
+  ['crown', 'ring', 'slam', 'summon'],
+  ['crown', 'slam', 'ring', 'crown', 'summon', 'slam'],
+  ['crown', 'slam', 'ring', 'crown', 'summon', 'slam', 'ring'],
+] as const;
+const REX = [
+  ['brake', 'charge', 'spiral', 'waves'],
+  ['brake', 'eight', 'spiral', 'brake', 'charge', 'waves'],
+  ['brake', 'breath', 'waves', 'brake', 'eight', 'spiral'],
+] as const;
+const QUEEN = [
+  ['brood', 'volley', 'rain', 'summon'],
+  ['brood', 'hive', 'volley', 'brood', 'rain', 'summon'],
+  ['brood', 'wall', 'volley', 'brood', 'rain', 'wall'],
+] as const;
+const OMEGA = [
+  ['scan', 'ring', 'charge', 'rain', 'slam'],
+  ['scan', 'spiral', 'waves', 'scan', 'rain', 'volley', 'charge'],
+  ['scan', 'spiral', 'slam', 'scan', 'waves', 'charge', 'volley'],
+] as const;
+
+/** King Bopper. Returns true while airborne. */
 function king(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: number, speed: number): boolean {
   const tgt = ctx.target;
-  const ph = e.phase;
+  const ph = Math.min(3, e.phase);
   const mini = isMini(e);
   const R = e.def.remix;
   e.facing = Math.atan2(nx, nz);
@@ -325,9 +355,13 @@ function king(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist:
     e.vz = nz * speed;
     e.timerA -= dt;
     if (e.timerA <= 0 && ctx.targetAlive) {
-      // Slam when far away, otherwise rotate through the phase's attacks.
-      const order: BossAction[] = ph === 1 ? ['ring', 'slam', 'ring', 'summon'] : ph === 2 ? ['slam', 'ring', 'slam', 'summon'] : ['slam', 'ring', 'summon', 'slam', 'ring'];
-      e.action = dist > 9 ? 'slam' : next(e, order);
+      const pick = e.def.id === 'king' && ctx.boss?.acts ? next(e, KING[ph - 1])
+        : dist > 9 ? 'slam' : next(e, KING_REMATCH[ph - 1]);
+      if (pick === 'crown') {
+        ctx.boss!.acts!.begin(e, pick, ctx, nx, nz);
+        return true;
+      }
+      e.action = pick;
       e.vx = e.vz = 0;
       if (e.action === 'slam') {
         e.burst = mini ? 1 : ph; // hops in a row
@@ -412,12 +446,12 @@ function king(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist:
   return false;
 }
 
-/** Rampage Rex / Rex Jr. Returns true while charging. */
+/** Rampage Rex. Returns true while charging. */
 function rex(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: number, speed: number): boolean {
   const T = bossMoveTuning;
   const CHARGE_SPEED = 24;
   const CHARGE_TIME = 0.5;
-  const ph = e.phase;
+  const ph = Math.min(3, e.phase);
   const mini = isMini(e);
   const R = e.def.remix;
   if (e.state === 'move') {
@@ -435,8 +469,9 @@ function rex(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: 
               ? ['eight', 'charge', 'breath', 'spiral', 'charge', 'waves']
               : ['eight', 'charge', 'spiral', 'charge', 'waves']
             : ['breath', 'charge', 'waves', 'eight', 'breath', 'spiral'];
-      let pick: Pick = next(e, order);
-      if (dist > 13 && pick !== 'eight' && pick !== 'breath') pick = 'charge';
+      const chosen = e.def.id === 'rex' && ctx.boss?.acts ? next(e, REX[ph - 1]) : next(e, order);
+      if (chosen === 'brake') { ctx.boss!.acts!.begin(e, chosen, ctx, nx, nz); return true; }
+      const pick = R && dist > 13 && chosen !== 'eight' && chosen !== 'breath' ? 'charge' : chosen;
       e.vx = e.vz = 0;
       e.move = '';
       if (pick === 'eight' || pick === 'breath') {
@@ -579,10 +614,10 @@ function hover(e: Enemy, dt: number): void {
   e.hopY = (isMini(e) ? 1.1 : 1.4) + Math.sin(e.timerB * 3) * 0.3;
 }
 
-/** Hive Queen / Hive Princess: hovers at range and circles you. */
+/** Hive Queen: hovers at range and circles you. */
 function queen(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: number, speed: number): void {
   const tgt = ctx.target;
-  const ph = e.phase;
+  const ph = Math.min(3, e.phase);
   const mini = isMini(e);
   const R = e.def.remix;
   e.facing = Math.atan2(nx, nz);
@@ -604,7 +639,9 @@ function queen(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
               ? ['hive', 'volley', 'wall', 'rain', 'hive', 'volley', 'summon']
               : ['hive', 'volley', 'rain', 'hive', 'volley', 'summon']
             : ['wall', 'volley', 'hive', 'rain', 'wall', 'volley'];
-      let pick = next(e, order);
+      const chosen = e.def.id === 'queen' && ctx.boss?.acts ? next(e, QUEEN[ph - 1]) : next(e, order);
+      if (chosen === 'brood') { ctx.boss!.acts!.begin(e, chosen, ctx, nx, nz); return; }
+      let pick = chosen;
       const cap = mini ? 2 : bossMoveTuning.hiveMax;
       if (pick === 'hive' && (ctx.boss?.hiveCount() ?? cap) >= cap) pick = 'volley';
       e.move = pick === 'hive' || pick === 'wall' ? pick : '';
@@ -686,7 +723,7 @@ const OMEGA_ORDER: BossAction[][] = [
  * rains strikes on you with every attack. Every attack winds up for at least
  * 0.4 s and every pattern leaves gaps. Returns true while charging or airborne.
  */
-function omega(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist: number, speed: number): boolean {
+function omega(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, speed: number): boolean {
   const tgt = ctx.target;
   const ph = Math.min(3, e.phase);
   const C = e.def.charge!;
@@ -696,10 +733,9 @@ function omega(e: Enemy, dt: number, ctx: EnemyCtx, nx: number, nz: number, dist
     e.vz = nz * speed;
     e.timerA -= dt;
     if (e.timerA <= 0 && ctx.targetAlive) {
-      const order = OMEGA_ORDER[ph - 1];
-      // Far away: close in with a charge or a jump.
-      e.action = dist > C.range ? (e.step % 2 ? 'slam' : 'charge') : order[e.step % order.length];
-      e.step++;
+      const pick = e.def.id === 'omega' && ctx.boss?.acts ? next(e, OMEGA[ph - 1]) : next(e, OMEGA_ORDER[ph - 1]);
+      if (pick === 'scan') { ctx.boss!.acts!.begin(e, pick, ctx, nx, nz); return true; }
+      e.action = pick;
       e.vx = e.vz = 0;
       e.burst = e.action === 'slam' ? ph : ph + 1; // slams, charges, rings, waves, fans
       e.targetX = tgt.x;

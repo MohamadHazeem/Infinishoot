@@ -726,6 +726,19 @@ div.mod-card.sold,
   --ring: var(--white);
 }
 
+#dashpip.stamina { background: var(--ink); color: var(--white); }
+#dashpip .dash-cells { display: none; }
+#dashpip.stamina .dash-cells {
+  position: absolute;
+  inset-inline: var(--p);
+  top: 40%;
+  height: 24%;
+  display: flex;
+  gap: var(--p);
+}
+.dash-cells i { flex: 1; background: var(--slate); }
+.dash-cells i.full { background: var(--sky); }
+
 #bombpip {
   --c: var(--orange);
 }
@@ -4400,3 +4413,38 @@ table.history .cause {
   height: 48px;
   image-rendering: pixelated;
 }
+
+.armour-hint {
+  font: calc(5 * var(--p)) / 1.1 var(--font);
+}
+.ob-cx > .armour-hint {
+  grid-column: 1 / -1;
+  color: var(--yellow);
+}
+/* Hero paths share the pause build's scroll area and its pixel palette. */
+.path-panel {
+  flex: 1 1 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(2 * var(--p)) calc(6 * var(--p));
+  text-align: start;
+}
+.path-panel .pi-t { grid-column: 1 / -1; }
+.path-row { background: var(--ink); padding: calc(2 * var(--p)); color: var(--mist); font-size: calc(6 * var(--p)); line-height: 1.15; }
+.path-row b { color: var(--cyan); }
+.path-row div { color: var(--white); }
+
+.set-chip.path-chip { font-size: calc(4 * var(--p)); }
+@media (max-width: 600px) {
+  .path-panel { grid-template-columns: 1fr; }
+}
+/* Gate 5 contracts use the existing route map, loadout dock and card frames. */
+#scr-levelup .card.rule { --hi: var(--yellow); --lo: var(--plum); }
+#scr-levelup .card.rule .tag { background: var(--plum); color: var(--yellow); }
+#scr-levelup .card.rule .name { color: var(--plum); }
+#scr-levelup .card.rule .icon { --bg: var(--plum); --lo: var(--ink); color: var(--yellow); }
+.draft-wallet { color: var(--yellow); }
+.draft-wallet { align-self: center; font-family: var(--label); }
+#runinfo .pact-heat { color: var(--orange); }
+#scr-route .pact-row { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(3 * var(--p)); }
+#scr-route .pact-row button { max-width: 92vw; color: var(--yellow); white-space: normal; font-family: var(--font); }

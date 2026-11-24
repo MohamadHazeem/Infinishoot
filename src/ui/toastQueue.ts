@@ -18,6 +18,9 @@ export const toastTuning = {
 
 export interface QueuedToast { msg: string; seconds: number; waited: number }
 
+/** CineUi creates these four centre overlays together and toggles their hidden attributes. */
+export const CINEMATIC_TITLES = '.cn-end, .cn-reveal, .cn-jack, .cn-flaw';
+
 export class ToastQueue {
   readonly waiting: QueuedToast[] = [];
   /** The message on screen ('' when none) and how long it has shown. */
@@ -41,7 +44,8 @@ export class ToastQueue {
 
   /** Advance by dt; returns the next toast to show now, or null. `left` <= 0 means the shown toast should hide. */
   update(dt: number, blocked: boolean): QueuedToast | null {
-    if (this.left > 0) {
+    // A title may interrupt a toast after it started. Keep its remaining reading time.
+    if (!blocked && this.left > 0) {
       this.left -= dt;
       this.shownFor += dt;
       if (this.left <= 0) this.current = '';
@@ -61,16 +65,4 @@ export class ToastQueue {
     this.shownFor = 0;
     return t;
   }
-}
-
-/** Title cards that toasts must not cover: the big banner, the boss intro letterbox, cinematic reveals. */
-const TITLE_CARDS = '#banner.show, #bossintro:not([hidden]), .cn-reveal:not([hidden]), .cinematic';
-
-/** True while a big title card is on screen (DOM check; call only when a toast is waiting). */
-export function titleCardUp(): boolean {
-  if (typeof document === 'undefined') return false;
-  for (const el of document.querySelectorAll<HTMLElement>(TITLE_CARDS)) {
-    if (typeof el.checkVisibility !== 'function' || el.checkVisibility({ visibilityProperty: true, opacityProperty: true })) return true;
-  }
-  return false;
 }

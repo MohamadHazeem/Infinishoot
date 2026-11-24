@@ -1,3 +1,8 @@
+import { NemesisUi } from '../ui/nemesisUi';
+import { Nemesis } from './nemesis';
+import { offerPathHints, pathDamageName } from './archetypes';
+import { registerKinds } from './gameplay';
+import { patternedShot } from './enemyBullets';
 import { installSteam } from '../platform/steam';
 import { installTelemetry } from './systems/telemetry';
 import * as ArchitectSys from './systems/architect';
@@ -10,7 +15,7 @@ import { installEditor } from './systems/editor';
 import { clipInput } from './systems/clips';
 import { updateSecrets, secretsHolding, NO_SECRET_REQUESTS } from './systems/secrets';
 import * as RaidSys from './systems/raid';
-import { installSpectate } from './systems/spectate';
+import { installSpectate, spectating } from './systems/spectate';
 import * as GauntletSys from './systems/gauntlet';
 import * as Director2Sys from './systems/director2';
 import * as MvpSys from './systems/mvp';
@@ -40,6 +45,7 @@ import { isSpecialRunning, updateSpecials, type SpecialApi } from './specials';
 import { NetClient, NetHost } from '../net/peer';
 import { DamageNumbers } from '../ui/damageNumbers';
 import { Hud, type LoadoutItem } from '../ui/hud';
+import { buyPart, canSalvage, observeDiscoveries, salvageGear } from './crafting';
 import { Screens, type ShopView } from '../ui/screens';
 import type { CardNum } from './cardNumbers';
 import { createFieldArena, type Arena } from '../world/fieldArena';
@@ -53,6 +59,8 @@ import { Enemies, type Enemy, type EnemyCtx, type SpawnOpts } from './enemies';
 import { Fx } from './fx';
 import { HERO_COLORS, Hero, MAX_GEARS, type HeroWorld } from './hero';
 import { Juice } from './juice';
+import { contractView, mirrorContracts, prepareRejoins, withRuleDamage, ruleKill } from './ruleCards';
+import { couchHeat, payPacts, showPacts } from './pacts';
 import { damageWithFeedback, escapeBeat, hurtBeat } from './juiceCombat';
 import { Particles } from './particles';
 import { PickupType, Pickups, type Collector } from './pickups';
@@ -88,11 +96,13 @@ import * as NetHostSys from './systems/netHost';
 import { voiceTick } from './systems/voicechat';
 import * as NetClientSys from './systems/netClient';
 import * as RenderSys from './systems/render';
+import { updatePatrolBadges } from './squads';
 import * as EnemyAiSys from './systems/enemyAi';
 import * as AnimSys from './systems/anim';
 import * as LookSys from './systems/look';
 import * as BossFightSys from './systems/bossFight';
 import { BossField } from './bossField';
+import { BossActs } from './bossesActs';
 import { BossIntro } from './bossIntro';
 import type { BossApi } from './bosses';
 import type { BossDuel } from './bossDuel';
@@ -239,6 +249,9 @@ export const BULLET_KINDS: { source: string; tags?: Tag[] }[] = [
   { source: 'dragon_cannon', tags: ['projectile', 'fire', 'trail'] }, // 15 Dragon Cannon (fusion, src/data/fusions.ts)
   { source: 'sentry' }, // 16 Pocket Sentry; evolution tags come from its owner's build
 ];
+// Preserve the existing mech and relic IDs (17..23) before appending the enemy team (24..28).
+registerKinds(BULLET_KINDS);
+for (const source of ['delayed', 'ricochet', 'curve', 'split', 'boomerang']) BULLET_KINDS.push({ source });
 /** Bullet kinds that burst on their first hit: full-charge shots, Flak Cannon pellets and Star Cannon stars. */
 export const IMPACT_BLAST = [1, 5, 8];
 export const SNAP_EVERY = 3; // host snapshot every N sim steps (20 Hz)
@@ -319,6 +332,7 @@ export function kitText(l: Loadout): string {
 
 /** Shop view sent over the network (Mods referenced by id). */
 export interface NetShop {
+  pathHints?: ShopView['pathHints'];
   pre?: boolean;
   gold: number;
   interest: number;
@@ -352,6 +366,7 @@ export function playerName(): string {
  */
 export class Game implements HeroWorld {
   // Methods that live in src/game/systems/ (see the header of each file).
+  readonly nemesis: Nemesis;
   updateWind = WindSys.updateWind;
   // Mid-stage world events and Night Raid stealth stages (src/game/systems/worldEvents.ts).
   updateWorldEvent = WorldEventsSys.updateWorldEvent;
@@ -384,6 +399,7 @@ export class Game implements HeroWorld {
     coopPlayState(this).force = null;
     this.phoenixOwners.clear();
     TimeSys.startTimeRun(this);
+    this.nemesis.reset();
     RunFlowSys.startRun.call(this, fixed);
   };
   restart = RunFlowSys.restart;
@@ -397,7 +413,10 @@ export class Game implements HeroWorld {
   bankAndShow = RunFlowSys.bankAndShow;
   mvp = MvpSys.createMvp();
   mvpStep = MvpSys.mvpStep;
-  mvpKill = MvpSys.mvpKill;
+  mvpKill: typeof MvpSys.mvpKill = function (e, h) {
+    MvpSys.mvpKill.call(this, e, h);
+    if (h?.play.ruleId) ruleKill.call(this, e, h);
+  };
   mvpHurt = MvpSys.mvpHurt;
   mvpRevive = MvpSys.mvpRevive;
   mvpShared = MvpSys.mvpShared;
@@ -432,12 +451,18 @@ export class Game implements HeroWorld {
   portalSpot = SpiceSys.portalSpot;
   gainXp = withDifficulty(LevelUpsSys.gainXp);
   openLevelUp = LevelUpsSys.openLevelUp;
-  presentLevelUp = LevelUpsSys.presentLevelUp;
+  presentLevelUp = (h: Hero): void => {
+    offerPathHints(h, h.offers); // includes the Pacifist reward and a migrating host's restored hand
+    LevelUpsSys.presentLevelUp.call(this, h);
+  };
   presentWait = LevelUpsSys.presentWait;
   presentShop = LevelUpsSys.presentShop;
   tell = LevelUpsSys.tell;
   ui = LevelUpsSys.ui;
-  heroAction = LevelUpsSys.heroAction;
+  heroAction: typeof LevelUpsSys.heroAction = function (h, a, i, d) {
+    if (a === 'craft') return buyPart(this, h, i);
+    LevelUpsSys.heroAction.call(this, h, a, i, d);
+  };
   evolveFx = LevelUpsSys.evolveFx;
   fusionFx = FusionSys.fusionFx;
   legendaryFx = LevelUpsSys.legendaryFx;
@@ -453,7 +478,7 @@ export class Game implements HeroWorld {
   recycleFarEnemies = SpawningSys.recycleFarEnemies;
   nearestEnemy = CombatSys.nearestEnemy;
   enemiesInRadius = CombatSys.enemiesInRadius;
-  damage = damageWithFeedback;
+  damage = withRuleDamage(damageWithFeedback);
   updatePets = CompanionSys.updatePets;
   updateEliteMods = CombatSys.updateEliteMods;
   groundAt = CombatSys.groundAt;
@@ -468,7 +493,7 @@ export class Game implements HeroWorld {
   shatter = StatusesSys.shatter;
   zap = StatusesSys.zap;
   updateStatuses = StatusesSys.updateStatuses;
-  sourceName = StatusesSys.sourceName;
+  sourceName = (id: string): string => pathDamageName(id) ?? StatusesSys.sourceName.call(this, id);
   private killDepth = 0;
   private readonly killScoped = withDifficulty(StatusesSys.killEnemy);
   killEnemy(e: Enemy, source: string, by: Hero | null): void {
@@ -488,7 +513,9 @@ export class Game implements HeroWorld {
   contactDamage = StatusesSys.contactDamage;
   hurtHero = withDifficulty(StatusesSys.hurtHero);
   onHeroDown = StatusesSys.onHeroDown;
-  collect = StatusesSys.collect;
+  collect: typeof StatusesSys.collect = function (h, type, value) {
+    if (type !== PickupType.Gear || !salvageGear(this, h)) StatusesSys.collect.call(this, h, type, value);
+  };
   updateBullets = StatusesSys.updateBullets;
   updateChests = StatusesSys.updateChests;
   updateChestSpawns = GauntletSys.updateChestSpawns;
@@ -524,6 +551,8 @@ export class Game implements HeroWorld {
     const snap = NetHostSys.buildSnapshot.call(this, h, events, view);
     if (!view && h.synergy.slots.length && h.synergy.lastModHit !== null)
       snap.modHit = Math.round(h.synergy.lastModHit * 100);
+    const contracts = !view && contractView(h);
+    if (contracts) snap.contract = contracts;
     return snap;
   };
   onClientMessage = NetClientSys.onClientMessage;
@@ -531,15 +560,20 @@ export class Game implements HeroWorld {
   clientStart: typeof NetClientSys.clientStart = function (seed, you, players) {
     this.phoenixOwners.clear();
     TimeSys.startTimeRun(this);
+    this.nemesis.reset();
     NetClientSys.clientStart.call(this, seed, you, players);
   };
   clientStage = NetClientSys.clientStage;
   clientUpdate = NetClientSys.clientUpdate;
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
+    if (mirrorContracts(this.hero, m.contract)) this.screens.refreshPacts();
     this.hero.synergy.lastModHit = typeof m.modHit === 'number' ? m.modHit / 100 : null;
   }
-  syncWeapons = NetClientSys.syncWeapons;
+  syncWeapons: typeof NetClientSys.syncWeapons = function (h, list) {
+    NetClientSys.syncWeapons.call(this, h, list);
+    if (h === this.hero && !spectating(this)) observeDiscoveries(this, h);
+  };
   eliteTrails = RenderSys.eliteTrails;
   spectateTarget = RenderSys.spectateTarget;
   coopInput = RenderSys.coopInput;
@@ -582,7 +616,10 @@ export class Game implements HeroWorld {
   routeChest = RouteSys.routeChest;
   routeGears = RouteSys.routeGears;
   updateRoute = RouteSys.updateRoute;
-  routeClearRewards = RouteSys.routeClearRewards;
+  routeClearRewards(): void {
+    RouteSys.routeClearRewards.call(this);
+    payPacts.call(this);
+  }
   openRoute = RouteSys.openRoute;
   routeBeginVote = RouteSys.routeBeginVote;
   routePick = RouteSys.routePick;
@@ -981,7 +1018,7 @@ export class Game implements HeroWorld {
     this.scene.add(this.arena.group);
     this.walls = new StaticBoxGrid(this.arena.colliders);
     this.enemies = new Enemies(this.scene);
-    this.bullets = new Bullets(this.scene);
+    this.bullets = new Bullets(this.scene, access);
     this.particles = new Particles(this.scene);
     this.fx = new Fx(this.scene);
     this.scars = new Scars(this.scene);
@@ -997,7 +1034,12 @@ export class Game implements HeroWorld {
     this.dmg = new DamageNumbers(hudRoot);
     this.dmg.localHero = () => this.hero?.index ?? 0;
     this.hud = new Hud(hudRoot);
-    this.bossField = new BossField(this.scene);
+    this.bossField = new BossField(this.scene, access);
+    const bossActs = this.bossApi.acts = new BossActs(this, hudRoot);
+    this.renderBossFight = (dt, paused) => {
+      BossFightSys.renderBossFight.call(this, dt, paused);
+      bossActs.render();
+    };
     this.bossIntro = new BossIntro(hudRoot);
     this.bossIntro.onSkip = () => this.skipBossIntro();
     this.vfx = new Vfx({
@@ -1039,6 +1081,7 @@ export class Game implements HeroWorld {
       sell: (i) => this.ui('sell', i),
       moveMod: (i, d) => this.ui('move', i, d),
       upgradeMod: (i) => this.ui('mup', i),
+      craftPart: (i) => this.ui('craft', i),
       shopReroll: () => this.ui('sreroll'),
       shopHeal: () => this.ui('heal'),
       shopDone: () => this.ui('done'),
@@ -1076,11 +1119,15 @@ export class Game implements HeroWorld {
       },
       { passive: true },
     );
+    this.screens.pathHeroes = () => this.localCoop ? this.heroes : [this.hero];
     this.hud.onPause = () => this.pause();
     this.onboarding = new Onboarding(this, hudRoot);
     this.firstten = new FirstTen(this, hudRoot);
+    this.screens.onRoutePacts = (el, v) => showPacts(this, el, v);
+    this.hud.couchHeat = () => couchHeat(this);
     this.screens.onRoutePick = (i) => this.routePick(i);
     this.enemyCtx = this.makeEnemyCtx();
+    SkillSys.installHands(this);
     this.runEvents = new RunEvents(this.makeEventHost());
     MpSys.installMp(this, hudRoot);
     PartySys.installParty(this, hudRoot);
@@ -1096,6 +1143,8 @@ export class Game implements HeroWorld {
     this.goTitle();
     installSteam(this, playerName, Coop2Sys.joinable);
     installTelemetry(this, hudRoot);
+    this.nemesis = new Nemesis(this);
+    new NemesisUi(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1155,7 +1204,7 @@ export class Game implements HeroWorld {
     // The current weapon stays on the context throughout its update. Beam
     // leech and kill rewards (including nested kills) spend one recipient budget.
     const heal = h.player.heal.bind(h.player);
-    h.player.heal = (amount) => heal((this.killDepth || h.ctx.soundSource?.def.id === 'medbeam') && amount > 0
+    h.player.heal = (amount) => h.play.ruleId === 'tithe' && amount > 0 ? 0 : heal((this.killDepth || h.ctx.soundSource?.def.id === 'medbeam') && amount > 0
       ? h.synergy.killHealing.grant(this.runTime, Math.min(amount, h.player.maxHp - h.player.hp), h.player.maxHp)
       : amount);
     h.player.setSkin(h.skin.armor, h.skin);
@@ -1233,6 +1282,10 @@ export class Game implements HeroWorld {
       get combos() {
         return hero.combos;
       },
+      craftPartner: (tag) => {
+        for (const w of hero.weapons) if (w.def.id !== 'crafted' && w.tags.includes(tag)) return true;
+        return false;
+      },
       soundSource: null,
       sound: (name) => this.vfx.sound(weaponCue(name, ctx.soundSource), hero.player.x, hero.player.z),
     };
@@ -1256,8 +1309,13 @@ export class Game implements HeroWorld {
         this.vfx.shake(e.x, e.z, 0.8);
         this.vfx.sound('bossPhase', e.x, e.z);
       },
-      onWindup: (e) => windupCue(this, e), // telegraph, threat cue and family call (systems/sound.ts)
+      onWindup: (e) => {
+        windupCue(this, e);
+        this.bossField.denial.windup(this, e);
+      },
       fireBullet: (e, dx, dz, speed, damage) => {
+        if (patternedShot(this, e, dx, dz, speed, damage)) return;
+        const slot = this.bullets.count;
         this.bullets.spawn({
           x: e.x + dx * (e.radius + 0.2),
           z: e.z + dz * (e.radius + 0.2),
@@ -1273,6 +1331,10 @@ export class Game implements HeroWorld {
           width: access.colorblind ? 0.62 : 0.5,
           length: access.colorblind ? 0.62 : 0.5,
         });
+        // The patrol's 20 m aim line also bounds its shot, including on Barrage roads.
+        if (e.def.patrolRole === 'marksman' && slot < this.bullets.count) {
+          this.bullets.life[slot] = (20 - e.radius - 0.2) / Math.hypot(this.bullets.vx[slot], this.bullets.vz[slot]);
+        }
         this.vfx.sound('enemyShoot', e.x, e.z);
       },
       spawnChild: (id, x, z) => {
@@ -1404,6 +1466,7 @@ export class Game implements HeroWorld {
 
   update(dt: number): void {
     this.stepN++;
+    updatePatrolBadges(this);
     dt = Assists.assistStep.call(this, dt);
     this.mvpStep();
     voiceTick(this, dt); // voice chat: roster, calls, push to talk, proximity (systems/voicechat.ts)
@@ -1420,7 +1483,9 @@ export class Game implements HeroWorld {
     if (this.pvp) this.pvpTick();
     this.coopInput();
     AisquadSys.squadStep.call(this);
+    const rejoin = this.role === 'host' ? prepareRejoins(this, Coop2Sys.coopState(this)) : undefined;
     this.coop2Step(dt); // drop-in joins, autopilot for dropped players, revive pool, team ultimate, ghosts (systems/coop2.ts)
+    rejoin?.();
     this.tradingStep(dt); // co-op trading, shop pools, titles, LEGEND scaling (systems/trading.ts)
     this.mpTick(dt); // MP lane: Versus command view, local co-op menu turns, lobby heartbeat (systems/mp.ts)
     this.partyTick(dt); // lobby lane: pings, ready-up countdown, party votes (systems/party.ts)
@@ -1534,6 +1599,8 @@ export class Game implements HeroWorld {
         w.update(dt, h.ctx);
       }
       h.ctx.soundSource = null;
+      if (h === this.hero || (this.localCoop && !this.squadRun)) observeDiscoveries(this, h);
+      if (this.mode === 'fight' && !this.modes.holster && this.pvp?.phase !== 'duel') h.paths.step(h, dt);
       this.weaponFeel(h);
     }
     this.updateHeroMechs(dt);
@@ -1553,8 +1620,10 @@ export class Game implements HeroWorld {
     this.companionTargets();
     coopPlayTargets(this); // the escorted core draws enemies too (systems/coopplay.ts)
     updateElites2.call(this, dt);
+    const previousLure = EnemyAiSys.preparePatrols(this, dt);
     if (this.director.enrageStep && this.boss?.active) BossFightSys.enragedEnemyStep(this, dt);
     else this.enemies.update(dt, this.enemyCtx);
+    this.enemyCtx.lure = previousLure;
     HalloweenSys.halloweenStep.call(this, dt);
     lap('sim.enemies');
     if (this.pvp?.phase === 'duel') this.updateDuel(dt);
@@ -1578,6 +1647,7 @@ export class Game implements HeroWorld {
     this.recycleFarEnemies(dt);
     lap('sim.boss+recycle');
 
+    this.bossField.denial.advance(dt, this);
     this.updateBullets(dt);
     lap('sim.bullets');
     this.barrels.update(dt, (i, b) => this.explodeBarrel(i, b));
@@ -1587,7 +1657,7 @@ export class Game implements HeroWorld {
       dt,
       this.collectors,
       (t, v, who) => this.collect(this.heroes[who], t, v),
-      (t, who, v) => (t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS) && (t !== PickupType.Chest || v < OWNED_CHEST || v - OWNED_CHEST === who),
+      (t, who, v) => (t !== PickupType.Gear || this.heroes[who].rerollsLeft < MAX_GEARS || canSalvage(this.heroes[who])) && (t !== PickupType.Chest || v < OWNED_CHEST || v - OWNED_CHEST === who),
     );
     this.updateChests();
     if (this.runMode !== 'raid' && this.mode === 'fight' && anyAlive && !this.pvp) this.updateChestSpawns(dt);
@@ -1612,6 +1682,7 @@ export class Game implements HeroWorld {
     if (this.stepN % 30 === 0) for (const e of this.enemies.list) if (e.active) markSeen(e.def.id);
     if (this.runMode === 'raid' && this.mode === 'fight' && anyAlive) this.updatePets(dt);
     if (this.runMode !== 'raid' && this.mode === 'fight' && anyAlive) {
+      this.nemesis.step(dt);
       this.runEvents.update(dt, this.director.time, this.director.bossSpawned);
       this.updateDirector2(dt);
       this.updateEliteMods(dt);
@@ -1622,6 +1693,8 @@ export class Game implements HeroWorld {
       const reqs = secretsHolding(this) ? NO_SECRET_REQUESTS : this.runMode === 'gauntlet' ? GauntletSys.gauntletRequests(this, dt) : this.runMode === 'bossrush' ? GauntletSys.rushRequests(this, dt) : this.versusReqs(this.director.update(dt, this.enemies.activeCount, (id) => this.enemies.countOf(id), this.rng)); // Versus: the Overlord spawns instead
       let anchor: { x: number; z: number; def: EnemyDef } | null = null;
       for (const r of reqs) {
+        if (SpawningSys.holdPatrolRefill(this, r)) continue;
+        if (r.kind === 'ring') r.count -= SpawningSys.patrolRing(this, r.count);
         if (r.kind === 'boss') this.spawnBoss(r.def);
         else if (r.kind === 'ring') this.spawnRing(r.def, r.count);
         else {

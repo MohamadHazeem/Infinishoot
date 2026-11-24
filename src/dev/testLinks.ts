@@ -1,3 +1,8 @@
+import { spawnPatrol } from '../game/systems/spawning';
+import { craftLink } from '../game/crafting';
+import { previewThreats } from '../game/enemyBullets';
+import { Zone } from '../data/patterns';
+import { ruleOffer } from '../game/ruleCards';
 import { personalDeaths } from '../game/damageLog';
 import { casualLinks } from '../game/systems/assists';
 import { architectLinks } from '../game/systems/architect';
@@ -289,6 +294,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
       game.enemies.spawn(def, h.player.x + Math.cos(a) * r, h.player.z + Math.sin(a) * r, game.spawnOpts());
     }
   }
+  if (q.has('patrol')) spawnPatrol(game, h.player.x - 9, h.player.z + 1, 9, -1, 5, q.get('patrol') === 'guards');
   if (q.has('golden')) game.spawnEnemy(ENEMIES.golden);
   const ev = q.get('event');
   if (ev && STAGE_EVENTS[ev as EventId]) game.runEvents.forceEvent(ev as EventId);
@@ -341,7 +347,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
   if (q.has('battery')) settings.batterySaver = true;
   const scr = q.get('screen');
-  if (scr) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
+  const seededArsenal = scr === 'arsenal' && q.has('discover');
+  if (scr && !seededArsenal) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
   if (scr === 'loadout') game.screens.showLoadout('solo'); // Language QA needs populated kit cards.
   // Menu lane: a pinned boot overlay for screenshots (?test&menuload=1, 2 or error).
   if (q.has('menuload')) {
@@ -448,16 +455,38 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const dg = Number(q.get('dashgo'));
   if (dg > 0) setTimeout(() => (shootAt(2.2, 1), game.onDash(game.hero)), dg * 1000);
   setsLinks(game, q); // item sets: &relics, &set=inferno:4, &setpause (src/dev/setsLinks.ts)
+  if (q.has('ration') && q.has('levelup')) h.player.hp = h.player.maxHp / 4;
   shopLinks(game, q); // shop lane: &mods, &shop, &levelup, &focus, &armban, &locked
+  const rule = ruleOffer(q.get('rulecard') ?? '');
+  if (rule && game.mode === 'levelup') {
+    const existing = h.offers.findIndex(o => o.cardType === 'rule');
+    const slot = existing >= 0 ? existing : h.offers.map(o => !['evo', 'evolve', 'fusion'].includes(o.kind)).lastIndexOf(true);
+    if (slot >= 0) {
+      h.offers[slot] = rule;
+      game.presentLevelUp(h);
+    }
+  }
+  if (q.get('pactheat') === '1') {
+    for (const seat of game.localCoop ? game.heroes : [game.hero]) {
+      seat.play.pactStage = 1;
+      if (seat.index % 2) seat.play.pactShop = 1;
+      else seat.play.pactBoots = 1;
+      seat.loadoutDirty = true;
+      seat.refreshLive();
+    }
+  }
+
   tradingLinks(game, q); // trading lane: &tradedemo, &trade=<s>, &traderelic, &tradepool, &tradelobby (src/dev/tradingLinks.ts)
   mods2Links(game, q);
   // Onboarding: &training=N, &tip=id, &discover=all, &recap, &offer (src/dev/onboardingLinks.ts).
   onboardingLinks(game, q);
+  if (seededArsenal) game.screens.show('arsenal'); // Render discovered weapons after seeding the Codex.
   firsttenLinks(game, q); // fresh, ftgoals=, ftmodes, ftshop, ftlvl, ftdie=Rhino (src/dev/firsttenLinks.ts)
   if (q.has('adaptive')) adaptiveTuning.enabled = q.get('adaptive') !== 'off';
   director2Links(game, q);
   secretsLinks(game, q);
   gameplayLinks(game, q); // mech, mechdrop, crate, super, mutate, overload, combo, cashgo, finale, comeback, relic (src/dev/gameplayLinks.ts)
+  if (q.has('nemesis')) setTimeout(() => game.nemesis.preview(q.get('nemesis') ?? ''), 3500);
   // Personal death review fixture. Use the real damage, history and menu hooks without banking a run.
   if (q.has('deathrecap')) {
     const h = game.hero, p = h.player;
@@ -487,7 +516,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   const metaScreen = q.get('metascreen') as MetaScreen;
   if (META_SCREENS.includes(metaScreen)) { game.paused = true; game.screens.show(metaScreen); }
   pets2Links(game, q); // petpose, petwardrobe: quiet model / picker QA
+  const threat = ({pool: Zone.Pool, mine: Zone.Mine, wall: Zone.Wall, ring: Zone.Ring} as const)[q.get('threats') as 'pool' | 'mine' | 'wall' | 'ring'];
+  if (typeof threat === 'number') setTimeout(() => previewThreats(game, threat, q.has('threathold')), 2200);
   architectLinks(game, q); // &architect, &architectphase=1|2|3, &architectpulse, &architectending
+  craftLink(game, q);
   return true;
 }
 

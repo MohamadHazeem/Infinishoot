@@ -1,3 +1,6 @@
+import { flightTime, forkShot, steerPattern } from './enemyBullets';
+import { Shot, patternTuning, enemyKind } from '../data/patterns';
+import { shotGlyph, ThreatGlyphs } from './enemyBulletView';
 import { readableMaterial, noiseFor, type NoiseGovernor } from '../render/noiseGovernor';
 import * as THREE from 'three';
 import { shotColor } from './heroLooks';
@@ -94,6 +97,7 @@ export class Bullets {
   readonly mesh: THREE.InstancedMesh;
   private halo: THREE.InstancedMesh;
   private enemyCore: THREE.InstancedMesh;
+  private hostileShapes: ThreatGlyphs;
   private enemyRim: THREE.InstancedMesh;
   private noise: NoiseGovernor;
   count = 0;
@@ -128,6 +132,8 @@ export class Bullets {
   readonly look = new Uint8Array(MAX);
   /** Per-bullet id (online: the bullet delta codec, src/net/bulletCodec.ts) and the next one to hand out. */
   readonly uid = new Uint32Array(MAX);
+  /** Split children retain their parent's shooter record for death recap, independent of wire identity. */
+  readonly parentUid = new Uint32Array(MAX);
   private nextUid = 1;
   /** Seconds this pool has been integrated (the bullet clock the codec predicts with). */
   simTime = 0;
@@ -145,7 +151,8 @@ export class Bullets {
   private up = new THREE.Vector3(0, 1, 0);
   private q2 = new THREE.Quaternion();
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: THREE.Scene, private access = {colorblind: false, reduceFlash: false}) {
+    this.hostileShapes = new ThreatGlyphs(scene, MAX, 112, shotGlyph);
     this.noise = noiseFor(scene);
     this.enemyCore = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.5, 0), readableMaterial('#ff3df0'), MAX);
     this.enemyRim = new THREE.InstancedMesh(new THREE.OctahedronGeometry(0.72, 0), readableMaterial('#1a1c2c'), MAX);
@@ -266,12 +273,13 @@ export class Bullets {
     this.homing[i] = b.homing ?? 0;
     this.clearHits(i);
     this.owner[i] = b.owner ?? 0;
-    this.kind[i] = b.kind ?? 0;
+    this.kind[i] = b.kind ?? (b.team === Team.Enemy ? enemyKind(b.shape) : 0);
     this.blast[i] = b.blast ?? 0;
     this.shape[i] = b.shape ?? (b.team === Team.Player ? (KIND_SHAPE[b.kind ?? 0] ?? 0) : 0);
     this.colors[i].set(b.color);
     this.look[i] = bulletLook(b.team, this.colors[i].getHex(), b.width, b.length);
     this.rx[i] = this.rz[i] = NaN;
+    this.parentUid[i] = 0;
     this.uid[i] = this.nextUid++;
   }
 
@@ -322,6 +330,7 @@ export class Bullets {
     this.rx[i] = this.rx[j];
     this.rz[i] = this.rz[j];
     this.colors[i].copy(this.colors[j]);
+    this.parentUid[i] = this.parentUid[j];
     this.uid[i] = this.uid[j];
   }
 
@@ -330,6 +339,10 @@ export class Bullets {
   }
 
   setColor(i: number, color: THREE.ColorRepresentation): void {
+    if ((this.look[i] === BulletLook.Enemy) !== (this.team[i] === Team.Enemy)) {
+      this.shape[i] = this.team[i] === Team.Player ? KIND_SHAPE[this.kind[i]] ?? 0 : 0;
+      this.homing[i] = this.bounce[i] = 0;
+    }
     this.colors[i].set(color);
     this.look[i] = bulletLook(this.team[i], this.colors[i].getHex(), this.width[i], this.length[i]);
   }
@@ -345,13 +358,21 @@ export class Bullets {
   }
 
   /** Integrate motion. Collision is resolved by the game (needs enemies/walls). */
-  integrate(dt: number): void {
+  integrate(dt: number, authoritative = false): void {
     this.simTime += dt;
     for (let i = 0; i < this.count; i++) {
+      if (authoritative && this.team[i] === Team.Enemy && this.shape[i]) {
+        if (this.shape[i] === Shot.Split && this.age[i] >= patternTuning.splitAt) {
+          forkShot(this, i--);
+          continue;
+        }
+        steerPattern(this, i, dt);
+      }
       this.px[i] = this.x[i];
       this.pz[i] = this.z[i];
-      this.x[i] += this.vx[i] * dt;
-      this.z[i] += this.vz[i] * dt;
+      const move = this.team[i] === Team.Enemy ? flightTime(this.shape[i], this.life[i], dt) : dt;
+      this.x[i] += this.vx[i] * move;
+      this.z[i] += this.vz[i] * move;
       this.life[i] -= dt;
       this.age[i] += dt;
     }
@@ -376,7 +397,9 @@ export class Bullets {
     let shock = 0;
     let ribbon = 0;
     const F = bulletFxTuning;
-    const pulse = this.noise.calm ? 1 : 1 + Math.min(0.06, F.enemyPulse) * Math.sin(this.time * Math.PI * 4);
+    (this.enemyCore.material as THREE.ShaderMaterial).uniforms.uColor.value.setHex(this.access.colorblind ? 0xffffff : 0xff3df0);
+    this.hostileShapes.begin(this.access.colorblind);
+    const pulse = this.noise.calm || this.access.reduceFlash ? 1 : 1 + Math.min(0.06, F.enemyPulse) * Math.sin(this.time * Math.PI * 4);
     let enemyCount = 0;
     let plainCount = 0;
     let tailCount = 0;
@@ -390,7 +413,8 @@ export class Bullets {
         // Enemy cores/rims already replace the old gem and transparent tail.
         // Do not compose/upload hundreds of invisible instances as well.
         this.m4.compose(this.p.set(x, BULLET_Y, z), this.q, this.s.set(this.width[i] * pulse, this.width[i] * pulse, this.length[i] * pulse));
-        instanceMatrix(this.enemyCore, enemyCount++, this.m4);
+        if (this.shape[i] > 0 && this.shape[i] <= 5) this.hostileShapes.add(this.m4, this.shape[i]);
+        else instanceMatrix(this.enemyCore, enemyCount++, this.m4);
         this.rx[i] = x;
         this.rz[i] = z;
         continue;
@@ -458,6 +482,7 @@ export class Bullets {
         trails.seg(lx, BULLET_Y, lz, x, BULLET_Y, z, w * 0.8, w * 0.9, col, 0.26, TrailStyle.Glow);
       }
     }
+    this.hostileShapes.end();
     this.enemyCore.count = this.enemyRim.count = enemyCount;
     commit(this.enemyCore.instanceMatrix, enemyCount);
     this.mesh.count = this.halo.count = plainCount;

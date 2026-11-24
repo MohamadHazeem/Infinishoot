@@ -1,3 +1,8 @@
+import { NEMESIS_HISTORY_KEY, saveJson } from '../core/storage';
+import { codexTab } from '../data/arsenal';
+import { armourTypes, countersArmour } from '../data/armour';
+import { pathChips, pausePaths, type PathHint } from '../game/archetypes';
+import type { Hero } from '../game/hero';
 import { showDeathPanel } from './deathRecap';
 import type { DeathPacket } from '../game/damageLog';
 import { played, refreshSetup } from './menuRun';
@@ -16,6 +21,7 @@ import { ACHIEVEMENTS } from '../data/meta';
 import { tagChips, type Tag } from '../data/tags';
 import { offerSetChips, setChipsHtml, setsPanelHtml } from './setsUi';
 import { WEAPONS } from '../data/weapons';
+import { FUSION_BY_ID } from '../data/fusions';
 import { curvedStats, killHealLimit, PASSIVES } from '../data/passives';
 import { RELIC_BY_ID, type RelicDef } from '../data/relics';
 import { SPECIALS } from '../data/specials';
@@ -30,6 +36,8 @@ import { RARITY, type Rarity } from '../data/rarity';
 import { SLOT_LABEL, decoys, fmtScore, reduceMotion, reelAt, reelSteps, slotPicto, type LoadoutItem, type Slot } from './hud';
 import { MenuNav, TitleMenu, polishMenuScreen, menuItemAvailable } from './menu';
 import { iconHtml } from './pixelIcons';
+import { DiscoveryUi } from './discoveryUi';
+import type { BenchView } from '../game/crafting';
 import { fuseStrip, fusionGuide } from './fusionUi';
 import { SKINS } from '../data/skins';
 import { PETS } from '../data/pets';
@@ -54,7 +62,7 @@ import { RouteMapView, type RouteView } from './routeMap';
 /** Full-screen menus. Plain DOM; every navigable element has `data-nav`. */
 export type ScreenName = 'none' | 'title' | 'pause' | 'settings' | 'levelup' | 'shop' | 'gameover' | 'unlocks' | 'savedata' | 'online' | 'wait' | 'loadout' | 'extras' | 'jukebox' | 'wardrobe' | 'modes' | 'controls' | 'history' | 'bestiary' | 'relic' | MetaScreen | 'route' | ExtraScreen;
 /** Screens built by other modules and registered with `Screens.addScreen` (src/ui/onboarding.ts). */
-export type ExtraScreen = 'death-film' | 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
+export type ExtraScreen = 'workbench' | 'discoveries' | 'death-film' | 'activity' | 'consent' | 'report' | 'trials' | 'trialintro' | 'trialresult' | 'settings' | 'arsenal' | 'training' | 'customise' | 'ghosts' | 'ghostrace' | 'localcoop' | 'mpbrowse' | 'teamboard' | 'halloween' | 'party' | 'friends' | 'gauntlet' | 'mvp' | 'play' | 'profile' | 'achievements' | 'story' | 'desktopKeyboard' | 'desktopHelp' | 'contentmods' | 'touchlayout' | 'compete' | 'raceres' | 'tourney' | 'raid' | 'trade' | 'replay-help' | 'clips' | 'voicechat' | 'architect-ending' | 'season' | 'arenas' | 'arenaedit';
 /** Online lobby game types (the host picks; MP lane added Versus and Weekly co-op). */
 export type LobbyKind = 'coop' | 'pvp' | 'versus' | 'weekly' | 'race' | 'raid';
 
@@ -73,6 +81,7 @@ export interface ScreenActions {
   sell(index: number): void;
   moveMod(index: number, dir: -1 | 1): void;
   upgradeMod(index: number): void;
+  craftPart?(i: number): void;
   shopReroll(): void;
   shopHeal(): void;
   shopDone(): void;
@@ -111,6 +120,8 @@ export interface LobbyView {
 export type ShopFx = 'open' | 'buy' | 'sell' | 'reroll' | 'heal' | 'deny' | 'upgrade';
 
 export interface ShopView {
+  craft?: BenchView;
+  pathHints?: Record<string, PathHint[]>;
   gold: number;
   interest: number;
   interestCap: number;
@@ -139,6 +150,10 @@ export interface ShopView {
 }
 
 export interface Offer {
+  paths?: PathHint[];
+  draft?: ReturnType<typeof import('../game/ruleCards').draftPrices>;
+  /** Distinct bonus-card type. The wire kind keeps older card scorers compatible. */
+  cardType?: 'rule';
   kind: 'weapon' | 'passive' | 'special' | 'gold' | 'heal' | 'track' | 'evo' | 'overdrive' | 'evolve' | 'fusion';
   /** Icon id. */
   id: string;
@@ -219,14 +234,80 @@ function levelPips(o: Offer): string {
   return `<div class="lvl">LV ${o.level} ▸ ${next}</div><div class="pips">${pips}</div>`;
 }
 
+function armourHint(id: string, extra: readonly Tag[] = [], base?: string): string {
+  const w = WEAPONS[base ?? id.replace(/_evo2?$/, '')];
+  if (!w) return '';
+  const evo = id.endsWith('_evo2') ? 1 : id.endsWith('_evo') ? 0 : -1;
+  const tags = [...w.tags, ...extra, ...(w.evos?.[evo]?.tags ?? [])];
+  if (w.id === 'revdrone' && evo < 0) return '';
+  const types = armourTypes.filter(a => a === 'shielded' ? w.slot === 'secondary' : countersArmour(tags, a));
+  const hint = types.length ? t('armour.strong', { types: types.map(a => t('armour.' + a)).join(' · ') }) : t('armour.flank');
+  return `<small class="armour-hint">${hint}</small>`;
+}
+function armourGuide(): string {
+  return [...armourTypes, 'core'].map(a =>
+    `<article class="bst" data-nav tabindex="0"><b>${t('armour.' + a)}</b><p>${t('armour.guide.' + a)}</p></article>`
+  ).join('');
+}
+
+/** Ready evolutions carry the base weapon id. Both ingredients are already owned. */
+function recipePartner(o: Offer): Offer['partner'] {
+  const evo = o.kind === 'evolve' && WEAPONS[o.id]?.evolution;
+  return o.partner ?? (evo ? { weapon: o.id, passive: evo.passive, haveWeapon: true, haveItem: true } : undefined);
+}
+
 /** Evolution strip: the weapon and its partner item, ticked when owned, and what they become. */
-function partnerStrip(o: NonNullable<Offer['partner']>): string {
+function partnerStrip(o: Offer['partner']): string {
+  if (!o) return '';
   const w = WEAPONS[o.weapon];
   const it = PASSIVES[o.passive];
   if (!w?.evolution || !it) return '';
   const part = (id: string, name: string, color: string, icon: string, have: boolean) =>
     `<span class="pt${have ? ' have' : ''}">${iconHtml(id, color, icon)}${have ? '<em>✓</em>' : ''}<span class="nm">${name.toUpperCase()}</span></span>`;
   return `<div class="partner"><div class="pair">${part(w.id, 'MAX ' + w.name, w.color, w.icon, o.haveWeapon)}<i>+</i>${part(it.id, it.name, it.color, it.icon, o.haveItem)}</div><b>EVOLVES INTO ${w.evolution.name.toUpperCase()}</b></div>`;
+}
+
+/** Build the face from the localized details, so a multi-set or multi-path pick still has one chip. */
+function showOfferContext(card: HTMLElement, offer: Offer): void {
+  const detail = card.querySelector<HTMLElement>('.offer-detail')!;
+  const face = card.querySelector<HTMLElement>('.offer-context')!;
+  const pair = detail.querySelector('.partner');
+  if (pair) {
+    const partner = recipePartner(offer);
+    if (offer.fuses) {
+      const [a, b] = offer.fuses;
+      face.textContent = localize(WEAPONS[a]?.name ?? a);
+      face.append(' + ', localize(WEAPONS[b]?.name ?? b));
+    } else if (partner) {
+      const weapon = WEAPONS[partner.weapon], item = PASSIVES[partner.passive];
+      if (offer.kind === 'evolve') {
+        face.textContent = localize(weapon.name);
+        face.append(' + ', localize(item.name));
+      } else {
+        face.textContent = localize(offer.kind === 'passive' ? weapon.name : item.name);
+        face.prepend('+ ');
+        face.append(' → ', localize(weapon.evolution!.name));
+      }
+    }
+    face.classList.add('recipe');
+  } else {
+    const chip = detail.querySelector('.set-chip.on') ?? detail.querySelector('.set-chip:not(.path-chip)')
+      ?? detail.querySelector('.path-chip') ?? detail.querySelector('.armour-hint');
+    if (chip) {
+      const preview = chip.cloneNode(true) as HTMLElement;
+      preview.removeAttribute('title');
+      face.appendChild(preview);
+    }
+    else face.remove();
+  }
+  // Native title attributes alone are unavailable to pad / keyboard users.
+  for (const chip of detail.querySelectorAll<HTMLElement>('.set-chip[title]')) {
+    const effect = document.createElement('small');
+    effect.className = 'chip-effect';
+    effect.textContent = localize(chip.title);
+    chip.removeAttribute('title');
+    chip.after(effect);
+  }
 }
 
 /** Warning strip on cards that swap out an owned weapon. "Plasma Orb LV 3" reads "REPLACES PLASMA ORB (LV 3)". */
@@ -254,9 +335,9 @@ function curvedPassive(o: Offer): boolean {
   return !!item && curvedStats.some((k) => item.add[k] !== undefined);
 }
 
-function badge(i: LoadoutItem): string {
+function badge(i: LoadoutItem & { navigable?: boolean }): string {
   const level = (i.slot ? ` · ${SLOT_LABEL[i.slot]}` : '') + (i.evo ? ' · EVOLVED' : i.max ? ' · MAX' : ` · LV ${i.level}`);
-  return `<span class="badge${i.evo ? ' evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" tabindex="0">${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i>${tip(i.name, i.rarity, i.desc ?? '', level)}</span>`;
+  return `<span class="badge${i.evo ? ' evo' : ''} r-${i.rarity ?? 'common'} ${i.slot ? 's-' + i.slot : ''}" style="--c:${i.color}" tabindex="0"${i.navigable ? ' data-nav' : ''}>${iconHtml(i.id, i.color, i.icon)}<i>${i.evo ? 'E' : i.max ? 'M' : i.level}</i>${tip(i.name, i.rarity, i.desc ?? '', level)}</span>`;
 }
 
 function relicChip(r: RelicDef): string {
@@ -316,6 +397,9 @@ export class Screens {
   banishArmed = false;
   /** Offers on screen, so a banish redraw only spins the new card. */
   private shownOffers: string[] = [];
+  readonly discoveryUi: DiscoveryUi;
+  openWorkbench(): void { if (this.shopShown) this.discoveryUi.openBench(this.shopShown); }
+  pathHeroes?: () => readonly Hero[];
   private shopShown: ShopView | null = null;
   /** Focused shop control the preview panel describes. */
   private pvKey = '';
@@ -498,6 +582,7 @@ export class Screens {
 <div id="scr-bestiary" class="screen dim" hidden>
   <h1>${t("text.enemy_guide_089bd7")}</h1>
   <div class="menu row"><button data-nav data-act="codex">${t("text.codex_lore_bef466")}</button></div>
+  <div class="menu row"><button data-nav data-act="discoveries">${t("craft.codex")}</button></div>
   <p class="note bst-count"></p>
   <div class="scroll"><div class="bestiary"></div></div>
   <div class="menu row"><button data-nav data-act="ex-sub-back">${t("text.back_1dd26f")}</button></div>
@@ -708,6 +793,8 @@ export class Screens {
           return this.show('controls');
         case 'history':
           return this.show('history');
+        case 'workbench': return this.openWorkbench();
+        case 'discoveries': return this.discoveryUi.openBook();
         case 'bestiary':
           return this.show('bestiary');
         case 'ex-sub-back':
@@ -785,6 +872,8 @@ export class Screens {
     window.addEventListener(
       'keydown',
       (e) => {
+        if (this.current === 'levelup' && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD', 'Tab'].includes(e.code))
+          this.els.levelup.classList.add('inspect-pick');
         if (!this.capture || this.current !== 'controls') return;
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -794,6 +883,8 @@ export class Screens {
       true,
     );
 
+    this.els.levelup.addEventListener('pointermove', () => this.els.levelup.classList.remove('inspect-pick'));
+    this.discoveryUi = new DiscoveryUi(this, i => actions.craftPart?.(i));
     this.settingsScreen = new SettingsScreen(this, () => this.show(this.settingsReturn), () => this.show('controls'));
     this.modsScreen = new ModsScreen(this);
     this.titleMenu = new TitleMenu(root, this);
@@ -832,6 +923,7 @@ export class Screens {
     // Hide in-game banners and toasts behind menus.
     this.root.classList.toggle('menu-open', name !== 'none');
     if (META_SCREENS.includes(name as MetaScreen)) renderMeta(this.els[name as MetaScreen], name as MetaScreen);
+    if (name === 'codex') this.els.codex.querySelector('.meta-grid')?.insertAdjacentHTML('afterbegin', localizeHtml(armourGuide()));
     if (name === 'settings') this.settingsScreen.open();
     if (name === 'contentmods') this.modsScreen.open();
     if (name === 'title') this.renderProgress();
@@ -856,6 +948,15 @@ export class Screens {
     if (name === 'shop') this.els.shop.querySelector('.owned-title')!.setAttribute('title', t('menus.mods'));
     if (name === 'relic') this.els.relic.querySelector<HTMLElement>('.note')!.title = t('menus.relics');
     this.onShow?.(name);
+    if (name === 'arsenal') {
+      const grid = this.extra.arsenal?.el;
+      if (grid?.querySelector('.ob-tab.on[data-tab="weapons"]')) {
+        const weapons = codexTab('weapons');
+        grid.querySelectorAll('.ob-cx').forEach((row, i) => {
+          if (!row.classList.contains('unseen')) row.insertAdjacentHTML('beforeend', localizeHtml(armourHint(weapons[i].icon)));
+        });
+      }
+    }
     this.titleMenu.show(name);
     if (name !== 'none') polishMenuScreen(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]);
     if (name !== 'none' && name !== 'title') keepBackLast(this.extra[name as ExtraScreen]?.el ?? this.els[name as Named]); // uxpass
@@ -868,10 +969,20 @@ export class Screens {
   /** Route map between stages (src/ui/routeMap.ts); `statusOnly` just refreshes the countdown. */
   route!: RouteMapView;
   onRoutePick: ((i: number) => void) | null = null;
+  onRoutePacts?: (el: HTMLElement, v: RouteView) => void;
+  private pactRoute?: RouteView;
+  refreshPacts(): void {
+    if (this.current === 'route' && this.pactRoute) {
+      this.onRoutePacts?.(this.els.route, this.pactRoute);
+      this.refreshNav();
+    }
+  }
   showRoute(v: RouteView, statusOnly = false): void {
     if (statusOnly && this.current === 'route') return this.route.setStatus(v);
     const focus = this.current === 'route' ? this.navs.route.focus : 0;
     this.route.render(v);
+    this.pactRoute = v;
+    this.onRoutePacts?.(this.els.route, v);
     this.show('route', focus);
   }
 
@@ -1073,7 +1184,7 @@ export class Screens {
     const kept = ids.map((k, i) => redraw && k === this.shownOffers[i]);
     this.shownOffers = ids;
     this.banishArmed = false;
-    el.classList.remove('banishing');
+    el.classList.remove('banishing', 'inspect-pick');
     // Each icon rolls like a slot reel; cards land left to right, a legendary spins longer and slows right down.
     const still = reduceMotion();
     const steps = offers.map((o, i) => {
@@ -1083,7 +1194,7 @@ export class Screens {
     });
     el.querySelector('.cards')!.innerHTML = localizeHtml(offers
       .map(
-        (o, i) => `<button class="card rolling ${o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)} ${canBanish(o) ? 'ban-ok' : 'ban-no'}" data-nav data-act="pick" data-index="${i}">
+        (o, i) => `<button class="card rolling ${o.cardType ?? o.kind} ${o.rarity ? 'r-' + o.rarity : ''} ${cardMode(o)} ${canBanish(o) ? 'ban-ok' : 'ban-no'}" data-nav data-act="pick" data-index="${i}" aria-describedby="offer-detail-${i}">
           <i class="fx"></i><i class="card-shine" aria-hidden="true"></i>
           <div class="tag ${cardMode(o)}">${cardMode(o) === 'upgrade' ? '▲ UPGRADE' : o.tag}</div>
           ${cardMode(o) === 'new' ? '<div class="ribbon">NEW</div>' : ''}
@@ -1092,14 +1203,22 @@ export class Screens {
             .join('')}</div></div></div>
           <div class="name">${o.name}</div>
           ${levelPips(o)}
-          <div class="desc"${o.kind === 'overdrive' ? ` title="${t('menus.overdrive')}"` : ''}>${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : localize(o.text)}</div>
+          <div class="desc">${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : localize(o.text)}</div>
           ${curvedPassive(o) && o.nums?.length && (o.level ?? 0) >= 3 ? `<div class="pi-t">${t('ceiling.buildStats')}</div>` : ''}
           ${numsHtml(curvedPassive(o) ? o.nums?.map(buildNumber) : o.nums)}
           ${o.tags ? `<div class="chips">${tagChips(o.tags)}</div>` : ''}
-          ${offerSetChips(o)}
-          ${o.replaces ? replaceStrip(o.replaces) : ''}
-          ${o.partner ? partnerStrip(o.partner) : ''}
-          ${o.fuses ? fuseStrip(o.fuses) : ''}
+          <div class="offer-context"></div>
+          <div class="offer-detail px" id="offer-detail-${i}" role="tooltip">
+            <strong>${o.name}</strong>
+            <span>${curvedPassive(o) ? t('ceiling.baseRank', { effect: localize(o.text) }) : localize(o.text)}</span>
+            ${o.kind === 'overdrive' ? `<span>${t('menus.overdrive')}</span>` : ''}
+            ${o.replaces ? replaceStrip(o.replaces) : ''}
+            ${o.fuses ? fuseStrip(o.fuses) : ''}
+            ${partnerStrip(recipePartner(o))}
+            ${offerSetChips(o)}
+            ${pathChips(o.paths)}
+            ${o.slot === 'left' || o.slot === 'right' || o.slot === 'auto' ? armourHint(o.id, o.tags, o.pick?.split('|')[0]) : ''}
+          </div>
           <div class="kind"><span class="r-text-${o.rarity ?? 'common'}">${o.rarity ? RARITY[o.rarity].label : ''}</span>${o.label ? `<span class="kind-sep">${o.rarity ? ' · ' : ''}</span><span class="kind-label">${o.label}</span>` : ''}</div>
           ${o.slot ? `<div class="slot-ribbon s-${o.slot}">${slotPicto(o.slot)}${SLOT_LABEL[o.slot]}</div>` : ''}
           <div class="key" data-prompt="pick:${i + 1}">${promptHtml(`pick:${i + 1}`)}</div>
@@ -1108,7 +1227,17 @@ export class Screens {
         </button>`,
       )
       .join(''));
-    el.querySelector('.reroll-row')!.innerHTML =
+    const costs = offers[0]?.draft;
+    if (costs) {
+      const wallet = t('g5.wallet', { n: costs.gold });
+      const roll = t(costs.gear ? 'g5.gearRoll' : 'g5.roll', { n: costs.reroll });
+      const ban = t('g5.banish', { n: costs.banish, left: banish });
+      const skip = costs.healSkip ? t('g5.skipHeal') : skipGold ? t('g5.skipGold', { n: skipGold }) : t('g5.skip');
+      el.querySelector('.reroll-row')!.innerHTML =
+        localizeHtml(`<span class="draft-wallet">${wallet}</span><button data-nav data-act="reroll" ${costs.gold < costs.reroll ? 'disabled' : ''}>${roll} ${prompt('reroll')}</button>` +
+        `<button data-nav data-act="skip" class="skip">${skip}</button>` +
+        `<button data-nav data-act="banish" class="banish ${costs.gold >= costs.banish && banish > 0 && offers.some(canBanish) ? '' : 'cant'}">${ban}</button>`);
+    } else el.querySelector('.reroll-row')!.innerHTML =
       localizeHtml((rerolls > 0 ? `<button data-nav data-act="reroll">REROLL ⚙ ${rerolls} ${prompt('reroll')}</button>` : '') +
       (skipGold > 0 ? `<button data-nav data-act="skip" class="skip">SKIP +${skipGold}<span class="gold-dot"></span></button>` : '') +
       (banish >= 0 ? `<button data-nav data-act="banish" class="banish ${banish > 0 && offers.some(canBanish) ? '' : 'cant'}">BANISH ✕${banish}</button>` : ''));
@@ -1125,6 +1254,7 @@ export class Screens {
     this.lockCards = [...cards];
     el.classList.add('locked');
     cards.forEach((c, i) => {
+      showOfferContext(c, offers[i]);
       c.classList.add('locked');
       c.style.setProperty('--lock', `${Math.max(pickTuning.lock, steps[i].reduce((a, b) => a + b, 0))}s`);
     });
@@ -1153,6 +1283,8 @@ export class Screens {
     layer.className = 'screen hud-pick-layer';
     layer.setAttribute('aria-hidden', 'true');
     const ghost = card.cloneNode(true) as HTMLElement;
+    ghost.querySelector('.offer-detail')?.remove();
+    ghost.removeAttribute('aria-describedby');
     ghost.removeAttribute('data-nav');
     ghost.removeAttribute('data-act');
     ghost.setAttribute('tabindex', '-1');
@@ -1238,7 +1370,11 @@ export class Screens {
     const chip = (x: (typeof extras)[number]) =>
       `<span class="mod-chip ${x.curse ? 'cursed' : ''}" style="--c:${x.color}" title="${x.desc}">${iconHtml(x.id, x.color, x.icon)}${x.name}</span>`;
     this.els.pause.querySelector('.build')!.innerHTML =
-      localizeHtml(loadout.map(badge).join('') +
+      localizeHtml(loadout.map(i => {
+        const fusion = FUSION_BY_ID[i.id];
+        const parts = fusion ? fusion.parts.map(id => localize(WEAPONS[id].name)).join(' + ') : '';
+        return badge({ ...i, navigable: true, desc: (i.desc ?? '') + (parts ? `<small>${parts}</small>` : '') + (i.kind === 'weapon' ? armourHint(i.id) : '') });
+      }).join('') +
       (mods.length ? `<div class="mod-strip">${mods.map(modChip).join('')}</div>` : '') +
       (relics.length ? `<div class="mod-strip relics"><b class="strip-t">${t("text.relics_4258f8")}</b>${relics.map(relicChip).join('')}</div>` : '') +
       (extras.length ? `<div class="mod-strip">${extras.map(chip).join('')}</div>` : ''));
@@ -1262,7 +1398,8 @@ export class Screens {
       .join('');
     const el = this.els.pause.querySelector('.pause-info') ?? this.els.pause.appendChild(Object.assign(document.createElement('div'), { className: 'pause-info' }));
     el.innerHTML =
-      localizeHtml((recipes ? `<div class="pi-col"><div class="pi-t">${t("text.evolutions_f392a9")}</div>${recipes}</div>` : '') +
+      localizeHtml(pausePaths(this.pathHeroes?.() ?? [], mods) +
+      (recipes ? `<div class="pi-col"><div class="pi-t">${t("text.evolutions_f392a9")}</div>${recipes}</div>` : '') +
       (bars ? `<div class="pi-col"><div class="pi-t">${t("text.damage_this_run_7a0587")}</div>${bars}</div>` : '') +
       buildStats + setsPanelHtml());
   }
@@ -1294,6 +1431,7 @@ export class Screens {
     // The secret merchant's relic pick comes first, on its own screen, so it can't be missed.
     if (v.relicOffers.length) return this.showRelicPick(v);
     const el = this.els.shop;
+    const benchOpen = this.current === 'workbench';
     const wasOpen = this.current === 'shop';
     const prevKey = wasOpen ? this.shopKey() : '';
     this.shopShown = v;
@@ -1317,6 +1455,7 @@ export class Screens {
           <div class="desc">${modDesc(m)}</div>
           ${modMaxLevel(m) > 1 ? `<div class="mod-ups">UPGRADES IN SHOP TO LV ${modMaxLevel(m)}</div>` : ''}
           ${m.synergy ? `<div class="chips">${tagChips(m.synergy)}</div>` : ''}
+          ${pathChips(v.pathHints?.[m.id])}
           ${setChipsHtml(m.id, true)}
           ${o.hint ? `<div class="hint">${o.hint}</div>` : ''}
           ${numsHtml([...buyDamageNums(v.preview, i), ...(o.nums ?? [])].slice(0, 3))}
@@ -1356,6 +1495,7 @@ export class Screens {
           <div class="name">${o.def.name}${o.maxLevel > 1 ? ` <span class="mod-lv">LV ${o.level}/${o.maxLevel}</span>` : ''}</div>
           <div class="desc">${modDesc(o.def, o.level)}</div>
           ${o.readout ? `<div class="readout">${o.readout}</div>` : ''}
+          ${o.upCost >= 0 ? pathChips(v.pathHints?.[o.def.id]) : ''}
           ${o.upCost >= 0 ? `<div class="mod-next"><i>NEXT LV ${o.level + 1}:</i> ${nextLevelHtml(o.def, o.level)}</div>` : ''}
           ${o.upCost >= 0 ? `<button data-nav data-act="mod-up" data-index="${i}" class="mod-up ${o.upCost > v.gold ? 'cant' : ''}">${t("text.upgrade_7f10b7")} <span class="gold-dot"></span> ${o.upCost}</button>` : o.maxLevel > 1 ? '<div class="mod-max">MAX LEVEL</div>' : ''}
           <div class="ctrl">
@@ -1373,6 +1513,7 @@ export class Screens {
       el.querySelector('.owned-mods')!.before(pv);
     }
     pv.hidden = !v.preview;
+    if (v.craft) el.querySelector('[data-act="shop-done"]')!.insertAdjacentHTML('beforebegin', localizeHtml(`<button data-nav data-act="workbench">${t('craft.bench')}</button>`));
     this.show('shop', this.shopFocus(prevKey, focus));
     this.shopFollow = null;
     this.pvKey = '';
@@ -1380,6 +1521,7 @@ export class Screens {
     // Gold changes pop a +/- number over the counter.
     const delta = wasOpen && this.shopGold >= 0 ? v.gold - this.shopGold : 0;
     this.shopGold = v.gold;
+    if (benchOpen) this.openWorkbench();
     if (delta) {
       const gold = el.querySelector<HTMLElement>('.gold-big')!;
       replay(gold, 'bump');
@@ -1684,6 +1826,7 @@ export class Screens {
       return;
     }
     resetSave();
+    saveJson(NEMESIS_HISTORY_KEY, null);
     this.wipeArmed = false;
     btn.textContent = localize('RESET SAVE');
     this.msg('Save reset.');

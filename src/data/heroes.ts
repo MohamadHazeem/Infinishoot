@@ -1,3 +1,4 @@
+import { HERO_PATHS, type BuildPath } from './archetypes';
 import type { Stats } from '../game/stats';
 
 /**
@@ -5,6 +6,7 @@ import type { Stats } from '../game/stats';
  * all but the Rookie unlock with achievements.
  */
 export interface HeroDef {
+  paths: readonly BuildPath[];
   id: string;
   name: string;
   desc: string;
@@ -23,8 +25,9 @@ export interface HeroDef {
 }
 
 export const HEROES: HeroDef[] = [
-  { id: 'rookie', name: 'Rookie', desc: 'Balanced. No extra weapon. ULTIMATE: Mega Barrage.', start: [], add: {}, build: [1, 1], ult: 'barrage' },
+  { paths: HERO_PATHS.rookie, id: 'rookie', name: 'Rookie', desc: 'Balanced. No extra weapon. ULTIMATE: Mega Barrage.', start: [], add: {}, build: [1, 1], ult: 'barrage' },
   {
+    paths: HERO_PATHS.bulwark,
     id: 'bulwark',
     name: 'Bulwark',
     desc: '+40 life, +1 armor, 10% slower. Starts with a Zap Field. ULTIMATE: Titan Stomp.',
@@ -35,6 +38,7 @@ export const HEROES: HeroDef[] = [
     ult: 'stomp',
   },
   {
+    paths: HERO_PATHS.dash,
     id: 'dash',
     name: 'Dash',
     desc: '15% faster, dash recharges 25% sooner, -20 life. Starts with Blaze Boots. ULTIMATE: Sonic Blitz.',
@@ -45,6 +49,7 @@ export const HEROES: HeroDef[] = [
     ult: 'blitz',
   },
   {
+    paths: HERO_PATHS.ace,
     id: 'ace',
     name: 'Ace',
     desc: '+20% damage, +10% crit chance, slower right click. Starts with Chain Zap. ULTIMATE: Lock-On Storm.',
@@ -55,6 +60,7 @@ export const HEROES: HeroDef[] = [
     ult: 'storm',
   },
   {
+    paths: HERO_PATHS.duelist,
     id: 'duelist',
     name: 'Duelist',
     desc: 'No dash: the dash key parries. A longer parry window, and every parry in a chain adds +12% damage (up to x6) while it lasts. +5% crit chance. ULTIMATE: Blade Dance.',
@@ -66,6 +72,7 @@ export const HEROES: HeroDef[] = [
     mech: 'duelist',
   },
   {
+    paths: HERO_PATHS.furnace,
     id: 'furnace',
     name: 'Furnace',
     desc: 'Heats up while standing still: up to +60% damage and a burning aura that grows. Moving vents the heat. +30 life, 15% slower. ULTIMATE: Meltdown.',
@@ -77,6 +84,7 @@ export const HEROES: HeroDef[] = [
     mech: 'furnace',
   },
   {
+    paths: HERO_PATHS.twin,
     id: 'twin',
     name: 'Twin',
     desc: 'A small mirror twin walks beside you and copies your left click at half damage. -10 life. ULTIMATE: Mirror Storm.',
@@ -89,6 +97,7 @@ export const HEROES: HeroDef[] = [
   },
   // heroes3 lane (src/game/systems/heroes3.ts): a melee hero and a summoner.
   {
+    paths: HERO_PATHS.ronin,
     id: 'ronin',
     name: 'Ronin',
     desc: 'Melee. LEFT CLICK is a 3-hit sword combo (the third hit cleaves), RIGHT CLICK a focused dash-strike through enemies; a parry answers with a counter-slash. +30 life, +1 armor, 5% faster. ULTIMATE: Thousand Cuts.',
@@ -101,6 +110,7 @@ export const HEROES: HeroDef[] = [
     clicks: { primary: 'katana', secondary: 'iaido' },
   },
   {
+    paths: HERO_PATHS.tinker,
     id: 'tinker',
     name: 'Tinker',
     desc: 'Builds an army: little robots assemble every few seconds (more as the team levels), zap nearby enemies and soak bullets. RIGHT CLICK drops a turret beacon that repairs. +15% pickup range. ULTIMATE: Scrap Legion.',
@@ -114,6 +124,7 @@ export const HEROES: HeroDef[] = [
   },
   // heroes4 lane (src/game/systems/heroes4.ts): a healer and a melee grappler.
   {
+    paths: HERO_PATHS.medic,
     id: 'medic',
     name: 'Medic',
     desc: 'Healer. LEFT CLICK is a mending beam that burns through enemies, heals every teammate it passes through and mends you with every hit; RIGHT CLICK sends a drone that revives a downed teammate from range (or shields you). Teammates near you regenerate. +0.4 life/s, faster revives. ULTIMATE: Field Hospital.',
@@ -126,6 +137,7 @@ export const HEROES: HeroDef[] = [
     clicks: { primary: 'medbeam', secondary: 'revdrone' },
   },
   {
+    paths: HERO_PATHS.brawler,
     id: 'brawler',
     name: 'Brawler',
     desc: 'Melee grappler. LEFT CLICK is a 3-punch combo whose haymaker sends enemies flying, RIGHT CLICK grabs an enemy to throw into the others (bosses get an uppercut), and the dash is a shoulder charge. Knock enemies into lava, thorns and pillars! +50 life, +3 armor, +25% knockback, a little life per kill, 5% slower. ULTIMATE: Wrecking Ball.',

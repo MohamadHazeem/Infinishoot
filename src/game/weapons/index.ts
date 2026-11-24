@@ -1,3 +1,5 @@
+import { CRAFT_DEF } from '../../data/craftParts';
+import { Crafted } from './crafted';
 import { modWeapon } from '../../mods/weapon';
 import { Crosswind } from './crosswind';
 import { Tesla } from './tesla';
@@ -45,11 +47,16 @@ export type { WeaponCtx, DamageOpts } from './base';
 export { Buster } from './buster';
 export { ChargeShot } from './charge';
 
+// Builds look up the workshop chassis by ID. Fixed loot, unlock and fusion
+// catalogs enumerate the stock weapons; workshop recipes have their own book.
+Object.defineProperty(WEAPONS, 'crafted', { value: CRAFT_DEF, configurable: true });
+
 /** Create a weapon instance by id. */
 export function createWeapon(id: string, scene: THREE.Scene, def: WeaponDef = WEAPONS[id]): Weapon {
   // Fusions (src/data/fusions.ts) build their two parts through this same factory.
   if (def?.fusion) return new FusionWeapon(def, scene, createWeapon);
   switch (def?.behavior ?? id) {
+    case 'crafted': return new Crafted(def, scene);
     case 'crosswind': return new Crosswind(def, scene);
     case 'tesla': return new Tesla(def, scene);
     case 'swarm': return new Swarm(def, scene);
