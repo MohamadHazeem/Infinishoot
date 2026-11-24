@@ -1,3 +1,4 @@
+import { launchAr } from './g10launch';
 import { echoAr } from './g8echo';
 import { makerAr } from './bossMaker';
 import { craftAr } from './g5craft';
@@ -75,6 +76,7 @@ export const ar = {
   "beat.setting": "القتال على الإيقاع",
   "beat.help": "أطلق النار عند التقاء علامتي التصويب لتقوية طلقاتك. أطلق أداة أو اندفع أو اصدُد هجومًا مع الإيقاع لتستعيد التحمّل أسرع. يعمل حتى عند كتم الموسيقى.",
   "beat.reticle": "توقيت النبضة",
+  ...launchAr,
   ...echoAr,
   "cine.titan": "الجبل يستيقظ.",
   "photo.controls": "أدوات التصوير",

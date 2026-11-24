@@ -1,3 +1,4 @@
+import { launchEn } from './g10launch';
 import { echoEn } from './g8echo';
 import { menusEn } from './menus';
 import { uxpassEn } from './uxpass';
@@ -63,6 +64,7 @@ export const en = {
   "beat.setting": "BEAT COMBAT",
   "beat.help": "Fire as the crosshair ticks meet for stronger shots. Timed gadget launches, dashes and successful parries recharge stamina faster. Works with music muted.",
   "beat.reticle": "Beat timing",
+  ...launchEn,
   ...echoEn,
   "g7.roots": "Green roots slow enemies inside the four stones.",
   "g7.prism": "Violet diamonds expose enemies. Hit them while they glow.",

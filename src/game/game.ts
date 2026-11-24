@@ -1,3 +1,5 @@
+import { sampleScoreReplay } from '../platform/scoreReplay';
+import { leaderboardEnabled } from '../net/leaderboard';
 import { AsymRoles } from './asymRoles';
 import { AsymRoleHud } from '../ui/asymRoleHud';
 import { validRoles, type Station } from '../data/asymRoles';
@@ -1695,6 +1697,7 @@ export class Game implements HeroWorld {
     if (this.echoes.step(dt, localControl)) return;
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
+    if (leaderboardEnabled) sampleScoreReplay(this);
     GauntletSys.gauntletTick(this, dt);
     if (this.director.enrageStep && this.boss?.def.id === 'architect') BossFightSys.enragedArchitectStep(this, dt);
     else ArchitectSys.updateArchitect(this, dt);

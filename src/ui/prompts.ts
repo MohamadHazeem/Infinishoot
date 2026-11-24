@@ -70,6 +70,12 @@ const NAMES: Record<PadFamily, Record<string, string>> = {
   ps: { 0: 'CROSS', 1: 'CIRCLE', 2: 'SQUARE', 3: 'TRIANGLE', 4: 'L1', 5: 'R1', 6: 'L2', 7: 'R2', 8: 'SHARE', 9: 'OPTIONS', 10: 'L3', 11: 'R3', 12: 'D-UP', 13: 'D-DOWN', 14: 'D-LEFT', 15: 'D-RIGHT', ls: 'L-STICK', rs: 'R-STICK' },
 };
 
+const deckShoulders: Record<string, string> = { 4: 'L1', 5: 'R1', 6: 'L2', 7: 'R2' };
+function padLabel(family: PadFamily, button: PadBtn): string {
+  if (family === 'xbox' && typeof window !== 'undefined' && window.steamDeck && button in deckShoulders) return deckShoulders[button];
+  return NAMES[family][button];
+}
+
 const rect = (x: number, y: number, c: string) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`;
 
 function svg(rows: string[], paint: (ch: string, x: number, y: number) => string | null, extra = ''): string {
@@ -88,11 +94,11 @@ export function padGlyph(fam: PadFamily, b: PadBtn): string {
     const shape = f.shapes[b];
     const ox = Math.floor((9 - shape[0].length) / 2);
     const marks = shape.flatMap((row, y) => [...row].map((ch, x) => (ch === '#' ? rect(ox + x, 2 + y, f.mark[b]) : ''))).join('');
-    return `<span class="pad-face" title="${NAMES[fam][b]}">${svg(ROUND, (ch) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? f.body[b] : null), marks)}</span>`;
+    return `<span class="pad-face" title="${padLabel(fam, b)}">${svg(ROUND, (ch) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? f.body[b] : null), marks)}</span>`;
   }
   if (b === 12) return svg(DPAD, (ch, x, y) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? (y < 4 && x === 4 ? '#ffcd75' : '#566c86') : null));
   if (b === 14) return svg(DPAD, (ch, x, y) => (ch === '#' ? '#1a1c2c' : ch === 'o' ? (x < 4 && y === 4 ? '#ffcd75' : '#566c86') : null));
-  return `<span class="kc pad">${NAMES[fam][b]}</span>`;
+  return `<span class="kc pad">${padLabel(fam, b)}</span>`;
 }
 
 const mouseGlyph = (button: 'l' | 'r') =>
@@ -164,7 +170,7 @@ export function promptText(id: PromptId, mode: PromptMode = promptState.mode): s
   if (mode === 'touch' && (id === 'dash' || id === 'move' || id === 'parry')) return t(`mobile.${id}`);
   if (mode === 'xbox' || mode === 'ps') {
     const b = PAD_OF[id];
-    return b === undefined ? '' : NAMES[mode][b];
+    return b === undefined ? '' : padLabel(mode, b);
   }
   if (id === 'bomb') return keys('bomb').join('/') || '—';
   return kbmLabels(id).join('/') || '—';

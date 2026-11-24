@@ -37,6 +37,9 @@ function startSteam(id, load, onJoin, onOverlay, report) {
     ].filter(Boolean);
     join(launchLine() || process.argv.join(' '));
     return {
+      workshop: require('./workshop.cjs').workshopFor(client, id),
+      keyboard: typeof client.utils.showGamepadTextInput === 'function' ? (label, limit, value, multi) =>
+        client.utils.showGamepadTextInput(0, multi === true ? 1 : 0, String(label).slice(0, 200), Math.min(65535, Math.max(1, Number(limit) || 256)), String(value).slice(0, 65535)) : null,
       account: String(client.localplayer.getSteamId().accountId),
       deck: client.utils.isSteamRunningOnSteamDeck(),
       unlock(ids) {

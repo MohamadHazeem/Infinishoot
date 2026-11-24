@@ -1,5 +1,5 @@
 /** Local, silent canvas highlights. Frames are JPEG-encoded off the main thread by the
- * browser; WebM encoding only runs on an explicit save. No screen/microphone permission. */
+ * browser; WebM encoding runs on export or while preparing a shareable gallery. No screen/microphone permission. */
 import { prof } from '../core/prof';
 const wallNow = performance.now.bind(performance);
 export const clipsTuning = { seconds: 15, fps: 20, width: 480, height: 270, jpeg: 0.65, postroll: 3, highlights: 8, ringBytes: 12 * 1024 * 1024, archiveBytes: 64 * 1024 * 1024 };
@@ -128,7 +128,7 @@ export class HighlightRecorder {
     if (changed) this.onChange?.();
   }
   mark(kind: HighlightKind, stage: number, time: number, immediate = false): Highlight | undefined {
-    if (!this.recording || !this.ring.count || this.clock - (this.lastMarks.get(kind) ?? -Infinity) < 3) return;
+    if ((!this.recording && !(immediate && kind === 'manual')) || !this.ring.count || this.clock - (this.lastMarks.get(kind) ?? -Infinity) < 3) return;
     this.lastMarks.set(kind, this.clock);
     const h: Highlight = { id: ++this.sequence, kind, stage, time, frames: this.ring.snapshot(), end: this.clock + clipsTuning.postroll, ready: immediate };
     this.highlights.push(h); this.trim(); this.onChange?.(); return h;

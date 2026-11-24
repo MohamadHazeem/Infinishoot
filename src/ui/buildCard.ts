@@ -1,4 +1,4 @@
-import { isRtl, localize } from '../i18n';
+import { isRtl, localize, t } from '../i18n';
 import { PALETTE, pixelIconUrl } from './pixelIcons';
 import type { LoadoutItem } from './hud';
 
@@ -24,6 +24,7 @@ export interface BuildCardData {
   relics: { id: string; name: string; color: string; glyph: string }[];
   date: string;
   version: string;
+  daily?: boolean;
 }
 
 const W = 640;
@@ -113,8 +114,8 @@ export async function drawBuildCard(d: BuildCardData): Promise<HTMLCanvasElement
 
   // Header.
   text(c, 'INFINISHOOT', 18, 12, 40, YELLOW, 'Jersey 10');
-  text(c, 'BUILD CARD', W - 18, 14, 10, CYAN, 'Silkscreen', 'right');
-  text(c, `${d.hero.toUpperCase()} · ${d.label}`, W - 18, 28, 20, WHITE, 'Jersey 15', 'right');
+  text(c, d.daily ? t('launch.daily') : 'BUILD CARD', W - 18, 14, 10, CYAN, 'Silkscreen', 'right');
+  text(c, `${localize(d.hero).toUpperCase()} · ${d.daily ? localize('DAILY') : d.label}`, W - 18, 28, 20, WHITE, 'Jersey 15', 'right');
   text(c, d.date, W - 18, 46, 10, MIST, 'Silkscreen', 'right');
 
   // Score and run stats.
@@ -148,7 +149,7 @@ export async function drawBuildCard(d: BuildCardData): Promise<HTMLCanvasElement
     jobs.push(icon(c, it.id, it.color, it.icon, x + 10, y + 6, 48));
     text(c, fit(c, it.name, 128, 20), x + 64, y + 8, 20, WHITE);
     text(c, it.evo ? 'EVOLVED' : it.max ? 'MAX' : `RANK ${it.level}`, x + 64, y + 30, 8, it.evo ? YELLOW : MIST, 'Silkscreen');
-    text(c, it.slot === 'left' ? 'LEFT CLICK' : it.slot === 'right' ? 'RIGHT CLICK' : 'SPECIAL Q/E', x + 64, y + 42, 8, SLOT_TEXT[it.slot ?? 'item'], 'Silkscreen');
+    text(c, t(it.slot === 'left' ? 'launch.primary' : it.slot === 'right' ? 'launch.secondary' : 'launch.special'), x + 64, y + 42, 8, SLOT_TEXT[it.slot ?? 'item'], 'Silkscreen');
   });
 
   // Auto weapons and items: icon tiles with a level.
@@ -200,4 +201,12 @@ export async function saveBuildCard(d: BuildCardData): Promise<boolean> {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return true;
+}
+
+/** The challenge identity is the run's starting date, even across local midnight. */
+export async function dailyShareCard(card: BuildCardData, runDate: string): Promise<File> {
+  const canvas = await drawBuildCard({ ...card, daily: true, date: runDate });
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) throw Error('Card unavailable');
+  return new File([blob], `InfiniShoot-daily-${runDate}.png`, { type: 'image/png' });
 }

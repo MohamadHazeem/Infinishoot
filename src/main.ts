@@ -1,3 +1,4 @@
+import { installPatchNotes } from './ui/patchNotes';
 import { captureClips } from './game/systems/clips';
 import { installClipsUi } from './ui/clipsUi';
 import './platform/desktop';
@@ -60,6 +61,7 @@ window.addEventListener('pointerdown', reportAudio);
 window.addEventListener('keydown', reportAudio);
 installDesktopUi(game.screens);
 installClipsUi(game);
+installPatchNotes(game.screens);
 window.addEventListener('resize', () => game.cam.setAspect(renderer.aspect));
 setupTouchEditor(game.screens);
 setupTouch(hudEl, input, () => game.isCombatMode && game.screens.current === 'none', game);

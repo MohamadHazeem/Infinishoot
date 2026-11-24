@@ -1,3 +1,4 @@
+import { publishWorkshop } from '../platform/workshop';
 import type { Screens } from './screens';
 import { MenuNav } from './menu';
 import { mods, modSession } from '../mods/manager';
@@ -52,11 +53,19 @@ export class ModsScreen {
       button(controls, file.enabled ? t('mods.enabled') : t('mods.disabled'), () => change(() => mods.toggle(file.key)), (!mod || !!errors.length) && !file.enabled).setAttribute('aria-pressed', String(file.enabled));
       button(controls, t('mods.up'), () => change(() => mods.move(file.key, -1)), i === 0);
       button(controls, t('mods.down'), () => change(() => mods.move(file.key, 1)), i === mods.files.length - 1);
+      if (window.steamWorkshop && mod && !errors.length && !file.key.startsWith('workshop/')) {
+        button(controls, t('launch.publish'), async () => {
+          this.busy = true; this.render();
+          try { this.notice = await publishWorkshop('pack', mod.name, file.raw); }
+          finally { this.busy = false; this.render(); }
+        });
+      }
       if (file.key.startsWith('import/')) button(controls, t('mods.remove'), () => change(() => mods.remove(file.key)));
     });
     const footer = document.createElement('div'); footer.className = 'content-mod-actions'; shell.append(footer);
     const input = document.createElement('input'); input.type = 'file'; input.accept = '.json,.zip,application/json,application/zip'; input.hidden = true;
     input.addEventListener('change', () => { const file = input.files?.[0]; if (file) void this.import(file); }); shell.append(input);
+    if (window.steamWorkshop) button(footer, t('launch.browse'), () => { void window.steamWorkshop!.browse().catch(() => { this.notice = t('launch.unavailable'); this.render(); }); });
     button(footer, t('mods.import'), () => input.click());
     if (window.infiniMods) button(footer, t('mods.folder'), () => { void window.infiniMods!.openFolder().catch(e => { this.notice = String(e); this.render(); }); });
     button(footer, t('mods.restart'), () => location.reload());
