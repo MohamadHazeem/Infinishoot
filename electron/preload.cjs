@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('infiniMods', {
   openFolder: () => ipcRenderer.invoke('mods:folder'),
 });
 
+if (process.argv.includes('--infinishoot-workshop')) contextBridge.exposeInMainWorld('steamWorkshop', {
+  list: () => ipcRenderer.invoke('steam:workshop-list'),
+  browse: () => ipcRenderer.invoke('steam:workshop-browse'),
+  publish: (kind, title, raw) => ipcRenderer.invoke('steam:workshop-publish', kind, title, raw),
+});
+if (process.argv.includes('--infinishoot-steam-keyboard')) contextBridge.exposeInMainWorld('steamKeyboard',
+  (label, limit, value, multi) => ipcRenderer.invoke('steam:keyboard', label, limit, value, multi));
 if (process.argv.includes('--infinishoot-deck')) contextBridge.exposeInMainWorld('steamDeck', true);
 if (process.argv.includes('--infinishoot-steam')) {
   contextBridge.exposeInMainWorld('steamGame', {

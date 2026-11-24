@@ -8,6 +8,7 @@ export function installControllerKeyboard(screens: Screens): void {
   let returning: ScreenName = 'title';
   let value = '';
   let upper = true;
+  let nativePending = false;
   // Legacy name/code fields were mouse-only. Register them when their screen opens,
   // after its content renders and before Screens refreshes MenuNav.
   const previousShow = screens.onShow;
@@ -65,6 +66,23 @@ export function installControllerKeyboard(screens: Screens): void {
     if (field.disabled || field.readOnly || screens.current === 'desktopKeyboard') return;
     // Password entry remains the browser/OS's responsibility; never expose it in a preview.
     if (field instanceof HTMLInputElement && field.type === 'password') return;
+    if (window.steamKeyboard) {
+      event.preventDefault(); event.stopPropagation();
+      if (nativePending) return;
+      const screen = screens.current;
+      nativePending = true;
+      void window.steamKeyboard(field.getAttribute('aria-label') || field.placeholder || t('desktop.keyboard'),
+        field.maxLength > 0 ? field.maxLength : 65535, field.value, field instanceof HTMLTextAreaElement).then(text => {
+        if (text === null || !field.isConnected || screens.current !== screen) return;
+        field.value = field.maxLength > 0 ? text.slice(0, field.maxLength) : text;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+      }).catch(() => {
+        if (!field.isConnected || screens.current !== screen) return;
+        target = field; returning = screen; value = field.value; draw(); screens.show('desktopKeyboard');
+      }).finally(() => { nativePending = false; });
+      return;
+    }
     target = field; returning = screens.current; value = field.value; draw();
     event.preventDefault(); event.stopPropagation(); screens.show('desktopKeyboard');
   }, true);

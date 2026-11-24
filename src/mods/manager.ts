@@ -38,6 +38,13 @@ export class ModManager {
         this.files.push(...desktop.files.map(f => ({ ...f, key: 'desktop/' + f.name, enabled: false })));
       } catch (e) { this.errors.push(`Desktop mods: ${(e as Error).message}`); }
     }
+    if (typeof window !== 'undefined' && window.steamWorkshop) {
+      try {
+        for (const item of await window.steamWorkshop.list()) {
+          if (item.kind === 'pack') this.files.push({ key: 'workshop/' + item.id, name: item.id + '.json', raw: item.raw, enabled: false });
+        }
+      } catch { /* Local packs stay available when Steam is offline. */ }
+    }
     const order = this.prefs.order;
     this.files.sort((a, b) => {
       const ai = order.indexOf(a.key), bi = order.indexOf(b.key);

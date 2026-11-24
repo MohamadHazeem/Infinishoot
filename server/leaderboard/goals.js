@@ -46,7 +46,7 @@ async function ready(db) {
     throw error;
   }
 }
-async function contribute(db, score, week) {
+export async function contribute(db, score, week) {
   const count = goalCredit(score.kills, score.time);
   if (!count) return;
   const values = [score.board, score.score, score.stage, score.kills, score.time];

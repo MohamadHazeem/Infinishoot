@@ -1,9 +1,11 @@
+import { dailyShareCard } from './buildCard';
+import { canShareFile, shareFile } from '../platform/share';
 import type { Game } from '../game/game';
 import type { ScreenName } from './screens';
 import { clipsFor } from '../game/systems/clips';
-import { type Highlight, type HighlightRecorder } from '../platform/clips';
+import { encodeClip, type Highlight, type HighlightRecorder } from '../platform/clips';
 import { t } from '../i18n';
-import { prompt } from './prompts';
+import { prompt, promptState } from './prompts';
 
 const CSS = `
 .clips-panel { min-width:0; max-width:100%; width:min(860px,94%); box-sizing:border-box; padding:calc(3 * var(--p)); background:var(--night); color:var(--white); }
@@ -33,8 +35,32 @@ export function installClipsUi(g: Game): void {
   const gallery = document.createElement('section'); gallery.id = 'scr-clips'; gallery.className = 'screen';
   let back: ScreenName = 'gameover';
   screens.addScreen('clips', gallery, { onBack: () => screens.show(back) });
+  const pauseClip = document.createElement('button');
+  pauseClip.dataset.nav = '';
+  pauseClip.onclick = () => {
+    s.mark('manual', g.stage, g.runTime, true);
+    back = 'pause'; screens.show('clips');
+  };
+  document.querySelector('#scr-pause [data-act="settings"]')?.after(pauseClip);
   const urls: string[] = [];
   let status = '';
+  let preparing = new AbortController();
+  let queue = Promise.resolve();
+  let files = new WeakMap<Highlight, Promise<File>>();
+  const warmClip = (clip: Highlight) => {
+    let job = files.get(clip);
+    if (!job) {
+      const signal = preparing.signal;
+      job = queue.then(async () => {
+        if (signal.aborted) throw Error('Gallery closed');
+        const blob = await encodeClip(clip.frames, signal);
+        return new File([blob], `InfiniShoot-${clip.kind}-stage${clip.stage}-${clip.id}.webm`, { type: 'video/webm' });
+      });
+      files.set(clip, job);
+      queue = job.then(() => {}, () => {});
+    }
+    return job;
+  };
   const clearUrls = () => { for (const u of urls) URL.revokeObjectURL(u); urls.length = 0; };
   const draw = () => {
     const name = screens.current;
@@ -43,14 +69,33 @@ export function installClipsUi(g: Game): void {
     document.querySelectorAll('[data-clips-panel]').forEach(el => el.remove());
     const panel = document.createElement('section'); panel.className = 'clips-panel'; panel.dataset.clipsPanel = '';
     const title = document.createElement('h2'); title.textContent = t('clips.title');
-    const hint = document.createElement('p'); hint.innerHTML = `${t('clips.hint')} ${prompt('clip')}`;
+    const hint = document.createElement('p'); hint.innerHTML = promptState.mode === 'kbm' ? `${t('clips.hint')} ${prompt('clip')}` : t('launch.padClips');
     panel.append(title, hint);
     const reel = document.createElement('div'); reel.className = 'clips-reel';
-    for (const h of s.highlights) reel.append(card(h, s, urls, (message) => { status = message; draw(); }));
+    for (const h of s.highlights) {
+      const item = card(h, s, urls, message => { status = message; draw(); });
+      reel.append(item);
+      if (h.ready && typeof File !== 'undefined' && canShareFile(new File([], 'clip.webm', { type: 'video/webm' }))) {
+        void warmClip(h).then(file => {
+          if (item.isConnected && canShareFile(file)) addShareButton(item, file, 'launch.shareClip', report);
+        }).catch(() => {}); // The explicit Save action remains available for retry.
+      }
+    }
+    function report(key: string) {
+      status = t(key);
+      const message = panel.querySelector('.clips-status');
+      if (message) message.textContent = status;
+    }
     if (!s.highlights.length) { const empty = document.createElement('p'); empty.textContent = t(s.supported ? 'clips.empty' : 'clips.unsupported'); reel.append(empty); }
     panel.append(reel);
     const message = document.createElement('p'); message.className = 'clips-status'; message.setAttribute('role', 'status');
     message.textContent = s.exporting ? t('clips.encoding') : status || t('clips.lifetime'); panel.append(message);
+    if (name === 'gameover' && g.runMode === 'daily' && g.onboarding.card) {
+      const card = g.onboarding.card;
+      void dailyShareCard(card, g.runDate).then(file => {
+        if (panel.isConnected) addShareButton(panel, file, canShareFile(file) ? 'launch.shareDaily' : 'launch.saveDaily', report);
+      }).catch(() => report('clips.error'));
+    }
     if (name === 'clips') {
       const btn = document.createElement('button'); btn.dataset.nav = ''; btn.textContent = t('clips.back'); btn.onclick = () => screens.show(back); panel.append(btn);
       gallery.replaceChildren(panel);
@@ -68,8 +113,14 @@ export function installClipsUi(g: Game): void {
   const old = screens.onShow;
   screens.onShow = name => {
     old?.(name);
+    if (name === 'pause') {
+      pauseClip.hidden = !s.ring.count && !s.highlights.length;
+      pauseClip.textContent = t('launch.pauseClip');
+    }
     if (name === 'mvp' || name === 'gameover') { back = name; s.flush(); }
-    if (name !== 'mvp' && name !== 'gameover' && name !== 'clips') clearUrls();
+    if (name !== 'mvp' && name !== 'gameover' && name !== 'clips') {
+      clearUrls(); preparing.abort(); preparing = new AbortController(); files = new WeakMap(); status = '';
+    }
     draw();
   };
   s.onChange = draw;
@@ -86,4 +137,17 @@ function card(h: Highlight, s: HighlightRecorder, urls: string[], changed: (mess
   const save = document.createElement('button'); save.dataset.nav = ''; save.textContent = t(h.ready ? 'clips.save' : 'clips.finishing'); save.disabled = !h.ready || s.exporting;
   save.onclick = () => { void s.save(h).then(() => changed(t('clips.download'))).catch(() => changed(t('clips.error'))); };
   el.append(img, title, meta, save); return el;
+}
+
+function addShareButton(parent: HTMLElement, file: File, label: string, report: (key: string) => void): void {
+  const b = document.createElement('button'); b.dataset.nav = ''; b.textContent = t(label);
+  b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const result = await shareFile(file);
+      if (result !== 'cancelled') report(result === 'shared' ? 'launch.shared' : 'clips.download');
+    } catch { report('launch.shareError'); }
+    finally { b.disabled = false; }
+  };
+  parent.append(b);
 }

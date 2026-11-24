@@ -110,6 +110,8 @@ function createWindow() {
   normalBounds = { width, height, x: valid ? Math.max(area.x, Math.min(b.x, area.x + area.width - width)) : area.x + Math.round((area.width - width) / 2), y: valid ? Math.max(area.y, Math.min(b.y, area.y + area.height - height)) : area.y + Math.round((area.height - height) / 2) };
   win = new BrowserWindow({ ...normalBounds, minWidth: 640, minHeight: 360, frame: false, backgroundColor: '#1a1c2c', title: 'InfiniShoot', autoHideMenuBar: true,
     webPreferences: { additionalArguments: [
+      ...(steam?.workshop ? ['--infinishoot-workshop'] : []),
+      ...(steam?.deck && steam.keyboard ? ['--infinishoot-steam-keyboard'] : []),
       ...(steam ? ['--infinishoot-steam'] : []),
       ...(cloud ? ['--infinishoot-cloud'] : []),
       ...(process.env.SteamDeck === '1' || steam?.deck ? ['--infinishoot-deck'] : []),
@@ -167,6 +169,12 @@ if (primary) void import('./logic.mjs').then((module) => {
   state.options = logic.displayOptions(state.options);
   if (steamError) log('steam', steamError);
   if (steam) {
+    if (steam.workshop) {
+      handle('steam:workshop-list', () => steam.workshop.list());
+      handle('steam:workshop-browse', () => steam.workshop.browse());
+      handle('steam:workshop-publish', (kind, title, raw) => steam.workshop.publish(kind, title, raw));
+    }
+    if (steam.deck && steam.keyboard) handle('steam:keyboard', steam.keyboard);
     handle('steam:ready', () => { steamReady = true; const code = queuedJoin; queuedJoin = null; return code; });
     handle('steam:unlock', ids => steam.unlock(ids));
     handle('steam:presence', (status, code) => steam.presence(status, code));

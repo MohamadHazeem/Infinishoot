@@ -22,6 +22,14 @@ export function presenceText(stage: number, biome: string, hero: string): string
 export function installSteam(game: Game, playerName: () => string, joinable: (g: Game) => boolean): void {
   if (typeof window === 'undefined') return;
   if (window.steamDeck || (window.screen?.width === 1280 && window.screen.height === 800)) {
+    if (window.steamDeck) {
+      document.documentElement.classList.add('steam-deck');
+      const style = document.createElement('style');
+      style.textContent = `.steam-deck .screen :is(small,.note,.clips-status,.content-mod-counts,.content-mod-path) {
+        font-size:max(14px,calc(7 * var(--p)));line-height:1.25
+      }`;
+      document.head.append(style);
+    }
     promptState.mode = 'xbox';
     // Chromium hides the pad until the first press. Resume normal device detection on input.
     promptState.force = 'xbox';

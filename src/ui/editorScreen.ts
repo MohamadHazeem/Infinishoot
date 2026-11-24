@@ -1,3 +1,4 @@
+import { publishWorkshop } from '../platform/workshop';
 /**
  * EXTRAS > ARENA EDITOR (editor lane): the saved-arena list and the editor.
  *
@@ -291,6 +292,28 @@ export class EditorScreen {
       ${this.pick ? '' : `<textarea class="ae-import" spellcheck="false" placeholder="${esc(t('editor.pastePlaceholder'))}"></textarea>`}
       <div class="ae-msg ${this.msgErr ? 'err' : ''}">${esc(this.msgText)}</div>
       <div class="menu row">${actions}</div>`;
+    const list = this.list.querySelector<HTMLElement>('.ae-list')!;
+    if (window.steamWorkshop && !this.pick) {
+      const browse = document.createElement('button');
+      browse.dataset.nav = ''; browse.textContent = t('launch.browse');
+      browse.onclick = () => { void window.steamWorkshop!.browse().catch(() => this.listMsg(t('launch.unavailable'), false)); };
+      this.list.querySelector('.menu')!.prepend(browse);
+      void window.steamWorkshop.list().then(async items => {
+        for (const item of items) {
+          if (item.kind !== 'arena' || !list.isConnected) continue;
+          try {
+            const arena = await readArenaCode(item.raw);
+            if (!validateArena(arena).ok) continue;
+            list.querySelector('.ae-empty')?.remove();
+            const b = document.createElement('button'); b.dataset.nav = '';
+            b.textContent = t('launch.workshopArena', { name: arena.name });
+            b.onclick = () => this.openEditor(arena);
+            list.append(b);
+          } catch { /* Ignore incomplete or malformed community arenas. */ }
+        }
+        if (list.isConnected && this.g.screens.current === 'arenas') this.g.screens.refreshNav();
+      }).catch(() => { if (list.isConnected) this.listMsg(t('launch.unavailable'), false); });
+    }
     if (this.g.screens.current === 'arenas') this.g.screens.refreshNav();
   }
 
@@ -603,6 +626,7 @@ export class EditorScreen {
   private shareTab(): string {
     return `<p>${esc(t('editor.shareNote'))}</p>
       <textarea class="ae-code" spellcheck="false" placeholder="${esc(t('editor.pastePlaceholder'))}"></textarea>
+      ${window.steamWorkshop ? `<button data-nav data-share="workshop">${t('launch.publish')}</button>` : ''}
       <button data-nav data-share="copy"><span>${t('editor.copyCode')}</span></button>
       <button data-nav data-share="make"><span>${t('editor.makeCode')}</span></button>
       <button data-nav data-share="import"><span>${t('editor.importCode')}</span></button>`;
@@ -946,6 +970,10 @@ export class EditorScreen {
     if (kind === 'import') return this.importFrom(ta?.value ?? '', false);
     this.setName(this.ed.querySelector<HTMLInputElement>('.ae-name')?.value ?? this.arena.name);
     const code = await arenaCodeSmall(this.arena);
+    if (kind === 'workshop') {
+      if (!validateArena(this.arena).ok) return this.msg(t('editor.fixFirst'), true);
+      return this.msg(await publishWorkshop('arena', this.arena.name, code));
+    }
     if (ta) ta.value = code;
     if (kind === 'copy') {
       try {

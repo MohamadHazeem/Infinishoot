@@ -1,4 +1,5 @@
 import { masteryEn } from './mastery';
+import { launchEn } from './g10launch';
 import { menusEn } from './menus';
 import { arabic2En } from './arabic2';
 import type { en } from './en';
@@ -7,6 +8,7 @@ import type { en } from './en';
 export const fr = {
   // Explicit English fallback for new copy; native editorial work is pending.
   ...masteryEn,
+  ...launchEn,
   ...menusEn,
   ...arabic2En,
   "architect.dataName": "L'Architecte",

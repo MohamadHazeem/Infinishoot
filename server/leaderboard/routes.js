@@ -13,3 +13,4 @@ import { bosses } from './bosses.js'; ROUTES.push(bosses);
 import { goals } from './goals.js'; ROUTES.push(goals);
 import { hardcore } from './hardcore.js'; ROUTES.push(hardcore);
 import { speedrun } from './speedrun.js'; ROUTES.push(speedrun);
+import { replayScores } from './replayScores.js'; ROUTES.push(replayScores);

@@ -1,3 +1,4 @@
+import { beginScoreReplay, finishScoreReplay } from '../../platform/scoreReplay';
 import { deathForReconnect, personalDeaths } from '../damageLog';
 import { finishTelemetry } from './telemetry';
 import { assistedRun, resetAssists } from './assists';
@@ -209,6 +210,7 @@ export function startRun(this: Game, fixed?: { seed: number; difficulty: string 
   }
   if (this.runMode === 'raid') this.mode = 'fight';
   this.loadStage(1);
+  beginScoreReplay(this);
   this.mvpStep(true);
   // Starting shop: free gold to spend before stage 1, not carried into the run.
   if (this.role !== 'client' && this.runMode !== 'gauntlet' && this.runMode !== 'raid') {
@@ -369,7 +371,7 @@ export function bankAndShow(this: Game, sum: RunSummary, quit = false): void {
   const custom = editorScores(this, sum); // custom arenas keep their own best (systems/editor.ts)
   if (!this.squadRun && !assistedRun(this) && leaderboardEnabled && !custom && this.role !== 'client' && (this.runMode !== 'raid' || this.victories > 0)) {
     const board = this.meta.week ? weeklyChallenge(this.meta.week).board : boardId(this.runMode, this.difficulty.id, this.runDate);
-    void submitGlobal(board, { name: this.hero.name, score: Math.floor(sum.score), stage: sum.stage, kills: sum.kills, time: sum.time }).then((r) => {
+    void submitGlobal(board, { score: Math.floor(sum.score), stage: sum.stage, kills: sum.kills, time: sum.time }, finishScoreReplay(this)).then((r) => {
       if (r) this.hud.toast(`GLOBAL RANK #${r}!`, 4);
       this.refreshGlobal(board, r ? r - 1 : -1);
     });
