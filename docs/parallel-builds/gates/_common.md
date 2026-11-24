@@ -1,0 +1,15 @@
+You are one of four parallel builders on Gate 1 ("players in hands") of InfiniShoot (TypeScript + Vite + Three.js twin-stick survivors roguelike, host-authoritative online co-op, Electron desktop app, optional Cloudflare Worker backend in server/leaderboard). You work ALONE in this git worktree (your current directory), lane "<LANE>". Nobody can answer questions: decide sensibly and write decisions down. Work until the whole task is done, end to end.
+
+FIRST read CLAUDE.md (conventions), CONTRIBUTING.md (workflow, test links), AGENTS.md, the last PLAN.md decision-log entry (2026-11-12, v2.0.1) and the notes/lanes/*.md files your task names. Read the code before changing it.
+
+Rules:
+- Edit only the files your lane owns ("Owns" below). Three other builders edit other files at the same time. Shared files (src/game/game.ts, hero.ts, src/ui/hud.ts, screens.ts, style.css, settings, dev/testLinks.ts, i18n catalogs): small, additive edits only (new lines/blocks, no reformatting, renames or moves), and list them in your notes.
+- No subagents, forks or background tasks. Never read or write .env files or any secret. Never push, never merge, never commit (the lead commits). Never `pkill`/`killall` broadly: other builders share this machine; stop only processes you started. Do not deploy anything to Cloudflare, GitHub, Steam or anywhere else.
+- Co-op must keep working: gameplay on the host in update(); clients get state through the snapshot or the effects bus (game.vfx).
+- Performance target stays 60 fps with 150+ enemies and 500+ projectiles: pools, InstancedMesh, no per-frame allocations.
+- Every visible string goes through t()/localize() with English AND Arabic entries (tests/i18n.test.ts is strict); the five other languages may fall back to English through the existing fallback files.
+- Pixel-art UI rules in CLAUDE.md (Sweetie 16 palette, `--p` units, no border-radius/blur/gradients, steps() animations, data-nav on anything navigable, button prompts from src/ui/prompts.ts).
+- Save format: no breaking change; new stores use their own normalized keys through src/core/storage.ts.
+- Done means ALL pass: `npm run typecheck`, `npx vite build`, `npm test`, `npm run smoke`; plus `npm run coop -- --offline` if you touched anything online or co-op. The machine is shared and can be loaded: rerun a timing failure once before chasing it. Add unit tests (tests/<lane>.test.ts) for new logic.
+- If your lane changes anything visible and you can run a browser, check it with `npm run shot -- "<test link>" shots/<lane>-<name>.png --wait 6 [--size WxH]` and LOOK at the PNGs (1280x720 and 1920x1080, English and `&lang=ar`). If you cannot run a browser, say so in the notes.
+- Leave all changes uncommitted in the working tree. Finish by writing notes/lanes/<LANE>.md (what players get, decisions and numbers, files touched, test links, what is unfinished or risky), then print as your final message a SHORT summary (max 25 lines): what you built, check results per command (pass/fail), and what is not done.

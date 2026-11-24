@@ -1,0 +1,9 @@
+Lane g2-integrate: make the gate2 branch fully green after the g2-hardmode merge (Normal now uses the former Hard numbers; the new `assist` difficulty keeps the old safety nets). Read notes/lanes/g2-hardmode.md first: its "Unit fixtures for integration" and "Service compatibility" sections list exactly what is left.
+
+Owns: the failing fixtures tests/balance3.test.ts, gameplay*.test.ts, time*.test.ts, menus.test.ts, meta.test.ts, ultboss.test.ts, raid.test.ts, worldEventsGame.test.ts (and any other test that fails only because Normal got harder); server/leaderboard/lobbies.js and worker.js (difficulty allowlists) and their tests; src/net/telemetrySchema.ts and src/net/telemetryReport.ts (accept `assist`, no substitution); the first-shop hint / focused Mod card overlap at 720p (CSS in the shop's own module, additive).
+
+Build:
+1. Every listed fixture passes. Prefer pinning the fixture to `assist` when it tests the old safety-net behaviour, and add an assertion for the new Normal rule where that is cheap; for worldEventsGame track the original enemy by UID across the fall instead of the pooled object. Never weaken a test into asserting nothing.
+2. `assist` is accepted everywhere `easy`/`normal` are: public lobbies (register + filter), global score boards, telemetry schema and report headers. Server tests updated.
+3. The 8-pixel overlap at 1280x720 between the raised focused Mod card and the first-shop help banner is gone, in English and Arabic (check with `npm run shot -- "?test&stage=4&shop&modoffers=phoenix&relic=r_phoenix&gold=12&seed=42&hurt=0.5" shots/g2-integrate-shop.png --size 1280x720 --wait 6` and with `&lang=ar`).
+4. Done means `npm run typecheck`, `npx vite build`, `npm test` (all files), `npm run smoke` and `npm run coop -- --offline` pass. Write notes/lanes/g2-integrate.md.

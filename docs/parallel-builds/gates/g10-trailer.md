@@ -1,0 +1,3 @@
+Lane g10-trailer (Gate 10): trailer capture and press kit material.
+Owns: new scripts/capture/* (a headless in-engine capture rig that records scripted, seeded camera shots of the best moments to PNG frame sequences or WebM at 1080p60, using existing test links and the cinematic camera), docs/PRESSKIT.md (fact sheet, feature list, controls, credits), press screenshots in marketing/screens/ (curated, EN), notes/lanes/g10-trailer.md.
+Build: (1) a shot list of 20 moments (boss intros, evolutions, huge fights, co-op, biomes, photo mode) as reproducible capture scripts; (2) 30 press screenshots at 1920x1080 picked for impact; (3) frame sequences ready for a 90-second edit (the edit itself is done by the lead's video pipeline); never open a visible window.

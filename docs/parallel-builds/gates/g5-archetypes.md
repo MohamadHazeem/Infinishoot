@@ -1,0 +1,3 @@
+LANE g5-archetypes (Gate 5): each hero gets 2-3 signature build paths with a capstone.
+Owns: new src/data/archetypes.ts and src/game/archetypes.ts, hero data fields in src/data/heroes.ts (additive), archetype hints on level-up cards (additive UI), tests/g5archetypes.test.ts, notes/lanes/g5-archetypes.md.
+Build: (1) for every hero, 2-3 named build paths (for example Rookie: Gunslinger, Demolition), each defined by tags/items, with a capstone bonus when the path is complete; (2) level-up and shop cards show which path a pick advances (a small chip, EN/AR); the pause screen shows path progress; (3) capstones change play, not just numbers; (4) co-op per player; (5) report how many runs reach a capstone and the win-rate spread across paths with the skilled bot.
