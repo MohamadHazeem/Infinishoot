@@ -1,3 +1,4 @@
+import { Mastery } from './mastery';
 import { AsymRoles } from './asymRoles';
 import { AsymRoleHud } from '../ui/asymRoleHud';
 import { validRoles, type Station } from '../data/asymRoles';
@@ -391,6 +392,7 @@ export class Game implements HeroWorld {
   worldEventLocal = WorldEventsSys.worldEventLocal;
   renderWorldEvent = WorldEventsSys.renderWorldEvent;
   clearWorld = RunFlowSys.clearWorld;
+  readonly mastery: Mastery;
   readonly echoes: EchoRuns;
   readonly biomeRules = new IslandField();
   readonly setPieces = new FieldMachines();
@@ -536,7 +538,9 @@ export class Game implements HeroWorld {
   killEnemy(e: Enemy, source: string, by: Hero | null): void {
     this.killDepth++;
     try {
+      const alive = e.active, wasBoss = e === this.boss;
       this.killScoped(e, source, by);
+      if (alive && !e.active) this.mastery.kill(e, source, by, wasBoss);
     } finally {
       this.killDepth--;
     }
@@ -605,6 +609,7 @@ export class Game implements HeroWorld {
     snap.beat = this.beatCombat.snapshot(h);
     const marks = this.beatCombat.score.snapshot();
     if (marks) snap.beatMarks = marks;
+    if (!view && this.stepN % 180 < SNAP_EVERY) snap.mastery = this.mastery.checkpoint();
     const echo = this.echoes.snapshot(h);
     if (echo) snap.echo = echo;
     const contracts = !view && contractView(h);
@@ -632,6 +637,7 @@ export class Game implements HeroWorld {
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
     if (m.stations || this.asym.word) this.asym.mirror(this, m.stations);
+    if (m.mastery) this.mastery.mirror(m.mastery);
     this.echoes.receive(m.echo);
     if (m.maker) this.bossMaker.mirror(this, m.maker, this.stage);
     this.biomeRules.mirror(this, m.island);
@@ -1256,6 +1262,7 @@ export class Game implements HeroWorld {
     this.bossMakerUi = new BossMakerUi(this, hudRoot);
     this.stationHud = new AsymRoleHud(this, hudRoot);
     this.streamUi = new StreamUi(this, hudRoot);
+    this.mastery = new Mastery(this, hudRoot);
   }
 
   // ------------------------------------------------------------------ accessors
@@ -1577,6 +1584,7 @@ export class Game implements HeroWorld {
   // ------------------------------------------------------------------ update
 
   update(dt: number): void {
+    if (this.mastery.resultInput(dt)) return;
     this.echoes.hud.input();
     this.stream.session(this, dt);
     this.streamUi.tick(dt);
@@ -1695,6 +1703,7 @@ export class Game implements HeroWorld {
     if (this.echoes.step(dt, localControl)) return;
     const anyAlive = this.aliveHeroes.length > 0;
     if (anyAlive) this.runTime += dt;
+    if (this.mastery.mode) this.mastery.step(dt);
     GauntletSys.gauntletTick(this, dt);
     if (this.director.enrageStep && this.boss?.def.id === 'architect') BossFightSys.enragedArchitectStep(this, dt);
     else ArchitectSys.updateArchitect(this, dt);
