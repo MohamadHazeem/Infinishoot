@@ -11,9 +11,16 @@ export function linkSplit(previous, index, ms, tick, state) {
 }
 export function currentWeek(now = Date.now()) {
   const d = new Date(now);
-  d.setUTCHours(0,0,0,0);
-  d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
-  return d.getUTCFullYear()+'-W'+String(Math.ceil(((d-Date.UTC(d.getUTCFullYear(),0,1))/86400000+1)/7)).padStart(2,'0');
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  return (
+    d.getUTCFullYear() +
+    '-W' +
+    String(Math.ceil(((d - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7)).padStart(
+      2,
+      '0',
+    )
+  );
 }
 
 // Walk the existing v1 event tape across arbitrary chunk boundaries. Only the boundary
@@ -25,6 +32,7 @@ export class ReplayChain {
     this.left = 0;
     this.kind = -1;
     this.strings = stringCount;
+    this.lastCheck = null;
     this.width = 51 + 2 * Math.ceil(keyCount / 26);
   }
   chunk(values) {
@@ -38,23 +46,35 @@ export class ReplayChain {
         this.left = v === 0 ? this.width : v === 1 ? 2 : 1;
       } else {
         if (this.kind === 0) {
-          if (this.left === this.width && Math.abs(v - 1/60) > 0.000001) throw Error('step duration');
+          if (this.left === this.width && Math.abs(v - 1 / 60) > 0.000001)
+            throw Error('step duration');
+          if (this.left === 36 && (!Number.isInteger(v) || v < 0 || v >= this.strings))
+            throw Error('input index');
           if (this.left === 35 && v !== 0) throw Error('god');
           if (this.left === 1) {
             this.steps++;
             if (this.steps % 60 === 0) {
               if (!Number.isInteger(v) || v < 0 || v > 0xffffffff) throw Error('checkpoint');
-              this.chain = Math.imul(this.chain ^ this.steps,16777619) >>> 0;
-              this.chain = Math.imul(this.chain ^ v,16777619) >>> 0;
+              this.lastCheck = v;
+              this.chain = Math.imul(this.chain ^ this.steps, 16777619) >>> 0;
+              this.chain = Math.imul(this.chain ^ v, 16777619) >>> 0;
             } else if (v !== -1) throw Error('unexpected checkpoint');
           }
-        } else if (this.kind >= 2 && (!Number.isInteger(v) || v < 0 || v >= this.strings)) throw Error('string index');
+        } else if (this.kind >= 2 && (!Number.isInteger(v) || v < 0 || v >= this.strings))
+          throw Error('string index');
         this.left--;
       }
     }
   }
   finish(steps, terminal) {
     if (this.left || !steps || this.steps !== steps) throw Error('truncated');
-    return Math.imul(this.chain ^ terminal,16777619) >>> 0;
+    if (
+      !Number.isInteger(terminal) ||
+      terminal < 0 ||
+      terminal > 0xffffffff ||
+      (steps % 60 === 0 && this.lastCheck !== terminal)
+    )
+      throw Error('terminal hash');
+    return Math.imul(this.chain ^ terminal, 16777619) >>> 0;
   }
 }

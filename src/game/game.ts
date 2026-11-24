@@ -538,9 +538,9 @@ export class Game implements HeroWorld {
   killEnemy(e: Enemy, source: string, by: Hero | null): void {
     this.killDepth++;
     try {
-      const alive = e.active;
+      const alive = e.active, wasBoss = e === this.boss;
       this.killScoped(e, source, by);
-      if (alive && !e.active) this.mastery.kill(e, source, by);
+      if (alive && !e.active) this.mastery.kill(e, source, by, wasBoss);
     } finally {
       this.killDepth--;
     }
@@ -609,6 +609,7 @@ export class Game implements HeroWorld {
     snap.beat = this.beatCombat.snapshot(h);
     const marks = this.beatCombat.score.snapshot();
     if (marks) snap.beatMarks = marks;
+    if (!view && this.stepN % 180 < SNAP_EVERY) snap.mastery = this.mastery.checkpoint();
     const echo = this.echoes.snapshot(h);
     if (echo) snap.echo = echo;
     const contracts = !view && contractView(h);
@@ -636,6 +637,7 @@ export class Game implements HeroWorld {
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
     if (m.stations || this.asym.word) this.asym.mirror(this, m.stations);
+    if (m.mastery) this.mastery.mirror(m.mastery);
     this.echoes.receive(m.echo);
     if (m.maker) this.bossMaker.mirror(this, m.maker, this.stage);
     this.biomeRules.mirror(this, m.island);
@@ -1582,6 +1584,7 @@ export class Game implements HeroWorld {
   // ------------------------------------------------------------------ update
 
   update(dt: number): void {
+    if (this.mastery.resultInput(dt)) return;
     this.echoes.hud.input();
     this.stream.session(this, dt);
     this.streamUi.tick(dt);

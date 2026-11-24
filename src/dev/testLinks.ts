@@ -232,7 +232,8 @@ export function applyTestLink(game: Game, search = location.search): boolean {
     game.asym.squadMode = true;
     game.asym.squadPick = stations[stationIndex(q.get('roles'))];
   }
-  game.startSolo();
+  if (q.get('masteryrun') === 'speedrun') game.mastery.start('speedrun');
+  else game.startSolo();
   if (q.has('squadwheel')) setTimeout(() => pinWheel(game, 2, 1), 800);
   // Skip the starting shop.
   if (game.mode === 'shop') game.closeShop();
@@ -359,7 +360,7 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('battery')) settings.batterySaver = true;
   const scr = q.get('screen');
   if (scr === 'overworld') game.leaveToTitle();
-  if (scr === 'mastery') { game.leaveToTitle(); game.paused = true; }
+  if (scr === 'mastery') { game.leaveToTitle(); game.paused = true; game.mastery.ui.preview(q.get('mastery')); }
   const seededArsenal = scr === 'arsenal' && q.has('discover');
   if (scr && !seededArsenal) game.screens.show(scr as Parameters<typeof game.screens.show>[0]);
   if (scr === 'loadout') game.screens.showLoadout('solo'); // Language QA needs populated kit cards.
