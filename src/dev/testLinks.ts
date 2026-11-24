@@ -355,11 +355,6 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   voiceLinks(game, q); // voicedemo, voicedemo=screen (src/dev/voiceLinks.ts)
   meta2Links(game, q); // m2screen=profile|achievements, m2lv=, m2demo, m2quests=, m2equip= (src/dev/meta2Links.ts)
   seasonLinks(game, q); // spscreen=season, sptier=, spclaim=, spweek=, spown=all, spequip=, sppast, spmonth= (src/dev/seasonLinks.ts)
-  if (q.has('rankedseason')) {
-    game.paused = true;
-    openRankedSeason(game);
-    setTimeout(() => { game.paused = true; openRankedSeason(game); }, 1000);
-  }
   // &screen=settings: open a menu screen on top (for screenshots of menus).
   // Mobile QA: &touch shows controls; &battery caps render only (unsaved).
   if (q.has('battery')) settings.batterySaver = true;
@@ -543,6 +538,10 @@ export function applyTestLink(game: Game, search = location.search): boolean {
   if (q.has('bench') && q.has('circle')) q.delete('bench');
   craftLink(game, q);
   if (q.has('bossmaker')) game.bossMakerUi.preview(q.get('bossmaker') ?? '');
+  if (q.has('rankedseason')) {
+    game.paused = true;
+    openRankedSeason(game);
+  }
   return true;
 }
 

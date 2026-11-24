@@ -600,6 +600,8 @@ export class Game implements HeroWorld {
     const snap = NetHostSys.buildSnapshot.call(this, h, events, view);
     if (!view && h.synergy.slots.length && h.synergy.lastModHit !== null)
       snap.modHit = Math.round(h.synergy.lastModHit * 100);
+    const ranked = !view && this.rankedSeason.snapshot();
+    if (ranked) snap.rankedSeason = ranked;
     if (this.asym.word) snap.stations = this.asym.snapshot(this);
     const field = this.biomeRules.snapshotFor(this, view?.enc ?? h);
     if (field) snap.island = field;
@@ -636,6 +638,7 @@ export class Game implements HeroWorld {
   applySnapshot(m: Record<string, unknown>): void {
     NetClientSys.applySnapshot.call(this, m);
     if (m.stations || this.asym.word) this.asym.mirror(this, m.stations);
+    this.rankedSeason.mirror(this, m.rankedSeason);
     this.echoes.receive(m.echo);
     if (m.maker) this.bossMaker.mirror(this, m.maker, this.stage);
     this.biomeRules.mirror(this, m.island);
@@ -1587,7 +1590,7 @@ export class Game implements HeroWorld {
     this.streamUi.tick(dt);
     this.stepN++;
     updatePatrolBadges(this);
-    this.rankedSeason.checkFairPlay();
+    this.rankedSeason.checkFairPlay(this);
     dt = Assists.assistStep.call(this, dt);
     this.mvpStep();
     voiceTick(this, dt); // voice chat: roster, calls, push to talk, proximity (systems/voicechat.ts)
